@@ -96,7 +96,7 @@
           {{-- Cake Details --}}
           <div class="mb-3">
             <div class="fw-semibold small mb-2" style="color:var(--primary)"><i class="bi bi-cake2 me-1"></i>Cake Details</div>
-            <table class="table table-sm table-borderless mb-0" style="font-size:.85rem">
+            <div style="overflow-x:auto"><table class="table table-sm table-borderless mb-0" style="font-size:.85rem">
               <tr><td class="text-muted" style="width:40%">Cake Name</td><td class="fw-semibold">{{ $co->cake_name }}</td></tr>
               @if($co->flavor)<tr><td class="text-muted">Flavor</td><td>{{ $co->flavor }}</td></tr>@endif
               @if($co->size_label)<tr><td class="text-muted">Size</td><td>{{ $co->size_label }}</td></tr>@endif
@@ -106,7 +106,7 @@
               @if($co->dedication)<tr><td class="text-muted">Dedication</td><td><em>"{{ $co->dedication }}"</em></td></tr>@endif
               @if($co->schedule_date)<tr><td class="text-muted">Schedule</td><td>{{ \Carbon\Carbon::parse($co->schedule_date)->format('M d, Y') }} @if($co->schedule_time) {{ \Carbon\Carbon::parse($co->schedule_time)->format('g:i A') }}@endif</td></tr>@endif
               <tr><td class="text-muted">Fulfillment</td><td>{{ $co->fulfillment_type ?? 'Pickup' }}</td></tr>
-            </table>
+            </table></div>
           </div>
 
           {{-- Add-ons --}}

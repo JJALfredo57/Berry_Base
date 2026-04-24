@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-@php
+<?php
   if (!isset($settings)) { $settings = \App\Helpers\CakeshopHelper::getSettings(); }
   if (!isset($bgCss))    { $bgCss    = \App\Helpers\CakeshopHelper::backgroundCss($settings); }
   $role        = session('user')['role'] ?? null;
@@ -83,28 +83,28 @@
           }
       } catch (\Exception $e) {}
   }
-@endphp
-  <title>{{ $brandTitle }}</title>
+?>
+  <title><?php echo e($brandTitle); ?></title>
 
-  {{-- Favicon --}}
-  @if(!empty($brandLogo))
-    <link rel="icon" type="image/png" href="{{ $brandLogo }}">
-    <link rel="apple-touch-icon" href="{{ $brandLogo }}">
-  @else
+  
+  <?php if(!empty($brandLogo)): ?>
+    <link rel="icon" type="image/png" href="<?php echo e($brandLogo); ?>">
+    <link rel="apple-touch-icon" href="<?php echo e($brandLogo); ?>">
+  <?php else: ?>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎂</text></svg>">
-  @endif
+  <?php endif; ?>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
     :root {
-      --primary:        {{ $rawPrimary }};
-      --primary-dark:   {{ $colorDark }};
-      --primary-light:  {{ $colorLight }};
-      --primary-mid:    {{ $colorMid }};
-      --primary-bg:     {{ $colorBg }};
-      --sidebar-bg:     {{ $sidebarBg }};
+      --primary:        <?php echo e($rawPrimary); ?>;
+      --primary-dark:   <?php echo e($colorDark); ?>;
+      --primary-light:  <?php echo e($colorLight); ?>;
+      --primary-mid:    <?php echo e($colorMid); ?>;
+      --primary-bg:     <?php echo e($colorBg); ?>;
+      --sidebar-bg:     <?php echo e($sidebarBg); ?>;
       --secondary:      #FF8A80;
       --accent:         #FFF176;
       --cream:          #FFF8F8;
@@ -302,7 +302,7 @@
     .notif-item:last-child { border-bottom:0; }
     .notif-wrap { position:relative; display:inline-flex; }
     .notif-badge { position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:99px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff;animation:pulse-badge .8s ease-in-out infinite alternate; }
-    @@keyframes pulse-badge { from{transform:scale(1)} to{transform:scale(1.15)} }
+    @keyframes pulse-badge { from{transform:scale(1)} to{transform:scale(1.15)} }
     .nav-avatar { width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--primary);flex-shrink:0; }
     .nav-avatar-fallback { width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;font-size:.8rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0; }
 
@@ -319,8 +319,8 @@
     .cs-toast { width:100%;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.96);backdrop-filter:blur(16px);box-shadow:0 18px 48px rgba(15,23,42,.16),0 4px 14px rgba(15,23,42,.08);display:flex;align-items:flex-start;gap:12px;font-size:.84rem;animation:toastIn .42s cubic-bezier(.34,1.56,.64,1);border:1px solid rgba(255,255,255,.75);pointer-events:auto;position:relative;overflow:hidden; }
     .cs-toast::before { content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#3b82f6; }
     .cs-toast.hiding { animation:toastOut .3s ease forwards; }
-    @@keyframes toastIn  { from{opacity:0;transform:translateY(-18px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
-    @@keyframes toastOut { from{opacity:1;transform:translateY(0) scale(1)} to{opacity:0;transform:translateY(-12px) scale(.96)} }
+    @keyframes toastIn  { from{opacity:0;transform:translateY(-18px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+    @keyframes toastOut { from{opacity:1;transform:translateY(0) scale(1)} to{opacity:0;transform:translateY(-12px) scale(.96)} }
     .cs-toast-success::before { background:#22c55e; }
     .cs-toast-error::before { background:#ef4444; }
     .cs-toast-warning::before { background:#f59e0b; }
@@ -336,13 +336,13 @@
     ═══════════════════════════════════════════════ */
 
     /* ── Keyframes ── */
-    @@keyframes csSlideUp   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
-    @@keyframes csFadeIn    { from{opacity:0} to{opacity:1} }
-    @@keyframes csScaleIn   { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
-    @@keyframes csShimmer   { 0%{background-position:-200% center} 100%{background-position:200% center} }
-    @@keyframes csPendingPulse { 0%,100%{box-shadow:0 0 0 0 rgba(234,179,8,.35)} 50%{box-shadow:0 0 0 6px rgba(234,179,8,0)} }
-    @@keyframes csIconBounce { 0%,100%{transform:scale(1)} 40%{transform:scale(1.18) rotate(-5deg)} 70%{transform:scale(.95)} }
-    @@keyframes csPageIn    { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes csSlideUp   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes csFadeIn    { from{opacity:0} to{opacity:1} }
+    @keyframes csScaleIn   { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+    @keyframes csShimmer   { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    @keyframes csPendingPulse { 0%,100%{box-shadow:0 0 0 0 rgba(234,179,8,.35)} 50%{box-shadow:0 0 0 6px rgba(234,179,8,0)} }
+    @keyframes csIconBounce { 0%,100%{transform:scale(1)} 40%{transform:scale(1.18) rotate(-5deg)} 70%{transform:scale(.95)} }
+    @keyframes csPageIn    { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 
     /* ── Page entrance ── */
     .admin-page { animation: csPageIn .38s ease both; }
@@ -482,8 +482,8 @@
     .cs-scale-in { animation:csScaleIn .3s ease both; }
 
     /* ═══════════ ADMIN SIDEBAR LAYOUT ═══════════ */
-    @if($isAdmin || $isSeller)
-    body { background:{{ ($settings['bg_type'] ?? 'gradient') === 'image' && !empty($settings['bg_image_path']) ? 'transparent' : '#f0f2f8' }}; }
+    <?php if($isAdmin || $isSeller): ?>
+    body { background:<?php echo e(($settings['bg_type'] ?? 'gradient') === 'image' && !empty($settings['bg_image_path']) ? 'transparent' : '#f0f2f8'); ?>; }
 
     #adminSidebar {
       position:fixed; top:0; left:0;
@@ -543,18 +543,18 @@
 
     #sbOverlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1039; }
 
-    @@media(max-width:767px) {
+    @media(max-width:767px) {
       #adminSidebar { transform:translateX(-100%);width:var(--sidebar-w) !important; }
       #adminSidebar.mobile-open { transform:translateX(0); }
       #adminMain { margin-left:0 !important; }
       #sbOverlay.active { display:block; }
       .admin-page { padding: 12px; }
     }
-    @endif
+    <?php endif; ?>
 
     /* ═══════════ CUSTOMER LAYOUT ═══════════ */
-    @if(!$isAdmin && !$isSeller)
-    body { {!! $bgCss ?? '' !!} }
+    <?php if(!$isAdmin && !$isSeller): ?>
+    body { <?php echo $bgCss ?? ''; ?> }
     .navbar-glass { background:rgba(255,255,255,.9);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid rgba(0,0,0,.07); }
     .nav-link { color:#444 !important;font-weight:500;padding:.5rem .85rem !important;border-radius:.6rem;transition:.15s; }
     .nav-link:hover,.nav-link.active { background:var(--primary-light);color:var(--primary) !important; }
@@ -563,13 +563,13 @@
     .container, .container-fluid, .container-lg, .container-xl, .container-xxl {
       width: 100%; max-width: 100%; padding-left: clamp(12px, 3vw, 32px); padding-right: clamp(12px, 3vw, 32px);
     }
-    @@media(max-width:767px) {
+    @media(max-width:767px) {
       .card-body { padding: clamp(.75rem, 3vw, 1rem); }
       .customer-wrap { padding-top:66px; }
     }
-    @endif
-    {{-- ── Seller Sidebar CSS ── --}}
-    @if($isSeller)
+    <?php endif; ?>
+    
+    <?php if($isSeller): ?>
     body { background: var(--gray-50,#FAFAFA); }
     #sellerSidebar {
       position:fixed;top:0;left:0;bottom:0;z-index:1040;
@@ -597,13 +597,13 @@
     #sellerSidebar.collapsed .sb-brand-sub,
     #sellerSidebar.collapsed .sb-user-info { opacity:0;pointer-events:none; }
     #sellerOverlay { display:none;position:fixed;inset:0;z-index:1039;background:rgba(0,0,0,.4); }
-    @@media(max-width:767px) {
+    @media(max-width:767px) {
       #sellerSidebar { transform:translateX(-100%);width:var(--sidebar-w) !important; }
       #sellerSidebar.mobile-open { transform:translateX(0); }
       #sellerMain { margin-left:0 !important; }
       #sellerOverlay.active { display:block; }
     }
-    @endif
+    <?php endif; ?>
 
     /* ═══════════════════════════════════════
        GLOBAL RESPONSIVE FIXES
@@ -628,7 +628,7 @@
       flex:1; min-width:0; max-width:100%;
     }
 
-    @@media(max-width:575px) {
+    @media(max-width:575px) {
       /* Inputs & selects: never force a min-width that causes overflow */
       .form-control, .form-select { min-width:0 !important; }
 
@@ -651,7 +651,7 @@
       #csDlgBox { padding:1.25rem !important; border-radius:1rem !important; }
     }
 
-    @@media(max-width:767px) {
+    @media(max-width:767px) {
       /* Bigger touch targets for topbar buttons */
       .tb-toggle, .tb-btn { width:44px !important; height:44px !important; }
       .tb-actions { gap:2px !important; }
@@ -689,7 +689,7 @@
       .filter-row .form-select { min-width:0 !important; flex:1 1 140px !important; }
     }
 
-    @@media(max-width:399px) {
+    @media(max-width:399px) {
       /* Very small phones (iPhone SE, Galaxy A) */
       .admin-page { padding:8px 8px 20px !important; }
       .card { border-radius:var(--radius-md) !important; }
@@ -698,136 +698,136 @@
       .btn-sm { font-size:.72rem !important; padding:.22rem .5rem !important; }
     }
   </style>
-  @stack('styles')
+  <?php echo $__env->yieldPushContent('styles'); ?>
 </head>
 <body>
 
-{{-- ═══ BG IMAGE OVERLAY (admin + customer, opacity-controlled) ═══ --}}
-@if(($settings['bg_type'] ?? 'gradient') === 'image' && !empty($settings['bg_image_path']))
+
+<?php if(($settings['bg_type'] ?? 'gradient') === 'image' && !empty($settings['bg_image_path'])): ?>
 <div aria-hidden="true" style="
   position:fixed;
   inset:0;
   z-index:-1;
-  background:url('{{ $settings['bg_image_path'] }}') center/cover no-repeat;
-  opacity:{{ $settings['bg_image_opacity'] ?? 1.0 }};
+  background:url('<?php echo e($settings['bg_image_path']); ?>') center/cover no-repeat;
+  opacity:<?php echo e($settings['bg_image_opacity'] ?? 1.0); ?>;
   pointer-events:none;
 "></div>
-@endif
+<?php endif; ?>
 
-@if($isAdmin)
-{{-- ═══ ADMIN SIDEBAR ══════════════════════════════════════════════ --}}
+<?php if($isAdmin): ?>
+
 <div id="adminSidebar">
   <div class="sb-brand">
     <div class="sb-brand-icon">
-      @if(!empty($brandLogo))
-        <img src="{{ $brandLogo }}" style="width:26px;height:26px;border-radius:6px;object-fit:cover" onerror="this.style.display='none'">
-      @else
+      <?php if(!empty($brandLogo)): ?>
+        <img src="<?php echo e($brandLogo); ?>" style="width:26px;height:26px;border-radius:6px;object-fit:cover" onerror="this.style.display='none'">
+      <?php else: ?>
         <i class="bi bi-cake2-fill text-white" style="font-size:.95rem"></i>
-      @endif
+      <?php endif; ?>
     </div>
     <div>
-      <div class="sb-brand-text">{{ $brandTitle }}</div>
+      <div class="sb-brand-text"><?php echo e($brandTitle); ?></div>
       <div class="sb-brand-sub">
-        @if($sessionRole === 'superadmin') Super Admin @else Admin Panel @endif
+        <?php if($sessionRole === 'superadmin'): ?> Super Admin <?php else: ?> Admin Panel <?php endif; ?>
       </div>
     </div>
   </div>
 
   <nav class="sb-nav">
 
-    @if($sessionRole === 'superadmin')
-    {{-- ═══════════════════════════════════════════ --}}
-    {{-- SUPER ADMIN SIDEBAR — Platform Management  --}}
-    {{-- ═══════════════════════════════════════════ --}}
+    <?php if($sessionRole === 'superadmin'): ?>
+    
+    
+    
     <div class="sb-label">Platform</div>
-    <a href="{{ route('superadmin.dashboard') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.dashboard') ? 'active' : '' }}">
+    <a href="<?php echo e(route('superadmin.dashboard')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'superadmin.dashboard') ? 'active' : ''); ?>">
       <i class="bi bi-speedometer2"></i><span class="sb-link-text">Dashboard</span>
     </a>
 
     <div class="sb-label">Sellers</div>
-    <a href="{{ route('superadmin.sellers') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.sellers') ? 'active' : '' }}">
+    <a href="<?php echo e(route('superadmin.sellers')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'superadmin.sellers') ? 'active' : ''); ?>">
       <i class="bi bi-shop"></i><span class="sb-link-text">Seller Applications</span>
-      @php try { $pendingApps = (int)\Illuminate\Support\Facades\DB::table('shops')->where('status','pending')->count(); } catch(\Exception $e) { $pendingApps=0; } @endphp
-      @if($pendingApps > 0)<span class="sb-badge">{{ $pendingApps }}</span>@endif
+      <?php try { $pendingApps = (int)\Illuminate\Support\Facades\DB::table('shops')->where('status','pending')->count(); } catch(\Exception $e) { $pendingApps=0; } ?>
+      <?php if($pendingApps > 0): ?><span class="sb-badge"><?php echo e($pendingApps); ?></span><?php endif; ?>
     </a>
 
     <div class="sb-label">Settings</div>
-    <a href="{{ route('superadmin.settings') }}" class="sb-link {{ ($currentRoute==='superadmin.settings' && request()->input('tab','platform') !== 'logs' && request()->input('tab','platform') !== 'backup') ? 'active' : '' }}">
+    <a href="<?php echo e(route('superadmin.settings')); ?>" class="sb-link <?php echo e(($currentRoute==='superadmin.settings' && request()->input('tab','platform') !== 'logs' && request()->input('tab','platform') !== 'backup') ? 'active' : ''); ?>">
       <i class="bi bi-sliders"></i><span class="sb-link-text">Platform Settings</span>
     </a>
-    <a href="{{ route('superadmin.settings', ['tab' => 'logs']) }}" class="sb-link {{ ($currentRoute==='superadmin.settings' && request()->input('tab') === 'logs') ? 'active' : '' }}">
+    <a href="<?php echo e(route('superadmin.settings', ['tab' => 'logs'])); ?>" class="sb-link <?php echo e(($currentRoute==='superadmin.settings' && request()->input('tab') === 'logs') ? 'active' : ''); ?>">
       <i class="bi bi-journal-text"></i><span class="sb-link-text">Activity Logs</span>
     </a>
-    <a href="{{ route('superadmin.settings', ['tab' => 'backup']) }}" class="sb-link {{ ($currentRoute==='superadmin.settings' && request()->input('tab') === 'backup') ? 'active' : '' }}">
+    <a href="<?php echo e(route('superadmin.settings', ['tab' => 'backup'])); ?>" class="sb-link <?php echo e(($currentRoute==='superadmin.settings' && request()->input('tab') === 'backup') ? 'active' : ''); ?>">
       <i class="bi bi-cloud-arrow-up"></i><span class="sb-link-text">Backup</span>
     </a>
 
-    @else
-    {{-- ═══════════════════════════════════════════ --}}
-    {{-- ADMIN SIDEBAR — Shop Management            --}}
-    {{-- ═══════════════════════════════════════════ --}}
+    <?php else: ?>
+    
+    
+    
     <div class="sb-label">Main</div>
-    <a href="{{ route('admin.dashboard') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.dashboard') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.dashboard')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.dashboard') ? 'active' : ''); ?>">
       <i class="bi bi-speedometer2"></i><span class="sb-link-text">Dashboard</span>
     </a>
-    <a href="{{ route('admin.orders.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.orders') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.orders.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.orders') ? 'active' : ''); ?>">
       <i class="bi bi-bag-check"></i><span class="sb-link-text">Orders</span>
-      @php try { $pendingOrdSb = (int)\Illuminate\Support\Facades\DB::table('orders')->where('status','Pending')->count(); } catch(\Exception $e) { $pendingOrdSb=0; } @endphp
-      @if($pendingOrdSb > 0)<span class="sb-badge">{{ $pendingOrdSb }}</span>@endif
+      <?php try { $pendingOrdSb = (int)\Illuminate\Support\Facades\DB::table('orders')->where('status','Pending')->count(); } catch(\Exception $e) { $pendingOrdSb=0; } ?>
+      <?php if($pendingOrdSb > 0): ?><span class="sb-badge"><?php echo e($pendingOrdSb); ?></span><?php endif; ?>
     </a>
-    <a href="{{ route('admin.kitchen.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.kitchen') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.kitchen.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.kitchen') ? 'active' : ''); ?>">
       <i class="bi bi-fire"></i><span class="sb-link-text">Kitchen</span>
     </a>
-    <a href="{{ route('admin.messages.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.messages') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.messages.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.messages') ? 'active' : ''); ?>">
       <i class="bi bi-chat-dots"></i><span class="sb-link-text">Messages</span>
-      @if($unreadMessages > 0)<span class="sb-badge">{{ $unreadMessages > 9 ? '9+' : $unreadMessages }}</span>@endif
+      <?php if($unreadMessages > 0): ?><span class="sb-badge"><?php echo e($unreadMessages > 9 ? '9+' : $unreadMessages); ?></span><?php endif; ?>
     </a>
 
     <div class="sb-label">Catalog</div>
-    <a href="{{ route('admin.products.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.products') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.products.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.products') ? 'active' : ''); ?>">
       <i class="bi bi-cake2"></i><span class="sb-link-text">Products</span>
     </a>
-    <a href="{{ route('admin.addons.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.addons') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.addons.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.addons') ? 'active' : ''); ?>">
       <i class="bi bi-gift"></i><span class="sb-link-text">Add-ons</span>
     </a>
-    <a href="{{ route('admin.custom_options.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.custom_options') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.custom_options.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.custom_options') ? 'active' : ''); ?>">
       <i class="bi bi-sliders"></i><span class="sb-link-text">Custom Options</span>
     </a>
-    @php try { $pendingCustom = (int)\Illuminate\Support\Facades\DB::table('custom_orders')->where('review_status','pending')->count(); } catch(\Exception $e) { $pendingCustom=0; } @endphp
-    <a href="{{ route('admin.custom_orders.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.custom_orders') ? 'active' : '' }}">
+    <?php try { $pendingCustom = (int)\Illuminate\Support\Facades\DB::table('custom_orders')->where('review_status','pending')->count(); } catch(\Exception $e) { $pendingCustom=0; } ?>
+    <a href="<?php echo e(route('admin.custom_orders.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.custom_orders') ? 'active' : ''); ?>">
       <i class="bi bi-palette"></i><span class="sb-link-text">Custom Orders</span>
-      @if($pendingCustom > 0)<span class="sb-badge">{{ $pendingCustom }}</span>@endif
+      <?php if($pendingCustom > 0): ?><span class="sb-badge"><?php echo e($pendingCustom); ?></span><?php endif; ?>
     </a>
 
     <div class="sb-label">Delivery</div>
-    <a href="{{ route('admin.delivery_zones.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.delivery_zones') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.delivery_zones.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.delivery_zones') ? 'active' : ''); ?>">
       <i class="bi bi-geo-alt"></i><span class="sb-link-text">Delivery Zones</span>
     </a>
-    <a href="{{ route('admin.riders.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.riders') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.riders.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.riders') ? 'active' : ''); ?>">
       <i class="bi bi-bicycle"></i><span class="sb-link-text">Riders</span>
     </a>
 
     <div class="sb-label">System</div>
-    <a href="{{ route('admin.settings.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.settings') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.settings.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.settings') ? 'active' : ''); ?>">
       <i class="bi bi-gear"></i><span class="sb-link-text">Settings</span>
     </a>
-    <a href="{{ route('admin.logs.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.logs') ? 'active' : '' }}">
+    <a href="<?php echo e(route('admin.logs.index')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'admin.logs') ? 'active' : ''); ?>">
       <i class="bi bi-journal-text"></i><span class="sb-link-text">Activity Logs</span>
     </a>
-    @endif
-    <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="sb-link" style="margin-top:4px;background:none;border:none;width:100%;text-align:left;padding:0;cursor:pointer">
+    <?php endif; ?>
+    <form method="POST" action="<?php echo e(route('logout')); ?>" style="margin:0"><?php echo csrf_field(); ?><button type="submit" class="sb-link" style="margin-top:4px;background:none;border:none;width:100%;text-align:left;padding:0;cursor:pointer">
       <i class="bi bi-box-arrow-right" style="color:#ef4444"></i><span class="sb-link-text" style="color:#ef4444">Logout</span>
     </button></form>
   </nav>
 
   <div class="sb-user">
-    @if($userPhoto)
-      <img src="{{ $userPhoto }}" class="nav-avatar" onerror="this.style.display='none'">
-    @else
-      <span class="nav-avatar-fallback">{{ strtoupper(substr($fullname??'A',0,1)) }}</span>
-    @endif
+    <?php if($userPhoto): ?>
+      <img src="<?php echo e($userPhoto); ?>" class="nav-avatar" onerror="this.style.display='none'">
+    <?php else: ?>
+      <span class="nav-avatar-fallback"><?php echo e(strtoupper(substr($fullname??'A',0,1))); ?></span>
+    <?php endif; ?>
     <div class="sb-user-info">
-      <div class="sb-user-name">{{ $fullname ?? $username }}</div>
+      <div class="sb-user-name"><?php echo e($fullname ?? $username); ?></div>
       <div class="sb-user-role">Administrator</div>
     </div>
   </div>
@@ -839,223 +839,224 @@
   <div id="adminTopbar">
     <button class="tb-toggle" onclick="toggleSidebar()"><i class="bi bi-list" style="font-size:1.2rem"></i></button>
     <div class="tb-bread">
-      @hasSection('breadcrumb') @yield('breadcrumb') @else <strong>{{ $brandTitle }}</strong> @endif
+      <?php if (! empty(trim($__env->yieldContent('breadcrumb')))): ?> <?php echo $__env->yieldContent('breadcrumb'); ?> <?php else: ?> <strong><?php echo e($brandTitle); ?></strong> <?php endif; ?>
     </div>
     <div class="tb-actions">
-      {{-- Dev Mode badge --}}
-      @if(!empty($platformBrand->dev_mode))
+      
+      <?php if(!empty($platformBrand->dev_mode)): ?>
       <span style="display:inline-flex;align-items:center;gap:4px;font-size:.66rem;font-weight:700;color:#d97706;background:#fef3c7;border:1.5px solid #fde68a;padding:3px 10px;border-radius:20px;letter-spacing:.04em;cursor:default" title="Developer Mode is ON — OTP and SMS previews are visible">
         <i class="bi bi-bug-fill"></i> DEV MODE
       </span>
-      @endif
-      {{-- Notification --}}
+      <?php endif; ?>
+      
       <div class="dropdown">
         <button class="tb-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
           <span class="notif-wrap">
             <i class="bi bi-bell" style="font-size:1rem"></i>
-            @if($notifCount > 0)<span class="notif-badge">{{ $notifCount > 9 ? '9+' : $notifCount }}</span>@endif
+            <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo e($notifCount > 9 ? '9+' : $notifCount); ?></span><?php endif; ?>
           </span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end shadow border-0 notif-dropdown p-0">
           <li class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between">
             <span class="fw-bold small">Notifications</span>
-            @if($notifCount > 0)<a href="{{ route('admin.notifications.mark_read') }}" class="small" style="color:var(--primary)">Mark all read</a>@endif
+            <?php if($notifCount > 0): ?><a href="<?php echo e(route('admin.notifications.mark_read')); ?>" class="small" style="color:var(--primary)">Mark all read</a><?php endif; ?>
           </li>
-          @forelse($notifications as $n)
-          <li class="notif-item {{ !$n->is_read ? 'unread' : '' }}">
+          <?php $__empty_1 = true; $__currentLoopData = $notifications; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $n): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+          <li class="notif-item <?php echo e(!$n->is_read ? 'unread' : ''); ?>">
             <div class="d-flex gap-2 align-items-start">
               <div style="width:30px;height:30px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0">
                 <i class="bi bi-bell-fill" style="color:var(--primary);font-size:.72rem"></i>
               </div>
               <div>
-                <div class="small fw-semibold">{{ $n->title }}</div>
-                <div class="small text-muted">{{ $n->message }}</div>
-                <div class="text-muted" style="font-size:.7rem">{{ \Carbon\Carbon::parse($n->created_at)->diffForHumans() }}</div>
+                <div class="small fw-semibold"><?php echo e($n->title); ?></div>
+                <div class="small text-muted"><?php echo e($n->message); ?></div>
+                <div class="text-muted" style="font-size:.7rem"><?php echo e(\Carbon\Carbon::parse($n->created_at)->diffForHumans()); ?></div>
               </div>
             </div>
           </li>
-          @empty
+          <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
           <li class="text-center text-muted py-4 small">No notifications yet.</li>
-          @endforelse
+          <?php endif; ?>
         </ul>
       </div>
-      {{-- User menu --}}
+      
       <div class="dropdown">
         <button class="tb-btn px-2 gap-2 d-flex align-items-center" data-bs-toggle="dropdown" style="width:auto;border-radius:9px">
-          @if($userPhoto)
-            <img src="{{ $userPhoto }}" class="nav-avatar" onerror="this.style.display='none'">
-          @else
-            <span class="nav-avatar-fallback">{{ strtoupper(substr($fullname??'A',0,1)) }}</span>
-          @endif
-          <span class="d-none d-md-inline small fw-semibold" style="color:#333">{{ $fullname ?? $username }}</span>
+          <?php if($userPhoto): ?>
+            <img src="<?php echo e($userPhoto); ?>" class="nav-avatar" onerror="this.style.display='none'">
+          <?php else: ?>
+            <span class="nav-avatar-fallback"><?php echo e(strtoupper(substr($fullname??'A',0,1))); ?></span>
+          <?php endif; ?>
+          <span class="d-none d-md-inline small fw-semibold" style="color:#333"><?php echo e($fullname ?? $username); ?></span>
           <i class="bi bi-chevron-down d-none d-md-inline" style="font-size:.7rem;color:#888"></i>
         </button>
         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius:.9rem;min-width:185px">
           <li class="px-3 py-2 border-bottom">
-            <div class="fw-bold small">{{ $fullname ?? $username }}</div>
+            <div class="fw-bold small"><?php echo e($fullname ?? $username); ?></div>
             <div class="text-muted" style="font-size:.72rem">
-              {{ $sessionRole === 'superadmin' ? 'Super Admin' : 'Administrator' }}
+              <?php echo e($sessionRole === 'superadmin' ? 'Super Admin' : 'Administrator'); ?>
+
             </div>
           </li>
-          @if($sessionRole === 'superadmin')
-            {{-- Super Admin: only platform settings, no shop profile --}}
-            <li><a class="dropdown-item py-2" href="{{ route('superadmin.settings') }}"><i class="bi bi-sliders me-2"></i>Platform Settings</a></li>
-          @else
-            {{-- Regular Admin: profile + settings --}}
-            <li><a class="dropdown-item py-2" href="{{ route('admin.settings.index', ['tab'=>'account']) }}"><i class="bi bi-person me-2"></i>My Profile</a></li>
-            <li><a class="dropdown-item py-2" href="{{ route('admin.settings.index') }}"><i class="bi bi-gear me-2"></i>Settings</a></li>
-          @endif
+          <?php if($sessionRole === 'superadmin'): ?>
+            
+            <li><a class="dropdown-item py-2" href="<?php echo e(route('superadmin.settings')); ?>"><i class="bi bi-sliders me-2"></i>Platform Settings</a></li>
+          <?php else: ?>
+            
+            <li><a class="dropdown-item py-2" href="<?php echo e(route('admin.settings.index', ['tab'=>'account'])); ?>"><i class="bi bi-person me-2"></i>My Profile</a></li>
+            <li><a class="dropdown-item py-2" href="<?php echo e(route('admin.settings.index')); ?>"><i class="bi bi-gear me-2"></i>Settings</a></li>
+          <?php endif; ?>
           <li><hr class="dropdown-divider my-1"></li>
-          <li><form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="dropdown-item py-2 text-danger" style="background:none;border:none;width:100%;text-align:left;cursor:pointer"><i class="bi bi-box-arrow-right me-2"></i>Logout</button></form></li>
+          <li><form method="POST" action="<?php echo e(route('logout')); ?>" style="margin:0"><?php echo csrf_field(); ?><button type="submit" class="dropdown-item py-2 text-danger" style="background:none;border:none;width:100%;text-align:left;cursor:pointer"><i class="bi bi-box-arrow-right me-2"></i>Logout</button></form></li>
         </ul>
       </div>
     </div>
   </div>
 
-  {{-- Flash messages --}}
-  @if(session('msg') || session('error') || session('err') || session('warn'))
+  
+  <?php if(session('msg') || session('error') || session('err') || session('warn')): ?>
   <div style="padding:12px 22px 0">
-    @if(session('msg'))<div class="alert alert-success border-0 py-2 d-flex align-items-center gap-2 cs-flash mb-0"><i class="bi bi-check-circle-fill"></i>{{ session('msg') }}</div>@endif
-    @if(session('error') || session('err'))<div class="alert alert-danger border-0 py-2 d-flex align-items-center gap-2 cs-flash mb-0"><i class="bi bi-exclamation-circle-fill"></i>{{ session('error') ?? session('err') }}</div>@endif
-    @if(session('warn'))<div class="alert alert-warning border-0 py-2 d-flex align-items-center gap-2 cs-flash mb-0"><i class="bi bi-exclamation-triangle-fill"></i>{{ session('warn') }}</div>@endif
+    <?php if(session('msg')): ?><div class="alert alert-success border-0 py-2 d-flex align-items-center gap-2 cs-flash mb-0"><i class="bi bi-check-circle-fill"></i><?php echo e(session('msg')); ?></div><?php endif; ?>
+    <?php if(session('error') || session('err')): ?><div class="alert alert-danger border-0 py-2 d-flex align-items-center gap-2 cs-flash mb-0"><i class="bi bi-exclamation-circle-fill"></i><?php echo e(session('error') ?? session('err')); ?></div><?php endif; ?>
+    <?php if(session('warn')): ?><div class="alert alert-warning border-0 py-2 d-flex align-items-center gap-2 cs-flash mb-0"><i class="bi bi-exclamation-triangle-fill"></i><?php echo e(session('warn')); ?></div><?php endif; ?>
   </div>
-  @endif
+  <?php endif; ?>
 
 
-  <div class="admin-page">@yield('content')</div>
-@elseif($isSeller)
-{{-- ═══ SELLER SIDEBAR ════════════════════════════════════════════════ --}}
-@php
+  <div class="admin-page"><?php echo $__env->yieldContent('content'); ?></div>
+<?php elseif($isSeller): ?>
+
+<?php
   $sellerShop = null;
   try {
     $sellerShop = \Illuminate\Support\Facades\DB::table('shops')
       ->where('seller_id', $uid)->first();
   } catch(\Exception $e) {}
-@endphp
+?>
 <div id="sellerSidebar">
   <div class="sb-brand">
     <div class="sb-brand-icon" style="background:var(--primary)">
-      @if($sellerShop?->shop_logo)
-        <img src="{{ $sellerShop->shop_logo }}" style="width:26px;height:26px;border-radius:6px;object-fit:cover">
-      @else
+      <?php if($sellerShop?->shop_logo): ?>
+        <img src="<?php echo e($sellerShop->shop_logo); ?>" style="width:26px;height:26px;border-radius:6px;object-fit:cover">
+      <?php else: ?>
         <i class="bi bi-shop text-white" style="font-size:.95rem"></i>
-      @endif
+      <?php endif; ?>
     </div>
     <div>
-      <div class="sb-brand-text">{{ Str::limit($sellerShop?->shop_name ?? 'My Shop', 18) }}</div>
+      <div class="sb-brand-text"><?php echo e(Str::limit($sellerShop?->shop_name ?? 'My Shop', 18)); ?></div>
       <div class="sb-brand-sub">Seller Dashboard</div>
     </div>
   </div>
 
   <nav class="sb-nav">
     <div class="sb-label">Main</div>
-    <a href="{{ route('seller.dashboard') }}" class="sb-link {{ $currentRoute==='seller.dashboard' ? 'active' : '' }}">
+    <a href="<?php echo e(route('seller.dashboard')); ?>" class="sb-link <?php echo e($currentRoute==='seller.dashboard' ? 'active' : ''); ?>">
       <i class="bi bi-speedometer2"></i><span class="sb-link-text">Dashboard</span>
     </a>
-    <a href="{{ route('seller.orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.orders') ? 'active' : '' }}">
+    <a href="<?php echo e(route('seller.orders')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'seller.orders') ? 'active' : ''); ?>">
       <i class="bi bi-bag-check"></i><span class="sb-link-text">Orders</span>
-      @php try { $selPend = (int)\Illuminate\Support\Facades\DB::table('orders')->where('shop_id',$sellerShop?->id)->where('status','Pending')->count(); } catch(\Exception $e){ $selPend=0; } @endphp
-      @if($selPend > 0)<span class="sb-badge">{{ $selPend }}</span>@endif
+      <?php try { $selPend = (int)\Illuminate\Support\Facades\DB::table('orders')->where('shop_id',$sellerShop?->id)->where('status','Pending')->count(); } catch(\Exception $e){ $selPend=0; } ?>
+      <?php if($selPend > 0): ?><span class="sb-badge"><?php echo e($selPend); ?></span><?php endif; ?>
     </a>
-    <a href="{{ route('seller.kitchen') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.kitchen') ? 'active' : '' }}">
+    <a href="<?php echo e(route('seller.kitchen')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'seller.kitchen') ? 'active' : ''); ?>">
       <i class="bi bi-fire"></i><span class="sb-link-text">Kitchen</span>
     </a>
-    <a href="{{ route('seller.messages') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.messages') ? 'active' : '' }}">
+    <a href="<?php echo e(route('seller.messages')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'seller.messages') ? 'active' : ''); ?>">
       <i class="bi bi-chat-dots"></i><span class="sb-link-text">Messages</span>
-      @php try { $selMsg = (int)\Illuminate\Support\Facades\DB::table('messages as m')->join('orders as o','o.id','=','m.order_id')->where('o.shop_id',$sellerShop?->id)->where('m.sender_role','customer')->where('m.is_read',0)->count(); } catch(\Exception $e){ $selMsg=0; } @endphp
-      @if($selMsg > 0)<span class="sb-badge">{{ $selMsg > 9 ? '9+' : $selMsg }}</span>@endif
+      <?php try { $selMsg = (int)\Illuminate\Support\Facades\DB::table('messages as m')->join('orders as o','o.id','=','m.order_id')->where('o.shop_id',$sellerShop?->id)->where('m.sender_role','customer')->where('m.is_read',0)->count(); } catch(\Exception $e){ $selMsg=0; } ?>
+      <?php if($selMsg > 0): ?><span class="sb-badge"><?php echo e($selMsg > 9 ? '9+' : $selMsg); ?></span><?php endif; ?>
     </a>
 
     <div class="sb-label">Catalog</div>
-    <a href="{{ route('seller.products') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.products') ? 'active' : '' }}">
+    <a href="<?php echo e(route('seller.products')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'seller.products') ? 'active' : ''); ?>">
       <i class="bi bi-cake2"></i><span class="sb-link-text">Products</span>
     </a>
-    @if($sellerShop?->tier === 'verified')
-    <a href="{{ route('seller.custom_orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.custom_orders') ? 'active' : '' }}">
+    <?php if($sellerShop?->tier === 'verified'): ?>
+    <a href="<?php echo e(route('seller.custom_orders')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'seller.custom_orders') ? 'active' : ''); ?>">
       <i class="bi bi-palette"></i><span class="sb-link-text">Custom Orders</span>
-      @php try { $selCust = (int)\Illuminate\Support\Facades\DB::table('custom_orders')->where('shop_id',$sellerShop?->id)->where('review_status','pending')->count(); } catch(\Exception $e){ $selCust=0; } @endphp
-      @if($selCust > 0)<span class="sb-badge">{{ $selCust }}</span>@endif
+      <?php try { $selCust = (int)\Illuminate\Support\Facades\DB::table('custom_orders')->where('shop_id',$sellerShop?->id)->where('review_status','pending')->count(); } catch(\Exception $e){ $selCust=0; } ?>
+      <?php if($selCust > 0): ?><span class="sb-badge"><?php echo e($selCust); ?></span><?php endif; ?>
     </a>
-    @endif
-    <a href="{{ route('seller.addons') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.addons') ? 'active' : '' }}">
+    <?php endif; ?>
+    <a href="<?php echo e(route('seller.addons')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'seller.addons') ? 'active' : ''); ?>">
       <i class="bi bi-gift"></i><span class="sb-link-text">Add-ons</span>
     </a>
 
     <div class="sb-label">Delivery</div>
-    <a href="{{ route('seller.zones') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.zones') ? 'active' : '' }}">
+    <a href="<?php echo e(route('seller.zones')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'seller.zones') ? 'active' : ''); ?>">
       <i class="bi bi-geo-alt"></i><span class="sb-link-text">Delivery Zones</span>
     </a>
-    <a href="{{ route('seller.riders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.riders') ? 'active' : '' }}">
+    <a href="<?php echo e(route('seller.riders')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'seller.riders') ? 'active' : ''); ?>">
       <i class="bi bi-bicycle"></i><span class="sb-link-text">Riders</span>
     </a>
 
     <div class="sb-label">Settings</div>
-    <a href="{{ route('seller.settings') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.settings') ? 'active' : '' }}">
+    <a href="<?php echo e(route('seller.settings')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'seller.settings') ? 'active' : ''); ?>">
       <i class="bi bi-gear"></i><span class="sb-link-text">Shop Settings</span>
     </a>
-    <a href="{{ route('seller.reviews') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.reviews') ? 'active' : '' }}">
+    <a href="<?php echo e(route('seller.reviews')); ?>" class="sb-link <?php echo e(str_starts_with($currentRoute,'seller.reviews') ? 'active' : ''); ?>">
       <i class="bi bi-star"></i><span class="sb-link-text">Reviews</span>
     </a>
-    <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="sb-link" style="margin-top:4px;background:none;border:none;width:100%;text-align:left;padding:0;cursor:pointer">
+    <form method="POST" action="<?php echo e(route('logout')); ?>" style="margin:0"><?php echo csrf_field(); ?><button type="submit" class="sb-link" style="margin-top:4px;background:none;border:none;width:100%;text-align:left;padding:0;cursor:pointer">
       <i class="bi bi-box-arrow-right" style="color:#ef4444"></i>
       <span class="sb-link-text" style="color:#ef4444">Logout</span>
     </button></form>
   </nav>
 
   <div class="sb-user">
-    @if($userPhoto)
-      <img src="{{ $userPhoto }}" class="nav-avatar" onerror="this.style.display='none'">
-    @else
-      <span class="nav-avatar-fallback">{{ strtoupper(substr($fullname??'S',0,1)) }}</span>
-    @endif
+    <?php if($userPhoto): ?>
+      <img src="<?php echo e($userPhoto); ?>" class="nav-avatar" onerror="this.style.display='none'">
+    <?php else: ?>
+      <span class="nav-avatar-fallback"><?php echo e(strtoupper(substr($fullname??'S',0,1))); ?></span>
+    <?php endif; ?>
     <div class="sb-user-info">
-      <div class="sb-user-name">{{ Str::limit($fullname ?? $username, 16) }}</div>
+      <div class="sb-user-name"><?php echo e(Str::limit($fullname ?? $username, 16)); ?></div>
       <div class="sb-user-role">Seller</div>
     </div>
   </div>
 </div>
 
-{{-- Seller topbar --}}
+
 <div id="sellerTopbar">
   <button class="tb-toggle" onclick="toggleSidebar()">
     <i class="bi bi-list" style="font-size:1.2rem"></i>
   </button>
   <div class="tb-title">
-    @hasSection('page_title') @yield('page_title') @else {{ $sellerShop?->shop_name ?? 'Seller Dashboard' }} @endif
+    <?php if (! empty(trim($__env->yieldContent('page_title')))): ?> <?php echo $__env->yieldContent('page_title'); ?> <?php else: ?> <?php echo e($sellerShop?->shop_name ?? 'Seller Dashboard'); ?> <?php endif; ?>
   </div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:.75rem">
-    @if($sellerShop?->status === 'approved' && $sellerShop?->shop_slug)
-    <a href="{{ route('platform.shop', $sellerShop->shop_slug) }}" target="_blank"
+    <?php if($sellerShop?->status === 'approved' && $sellerShop?->shop_slug): ?>
+    <a href="<?php echo e(route('platform.shop', $sellerShop->shop_slug)); ?>" target="_blank"
        style="font-size:.8rem;font-weight:600;color:var(--primary);display:flex;align-items:center;gap:.3rem">
-    @else
-    <a href="{{ route('platform.home') }}"
+    <?php else: ?>
+    <a href="<?php echo e(route('platform.home')); ?>"
        style="font-size:.8rem;font-weight:600;color:var(--gray-400);display:flex;align-items:center;gap:.3rem">
-    @endif
+    <?php endif; ?>
       <i class="bi bi-box-arrow-up-right" style="font-size:.75rem"></i>
       <span class="d-none d-sm-inline">View Shop</span>
     </a>
-    @if($userPhoto)
-      <img src="{{ $userPhoto }}" class="nav-avatar" onerror="this.style.display='none'">
-    @else
-      <span class="nav-avatar-fallback">{{ strtoupper(substr($fullname??'S',0,1)) }}</span>
-    @endif
+    <?php if($userPhoto): ?>
+      <img src="<?php echo e($userPhoto); ?>" class="nav-avatar" onerror="this.style.display='none'">
+    <?php else: ?>
+      <span class="nav-avatar-fallback"><?php echo e(strtoupper(substr($fullname??'S',0,1))); ?></span>
+    <?php endif; ?>
   </div>
 </div>
 
 <div id="adminMain">
-  <div class="admin-page">@yield('content')</div>
+  <div class="admin-page"><?php echo $__env->yieldContent('content'); ?></div>
 </div>
 
   <footer class="text-center py-3" style="color:#bbb;font-size:.76rem;border-top:1px solid #e9ecef;margin-top:auto">
-    @if(!empty($brandLogo))
-      <img src="{{ $brandLogo }}" style="height:28px;width:auto;object-fit:contain;border-radius:5px;margin-bottom:.3rem;display:block;margin-left:auto;margin-right:auto" onerror="this.style.display='none'">
-    @endif
-    &copy; {{ date('Y') }} {{ $brandTitle }} Admin
+    <?php if(!empty($brandLogo)): ?>
+      <img src="<?php echo e($brandLogo); ?>" style="height:28px;width:auto;object-fit:contain;border-radius:5px;margin-bottom:.3rem;display:block;margin-left:auto;margin-right:auto" onerror="this.style.display='none'">
+    <?php endif; ?>
+    &copy; <?php echo e(date('Y')); ?> <?php echo e($brandTitle); ?> Admin
   </footer>
 </div>
 
-@else
-{{-- ═══ CUSTOMER SIDEBAR ════════════════════════════════════════════ --}}
+<?php else: ?>
+
 <style>
 /* ── Customer Topbar (slim) ── */
 .cust-topbar {
@@ -1163,30 +1164,30 @@
 
 /* ── customer-wrap adjust ── */
 .customer-wrap { padding-top:56px; }
-@@media(max-width:767px) { .customer-wrap { padding-top:56px; } }
+@media(max-width:767px) { .customer-wrap { padding-top:56px; } }
 </style>
 
-{{-- Overlay --}}
+
 <div class="csb-overlay" id="csbOverlay" onclick="closeCustSidebar()"></div>
 
-{{-- Sidebar --}}
+
 <div class="cust-sidebar" id="custSidebar">
   <div class="csb-header">
-    @if(!empty($brandLogo))
-      <img src="{{ $brandLogo }}" class="csb-header-logo" onerror="this.style.display='none'">
-    @else
+    <?php if(!empty($brandLogo)): ?>
+      <img src="<?php echo e($brandLogo); ?>" class="csb-header-logo" onerror="this.style.display='none'">
+    <?php else: ?>
       <div class="csb-header-icon"><i class="bi bi-cake2-fill text-white"></i></div>
-    @endif
+    <?php endif; ?>
     <div>
-      <div class="csb-shop-name">{{ $brandTitle }}</div>
-      <div class="csb-shop-sub">{{ $settings['tagline'] ?? 'Order your cake today!' }}</div>
+      <div class="csb-shop-name"><?php echo e($brandTitle); ?></div>
+      <div class="csb-shop-sub"><?php echo e($settings['tagline'] ?? 'Order your cake today!'); ?></div>
     </div>
     <button class="csb-close" onclick="closeCustSidebar()"><i class="bi bi-x-lg"></i></button>
   </div>
 
   <nav class="csb-nav">
     <div class="csb-section-label">Menu</div>
-    <a href="{{ route('catalog') }}" class="csb-link {{ $currentRoute==='catalog' ? 'active' : '' }}" onclick="closeCustSidebar()">
+    <a href="<?php echo e(route('catalog')); ?>" class="csb-link <?php echo e($currentRoute==='catalog' ? 'active' : ''); ?>" onclick="closeCustSidebar()">
       <i class="bi bi-shop"></i> Catalog
     </a>
     <div class="csb-divider"></div>
@@ -1197,53 +1198,53 @@
 
     <div class="csb-divider"></div>
     <div class="csb-section-label">Sellers</div>
-    <a href="{{ route('login') }}" class="csb-link" onclick="closeCustSidebar()" style="color:#e53935;font-weight:600">
+    <a href="<?php echo e(route('login')); ?>" class="csb-link" onclick="closeCustSidebar()" style="color:#e53935;font-weight:600">
       <i class="bi bi-person-badge"></i> Seller Login
     </a>
-    <a href="{{ route('seller.apply') }}" class="csb-link" onclick="closeCustSidebar()" style="color:#e53935;font-weight:600">
+    <a href="<?php echo e(route('seller.apply')); ?>" class="csb-link" onclick="closeCustSidebar()" style="color:#e53935;font-weight:600">
       <i class="bi bi-shop-window"></i> Sell Here
     </a>
 
-    @if($role === 'admin')
+    <?php if($role === 'admin'): ?>
     <div class="csb-divider"></div>
     <div class="csb-section-label">Admin</div>
-    <a href="{{ route('admin.dashboard') }}" class="csb-link" onclick="closeCustSidebar()">
+    <a href="<?php echo e(route('admin.dashboard')); ?>" class="csb-link" onclick="closeCustSidebar()">
       <i class="bi bi-speedometer2"></i> Dashboard
     </a>
-    <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="csb-link" style="color:#ef4444;background:none;border:none;cursor:pointer">
+    <form method="POST" action="<?php echo e(route('logout')); ?>" style="margin:0"><?php echo csrf_field(); ?><button type="submit" class="csb-link" style="color:#ef4444;background:none;border:none;cursor:pointer">
       <i class="bi bi-box-arrow-right"></i> Logout
     </button></form>
-    @endif
+    <?php endif; ?>
   </nav>
 
   <div class="csb-footer">
-    <div class="csb-footer-note">&copy; {{ date('Y') }} {{ $brandTitle }}</div>
+    <div class="csb-footer-note">&copy; <?php echo e(date('Y')); ?> <?php echo e($brandTitle); ?></div>
   </div>
 </div>
 
-{{-- Top bar --}}
+
 <div class="cust-topbar">
   <button class="cust-menu-btn" onclick="openCustSidebar()" aria-label="Menu">
     <i class="bi bi-list"></i>
   </button>
-  <a href="{{ route('catalog') }}" class="cust-topbar-brand">
-    @if(!empty($brandLogo))
-      <img src="{{ $brandLogo }}" onerror="this.style.display='none'">
-    @else
+  <a href="<?php echo e(route('catalog')); ?>" class="cust-topbar-brand">
+    <?php if(!empty($brandLogo)): ?>
+      <img src="<?php echo e($brandLogo); ?>" onerror="this.style.display='none'">
+    <?php else: ?>
       <div class="brand-icon"><i class="bi bi-cake2-fill text-white" style="font-size:.9rem"></i></div>
-    @endif
-    <span>{{ $brandTitle }}</span>
+    <?php endif; ?>
+    <span><?php echo e($brandTitle); ?></span>
   </a>
-  {{-- Quick links on desktop --}}
+  
   <div class="d-none d-md-flex gap-1 ms-auto align-items-center">
-    <a href="{{ route('catalog') }}" class="btn btn-sm {{ $currentRoute==='catalog' ? 'btn-primary' : 'btn-outline-secondary' }}">
+    <a href="<?php echo e(route('catalog')); ?>" class="btn btn-sm <?php echo e($currentRoute==='catalog' ? 'btn-primary' : 'btn-outline-secondary'); ?>">
       <i class="bi bi-shop me-1"></i>Catalog
     </a>
     <div style="width:1px;height:22px;background:#e5e7eb;margin:0 6px"></div>
-    <a href="{{ route('login') }}" class="btn btn-sm btn-outline-danger fw-semibold">
+    <a href="<?php echo e(route('login')); ?>" class="btn btn-sm btn-outline-danger fw-semibold">
       <i class="bi bi-person-badge me-1"></i>Seller Login
     </a>
-    <a href="{{ route('seller.apply') }}" class="btn btn-sm btn-danger fw-semibold">
+    <a href="<?php echo e(route('seller.apply')); ?>" class="btn btn-sm btn-danger fw-semibold">
       <i class="bi bi-shop-window me-1"></i>Sell Here
     </a>
   </div>
@@ -1264,30 +1265,30 @@ function closeCustSidebar() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCustSidebar(); });
 </script>
 
-@if(session('msg') || session('error') || session('err') || session('warn'))
+<?php if(session('msg') || session('error') || session('err') || session('warn')): ?>
 <div style="padding-top:68px;padding-left:clamp(12px,3vw,24px);padding-right:clamp(12px,3vw,24px)">
-  @if(session('msg'))<div class="alert alert-success border-0 py-2 d-flex align-items-center gap-2 cs-flash"><i class="bi bi-check-circle-fill me-1"></i>{{ session('msg') }}</div>@endif
-  @if(session('error')||session('err'))<div class="alert alert-danger border-0 py-2 d-flex align-items-center gap-2 cs-flash"><i class="bi bi-exclamation-circle-fill me-1"></i>{{ session('error') ?? session('err') }}</div>@endif
-  @if(session('warn'))<div class="alert alert-warning border-0 py-2 d-flex align-items-center gap-2 cs-flash"><i class="bi bi-exclamation-triangle-fill me-1"></i>{{ session('warn') }}</div>@endif
+  <?php if(session('msg')): ?><div class="alert alert-success border-0 py-2 d-flex align-items-center gap-2 cs-flash"><i class="bi bi-check-circle-fill me-1"></i><?php echo e(session('msg')); ?></div><?php endif; ?>
+  <?php if(session('error')||session('err')): ?><div class="alert alert-danger border-0 py-2 d-flex align-items-center gap-2 cs-flash"><i class="bi bi-exclamation-circle-fill me-1"></i><?php echo e(session('error') ?? session('err')); ?></div><?php endif; ?>
+  <?php if(session('warn')): ?><div class="alert alert-warning border-0 py-2 d-flex align-items-center gap-2 cs-flash"><i class="bi bi-exclamation-triangle-fill me-1"></i><?php echo e(session('warn')); ?></div><?php endif; ?>
 </div>
-@endif
+<?php endif; ?>
 
 
-<main class="customer-wrap">@yield('content')</main>
+<main class="customer-wrap"><?php echo $__env->yieldContent('content'); ?></main>
 <footer class="text-center py-4 mt-5" style="color:#aaa;font-size:clamp(.74rem,1.5vw,.82rem)">
-  @if(!empty($brandLogo))
-    <img src="{{ $brandLogo }}" style="height:32px;width:auto;object-fit:contain;border-radius:6px;margin-bottom:.4rem;display:block;margin-left:auto;margin-right:auto" onerror="this.style.display='none'">
-  @endif
-  &copy; {{ date('Y') }} {{ $brandTitle }}. All rights reserved.
+  <?php if(!empty($brandLogo)): ?>
+    <img src="<?php echo e($brandLogo); ?>" style="height:32px;width:auto;object-fit:contain;border-radius:6px;margin-bottom:.4rem;display:block;margin-left:auto;margin-right:auto" onerror="this.style.display='none'">
+  <?php endif; ?>
+  &copy; <?php echo e(date('Y')); ?> <?php echo e($brandTitle); ?>. All rights reserved.
 </footer>
 
-@endif
-{{-- ══ END of admin/customer layout split — scripts below load for EVERYONE ══ --}}
+<?php endif; ?>
 
-{{-- ── Toast container ── --}}
+
+
 <div id="csToastContainer"></div>
 
-{{-- ── Custom Dialog (pure CSS/JS, no Bootstrap modal dependency) ── --}}
+
 <div id="csDlgBackdrop" onclick="csDlgBgClick(event)"
      style="display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,0);transition:background .22s ease;overflow-y:auto">
   <div style="display:flex;align-items:center;justify-content:center;min-height:100%;padding:1rem">
@@ -1312,7 +1313,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCustSid
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ asset('js/cakeshop.js') }}"></script>
+<script src="<?php echo e(asset('js/cakeshop.js')); ?>"></script>
 <script>
 // ── Sidebar ──
 // ── Sidebar (always defined as stubs, real impl for admin) ──
@@ -1336,7 +1337,7 @@ function closeSidebar() {
   if (sb) sb.classList.remove('mobile-open','collapsed');
   if (ov) ov.classList.remove('active');
 }
-@if($isAdmin)
+<?php if($isAdmin): ?>
 (function() {
   var sb = document.getElementById('adminSidebar');
   var mn = document.getElementById('adminMain');
@@ -1353,7 +1354,7 @@ function closeSidebar() {
   applyState();
   window.addEventListener('resize', applyState);
 })();
-@endif
+<?php endif; ?>
 
 // ── Custom Dialog System ─────────────────────────────────────────
 var _csDlgOkCb = null, _csDlgCancelCb = null;
@@ -1670,18 +1671,18 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{{-- ── Mini Chat Popup ─────────────────────────────────────────── --}}
-@if($isAdmin)
-@php
+
+<?php if($isAdmin): ?>
+<?php
   $popupDataUrl = route('admin.messages.popup_data');
   $popupSendUrl = route('admin.messages.popup_send');
   $csrfToken = csrf_token();
   $fullMsgUrl = route('admin.messages.index');
-@endphp
+?>
 <style>
-@@keyframes chatPopIn { from{opacity:0;transform:scale(.85) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
-@@keyframes chatPopOut { from{opacity:1;transform:scale(1) translateY(0)} to{opacity:0;transform:scale(.85) translateY(20px)} }
-@@keyframes msgSlideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes chatPopIn { from{opacity:0;transform:scale(.85) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
+@keyframes chatPopOut { from{opacity:1;transform:scale(1) translateY(0)} to{opacity:0;transform:scale(.85) translateY(20px)} }
+@keyframes msgSlideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
 #miniChat {
   position:fixed;
@@ -1789,7 +1790,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </style>
 
 <div id="miniChat">
-  {{-- Header --}}
+  
   <div id="miniChatHeader">
     <div style="display:flex;align-items:center;gap:8px">
       <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center">
@@ -1801,7 +1802,7 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
     </div>
     <div style="display:flex;gap:6px;align-items:center">
-      <a href="{{ $fullMsgUrl }}"
+      <a href="<?php echo e($fullMsgUrl); ?>"
          style="color:rgba(255,255,255,.8);font-size:.75rem;text-decoration:none;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:12px;white-space:nowrap"
          title="Open full messages">
         <i class="bi bi-arrows-fullscreen me-1"></i>Full
@@ -1812,19 +1813,19 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
   </div>
 
-  {{-- Messages area --}}
+  
   <div id="miniChatMessages">
     <div id="mcLoading" style="text-align:center;padding:20px;color:#bbb;font-size:.82rem">
       <i class="bi bi-three-dots" style="font-size:1.2rem"></i>
     </div>
   </div>
 
-  {{-- Multi-image preview strip --}}
+  
   <div id="mcImgPreviewBar" style="display:none;padding:8px 12px 4px;border-top:1px solid #f0f0f0;background:#fafafa">
     <div id="mcImgPreviewStrip" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
   </div>
 
-  {{-- Input --}}
+  
   <div id="miniChatInput" style="display:none">
     <label for="mcImageInput" id="mcImgBtn" style="width:32px;height:32px;border-radius:50%;background:#f5f5f5;border:none;color:#aaa;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;margin:0" title="Attach images">
       <i class="bi bi-paperclip" style="font-size:.85rem"></i>
@@ -1839,17 +1840,17 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <script>
-var MC_DATA_URL  = '{{ $popupDataUrl }}';
-var MC_SEND_URL  = '{{ $popupSendUrl }}';
-var MC_CSRF      = '{{ $csrfToken }}';
-var MC_ROLE      = '{{ session("user")["role"] ?? "" }}';
-var MC_USER_ID   = '{{ session("user")["id"] ?? "" }}';
-@php
+var MC_DATA_URL  = '<?php echo e($popupDataUrl); ?>';
+var MC_SEND_URL  = '<?php echo e($popupSendUrl); ?>';
+var MC_CSRF      = '<?php echo e($csrfToken); ?>';
+var MC_ROLE      = '<?php echo e(session("user")["role"] ?? ""); ?>';
+var MC_USER_ID   = '<?php echo e(session("user")["id"] ?? ""); ?>';
+<?php
   $markOrderReadUrl = (session('user')['role'] ?? '') === 'admin'
     ? url('/admin/messages/mark-order-read')
     : url('/customer/messages/mark-order-read');
-@endphp
-var MC_MARK_URL  = '{{ $markOrderReadUrl }}';
+?>
+var MC_MARK_URL  = '<?php echo e($markOrderReadUrl); ?>';
 
 var mcOpen           = false;
 var mcLatestOrderId  = null;
@@ -2099,7 +2100,7 @@ async function openCustomerChat(customerName, orderId, customerData, userId) {
 // ── Mark single message read (fallback) ──────────────────────────────
 async function markMsgRead(msgId) {
   try {
-    await fetch('{{ session("user") ? (session("user")["role"] === "admin" ? url("/admin/messages/mark-read-msg") : url("/customer/messages/mark-read-msg")) : "" }}/' + msgId, {
+    await fetch('<?php echo e(session("user") ? (session("user")["role"] === "admin" ? url("/admin/messages/mark-read-msg") : url("/customer/messages/mark-read-msg")) : ""); ?>/' + msgId, {
       method: 'POST',
       headers: { 'X-CSRF-TOKEN': MC_CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
     });
@@ -2334,20 +2335,20 @@ function formatMcTime(dateStr) {
   return d.toLocaleDateString([],{month:'short',day:'numeric'});
 }
 </script>
-@endif
+<?php endif; ?>
 
-{{-- ── Floating Cake Messenger Bubble (Admin only) ─────────────── --}}
-@if($isAdmin)
-@php
+
+<?php if($isAdmin): ?>
+<?php
   $msgRoute    = route('admin.messages.index');
   $unreadCount = $unreadMessages ?? 0;
-@endphp
+?>
 <style>
-@@keyframes cakeBubbleFloat { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-10px) rotate(2deg)} }
-@@keyframes cakeBubblePing1 { 0%{transform:scale(1);opacity:.5} 100%{transform:scale(2.2);opacity:0} }
-@@keyframes cakeBubblePing2 { 0%{transform:scale(1);opacity:.3} 100%{transform:scale(2.8);opacity:0} }
-@@keyframes cakeBubbleWiggle { 0%,100%{transform:rotate(0)} 20%{transform:rotate(-15deg)} 40%{transform:rotate(12deg)} 60%{transform:rotate(-8deg)} 80%{transform:rotate(5deg)} }
-@@keyframes cakeTooltipIn { from{opacity:0;transform:scale(.85) translateX(10px)} to{opacity:1;transform:scale(1) translateX(0)} }
+@keyframes cakeBubbleFloat { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-10px) rotate(2deg)} }
+@keyframes cakeBubblePing1 { 0%{transform:scale(1);opacity:.5} 100%{transform:scale(2.2);opacity:0} }
+@keyframes cakeBubblePing2 { 0%{transform:scale(1);opacity:.3} 100%{transform:scale(2.8);opacity:0} }
+@keyframes cakeBubbleWiggle { 0%,100%{transform:rotate(0)} 20%{transform:rotate(-15deg)} 40%{transform:rotate(12deg)} 60%{transform:rotate(-8deg)} 80%{transform:rotate(5deg)} }
+@keyframes cakeTooltipIn { from{opacity:0;transform:scale(.85) translateX(10px)} to{opacity:1;transform:scale(1) translateX(0)} }
 
 #cakeMsgBubble {
   position:fixed;
@@ -2408,11 +2409,12 @@ function formatMcTime(dateStr) {
 <div id="cakeMsgPing1"></div>
 <div id="cakeMsgPing2"></div>
 <div id="cakeMsgTooltip">
-  @if($unreadCount > 0)
-    <i class="bi bi-chat-dots-fill me-1" style="color:#e91e63"></i>{{ $unreadCount }} unread message{{ $unreadCount > 1 ? 's' : '' }}
-  @else
+  <?php if($unreadCount > 0): ?>
+    <i class="bi bi-chat-dots-fill me-1" style="color:#e91e63"></i><?php echo e($unreadCount); ?> unread message<?php echo e($unreadCount > 1 ? 's' : ''); ?>
+
+  <?php else: ?>
     <i class="bi bi-chat-dots me-1" style="color:#e91e63"></i>Messages
-  @endif
+  <?php endif; ?>
 </div>
 
 <a href="#" id="cakeMsgBubble" onclick="event.preventDefault();if(typeof toggleMiniChat==='function')toggleMiniChat()"
@@ -2476,17 +2478,18 @@ function formatMcTime(dateStr) {
     <!-- Chat bubble tail -->
     <path d="M18 50 Q14 56 10 58 Q16 54 22 50Z" fill="#fff8e1"/>
   </svg>
-  @if($unreadCount > 0)
+  <?php if($unreadCount > 0): ?>
   <div style="position:absolute;top:-2px;right:-2px;width:22px;height:22px;background:#ff3b30;border-radius:50%;border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;font-family:system-ui;box-shadow:0 2px 8px rgba(255,59,48,.5)">
-    {{ $unreadCount > 9 ? '9+' : $unreadCount }}
+    <?php echo e($unreadCount > 9 ? '9+' : $unreadCount); ?>
+
   </div>
-  @endif
+  <?php endif; ?>
 </a>
-@endif
+<?php endif; ?>
 
-@stack('scripts')
+<?php echo $__env->yieldPushContent('scripts'); ?>
 
-{{-- ── Global Image Lightbox ─────────────────────────────────────── --}}
+
 <style>
 #imgLightbox {
   position:fixed;inset:0;z-index:99999;
@@ -2495,7 +2498,7 @@ function formatMcTime(dateStr) {
   align-items:center;justify-content:center;
   animation:lbIn .2s ease;
 }
-@@keyframes lbIn { from{opacity:0} to{opacity:1} }
+@keyframes lbIn { from{opacity:0} to{opacity:1} }
 #imgLightbox.open { display:flex; }
 #lbImg {
   max-width:90vw;max-height:80vh;
@@ -2538,7 +2541,7 @@ function formatMcTime(dateStr) {
 </style>
 
 <div id="imgLightbox" onclick="lbBgClick(event)">
-  {{-- Top toolbar --}}
+  
   <div id="lbToolbar">
     <div style="display:flex;align-items:center;gap:8px">
       <button class="lb-tb-btn" onclick="lbZoom(-1)" title="Zoom out"><i class="bi bi-zoom-out"></i></button>
@@ -2553,7 +2556,7 @@ function formatMcTime(dateStr) {
     </div>
   </div>
 
-  {{-- Prev / Next --}}
+  
   <button id="lbNavPrev" onclick="lbNav(-1)"><i class="bi bi-chevron-left"></i></button>
   <img id="lbImg" src="" alt="Image" draggable="false">
   <button id="lbNavNext" onclick="lbNav(1)"><i class="bi bi-chevron-right"></i></button>
@@ -2644,7 +2647,7 @@ document.getElementById('lbImg').addEventListener('wheel', e => {
 }, { passive: false });
 </script>
 
-{{-- Dev Mode: CSS for toast + polling JS --}}
+
 <style>
 .cs-dev-toast {
   background: linear-gradient(135deg, #fffbeb 0%, #fff 100%);
@@ -2654,10 +2657,10 @@ document.getElementById('lbImg').addEventListener('wheel', e => {
   gap: 10px;
 }
 </style>
-@if(!empty($platformBrand->dev_mode))
+<?php if(!empty($platformBrand->dev_mode)): ?>
 <script>
 (function () {
-  var POLL_URL = '{{ route("dev.sms.poll") }}';
+  var POLL_URL = '<?php echo e(route("dev.sms.poll")); ?>';
 
   function showDevSmsToast(sms) {
     var c = document.getElementById('csToastContainer');
@@ -2703,6 +2706,7 @@ document.getElementById('lbImg').addEventListener('wheel', e => {
   setInterval(pollDevSms, 3000);
 }());
 </script>
-@endif
+<?php endif; ?>
 </body>
 </html>
+<?php /**PATH C:\Users\Administrator\cakeshop_v2\resources\views/layouts/app.blade.php ENDPATH**/ ?>

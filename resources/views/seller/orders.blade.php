@@ -29,15 +29,15 @@
         <div style="font-size:.95rem;font-weight:700;color:var(--gray-900)">Smart Order Filter</div>
         <div style="font-size:.8rem;color:var(--gray-500)">Search by customer, product, tracking code, payment, or order status</div>
       </div>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-        <input type="text" id="sellerOrderSearch" class="form-control" placeholder="Search orders..." style="min-width:220px;max-width:280px" oninput="filterSellerOrders()">
-        <select id="sellerOrderStatusFilter" class="form-select" style="width:auto" onchange="filterSellerOrders()">
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;width:100%">
+        <input type="text" id="sellerOrderSearch" class="form-control" placeholder="Search orders..." style="flex:1;min-width:0;max-width:280px" oninput="filterSellerOrders()">
+        <select id="sellerOrderStatusFilter" class="form-select" style="flex:1;min-width:0;max-width:160px" onchange="filterSellerOrders()">
           <option value="">All status</option>
           @foreach($orders->pluck('status')->filter()->unique()->sort()->values() as $statusOption)
           <option value="{{ strtolower($statusOption) }}">{{ $statusOption }}</option>
           @endforeach
         </select>
-        <select id="sellerOrderFulfillmentFilter" class="form-select" style="width:auto" onchange="filterSellerOrders()">
+        <select id="sellerOrderFulfillmentFilter" class="form-select" style="flex:1;min-width:0;max-width:160px" onchange="filterSellerOrders()">
           <option value="">All fulfillment</option>
           <option value="pickup">Pickup</option>
           <option value="delivery">Delivery</option>

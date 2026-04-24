@@ -362,8 +362,8 @@
     </div>
     <div class="d-flex flex-wrap align-items-center gap-2">
       <input type="text" id="logSearch" class="form-control form-control-sm"
-             placeholder="Search logs…" oninput="filterLogs()" style="min-width:200px;max-width:250px">
-      <select id="logRoleFilter" class="form-select form-select-sm" style="min-width:140px" onchange="filterLogs()">
+             placeholder="Search logs…" oninput="filterLogs()" style="flex:1;min-width:0;max-width:250px">
+      <select id="logRoleFilter" class="form-select form-select-sm" style="flex:1;min-width:0;max-width:160px" onchange="filterLogs()">
         <option value="">All Roles</option>
         <option value="superadmin">Super Admin</option>
         <option value="admin">Admin</option>

@@ -43,8 +43,8 @@
       <div style="font-size:.8rem;color:var(--gray-500)">Search by product name, flavor, category, or availability</div>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-      <input type="text" id="sellerProductSearch" class="form-control" placeholder="Search products..." style="min-width:220px;max-width:280px" oninput="filterSellerProducts()">
-      <select id="sellerProductClassFilter" class="form-select" style="width:auto" onchange="filterSellerProducts()">
+      <input type="text" id="sellerProductSearch" class="form-control" placeholder="Search products..." style="flex:1;min-width:0;max-width:280px" oninput="filterSellerProducts()">
+      <select id="sellerProductClassFilter" class="form-select" style="flex:1;min-width:0;max-width:180px" onchange="filterSellerProducts()">
         <option value="">All categories</option>
         @foreach($products->pluck('classification')->filter()->unique()->sort()->values() as $classificationOption)
         <option value="{{ strtolower($classificationOption) }}">{{ $classificationOption }}</option>

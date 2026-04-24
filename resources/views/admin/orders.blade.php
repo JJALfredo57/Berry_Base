@@ -15,8 +15,7 @@
         @endif
       </p>
     </div>
-    <div class="cs-search-bar" style="max-width:240px;width:100%">
-      
+    <div class="cs-search-bar" style="flex:1;min-width:0;max-width:280px">
       <input type="text" id="searchInput" class="form-control form-control-sm"
              placeholder="Search customer, order ID…" oninput="doFilter()">
     </div>

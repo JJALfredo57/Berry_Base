@@ -30,8 +30,8 @@
       <div style="font-size:.8rem;color:var(--gray-500)">Search by shop, owner, email, phone, city, or application status</div>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-      <input type="text" id="sellerMgmtSearch" class="form-control" placeholder="Search sellers..." style="min-width:220px;max-width:280px" oninput="filterSellerManagement()">
-      <select id="sellerMgmtStatus" class="form-select" style="width:auto" onchange="filterSellerManagement()">
+      <input type="text" id="sellerMgmtSearch" class="form-control" placeholder="Search sellers..." style="flex:1;min-width:0;max-width:280px" oninput="filterSellerManagement()">
+      <select id="sellerMgmtStatus" class="form-select" style="flex:1;min-width:0;max-width:180px" onchange="filterSellerManagement()">
         <option value="">All status</option>
         <option value="pending">Pending Review</option>
         <option value="approved">Approved</option>
