@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -l)",
+      "Bash(php artisan:*)",
+      "Bash(php -r \":*)",
+      "Bash(php check_blade.php)",
+      "Bash(php check_blade2.php)",
+      "Bash(php check_blade3.php)",
+      "Bash(php check_blade4.php)",
+      "Bash(php check_blade5.php)"
+    ]
+  }
+}
