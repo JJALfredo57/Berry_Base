@@ -34,7 +34,7 @@ class MessageController extends Controller
             ->where('o.id', $orderId)
             ->select('o.*', 'p.name as product_name', 'p.image_path',
                 DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
-                DB::raw('COALESCE(u.username, 'Guest') as username'),
+                DB::raw("COALESCE(u.username, 'Guest') as username"),
                 DB::raw('COALESCE(o.guest_phone, u.phone) as phone'))
             ->first();
 
@@ -88,7 +88,7 @@ class MessageController extends Controller
                 'm.is_read',
                 'm.created_at',
                 'p.name as product_name',
-                DB::raw('COALESCE(o.guest_name, u.fullname, 'Customer') as customer_name'),
+                DB::raw("COALESCE(o.guest_name, u.fullname, 'Customer') as customer_name"),
                 DB::raw('COALESCE(u.profile_photo, NULL) as customer_photo'),
                 DB::raw('COALESCE(u.id, NULL) as customer_user_id'),
                 'o.guest_name',

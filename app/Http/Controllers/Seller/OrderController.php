@@ -26,7 +26,7 @@ class OrderController extends Controller
             ->where('o.shop_id', $shop->id)
             ->select(
                 'o.*',
-                DB::raw('COALESCE(o.guest_name, u.fullname, 'Customer') as fullname'),
+                DB::raw("COALESCE(o.guest_name, u.fullname, 'Customer') as fullname"),
                 DB::raw('COALESCE(o.guest_phone, u.phone) as phone'),
                 'p.name as product_name', 'p.image_path'
             )

@@ -44,7 +44,7 @@ class MessageController extends Controller
             ->where('o.shop_id', $shop->id)
             ->select('o.*', 'p.name as product_name', 'p.image_path',
                 DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
-                DB::raw('COALESCE(u.username, 'Guest') as username'),
+                DB::raw("COALESCE(u.username, 'Guest') as username"),
                 DB::raw('COALESCE(o.guest_phone, u.phone) as phone'))
             ->first();
 

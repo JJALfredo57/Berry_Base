@@ -27,7 +27,7 @@ class CustomOrderController extends Controller
             ->select('co.*',
                 DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
                 DB::raw('COALESCE(o.guest_phone, u.phone) as phone'),
-                DB::raw('COALESCE(u.username, 'Guest') as username'),
+                DB::raw("COALESCE(u.username, 'Guest') as username"),
                 'o.status as order_status', 'o.total_price as order_total',
                 'o.fulfillment_type', 'o.schedule_date', 'o.payment_method', 'o.payment_status', 'o.address')
             ->orderByDesc('co.id')->get();

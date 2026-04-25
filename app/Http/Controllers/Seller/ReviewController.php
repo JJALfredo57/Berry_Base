@@ -23,7 +23,7 @@ class ReviewController extends Controller
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.shop_id', $shop->id)
             ->select('r.*', 'p.name as product_name',
-                DB::raw('COALESCE(u.fullname, r.guest_name, 'Customer') as reviewer_name'),
+                DB::raw("COALESCE(u.fullname, r.guest_name, 'Customer') as reviewer_name"),
                 'u.profile_photo')
             ->orderByDesc('r.created_at')->paginate(20);
 
