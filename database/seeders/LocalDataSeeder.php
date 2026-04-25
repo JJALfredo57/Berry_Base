@@ -136,6 +136,9 @@ class LocalDataSeeder extends Seeder
 
         // Delivery zones (first 10 only as sample - full list is 132 zones)
         $this->seedDeliveryZones();
+
+        // Reset PostgreSQL auto-increment sequences
+        $this->resetSequences();
     }
 
     private function seedDeliveryZones(): void
@@ -204,5 +207,23 @@ class LocalDataSeeder extends Seeder
         ], $zones);
 
         DB::table('delivery_zones')->upsert($rows, ['id'], ['barangay','fee']);
+    }
+
+    private function resetSequences(): void
+    {
+        if (DB::getDriverName() !== 'pgsql') return;
+
+        $tables = [
+            'order_tracking', 'notifications', 'kitchen_tickets',
+            'delivery_zones', 'riders', 'seller_documents',
+            'activity_logs', 'password_resets', 'order_addons',
+            'order_reviews', 'user_addresses', 'messages',
+            'cake_addon_categories', 'cake_addons', 'custom_order_options',
+            'product_sizes',
+        ];
+
+        foreach ($tables as $table) {
+            DB::statement("SELECT setval(pg_get_serial_sequence('$table', 'id'), COALESCE((SELECT MAX(id) FROM \"$table\"), 1))");
+        }
     }
 }
