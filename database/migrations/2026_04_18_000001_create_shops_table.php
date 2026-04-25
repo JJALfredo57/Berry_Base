@@ -66,11 +66,13 @@ return new class extends Migration {
             });
         }
 
-        // Safely add seller/superadmin roles to users enum (only if not already present)
-        try {
-            DB::statement("ALTER TABLE `users` MODIFY `role` ENUM('admin','customer','seller','superadmin') NOT NULL DEFAULT 'customer'");
-        } catch (\Exception $e) {
-            // Already up-to-date, skip
+        // MySQL only: expand users role enum (PostgreSQL handles this in base migration)
+        if (DB::getDriverName() === 'mysql') {
+            try {
+                DB::statement("ALTER TABLE `users` MODIFY `role` ENUM('admin','customer','seller','superadmin') NOT NULL DEFAULT 'customer'");
+            } catch (\Exception $e) {
+                // Already up-to-date, skip
+            }
         }
 
         // Seed default platform settings only if table is empty
