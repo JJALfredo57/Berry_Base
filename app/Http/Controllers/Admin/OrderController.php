@@ -16,8 +16,8 @@ class OrderController extends Controller
             ->select('o.*',
                 DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
                 DB::raw('COALESCE(o.guest_phone, u.phone) as phone'),
-                DB::raw('IFNULL(u.username, "Guest") as username'),
-                DB::raw('IFNULL(u.email, "") as email'),
+                DB::raw('COALESCE(u.username, 'Guest') as username'),
+                DB::raw('COALESCE(u.email, '') as email'),
                 'p.name as product_name', 'p.image_path', 'p.price')
             ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")
             ->orderByDesc('o.id')

@@ -22,7 +22,7 @@ class MessageController extends Controller
         $threads = DB::select("
             SELECT o.id order_id, o.status,
                 COALESCE(o.guest_name, u.fullname) as fullname,
-                IFNULL(u.username, 'Guest') as username,
+                COALESCE(u.username, 'Guest') as username,
                 (SELECT message FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_message,
                 (SELECT created_at FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_time,
                 (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role='customer' AND m.is_read=0) unread_count
@@ -44,7 +44,7 @@ class MessageController extends Controller
             ->where('o.shop_id', $shop->id)
             ->select('o.*', 'p.name as product_name', 'p.image_path',
                 DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
-                DB::raw('IFNULL(u.username, "Guest") as username'),
+                DB::raw('COALESCE(u.username, 'Guest') as username'),
                 DB::raw('COALESCE(o.guest_phone, u.phone) as phone'))
             ->first();
 
