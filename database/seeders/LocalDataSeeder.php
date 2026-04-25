@@ -120,18 +120,18 @@ class LocalDataSeeder extends Seeder
             ['id'=>4,'shop_id'=>'zwn37a5y0g0h','order_id'=>'v6j9amwgsywf','product_name'=>'Naruto Theme Cake','product_image'=>'/storage/uploads/products/20260414105850_63e628d0dc7b.jpg','quantity'=>1,'status'=>'done','sent_at'=>'2026-04-24 13:21:17','created_at'=>'2026-04-24 13:21:17','updated_at'=>'2026-04-24 13:23:34'],
         ], ['id'], ['status','updated_at']);
 
-        // Notifications
+        // Notifications — all rows must have identical keys
         DB::table('notifications')->upsert([
             ['id'=>1,'receiver_role'=>'superadmin','receiver_user_id'=>'0qm0ed7vjr11','title'=>'New Seller Application','message'=>'Simple Cake shop applied to become a Basic Seller.','is_read'=>0,'created_at'=>'2026-04-18 13:52:34'],
-            ['id'=>2,'receiver_role'=>'admin','title'=>'New Order from Prince Alfred Barrozo','message'=>'Prince Alfred Barrozo (+639104587030) placed Order #k52ay20bgdbi.','is_read'=>0,'created_at'=>'2026-04-21 05:26:08'],
-            ['id'=>3,'receiver_role'=>'admin','title'=>'New Order from Jose Alfredo Barrozo','message'=>'Jose Alfredo Barrozo (+639104587030) placed Order #iiqwnz98fq7c.','is_read'=>0,'created_at'=>'2026-04-21 13:20:44'],
-            ['id'=>4,'receiver_role'=>'admin','title'=>'New Order from Jose Alfredo Barrozo','message'=>'Jose Alfredo Barrozo (+639104587030) placed Order #1zb6qvowk0kc.','is_read'=>0,'created_at'=>'2026-04-23 19:16:00'],
-            ['id'=>5,'receiver_role'=>'admin','title'=>'New Order from Jose Alfredo Barrozo','message'=>'Jose Alfredo Barrozo (+639233776385) placed Order #pcvhvycghwtr.','is_read'=>0,'created_at'=>'2026-04-24 12:16:32'],
-            ['id'=>6,'receiver_role'=>'admin','title'=>'New Order from Antonia Sarmiento Barrozo','message'=>'Antonia Sarmiento Barrozo (+639233776385) placed Order #ehztq6pgjxb8.','is_read'=>0,'created_at'=>'2026-04-24 12:35:22'],
-            ['id'=>7,'receiver_role'=>'admin','title'=>'Deposit Paid - Order #ehztq6pgjxb8','message'=>'Antonia Sarmiento Barrozo paid the deposit of PHP 1800.00 for Order #ehztq6pgjxb8.','is_read'=>0,'created_at'=>'2026-04-24 12:36:59'],
-            ['id'=>8,'receiver_role'=>'admin','title'=>'New Order from ALFREDO BARROZO','message'=>'ALFREDO BARROZO (+639104587030) placed Order #v6j9amwgsywf.','is_read'=>0,'created_at'=>'2026-04-24 13:15:41'],
-            ['id'=>9,'receiver_role'=>'admin','title'=>'Deposit Paid - Order #v6j9amwgsywf','message'=>'ALFREDO BARROZO paid the deposit of PHP 900.00 for Order #v6j9amwgsywf.','is_read'=>0,'created_at'=>'2026-04-24 13:21:17'],
-            ['id'=>10,'receiver_role'=>'admin','title'=>'GCash Payment Received - Order #v6j9amwgsywf','message'=>'ALFREDO BARROZO completed GCash payment for Order #v6j9amwgsywf.','is_read'=>0,'created_at'=>'2026-04-24 13:25:14'],
+            ['id'=>2,'receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'New Order from Prince Alfred Barrozo','message'=>'Prince Alfred Barrozo (+639104587030) placed Order #k52ay20bgdbi.','is_read'=>0,'created_at'=>'2026-04-21 05:26:08'],
+            ['id'=>3,'receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'New Order from Jose Alfredo Barrozo','message'=>'Jose Alfredo Barrozo (+639104587030) placed Order #iiqwnz98fq7c.','is_read'=>0,'created_at'=>'2026-04-21 13:20:44'],
+            ['id'=>4,'receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'New Order from Jose Alfredo Barrozo','message'=>'Jose Alfredo Barrozo (+639104587030) placed Order #1zb6qvowk0kc.','is_read'=>0,'created_at'=>'2026-04-23 19:16:00'],
+            ['id'=>5,'receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'New Order from Jose Alfredo Barrozo','message'=>'Jose Alfredo Barrozo (+639233776385) placed Order #pcvhvycghwtr.','is_read'=>0,'created_at'=>'2026-04-24 12:16:32'],
+            ['id'=>6,'receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'New Order from Antonia Sarmiento Barrozo','message'=>'Antonia Sarmiento Barrozo (+639233776385) placed Order #ehztq6pgjxb8.','is_read'=>0,'created_at'=>'2026-04-24 12:35:22'],
+            ['id'=>7,'receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'Deposit Paid - Order #ehztq6pgjxb8','message'=>'Antonia Sarmiento Barrozo paid the deposit of PHP 1800.00 for Order #ehztq6pgjxb8.','is_read'=>0,'created_at'=>'2026-04-24 12:36:59'],
+            ['id'=>8,'receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'New Order from ALFREDO BARROZO','message'=>'ALFREDO BARROZO (+639104587030) placed Order #v6j9amwgsywf.','is_read'=>0,'created_at'=>'2026-04-24 13:15:41'],
+            ['id'=>9,'receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'Deposit Paid - Order #v6j9amwgsywf','message'=>'ALFREDO BARROZO paid the deposit of PHP 900.00 for Order #v6j9amwgsywf.','is_read'=>0,'created_at'=>'2026-04-24 13:21:17'],
+            ['id'=>10,'receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'GCash Payment Received - Order #v6j9amwgsywf','message'=>'ALFREDO BARROZO completed GCash payment for Order #v6j9amwgsywf.','is_read'=>0,'created_at'=>'2026-04-24 13:25:14'],
         ], ['id'], ['title','is_read']);
 
         // Delivery zones (first 10 only as sample - full list is 132 zones)
