@@ -2,7 +2,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration {
     public function up(): void
@@ -17,6 +16,8 @@ return new class extends Migration {
                 $t->string('password');
                 $t->enum('role', ['admin','customer','seller','superadmin'])->default('customer');
                 $t->boolean('is_verified')->default(false);
+                $t->string('otp_code', 10)->nullable();
+                $t->timestamp('otp_expires')->nullable();
                 $t->string('profile_photo')->nullable();
                 $t->timestamps();
             });
@@ -24,8 +25,11 @@ return new class extends Migration {
 
         if (!Schema::hasTable('password_resets')) {
             Schema::create('password_resets', function (Blueprint $t) {
-                $t->string('email')->index();
-                $t->string('token');
+                $t->bigIncrements('id');
+                $t->string('user_id', 12)->nullable()->index();
+                $t->string('otp_code', 10)->nullable();
+                $t->timestamp('expires_at')->nullable();
+                $t->boolean('used')->default(false);
                 $t->timestamp('created_at')->nullable();
             });
         }
@@ -36,9 +40,12 @@ return new class extends Migration {
                 $t->string('shop_id', 12)->nullable();
                 $t->string('barangay', 100);
                 $t->decimal('fee', 8, 2)->default(0);
+                $t->decimal('delivery_fee', 8, 2)->default(0);
                 $t->string('zone_type', 30)->nullable();
                 $t->boolean('is_active')->default(true);
                 $t->integer('sort_order')->default(0);
+                $t->integer('estimated_minutes')->nullable();
+                $t->string('estimated_time', 30)->nullable();
                 $t->timestamps();
             });
         }
@@ -94,6 +101,7 @@ return new class extends Migration {
                 $t->string('classification', 60)->nullable();
                 $t->string('flavor', 80)->nullable();
                 $t->boolean('is_available')->default(true);
+                $t->integer('sort_order')->default(0);
                 $t->integer('max_per_day')->nullable();
                 $t->timestamps();
             });
@@ -127,10 +135,14 @@ return new class extends Migration {
                 $t->string('name', 100);
                 $t->string('nickname', 60)->nullable();
                 $t->string('phone', 20)->nullable();
+                $t->string('photo')->nullable();
+                $t->string('plate_number', 20)->nullable();
                 $t->string('vehicle_type', 60)->nullable();
                 $t->string('license_plate', 30)->nullable();
                 $t->string('emergency_contact_name', 100)->nullable();
                 $t->string('emergency_contact_phone', 20)->nullable();
+                $t->string('issue_status', 30)->nullable();
+                $t->string('resolution_type', 30)->nullable();
                 $t->boolean('is_active')->default(true);
                 $t->integer('incidents_count')->default(0);
                 $t->timestamps();
@@ -143,47 +155,62 @@ return new class extends Migration {
                 $t->string('shop_id', 12)->nullable();
                 $t->string('user_id', 12)->nullable();
                 $t->string('product_id', 12)->nullable();
-                $t->integer('quantity')->default(1);
-                $t->text('custom_note')->nullable();
-                $t->text('special_notes')->nullable();
-                $t->decimal('total_price', 10, 2)->default(0);
-                $t->string('status', 30)->default('pending');
-                $t->string('fulfillment_type', 20)->default('pickup');
-                $t->string('delivery_zone')->nullable();
-                $t->decimal('delivery_fee', 8, 2)->default(0);
-                $t->decimal('service_charge', 8, 2)->default(0);
-                $t->string('selected_size', 60)->nullable();
-                $t->decimal('selected_size_price', 10, 2)->nullable();
-                $t->text('delivery_address')->nullable();
-                $t->date('schedule_date')->nullable();
-                $t->string('schedule_time', 10)->nullable();
-                $t->string('payment_method', 30)->nullable();
-                $t->string('payment_status', 30)->default('unpaid');
-                $t->string('guest_name', 100)->nullable();
-                $t->string('guest_phone', 20)->nullable();
-                $t->string('track_code', 30)->nullable();
-                $t->boolean('kitchen_sent')->default(false);
                 $t->unsignedBigInteger('rider_id')->nullable();
                 $t->string('rider_token', 64)->nullable();
-                $t->string('issue_type', 50)->nullable();
-                $t->decimal('issue_amount', 10, 2)->nullable();
-                $t->text('resolution_note')->nullable();
-                $t->timestamp('issue_resolved_at')->nullable();
-                $t->timestamp('settled_at')->nullable();
+                $t->string('track_code', 30)->nullable();
+                $t->string('fullname', 100)->nullable();
+                $t->string('guest_name', 100)->nullable();
+                $t->string('guest_phone', 20)->nullable();
+                $t->string('guest_email', 150)->nullable();
+                $t->integer('quantity')->default(1);
+                $t->string('selected_size', 60)->nullable();
+                $t->decimal('selected_size_price', 10, 2)->nullable();
+                $t->decimal('total_price', 10, 2)->default(0);
+                $t->decimal('delivery_fee', 8, 2)->default(0);
+                $t->decimal('service_charge', 8, 2)->default(0);
+                $t->decimal('custom_fee', 8, 2)->default(0);
+                $t->string('status', 30)->default('pending');
+                $t->string('fulfillment_type', 20)->default('pickup');
+                $t->date('schedule_date')->nullable();
+                $t->string('schedule_time', 10)->nullable();
+                $t->text('delivery_address')->nullable();
+                $t->string('delivery_zone')->nullable();
+                $t->string('delivery_barangay', 100)->nullable();
+                $t->text('special_notes')->nullable();
+                $t->text('custom_note')->nullable();
+                $t->string('payment_method', 30)->nullable();
+                $t->string('payment_status', 30)->default('unpaid');
+                $t->boolean('price_confirmed')->default(false);
+                $t->timestamp('paid_at')->nullable();
+                $t->timestamp('delivered_at')->nullable();
+                $t->string('delivery_photo')->nullable();
                 $t->boolean('deposit_required')->default(false);
                 $t->decimal('deposit_amount', 10, 2)->nullable();
                 $t->string('deposit_status', 30)->nullable();
-                $t->text('deposit_message')->nullable();
+                $t->timestamp('deposit_paid_at')->nullable();
                 $t->string('deposit_paymongo_id')->nullable();
-                $t->string('paymongo_link_id')->nullable();
+                $t->text('deposit_message')->nullable();
+                $t->string('cancel_reason')->nullable();
+                $t->string('cancel_admin_note')->nullable();
                 $t->string('cancel_status', 30)->nullable();
-                $t->text('cancel_reason')->nullable();
+                $t->boolean('cancel_requested')->default(false);
                 $t->timestamp('cancel_requested_at')->nullable();
-                $t->text('cancel_admin_note')->nullable();
+                $t->string('issue_type', 50)->nullable();
+                $t->string('issue_photo')->nullable();
+                $t->text('issue_note')->nullable();
+                $t->string('issue_status', 30)->nullable();
+                $t->timestamp('issue_reported_at')->nullable();
+                $t->decimal('issue_amount', 10, 2)->nullable();
+                $t->text('resolution_note')->nullable();
+                $t->string('resolution_type', 30)->nullable();
+                $t->boolean('not_home')->default(false);
+                $t->timestamp('issue_resolved_at')->nullable();
+                $t->timestamp('settled_at')->nullable();
+                $t->boolean('kitchen_sent')->default(false);
                 $t->boolean('review_requested')->default(false);
-                $t->timestamp('delivered_at')->nullable();
-                $t->timestamp('paid_at')->nullable();
-                $t->boolean('price_confirmed')->default(false);
+                $t->string('paymongo_link_id')->nullable();
+                $t->text('paymongo_link_url')->nullable();
+                $t->string('paymongo_intent_id')->nullable();
                 $t->timestamps();
             });
         }
@@ -205,6 +232,8 @@ return new class extends Migration {
                 $t->string('order_id', 12);
                 $t->string('status', 50);
                 $t->text('notes')->nullable();
+                $t->string('sender_role', 30)->nullable();
+                $t->string('receiver_role', 30)->nullable();
                 $t->timestamp('created_at')->nullable();
             });
         }
@@ -252,7 +281,10 @@ return new class extends Migration {
                 $t->string('product_image')->nullable();
                 $t->integer('quantity')->default(1);
                 $t->text('instructions')->nullable();
+                $t->text('notes')->nullable();
                 $t->string('status', 30)->default('pending');
+                $t->timestamp('started_at')->nullable();
+                $t->timestamp('done_at')->nullable();
                 $t->timestamp('sent_at')->nullable();
                 $t->timestamps();
             });
@@ -277,6 +309,7 @@ return new class extends Migration {
                 $t->bigIncrements('id');
                 $t->enum('receiver_role', ['admin','customer','seller','superadmin']);
                 $t->string('receiver_user_id', 12)->nullable();
+                $t->string('order_id', 12)->nullable();
                 $t->string('title', 200);
                 $t->text('message')->nullable();
                 $t->boolean('is_read')->default(false);
@@ -312,7 +345,7 @@ return new class extends Migration {
                 $t->decimal('bg_image_opacity', 3, 2)->default(1.00);
                 $t->string('primary_color', 20)->nullable();
                 $t->boolean('vat_enabled')->default(false);
-                $t->decimal('vat_rate', 5, 2)->default(12.00);
+                $t->decimal('vat_rate', 5, 2)->default(0.00);
                 $t->string('tin_number', 30)->nullable();
                 $t->string('timezone', 60)->default('Asia/Manila');
                 $t->integer('daily_max_cakes')->nullable();
@@ -320,12 +353,18 @@ return new class extends Migration {
                 $t->integer('lead_2day_max')->nullable();
                 $t->integer('lead_3day_plus_max')->nullable();
                 $t->string('paymongo_mode', 10)->default('test');
+                $t->string('paymongo_public_key')->nullable();
+                $t->string('paymongo_secret_key')->nullable();
                 $t->string('paymongo_test_secret')->nullable();
                 $t->string('paymongo_test_public')->nullable();
                 $t->string('paymongo_live_secret')->nullable();
                 $t->string('paymongo_live_public')->nullable();
+                $t->string('philsms_token')->nullable();
+                $t->string('philsms_sender', 20)->nullable();
                 $t->decimal('shop_lat', 10, 7)->nullable();
                 $t->decimal('shop_lng', 10, 7)->nullable();
+                $t->string('shop_address')->nullable();
+                $t->string('shop_city', 80)->nullable();
                 $t->timestamp('updated_at')->nullable();
             });
         }
