@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration {
     public function up(): void
     {
+        // All base tables are created in 2026_04_01_000000_create_base_tables.php
+        // This migration only adds tables/columns not in the base migration
+
         if (!Schema::hasTable('shops')) {
             Schema::create('shops', function (Blueprint $t) {
                 $t->string('id', 12)->primary();
@@ -19,9 +22,12 @@ return new class extends Migration {
                 $t->string('address')->nullable();
                 $t->string('city', 80)->nullable();
                 $t->string('contact_number', 20)->nullable();
+                $t->string('email', 150)->nullable();
                 $t->string('gcash_number', 20)->nullable();
+                $t->string('theme_color', 7)->nullable();
                 $t->enum('status', ['pending','approved','suspended','rejected'])->default('pending');
                 $t->enum('tier', ['basic','verified'])->default('basic');
+                $t->boolean('is_verified')->default(false);
                 $t->decimal('commission_rate', 5, 2)->default(3.00);
                 $t->text('rejected_reason')->nullable();
                 $t->timestamp('verified_at')->nullable();
@@ -55,9 +61,16 @@ return new class extends Migration {
                 $t->string('platform_tagline')->nullable();
                 $t->string('platform_email')->nullable();
                 $t->string('platform_phone')->nullable();
+                $t->string('platform_primary_color', 7)->nullable();
+                $t->boolean('dev_mode')->default(false);
                 $t->decimal('commission_rate_basic', 5, 2)->default(3.00);
                 $t->decimal('commission_rate_verified', 5, 2)->default(2.00);
                 $t->integer('max_products_basic')->default(20);
+                $t->string('paymongo_mode', 10)->default('test');
+                $t->string('paymongo_test_secret')->nullable();
+                $t->string('paymongo_test_public')->nullable();
+                $t->string('paymongo_live_secret')->nullable();
+                $t->string('paymongo_live_public')->nullable();
                 $t->string('paymongo_public_key')->nullable();
                 $t->string('paymongo_secret_key')->nullable();
                 $t->string('philsms_token')->nullable();
@@ -66,25 +79,11 @@ return new class extends Migration {
             });
         }
 
-        // MySQL only: expand users role enum (PostgreSQL handles this in base migration)
+        // MySQL only: expand users role enum
         if (DB::getDriverName() === 'mysql') {
             try {
                 DB::statement("ALTER TABLE `users` MODIFY `role` ENUM('admin','customer','seller','superadmin') NOT NULL DEFAULT 'customer'");
-            } catch (\Exception $e) {
-                // Already up-to-date, skip
-            }
-        }
-
-        // Seed default platform settings only if table is empty
-        if (!DB::table('platform_settings')->exists()) {
-            DB::table('platform_settings')->insert([
-                'platform_name'            => 'Cake Shop Platform',
-                'commission_rate_basic'    => 3.00,
-                'commission_rate_verified' => 2.00,
-                'max_products_basic'       => 20,
-                'created_at'               => now(),
-                'updated_at'               => now(),
-            ]);
+            } catch (\Exception $e) {}
         }
     }
 
