@@ -19,7 +19,10 @@
 /storage/*.key
 /storage/pail
 /storage/app/backups/
+/storage/app/local_data.sql
+/storage/app/*.sql
 /storage/framework/sessions/
+/storage/framework/views/*.php
 /vendor
 Homestead.json
 Homestead.yaml
