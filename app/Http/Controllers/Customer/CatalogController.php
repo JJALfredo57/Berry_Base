@@ -45,8 +45,8 @@ class CatalogController extends Controller
         try {
             $reviews = DB::table('order_reviews as r')
                 ->join('orders as o', 'o.id', '=', 'r.order_id')
-                ->join('users as u', 'u.id', '=', 'r.user_id')
-                ->select('r.*', 'o.product_id', 'u.fullname', 'u.profile_photo')
+                ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+                ->select('r.*', 'o.product_id', 'u.fullname', 'u.profile_photo', 'o.guest_name')
                 ->orderByDesc('r.id')
                 ->get();
             foreach ($reviews as $rv) {

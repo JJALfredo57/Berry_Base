@@ -118,21 +118,21 @@ class PlatformController extends Controller
 
         $productReviews = DB::table('order_reviews as r')
             ->join('orders as o', 'o.id', '=', 'r.order_id')
-            ->leftJoin('users as u', 'u.id', '=', 'r.user_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->whereIn('o.product_id', $productIds)
             ->select('r.*', 'o.product_id',
-                DB::raw("COALESCE(u.fullname, r.guest_name, 'Customer') as fullname"),
+                DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as fullname"),
                 'u.profile_photo')
             ->orderByDesc('r.created_at')
             ->get()->groupBy('product_id');
 
         $reviews = DB::table('order_reviews as r')
             ->join('orders as o', 'o.id', '=', 'r.order_id')
-            ->leftJoin('users as u', 'u.id', '=', 'r.user_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->where('o.shop_id', $shop->id)
             ->select(
                 'r.*',
-                DB::raw("COALESCE(u.fullname, r.guest_name, 'Customer') as reviewer_name"),
+                DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as reviewer_name"),
                 'u.profile_photo'
             )
             ->orderByDesc('r.created_at')

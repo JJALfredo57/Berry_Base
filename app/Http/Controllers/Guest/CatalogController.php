@@ -76,12 +76,12 @@ class CatalogController extends Controller
             try {
                 $indivReviews = DB::table('order_reviews as r')
                     ->join('orders as o', 'o.id', '=', 'r.order_id')
-                    ->leftJoin('users as u', 'u.id', '=', 'r.user_id')
+                    ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
                     ->whereIn('o.product_id', $productIds)
                     ->select(
                         'o.product_id',
                         'r.rating', 'r.review', 'r.image_path', 'r.created_at',
-                        DB::raw("COALESCE(u.fullname, r.guest_name, 'Customer') as fullname"),
+                        DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as fullname"),
                         'u.profile_photo'
                     )
                     ->orderByDesc('r.created_at')

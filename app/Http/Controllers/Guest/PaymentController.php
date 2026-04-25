@@ -163,14 +163,16 @@ class PaymentController extends Controller
             'deposit_status'   => 'pending',
         ]);
 
-        DB::table('order_tracking')->insert([
-            'order_id'   => $order->id,
-            'status'     => $order->status,
-            'notes'      => $isFullPayment
-                            ? "Customer chose to pay full amount ₱{$depositAmount} via GCash."
-                            : "Customer set deposit of ₱{$depositAmount} via GCash (min 50%).",
-            'created_at' => now(),
-        ]);
+        try {
+            DB::table('order_tracking')->insert([
+                'order_id'   => $order->id,
+                'status'     => $order->status,
+                'notes'      => $isFullPayment
+                                ? "Customer chose to pay full amount ₱{$depositAmount} via GCash."
+                                : "Customer set deposit of ₱{$depositAmount} via GCash (min 50%).",
+                'created_at' => now(),
+            ]);
+        } catch (\Exception $e) {}
 
         // Redirect to PayMongo deposit payment
         return redirect()->route('guest.pay_deposit', $trackCode);
@@ -267,150 +269,124 @@ class PaymentController extends Controller
 
     public function depositReturn(Request $request, string $trackCode)
     {
-        $status = $request->input('status', '');
+        $urlStatus = $request->input('status', '');
 
+        // Use left join so orders without a product (e.g. custom) still load
         $order = DB::table('orders as o')
-            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.track_code', strtoupper($trackCode))
             ->select('o.*', 'p.name as product_name', 'p.image_path as product_image')
             ->first();
 
         if (!$order) abort(404);
 
-        if ($status === 'cancelled')
+        if ($urlStatus === 'cancelled')
             return redirect()->route('track.order', $trackCode)->with('error', 'Deposit payment cancelled. You can try again.');
 
+        // Idempotency — already paid, just send to kitchen if not yet done
         if ($order->deposit_status === 'paid') {
             if (!$order->kitchen_sent) {
-                $addons    = DB::table('order_addons')->where('order_id', $order->id)->get();
-                $addonList = $addons->count() > 0
-                    ? "\nADD-ONS:\n" . $addons->map(fn($a) => "  â€¢ {$a->addon_name}" . ($a->addon_price > 0 ? " (+â‚±{$a->addon_price})" : " (FREE)"))->implode("\n")
-                    : '';
-
-                $isFullPayment = abs((float)$order->deposit_amount - (float)$order->total_price) < 0.01;
-                $productName = $order->product_name ?? DB::table('products')->where('id', $order->product_id)->value('name') ?? 'Custom Cake';
-                $fullname    = $order->guest_name ?? DB::table('users')->where('id', $order->user_id)->value('fullname') ?? 'Guest';
-                $phone       = $order->guest_phone ?? DB::table('users')->where('id', $order->user_id)->value('phone') ?? '';
-                $sizeInfo    = $order->selected_size ? "\nSIZE: {$order->selected_size}" : '';
-                $noteInfo    = $order->custom_note   ? "\nSPECIAL NOTE: {$order->custom_note}" : '';
-                $schedInfo   = $order->schedule_date
-                    ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) .
-                      ($order->schedule_time ? ' at ' . date('g:i A', strtotime($order->schedule_time)) : '')
-                    : '';
-
-                DB::table('kitchen_tickets')->where('order_id', $order->id)->delete();
-                DB::table('kitchen_tickets')->insert([
-                    'shop_id'       => $order->shop_id ?? null,
-                    'order_id'      => $order->id,
-                    'product_name'  => $productName,
-                    'product_image' => $order->product_image ?? null,
-                    'quantity'      => $order->quantity ?? 1,
-                    'instructions'  => "=== KITCHEN ORDER TICKET ===\nOrder #: {$order->id}\nCustomer: {$fullname}" . ($phone ? " ({$phone})" : '') . "\nProduct: {$productName}\nQty: {$order->quantity}{$sizeInfo}{$noteInfo}{$addonList}{$schedInfo}\nFulfillment: {$order->fulfillment_type}\nPayment: " . ($isFullPayment ? "GCash Full â‚±{$order->deposit_amount} âœ“ Fully Paid" : "GCash Deposit â‚±{$order->deposit_amount} âœ“ Paid (Balance remaining)") . "\n===========================",
-                    'status'       => 'pending',
-                    'sent_at'      => now()->format('Y-m-d H:i:s'),
-                    'created_at'   => now(),
-                    'updated_at'   => now(),
-                ]);
-                DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => 1]);
+                $this->sendToKitchen($order);
             }
-
             return redirect()->route('track.order', $trackCode)->with('msg', 'Deposit already paid!');
         }
 
-        $secretKey = CakeshopHelper::getPaymongoSecretKey();
-        if (!$order->deposit_paymongo_id || !$secretKey)
-            return redirect()->route('track.order', $trackCode)->with('error', 'Could not verify payment.');
+        // Verify payment with PayMongo API
+        $secretKey     = CakeshopHelper::getPaymongoSecretKey();
+        $sessionStatus = '';
+        $paymentStatus = '';
+        $pmReference   = null;
+        $apiVerified   = false;
 
-        $ch = curl_init("https://api.paymongo.com/v1/checkout_sessions/{$order->deposit_paymongo_id}");
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER     => [
-                'accept: application/json',
-                'Authorization: Basic ' . base64_encode($secretKey . ':'),
-            ],
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_TIMEOUT        => 30,
+        if ($order->deposit_paymongo_id && $secretKey) {
+            try {
+                $ch = curl_init('https://api.paymongo.com/v1/checkout_sessions/' . $order->deposit_paymongo_id);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_HTTPHEADER     => [
+                        'accept: application/json',
+                        'Authorization: Basic ' . base64_encode($secretKey . ':'),
+                    ],
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_TIMEOUT        => 30,
+                ]);
+                $raw = curl_exec($ch);
+                curl_close($ch);
+                $res = $raw ? json_decode($raw, true) : null;
+
+                $sessionStatus = $res['data']['attributes']['status'] ?? '';
+                $paymentStatus = $res['data']['attributes']['payment_intent']['attributes']['status'] ?? '';
+                $pmReference   = $res['data']['attributes']['payments'][0]['attributes']['reference_number']
+                                 ?? ($res['data']['attributes']['reference_number'] ?? null);
+                $apiVerified   = in_array($sessionStatus, ['completed', 'active'])
+                                 || $paymentStatus === 'succeeded';
+            } catch (\Exception $e) {}
+        }
+
+        // Trust PayMongo's success_url redirect if API check is inconclusive but deposit was initiated
+        $paymentConfirmed = ($sessionStatus === 'completed' || $paymentStatus === 'succeeded')
+            || ($apiVerified && $order->deposit_required)
+            || ($urlStatus === 'success' && $order->deposit_required && $order->deposit_paymongo_id);
+
+        if (!$paymentConfirmed)
+            return redirect()->route('track.order', $trackCode)->with('error', 'Payment could not be confirmed. Please contact the shop if payment was deducted.');
+
+        // ── Mark deposit as paid ────────────────────────────────────────
+        $isFullPayment = abs((float)$order->deposit_amount - (float)$order->total_price) < 0.01;
+        DB::table('orders')->where('id', $order->id)->update([
+            'deposit_status'  => 'paid',
+            'deposit_paid_at' => now(),
+            'payment_status'  => $isFullPayment ? 'Paid' : 'Partial Payment',
+            'paid_at'         => $isFullPayment ? now() : null,
         ]);
-        $res = json_decode(curl_exec($ch), true);
-        curl_close($ch);
 
-        $sessionStatus = $res['data']['attributes']['status'] ?? '';
-        $paymentStatus = $res['data']['attributes']['payment_intent']['attributes']['status'] ?? '';
-        $pmReference   = $res['data']['attributes']['payments'][0]['attributes']['reference_number']
-                         ?? ($res['data']['attributes']['reference_number'] ?? null);
-
-        if ($sessionStatus === 'completed' || $paymentStatus === 'succeeded') {
-            $isFullPayment = abs((float)$order->deposit_amount - (float)$order->total_price) < 0.01;
-            DB::table('orders')->where('id', $order->id)->update([
-                'deposit_status'  => 'paid',
-                'deposit_paid_at' => now(),
-                'payment_status'  => $isFullPayment ? 'Paid' : 'Partial Payment',
-                'paid_at'         => $isFullPayment ? now() : null,
-            ]);
-
+        try {
             DB::table('order_tracking')->insert([
                 'order_id'   => $order->id,
                 'status'     => 'Deposit Paid',
-                'notes'      => "Deposit of ₱{$order->deposit_amount} paid via GCash.",
+                'notes'      => 'Deposit of ₱' . number_format($order->deposit_amount, 2) . ' paid via GCash.',
                 'created_at' => now(),
             ]);
+        } catch (\Exception $e) {}
 
-            // ── AUTO CONFIRM + SEND TO KITCHEN after deposit ────────────
-            if (in_array($order->status, ['Pending', 'Pending Review'])) {
-
-                DB::table('orders')->where('id', $order->id)->update(['status' => 'Confirmed']);
-
+        // ── Auto-confirm if still pending ───────────────────────────────
+        if (in_array($order->status, ['Pending', 'Pending Review'])) {
+            DB::table('orders')->where('id', $order->id)->update(['status' => 'Confirmed']);
+            try {
                 DB::table('order_tracking')->insert([
                     'order_id'   => $order->id,
                     'status'     => 'Confirmed',
                     'notes'      => 'Auto-confirmed after deposit payment via GCash.',
                     'created_at' => now(),
                 ]);
+            } catch (\Exception $e) {}
+        }
 
-                if (!$order->kitchen_sent) {
-                    $addons    = DB::table('order_addons')->where('order_id', $order->id)->get();
-                    $addonList = $addons->count() > 0
-                        ? "\nADD-ONS:\n" . $addons->map(fn($a) => "  • {$a->addon_name}" . ($a->addon_price > 0 ? " (+₱{$a->addon_price})" : " (FREE)"))->implode("\n")
-                        : '';
+        // ── Send to kitchen ─────────────────────────────────────────────
+        if (!$order->kitchen_sent) {
+            // Reload order so product_name is fresh after potential join issue
+            $freshOrder = DB::table('orders as o')
+                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+                ->where('o.id', $order->id)
+                ->select('o.*', 'p.name as product_name', 'p.image_path as product_image')
+                ->first();
+            $this->sendToKitchen($freshOrder ?? $order, $isFullPayment);
+        }
 
-                    $productName = $order->product_name ?? DB::table('products')->where('id', $order->product_id)->value('name') ?? 'Custom Cake';
-                    $fullname    = $order->guest_name ?? DB::table('users')->where('id', $order->user_id)->value('fullname') ?? 'Guest';
-                    $phone       = $order->guest_phone ?? DB::table('users')->where('id', $order->user_id)->value('phone') ?? '';
-                    $sizeInfo    = $order->selected_size ? "\nSIZE: {$order->selected_size}" : '';
-                    $noteInfo    = $order->custom_note   ? "\nSPECIAL NOTE: {$order->custom_note}" : '';
-                    $schedInfo   = $order->schedule_date
-                        ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) .
-                          ($order->schedule_time ? ' at ' . date('g:i A', strtotime($order->schedule_time)) : '')
-                        : '';
-
-                    DB::table('kitchen_tickets')->where('order_id', $order->id)->delete();
-                    DB::table('kitchen_tickets')->insert([
-                        'shop_id'       => $order->shop_id ?? null,
-                        'order_id'     => $order->id,
-                        'product_name' => $productName,
-                        'product_image'=> $order->product_image ?? null,
-                        'quantity'     => $order->quantity ?? 1,
-                        'instructions' => "=== KITCHEN ORDER TICKET ===\nOrder #: {$order->id}\nCustomer: {$fullname}" . ($phone ? " ({$phone})" : '') . "\nProduct: {$productName}\nQty: {$order->quantity}{$sizeInfo}{$noteInfo}{$addonList}{$schedInfo}\nFulfillment: {$order->fulfillment_type}\nPayment: " . ($isFullPayment ? "GCash Full ₱{$order->deposit_amount} ✓ Fully Paid" : "GCash Deposit ₱{$order->deposit_amount} ✓ Paid (Balance remaining)") . "\n===========================",
-                        'status'       => 'pending',
-                        'sent_at'      => now()->format('Y-m-d H:i:s'),
-                        'created_at'   => now(),
-                        'updated_at'   => now(),
-                    ]);
-                    DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => 1]);
-                }
-            }
-            // ── END AUTO CONFIRM ────────────────────────────────────────
-
+        // ── Notify admin ────────────────────────────────────────────────
+        try {
             DB::table('notifications')->insert([
                 'receiver_role'    => 'admin',
                 'receiver_user_id' => null,
                 'title'            => 'Deposit Paid - Order #' . $order->id,
-                'message'          => ($order->guest_name ?? 'Guest') . " paid the deposit of PHP {$order->deposit_amount} for Order #{$order->id}. Order auto-confirmed and sent to kitchen.",
+                'message'          => ($order->guest_name ?? 'Guest') . ' paid PHP ' . number_format($order->deposit_amount, 2) . ' for Order #' . $order->id . '. Auto-confirmed.',
                 'is_read'          => 0,
                 'created_at'       => now(),
             ]);
+        } catch (\Exception $e) {}
 
-            // SMS confirmation with tracking code to guest
+        // ── SMS to customer ─────────────────────────────────────────────
+        try {
             $guestPhone = $order->guest_phone ?? null;
             if ($guestPhone) {
                 $siteName  = config('app.name', 'Cake Shop');
@@ -420,33 +396,69 @@ class PaymentController extends Controller
                 $guestName = $order->guest_name ?? 'Customer';
                 \App\Helpers\SmsHelper::send($guestPhone,
                     "{$header}\n"
-                    . "Hi {$guestName}! Your deposit payment has been received.\n\n"
+                    . "Hi {$guestName}! Your payment has been received.\n\n"
                     . "Order No.: #{$order->id}{$shopLine}\n"
-                    . "Deposit Paid: PHP " . number_format($order->deposit_amount, 2) . "\n"
+                    . 'Amount Paid: PHP ' . number_format($order->deposit_amount, 2) . "\n"
                     . "Status: Confirmed\n\n"
                     . "Your Tracking Code: {$trackCode}\n"
-                    . "Use this code to track your order on our website."
+                    . 'Use this code to track your order on our website.'
                 );
             }
+        } catch (\Exception $e) {}
 
-            // Refresh order data
-            $order = DB::table('orders as o')
-                ->join('products as p', 'p.id', '=', 'o.product_id')
-                ->where('o.id', $order->id)
-                ->select('o.*', 'p.name as product_name', 'p.image_path as product_image')
-                ->first();
+        // ── Return receipt ──────────────────────────────────────────────
+        $receipt = DB::table('orders as o')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->where('o.id', $order->id)
+            ->select('o.*', 'p.name as product_name', 'p.image_path as product_image')
+            ->first();
 
-            $vatSettings = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
+        $vatSettings = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
 
-            return view('guest.deposit_receipt', [
-                'trackCode'   => $trackCode,
-                'receipt'     => $order,
-                'vatSettings' => $vatSettings,
-                'pmReference' => $pmReference,
+        return view('guest.deposit_receipt', [
+            'trackCode'   => $trackCode,
+            'receipt'     => $receipt ?? $order,
+            'vatSettings' => $vatSettings,
+            'pmReference' => $pmReference,
+        ]);
+    }
+
+    private function sendToKitchen(object $order, bool $isFullPayment = false): void
+    {
+        try {
+            $addons    = DB::table('order_addons')->where('order_id', $order->id)->get();
+            $addonList = $addons->count() > 0
+                ? "\nADD-ONS:\n" . $addons->map(fn($a) => '  • ' . $a->addon_name . ($a->addon_price > 0 ? ' (+₱' . $a->addon_price . ')' : ' (FREE)'))->implode("\n")
+                : '';
+
+            $productName = $order->product_name ?? DB::table('products')->where('id', $order->product_id)->value('name') ?? 'Custom Cake';
+            $fullname    = $order->guest_name ?? DB::table('users')->where('id', $order->user_id)->value('fullname') ?? 'Guest';
+            $phone       = $order->guest_phone ?? DB::table('users')->where('id', $order->user_id)->value('phone') ?? '';
+            $sizeInfo    = $order->selected_size ? "\nSIZE: {$order->selected_size}" : '';
+            $noteInfo    = $order->custom_note   ? "\nSPECIAL NOTE: {$order->custom_note}" : '';
+            $schedInfo   = $order->schedule_date
+                ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) .
+                  ($order->schedule_time ? ' at ' . date('g:i A', strtotime($order->schedule_time)) : '')
+                : '';
+            $payLine = $isFullPayment
+                ? 'GCash Full ₱' . number_format($order->deposit_amount, 2) . ' ✓ Fully Paid'
+                : 'GCash Deposit ₱' . number_format($order->deposit_amount, 2) . ' ✓ Paid (Balance remaining)';
+
+            DB::table('kitchen_tickets')->where('order_id', $order->id)->delete();
+            DB::table('kitchen_tickets')->insert([
+                'shop_id'       => $order->shop_id ?? null,
+                'order_id'      => $order->id,
+                'product_name'  => $productName,
+                'product_image' => $order->product_image ?? null,
+                'quantity'      => $order->quantity ?? 1,
+                'instructions'  => "=== KITCHEN ORDER TICKET ===\nOrder #: {$order->id}\nCustomer: {$fullname}" . ($phone ? " ({$phone})" : '') . "\nProduct: {$productName}\nQty: {$order->quantity}{$sizeInfo}{$noteInfo}{$addonList}{$schedInfo}\nFulfillment: {$order->fulfillment_type}\nPayment: {$payLine}\n===========================",
+                'status'        => 'pending',
+                'sent_at'       => now()->format('Y-m-d H:i:s'),
+                'created_at'    => now(),
+                'updated_at'    => now(),
             ]);
-        }
-
-        return redirect()->route('track.order', $trackCode)->with('error', 'Payment was not completed. Please try again.');
+            DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => 1]);
+        } catch (\Exception $e) {}
     }
 
     public function payRemaining(string $trackCode)

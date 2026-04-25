@@ -46,12 +46,16 @@ class ReviewController extends Controller
 
         DB::table('order_reviews')->insert([
             'order_id'     => $orderId,
+            'shop_id'      => $order->shop_id ?? null,
             'user_id'      => $uid,
             'rating'       => $rating,
             'rider_rating' => $riderRating,
             'review'       => $review ?: null,
+            'review_text'  => $review ?: null,
             'image_path'   => $imagePath,
+            'review_status'=> 'pending',
             'created_at'   => now(),
+            'updated_at'   => now(),
         ]);
 
         return back()->with('msg', 'Thank you for your review! ⭐');

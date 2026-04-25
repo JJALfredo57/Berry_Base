@@ -20,10 +20,10 @@ class ReviewsController extends Controller
 
         $reviews = DB::table('order_reviews as r')
             ->join('orders as o', 'o.id', '=', 'r.order_id')
-            ->leftJoin('users as u', 'u.id', '=', 'r.user_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->where('o.shop_id', $shop->id)
             ->select('r.*', 'o.id as order_id',
-                DB::raw("COALESCE(u.fullname, r.guest_name, 'Customer') as reviewer_name"))
+                DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as reviewer_name"))
             ->orderByDesc('r.created_at')
             ->get();
 

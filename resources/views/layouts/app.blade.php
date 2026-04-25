@@ -387,6 +387,7 @@
     }
     .cs-stat-card:hover .cs-stat-icon { animation:csIconBounce .5s ease; }
     .cs-stat-body { min-width:0; flex:1; }
+    .min-width-0 { min-width:0; }
     .cs-stat-num {
       font-size:clamp(1.4rem,3vw,1.8rem); font-weight:700; line-height:1;
       color:var(--gray-900); letter-spacing:-.02em;
