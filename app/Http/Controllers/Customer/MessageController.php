@@ -14,7 +14,7 @@ class MessageController extends Controller
             SELECT o.id order_id, o.status, p.name product_name,
                 (SELECT message FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_message,
                 (SELECT created_at FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_time,
-                (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role='admin' AND m.is_read=0) unread_count
+                (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role='admin' AND m.is_read=false) unread_count
             FROM orders o
             JOIN products p ON p.id=o.product_id
             WHERE o.user_id=?

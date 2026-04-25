@@ -25,7 +25,7 @@ class MessageController extends Controller
                 COALESCE(u.username, 'Guest') as username,
                 (SELECT message FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_message,
                 (SELECT created_at FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_time,
-                (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role='customer' AND m.is_read=0) unread_count
+                (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role='customer' AND m.is_read=false) unread_count
             FROM orders o
             LEFT JOIN users u ON u.id=o.user_id
             WHERE o.shop_id=? AND EXISTS (SELECT 1 FROM messages m WHERE m.order_id=o.id)
