@@ -40,7 +40,7 @@ class KitchenController extends Controller
             } catch (\Exception $e) {}
         }
 
-        $riders = DB::table('riders')->where('is_active',1)->orderBy('name')->get();
+        $riders = DB::table('riders')->where('is_active', true)->orderBy('name')->get();
 
         return view('admin.kitchen', compact('tickets','riders','customImages'));
     }

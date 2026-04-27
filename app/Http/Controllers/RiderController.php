@@ -32,7 +32,7 @@ class RiderController extends Controller
         $formats = [$phone, '+' . $clean, $clean, '0' . substr($clean, 2)];
 
         $rider = DB::table('riders')
-            ->where('is_active', 1)
+            ->where('is_active', true)
             ->where(function ($q) use ($formats) {
                 foreach ($formats as $f) $q->orWhere('phone', $f);
             })->first();

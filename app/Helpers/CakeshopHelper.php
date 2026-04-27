@@ -148,7 +148,7 @@ class CakeshopHelper
             $now = now()->format('Y-m-d H:i:s');
             $rows = DB::table('product_discounts')
                 ->whereIn('product_id', $productIds)
-                ->where('is_active', 1)
+                ->where('is_active', true)
                 ->where(function ($query) use ($now) {
                     $query->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
                 })
@@ -215,7 +215,7 @@ class CakeshopHelper
             $size = DB::table('product_sizes')
                 ->where('product_id', $productId)
                 ->where('label', $selectedSize)
-                ->where('is_active', 1)
+                ->where('is_active', true)
                 ->first();
 
             if ($size) {

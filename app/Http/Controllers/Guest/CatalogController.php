@@ -30,7 +30,7 @@ class CatalogController extends Controller
 
         $products = DB::table('products')
             ->leftJoin('shops', 'shops.id', '=', 'products.shop_id')
-            ->where('products.is_available', 1)
+            ->where('products.is_available', true)
             ->select('products.*', 'shops.shop_name', 'shops.shop_slug', 'shops.shop_logo')
             ->orderBy('products.classification')
             ->orderBy('products.name')
@@ -66,7 +66,7 @@ class CatalogController extends Controller
             try {
                 $sizes = DB::table('product_sizes')
                     ->whereIn('product_id', $productIds)
-                    ->where('is_active', 1)
+                    ->where('is_active', true)
                     ->orderBy('sort_order')->get();
                 foreach ($sizes as $s) $sizesMap[$s->product_id][] = $s;
             } catch (\Exception $e) {}
@@ -104,10 +104,10 @@ class CatalogController extends Controller
         $addonsByCategory = collect();
         try {
             $addonCategories = DB::table('cake_addon_categories')
-                ->where('is_active', 1)->orderBy('sort_order')->get();
+                ->where('is_active', true)->orderBy('sort_order')->get();
             $addonsByCategory = DB::table('cake_addons as a')
                 ->join('cake_addon_categories as c', 'c.id', '=', 'a.category_id')
-                ->where('a.is_active', 1)->where('c.is_active', 1)
+                ->where('a.is_active', true)->where('c.is_active', true)
                 ->select('a.*', 'c.name as category_name', 'c.icon as category_icon')
                 ->orderBy('a.category_id')->orderBy('a.sort_order')
                 ->get()->groupBy('category_id');
@@ -237,7 +237,7 @@ class CatalogController extends Controller
         if ($n = trim($request->input('custom_note', '')))  $parts[] = $n;
         $note = implode(' | ', $parts);
 
-        $product = DB::table('products')->where('id', $pid)->where('is_available', 1)->first();
+        $product = DB::table('products')->where('id', $pid)->where('is_available', true)->first();
         if (!$product) return back()->with('error', 'Product not available.');
 
         $request->session()->put('guest_checkout', [

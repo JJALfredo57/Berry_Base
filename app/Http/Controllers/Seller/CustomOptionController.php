@@ -62,7 +62,7 @@ class CustomOptionController extends Controller
             'price'       => $price,
             'description' => $desc ?: null,
             'sort_order'  => $max + 1,
-            'is_active'   => 1,
+            'is_active' => true,
             'created_at'  => now(),
         ]);
 
@@ -98,7 +98,7 @@ class CustomOptionController extends Controller
         if (!$opt) return back()->with('err', 'Option not found.');
 
         DB::table('custom_order_options')->where('id', $id)
-            ->update(['is_active' => $opt->is_active ? 0 : 1]);
+            ->update(['is_active' => !$opt->is_active]);
 
         return back()->with('msg', "Option " . ($opt->is_active ? 'hidden' : 'shown') . ".");
     }

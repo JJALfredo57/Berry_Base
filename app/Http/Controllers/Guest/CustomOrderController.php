@@ -22,7 +22,7 @@ class CustomOrderController extends Controller
     private function loadOptions(): array
     {
         $rows = DB::table('custom_order_options')
-            ->where('is_active', 1)->orderBy('sort_order')->orderBy('id')
+            ->where('is_active', true)->orderBy('sort_order')->orderBy('id')
             ->get()->groupBy('type');
         return [
             'flavors'      => $rows['flavor']     ?? collect(),
@@ -38,10 +38,10 @@ class CustomOrderController extends Controller
         $options = $this->loadOptions();
 
         $addonCategories = DB::table('cake_addon_categories')
-            ->where('is_active', 1)->orderBy('sort_order')->get();
+            ->where('is_active', true)->orderBy('sort_order')->get();
         $addonsByCategory = DB::table('cake_addons as a')
             ->join('cake_addon_categories as c', 'c.id', '=', 'a.category_id')
-            ->where('a.is_active', 1)->where('c.is_active', 1)
+            ->where('a.is_active', true)->where('c.is_active', true)
             ->select('a.*', 'c.name as category_name', 'c.icon as category_icon')
             ->orderBy('a.category_id')->orderBy('a.sort_order')
             ->get()->groupBy('category_id');
@@ -49,7 +49,7 @@ class CustomOrderController extends Controller
         $deliveryZones = collect();
         try {
             $deliveryZones = DB::table('delivery_zones')
-                ->where('is_active', 1)->orderBy('sort_order')->get();
+                ->where('is_active', true)->orderBy('sort_order')->get();
         } catch (\Exception $e) {}
 
         $defaultAddr = null;
@@ -146,7 +146,7 @@ class CustomOrderController extends Controller
         $selectedAddonIds = array_filter(array_map('intval',$request->input('addons',[])));
         $addonTotal = 0; $validAddons = [];
         if (!empty($selectedAddonIds)) {
-            $addons = DB::table('cake_addons')->whereIn('id',$selectedAddonIds)->where('is_active',1)->get();
+            $addons = DB::table('cake_addons')->whereIn('id',$selectedAddonIds)->where('is_active', true)->get();
             foreach ($addons as $a) { $addonTotal += (float)$a->price; $validAddons[] = $a; }
         }
 
@@ -164,7 +164,7 @@ class CustomOrderController extends Controller
             return back()->with('error','Please pin your location.')->withInput();
 
         if ($fulfillment === 'Delivery' && $zone) {
-            try { $zr = DB::table('delivery_zones')->where('barangay',$zone)->where('is_active',1)->first(); if ($zr) $deliveryFee = (float)$zr->fee; } catch (\Exception $e) {}
+            try { $zr = DB::table('delivery_zones')->where('barangay',$zone)->where('is_active', true)->first(); if ($zr) $deliveryFee = (float)$zr->fee; } catch (\Exception $e) {}
         }
 
         $unitPrice = $basePrice + $sizeSurcharge + $complexitySurcharge;

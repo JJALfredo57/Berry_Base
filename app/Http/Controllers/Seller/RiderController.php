@@ -49,7 +49,7 @@ class RiderController extends Controller
             'license_plate'          => trim($request->input('license_plate', '')) ?: null,
             'emergency_contact_name'  => trim($request->input('emergency_contact_name', '')) ?: null,
             'emergency_contact_phone' => trim($request->input('emergency_contact_phone', '')) ?: null,
-            'is_active'               => 1,
+            'is_active' => true,
 
             'created_at'             => now(),
         ]);

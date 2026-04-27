@@ -33,7 +33,7 @@ class DashboardController extends Controller
                 'preparing'  => DB::table('orders')->where('shop_id',$shopId)->where('status','Preparing')->count(),
                 'total'      => DB::table('orders')->where('shop_id',$shopId)->whereNotIn('status',['Cancelled'])->count(),
                 'revenue'    => DB::table('orders')->where('shop_id',$shopId)->where('payment_status','Paid')->sum('total_price'),
-                'products'   => DB::table('products')->where('shop_id',$shopId)->where('is_available',1)->count(),
+                'products'   => DB::table('products')->where('shop_id',$shopId)->where('is_available', true)->count(),
             ];
         } catch (\Exception $e) {
             $stats = ['pending'=>0,'confirmed'=>0,'preparing'=>0,'total'=>0,'revenue'=>0,'products'=>0];

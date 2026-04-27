@@ -50,7 +50,7 @@ class ProductController extends Controller
             $pids = collect($products->items())->pluck('id')->toArray();
             $sizes = DB::table('product_sizes')
                 ->whereIn('product_id', $pids)
-                ->where('is_active', 1)->orderBy('sort_order')->get();
+                ->where('is_active', true)->orderBy('sort_order')->get();
             foreach ($sizes as $s) $productSizes[$s->product_id][] = $s;
         } catch (\Exception $e) {}
 
@@ -111,7 +111,7 @@ class ProductController extends Controller
             'image_path'     => $img,
             'classification' => $validated['classification'],
             'flavor'         => $validated['flavor'] ?? null,
-            'is_available'   => 1,
+            'is_available' => true,
             'created_at'     => now(),
             'updated_at'     => now(),
         ]);
@@ -176,7 +176,7 @@ class ProductController extends Controller
             ->whereNotIn('status', ['Cancelled'])->exists();
         if ($hasOrders) {
             // Soft delete — just deactivate
-            DB::table('products')->where('id', $id)->update(['is_available' => 0, 'updated_at' => now()]);
+            DB::table('products')->where('id', $id)->update(['is_available' => false, 'updated_at' => now()]);
             return back()->with('msg', "Product deactivated (has existing orders — cannot permanently delete).");
         }
 
@@ -191,7 +191,7 @@ class ProductController extends Controller
         if (!$p) return back()->with('err', 'Product not found.');
 
         DB::table('products')->where('id', $id)->update([
-            'is_available' => $p->is_available ? 0 : 1,
+            'is_available' => !$p->is_available,
             'updated_at'   => now(),
         ]);
         return back()->with('msg', "Product " . ($p->is_available ? 'hidden' : 'shown') . ".");
@@ -232,7 +232,7 @@ class ProductController extends Controller
             'discount_value' => $value,
             'starts_at'      => $startsAt ?: null,
             'ends_at'        => $endsAt ?: null,
-            'is_active'      => $enabled ? 1 : 0,
+            'is_active'      => (bool) $enabled,
             'updated_at'     => now(),
         ];
 
@@ -275,7 +275,7 @@ class ProductController extends Controller
             'product_id' => $productId,
             'label'      => $validated['label'],
             'price'      => $validated['price'],
-            'is_active'  => 1,
+            'is_active' => true,
             'sort_order' => $maxSort + 1,
             'created_at' => now(),
         ]);

@@ -97,14 +97,14 @@ class PlatformController extends Controller
 
         $products = DB::table('products')
             ->where('shop_id', $shop->id)
-            ->where('is_available', 1)
+            ->where('is_available', true)
             ->orderBy('classification')->orderBy('name')
             ->get();
 
         $productIds   = $products->pluck('id')->toArray();
         $productSizes = DB::table('product_sizes')
             ->whereIn('product_id', $productIds)
-            ->where('is_active', 1)
+            ->where('is_active', true)
             ->orderBy('sort_order')
             ->get()
             ->groupBy('product_id');

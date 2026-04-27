@@ -46,7 +46,7 @@ class AddonController extends Controller
             'name'       => $name,
             'icon'       => $icon,
             'sort_order' => $max + 1,
-            'is_active'  => 1,
+            'is_active' => true,
             'created_at' => now(),
         ]);
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Add Addon Category', $name);
@@ -101,7 +101,7 @@ class AddonController extends Controller
             'description' => trim($request->input('description', '')) ?: null,
             'price'       => $price,
             'sort_order'  => $max + 1,
-            'is_active'   => 1,
+            'is_active' => true,
             'created_at'  => now(),
         ]);
         return back()->with('msg', "Add-on '{$name}' added.");

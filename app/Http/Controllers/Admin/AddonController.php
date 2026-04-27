@@ -41,7 +41,7 @@ class AddonController extends Controller
             'name'       => $name,
             'icon'       => $icon,
             'sort_order' => $max + 1,
-            'is_active'  => 1,
+            'is_active' => true,
             'created_at' => now(),
         ]);
 
@@ -68,7 +68,7 @@ class AddonController extends Controller
     {
         $cat = DB::table('cake_addon_categories')->where('id', $id)->first();
         if (!$cat) return back()->with('err', 'Category not found.');
-        $new = $cat->is_active ? 0 : 1;
+        $new = !$cat->is_active;
         DB::table('cake_addon_categories')->where('id', $id)->update(['is_active' => $new]);
         return back()->with('msg', "Category " . ($new ? 'shown' : 'hidden') . ".");
     }
@@ -109,7 +109,7 @@ class AddonController extends Controller
             'name'        => $name,
             'description' => $desc ?: null,
             'price'       => $price,
-            'is_active'   => 1,
+            'is_active' => true,
             'sort_order'  => $max + 1,
             'created_at'  => now(),
         ]);
@@ -142,7 +142,7 @@ class AddonController extends Controller
     {
         $addon = DB::table('cake_addons')->where('id', $id)->first();
         if (!$addon) return back()->with('err', 'Add-on not found.');
-        $new = $addon->is_active ? 0 : 1;
+        $new = !$addon->is_active;
         DB::table('cake_addons')->where('id', $id)->update(['is_active' => $new]);
         return back()->with('msg', "'\1' " . ($new ? 'is now visible.' : 'is now hidden.'));
     }
@@ -154,7 +154,7 @@ class AddonController extends Controller
         // Soft-hide instead of delete if it's used in orders
         $used = DB::table('order_addons')->where('addon_id', $id)->exists();
         if ($used) {
-            DB::table('cake_addons')->where('id', $id)->update(['is_active' => 0]);
+            DB::table('cake_addons')->where('id', $id)->update(['is_active' => false]);
             return back()->with('msg', "'\1' hidden (cannot delete — used in existing orders).");
         }
         DB::table('cake_addons')->where('id', $id)->delete();

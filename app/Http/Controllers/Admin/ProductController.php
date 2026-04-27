@@ -40,7 +40,7 @@ class ProductController extends Controller
             $pids = collect($products->items())->pluck('id')->toArray();
             $sizes = DB::table('product_sizes')
                 ->whereIn('product_id', $pids)
-                ->where('is_active', 1)->orderBy('sort_order')->get();
+                ->where('is_active', true)->orderBy('sort_order')->get();
             foreach ($sizes as $s) $productSizes[$s->product_id][] = $s;
         } catch (\Exception $e) {}
         foreach ($productSizes as $pid => $arr) $productSizes[$pid] = collect($arr);
@@ -101,7 +101,7 @@ class ProductController extends Controller
 
         $productSizes = [];
         try {
-            $sizes = DB::table('product_sizes')->where('is_active', 1)->orderBy('sort_order')->get();
+            $sizes = DB::table('product_sizes')->where('is_active', true)->orderBy('sort_order')->get();
             foreach ($sizes as $s) {
                 $productSizes[$s->product_id][] = $s;
             }
@@ -188,7 +188,7 @@ class ProductController extends Controller
             'discount_value' => $value,
             'starts_at'      => $startsAt ?: null,
             'ends_at'        => $endsAt ?: null,
-            'is_active'      => $enabled ? 1 : 0,
+            'is_active'      => (bool) $enabled,
             'updated_at'     => now(),
         ];
 
@@ -210,7 +210,7 @@ class ProductController extends Controller
         $user    = session('user');
         $product = DB::table('products')->where('id', $id)->first();
         if (!$product) return redirect()->route('admin.products.index')->with('err', 'Product not found.');
-        $new = $product->is_available ? 0 : 1;
+        $new = !$product->is_available;
         DB::table('products')->where('id', $id)->update(['is_available' => $new]);
         CakeshopHelper::logActivity($user['id'], $user['role'], 'Toggle Product Availability', $product->name . ' → ' . ($new ? 'Available' : 'Not Available'));
         return redirect()->route('admin.products.index')->with('msg', $product->name . ' is now ' . ($new ? 'Available' : 'Not Available') . '.');

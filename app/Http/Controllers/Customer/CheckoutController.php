@@ -33,7 +33,7 @@ class CheckoutController extends Controller
         try {
             $sizes = DB::table('product_sizes')
                 ->where('product_id', $checkout['product_id'])
-                ->where('is_active', 1)
+                ->where('is_active', true)
                 ->orderBy('sort_order')
                 ->get();
         } catch (\Exception $e) {}
@@ -49,7 +49,7 @@ class CheckoutController extends Controller
         if ($shop) {
             $deliveryZones = DB::table('delivery_zones')
                 ->where('shop_id', $shop->id)
-                ->where('is_active', 1)
+                ->where('is_active', true)
                 ->whereNotNull('lat')
                 ->whereNotNull('lng')
                 ->get();
@@ -64,10 +64,10 @@ class CheckoutController extends Controller
         $addonsByCategory = collect();
         try {
             $addonCategories = DB::table('cake_addon_categories')
-                ->where('is_active', 1)->orderBy('sort_order')->get();
+                ->where('is_active', true)->orderBy('sort_order')->get();
             $addonsByCategory = DB::table('cake_addons as a')
                 ->join('cake_addon_categories as c', 'c.id', '=', 'a.category_id')
-                ->where('a.is_active', 1)->where('c.is_active', 1)
+                ->where('a.is_active', true)->where('c.is_active', true)
                 ->select('a.*', 'c.name as category_name', 'c.icon as category_icon')
                 ->orderBy('a.category_id')->orderBy('a.sort_order')
                 ->get()->groupBy('category_id');
@@ -133,7 +133,7 @@ class CheckoutController extends Controller
             // ── Coverage validation ────────────────────────────
             $shopZones = DB::table('delivery_zones')
                 ->where('shop_id', $product->shop_id)
-                ->where('is_active', 1)
+                ->where('is_active', true)
                 ->whereNotNull('lat')->whereNotNull('lng')
                 ->get();
 
@@ -220,7 +220,7 @@ class CheckoutController extends Controller
         $addonTotal = 0;
         $validAddons = [];
         if (!empty($selectedAddonIds)) {
-            $addons = DB::table('cake_addons')->whereIn('id', $selectedAddonIds)->where('is_active', 1)->get();
+            $addons = DB::table('cake_addons')->whereIn('id', $selectedAddonIds)->where('is_active', true)->get();
             foreach ($addons as $addon) {
                 $addonTotal += (float) $addon->price;
                 $validAddons[] = $addon;

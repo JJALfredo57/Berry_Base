@@ -62,7 +62,7 @@ class RiderController extends Controller
             'vehicle_type'           => $vtype,
             'license_plate'          => $plate ?: null,
             'emergency_contact_name' => $ecName ?: null,
-            'is_active'              => 1,
+            'is_active' => true,
             'created_at'             => now(),
             'updated_at'             => now(),
         ]);
@@ -114,7 +114,7 @@ class RiderController extends Controller
     {
         $rider = DB::table('riders')->where('id',$id)->first();
         if (!$rider) return back()->with('err','Rider not found.');
-        DB::table('riders')->where('id',$id)->update(['is_active' => $rider->is_active ? 0 : 1]);
+        DB::table('riders')->where('id',$id)->update(['is_active' => !$rider->is_active]);
         $action = $rider->is_active ? 'deactivated' : 'activated';
         CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Toggle Rider', "{$rider->name} {$action}");
         return back()->with('msg', "Rider {$rider->name} {$action}.");

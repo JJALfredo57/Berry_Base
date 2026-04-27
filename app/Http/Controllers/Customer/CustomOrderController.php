@@ -11,7 +11,7 @@ class CustomOrderController extends Controller
     private function loadOptions(): array
     {
         $rows = DB::table('custom_order_options')
-            ->where('is_active', 1)
+            ->where('is_active', true)
             ->orderBy('sort_order')->orderBy('id')
             ->get()->groupBy('type');
 
@@ -39,11 +39,11 @@ class CustomOrderController extends Controller
         $options = $this->loadOptions();
 
         $addonCategories = DB::table('cake_addon_categories')
-            ->where('is_active', 1)->orderBy('sort_order')->orderBy('id')->get();
+            ->where('is_active', true)->orderBy('sort_order')->orderBy('id')->get();
 
         $addonsByCategory = DB::table('cake_addons as a')
             ->join('cake_addon_categories as c', 'c.id', '=', 'a.category_id')
-            ->where('a.is_active', 1)->where('c.is_active', 1)
+            ->where('a.is_active', true)->where('c.is_active', true)
             ->select('a.*', 'c.name as category_name', 'c.icon as category_icon')
             ->orderBy('a.category_id')->orderBy('a.sort_order')
             ->get()->groupBy('category_id');
@@ -67,7 +67,7 @@ class CustomOrderController extends Controller
             $shopSettings  = DB::table('site_settings')->where('shop_id', $targetShop->id)->first();
             $deliveryZones = DB::table('delivery_zones')
                 ->where('shop_id', $targetShop->id)
-                ->where('is_active', 1)
+                ->where('is_active', true)
                 ->whereNotNull('lat')->whereNotNull('lng')
                 ->get();
         }
@@ -131,7 +131,7 @@ class CustomOrderController extends Controller
         $addonTotal  = 0;
         $validAddons = [];
         if (!empty($selectedAddonIds)) {
-            $addons = DB::table('cake_addons')->whereIn('id', $selectedAddonIds)->where('is_active', 1)->get();
+            $addons = DB::table('cake_addons')->whereIn('id', $selectedAddonIds)->where('is_active', true)->get();
             foreach ($addons as $addon) {
                 $addonTotal += (float)$addon->price;
                 $validAddons[] = $addon;
@@ -155,7 +155,7 @@ class CustomOrderController extends Controller
             // ── Coverage validation ────────────────────────────
             $shopZones = DB::table('delivery_zones')
                 ->where('shop_id', $shopId)
-                ->where('is_active', 1)
+                ->where('is_active', true)
                 ->whereNotNull('lat')->whereNotNull('lng')
                 ->get();
 

@@ -29,7 +29,7 @@ class CatalogController extends Controller
         $productSizes = [];
         try {
             $sizes = DB::table('product_sizes')
-                ->where('is_active', 1)
+                ->where('is_active', true)
                 ->orderBy('sort_order')
                 ->get();
             foreach ($sizes as $s) {

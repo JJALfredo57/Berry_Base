@@ -39,7 +39,7 @@ class DeliveryZoneController extends Controller
             'delivery_fee' => $fee,
             'zone_type'      => $type,
             'estimated_time' => trim($request->input('estimated_time','30-45 mins')) ?: '30-45 mins',
-            'is_active'      => 1,
+            'is_active' => true,
             'sort_order'     => $max + 1,
             'created_at'     => now(),
         ]);
@@ -78,7 +78,7 @@ class DeliveryZoneController extends Controller
         $zone = DB::table('delivery_zones')->where('id', $id)->first();
         if (!$zone) return back()->with('err', 'Zone not found.');
         DB::table('delivery_zones')->where('id', $id)
-            ->update(['is_active' => $zone->is_active ? 0 : 1]);
+            ->update(['is_active' => !$zone->is_active]);
         return back()->with('msg', $zone->is_active ? 'Zone hidden.' : 'Zone shown.');
     }
 

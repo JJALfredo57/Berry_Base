@@ -17,7 +17,7 @@ class ProductSizeController extends Controller
             'label'       => $label,
             'price'       => $price,
             'sort_order'  => $max + 1,
-            'is_active'   => 1,
+            'is_active' => true,
             'created_at'  => now(),
         ]);
         return back()->with('msg', "Size '\1' added.");
