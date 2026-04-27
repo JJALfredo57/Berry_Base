@@ -202,11 +202,71 @@ class LocalDataSeeder extends Seeder
             'barangay'  => $z[2],
             'fee'       => $z[3],
             'sort_order'=> $z[4],
-            'is_active' => $z[5],
+            'is_active' => (bool) $z[5],
             'zone_type' => $z[6],
         ], $zones);
 
         DB::table('delivery_zones')->upsert($rows, ['id'], ['barangay','fee']);
+
+        // Product sizes — standard sizes for single-tier cakes
+        // Each entry: [product_id, label, price, sort_order]
+        $singleTierProducts = [
+            '90aiTkkl0N', // Dark Chocolate Matcha Cake
+            'C8cl0r1lyJ', // Pure White Drip Cake
+            'CthMkIqd78', // Mocha Rosette Drip Cake
+            'CzLwa3ZEsM', // Cookies and Cream Cake
+            'dYPpHnL6WW', // Mango Caramel Cake
+            'EDiAAD5c37', // Classic White Cream Cake
+            'GVE7mYzBN6', // Blue Berry Swirl Cake
+            'JwQgBNllKf', // Cheesy Heaven Cake
+            'LNqNWuj4cE', // Mango Delight Cake
+            'orHymHTk1l', // Mocha Chocolate Drip Cake
+            'oUrd8qDicb', // Blueberry Dream Cake
+            'TlW5zEZ8nm', // Blush White Drip Cake
+            'ugEJM1Psm2', // Blue Velvet Rosette Cake
+            'vP10pJUHQk', // Caramel Oreo Drip Cake
+            'x0qCd5r66a', // Malteser Cream Cake
+        ];
+        $fondantProducts = [
+            'GUOrWJXU5j', // Hello Kitty Birthday Cake
+            'YagyXUFUbS', // Naruto Theme Cake
+        ];
+
+        // Only insert sizes if table is empty to avoid duplicates
+        if (DB::table('product_sizes')->count() === 0) {
+            $sizeRows = [];
+            foreach ($singleTierProducts as $pid) {
+                foreach ([['6"', 0], ['8"', 200], ['10"', 400], ['12"', 700]] as $i => [$label, $add]) {
+                    $product = DB::table('products')->where('id', $pid)->first();
+                    if (!$product) continue;
+                    $sizeRows[] = [
+                        'product_id' => $pid,
+                        'label'      => $label,
+                        'price'      => $product->price + $add,
+                        'sort_order' => $i + 1,
+                        'is_active'  => true,
+                        'created_at' => now(),
+                    ];
+                }
+            }
+            foreach ($fondantProducts as $pid) {
+                foreach ([['6"', 0], ['8"', 500], ['10"', 1000]] as $i => [$label, $add]) {
+                    $product = DB::table('products')->where('id', $pid)->first();
+                    if (!$product) continue;
+                    $sizeRows[] = [
+                        'product_id' => $pid,
+                        'label'      => $label,
+                        'price'      => $product->price + $add,
+                        'sort_order' => $i + 1,
+                        'is_active'  => true,
+                        'created_at' => now(),
+                    ];
+                }
+            }
+            if ($sizeRows) {
+                DB::table('product_sizes')->insert($sizeRows);
+            }
+        }
     }
 
     private function resetSequences(): void

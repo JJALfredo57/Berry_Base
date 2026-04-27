@@ -84,7 +84,7 @@ class DatabaseSeeder extends Seeder
                             'label'      => $sz[0],
                             'price'      => $p['price'] + $sz[1],
                             'sort_order' => $i + 1,
-                            'is_active'  => 1,
+                            'is_active'  => true,
                             'created_at' => now(),
                         ]);
                     }
@@ -103,7 +103,7 @@ class DatabaseSeeder extends Seeder
             foreach ($cats as $c) {
                 DB::table('cake_addon_categories')->insert([
                     'name' => $c[0], 'icon' => $c[1], 'sort_order' => $c[2],
-                    'is_active' => 1, 'created_at' => now(),
+                    'is_active' => true, 'created_at' => now(),
                 ]);
             }
         }
@@ -157,7 +157,7 @@ class DatabaseSeeder extends Seeder
             foreach ($addons as $a) {
                 DB::table('cake_addons')->insert([
                     'category_id' => $a[0], 'name' => $a[1], 'description' => $a[2],
-                    'price' => $a[3], 'is_active' => $a[4], 'sort_order' => $a[5],
+                    'price' => $a[3], 'is_active' => (bool)$a[4], 'sort_order' => $a[5],
                     'created_at' => now(),
                 ]);
             }
@@ -203,7 +203,7 @@ class DatabaseSeeder extends Seeder
             foreach ($options as $o) {
                 DB::table('custom_order_options')->insert([
                     'type' => $o[0], 'label' => $o[1], 'price' => $o[2],
-                    'description' => $o[3], 'is_active' => $o[4], 'sort_order' => $o[5],
+                    'description' => $o[3], 'is_active' => (bool)$o[4], 'sort_order' => $o[5],
                     'created_at' => now(),
                 ]);
             }
