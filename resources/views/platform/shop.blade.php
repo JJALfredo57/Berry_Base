@@ -482,6 +482,38 @@
                   <div id="availResult{{ $p->id }}" class="mt-2" style="font-size:.82rem;min-height:20px"></div>
                 </div>
 
+                {{-- Personalization --}}
+                <div class="mb-3 p-3 rounded-3" style="background:#fdf8ff;border:1.5px solid #e9d5ff">
+                  <div class="fw-semibold small mb-3" style="color:#7c3aed">
+                    <i class="bi bi-magic me-1"></i>Personalize Your Cake <span class="fw-normal text-muted">(optional)</span>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label fw-semibold small mb-1">
+                      <i class="bi bi-pen me-1" style="color:#7c3aed"></i>Dedication / Message on Cake
+                    </label>
+                    <input type="text" class="form-control form-control-sm" name="dedication"
+                           placeholder='e.g. "Happy Birthday Juan!" or "Congratulations!"'
+                           maxlength="100">
+                    <div class="form-text">What should be written on the cake?</div>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label fw-semibold small mb-1">
+                      <i class="bi bi-palette me-1" style="color:#7c3aed"></i>Color / Theme Preference
+                    </label>
+                    <input type="text" class="form-control form-control-sm" name="color_theme"
+                           placeholder='e.g. "Pink and white roses" or "Blue galaxy theme"'
+                           maxlength="100">
+                  </div>
+                  <div class="mb-0">
+                    <label class="form-label fw-semibold small mb-1">
+                      <i class="bi bi-chat-left-text me-1" style="color:#7c3aed"></i>Special Instructions
+                    </label>
+                    <textarea class="form-control form-control-sm" name="special_note" rows="2"
+                              placeholder='e.g. "No nuts", "Extra sweet", "Add flowers on top"'
+                              maxlength="300"></textarea>
+                  </div>
+                </div>
+
                 <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
                   <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
                 </button>
