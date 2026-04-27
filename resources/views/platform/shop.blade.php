@@ -239,6 +239,62 @@
         'Perishable' => ['bg'=>'#d1fae5','color'=>'#065f46'],
       ];
     @endphp
+
+    {{-- ── TOP SELLERS ── --}}
+    @if($bestSellers->count() > 0)
+    <div style="margin-bottom:2rem">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem">
+        <span style="background:linear-gradient(135deg,#ff6b35,#f7c59f);width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="bi bi-fire" style="color:#fff;font-size:.95rem"></i>
+        </span>
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:1.05rem;color:var(--gray-900)">Top Sellers</div>
+          <div style="font-size:.72rem;color:var(--gray-500)">Most ordered from this shop</div>
+        </div>
+      </div>
+      <div class="row g-3">
+        @foreach($bestSellers as $bs)
+        @php
+          $bsCb = $classBadge[$bs->classification] ?? ['bg'=>'#dbeafe','color'=>'#1e40af'];
+          $bsSizes = $productSizes[$bs->id] ?? collect();
+        @endphp
+        <div class="col-6 col-md-3">
+          <div class="product-card" style="border-color:#ffd8c0;position:relative">
+            <div style="position:absolute;top:.5rem;right:.5rem;z-index:2;background:linear-gradient(135deg,#ff6b35,#e53935);color:#fff;font-size:.65rem;font-weight:700;padding:.18rem .55rem;border-radius:99px;display:flex;align-items:center;gap:.25rem">
+              <i class="bi bi-fire"></i> Top Seller
+            </div>
+            <div class="product-img-wrap">
+              @if($bs->image_path)
+                <img src="{{ $bs->image_path }}" alt="{{ $bs->name }}"
+                     onerror="this.parentElement.querySelector('.product-img-ph').style.display='flex';this.style.display='none'">
+              @endif
+              <div class="product-img-ph" style="display:{{ $bs->image_path ? 'none' : 'flex' }}">
+                <i class="bi bi-cake2" style="font-size:2.5rem;color:var(--primary);opacity:.35"></i>
+              </div>
+              <span class="class-badge" style="background:{{ $bsCb['bg'] }};color:{{ $bsCb['color'] }}">{{ $bs->classification }}</span>
+            </div>
+            <div class="product-body">
+              <div class="product-name">{{ $bs->name }}</div>
+              @if($bs->flavor)
+                <span class="flavor-tag"><i class="bi bi-droplet me-1" style="font-size:.62rem"></i>{{ $bs->flavor }}</span>
+              @endif
+              <div class="product-price">₱{{ number_format($bs->price,2) }}</div>
+              <div style="font-size:.7rem;color:#ff6b35;font-weight:600;margin-bottom:.25rem">
+                <i class="bi bi-bag-check me-1"></i>{{ number_format($bs->total_sold) }} sold
+              </div>
+              <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $bs->id }}">
+                <i class="bi bi-bag-plus me-1"></i>Order Now
+              </button>
+            </div>
+          </div>
+        </div>
+        @endforeach
+      </div>
+    </div>
+    <hr style="border-color:var(--gray-200);margin-bottom:1.5rem">
+    @endif
+    {{-- ── END TOP SELLERS ── --}}
+
     @if($classes->count() > 1)
     <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem">
       <button class="filter-chip active" onclick="filterProds('all',this)">All</button>

@@ -142,9 +142,32 @@ class PlatformController extends Controller
         $avgRating    = $reviews->avg('rating');
         $reviewCount  = $reviews->count();
 
+        $bestSellers = collect();
+        try {
+            $soldStats = DB::table('orders')
+                ->whereIn('product_id', $productIds)
+                ->where('shop_id', $shop->id)
+                ->whereNotIn('status', ['Cancelled'])
+                ->whereNotNull('product_id')
+                ->select('product_id', DB::raw('SUM(quantity) as total_sold'))
+                ->groupBy('product_id')
+                ->orderByDesc('total_sold')
+                ->limit(4)
+                ->get()->keyBy('product_id');
+
+            $bestSellers = $products
+                ->filter(fn($p) => isset($soldStats[$p->id]) && $soldStats[$p->id]->total_sold > 0)
+                ->map(function ($p) use ($soldStats) {
+                    $p = clone $p;
+                    $p->total_sold = $soldStats[$p->id]->total_sold;
+                    return $p;
+                })
+                ->sortByDesc('total_sold')->take(4)->values();
+        } catch (\Exception $e) {}
+
         $platform   = DB::table('platform_settings')->first();
         $shopSettings = DB::table('site_settings')->where('shop_id', $shop->id)->first();
 
-        return view('platform.shop', compact('shop', 'products', 'productSizes', 'productRatings', 'productReviews', 'reviews', 'avgRating', 'reviewCount', 'platform', 'shopSettings'));
+        return view('platform.shop', compact('shop', 'products', 'productSizes', 'productRatings', 'productReviews', 'reviews', 'avgRating', 'reviewCount', 'platform', 'shopSettings', 'bestSellers'));
     }
 }
