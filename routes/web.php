@@ -59,48 +59,21 @@ Route::post('/catalog/select',  [GuestCatalog::class, 'selectProduct'])->name('c
 // ── Catalog Availability Check (AJAX) ────────────────────────────────────
 Route::get('/catalog/availability', [GuestCatalog::class, 'checkAvailability'])->name('catalog.availability');
 
-// ── Reverse Geocode Proxy (avoids CORS & rate-limit on Nominatim) ────────
+// ── Geocode: redirect browser directly to Nominatim (no server-side HTTP) ─
 Route::get('/api/geocode/reverse', function (\Illuminate\Http\Request $req) {
     $lat = (float) $req->query('lat', 0);
     $lng = (float) $req->query('lng', 0);
     if (!$lat || !$lng) return response()->json(['error' => 'Missing coordinates'], 422);
-
-    $cacheKey = 'geocode_' . round($lat, 4) . '_' . round($lng, 4);
-    $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function () use ($lat, $lng) {
-        $res = \Illuminate\Support\Facades\Http::withHeaders([
-            'User-Agent' => 'CakeshopApp/1.0 (contact@cakeshop.local)',
-            'Accept-Language' => 'en',
-        ])->timeout(8)->get('https://nominatim.openstreetmap.org/reverse', [
-            'format'         => 'jsonv2',
-            'lat'            => $lat,
-            'lon'            => $lng,
-            'addressdetails' => 1,
-        ]);
-        return $res->successful() ? $res->json() : null;
-    });
-
-    if (!$data) return response()->json(['error' => 'Geocoding unavailable'], 503);
-    return response()->json($data);
+    $url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1'
+         . '&lat=' . $lat . '&lon=' . $lng;
+    return redirect()->away($url);
 })->name('api.geocode.reverse');
 
 Route::get('/api/geocode/search', function (\Illuminate\Http\Request $req) {
     $q = trim($req->query('q', ''));
     if (!$q) return response()->json([], 200);
-
-    $cacheKey = 'geocode_search_' . md5($q);
-    $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function () use ($q) {
-        $res = \Illuminate\Support\Facades\Http::withHeaders([
-            'User-Agent' => 'CakeshopApp/1.0 (contact@cakeshop.local)',
-            'Accept-Language' => 'en',
-        ])->timeout(8)->get('https://nominatim.openstreetmap.org/search', [
-            'format' => 'jsonv2',
-            'limit'  => 5,
-            'q'      => $q,
-        ]);
-        return $res->successful() ? $res->json() : [];
-    });
-
-    return response()->json($data);
+    $url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=' . urlencode($q);
+    return redirect()->away($url);
 })->name('api.geocode.search');
 
 // ── Guest Checkout ────────────────────────────────────────────────────────
