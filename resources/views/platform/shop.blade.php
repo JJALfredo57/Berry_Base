@@ -35,7 +35,9 @@
       --shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 16px rgba(0,0,0,.1);
     }
     *,*::before,*::after{box-sizing:border-box}
-    body{font-family:'DM Sans',system-ui,sans-serif;{{ $bodyBg }}color:var(--gray-900);margin:0;-webkit-font-smoothing:antialiased}
+    html,body{overflow-x:hidden}
+    body{font-family:'DM Sans',system-ui,sans-serif;{{ $bodyBg }}color:var(--gray-900);margin:0;-webkit-font-smoothing:antialiased;font-size:16px}
+    img{max-width:100%}
     a{text-decoration:none;color:inherit}
 
     /* ── Navbar ── */
@@ -46,81 +48,107 @@
       border-bottom:1px solid rgba(0,0,0,.07);
       padding:.6rem 0;
     }
-    .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0 clamp(1rem,4vw,2rem)}
-    .nav-back{display:flex;align-items:center;gap:.4rem;font-size:.85rem;font-weight:600;color:var(--gray-600);transition:color .15s;border:1.5px solid var(--gray-300);padding:.35rem .8rem;border-radius:var(--radius-md)}
+    .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:0 clamp(.9rem,4vw,2rem)}
+    .nav-back{display:flex;align-items:center;gap:.4rem;font-size:.9rem;font-weight:600;color:var(--gray-600);transition:color .15s;border:1.5px solid var(--gray-300);padding:.4rem .85rem;border-radius:var(--radius-md);min-height:40px;flex-shrink:0}
     .nav-back:hover{color:var(--primary);border-color:var(--primary)}
-    .nav-shop-name{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--gray-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
-    .btn-order-now{font-size:.83rem;font-weight:700;color:#fff;background:var(--primary);border:none;border-radius:var(--radius-md);padding:.45rem 1.1rem;transition:all .15s;box-shadow:0 2px 8px rgba(229,57,53,.25);display:inline-flex;align-items:center;gap:.4rem}
+    .nav-shop-name{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;color:var(--gray-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;padding:0 .5rem}
+    .btn-order-now{font-size:.88rem;font-weight:700;color:#fff;background:var(--primary);border:none;border-radius:var(--radius-md);padding:.45rem 1.1rem;transition:all .15s;box-shadow:0 2px 8px rgba(229,57,53,.25);display:inline-flex;align-items:center;gap:.4rem;min-height:40px;flex-shrink:0}
     .btn-order-now:hover{background:var(--primary-dark);transform:translateY(-1px);color:#fff}
-    .btn-custom-cake{font-size:.83rem;font-weight:700;color:var(--primary);background:#fff;border:2px solid var(--primary);border-radius:var(--radius-md);padding:.45rem 1.1rem;transition:all .15s;display:inline-flex;align-items:center;gap:.4rem;cursor:pointer}
+    .btn-custom-cake{font-size:.88rem;font-weight:700;color:var(--primary);background:#fff;border:2px solid var(--primary);border-radius:var(--radius-md);padding:.45rem 1.1rem;transition:all .15s;display:inline-flex;align-items:center;gap:.4rem;cursor:pointer;min-height:40px}
     .btn-custom-cake:hover{background:var(--primary);color:#fff;transform:translateY(-1px)}
 
     /* ── Cover ── */
-    .cover-wrap{height:280px;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 60%,var(--primary-bg) 100%)}
+    .cover-wrap{height:260px;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 60%,var(--primary-bg) 100%)}
     .cover-wrap img{width:100%;height:100%;object-fit:cover}
     .cover-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.45) 100%)}
-    @media(max-width:576px){.cover-wrap{height:200px}}
+    @media(max-width:576px){.cover-wrap{height:170px}}
 
     /* ── Shop Header ── */
     .shop-header{background:#fff;border-bottom:1px solid var(--gray-200)}
-    .shop-header-inner{padding:0 clamp(1rem,4vw,2rem)}
-    .shop-logo-wrap{margin-top:-52px;margin-bottom:.75rem;position:relative;display:inline-block}
+    .shop-header-inner{padding:0 clamp(.9rem,4vw,2rem)}
+    .shop-logo-wrap{margin-top:-46px;margin-bottom:.75rem;position:relative;display:inline-block}
     .shop-logo{
-      width:96px;height:96px;border-radius:22px;
+      width:88px;height:88px;border-radius:20px;
       border:4px solid #fff;box-shadow:0 4px 20px rgba(0,0,0,.15);
       object-fit:cover;display:block;
     }
     .shop-logo-placeholder{
-      width:96px;height:96px;border-radius:22px;
+      width:88px;height:88px;border-radius:20px;
       border:4px solid #fff;box-shadow:0 4px 20px rgba(0,0,0,.15);
       background:var(--primary);display:flex;align-items:center;justify-content:center;
-      font-family:'Playfair Display',serif;font-size:2.4rem;color:#fff;font-weight:700;
+      font-family:'Playfair Display',serif;font-size:2.2rem;color:#fff;font-weight:700;
     }
-    .shop-name{font-family:'Playfair Display',serif;font-size:clamp(1.3rem,3.5vw,1.85rem);font-weight:700;color:var(--gray-900);margin:0}
-    .badge-verified{display:inline-flex;align-items:center;gap:.3rem;background:#FFF3E0;color:#E65100;font-size:.7rem;font-weight:700;padding:.22rem .65rem;border-radius:99px}
-    .badge-new{display:inline-flex;align-items:center;gap:.3rem;background:#E8F5E9;color:#2E7D32;font-size:.7rem;font-weight:700;padding:.22rem .65rem;border-radius:99px}
-    .shop-meta{display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;font-size:.8rem;color:var(--gray-500);margin-top:.5rem}
+    .shop-name{font-family:'Playfair Display',serif;font-size:clamp(1.3rem,4vw,1.85rem);font-weight:700;color:var(--gray-900);margin:0}
+    .badge-verified{display:inline-flex;align-items:center;gap:.3rem;background:#FFF3E0;color:#E65100;font-size:.8rem;font-weight:700;padding:.25rem .7rem;border-radius:99px}
+    .badge-new{display:inline-flex;align-items:center;gap:.3rem;background:#E8F5E9;color:#2E7D32;font-size:.8rem;font-weight:700;padding:.25rem .7rem;border-radius:99px}
+    .shop-meta{display:flex;flex-wrap:wrap;gap:.6rem 1rem;font-size:.875rem;color:var(--gray-500);margin-top:.5rem}
     .shop-meta span{display:flex;align-items:center;gap:.3rem}
     .shop-meta i{color:var(--primary)}
     .stars{color:#FFC107}
 
     /* ── Tabs ── */
-    .tab-bar{display:flex;gap:0;border-bottom:2px solid var(--gray-200);margin-top:1.25rem;overflow-x:auto}
-    .tab-btn{padding:.65rem 1.35rem;font-size:.875rem;font-weight:600;color:var(--gray-500);border:none;background:transparent;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap}
+    .tab-bar{display:flex;gap:0;border-bottom:2px solid var(--gray-200);margin-top:1.25rem;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .tab-bar::-webkit-scrollbar{display:none}
+    .tab-btn{padding:.7rem 1.25rem;font-size:.9rem;font-weight:600;color:var(--gray-500);border:none;background:transparent;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap;min-height:44px}
     .tab-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
-    .tab-pane{display:none;padding:1.75rem clamp(1rem,4vw,2rem)}
+    .tab-pane{display:none;padding:1.5rem clamp(.9rem,4vw,2rem)}
     .tab-pane.active{display:block}
 
     /* ── Product Cards ── */
     .product-card{background:#fff;border-radius:var(--radius-lg);overflow:hidden;border:1.5px solid var(--gray-200);transition:all .22s;height:100%;display:flex;flex-direction:column}
     .product-card:hover{border-color:var(--primary-light);box-shadow:0 8px 32px rgba(229,57,53,.13);transform:translateY(-4px)}
-    .product-img-wrap{height:200px;overflow:hidden;background:linear-gradient(135deg,var(--primary-bg),var(--primary-light));position:relative}
+    .product-img-wrap{height:190px;overflow:hidden;background:linear-gradient(135deg,var(--primary-bg),var(--primary-light));position:relative}
     .product-img-wrap img{width:100%;height:100%;object-fit:cover;transition:transform .4s ease}
     .product-card:hover .product-img-wrap img{transform:scale(1.07)}
     .product-img-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
     .product-body{padding:1rem;flex:1;display:flex;flex-direction:column}
-    .product-name{font-size:.9rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem}
-    .product-desc{font-size:.75rem;color:var(--gray-500);line-height:1.5;margin:.25rem 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex-grow:1}
-    .product-price{font-size:1.05rem;font-weight:700;color:var(--primary);margin-top:.5rem}
-    .flavor-tag{display:inline-block;background:var(--primary-bg);color:var(--primary);font-size:.68rem;padding:.2rem .6rem;border-radius:99px;margin:.35rem 0;font-weight:600}
-    .class-badge{position:absolute;top:.6rem;left:.6rem;font-size:.68rem;font-weight:700;padding:.2rem .55rem;border-radius:99px}
-    .btn-order{display:block;width:100%;background:var(--primary);color:#fff;padding:.55rem 1rem;border-radius:var(--radius-md);font-size:.83rem;font-weight:700;border:none;cursor:pointer;transition:all .18s;text-align:center;margin-top:.75rem}
+    .product-name{font-size:1rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem;line-height:1.35}
+    .product-desc{font-size:.82rem;color:var(--gray-500);line-height:1.55;margin:.25rem 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex-grow:1}
+    .product-price{font-size:1.1rem;font-weight:700;color:var(--primary);margin-top:.5rem}
+    .flavor-tag{display:inline-block;background:var(--primary-bg);color:var(--primary);font-size:.75rem;padding:.22rem .65rem;border-radius:99px;margin:.35rem 0;font-weight:600}
+    .class-badge{position:absolute;top:.6rem;left:.6rem;font-size:.72rem;font-weight:700;padding:.22rem .6rem;border-radius:99px}
+    .btn-order{display:block;width:100%;background:var(--primary);color:#fff;padding:.65rem 1rem;border-radius:var(--radius-md);font-size:.9rem;font-weight:700;border:none;cursor:pointer;transition:all .18s;text-align:center;margin-top:.75rem;min-height:44px;display:flex;align-items:center;justify-content:center;gap:.35rem}
     .btn-order:hover{background:var(--primary-dark);transform:translateY(-1px);color:#fff}
 
     /* ── Reviews ── */
     .review-card{background:#fff;border-radius:var(--radius-md);padding:1.1rem 1.25rem;border:1.5px solid var(--gray-200);margin-bottom:.75rem}
-    .reviewer-avatar{width:40px;height:40px;border-radius:50%;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;color:var(--primary);flex-shrink:0}
+    .reviewer-avatar{width:42px;height:42px;border-radius:50%;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;color:var(--primary);flex-shrink:0}
 
     /* ── Info rows ── */
     .info-row{display:flex;gap:1rem;padding:1rem 1.25rem;border-bottom:1px solid var(--gray-100);align-items:flex-start}
-    .info-icon{width:36px;height:36px;border-radius:10px;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .info-icon{width:38px;height:38px;border-radius:10px;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 
     /* ── Filter chips ── */
-    .filter-chip{padding:.32rem .85rem;border-radius:99px;border:1.5px solid var(--gray-200);background:#fff;color:var(--gray-700);font-size:.76rem;font-weight:600;cursor:pointer;transition:all .15s}
+    .filter-chip{padding:.42rem .95rem;border-radius:99px;border:1.5px solid var(--gray-200);background:#fff;color:var(--gray-700);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s;min-height:38px}
     .filter-chip.active,.filter-chip:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
 
     /* ── Empty ── */
     .empty-state{text-align:center;padding:4rem 1rem}
+
+    /* ── Mobile overrides ── */
+    @media(max-width:575.98px){
+      .shop-logo{width:74px;height:74px;border-radius:16px}
+      .shop-logo-placeholder{width:74px;height:74px;border-radius:16px;font-size:1.8rem}
+      .shop-logo-wrap{margin-top:-38px}
+      .shop-meta{font-size:.875rem;gap:.5rem .75rem}
+      .product-img-wrap{height:155px}
+      .product-name{font-size:1rem}
+      .product-body{padding:.85rem}
+      .tab-btn{font-size:.875rem;padding:.65rem .85rem}
+      .tab-pane{padding:1.2rem .9rem}
+      .filter-chip{font-size:.82rem;padding:.4rem .85rem}
+      .review-card{padding:.9rem 1rem}
+      .info-row{padding:.85rem 1rem;gap:.75rem}
+      .info-icon{width:34px;height:34px}
+      /* Bump all tiny inline sizes inside modal */
+      .modal-content .small,.modal-content .form-text{font-size:.875rem!important}
+      .modal-body [style*=".68rem"]{font-size:.8rem!important}
+      .modal-body [style*=".7rem"]{font-size:.82rem!important}
+      .modal-body [style*=".72rem"]{font-size:.82rem!important}
+      .modal-body [style*=".78rem"]{font-size:.88rem!important}
+      .modal-body [style*=".82rem"]{font-size:.9rem!important}
+      .modal-body h4{font-size:1.15rem!important}
+    }
   </style>
 </head>
 <body>
@@ -178,7 +206,7 @@
       </div>
 
       @if($shop->description)
-        <p style="font-size:.875rem;color:var(--gray-600);line-height:1.65;margin:.4rem 0 0;max-width:600px">{{ $shop->description }}</p>
+        <p style="font-size:.9rem;color:var(--gray-600);line-height:1.7;margin:.4rem 0 0;max-width:600px">{{ $shop->description }}</p>
       @endif
 
       <div class="shop-meta mt-2">
@@ -248,8 +276,8 @@
           <i class="bi bi-fire" style="color:#fff;font-size:.95rem"></i>
         </span>
         <div>
-          <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:1.05rem;color:var(--gray-900)">Top Sellers</div>
-          <div style="font-size:.72rem;color:var(--gray-500)">Most ordered from this shop</div>
+          <div style="font-family:'Playfair Display',serif;font-weight:700;font-size:1.1rem;color:var(--gray-900)">Top Sellers</div>
+          <div style="font-size:.82rem;color:var(--gray-500)">Most ordered from this shop</div>
         </div>
       </div>
       <div class="row g-3">
@@ -260,7 +288,7 @@
         @endphp
         <div class="col-6 col-md-3">
           <div class="product-card" style="border-color:#ffd8c0;position:relative">
-            <div style="position:absolute;top:.5rem;right:.5rem;z-index:2;background:linear-gradient(135deg,#ff6b35,#e53935);color:#fff;font-size:.65rem;font-weight:700;padding:.18rem .55rem;border-radius:99px;display:flex;align-items:center;gap:.25rem">
+            <div style="position:absolute;top:.5rem;right:.5rem;z-index:2;background:linear-gradient(135deg,#ff6b35,#e53935);color:#fff;font-size:.75rem;font-weight:700;padding:.22rem .6rem;border-radius:99px;display:flex;align-items:center;gap:.25rem">
               <i class="bi bi-fire"></i> Top Seller
             </div>
             <div class="product-img-wrap">
@@ -279,7 +307,7 @@
                 <span class="flavor-tag"><i class="bi bi-droplet me-1" style="font-size:.62rem"></i>{{ $bs->flavor }}</span>
               @endif
               <div class="product-price">₱{{ number_format($bs->price,2) }}</div>
-              <div style="font-size:.7rem;color:#ff6b35;font-weight:600;margin-bottom:.25rem">
+              <div style="font-size:.82rem;color:#ff6b35;font-weight:600;margin-bottom:.25rem">
                 <i class="bi bi-bag-check me-1"></i>{{ number_format($bs->total_sold) }} sold
               </div>
               <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $bs->id }}">
@@ -353,7 +381,7 @@
       $cls = $classBadge[$p->classification] ?? $classBadge['Standard'];
     @endphp
     <div class="modal fade" id="shopOrderModal{{ $p->id }}" tabindex="-1">
-      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
         <div class="modal-content border-0" style="border-radius:1.4rem;overflow:hidden">
 
           {{-- Sticky Header --}}
@@ -700,8 +728,8 @@
       <div class="info-row">
         <div class="info-icon"><i class="bi {{ $icon }}" style="color:var(--primary)"></i></div>
         <div>
-          <div style="font-size:.7rem;color:var(--gray-500);margin-bottom:.15rem;text-transform:uppercase;letter-spacing:.04em">{{ $label }}</div>
-          <div style="font-size:.9rem;font-weight:600;color:var(--gray-900)">{{ $value }}</div>
+          <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:.15rem;text-transform:uppercase;letter-spacing:.04em">{{ $label }}</div>
+          <div style="font-size:.95rem;font-weight:600;color:var(--gray-900)">{{ $value }}</div>
         </div>
       </div>
       @endif
