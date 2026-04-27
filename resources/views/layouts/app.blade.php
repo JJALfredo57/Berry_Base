@@ -30,6 +30,21 @@
   // Primary color: always from platform_settings (set by Super Admin).
   // Fallback to #7B3A0F (chocolate brown matching the platform logo).
   $rawPrimary = $platformBrand->platform_primary_color ?? '#7B3A0F';
+
+  // Dashboard body background (set by Super Admin)
+  $pbgType  = $platformBrand->platform_bg_type ?? 'color';
+  $pbgColor = $platformBrand->platform_bg_color ?? '#FFF8F8';
+  $pbgGradStart = $platformBrand->platform_bg_gradient_start ?? '#fff7fb';
+  $pbgGradEnd   = $platformBrand->platform_bg_gradient_end   ?? '#ffe3f1';
+  $pbgImage   = $platformBrand->platform_bg_image   ?? '';
+  $pbgOpacity = (float)($platformBrand->platform_bg_opacity ?? 1.0);
+  if ($pbgType === 'gradient') {
+      $bodyBgCss = "background: linear-gradient(135deg, {$pbgGradStart} 0%, {$pbgGradEnd} 100%);";
+  } elseif ($pbgType === 'image' && $pbgImage) {
+      $bodyBgCss = "background: {$pbgColor};"; // color shows while image loads
+  } else {
+      $bodyBgCss = "background: {$pbgColor};";
+  }
   if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $rawPrimary)) $rawPrimary = '#7B3A0F';
 
   // Compute color variants from hex
@@ -149,7 +164,7 @@
     html { font-size: clamp(14px, 1.5vw, 16px); scroll-behavior: smooth; }
     body {
       font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-      background: var(--cream);
+      {{ $bodyBgCss }}
       color: var(--gray-900);
       min-height: 100vh;
       margin: 0;
@@ -703,15 +718,12 @@
 </head>
 <body>
 
-{{-- ═══ BG IMAGE OVERLAY (admin + customer, opacity-controlled) ═══ --}}
-@if(($settings['bg_type'] ?? 'gradient') === 'image' && !empty($settings['bg_image_path']))
+{{-- ═══ PLATFORM BG IMAGE OVERLAY (superadmin-controlled) ═══ --}}
+@if($pbgType === 'image' && !empty($pbgImage))
 <div aria-hidden="true" style="
-  position:fixed;
-  inset:0;
-  z-index:-1;
-  background:url('{{ $settings['bg_image_path'] }}') center/cover no-repeat;
-  opacity:{{ $settings['bg_image_opacity'] ?? 1.0 }};
-  pointer-events:none;
+  position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:url('{{ $pbgImage }}') center/cover no-repeat;
+  opacity:{{ $pbgOpacity }};
 "></div>
 @endif
 
@@ -1197,6 +1209,40 @@
     </a>
 
     <div class="csb-divider"></div>
+    <div class="csb-section-label">For Riders</div>
+    <div style="padding:2px 8px 10px">
+      <div style="background:linear-gradient(135deg,#fef3c7,#fef9c3);border:1.5px solid #fde68a;border-radius:12px;padding:12px">
+        <div style="font-size:.78rem;font-weight:700;color:#78350f;margin-bottom:4px">
+          <i class="bi bi-bicycle me-1"></i>Rider Access
+        </div>
+        <div style="font-size:.72rem;color:#92400e;line-height:1.4;margin-bottom:8px">
+          Copy your delivery code from your SMS and paste it below.
+        </div>
+        <form action="{{ route('rider.access') }}" method="POST" id="riderAccessForm">
+          @csrf
+          <input type="text" name="code" id="riderCodeInput"
+                 value="{{ old('code') }}"
+                 placeholder="e.g. 09171234567|492847"
+                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                 style="width:100%;border:1.5px solid #fbbf24;border-radius:8px;padding:.45rem .65rem;font-size:.82rem;font-family:monospace;background:#fffbeb;color:#111827;outline:none;margin-bottom:6px;transition:border-color .15s"
+                 onfocus="this.style.borderColor='#d97706'"
+                 onblur="this.style.borderColor='#fbbf24'">
+          @if(session('rider_err'))
+          <div style="color:#b91c1c;font-size:.72rem;margin-bottom:6px;line-height:1.35">
+            <i class="bi bi-exclamation-circle me-1"></i>{{ session('rider_err') }}
+          </div>
+          @endif
+          <button type="submit"
+                  style="width:100%;padding:.5rem;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.82rem;cursor:pointer;transition:opacity .15s"
+                  onmouseover="this.style.opacity='.88'"
+                  onmouseout="this.style.opacity='1'">
+            <i class="bi bi-bicycle me-1"></i>Open My Delivery
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="csb-divider"></div>
     <div class="csb-section-label">Sellers</div>
     <a href="{{ route('login') }}" class="csb-link" onclick="closeCustSidebar()" style="color:#e53935;font-weight:600">
       <i class="bi bi-person-badge"></i> Seller Login
@@ -1261,8 +1307,18 @@ function closeCustSidebar() {
   document.getElementById('csbOverlay').classList.remove('open');
   document.body.style.overflow = '';
 }
-// Close on Escape key
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCustSidebar(); });
+
+@if(session('rider_err'))
+// Auto-open sidebar and focus the rider input when there's an access error
+document.addEventListener('DOMContentLoaded', function () {
+  openCustSidebar();
+  setTimeout(function () {
+    var inp = document.getElementById('riderCodeInput');
+    if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); }
+  }, 320);
+});
+@endif
 </script>
 
 @if(session('msg') || session('error') || session('err') || session('warn'))
@@ -2705,5 +2761,24 @@ document.getElementById('lbImg').addEventListener('wheel', e => {
 }());
 </script>
 @endif
+<script>
+// ── Shared pagination helpers (used by all paginated list pages) ─────────
+let _pgSearchTimer;
+function pgSearch(val) {
+  clearTimeout(_pgSearchTimer);
+  _pgSearchTimer = setTimeout(function() {
+    var url = new URL(window.location.href);
+    url.searchParams.set('search', val);
+    url.searchParams.set('page', '1');
+    window.location = url.toString();
+  }, 500);
+}
+function pgFilter(param, val) {
+  var url = new URL(window.location.href);
+  url.searchParams.set(param, val);
+  url.searchParams.set('page', '1');
+  window.location = url.toString();
+}
+</script>
 </body>
 </html>

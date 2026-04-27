@@ -51,6 +51,7 @@
       $reviews     = $productReviews[$p->id] ?? [];
       $reviewCount = $productReviewCounts[$p->id] ?? 0;
       $isAvailable = (int)($p->is_available ?? 1);
+      $pricing     = $p->discount_snapshot ?? null;
     @endphp
     <div class="catalog-item"  data-name="{{ strtolower($p->name . ' ' . ($p->description ?? '')) }}">
       <div class="catalog-card card h-100" style="{{ !$isAvailable ? 'opacity:.75' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
@@ -134,7 +135,13 @@
 
           <div class="d-flex align-items-center justify-content-between">
             <div>
-              <span class="fw-bold fs-5" style="color:var(--primary)">₱{{ number_format($p->price,2) }}</span>
+              @if(!empty($pricing['has_discount']))
+                <div class="text-muted text-decoration-line-through" style="font-size:.78rem">₱{{ number_format($pricing['original_unit_price'],2) }}</div>
+                <span class="fw-bold fs-5" style="color:#dc2626">₱{{ number_format($pricing['final_unit_price'],2) }}</span>
+                <div style="font-size:.68rem;color:#be123c;font-weight:700">{{ $pricing['badge_text'] }}</div>
+              @else
+                <span class="fw-bold fs-5" style="color:var(--primary)">₱{{ number_format($p->price,2) }}</span>
+              @endif
               @if(count($sizes) > 0)
                 <div class="text-muted" style="font-size:.72rem">Base price</div>
               @endif
@@ -213,7 +220,13 @@
                 <div class="col-6">
                   <div class="p-2 rounded-2" style="background:#f8f9fa">
                     <div class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.05em">Price</div>
-                    <div class="fw-bold" style="color:var(--primary);font-size:1.15rem">₱{{ number_format($p->price,2) }}</div>
+                    @if(!empty($pricing['has_discount']))
+                      <div class="text-muted text-decoration-line-through" style="font-size:.72rem">₱{{ number_format($pricing['original_unit_price'],2) }}</div>
+                      <div class="fw-bold" style="color:#dc2626;font-size:1.15rem">₱{{ number_format($pricing['final_unit_price'],2) }}</div>
+                      <div style="font-size:.68rem;color:#be123c;font-weight:700">{{ $pricing['badge_text'] }}</div>
+                    @else
+                      <div class="fw-bold" style="color:var(--primary);font-size:1.15rem">₱{{ number_format($p->price,2) }}</div>
+                    @endif
                     @if(count($sizes) > 0)
                       <div class="text-muted" style="font-size:.68rem">Base price</div>
                     @endif
@@ -310,7 +323,9 @@
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">Select Size <span class="text-danger">*</span></label>
                   <select class="form-select" name="selected_size"
-                          onchange="updateModalPrice('{{ $p->id }}', {{ $p->price }}, this)" required>
+                          onchange="updateModalPrice('{{ $p->id }}', {{ $p->price }}, this)" required
+                          data-discount-type="{{ $pricing['discount_type'] ?? '' }}"
+                          data-discount-value="{{ $pricing['discount_value'] ?? 0 }}">
                     <option value="">-- Choose a size --</option>
                     @foreach($sizes as $sz)
                       <option value="{{ $sz->label }}" data-price="{{ $sz->price }}">
@@ -320,8 +335,8 @@
                   </select>
                   <div class="mt-2 p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:#fff0f5">
                     <span class="small text-muted">Total Price:</span>
-                    <span class="fw-bold" style="color:var(--primary);font-size:1.05rem" id="modalPrice{{ $p->id }}">
-                      ₱{{ number_format($p->price,2) }}
+                    <span class="fw-bold" style="color:{{ !empty($pricing['has_discount']) ? '#dc2626' : 'var(--primary)' }};font-size:1.05rem" id="modalPrice{{ $p->id }}">
+                      ₱{{ number_format($pricing['final_unit_price'] ?? $p->price,2) }}
                     </span>
                   </div>
                 </div>
@@ -360,6 +375,38 @@
                          onchange="checkModalAvailability('{{ $p->id }}')">
                   <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date.</div>
                   <div id="availResult{{ $p->id }}" class="mt-2" style="font-size:.82rem;min-height:20px"></div>
+                </div>
+
+                {{-- Personalization --}}
+                <div class="mb-3 p-3 rounded-3" style="background:#fdf8ff;border:1.5px solid #e9d5ff">
+                  <div class="fw-semibold small mb-3" style="color:#7c3aed">
+                    <i class="bi bi-magic me-1"></i>Personalize Your Cake <span class="fw-normal text-muted">(optional)</span>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label fw-semibold small mb-1">
+                      <i class="bi bi-pen me-1" style="color:#7c3aed"></i>Dedication / Message on Cake
+                    </label>
+                    <input type="text" class="form-control form-control-sm" name="dedication"
+                           placeholder='e.g. "Happy Birthday Juan!" or "Congratulations!"'
+                           maxlength="100">
+                    <div class="form-text">What should be written on the cake?</div>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label fw-semibold small mb-1">
+                      <i class="bi bi-palette me-1" style="color:#7c3aed"></i>Color / Theme Preference
+                    </label>
+                    <input type="text" class="form-control form-control-sm" name="color_theme"
+                           placeholder='e.g. "Pink and white roses" or "Blue galaxy theme"'
+                           maxlength="100">
+                  </div>
+                  <div class="mb-0">
+                    <label class="form-label fw-semibold small mb-1">
+                      <i class="bi bi-chat-left-text me-1" style="color:#7c3aed"></i>Special Instructions
+                    </label>
+                    <textarea class="form-control form-control-sm" name="special_note" rows="2"
+                              placeholder='e.g. "No nuts", "Extra sweet", "Add flowers on top"'
+                              maxlength="300"></textarea>
+                  </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
@@ -495,8 +542,19 @@ function confirmOrder(form) {
 function updateModalPrice(productId, basePrice, select) {
   const opt   = select.options[select.selectedIndex];
   const price = opt.dataset.price ? parseFloat(opt.dataset.price) : basePrice;
+  const discountType = select.dataset.discountType || '';
+  const discountValue = parseFloat(select.dataset.discountValue || '0');
+  let finalPrice = price;
+
+  if (discountType === 'percent' && discountValue > 0) {
+    finalPrice = price - (price * (discountValue / 100));
+  } else if (discountType === 'fixed' && discountValue > 0) {
+    finalPrice = price - discountValue;
+  }
+
+  finalPrice = Math.max(0, finalPrice);
   const el    = document.getElementById('modalPrice' + productId);
-  if (el) el.textContent = '₱' + price.toLocaleString('en-PH', {minimumFractionDigits:2});
+  if (el) el.textContent = '₱' + finalPrice.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
 function changeQty(productId, delta) {

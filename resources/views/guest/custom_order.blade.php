@@ -319,8 +319,10 @@
                 <div class="d-flex gap-3 flex-wrap">
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="payment_method" value="COD" id="cod" checked>
-                    <label class="form-check-label fw-semibold" for="cod"><i class="bi bi-cash-coin me-1"></i>Cash on Delivery</label>
-                    <div class="text-muted" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay cash when your order arrives.</div>
+                    <label class="form-check-label fw-semibold" for="cod">
+                      <i class="bi bi-cash-coin me-1"></i><span id="codLabelText">Cash on Pickup (COP)</span>
+                    </label>
+                    <div class="text-muted" id="codHelpText" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay cash when you pick up your order.</div>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="payment_method" value="GCash" id="gcash">
@@ -521,7 +523,22 @@ function toggleDelivery() {
   var isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
   if (isDelivery && !map) initMap();
+  updateCashPaymentCopy();
   updateFee();
+}
+
+function updateCashPaymentCopy() {
+  var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+  var codLabel = document.getElementById('codLabelText');
+  var codHelp  = document.getElementById('codHelpText');
+  if (codLabel) {
+    codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
+  }
+  if (codHelp) {
+    codHelp.textContent = isDelivery
+      ? 'Pay cash when your order arrives.'
+      : 'Pay cash when you pick up your order.';
+  }
 }
 
 // ── Map ───────────────────────────────────────────────────────────────
@@ -530,8 +547,7 @@ async function reverseGeocode(lat, lng) {
   var ind   = document.getElementById('addressLoading');
   if (ind) ind.style.display = 'inline';
   try {
-    var res  = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+lat+'&lon='+lng+'&addressdetails=1',
-      { headers:{'Accept-Language':'en','User-Agent':'CakeshopApp/1.0'} });
+    var res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
     var data = await res.json();
     if (data && data.display_name) {
       var a = data.address || {};
@@ -600,8 +616,7 @@ function useMyLocation() {
 
 async function autoSelectBarangayFromCoords(lat, lng) {
   try {
-    var res  = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+lat+'&lon='+lng+'&addressdetails=1',
-      { headers:{'Accept-Language':'en','User-Agent':'CakeshopApp/1.0'} });
+    var res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
     var data = await res.json();
     if (!data || !data.address) return;
     var a = data.address;
@@ -790,7 +805,7 @@ function confirmCustomOrder(btn) {
   return false;
 }
 
-document.addEventListener('DOMContentLoaded', () => { updatePriceSummary(); });
+document.addEventListener('DOMContentLoaded', () => { updateCashPaymentCopy(); updatePriceSummary(); });
 
 // ── Reference image multi-select ──────────────────────────────────────
 var refFiles = [];

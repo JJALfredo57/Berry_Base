@@ -148,6 +148,64 @@ class SmsHelper
         return $shopName ? "[{$siteName} - {$shopName}]" : "[{$siteName}]";
     }
 
+    /** Generate a fresh 6-digit rider access PIN. */
+    public static function generateRiderPin(): string
+    {
+        return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Build a rider delivery assignment SMS.
+     * Kept as a single source of truth so the wording never triggers
+     * carrier spam filters again (avoid: "link", "portal", "dispatcher").
+     */
+    public static function buildRiderSms(
+        string $header,
+        string $orderId,
+        string $custName,
+        string $custPhone,
+        string $addr,
+        string $paymentInfo,
+        string $pin = '',
+        string $riderPhone = ''
+    ): string {
+        $phoneLine = $custPhone ? "\nPhone: {$custPhone}" : '';
+
+        $pinLine = '';
+        if ($pin) {
+            // Normalize rider phone to 09xxx format
+            $rp = preg_replace('/\D/', '', $riderPhone);
+            if (str_starts_with($rp, '63')) $rp = '0' . substr($rp, 2);
+            $code = ($rp ?: '?') . '|' . $pin;
+            $host = parse_url(config('app.url', ''), PHP_URL_HOST) ?: request()->getHost();
+            $pinLine = "\n\nYour delivery code:\n{$code}\nOpen {$host}, tap the menu, select Rider.";
+        }
+
+        return "{$header}\n"
+            . "Order #{$orderId} - New Delivery\n\n"
+            . "Customer: {$custName}{$phoneLine}\n"
+            . "Address: {$addr}\n\n"
+            . "Payment: {$paymentInfo}"
+            . $pinLine;
+    }
+
+    /** Build readable payment line for a given order object. */
+    public static function paymentLine(object $order): string
+    {
+        if ($order->payment_method === 'COD') {
+            return CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null)
+                . ' - PHP ' . number_format($order->total_price, 2);
+        }
+        if ($order->payment_status === 'Paid') {
+            return 'GCash - Paid';
+        }
+        if ($order->payment_status === 'Partial Payment') {
+            $rem = $order->total_price - ($order->deposit_amount ?? 0);
+            return 'Balance PHP ' . number_format($rem, 2) . ' (deposit paid)';
+        }
+        return 'GCash - PHP ' . number_format($order->total_price, 2);
+    }
+
     public static function getShopName(int|string|null $shopId): string
     {
         if (!$shopId) return '';

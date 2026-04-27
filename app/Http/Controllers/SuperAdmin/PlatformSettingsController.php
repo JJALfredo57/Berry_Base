@@ -30,27 +30,49 @@ class PlatformSettingsController extends Controller
     public function update(Request $request)
     {
         $request->validate([
-            'platform_name'          => 'required|string|min:3|max:100',
-            'platform_tagline'       => 'nullable|string|max:200',
-            'platform_email'         => 'nullable|email|max:150',
-            'platform_phone'         => 'nullable|string|max:20',
-            'platform_primary_color' => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
-            'platform_logo'          => 'nullable|image|mimes:jpg,jpeg,png|max:3072',
+            'platform_name'              => 'required|string|min:3|max:100',
+            'platform_tagline'           => 'nullable|string|max:200',
+            'platform_email'             => 'nullable|email|max:150',
+            'platform_phone'             => 'nullable|string|max:20',
+            'commission_rate_basic'      => 'required|numeric|min:0|max:100',
+            'commission_rate_verified'   => 'required|numeric|min:0|max:100',
+            'platform_primary_color'     => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+            'platform_bg_color'          => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+            'platform_bg_gradient_start' => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+            'platform_bg_gradient_end'   => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+            'platform_logo'              => 'nullable|image|mimes:jpg,jpeg,png|max:3072',
+            'platform_bg_image'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
+        $bgType    = $request->input('platform_bg_type', 'color');
+        $bgOpacity = max(0.1, min(1.0, (float) $request->input('platform_bg_opacity', 1.0)));
+
         $updates = [
-            'platform_name'          => trim($request->input('platform_name')),
-            'platform_tagline'       => trim($request->input('platform_tagline', '')),
-            'platform_email'         => trim($request->input('platform_email', '')),
-            'platform_phone'         => trim($request->input('platform_phone', '')),
-            'platform_primary_color' => $request->input('platform_primary_color', '#7B3A0F'),
-            'updated_at'             => now(),
+            'platform_name'              => trim($request->input('platform_name')),
+            'platform_tagline'           => trim($request->input('platform_tagline', '')),
+            'platform_email'             => trim($request->input('platform_email', '')),
+            'platform_phone'             => trim($request->input('platform_phone', '')),
+            'commission_rate_basic'      => round((float) $request->input('commission_rate_basic', 0), 2),
+            'commission_rate_verified'   => round((float) $request->input('commission_rate_verified', 0), 2),
+            'platform_primary_color'     => $request->input('platform_primary_color', '#7B3A0F'),
+            'platform_bg_type'           => $bgType,
+            'platform_bg_color'          => $request->input('platform_bg_color', '#FFF8F8'),
+            'platform_bg_gradient_start' => $request->input('platform_bg_gradient_start', '#fff7fb'),
+            'platform_bg_gradient_end'   => $request->input('platform_bg_gradient_end', '#ffe3f1'),
+            'platform_bg_opacity'        => $bgOpacity,
+            'updated_at'                 => now(),
         ];
 
         if ($request->hasFile('platform_logo') && $request->file('platform_logo')->isValid()) {
             $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$request->file('platform_logo')->getClientOriginalExtension();
             $request->file('platform_logo')->storeAs('uploads/platform', $fn, 'public');
             $updates['platform_logo'] = '/storage/uploads/platform/'.$fn;
+        }
+
+        if ($request->hasFile('platform_bg_image') && $request->file('platform_bg_image')->isValid()) {
+            $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$request->file('platform_bg_image')->getClientOriginalExtension();
+            $request->file('platform_bg_image')->storeAs('uploads/platform', $fn, 'public');
+            $updates['platform_bg_image'] = '/storage/uploads/platform/'.$fn;
         }
 
         $existing = DB::table('platform_settings')->first();

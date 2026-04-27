@@ -2,9 +2,60 @@
 @section('content')
 <div>
 
-<div style="margin-bottom:2rem">
-  <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem">Seller Management</h1>
-  <p style="font-size:.875rem;color:var(--gray-500);margin:0">Review and manage seller applications</p>
+<div style="margin-bottom:1.5rem;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+  <div>
+    <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem">Seller Management</h1>
+    <p style="font-size:.875rem;color:var(--gray-500);margin:0">Review applications and manage seller commission settings professionally.</p>
+  </div>
+  {{-- Bulk commission controls --}}
+  <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+    <span style="font-size:.78rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em">All Seller Switches:</span>
+    <form action="{{ route('superadmin.sellers.commission_bulk') }}" method="POST" class="d-inline">
+      @csrf
+      <input type="hidden" name="action" value="enable">
+      <button type="submit"
+              style="background:#f0fdf4;color:#166534;border:1.5px solid #bbf7d0;border-radius:var(--radius-md);padding:.4rem .9rem;font-size:.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem"
+              data-cs-confirm="Enable commission for ALL active sellers?" data-cs-title="Enable All Commission" data-cs-icon="bi-toggle-on" data-cs-icon-bg="#f0fdf4" data-cs-icon-color="#16a34a" data-cs-ok="Enable All" data-cs-ok-color="#16a34a">
+        <i class="bi bi-toggle-on"></i> Enable All
+      </button>
+    </form>
+    <form action="{{ route('superadmin.sellers.commission_bulk') }}" method="POST" class="d-inline">
+      @csrf
+      <input type="hidden" name="action" value="disable">
+      <button type="submit"
+              style="background:#fff7ed;color:#9a3412;border:1.5px solid #fed7aa;border-radius:var(--radius-md);padding:.4rem .9rem;font-size:.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem"
+              data-cs-confirm="Disable commission for ALL active sellers?" data-cs-title="Disable All Commission" data-cs-icon="bi-toggle-off" data-cs-icon-bg="#fff7ed" data-cs-icon-color="#ea580c" data-cs-ok="Disable All" data-cs-ok-color="#ea580c">
+        <i class="bi bi-toggle-off"></i> Disable All
+      </button>
+    </form>
+  </div>
+</div>
+
+<div style="background:linear-gradient(135deg,#fffaf5 0%,#ffffff 100%);border-radius:var(--radius-lg);border:1.5px solid #f3e8d8;padding:1.1rem 1.25rem;margin-bottom:1.25rem">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+    <div style="max-width:620px">
+      <div style="font-size:.95rem;font-weight:700;color:var(--gray-900)">Commission Control Center</div>
+      <div style="font-size:.8rem;color:var(--gray-500);margin-top:.2rem">
+        Set a single commission rate for all approved and suspended sellers, while still keeping the ability to turn commission ON or OFF globally or per seller.
+      </div>
+    </div>
+    <form action="{{ route('superadmin.sellers.commission_rate_bulk') }}" method="POST" style="display:flex;align-items:end;gap:.6rem;flex-wrap:wrap">
+      @csrf
+      <div>
+        <label style="display:block;font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem">Bulk Commission Rate</label>
+        <div class="input-group">
+          <input type="number" step="0.01" min="0" max="100" name="commission_rate" class="form-control" placeholder="0.00" style="min-width:140px" required>
+          <span class="input-group-text">%</span>
+        </div>
+      </div>
+      <button type="submit"
+              class="btn btn-primary"
+              style="padding:.6rem 1rem;font-size:.82rem;font-weight:700"
+              data-cs-confirm="Apply this commission rate to all approved and suspended sellers?" data-cs-title="Apply Bulk Commission Rate" data-cs-icon="bi-percent" data-cs-icon-bg="#eff6ff" data-cs-icon-color="#2563eb" data-cs-ok="Apply Rate" data-cs-ok-color="#2563eb">
+        <i class="bi bi-percent me-1"></i> Apply Rate to All
+      </button>
+    </form>
+  </div>
 </div>
 
 @if(session('msg'))
@@ -93,7 +144,7 @@
     </div>
 
     {{-- Action Buttons --}}
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
       @if($app->status === 'pending')
         <form action="{{ route('superadmin.sellers.approve',$app->id) }}" method="POST" class="d-inline">
           @csrf
@@ -130,11 +181,61 @@
           </button>
         </form>
       @endif
+
+      {{-- Commission controls --}}
+      @if(in_array($app->status, ['approved', 'suspended']))
+        @php $commOn = (bool)($app->commission_enabled ?? 1); @endphp
+        <form action="{{ route('superadmin.sellers.toggle_commission',$app->id) }}" method="POST" class="d-inline">
+          @csrf
+          @if($commOn)
+            <button type="submit"
+                    style="background:#f0fdf4;color:#166534;border:1.5px solid #bbf7d0;border-radius:var(--radius-md);padding:.45rem 1rem;font-size:.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem"
+                    data-cs-confirm="Disable commission for {{ addslashes($app->shop_name) }}?" data-cs-title="Disable Commission" data-cs-icon="bi-toggle-off" data-cs-icon-bg="#fff7ed" data-cs-icon-color="#ea580c" data-cs-ok="Disable" data-cs-ok-color="#ea580c">
+              <i class="bi bi-toggle-on" style="font-size:1.1rem"></i>
+              <span>Commission <strong>ON</strong> &bull; {{ number_format($app->commission_rate,1) }}%</span>
+            </button>
+          @else
+            <button type="submit"
+                    style="background:#fff7ed;color:#9a3412;border:1.5px solid #fed7aa;border-radius:var(--radius-md);padding:.45rem 1rem;font-size:.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem"
+                    data-cs-confirm="Enable commission for {{ addslashes($app->shop_name) }}?" data-cs-title="Enable Commission" data-cs-icon="bi-toggle-on" data-cs-icon-bg="#f0fdf4" data-cs-icon-color="#16a34a" data-cs-ok="Enable" data-cs-ok-color="#16a34a">
+              <i class="bi bi-toggle-off" style="font-size:1.1rem"></i>
+              <span>Commission <strong>OFF</strong></span>
+            </button>
+          @endif
+        </form>
+      @endif
     </div>
   </div>
 
   {{-- Documents --}}
   <div style="padding:1.25rem 1.5rem">
+    @if(in_array($app->status, ['approved', 'suspended']))
+    <div style="margin-bottom:1rem;padding:1rem 1.1rem;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:var(--radius-md)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:.83rem;font-weight:700;color:var(--gray-900)">Specific Seller Commission</div>
+          <div style="font-size:.76rem;color:var(--gray-500)">Override this seller's commission rate without affecting other sellers.</div>
+        </div>
+        <form action="{{ route('superadmin.sellers.commission_rate',$app->id) }}" method="POST" style="display:flex;align-items:end;gap:.55rem;flex-wrap:wrap">
+          @csrf
+          <div>
+            <label style="display:block;font-size:.7rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Custom Rate</label>
+            <div class="input-group">
+              <input type="number" step="0.01" min="0" max="100" name="commission_rate" class="form-control" value="{{ number_format((float)($app->commission_rate ?? 0), 2, '.', '') }}" style="min-width:110px" required>
+              <span class="input-group-text">%</span>
+            </div>
+          </div>
+          <button type="submit"
+                  class="btn btn-outline-primary"
+                  style="padding:.55rem .95rem;font-size:.8rem;font-weight:700"
+                  data-cs-confirm="Update commission rate for {{ addslashes($app->shop_name) }}?" data-cs-title="Update Seller Commission" data-cs-icon="bi-percent" data-cs-icon-bg="#eff6ff" data-cs-icon-color="#2563eb" data-cs-ok="Save Rate" data-cs-ok-color="#2563eb">
+            <i class="bi bi-save me-1"></i> Save Rate
+          </button>
+        </form>
+      </div>
+    </div>
+    @endif
+
     <div class="row g-3">
 
       {{-- Shop Address --}}

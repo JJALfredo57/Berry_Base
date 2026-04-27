@@ -8,9 +8,9 @@
   <div>
     <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem">Products</h1>
     <p style="font-size:.875rem;color:var(--gray-500);margin:0">
-      {{ $products->count() }} product{{ $products->count() != 1 ? 's' : '' }} in your shop
+      {{ $products->total() }} product{{ $products->total() != 1 ? 's' : '' }} in your shop
       @if($maxProd)
-        &mdash; <span style="color:{{ $products->count() >= $maxProd ? 'var(--danger,#C62828)' : 'var(--gray-500)' }}">{{ $products->count() }}/{{ $maxProd }} limit (Basic)</span>
+        &mdash; <span style="color:{{ $products->total() >= $maxProd ? 'var(--danger,#C62828)' : 'var(--gray-500)' }}">{{ $products->total() }}/{{ $maxProd }} limit (Basic)</span>
       @endif
     </p>
   </div>
@@ -43,21 +43,13 @@
       <div style="font-size:.8rem;color:var(--gray-500)">Search by product name, flavor, category, or availability</div>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-      <input type="text" id="sellerProductSearch" class="form-control" placeholder="Search products..." style="flex:1;min-width:0;max-width:280px" oninput="filterSellerProducts()">
-      <select id="sellerProductClassFilter" class="form-select" style="flex:1;min-width:0;max-width:180px" onchange="filterSellerProducts()">
-        <option value="">All categories</option>
-        @foreach($products->pluck('classification')->filter()->unique()->sort()->values() as $classificationOption)
-        <option value="{{ strtolower($classificationOption) }}">{{ $classificationOption }}</option>
-        @endforeach
-      </select>
-      <select id="sellerProductStatusFilter" class="form-select" style="width:auto" onchange="filterSellerProducts()">
-        <option value="">All status</option>
-        <option value="visible">Visible</option>
-        <option value="hidden">Hidden</option>
-      </select>
+      <input type="text" id="sellerProductSearch" class="form-control" placeholder="Search products..."
+             style="flex:1;min-width:0;max-width:280px"
+             value="{{ $search ?? '' }}"
+             oninput="pgSearch(this.value)">
     </div>
   </div>
-  <div id="sellerProductFilterSummary" style="font-size:.78rem;color:var(--gray-500);margin-top:.6rem">Showing {{ $products->count() }} products</div>
+  <div id="sellerProductFilterSummary" style="font-size:.78rem;color:var(--gray-500);margin-top:.6rem">Showing {{ $products->firstItem() ?? 0 }}–{{ $products->lastItem() ?? 0 }} of {{ $products->total() }} products</div>
 </div>
 
 {{-- Add Product Form --}}
@@ -121,7 +113,11 @@
 
 {{-- Products Grid --}}
 @forelse($products as $p)
-@php $sizes = collect($productSizes[$p->id] ?? []); @endphp
+@php
+  $sizes = collect($productSizes[$p->id] ?? []);
+  $discount = $discounts[$p->id] ?? null;
+  $discountBadge = $discount ? \App\Helpers\CakeshopHelper::discountBadgeText($discount->discount_type ?? null, $discount->discount_value ?? null) : null;
+@endphp
 <div class="seller-product-item"
      data-search="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? ''))) }}"
      data-classification="{{ strtolower($p->classification ?? '') }}"
@@ -151,6 +147,18 @@
         <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:600;padding:.15rem .5rem;border-radius:99px">{{ $p->classification }}</span>
       </div>
       <div style="font-size:.875rem;font-weight:700;color:var(--primary);margin:.2rem 0">₱{{ number_format($p->price,2) }} base</div>
+      @if($discountBadge)
+        <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.2rem">
+          <span style="background:#fff1f2;color:#be123c;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px">
+            {{ $discountBadge }}
+          </span>
+          @if(!empty($discount->label))
+            <span style="font-size:.7rem;color:var(--gray-500)">{{ $discount->label }}</span>
+          @endif
+        </div>
+      @elseif(!empty($discount))
+        <div style="font-size:.7rem;color:var(--gray-500);margin-bottom:.2rem">Discount saved but currently disabled.</div>
+      @endif
       <div style="font-size:.75rem;color:var(--gray-500)">
         @if($p->flavor)<span style="margin-right:.75rem"><i class="bi bi-droplet" style="font-size:.7rem"></i> {{ $p->flavor }}</span>@endif
         @if($sizes->count() > 0)<span>{{ $sizes->count() }} size{{ $sizes->count() > 1 ? 's' : '' }}</span>@endif
@@ -169,6 +177,10 @@
       <button type="button" onclick="toggleEditForm('edit-{{ $p->id }}')"
               style="background:var(--info-bg,#E3F2FD);color:#1565C0;border:1.5px solid #90CAF9;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
         <i class="bi bi-pencil"></i> Edit
+      </button>
+      <button type="button" onclick="toggleDiscountForm('discount-{{ $p->id }}')"
+              style="background:#fff7ed;color:#c2410c;border:1.5px solid #fdba74;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
+        <i class="bi bi-tags"></i> Discount
       </button>
       <form action="{{ route('seller.products.destroy', $p->id) }}" method="POST" class="d-inline"
             data-cs-confirm="Delete {{ addslashes($p->name) }}?" data-cs-title="Delete Product" data-cs-icon="bi-trash" data-cs-icon-bg="#fff1f2" data-cs-icon-color="#ef4444" data-cs-ok="Delete" data-cs-ok-color="#ef4444">
@@ -198,6 +210,52 @@
   @endif
 
   {{-- Edit Form --}}
+  <div id="discount-{{ $p->id }}" style="display:none;border-top:1.5px solid #fed7aa;padding:1.25rem;background:#fffaf3">
+    <form action="{{ route('seller.products.discount', $p->id) }}" method="POST">
+      @csrf
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+        <div>
+          <div style="font-size:.92rem;font-weight:700;color:var(--gray-900)">Manage Product Discount</div>
+          <div style="font-size:.75rem;color:var(--gray-500)">Discount applies to the actual checkout unit price, including selected size pricing.</div>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:600;color:var(--gray-700)">
+          <input type="checkbox" name="discount_enabled" value="1" {{ ($discount->is_active ?? 0) ? 'checked' : '' }}>
+          Enable discount
+        </label>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Promo Label</label>
+          <input type="text" class="form-control" name="discount_label" value="{{ $discount->label ?? '' }}" placeholder="e.g. Summer Sale">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Discount Type</label>
+          <select class="form-select" name="discount_type">
+            <option value="percent" {{ ($discount->discount_type ?? 'percent') === 'percent' ? 'selected' : '' }}>Percentage</option>
+            <option value="fixed" {{ ($discount->discount_type ?? '') === 'fixed' ? 'selected' : '' }}>Fixed Amount</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Value</label>
+          <input type="number" step="0.01" min="0" class="form-control" name="discount_value" value="{{ $discount->discount_value ?? '' }}" placeholder="20">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Start</label>
+          <input type="datetime-local" class="form-control" name="discount_starts_at" value="{{ !empty($discount->starts_at) ? \Carbon\Carbon::parse($discount->starts_at)->format('Y-m-d\TH:i') : '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">End</label>
+          <input type="datetime-local" class="form-control" name="discount_ends_at" value="{{ !empty($discount->ends_at) ? \Carbon\Carbon::parse($discount->ends_at)->format('Y-m-d\TH:i') : '' }}">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:.75rem;margin-top:1rem">
+        <button type="submit" class="btn btn-primary" style="padding:.5rem 1.25rem;font-weight:600">Save Discount</button>
+        <button type="button" onclick="toggleDiscountForm('discount-{{ $p->id }}')" class="btn btn-secondary">Cancel</button>
+      </div>
+    </form>
+  </div>
   <div id="edit-{{ $p->id }}" style="display:none;border-top:1.5px solid var(--primary-light);padding:1.25rem;background:#FFF8F8">
     <form action="{{ route('seller.products.update', $p->id) }}" method="POST" enctype="multipart/form-data" novalidate>
       @csrf
@@ -277,11 +335,7 @@
 </div>
 @endforelse
 
-<div id="sellerProductsEmpty" style="display:none;background:#fff;border-radius:var(--radius-lg);border:1.5px dashed var(--gray-300);padding:2.5rem;text-align:center">
-  <i class="bi bi-search" style="font-size:2rem;color:var(--gray-300);display:block;margin-bottom:.75rem"></i>
-  <div style="font-size:.95rem;font-weight:700;color:var(--gray-900)">No matching products</div>
-  <p style="font-size:.82rem;color:var(--gray-500);margin:.4rem 0 0">Try a different keyword or filter combination.</p>
-</div>
+{{ $products->links('vendor.pagination.custom') }}
 
 </div>
 <script>
@@ -291,6 +345,10 @@ function toggleAddForm() {
   if (f.style.display === 'block') f.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function toggleEditForm(id) {
+  const f = document.getElementById(id);
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+function toggleDiscountForm(id) {
   const f = document.getElementById(id);
   f.style.display = f.style.display === 'none' ? 'block' : 'none';
 }

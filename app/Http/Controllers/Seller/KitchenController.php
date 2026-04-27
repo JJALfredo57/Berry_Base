@@ -26,7 +26,7 @@ class KitchenController extends Controller
             ->select('kt.*','kt.status as ticket_status','o.id as order_id',
                 \Illuminate\Support\Facades\DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
                 'p.name as product_name','p.image_path as product_image',
-                'o.user_id','o.fulfillment_type','o.rider_id')
+                'o.user_id','o.fulfillment_type','o.rider_id','o.rider_sms_sent')
             ->where('o.shop_id', $shop->id)
             ->orderByDesc('kt.id')
             ->get();
@@ -172,34 +172,27 @@ class KitchenController extends Controller
                             DB::table('orders')->where('id', $orderId)->update(['rider_token' => $riderToken]);
                         }
 
-                        $siteName    = config('app.name', 'Cake Shop');
-                        $shopName    = SmsHelper::getShopName($order->shop_id ?? null);
-                        $header      = SmsHelper::header($siteName, $shopName);
-                        $custName    = $order->guest_name ?? 'Customer';
-                        $custPhone   = $order->guest_phone ?? '';
-                        $addr        = $order->delivery_address ?? 'N/A';
+                        $siteName  = config('app.name', 'Cake Shop');
+                        $shopName  = SmsHelper::getShopName($order->shop_id ?? null);
+                        $header    = SmsHelper::header($siteName, $shopName);
+                        $custName  = $order->guest_name
+                            ?? DB::table('users')->where('id', $order->user_id)->value('fullname')
+                            ?? 'Customer';
+                        $custPhone = $order->guest_phone
+                            ?? DB::table('users')->where('id', $order->user_id)->value('phone')
+                            ?? '';
+                        $addr      = $order->delivery_address ?? 'N/A';
 
-                        if ($order->payment_method === 'COD') {
-                            $paymentInfo = "COLLECT PHP " . number_format($order->total_price, 2) . " cash";
-                        } elseif ($order->payment_status === 'Paid') {
-                            $paymentInfo = "GCash Paid - No collection needed";
-                        } elseif ($order->payment_status === 'Partial Payment') {
-                            $remaining   = $order->total_price - ($order->deposit_amount ?? 0);
-                            $paymentInfo = "Collect Remaining PHP " . number_format($remaining, 2) . " (GCash deposit paid)";
-                        } else {
-                            $paymentInfo = "GCash (not yet paid) - PHP " . number_format($order->total_price, 2);
-                        }
+                        $riderPin = SmsHelper::generateRiderPin();
+                        DB::table('orders')->where('id', $orderId)
+                            ->update(['rider_pin' => $riderPin]);
 
-                        $riderSms = "{$header}\n"
-                            . "New Delivery Assignment\n\n"
-                            . "Order No.: #{$orderId}\n"
-                            . "Customer: {$custName}\n"
-                            . "Phone: {$custPhone}\n"
-                            . "Address: {$addr}\n"
-                            . "Payment: {$paymentInfo}\n\n"
-                            . "Contact your dispatcher for the delivery portal link to update the status. Thank you!";
-
-                        SmsHelper::send($rider->phone, $riderSms);
+                        $riderSmsSent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
+                            $header, $orderId, $custName, $custPhone, $addr,
+                            SmsHelper::paymentLine($order), $riderPin, $rider->phone
+                        ));
+                        DB::table('orders')->where('id', $orderId)
+                            ->update(['rider_sms_sent' => $riderSmsSent ? 1 : 0]);
                     }
                 }
             }
@@ -207,7 +200,60 @@ class KitchenController extends Controller
 
         CakeshopHelper::logActivity($user['id'], 'seller', 'Update Kitchen Ticket', "Ticket #{$id}: {$current} → {$new}");
         $labels = ['in_progress' => 'In Progress (Preparing)', 'done' => 'Done (Out for Delivery)'];
-        return back()->with('msg', "Kitchen ticket updated to: " . ($labels[$new] ?? $new));
+        $baseMsg = "Kitchen ticket updated to: " . ($labels[$new] ?? $new);
+
+        if ($new === 'done' && isset($riderSmsSent)) {
+            $baseMsg .= $riderSmsSent
+                ? ' — SMS sent to rider.'
+                : ' — Warning: SMS to rider was not delivered. The message may have been flagged or the number is unreachable.';
+        }
+
+        return back()->with('msg', $baseMsg);
+    }
+
+    /** Resend rider SMS (e.g. if previous attempt failed) */
+    public function resendRiderSms(string $orderId)
+    {
+        $shop  = $this->getShop();
+        $order = DB::table('orders')->where('id', $orderId)->where('shop_id', $shop->id)->first();
+        if (!$order || !$order->rider_id)
+            return back()->with('err', 'Order or rider not found.');
+
+        $rider = DB::table('riders')->where('id', $order->rider_id)->first();
+        if (!$rider || !$rider->phone)
+            return back()->with('err', 'This rider has no phone number on record.');
+
+        if (!$order->rider_token) {
+            DB::table('orders')->where('id', $orderId)
+                ->update(['rider_token' => bin2hex(random_bytes(16))]);
+            $order = DB::table('orders')->where('id', $orderId)->first();
+        }
+
+        $siteName  = config('app.name', 'Cake Shop');
+        $shopName  = SmsHelper::getShopName($order->shop_id ?? null);
+        $header    = SmsHelper::header($siteName, $shopName);
+        $custName  = $order->guest_name
+            ?? DB::table('users')->where('id', $order->user_id)->value('fullname')
+            ?? 'Customer';
+        $custPhone = $order->guest_phone
+            ?? DB::table('users')->where('id', $order->user_id)->value('phone')
+            ?? '';
+        $addr = $order->delivery_address ?? 'N/A';
+
+        $riderPin = SmsHelper::generateRiderPin();
+        DB::table('orders')->where('id', $orderId)->update(['rider_pin' => $riderPin]);
+
+        $sent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
+            $header, $orderId, $custName, $custPhone, $addr,
+            SmsHelper::paymentLine($order), $riderPin, $rider->phone
+        ));
+
+        DB::table('orders')->where('id', $orderId)->update(['rider_sms_sent' => $sent ? 1 : 0]);
+
+        return back()->with(
+            $sent ? 'msg' : 'err',
+            $sent ? 'SMS resent to rider successfully.' : 'SMS still could not be sent. Please verify the rider\'s phone number.'
+        );
     }
 
     /** Assign rider then auto-mark kitchen ticket as done */

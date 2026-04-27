@@ -81,6 +81,32 @@
                 <input type="text" class="form-control" name="platform_phone"
                        value="{{ $platform->platform_phone ?? '' }}" placeholder="+63 9XX XXX XXXX">
               </div>
+              <div class="col-12">
+                <div style="margin-top:.35rem;padding:1rem 1.1rem;border:1.5px solid #e5e7eb;border-radius:var(--radius-md);background:#fafaf9">
+                  <div style="font-size:.86rem;font-weight:700;color:var(--gray-900);margin-bottom:.25rem">Default Seller Commission Rates</div>
+                  <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:.9rem">These default rates are used when a seller gets approved. You can still override any seller individually in Seller Management.</div>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label fw-semibold">Basic Seller Rate</label>
+                      <div class="input-group">
+                        <input type="number" step="0.01" min="0" max="100" class="form-control" name="commission_rate_basic"
+                               value="{{ number_format((float)($platform->commission_rate_basic ?? 3), 2, '.', '') }}" required>
+                        <span class="input-group-text">%</span>
+                      </div>
+                      <div class="form-text">Applied by default to approved basic sellers.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-semibold">Verified Seller Rate</label>
+                      <div class="input-group">
+                        <input type="number" step="0.01" min="0" max="100" class="form-control" name="commission_rate_verified"
+                               value="{{ number_format((float)($platform->commission_rate_verified ?? 2), 2, '.', '') }}" required>
+                        <span class="input-group-text">%</span>
+                      </div>
+                      <div class="form-text">Applied by default to approved verified sellers.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div class="col-md-6">
                 <label class="form-label">Platform Logo</label>
                 @if(!empty($platform->platform_logo))
@@ -105,6 +131,79 @@
                        style="height:40px;flex:1;border-radius:var(--radius-sm);border:1.5px solid var(--gray-200);background:{{ $platform->platform_primary_color ?? '#7B3A0F' }};transition:background .15s"></div>
                 </div>
                 <div class="form-text">Applies to buttons, links, and accents across the entire platform.</div>
+              </div>
+
+              {{-- ── Dashboard Background ── --}}
+              <div class="col-12">
+                <div style="border-top:1.5px solid var(--gray-100);margin:.25rem 0 1rem"></div>
+                <div style="font-size:.88rem;font-weight:700;color:var(--gray-900);margin-bottom:.75rem"><i class="bi bi-image me-1" style="color:var(--primary)"></i> Dashboard Background</div>
+
+                {{-- Type Picker --}}
+                @php $curBgType = $platform->platform_bg_type ?? 'color'; @endphp
+                <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem">
+                  @foreach(['color'=>'Solid Color','gradient'=>'Gradient','image'=>'Image'] as $bval => $blbl)
+                  <label style="display:flex;align-items:center;gap:.4rem;font-size:.83rem;font-weight:600;cursor:pointer;padding:.45rem .9rem;border:1.5px solid {{ $curBgType===$bval ? 'var(--primary)' : 'var(--gray-200)' }};border-radius:var(--radius-md);background:{{ $curBgType===$bval ? 'var(--primary-bg,#fdf8f4)' : '#fff' }};color:{{ $curBgType===$bval ? 'var(--primary)' : 'var(--gray-700)' }}">
+                    <input type="radio" name="platform_bg_type" value="{{ $bval }}" {{ $curBgType===$bval ? 'checked' : '' }}
+                           style="accent-color:var(--primary)" onchange="switchPBgType('{{ $bval }}')"> {{ $blbl }}
+                  </label>
+                  @endforeach
+                </div>
+
+                {{-- Solid Color --}}
+                <div id="pbg-color" style="display:{{ $curBgType==='color' ? 'flex' : 'none' }};align-items:center;gap:.75rem;margin-bottom:.75rem">
+                  <input type="color" name="platform_bg_color" id="pbgColorPicker"
+                         value="{{ $platform->platform_bg_color ?? '#FFF8F8' }}"
+                         style="width:48px;height:40px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer"
+                         oninput="document.getElementById('pbgColorHex').value=this.value;document.getElementById('pbgPreview').style.background=this.value">
+                  <input type="text" id="pbgColorHex" value="{{ $platform->platform_bg_color ?? '#FFF8F8' }}"
+                         maxlength="7" class="form-control" style="width:110px;font-family:monospace"
+                         oninput="if(/^#[0-9A-Fa-f]{6}$/.test(this.value)){document.getElementById('pbgColorPicker').value=this.value;document.getElementById('pbgPreview').style.background=this.value}">
+                  <div class="form-text">Background color of the dashboard.</div>
+                </div>
+
+                {{-- Gradient --}}
+                <div id="pbg-gradient" style="display:{{ $curBgType==='gradient' ? 'flex' : 'none' }};align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem">
+                  <div style="display:flex;align-items:center;gap:.5rem">
+                    <span class="form-text" style="white-space:nowrap;margin:0">From</span>
+                    <input type="color" name="platform_bg_gradient_start" id="pbgGradStart"
+                           value="{{ $platform->platform_bg_gradient_start ?? '#fff7fb' }}"
+                           style="width:44px;height:38px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer"
+                           oninput="updatePbgGradPreview()">
+                  </div>
+                  <div style="display:flex;align-items:center;gap:.5rem">
+                    <span class="form-text" style="white-space:nowrap;margin:0">To</span>
+                    <input type="color" name="platform_bg_gradient_end" id="pbgGradEnd"
+                           value="{{ $platform->platform_bg_gradient_end ?? '#ffe3f1' }}"
+                           style="width:44px;height:38px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer"
+                           oninput="updatePbgGradPreview()">
+                  </div>
+                  <div class="form-text">135° diagonal gradient from left to right.</div>
+                </div>
+
+                {{-- Image --}}
+                <div id="pbg-image" style="display:{{ $curBgType==='image' ? 'block' : 'none' }};margin-bottom:.75rem">
+                  @if(!empty($platform->platform_bg_image))
+                  <img src="{{ $platform->platform_bg_image }}" style="display:block;width:100%;max-width:340px;height:80px;object-fit:cover;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);margin-bottom:.5rem">
+                  @endif
+                  <input type="file" class="form-control" name="platform_bg_image" accept=".jpg,.jpeg,.png,.webp" style="font-size:.8rem;max-width:340px">
+                  <div class="form-text">JPG, PNG or WebP · Max 5 MB. Leave blank to keep current image.</div>
+                  <div style="margin-top:.65rem">
+                    <label class="form-label fw-semibold" style="font-size:.8rem">Image Opacity: <span id="pbgOpacityVal">{{ number_format(($platform->platform_bg_opacity ?? 1.0) * 100) }}%</span></label>
+                    <input type="range" name="platform_bg_opacity" min="0.1" max="1" step="0.05"
+                           value="{{ $platform->platform_bg_opacity ?? 1.0 }}"
+                           style="width:100%;max-width:280px;accent-color:var(--primary)"
+                           oninput="document.getElementById('pbgOpacityVal').textContent=Math.round(this.value*100)+'%'">
+                  </div>
+                </div>
+
+                {{-- Live Preview --}}
+                <div id="pbgPreview" style="height:52px;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);transition:background .2s;
+                  @if($curBgType==='gradient') background:linear-gradient(135deg,{{ $platform->platform_bg_gradient_start ?? '#fff7fb' }} 0%,{{ $platform->platform_bg_gradient_end ?? '#ffe3f1' }} 100%)
+                  @elseif($curBgType==='image' && !empty($platform->platform_bg_image)) background:url('{{ $platform->platform_bg_image }}') center/cover no-repeat
+                  @else background:{{ $platform->platform_bg_color ?? '#FFF8F8' }}
+                  @endif
+                "></div>
+                <div class="form-text mt-1">Live preview of the dashboard background.</div>
               </div>
             </div>
             <button type="submit" class="btn btn-primary mt-4" style="padding:.65rem 2rem;font-weight:600">
@@ -403,6 +502,28 @@
   </div>
   <div class="mt-3" id="logPager"></div>
   @push('scripts')
+  <script>
+  function switchPBgType(type) {
+    ['color','gradient','image'].forEach(t => {
+      document.getElementById('pbg-'+t).style.display = t === type ? (t==='gradient'?'flex':'block') : 'none';
+    });
+    updatePbgGradPreview();
+  }
+  function updatePbgGradPreview() {
+    const s = document.getElementById('pbgGradStart')?.value || '#fff7fb';
+    const e = document.getElementById('pbgGradEnd')?.value   || '#ffe3f1';
+    const p = document.getElementById('pbgPreview');
+    if (p) p.style.background = `linear-gradient(135deg,${s} 0%,${e} 100%)`;
+  }
+  // Keep color preview in sync on solid
+  document.addEventListener('DOMContentLoaded', () => {
+    const cp = document.getElementById('pbgColorPicker');
+    if (cp) cp.addEventListener('input', () => {
+      const p = document.getElementById('pbgPreview');
+      if (p) p.style.background = cp.value;
+    });
+  });
+  </script>
   <script>
   document.addEventListener('DOMContentLoaded', () => {
     const rows = [...document.querySelectorAll('.log-row')];

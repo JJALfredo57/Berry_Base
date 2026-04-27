@@ -228,7 +228,7 @@ class CustomOrderController extends Controller
         ]);
 
         foreach ($validAddons as $a) {
-            DB::table('order_addons')->insert(['order_id'=>$oid,'addon_id'=>$a->id,'name'=>$a->name,'addon_price'=>$a->price,'created_at'=>now()]);
+            DB::table('order_addons')->insert(['order_id'=>$oid,'addon_id'=>$a->id,'addon_name'=>$a->name,'addon_price'=>$a->price,'created_at'=>now()]);
         }
 
         DB::table('order_tracking')->insert(['order_id'=>$oid,'status'=>'Pending Review','notes'=>'Custom order submitted. Awaiting admin review.','created_at'=>now()]);

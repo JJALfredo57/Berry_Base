@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -106,6 +107,173 @@ class CakeshopHelper
     {
         $settings = self::getSettings();
         return $settings['paymongo_mode'] ?? 'test';
+    }
+
+    public static function displayPaymentMethod(?string $paymentMethod, ?string $fulfillmentType = null): string
+    {
+        $method = strtoupper(trim((string) $paymentMethod));
+
+        if ($method === 'COD') {
+            return strtoupper((string) $fulfillmentType) === 'PICKUP'
+                ? 'Cash on Pickup (COP)'
+                : 'Cash on Delivery (COD)';
+        }
+
+        if ($method === 'GCASH') {
+            return 'GCash';
+        }
+
+        return $paymentMethod ?: 'Unspecified';
+    }
+
+    public static function shortPaymentCode(?string $paymentMethod, ?string $fulfillmentType = null): string
+    {
+        $method = strtoupper(trim((string) $paymentMethod));
+
+        if ($method === 'COD') {
+            return strtoupper((string) $fulfillmentType) === 'PICKUP' ? 'COP' : 'COD';
+        }
+
+        return $paymentMethod ?: 'N/A';
+    }
+
+    public static function getActiveDiscountMap(array $productIds): array
+    {
+        $productIds = array_values(array_filter(array_unique($productIds)));
+        if (!$productIds) {
+            return [];
+        }
+
+        try {
+            $now = now()->format('Y-m-d H:i:s');
+            $rows = DB::table('product_discounts')
+                ->whereIn('product_id', $productIds)
+                ->where('is_active', 1)
+                ->where(function ($query) use ($now) {
+                    $query->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
+                })
+                ->where(function ($query) use ($now) {
+                    $query->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
+                })
+                ->orderByDesc('id')
+                ->get();
+
+            $map = [];
+            foreach ($rows as $row) {
+                if (!isset($map[$row->product_id])) {
+                    $map[$row->product_id] = $row;
+                }
+            }
+
+            return $map;
+        } catch (\Exception $e) {
+            Log::warning('getActiveDiscountMap failed: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    public static function getDiscountConfigMap(array $productIds): array
+    {
+        $productIds = array_values(array_filter(array_unique($productIds)));
+        if (!$productIds) {
+            return [];
+        }
+
+        try {
+            $rows = DB::table('product_discounts')
+                ->whereIn('product_id', $productIds)
+                ->orderByDesc('id')
+                ->get();
+
+            $map = [];
+            foreach ($rows as $row) {
+                if (!isset($map[$row->product_id])) {
+                    $map[$row->product_id] = $row;
+                }
+            }
+
+            return $map;
+        } catch (\Exception $e) {
+            Log::warning('getDiscountConfigMap failed: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    public static function getActiveProductDiscount(string $productId): ?object
+    {
+        return self::getActiveDiscountMap([$productId])[$productId] ?? null;
+    }
+
+    public static function resolveProductUnitPrice(string $productId, float $fallbackPrice, ?string $selectedSize = null): float
+    {
+        $selectedSize = trim((string) $selectedSize);
+        if ($selectedSize === '') {
+            return $fallbackPrice;
+        }
+
+        try {
+            $size = DB::table('product_sizes')
+                ->where('product_id', $productId)
+                ->where('label', $selectedSize)
+                ->where('is_active', 1)
+                ->first();
+
+            if ($size) {
+                return (float) $size->price;
+            }
+        } catch (\Throwable $e) {}
+
+        return $fallbackPrice;
+    }
+
+    public static function calculateDiscountSnapshot(float $originalUnitPrice, ?object $discount = null): array
+    {
+        $originalUnitPrice = max(0, round($originalUnitPrice, 2));
+        $discountAmount = 0.0;
+        $discountType = null;
+        $discountValue = null;
+        $discountLabel = null;
+
+        if ($discount && !empty($discount->discount_type)) {
+            $discountType = strtolower(trim((string) $discount->discount_type));
+            $discountValue = (float) ($discount->discount_value ?? 0);
+            $discountLabel = trim((string) ($discount->label ?? '')) ?: null;
+
+            if ($discountType === 'percent') {
+                $discountValue = min(max($discountValue, 0), 100);
+                $discountAmount = round($originalUnitPrice * ($discountValue / 100), 2);
+            } elseif ($discountType === 'fixed') {
+                $discountAmount = round(max(0, $discountValue), 2);
+            }
+        }
+
+        $discountAmount = min($discountAmount, $originalUnitPrice);
+        $finalUnitPrice = max(0, round($originalUnitPrice - $discountAmount, 2));
+
+        return [
+            'has_discount'        => $discountAmount > 0,
+            'original_unit_price' => $originalUnitPrice,
+            'discount_label'      => $discountLabel,
+            'discount_type'       => $discountType,
+            'discount_value'      => $discountValue,
+            'discount_amount'     => round($discountAmount, 2),
+            'final_unit_price'    => $finalUnitPrice,
+            'badge_text'          => self::discountBadgeText($discountType, $discountValue),
+        ];
+    }
+
+    public static function discountBadgeText(?string $discountType, float|int|null $discountValue): ?string
+    {
+        $value = (float) ($discountValue ?? 0);
+        if ($value <= 0) {
+            return null;
+        }
+
+        return match (strtolower((string) $discountType)) {
+            'percent' => rtrim(rtrim(number_format($value, 2), '0'), '.') . '% OFF',
+            'fixed'   => 'PHP ' . number_format($value, 2) . ' OFF',
+            default   => null,
+        };
     }
 
     public static function backgroundCss(array $s): string

@@ -250,51 +250,63 @@
                 </div>
 
                 <div id="deliverySection" style="display:none">
-                  <div class="mb-3">
+                  {{-- Map + detect location --}}
+                  <div class="mb-2">
                     <label class="form-label fw-semibold small">
-                      Select Barangay <span class="text-danger">*</span>
+                      <i class="bi bi-pin-map me-1" style="color:var(--primary)"></i>Pin Your Delivery Location
+                      <span class="text-danger">*</span>
                     </label>
-                    <select class="form-select" name="delivery_zone" id="zoneSelect" onchange="updateFee()">
-                      <option value="">-- Select your Barangay --</option>
-                      @php
-                        $zoneTypeLabels = ['free'=>'Poblacion','near'=>'Nearby','mid'=>'Mid-range','far'=>'Far','ooc'=>'Out of Coverage'];
-                        $grouped = $deliveryZones->groupBy('zone_type');
-                        $order   = ['free','near','mid','far','ooc'];
-                      @endphp
-                      @foreach($order as $typeKey)
-                        @php $group = $grouped[$typeKey] ?? collect(); @endphp
-                        @if($group->count() > 0)
-                        <optgroup label="{{ $zoneTypeLabels[$typeKey] ?? $typeKey }} — {{ $typeKey === 'free' ? 'FREE' : ($typeKey === 'ooc' ? '₱250+' : '₱'.$group->first()->fee) }}">
-                          @foreach($group as $z)
-                          <option value="{{ $z->barangay }}" data-fee="{{ $z->fee }}" data-type="{{ $z->zone_type }}">
-                            {{ $z->barangay }}{{ $z->fee == 0 ? ' (Free)' : ' — ₱'.number_format($z->fee,2) }}
-                          </option>
-                          @endforeach
-                        </optgroup>
-                        @endif
-                      @endforeach
-                    </select>
-                    <input type="hidden" name="delivery_fee" id="deliveryFeeInput" value="0">
-                    <input type="hidden" name="service_charge" id="serviceChargeInput" value="0">
-                    <div id="oocNotice" style="display:none" class="alert border-0 mt-2 py-2" style="background:#fff1f2">
-                      <i class="bi bi-info-circle me-1" style="color:#e11d48"></i>
-                      <span class="small" style="color:#9f1239">
-                        <strong>Out of Coverage</strong> — Delivery fee starts at ₱250. Admin will confirm after reviewing your location.
-                      </span>
+                    <div class="d-flex gap-2 mb-2 align-items-center flex-wrap">
+                      <button type="button" class="btn btn-sm btn-outline-primary" onclick="detectMyLocation()" id="detectBtn">
+                        <i class="bi bi-crosshair me-1"></i>Detect My Location
+                      </button>
+                      <span class="text-muted" style="font-size:.78rem">or click/tap anywhere on the map</span>
                     </div>
-                  </div>
-                  <div class="mb-3 p-3 rounded" id="feePreview" style="background:#f0fdf4;display:none">
-                    <div class="d-flex align-items-center justify-content-between">
-                      <div class="small fw-semibold" style="color:#166534"><i class="bi bi-bicycle me-1"></i>Delivery Fee</div>
-                      <div class="fw-bold" id="feePreviewAmount" style="color:#166534">₱0.00</div>
-                    </div>
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label fw-semibold small">Pin Your Location</label>
-                    <div id="map" style="height:240px;border-radius:.9rem;border:1px solid #dee2e6"></div>
+                    <div id="map" style="height:260px;border-radius:.9rem;border:1.5px solid #dee2e6"></div>
                     <input type="hidden" name="latitude"  id="lat">
                     <input type="hidden" name="longitude" id="lng">
+                    <input type="hidden" name="delivery_zone"  id="deliveryZoneInput" value="">
+                    <input type="hidden" name="delivery_fee"   id="deliveryFeeInput"  value="0">
+                    <input type="hidden" name="service_charge" value="0">
                   </div>
+
+                  {{-- Coverage status --}}
+                  <div id="coverageStatus" style="display:none" class="mb-3 small"></div>
+
+                  {{-- Fee + ETA display --}}
+                  <div id="deliveryCalcBox" style="display:none" class="mb-3">
+                    <div style="border-radius:.9rem;overflow:hidden;border:1.5px solid #ddd6fe;box-shadow:0 4px 16px rgba(99,102,241,.1)">
+                      <div id="deliveryCalcHeader" style="padding:.7rem 1.1rem;background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)">
+                        <div class="d-flex align-items-center justify-content-between">
+                          <span class="fw-semibold text-white" style="font-size:.85rem">
+                            <i class="bi bi-bicycle me-2"></i>Delivery Quote
+                          </span>
+                          <span id="deliveryFreeTag" style="display:none;background:rgba(255,255,255,.25);color:#fff;font-size:.68rem;font-weight:700;border-radius:2rem;padding:2px 10px;letter-spacing:.05em">
+                            FREE DELIVERY
+                          </span>
+                        </div>
+                      </div>
+                      <div style="background:#f5f3ff;padding:.9rem 1rem">
+                        <div class="row g-0 text-center mb-2">
+                          <div class="col-4" style="border-right:1px solid #ddd6fe">
+                            <div class="fw-bold" id="distDisplay" style="font-size:1.05rem;color:#6366f1;line-height:1.2">—</div>
+                            <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Distance</div>
+                          </div>
+                          <div class="col-4" style="border-right:1px solid #ddd6fe">
+                            <div class="fw-bold" id="calcFeeDisplay" style="font-size:1.05rem;color:#1e40af;line-height:1.2">₱0.00</div>
+                            <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Delivery Fee</div>
+                          </div>
+                          <div class="col-4">
+                            <div class="fw-bold" id="calcEtaDisplay" style="font-size:1.05rem;color:#059669;line-height:1.2">—</div>
+                            <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Est. Arrival</div>
+                          </div>
+                        </div>
+                        <div id="feeBreakdown" style="border-top:1px dashed #c4b5fd;padding-top:.5rem;font-size:.72rem;color:#6b7280;line-height:1.7"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {{-- Address --}}
                   <div class="mb-3">
                     <label class="form-label fw-semibold small">
                       Full Address
@@ -304,10 +316,9 @@
                       </span>
                     </label>
                     <textarea class="form-control" name="address" id="addressField" rows="2"
-                      placeholder="Click the map to auto-fill, or type your address here">{{ $defaultAddr ? $defaultAddr->full_address : '' }}</textarea>
-                    <div class="form-text"><i class="bi bi-pin-map me-1"></i>Click anywhere on the map to auto-fill your address.</div>
+                      placeholder="Pin your location on the map to auto-fill, or type your address">{{ $defaultAddr ? $defaultAddr->full_address : '' }}</textarea>
                   </div>
-                  <div class="form-check">
+                  <div class="form-check mb-1">
                     <input class="form-check-input" type="checkbox" name="save_default_address" id="saveAddr">
                     <label class="form-check-label small" for="saveAddr">Save as default address</label>
                   </div>
@@ -338,7 +349,10 @@
                 <div class="d-flex gap-3 flex-wrap">
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="payment_method" value="COD" id="cod" checked>
-                    <label class="form-check-label fw-semibold" for="cod"><i class="bi bi-cash-coin me-1"></i>Cash on Delivery</label>
+                    <label class="form-check-label fw-semibold" for="cod">
+                      <i class="bi bi-cash-coin me-1"></i><span id="codLabelText">Cash on Pickup (COP)</span>
+                    </label>
+                    <div class="text-muted" id="codHelpText" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay cash when you pick up your order.</div>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="payment_method" value="GCash" id="gcash">
@@ -424,7 +438,7 @@
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ── DB-driven price maps (from PHP) ───────────────────────────
+// ── Price maps ────────────────────────────────────────
 const SIZE_PRICES = {
   @foreach($sizes as $s)
     {!! json_encode($s->label) !!}: {{ (float)$s->price }},
@@ -436,18 +450,146 @@ const COMPLEXITY_PRICES = {
   @endforeach
 };
 const BASE_CUSTOM = 1200;
-// ─────────────────────────────────────────────────────────────
+
+// ── Shop & coverage data ──────────────────────────────
+const SHOP_META = {
+  lat:           {{ $shopSettings->shop_lat        ?? 'null' }},
+  lng:           {{ $shopSettings->shop_lng        ?? 'null' }},
+  feePerMeter:   {{ (float)($shopSettings->fee_per_meter       ?? 0.05) }},
+  maintenanceKm: {{ (float)($shopSettings->maintenance_per_km  ?? 5) }},
+  fuelKm:        {{ (float)($shopSettings->fuel_per_km         ?? 8) }},
+  freeRadius:    {{ (int)($shopSettings->free_delivery_radius   ?? 0) }},
+};
+const COVERAGE_ZONES  = @json($deliveryZones->values());
+const COVERAGE_RADIUS = 3000;
 let deliveryFee = 0;
-let map, marker;
+let map, marker, routeLine;
+
+// ── Haversine ─────────────────────────────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function calcFee(dist) {
+  if (SHOP_META.freeRadius > 0 && dist <= SHOP_META.freeRadius) return 0;
+  const km = dist / 1000;
+  return Math.ceil(SHOP_META.feePerMeter * dist + (SHOP_META.maintenanceKm + SHOP_META.fuelKm) * km);
+}
+
+function calcEtaMinutes(dist) {
+  return Math.ceil((15 + Math.round((dist/1000)*4)) / 5) * 5;
+}
+
+function etaText(mins) {
+  if (mins < 60) return mins + ' mins';
+  const h = Math.floor(mins/60), m = mins%60;
+  return m > 0 ? h + ' hr ' + m + ' mins' : h + ' hr';
+}
+
+function isInCoverage(lat, lng) {
+  if (!COVERAGE_ZONES.length) return null;
+  return COVERAGE_ZONES.some(z => z.lat && z.lng && haversine(lat, lng, z.lat, z.lng) <= COVERAGE_RADIUS);
+}
+
+// ── On pin set ────────────────────────────────────────
+function onPinSet(lat, lng) {
+  document.getElementById('lat').value = lat;
+  document.getElementById('lng').value = lng;
+
+  // Coverage check
+  const covered  = isInCoverage(lat, lng);
+  const statusEl = document.getElementById('coverageStatus');
+  if (covered === null) {
+    statusEl.style.display = 'none';
+  } else if (covered) {
+    statusEl.style.cssText = 'display:block;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:.5rem;padding:.5rem .75rem';
+    statusEl.innerHTML = '<i class="bi bi-geo-alt me-1"></i>✓ Your location is within the delivery coverage area.';
+  } else {
+    statusEl.style.cssText = 'display:block;background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;border-radius:.5rem;padding:.5rem .75rem';
+    statusEl.innerHTML = '<i class="bi bi-geo-alt me-1"></i>⚠ Your location appears to be outside the delivery area. Your order may be rejected.';
+  }
+
+  const calcBox = document.getElementById('deliveryCalcBox');
+  if (SHOP_META.lat && SHOP_META.lng) {
+    const dist  = haversine(lat, lng, SHOP_META.lat, SHOP_META.lng);
+    const km    = dist / 1000;
+    const fee   = calcFee(dist);
+    const mins  = calcEtaMinutes(dist);
+    deliveryFee = fee;
+
+    document.getElementById('deliveryFeeInput').value = fee;
+
+    // Distance
+    document.getElementById('distDisplay').textContent =
+      dist < 1000 ? Math.round(dist) + ' m' : km.toFixed(2) + ' km';
+
+    // Fee + header color
+    const feeEl  = document.getElementById('calcFeeDisplay');
+    const hdrEl  = document.getElementById('deliveryCalcHeader');
+    const freeEl = document.getElementById('deliveryFreeTag');
+    if (fee === 0) {
+      feeEl.textContent  = 'FREE';
+      feeEl.style.color  = '#059669';
+      freeEl.style.display = '';
+      hdrEl.style.background = 'linear-gradient(135deg,#059669 0%,#047857 100%)';
+    } else {
+      feeEl.textContent  = '₱' + fee.toFixed(2);
+      feeEl.style.color  = '#1e40af';
+      freeEl.style.display = 'none';
+      hdrEl.style.background = 'linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)';
+    }
+
+    // ETA
+    document.getElementById('calcEtaDisplay').textContent = '~' + etaText(mins);
+
+    // Breakdown
+    const bd = document.getElementById('feeBreakdown');
+    if (fee === 0 && SHOP_META.freeRadius > 0) {
+      const freeLabel = SHOP_META.freeRadius >= 1000
+        ? (SHOP_META.freeRadius / 1000).toFixed(1) + ' km' : SHOP_META.freeRadius + ' m';
+      bd.innerHTML = `<i class="bi bi-gift me-1" style="color:#059669"></i>Free delivery within ${freeLabel} from shop`;
+    } else if (fee > 0) {
+      const basePart = (SHOP_META.feePerMeter * dist).toFixed(2);
+      const kmPart   = ((SHOP_META.maintenanceKm + SHOP_META.fuelKm) * km).toFixed(2);
+      bd.innerHTML =
+        `<div class="d-flex justify-content-between"><span><i class="bi bi-geo-alt me-1"></i>₱${SHOP_META.feePerMeter}/m × ${Math.round(dist)} m</span><span class="fw-semibold">₱${basePart}</span></div>` +
+        `<div class="d-flex justify-content-between"><span><i class="bi bi-droplet me-1"></i>Fuel + maintenance × ${km.toFixed(2)} km</span><span class="fw-semibold">₱${kmPart}</span></div>`;
+    } else {
+      bd.innerHTML = '';
+    }
+
+    calcBox.style.display = '';
+
+    // Route line
+    const pts = [[SHOP_META.lat, SHOP_META.lng], [lat, lng]];
+    if (routeLine) routeLine.setLatLngs(pts);
+    else routeLine = L.polyline(pts, {
+      color: '#6366f1', weight: 2, dashArray: '7 5', opacity: .65
+    }).addTo(map);
+
+    // Summary fee row
+    const feeRow = document.getElementById('feeRow');
+    if (feeRow) {
+      feeRow.style.display = fee > 0 ? 'flex' : 'none';
+      const fd = document.getElementById('feeDisplay');
+      if (fd) fd.textContent = '₱' + fee.toFixed(2);
+    }
+  } else {
+    calcBox.style.display = 'none';
+  }
+
+  updatePriceSummary();
+  reverseGeocode(lat, lng);
+}
 
 function updatePriceSummary() {
   const qty             = parseInt(document.querySelector('[name=quantity]')?.value || 1);
   const size            = document.querySelector('[name=size]')?.value || '';
   const complexity      = document.querySelector('[name=design_complexity]:checked')?.value || '';
   const isDelivery      = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
-  const svcCharge       = parseFloat(document.getElementById('serviceChargeInput')?.value || 0);
-
-  // Use the DB-driven price maps defined above
   const sizeSurcharge       = SIZE_PRICES[size] ?? 0;
   const complexitySurcharge = COMPLEXITY_PRICES[complexity] ?? 0;
 
@@ -463,7 +605,7 @@ function updatePriceSummary() {
 
   const unitPrice = BASE_CUSTOM + sizeSurcharge + complexitySurcharge;
   const subtotal  = unitPrice * qty;
-  const total     = subtotal + addonTotal + (isDelivery ? deliveryFee + svcCharge : 0);
+  const total     = subtotal + addonTotal + (isDelivery ? deliveryFee : 0);
 
   const sizeSurRow = document.getElementById('sizeSurchargeRow');
   sizeSurRow.style.display = sizeSurcharge > 0 ? 'flex' : 'none';
@@ -510,118 +652,150 @@ function toggleDelivery() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
   if (isDelivery && !map) initMap();
-  updateFee();
+  if (!isDelivery) { deliveryFee = 0; }
+  updatePaymentMethodLabel();
+  updatePriceSummary();
+}
+
+function updatePaymentMethodLabel() {
+  const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+  const codLabel = document.getElementById('codLabelText');
+  const codHelp = document.getElementById('codHelpText');
+  if (codLabel) {
+    codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
+  }
+  if (codHelp) {
+    codHelp.textContent = isDelivery
+      ? 'Pay cash when your order arrives.'
+      : 'Pay cash when you pick up your order.';
+  }
 }
 
 async function reverseGeocode(lat, lng) {
-  const field     = document.getElementById('addressField');
-  const indicator = document.getElementById('addressLoading');
-  if (indicator) indicator.style.display = 'inline';
+  const field = document.getElementById('addressField');
+  const ind   = document.getElementById('addressLoading');
+  if (ind) ind.style.display = 'inline';
   try {
-    const res  = await fetch(
-      'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=' + lng + '&addressdetails=1',
-      { headers: { 'Accept-Language': 'en', 'User-Agent': 'CakeshopApp/1.0' } }
-    );
+    const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
     const data = await res.json();
     if (data && data.display_name) {
-      const a     = data.address || {};
+      const a = data.address || {};
       const parts = [
-        a.house_number ? (a.house_number + ' ' + (a.road || '')) : a.road,
+        a.house_number ? (a.house_number+' '+(a.road||'')) : a.road,
         a.suburb || a.village || a.neighbourhood,
         a.city_district || a.county,
         a.city || a.town || a.municipality,
         a.state,
       ].filter(Boolean);
       field.value = parts.length > 0 ? parts.join(', ') : data.display_name;
+      const brgy = a.village || a.suburb || a.neighbourhood || a.quarter || a.hamlet || '';
+      document.getElementById('deliveryZoneInput').value = brgy || parts[0] || '';
     }
   } catch (e) {}
-  finally { if (indicator) indicator.style.display = 'none'; }
+  finally { if (ind) ind.style.display = 'none'; }
 }
 
-function setMarkerAt(latlng) {
-  if (marker) marker.setLatLng(latlng);
-  else {
-    marker = L.marker(latlng, { draggable: true }).addTo(map);
-    marker.on('dragend', e => {
-      const ll = e.target.getLatLng();
-      document.getElementById('lat').value = ll.lat;
-      document.getElementById('lng').value = ll.lng;
-      reverseGeocode(ll.lat, ll.lng);
+function setMarkerAt(latlng, triggerPin = true) {
+  if (marker) {
+    marker.setLatLng(latlng);
+  } else {
+    const pinIcon = L.divIcon({
+      html: `<div style="position:relative;width:28px;height:40px">
+               <div style="background:var(--primary,#e91e8c);width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(233,30,140,.55)"></div>
+               <div style="position:absolute;top:4px;left:4px;width:12px;height:12px;background:#fff;border-radius:50%;transform:rotate(45deg)"></div>
+             </div>`,
+      className: '', iconSize: [28,40], iconAnchor: [14,40]
     });
+    marker = L.marker(latlng, {draggable: true, icon: pinIcon}).addTo(map);
+    marker.bindTooltip('Your location', {direction: 'top'});
+    marker.on('dragend', e => { const ll = e.target.getLatLng(); onPinSet(ll.lat, ll.lng); });
   }
-  document.getElementById('lat').value = latlng.lat;
-  document.getElementById('lng').value = latlng.lng;
-  reverseGeocode(latlng.lat, latlng.lng);
+  if (triggerPin) onPinSet(latlng.lat, latlng.lng);
+  else { document.getElementById('lat').value = latlng.lat; document.getElementById('lng').value = latlng.lng; }
 }
 
 function initMap() {
-  @php $defLat = $defaultAddr->latitude ?? 14.5995; $defLng = $defaultAddr->longitude ?? 120.9842; @endphp
-  map = L.map('map').setView([{{ $defLat }}, {{ $defLng }}], 14);
+  @php
+    $defLat  = $shopSettings->shop_lat ?? ($defaultAddr->latitude  ?? 14.5995);
+    $defLng  = $shopSettings->shop_lng ?? ($defaultAddr->longitude ?? 120.9842);
+    $defZoom = ($shopSettings->shop_lat ?? null) ? 14 : (($defaultAddr->latitude ?? null) ? 15 : 13);
+  @endphp
+  map = L.map('map').setView([{{ $defLat }}, {{ $defLng }}], {{ $defZoom }});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-  @if($defaultAddr)
-    marker = L.marker([{{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}], {draggable:true}).addTo(map);
-    document.getElementById('lat').value = {{ $defaultAddr->latitude }};
-    document.getElementById('lng').value = {{ $defaultAddr->longitude }};
-    marker.on('dragend', e => {
-      const ll = e.target.getLatLng();
-      document.getElementById('lat').value = ll.lat;
-      document.getElementById('lng').value = ll.lng;
-      reverseGeocode(ll.lat, ll.lng);
+
+  if (SHOP_META.lat && SHOP_META.lng) {
+    const shopIcon = L.divIcon({
+      html: `<div style="background:#6366f1;width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 12px rgba(99,102,241,.55);display:flex;align-items:center;justify-content:center">
+               <span style="transform:rotate(45deg);font-size:15px;line-height:1">🏪</span>
+             </div>`,
+      className:'', iconSize:[36,36], iconAnchor:[18,36]
     });
+    L.marker([SHOP_META.lat, SHOP_META.lng], {icon:shopIcon, interactive:true}).addTo(map).bindTooltip('Cake Shop', {permanent:false, direction:'top'});
+  }
+
+  COVERAGE_ZONES.forEach(z => {
+    if (!z.lat || !z.lng) return;
+    L.circle([z.lat, z.lng], {
+      radius: COVERAGE_RADIUS, color: '#e91e8c', weight: 1.5,
+      fillColor: '#e91e8c', fillOpacity: .05, dashArray: '6 4', interactive: false
+    }).addTo(map);
+    const cIcon = L.divIcon({
+      html:'<div style="background:var(--primary,#e91e8c);width:10px;height:10px;border-radius:50%;opacity:.5;border:2px solid rgba(233,30,140,.7)"></div>',
+      className:'', iconSize:[10,10], iconAnchor:[5,5]
+    });
+    L.marker([z.lat, z.lng], {icon:cIcon, interactive:false}).addTo(map).bindTooltip(z.barangay||'Coverage Area');
+  });
+
+  @if($defaultAddr && ($defaultAddr->latitude ?? null) && ($defaultAddr->longitude ?? null))
+    setMarkerAt(L.latLng({{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}), false);
+    map.setView([{{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}], 15);
   @endif
-  map.on('click', e => setMarkerAt(e.latlng));
+
+  map.on('click', e => setMarkerAt(e.latlng, true));
 }
 
-function updateFee() {
-  const sel      = document.getElementById('zoneSelect');
-  const opt      = sel?.options[sel.selectedIndex];
-  const zoneType = opt?.dataset?.type || '';
-  deliveryFee    = parseFloat(opt?.dataset?.fee || 0);
-  const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
-
-  const oocNotice = document.getElementById('oocNotice');
-  if (oocNotice) oocNotice.style.display = (zoneType === 'ooc') ? 'block' : 'none';
-
-  const feePreview    = document.getElementById('feePreview');
-  const feePreviewAmt = document.getElementById('feePreviewAmount');
-  if (feePreview && opt && opt.value) {
-    feePreview.style.display = 'block';
-    feePreview.style.background = deliveryFee === 0 ? '#f0fdf4' : '#eff6ff';
-    if (feePreviewAmt) {
-      feePreviewAmt.style.color = deliveryFee === 0 ? '#166534' : '#1e40af';
-      feePreviewAmt.textContent = deliveryFee === 0 ? 'FREE' :
-        (zoneType === 'ooc' ? '₱250+ (to be confirmed)' : '₱' + deliveryFee.toFixed(2));
+function detectMyLocation() {
+  if (!navigator.geolocation) { alert('Geolocation is not supported by your browser.'); return; }
+  const btn = document.getElementById('detectBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Detecting…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      btn.disabled = false; btn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Detect My Location';
+      const ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
+      setMarkerAt(ll, true); map.flyTo(ll, 16);
+    },
+    () => {
+      btn.disabled = false; btn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Detect My Location';
+      alert('Could not detect your location. Please pin it manually on the map.');
     }
-  } else if (feePreview) {
-    feePreview.style.display = 'none';
-  }
-
-  const feeRow = document.getElementById('feeRow');
-  if (isDelivery && deliveryFee > 0) {
-    if (feeRow) { feeRow.style.display = 'flex'; document.getElementById('feeDisplay').textContent = zoneType === 'ooc' ? '₱250+' : '₱' + deliveryFee.toFixed(2); }
-  } else {
-    if (feeRow) feeRow.style.display = 'none';
-  }
-  if (document.getElementById('deliveryFeeInput'))
-    document.getElementById('deliveryFeeInput').value = deliveryFee;
-  updatePriceSummary();
+  );
 }
 
 function confirmCustomOrder(btn) {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   if (isDelivery) {
-    const zone = document.getElementById('zoneSelect')?.value;
-    if (!zone) { alert('Please select your barangay for delivery.'); return false; }
+    const lat  = document.getElementById('lat')?.value;
+    const addr = document.getElementById('addressField')?.value?.trim();
+    if (!lat || !addr) { alert('Please pin your location on the map and enter your address.'); return false; }
   }
   const total = document.getElementById('totalDisplay').textContent;
-  cakeConfirm({ title: '📋 Confirm Custom Order?', message: 'Total: ' + total + ' — Your order will be reviewed by the baker.', icon: 'bi-cake2', okLabel: 'Place Order', onConfirm: () => document.getElementById('customOrderForm').submit() }); return false;
-  if (ok) setTimeout(() => { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Placing Order…'; }, 10);
-  return ok;
+  cakeConfirm({
+    title: '📋 Confirm Custom Order?',
+    message: 'Total: ' + total + ' — Your order will be reviewed by the baker.',
+    icon: 'bi-cake2', okLabel: 'Place Order',
+    onConfirm: () => {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Placing Order…';
+      document.getElementById('customOrderForm').submit();
+    }
+  });
+  return false;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   const checked = document.querySelector('[name=design_complexity]:checked');
   if (checked) highlightComplexity(checked);
+  updatePaymentMethodLabel();
   updatePriceSummary();
 });
 

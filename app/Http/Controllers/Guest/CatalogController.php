@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\CakeshopHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -35,10 +36,17 @@ class CatalogController extends Controller
             ->orderBy('products.name')
             ->get();
 
+        $discountMap = CakeshopHelper::getActiveDiscountMap($products->pluck('id')->toArray());
+
         foreach ($products as $product) {
             $bestSeller = $bestSellerStats[$product->id] ?? null;
             $product->total_sold = (int)($bestSeller->total_sold ?? 0);
             $product->total_orders = (int)($bestSeller->total_orders ?? 0);
+            $product->active_discount = $discountMap[$product->id] ?? null;
+            $product->discount_snapshot = CakeshopHelper::calculateDiscountSnapshot(
+                (float) $product->price,
+                $product->active_discount
+            );
         }
 
         $bestSellers = $products
@@ -220,8 +228,14 @@ class CatalogController extends Controller
     {
         $pid  = $request->input('product_id');
         $qty  = max(1, (int)$request->input('quantity', 1));
-        $note = trim($request->input('custom_note', ''));
         $size = trim($request->input('selected_size', ''));
+
+        $parts = [];
+        if ($d = trim($request->input('dedication', '')))   $parts[] = 'Dedication: "' . $d . '"';
+        if ($c = trim($request->input('color_theme', '')))  $parts[] = 'Color/Theme: ' . $c;
+        if ($s = trim($request->input('special_note', ''))) $parts[] = 'Notes: ' . $s;
+        if ($n = trim($request->input('custom_note', '')))  $parts[] = $n;
+        $note = implode(' | ', $parts);
 
         $product = DB::table('products')->where('id', $pid)->where('is_available', 1)->first();
         if (!$product) return back()->with('error', 'Product not available.');

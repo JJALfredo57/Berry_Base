@@ -7,7 +7,22 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-  @php $tc = $shop->theme_color ?? '#E53935'; @endphp
+  @php
+    $tc        = $shop->theme_color ?? '#E53935';
+    $sbgType   = $shopSettings->bg_type ?? 'color';
+    $sbgColor  = $shopSettings->bg_color ?? '#f9f9f9';
+    $sbgGradS  = $shopSettings->gradient_start ?? '#fff7fb';
+    $sbgGradE  = $shopSettings->gradient_end   ?? '#ffe3f1';
+    $sbgImg    = $shopSettings->bg_image_path  ?? '';
+    $sbgOpacity= (float)($shopSettings->bg_image_opacity ?? 1.0);
+    if ($sbgType === 'gradient') {
+        $bodyBg = "background:linear-gradient(135deg,{$sbgGradS} 0%,{$sbgGradE} 100%);";
+    } elseif ($sbgType === 'image' && $sbgImg) {
+        $bodyBg = "background:{$sbgColor};";
+    } else {
+        $bodyBg = "background:{$sbgColor};";
+    }
+  @endphp
   <style>
     :root{
       --primary:{{ $tc }};
@@ -20,7 +35,7 @@
       --shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 16px rgba(0,0,0,.1);
     }
     *,*::before,*::after{box-sizing:border-box}
-    body{font-family:'DM Sans',system-ui,sans-serif;background:#f9f9f9;color:var(--gray-900);margin:0;-webkit-font-smoothing:antialiased}
+    body{font-family:'DM Sans',system-ui,sans-serif;{{ $bodyBg }}color:var(--gray-900);margin:0;-webkit-font-smoothing:antialiased}
     a{text-decoration:none;color:inherit}
 
     /* ── Navbar ── */
@@ -109,6 +124,11 @@
   </style>
 </head>
 <body>
+
+{{-- Shop background image overlay --}}
+@if($sbgType === 'image' && !empty($sbgImg))
+<div aria-hidden="true" style="position:fixed;inset:0;z-index:-1;pointer-events:none;background:url('{{ $sbgImg }}') center/cover no-repeat;opacity:{{ $sbgOpacity }};"></div>
+@endif
 
 {{-- ── NAVBAR ── --}}
 <nav class="top-nav">

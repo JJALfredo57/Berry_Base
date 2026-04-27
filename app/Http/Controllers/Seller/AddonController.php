@@ -28,7 +28,7 @@ class AddonController extends Controller
             ->select('a.*', 'c.name as category_name')
             ->orderBy('a.category_id')->orderBy('a.sort_order')->get()
             ->groupBy('category_id');
-        return view('admin.addons', compact('categories', 'addons'));
+        return view('seller.addons', compact('categories', 'addons'));
     }
 
     public function storeCategory(Request $request)
@@ -98,6 +98,7 @@ class AddonController extends Controller
             'category_id' => $catId,
             'shop_id'     => $shop->id,
             'name'        => $name,
+            'description' => trim($request->input('description', '')) ?: null,
             'price'       => $price,
             'sort_order'  => $max + 1,
             'is_active'   => 1,
@@ -112,8 +113,9 @@ class AddonController extends Controller
         $addon = DB::table('cake_addons')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$addon) return back()->with('err', 'Not found.');
         DB::table('cake_addons')->where('id', $id)->update([
-            'name'  => trim($request->input('name', $addon->name)),
-            'price' => (float)$request->input('price', $addon->price),
+            'name'        => trim($request->input('name', $addon->name)),
+            'description' => trim($request->input('description', $addon->description ?? '')) ?: null,
+            'price'       => (float)$request->input('price', $addon->price),
         ]);
         return back()->with('msg', 'Add-on updated.');
     }

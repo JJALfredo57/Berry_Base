@@ -27,28 +27,36 @@ class ProductController extends Controller
         return '/storage/uploads/products/' . $fn;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $shop     = $this->getShop();
         $platform = DB::table('platform_settings')->first();
-        $maxProd  = $shop->tier === 'verified'
-            ? null
-            : (int)($platform->max_products_basic ?? 20);
+        $maxProd  = $shop->tier === 'verified' ? null : (int)($platform->max_products_basic ?? 20);
+        $search   = trim($request->input('search', ''));
 
         $products = DB::table('products')
             ->where('shop_id', $shop->id)
+            ->when($search, fn($q) => $q->where(fn($sq) => $sq
+                ->where('name', 'like', "%$search%")
+                ->orWhere('flavor', 'like', "%$search%")
+                ->orWhere('classification', 'like', "%$search%")
+            ))
             ->orderByDesc('id')
-            ->get();
+            ->paginate(10)
+            ->withQueryString();
 
         $productSizes = [];
         try {
+            $pids = collect($products->items())->pluck('id')->toArray();
             $sizes = DB::table('product_sizes')
-                ->whereIn('product_id', $products->pluck('id')->toArray())
+                ->whereIn('product_id', $pids)
                 ->where('is_active', 1)->orderBy('sort_order')->get();
             foreach ($sizes as $s) $productSizes[$s->product_id][] = $s;
         } catch (\Exception $e) {}
 
-        return view('seller.products', compact('shop','products','productSizes','maxProd'));
+        $discounts = CakeshopHelper::getDiscountConfigMap(collect($products->items())->pluck('id')->toArray());
+
+        return view('seller.products', compact('shop','products','productSizes','discounts','maxProd','search'));
     }
 
     public function store(Request $request)
@@ -187,6 +195,57 @@ class ProductController extends Controller
             'updated_at'   => now(),
         ]);
         return back()->with('msg', "Product " . ($p->is_available ? 'hidden' : 'shown') . ".");
+    }
+
+    public function saveDiscount(Request $request, string $id)
+    {
+        $shop = $this->getShop();
+        $product = DB::table('products')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$product) return back()->with('err', 'Product not found.');
+
+        $enabled = (int) $request->input('discount_enabled', 0) === 1;
+        $type = strtolower(trim((string) $request->input('discount_type', 'percent')));
+        $value = (float) $request->input('discount_value', 0);
+        $label = trim((string) $request->input('discount_label', ''));
+        $startsAt = $request->input('discount_starts_at') ?: null;
+        $endsAt = $request->input('discount_ends_at') ?: null;
+
+        if ($startsAt && $endsAt && strtotime($endsAt) < strtotime($startsAt)) {
+            return back()->with('err', 'Discount end date cannot be earlier than the start date.');
+        }
+        if ($enabled) {
+            if (!in_array($type, ['percent', 'fixed'], true)) {
+                return back()->with('err', 'Invalid discount type.');
+            }
+            if ($type === 'percent' && ($value <= 0 || $value > 100)) {
+                return back()->with('err', 'Percentage discount must be between 0.01 and 100.');
+            }
+            if ($type === 'fixed' && $value <= 0) {
+                return back()->with('err', 'Fixed discount must be greater than zero.');
+            }
+        }
+
+        $existingId = DB::table('product_discounts')->where('product_id', $id)->value('id');
+        $payload = [
+            'label'          => $label ?: null,
+            'discount_type'  => $type,
+            'discount_value' => $value,
+            'starts_at'      => $startsAt ?: null,
+            'ends_at'        => $endsAt ?: null,
+            'is_active'      => $enabled ? 1 : 0,
+            'updated_at'     => now(),
+        ];
+
+        if ($existingId) {
+            DB::table('product_discounts')->where('id', $existingId)->update($payload);
+        } else {
+            DB::table('product_discounts')->insert($payload + [
+                'product_id' => $id,
+                'created_at' => now(),
+            ]);
+        }
+
+        return back()->with('msg', 'Product discount settings saved.');
     }
 
     public function storeSize(Request $request, string $productId)

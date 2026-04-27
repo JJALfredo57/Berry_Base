@@ -124,7 +124,8 @@
                 <div class="d-flex gap-3 flex-wrap">
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="payment_method" value="COD" id="cod" checked>
-                    <label class="form-check-label fw-semibold" for="cod"><i class="bi bi-cash-coin me-1"></i>Cash on Delivery</label>
+                    <label class="form-check-label fw-semibold" for="cod"><i class="bi bi-cash-coin me-1"></i><span id="codLabelText">Cash on Pickup (COP)</span></label>
+                    <div class="text-muted" id="codHelpText" style="font-size:.72rem">Pay cash when you pick up your order.</div>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="payment_method" value="GCash" id="gcash">
@@ -275,6 +276,12 @@ function toggleDelivery() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
   if (isDelivery && !map) initMap();
+  const codLabel = document.getElementById('codLabelText');
+  const codHelp = document.getElementById('codHelpText');
+  if (codLabel) codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
+  if (codHelp) codHelp.textContent = isDelivery
+    ? 'Pay cash when your order arrives.'
+    : 'Pay cash when you pick up your order.';
   updateFee();
 }
 

@@ -13,15 +13,15 @@
       <p class="text-muted small mb-0" id="custOrdersLabel">Track your cake orders</p>
     </div>
     <div class="d-flex gap-2 flex-wrap align-items-center">
-      <select id="custOrderStatus" class="form-select form-select-sm" style="width:auto" onchange="custFilterOrders()">
-        <option value="">All Status</option>
-        <option value="Pending Review">Pending Review</option>
-        <option value="Pending">Pending</option>
-        <option value="Confirmed">Confirmed</option>
-        <option value="Preparing">Preparing</option>
-        <option value="Out for Delivery">Out for Delivery</option>
-        <option value="Delivered">Delivered</option>
-        <option value="Cancelled">Cancelled</option>
+      <div class="cs-search-bar" style="max-width:200px">
+        <input type="text" class="form-control form-control-sm" placeholder="Search orders…"
+               value="{{ $search ?? '' }}" oninput="pgSearch(this.value)">
+      </div>
+      <select class="form-select form-select-sm" style="width:auto" onchange="pgFilter('status', this.value)">
+        <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All Status</option>
+        @foreach(['Pending Review','Pending','Confirmed','Preparing','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
+        <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st }}</option>
+        @endforeach
       </select>
       <a href="{{ route('customer.catalog') }}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus me-1"></i>Order Again
@@ -42,7 +42,8 @@
   <div id="custOrdersList">
 @forelse($orders as $o)
   @php
-    $canCancel   = in_array($o->status, ['Pending','Confirmed']);
+    $hasDepositLock = ($o->deposit_status ?? null) === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']);
+    $canCancel   = in_array($o->status, ['Pending','Confirmed']) && !$hasDepositLock;
     $notAllowed  = in_array($o->status, ['Preparing','Out for Delivery','Delivered','Cancelled']);
     $hasPending  = $o->cancel_requested && $o->cancel_status === 'pending';
     $wasAccepted = $o->cancel_status === 'accepted';
@@ -92,6 +93,11 @@
           @if($o->cancel_admin_note) <span class="fw-normal">Reason: {{ $o->cancel_admin_note }}</span> @endif
         </span>
       </div>
+      @elseif($hasDepositLock && $o->status !== 'Cancelled')
+      <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#eff6ff">
+        <i class="bi bi-shield-lock text-primary"></i>
+        <span class="small fw-semibold text-primary">Cancellation locked — deposit has already been paid.</span>
+      </div>
       @endif
 
       {{-- Order Details --}}
@@ -99,8 +105,13 @@
         <div class="row g-2">
           <div class="col-6 col-md-3"><i class="bi bi-box me-1"></i>Qty: <strong class="text-dark">{{ $o->quantity }}</strong></div>
           <div class="col-6 col-md-3"><i class="bi bi-truck me-1"></i>{{ $o->fulfillment_type }}</div>
+          @if(!empty($o->discount_type) && (float)($o->discount_amount ?? 0) > 0)
           <div class="col-6 col-md-3">
-            <i class="bi bi-credit-card me-1"></i>{{ $o->payment_method }}
+            <i class="bi bi-tags me-1"></i>{{ \App\Helpers\CakeshopHelper::discountBadgeText($o->discount_type, $o->discount_value) ?? 'Product Discount' }}
+          </div>
+          @endif
+          <div class="col-6 col-md-3">
+            <i class="bi bi-credit-card me-1"></i>{{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}
             <span class="badge rounded-pill ms-1"
                   style="font-size:.7rem;background:{{ $o->payment_status==='Paid'?'#d4edda':'#fff3cd' }};color:{{ $o->payment_status==='Paid'?'#155724':'#856404' }}">
               {{ $o->payment_status }}
@@ -619,6 +630,8 @@
           <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelModal{{ $o->id }}">
             <i class="bi bi-x-circle me-1"></i>Request Cancel
           </button>
+        @elseif($hasDepositLock && $o->status !== 'Cancelled')
+          <span class="text-muted small"><i class="bi bi-lock me-1"></i>Cannot cancel — deposit already paid</span>
         @elseif($notAllowed && $o->status !== 'Cancelled')
           <span class="text-muted small"><i class="bi bi-lock me-1"></i>Cannot cancel — order is {{ $o->status }}</span>
         @elseif($hasPending)
@@ -649,7 +662,7 @@
             <div>
               <div class="fw-semibold small">{{ $o->product_name }}</div>
               <div class="text-muted small">Order #{{ $o->id }} &bull; ₱{{ number_format($o->total_price,2) }} &bull; Qty: {{ $o->quantity }}</div>
-              <div class="text-muted small">{{ $o->fulfillment_type }} &bull; {{ $o->payment_method }}</div>
+              <div class="text-muted small">{{ $o->fulfillment_type }} &bull; {{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}</div>
             </div>
           </div>
 
@@ -689,7 +702,7 @@
   </div>
   @endforelse
 </div>
-<div class="mt-3" id="custOrdersList_pager"></div>
+{{ $orders->links('vendor.pagination.custom') }}
 </div>
 @push('scripts')
 <script>

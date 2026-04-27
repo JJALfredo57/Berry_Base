@@ -141,7 +141,7 @@
                     </div>
                     <div class="mb-3">
                       <label class="form-label fw-semibold small">Description <span class="text-muted fw-normal">(optional)</span></label>
-                      <input type="text" class="form-control" name="description" value="{{ $a->description }}">
+                      <input type="text" class="form-control" name="description" value="{{ $a->description ?? '' }}">
                     </div>
                     <div class="mb-3">
                       <label class="form-label fw-semibold small">Additional Price (₱)</label>

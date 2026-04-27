@@ -16,9 +16,11 @@ class OrderController extends Controller
         return $shop;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $shop = $this->getShop();
+        $shop   = $this->getShop();
+        $search = trim($request->input('search', ''));
+        $status = $request->input('status', 'All');
 
         $orders = DB::table('orders as o')
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
@@ -30,11 +32,18 @@ class OrderController extends Controller
                 DB::raw('COALESCE(o.guest_phone, u.phone) as phone'),
                 'p.name as product_name', 'p.image_path'
             )
+            ->when($search, fn($q) => $q->where(fn($sq) => $sq
+                ->where('o.id', 'like', "%$search%")
+                ->orWhereRaw("COALESCE(o.guest_name, u.fullname) like ?", ["%$search%"])
+                ->orWhere('p.name', 'like', "%$search%")
+            ))
+            ->when($status && $status !== 'All', fn($q) => $q->where('o.status', $status))
             ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")
             ->orderByDesc('o.id')
-            ->get();
+            ->paginate(10)
+            ->withQueryString();
 
-        $orderIds    = $orders->pluck('id')->toArray();
+        $orderIds    = collect($orders->items())->pluck('id')->toArray();
         $orderAddons = [];
         $customData  = [];
         if ($orderIds) {
@@ -46,7 +55,7 @@ class OrderController extends Controller
             } catch (\Exception $e) {}
         }
 
-        return view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData'));
+        return view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'search', 'status'));
     }
 
     public function updateStatus(Request $request, string $id)
@@ -175,35 +184,42 @@ class OrderController extends Controller
         ]);
 
         // SMS rider
+        $riderSmsSent = null;
         if ($rider->phone) {
             try {
-                $riderToken = $order->rider_token;
-                if (!$riderToken) {
-                    $riderToken = bin2hex(random_bytes(16));
-                    DB::table('orders')->where('id', $id)->update(['rider_token' => $riderToken]);
+                if (!$order->rider_token) {
+                    DB::table('orders')->where('id', $id)->update(['rider_token' => bin2hex(random_bytes(16))]);
                 }
-                $siteName    = config('app.name', 'Cake Shop');
-                $shopName    = SmsHelper::getShopName($shop->id ?? null);
-                $header      = SmsHelper::header($siteName, $shopName);
-                $custName    = $order->guest_name ?? DB::table('users')->where('id', $order->user_id)->value('fullname') ?? 'Customer';
-                $custPhone   = $order->guest_phone ?? DB::table('users')->where('id', $order->user_id)->value('phone') ?? '';
-                $addr        = $order->delivery_address ?? 'N/A';
-                $paymentInfo = $order->payment_method === 'COD'
-                    ? "COLLECT PHP " . number_format($order->total_price, 2) . " cash"
-                    : ($order->payment_status === 'Paid' ? "GCash Paid - No collection needed" : "GCash (not yet paid) - PHP " . number_format($order->total_price, 2));
-                SmsHelper::send($rider->phone,
-                    "{$header}\n"
-                    . "New Delivery Assignment\n\n"
-                    . "Order No.: #{$id}\n"
-                    . "Customer: {$custName}\n"
-                    . "Phone: {$custPhone}\n"
-                    . "Address: {$addr}\n"
-                    . "Payment: {$paymentInfo}\n\n"
-                    . "Contact your dispatcher for the delivery portal link to update the status. Thank you!"
-                );
-            } catch (\Exception $e) {}
+                $siteName  = config('app.name', 'Cake Shop');
+                $shopName  = SmsHelper::getShopName($shop->id ?? null);
+                $header    = SmsHelper::header($siteName, $shopName);
+                $custName  = $order->guest_name
+                    ?? DB::table('users')->where('id', $order->user_id)->value('fullname')
+                    ?? 'Customer';
+                $custPhone = $order->guest_phone
+                    ?? DB::table('users')->where('id', $order->user_id)->value('phone')
+                    ?? '';
+                $addr      = $order->delivery_address ?? 'N/A';
+
+                $riderPin = SmsHelper::generateRiderPin();
+                DB::table('orders')->where('id', $id)->update(['rider_pin' => $riderPin]);
+
+                $riderSmsSent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
+                    $header, $id, $custName, $custPhone, $addr,
+                    SmsHelper::paymentLine($order), $riderPin, $rider->phone
+                ));
+                DB::table('orders')->where('id', $id)
+                    ->update(['rider_sms_sent' => $riderSmsSent ? 1 : 0]);
+            } catch (\Exception $e) {
+                $riderSmsSent = false;
+                DB::table('orders')->where('id', $id)->update(['rider_sms_sent' => 0]);
+            }
         }
 
-        return back()->with('msg', "Rider assigned. Order is now Out for Delivery.");
+        $smsNote = $rider->phone === null
+            ? ' Warning: This rider has no phone number on record.'
+            : ($riderSmsSent === false ? ' Warning: SMS to rider was not delivered. The message may have been flagged or the number is unreachable.' : ' SMS sent to rider.');
+
+        return back()->with('msg', "Rider assigned. Order is now Out for Delivery.{$smsNote}");
     }
 }

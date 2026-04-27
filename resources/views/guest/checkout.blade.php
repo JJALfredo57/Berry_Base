@@ -1,5 +1,10 @@
 @extends('layouts.app')
 @section('content')
+@php
+  $originalSubtotal = $pricing['original_unit_price'] * $checkout['quantity'];
+  $discountedSubtotal = $pricing['final_unit_price'] * $checkout['quantity'];
+  $productDiscountTotal = $pricing['discount_amount'] * $checkout['quantity'];
+@endphp
 <script>
 // Remove any stuck modal backdrop from catalog page
 document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
@@ -36,11 +41,14 @@ document.body.style.paddingRight = '';
                     </div>
                   </div>
                   <div class="text-end flex-shrink-0">
-                    <div class="fw-bold" style="color:var(--primary);font-size:1.1rem" id="basePrice"
-                         data-price="{{ $product->price * $checkout['quantity'] }}">
-                      ₱{{ number_format($product->price * $checkout['quantity'], 2) }}
+                    @if(!empty($pricing['has_discount']))
+                      <div class="text-muted text-decoration-line-through" style="font-size:.72rem">₱{{ number_format($originalSubtotal, 2) }}</div>
+                    @endif
+                    <div class="fw-bold" style="color:{{ !empty($pricing['has_discount']) ? '#dc2626' : 'var(--primary)' }};font-size:1.1rem" id="basePrice"
+                         data-price="{{ $discountedSubtotal }}">
+                      ₱{{ number_format($discountedSubtotal, 2) }}
                     </div>
-                    <div class="text-muted" style="font-size:.72rem">Base price</div>
+                    <div class="text-muted" style="font-size:.72rem">{{ !empty($pricing['has_discount']) ? 'Discounted price' : 'Base price' }}</div>
                   </div>
                 </div>
               </div>
@@ -300,6 +308,40 @@ document.body.style.paddingRight = '';
               </div>
             </div>
 
+            {{-- Add-ons --}}
+            @if($addonCategories->count() > 0)
+            <div class="card mb-3">
+              <div class="card-body p-4">
+                <h6 class="fw-bold mb-3"><i class="bi bi-gift me-2" style="color:var(--primary)"></i>Add-ons <span class="fw-normal text-muted small">(optional)</span></h6>
+                @foreach($addonCategories as $cat)
+                  @php $catAddons = $addonsByCategory[$cat->id] ?? collect(); @endphp
+                  @if($catAddons->count() > 0)
+                  <div class="mb-3">
+                    <div class="fw-semibold small mb-2" style="color:var(--primary)">
+                      @if($cat->icon)<i class="{{ $cat->icon }} me-1"></i>@endif{{ $cat->name }}
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                      @foreach($catAddons as $addon)
+                      <label class="addon-card d-flex align-items-center gap-2 px-3 py-2 rounded-3 border"
+                             data-price="{{ $addon->price }}"
+                             style="cursor:pointer;font-size:.83rem;border-color:#e9ecef!important;transition:all .15s;background:#fff"
+                             onmouseover="this.style.borderColor='var(--primary)'"
+                             onmouseout="if(!this.querySelector('input').checked)this.style.borderColor='#e9ecef'">
+                        <input type="checkbox" class="addon-check form-check-input m-0"
+                               name="addons[]" value="{{ $addon->id }}"
+                               onchange="onAddonChange(this)">
+                        <span>{{ $addon->name }}</span>
+                        <span class="fw-bold ms-1" style="color:var(--primary)">+₱{{ number_format($addon->price,2) }}</span>
+                      </label>
+                      @endforeach
+                    </div>
+                  </div>
+                  @endif
+                @endforeach
+              </div>
+            </div>
+            @endif
+
             {{-- Payment --}}
             <div class="card mb-3">
               <div class="card-body p-4">
@@ -307,8 +349,10 @@ document.body.style.paddingRight = '';
                 <div class="d-flex gap-3 flex-wrap">
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="payment_method" value="COD" id="cod" checked onchange="updatePaymentTransparency()">
-                    <label class="form-check-label fw-semibold" for="cod"><i class="bi bi-cash-coin me-1"></i>Cash on Delivery</label>
-                    <div class="text-muted" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay cash when your order arrives.</div>
+                    <label class="form-check-label fw-semibold" for="cod">
+                      <i class="bi bi-cash-coin me-1"></i><span id="codLabelText">Cash on Pickup (COP)</span>
+                    </label>
+                    <div class="text-muted" id="codHelpText" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay cash when you pick up your order.</div>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="payment_method" value="GCash" id="gcash" onchange="updatePaymentTransparency()">
@@ -352,8 +396,14 @@ document.body.style.paddingRight = '';
               {{-- Base price --}}
               <div class="d-flex justify-content-between small mb-2">
                 <span>{{ $product->name }} × {{ $checkout['quantity'] }}</span>
-                <span>₱{{ number_format($product->price * $checkout['quantity'],2) }}</span>
+                <span>₱{{ number_format($originalSubtotal,2) }}</span>
               </div>
+              @if(!empty($pricing['has_discount']))
+              <div class="d-flex justify-content-between small mb-2">
+                <span class="text-muted">{{ $pricing['badge_text'] }} Product Discount</span>
+                <span style="color:#dc2626">-₱{{ number_format($productDiscountTotal,2) }}</span>
+              </div>
+              @endif
 
               {{-- Add-ons summary (dynamic) --}}
               <div id="addonSummary"></div>
@@ -372,7 +422,7 @@ document.body.style.paddingRight = '';
               <div class="d-flex justify-content-between fw-bold">
                 <span>Total</span>
                 <span id="totalDisplay" style="color:var(--primary);font-size:clamp(.9rem,2.2vw,1.1rem)">
-                  ₱{{ number_format($product->price * $checkout['quantity'],2) }}
+                  ₱{{ number_format($discountedSubtotal,2) }}
                 </span>
               </div>
 
@@ -445,7 +495,8 @@ function checkCheckoutAvailability() {
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const BASE_PRICE  = {{ $product->price * $checkout['quantity'] }};
+const BASE_PRICE  = {{ $pricing['final_unit_price'] * $checkout['quantity'] }};
+const HAS_PRODUCT_DISCOUNT = {{ !empty($pricing['has_discount']) ? 'true' : 'false' }};
 let deliveryFee   = 0;
 let map, marker;
 
@@ -496,6 +547,11 @@ function highlightCard(input) {
   card.style.background     = input.checked ? 'var(--primary-light)' : '';
 }
 
+function onAddonChange(input) {
+  highlightCard(input);
+  updateAddonTotal();
+}
+
 function updateTotal(addonTotal) {
   const isDelivery    = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   const serviceCharge = parseFloat(document.getElementById('serviceChargeInput')?.value || 0);
@@ -516,6 +572,7 @@ function toggleDelivery() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
   if (isDelivery && !map) initMap();
+  updateCashPaymentCopy();
   updateFee();
 }
 
@@ -525,10 +582,7 @@ async function reverseGeocode(lat, lng) {
   const indicator = document.getElementById('addressLoading');
   if (indicator) indicator.style.display = 'inline';
   try {
-    const res  = await fetch(
-      'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lng + '&addressdetails=1',
-      { headers: { 'Accept-Language': 'en', 'User-Agent': 'CakeshopApp/1.0' } }
-    );
+    const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
     const data = await res.json();
     if (data && data.display_name) {
       // Build a clean readable address
@@ -592,10 +646,7 @@ async function onBarangayChange(barangayName) {
   // Build geocode query: e.g. "Baluyot, Bautista, Pangasinan, Philippines"
   const query = barangayName.replace(/\(.*?\)/g,'').trim() + ', Pangasinan, Philippines';
   try {
-    const res  = await fetch(
-      'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' + encodeURIComponent(query),
-      { headers: { 'Accept-Language': 'en', 'User-Agent': 'CakeshopApp/1.0' } }
-    );
+    const res  = await fetch('/api/geocode/search?q=' + encodeURIComponent(query));
     const data = await res.json();
     if (data && data[0]) {
       const lat = parseFloat(data[0].lat);
@@ -658,10 +709,7 @@ function useMyLocation() {
 // ── Auto-select barangay from pinned coords via Nominatim ──────────────
 async function autoSelectBarangayFromCoords(lat, lng) {
   try {
-    const res  = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`,
-      { headers: { 'Accept-Language': 'en', 'User-Agent': 'CakeshopApp/1.0' } }
-    );
+    const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
     const data = await res.json();
     if (!data || !data.address) return;
 
@@ -1187,6 +1235,7 @@ function updatePaymentTransparency(currentTotal) {
   const textEl = document.getElementById('paymentTransparencyText');
   const breakdownEl = document.getElementById('paymentTransparencyBreakdown');
   const summaryNote = document.getElementById('summaryPaymentFeeNote');
+  updateCashPaymentCopy();
   if (!titleEl || !textEl || !breakdownEl) return;
 
   if (method === 'GCash') {
@@ -1198,11 +1247,28 @@ function updatePaymentTransparency(currentTotal) {
     breakdownEl.innerHTML = 'Customer pays <strong>PHP ' + total.toFixed(2) + '</strong> &bull; Estimated processor fee <strong>~ PHP ' + estimatedFee.toFixed(2) + '</strong> &bull; Estimated net after fee <strong>~ PHP ' + estimatedNet.toFixed(2) + '</strong>';
     if (summaryNote) summaryNote.style.display = 'block';
   } else {
-    titleEl.innerHTML = '<i class="bi bi-info-circle me-1"></i>Cash on Delivery selected';
+    const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+    titleEl.innerHTML = '<i class="bi bi-info-circle me-1"></i>' + (isDelivery ? 'Cash on Delivery selected' : 'Cash on Pickup selected');
     titleEl.style.color = '#0f172a';
-    textEl.textContent = 'No online processor fee preview is needed for COD.';
+    textEl.textContent = isDelivery
+      ? 'No online processor fee preview is needed for Cash on Delivery.'
+      : 'No online processor fee preview is needed for Cash on Pickup.';
     breakdownEl.textContent = '';
     if (summaryNote) summaryNote.style.display = 'none';
+  }
+}
+
+function updateCashPaymentCopy() {
+  const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+  const codLabel = document.getElementById('codLabelText');
+  const codHelp = document.getElementById('codHelpText');
+  if (codLabel) {
+    codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
+  }
+  if (codHelp) {
+    codHelp.textContent = isDelivery
+      ? 'Pay cash when your order arrives.'
+      : 'Pay cash when you pick up your order.';
   }
 }
 
@@ -1216,6 +1282,10 @@ window.updateTotal = function(addonTotal) {
 };
 
 document.addEventListener('DOMContentLoaded', function() {
+  if (HAS_PRODUCT_DISCOUNT) {
+    const basePriceEl = document.getElementById('basePrice');
+    if (basePriceEl) basePriceEl.style.color = '#dc2626';
+  }
   updatePaymentTransparency();
 });
 </script>

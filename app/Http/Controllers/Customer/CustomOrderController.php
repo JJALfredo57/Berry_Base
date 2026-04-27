@@ -24,6 +24,16 @@ class CustomOrderController extends Controller
         ];
     }
 
+    private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $R    = 6371000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a    = sin($dLat / 2) ** 2
+              + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+        return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
     public function show(Request $request)
     {
         $options = $this->loadOptions();
@@ -44,22 +54,27 @@ class CustomOrderController extends Controller
             ->where('user_id', $uid)
             ->orderByDesc('is_default')->orderByDesc('id')->first();
 
-        $deliveryZones = collect();
-        try {
-            $deliveryZones = DB::table('delivery_zones')
-                ->where('is_active', 1)->orderBy('sort_order')->get();
-        } catch (\Exception $e) {}
-
         $targetShop = null;
         if ($slug = $request->query('shop')) {
             $targetShop = DB::table('shops')
-                ->where('shop_slug', $slug)
-                ->where('status', 'approved')
-                ->first();
+                ->where('shop_slug', $slug)->where('status', 'approved')->first();
+        }
+
+        // Shop settings and coverage zones
+        $shopSettings  = null;
+        $deliveryZones = collect();
+        if ($targetShop) {
+            $shopSettings  = DB::table('site_settings')->where('shop_id', $targetShop->id)->first();
+            $deliveryZones = DB::table('delivery_zones')
+                ->where('shop_id', $targetShop->id)
+                ->where('is_active', 1)
+                ->whereNotNull('lat')->whereNotNull('lng')
+                ->get();
         }
 
         return view('customer.custom_order', array_merge($options, compact(
-            'addonCategories', 'addonsByCategory', 'customer', 'defaultAddr', 'deliveryZones', 'targetShop'
+            'addonCategories', 'addonsByCategory', 'customer', 'defaultAddr',
+            'deliveryZones', 'targetShop', 'shopSettings'
         )));
     }
 
@@ -69,6 +84,7 @@ class CustomOrderController extends Controller
         $options = $this->loadOptions();
 
         $shopId = null;
+        $shop   = null;
         if ($slug = $request->input('shop_slug')) {
             $shop = DB::table('shops')->where('shop_slug', $slug)->where('status', 'approved')->first();
             if ($shop) $shopId = $shop->id;
@@ -122,45 +138,85 @@ class CustomOrderController extends Controller
             }
         }
 
-        $fulfillment   = $request->input('fulfillment_type', 'Pickup');
-        $zone          = $request->input('delivery_zone', '');
-        $deliveryFee   = (float)$request->input('delivery_fee', 0);
-        $serviceCharge = (float)$request->input('service_charge', 0);
-        $address       = trim($request->input('address', ''));
-        $lat           = $request->input('latitude') !== '' ? (float)$request->input('latitude') : null;
-        $lng           = $request->input('longitude') !== '' ? (float)$request->input('longitude') : null;
-        $sdate         = $request->input('schedule_date') ?: null;
-        $stime         = null; // Time slot label is stored in custom_orders.time_slot, not orders.schedule_time
-        $payment       = $request->input('payment_method', 'COD');
+        $fulfillment = $request->input('fulfillment_type', 'Pickup');
+        $zone        = $request->input('delivery_zone', '');
+        $deliveryFee = (float)$request->input('delivery_fee', 0);
+        $address     = trim($request->input('address', ''));
+        $lat         = $request->input('latitude') !== '' ? (float)$request->input('latitude') : null;
+        $lng         = $request->input('longitude') !== '' ? (float)$request->input('longitude') : null;
+        $sdate       = $request->input('schedule_date') ?: null;
+        $payment     = $request->input('payment_method', 'COD');
 
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null)) {
-            return back()->with('error', 'Please pin your location and enter your address.')->withInput();
+            return back()->with('error', 'Please pin your location on the map and enter your address.')->withInput();
+        }
+
+        if ($fulfillment === 'Delivery' && $lat !== null && $lng !== null && $shopId) {
+            // ── Coverage validation ────────────────────────────
+            $shopZones = DB::table('delivery_zones')
+                ->where('shop_id', $shopId)
+                ->where('is_active', 1)
+                ->whereNotNull('lat')->whereNotNull('lng')
+                ->get();
+
+            if ($shopZones->isNotEmpty()) {
+                $inCoverage = false;
+                foreach ($shopZones as $z) {
+                    if ($this->haversine($lat, $lng, (float)$z->lat, (float)$z->lng) <= 3000) {
+                        $inCoverage = true;
+                        break;
+                    }
+                }
+                if (!$inCoverage) {
+                    return back()->with('error', 'Sorry, your delivery address is outside our delivery coverage area. Please contact the shop for assistance.')->withInput();
+                }
+            }
+
+            // ── Recalculate fee server-side ────────────────────
+            $settings = DB::table('site_settings')->where('shop_id', $shopId)->first();
+            if ($settings && $settings->shop_lat && $settings->shop_lng) {
+                $dist       = $this->haversine($lat, $lng, (float)$settings->shop_lat, (float)$settings->shop_lng);
+                $freeRadius = (int)($settings->free_delivery_radius ?? 0);
+                if ($freeRadius > 0 && $dist <= $freeRadius) {
+                    $deliveryFee = 0;
+                } else {
+                    $km = $dist / 1000;
+                    $deliveryFee = ceil(
+                        ((float)($settings->fee_per_meter ?? 0.05)) * $dist
+                        + (((float)($settings->maintenance_per_km ?? 5)) + ((float)($settings->fuel_per_km ?? 8))) * $km
+                    );
+                }
+            }
         }
 
         if ($fulfillment === 'Delivery' && $request->has('save_default_address')) {
             DB::table('user_addresses')->where('user_id', $uid)->update(['is_default' => 0]);
             DB::table('user_addresses')->insert([
-                'user_id' => $uid, 'label_name' => 'Default',
-                'full_address' => $address,                 'longitude' => $lng ?? 0, 'is_default' => 1, 'created_at' => now(),
+                'user_id'      => $uid,
+                'label_name'   => 'Default',
+                'full_address' => $address,
+                'latitude'     => $lat ?? 0,
+                'longitude'    => $lng ?? 0,
+                'is_default'   => 1,
+                'created_at'   => now(),
             ]);
         }
 
         $unitPrice = $basePrice + $sizeSurcharge + $complexitySurcharge;
         $subtotal  = $unitPrice * $qty;
-        $total     = $subtotal + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee + $serviceCharge : 0);
+        $total     = $subtotal + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
 
-        // Price breakdown for admin reference
         $breakdown = [
-            'base_price'          => $basePrice,
-            'size_surcharge'      => $sizeSurcharge,
-            'complexity_surcharge'=> $complexitySurcharge,
-            'unit_price'          => $unitPrice,
-            'quantity'            => $qty,
-            'subtotal'            => $subtotal,
-            'addon_total'         => $addonTotal,
-            'delivery_fee'        => $fulfillment === 'Delivery' ? $deliveryFee : 0,
-            'service_charge'      => $fulfillment === 'Delivery' ? $serviceCharge : 0,
-            'total'               => $total,
+            'base_price'           => $basePrice,
+            'size_surcharge'       => $sizeSurcharge,
+            'complexity_surcharge' => $complexitySurcharge,
+            'unit_price'           => $unitPrice,
+            'quantity'             => $qty,
+            'subtotal'             => $subtotal,
+            'addon_total'          => $addonTotal,
+            'delivery_fee'         => $fulfillment === 'Delivery' ? $deliveryFee : 0,
+            'service_charge'       => 0,
+            'total'                => $total,
         ];
 
         $parts = ["CUSTOM ORDER — {$cakeName}"];
@@ -172,13 +228,12 @@ class CustomOrderController extends Controller
         if ($customNote) $parts[] = "Notes: {$customNote}";
         $fullNote = implode(' | ', $parts);
 
-        // Get or create custom product placeholder
         $customProduct = DB::table('products')->where('classification', 'Custom')->orderBy('created_at')->first();
         if (!$customProduct) {
             $customPid = CakeshopHelper::generateId('products');
             DB::table('products')->insert([
-                'id' => $customPid,
-                'name' => 'Custom Cake Order', 'description' => 'Customized cake order placeholder.',
+                'id' => $customPid, 'name' => 'Custom Cake Order',
+                'description' => 'Customized cake order placeholder.',
                 'price' => $basePrice, 'image_path' => '/storage/uploads/products/default.png',
                 'classification' => 'Custom', 'flavor' => null, 'created_at' => now(),
             ]);
@@ -186,29 +241,37 @@ class CustomOrderController extends Controller
             $customPid = $customProduct->id;
         }
 
-        // Insert order with status "Pending Review"
         $oid = CakeshopHelper::generateId('orders');
         DB::table('orders')->insert([
-            'id' => $oid,
-            'shop_id' => $shopId,
-            'user_id' => $uid, 'product_id' => $customPid, 'quantity' => $qty,
-            'delivery_fee' => $addonTotal, 'custom_note' => $fullNote,
-            'total_price' => $total, 'status' => 'Pending Review',
-            'fulfillment_type' => $fulfillment, 'delivery_zone' => $zone ?? '',
-            'delivery_fee' => $deliveryFee, 'service_charge' => $serviceCharge,
-            'selected_size' => $sizeLabel ?: null, 'selected_size_price' => $unitPrice,
-            'delivery_address' => $address ?? '', 'latitude' => $lat ?? 0,             'schedule_date' => $sdate, 'schedule_time' => $stime,
-            'payment_method' => $payment, 'payment_status' => 'Unpaid', 'created_at' => now(),
+            'id'               => $oid,
+            'shop_id'          => $shopId,
+            'user_id'          => $uid,
+            'product_id'       => $customPid,
+            'quantity'         => $qty,
+            'custom_note'      => $fullNote,
+            'total_price'      => $total,
+            'status'           => 'Pending Review',
+            'fulfillment_type' => $fulfillment,
+            'delivery_zone'    => $zone ?: ($address ? substr($address, 0, 80) : ''),
+            'delivery_fee'     => $deliveryFee,
+            'service_charge'   => 0,
+            'selected_size'    => $sizeLabel ?: null,
+            'selected_size_price' => $unitPrice,
+            'delivery_address' => $address ?? '',
+            'schedule_date'    => $sdate,
+            'schedule_time'    => null,
+            'payment_method'   => $payment,
+            'payment_status'   => 'Unpaid',
+            'created_at'       => now(),
         ]);
 
-        // Insert custom_orders record
-        $coid = DB::table('custom_orders')->insertGetId([
+        DB::table('custom_orders')->insertGetId([
             'order_id'          => $oid,
             'shop_id'           => $shopId,
             'user_id'           => $uid,
             'cake_name'         => $cakeName,
             'flavor'            => $flavor ?: null,
-            'size'        => $sizeLabel ?: null,
+            'size'              => $sizeLabel ?: null,
             'layers'            => $layerLabel ?: null,
             'design_complexity' => $compLabel ?: null,
             'dedication'        => $dedication ?: null,
@@ -221,49 +284,61 @@ class CustomOrderController extends Controller
             'created_at'        => now(),
         ]);
 
-        // Update order to reference the custom_order record
         DB::table('orders')->where('id', $oid)->update(['custom_note' => $fullNote]);
 
         foreach ($validAddons as $addon) {
             DB::table('order_addons')->insert([
-                'order_id' => $oid, 'addon_id' => $addon->id,
-                'name' => $addon->name, 'addon_price' => $addon->price, 'created_at' => now(),
+                'order_id'    => $oid,
+                'addon_id'    => $addon->id,
+                'addon_name'  => $addon->name,
+                'addon_price' => $addon->price,
+                'created_at'  => now(),
             ]);
         }
 
         DB::table('order_tracking')->insert([
-            'order_id' => $oid, 'status' => 'Pending Review',
-            'notes' => 'Custom order submitted. Awaiting admin review.', 'created_at' => now(),
+            'order_id'   => $oid,
+            'status'     => 'Pending Review',
+            'notes'      => 'Custom order submitted. Awaiting admin review.',
+            'created_at' => now(),
         ]);
 
         $addonNames = count($validAddons)
             ? "\nAdd-ons: " . implode(', ', array_map(fn($a) => $a->name, $validAddons)) : '';
+        $refNote    = !empty($refImages) ? "\n📎 " . count($refImages) . " reference image(s) attached." : '';
 
-        // Initial message with reference note
-        $refNote = !empty($refImages) ? "\n📎 " . count($refImages) . " reference image(s) attached." : '';
         DB::table('messages')->insert([
-            'order_id' => $oid, 'sender_role' => 'customer', 'sender_id' => $uid,
-            'message'  => "🎨 CUSTOM ORDER #{$oid} — Pending Review\n{$fullNote}" . $addonNames . $refNote,
-            'is_read'  => 0, 'created_at' => now(),
+            'order_id'    => $oid,
+            'sender_role' => 'customer',
+            'sender_id'   => $uid,
+            'message'     => "🎨 CUSTOM ORDER #{$oid} — Pending Review\n{$fullNote}" . $addonNames . $refNote,
+            'is_read'     => 0,
+            'created_at'  => now(),
         ]);
 
         $notifMsg = 'Custom cake from ' . (session('user')['fullname'] ?? 'Customer')
             . ' — awaiting your review.' . ($compLabel ? " Design: {$compLabel}" : '');
+
         DB::table('notifications')->insert([
-            'receiver_role' => 'admin', 'receiver_user_id' => null,
-            'title'   => '🎨 New Custom Order #' . $oid,
-            'message' => $notifMsg,
-            'is_read' => 0, 'created_at' => now(),
+            'receiver_role'    => 'admin',
+            'receiver_user_id' => null,
+            'title'            => '🎨 New Custom Order #' . $oid,
+            'message'          => $notifMsg,
+            'is_read'          => 0,
+            'created_at'       => now(),
         ]);
+
         if ($shopId) {
             $sellerUser = DB::table('shops')->join('users','users.id','=','shops.seller_id')
                 ->where('shops.id', $shopId)->value('users.id');
             if ($sellerUser) {
                 DB::table('notifications')->insert([
-                    'receiver_role' => 'seller', 'receiver_user_id' => $sellerUser,
-                    'title'   => '🎨 New Custom Order #' . $oid,
-                    'message' => $notifMsg,
-                    'is_read' => 0, 'created_at' => now(),
+                    'receiver_role'    => 'seller',
+                    'receiver_user_id' => $sellerUser,
+                    'title'            => '🎨 New Custom Order #' . $oid,
+                    'message'          => $notifMsg,
+                    'is_read'          => 0,
+                    'created_at'       => now(),
                 ]);
             }
         }

@@ -84,30 +84,89 @@ class SettingsController extends Controller
         }
 
         DB::table('shops')->where('id', $shop->id)->update($updates);
-        return back()->with('msg', 'Shop profile updated successfully.');
+        return redirect()->to(route('seller.settings').'?tab=profile')->with('msg', 'Shop profile updated successfully.');
     }
 
     public function saveDailyCapacity(Request $request)
     {
         $shop = $this->getShop();
-        $data = [
+        $this->upsertSettings($shop->id, [
             'daily_max_cakes'    => max(0, (int)$request->input('daily_max_cakes', 0)),
             'lead_1day_max'      => max(0, (int)$request->input('lead_1day_max', 0)),
             'lead_2day_max'      => max(0, (int)$request->input('lead_2day_max', 0)),
             'lead_3day_plus_max' => max(0, (int)$request->input('lead_3day_plus_max', 0)),
-            'updated_at'         => now(),
-        ];
-        $exists = DB::table('site_settings')->where('shop_id', $shop->id)->exists();
-        if ($exists) {
-            DB::table('site_settings')->where('shop_id', $shop->id)->update($data);
-        } else {
-            $nextId = (DB::table('site_settings')->max('id') ?? 0) + 1;
-            DB::table('site_settings')->insert(array_merge($data, [
-                'id'      => $nextId,
-                'shop_id' => $shop->id,
-            ]));
+        ]);
+        return redirect()->to(route('seller.settings').'?tab=capacity')->with('msg', 'Daily capacity settings saved!');
+    }
+
+    private function upsertSettings(string $shopId, array $data): void
+    {
+        $data['updated_at'] = now();
+        DB::table('site_settings')->updateOrInsert(['shop_id' => $shopId], $data);
+    }
+
+    public function saveShopLocation(Request $request)
+    {
+        $shop = $this->getShop();
+        $lat  = $request->input('shop_lat') !== null ? (float) $request->input('shop_lat') : null;
+        $lng  = $request->input('shop_lng') !== null ? (float) $request->input('shop_lng') : null;
+        $addr = trim($request->input('shop_address', ''));
+
+        $this->upsertSettings($shop->id, [
+            'shop_lat'     => $lat,
+            'shop_lng'     => $lng,
+            'shop_address' => $addr ?: null,
+        ]);
+
+        if ($request->input('_ajax') === '1') {
+            return response()->json(['ok' => true, 'lat' => $lat, 'lng' => $lng]);
         }
-        return redirect()->route('seller.settings')->with('msg', 'Daily capacity settings saved!');
+
+        return redirect()->route('seller.settings')->with('msg', 'Shop location saved.');
+    }
+
+    public function saveDeliveryCalc(Request $request)
+    {
+        $shop = $this->getShop();
+        $this->upsertSettings($shop->id, [
+            'fee_per_meter'       => max(0, (float) $request->input('fee_per_meter', 0.05)),
+            'maintenance_per_km'  => max(0, (float) $request->input('maintenance_per_km', 5)),
+            'fuel_per_km'         => max(0, (float) $request->input('fuel_per_km', 8)),
+            'free_delivery_radius'=> max(0, (int)   $request->input('free_delivery_radius', 0)),
+        ]);
+        return redirect()->to(route('seller.settings').'?tab=delivery')->with('msg', 'Delivery fee settings saved.');
+    }
+
+    public function saveAppearance(Request $request)
+    {
+        $shop = $this->getShop();
+
+        $request->validate([
+            'shop_bg_color'          => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+            'shop_bg_gradient_start' => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+            'shop_bg_gradient_end'   => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+            'shop_bg_image'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+        ]);
+
+        $bgType    = $request->input('shop_bg_type', 'color');
+        $bgOpacity = max(0.1, min(1.0, (float) $request->input('shop_bg_opacity', 1.0)));
+
+        $data = [
+            'bg_type'          => $bgType,
+            'bg_color'         => $request->input('shop_bg_color', '#f9f9f9'),
+            'gradient_start'   => $request->input('shop_bg_gradient_start', '#fff7fb'),
+            'gradient_end'     => $request->input('shop_bg_gradient_end', '#ffe3f1'),
+            'bg_image_opacity' => $bgOpacity,
+        ];
+
+        if ($request->hasFile('shop_bg_image') && $request->file('shop_bg_image')->isValid()) {
+            $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$request->file('shop_bg_image')->getClientOriginalExtension();
+            $request->file('shop_bg_image')->storeAs('uploads/shops', $fn, 'public');
+            $data['bg_image_path'] = '/storage/uploads/shops/'.$fn;
+        }
+
+        $this->upsertSettings($shop->id, $data);
+        return redirect()->to(route('seller.settings').'?tab=appearance')->with('msg', 'Shop page appearance saved!');
     }
 
     public function updatePassword(Request $request)
@@ -131,6 +190,6 @@ class SettingsController extends Controller
         DB::table('users')->where('id', $user['id'])->update([
             'password'   => password_hash($validated['password'], PASSWORD_DEFAULT),
                     ]);
-        return back()->with('msg', 'Password changed successfully.');
+        return redirect()->to(route('seller.settings').'?tab=password')->with('msg', 'Password changed successfully.');
     }
 }

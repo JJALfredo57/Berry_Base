@@ -112,7 +112,7 @@
               <span class="status-badge status-{{ str_replace(' ','-',$o->status) }}">{{ $o->status }}</span>
               <div class="fw-bold mt-1 fs-6">₱{{ number_format($o->total_price,2) }}</div>
               <div class="small text-muted">
-                {{ $o->payment_method }}
+                {{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}
                 <span class="badge rounded-pill ms-1"
                       style="font-size:.7rem;background:{{ $o->payment_status==='Paid'?'#d4edda':'#fff3cd' }};color:{{ $o->payment_status==='Paid'?'#155724':'#856404' }}">
                   {{ $o->payment_status }}
@@ -133,10 +133,20 @@
           </div>
           @endif
 
+          @if(!empty($o->discount_type) && (float)($o->discount_amount ?? 0) > 0)
+          <div class="px-3 py-2 small" style="background:#fff7ed;border-top:1px dashed #fdba74">
+            <span class="fw-semibold me-2" style="color:#c2410c"><i class="bi bi-tags me-1"></i>Discount:</span>
+            <span style="color:#9a3412">{{ \App\Helpers\CakeshopHelper::discountBadgeText($o->discount_type, $o->discount_value) ?? 'Product Discount' }}</span>
+            @if(!empty($o->discount_label))
+              <span class="text-muted ms-1">({{ $o->discount_label }})</span>
+            @endif
+          </div>
+          @endif
+
           {{-- Details --}}
           <div class="px-3 py-2 bg-light small text-muted d-flex flex-wrap gap-3">
             <span><i class="bi bi-truck me-1"></i>{{ $o->fulfillment_type }}</span>
-            @if($o->address)<span><i class="bi bi-geo-alt me-1"></i>{{ Str::limit($o->address,50) }}</span>@endif
+            @if($o->delivery_address)<span><i class="bi bi-geo-alt me-1"></i>{{ Str::limit($o->delivery_address,50) }}</span>@endif
             @if($o->schedule_date)
               <span><i class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($o->schedule_date)->format('M d, Y') }}
                 {{ $o->schedule_time ? \Carbon\Carbon::parse($o->schedule_time)->format('g:i A') : '' }}</span>
@@ -346,17 +356,17 @@
                   </div>
                   <div class="col-sm-6">
                     <div class="text-muted">Payment</div>
-                    <div class="fw-semibold">{{ $o->payment_method }}
+                    <div class="fw-semibold">{{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}
                       <span class="badge ms-1"
                             style="background:{{ $o->payment_status==='Paid'?'#d4edda':'#fff3cd' }};color:{{ $o->payment_status==='Paid'?'#155724':'#856404' }}">
                         {{ $o->payment_status }}
                       </span>
                     </div>
                   </div>
-                  @if($o->address)
+                  @if($o->delivery_address)
                   <div class="col-12">
                     <div class="text-muted">Delivery Address</div>
-                    <div class="fw-semibold">{{ $o->address }}</div>
+                    <div class="fw-semibold">{{ $o->delivery_address }}</div>
                   </div>
                   @endif
                   @if($o->schedule_date)

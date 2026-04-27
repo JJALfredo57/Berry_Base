@@ -131,6 +131,30 @@
         </div>
       </div>
 
+      {{-- SMS failed warning --}}
+      @if($t->ticket_status === 'done' && $isDelivery && $t->rider_id && isset($t->rider_sms_sent) && (int)$t->rider_sms_sent === 0)
+      <div class="d-flex align-items-center justify-content-between gap-3 rounded-3 px-3 py-2 mb-3"
+           style="background:#fff7ed;border:1.5px solid #fed7aa">
+        <div class="d-flex align-items-center gap-2" style="color:#9a3412;font-size:.85rem">
+          <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+          <span><strong>Rider was not notified</strong> — SMS could not be delivered.</span>
+        </div>
+        <form action="{{ route('admin.kitchen.resend_sms', $t->order_id) }}" method="POST" class="flex-shrink-0">
+          @csrf
+          <button type="submit" class="btn btn-sm fw-semibold"
+                  style="background:#ea580c;color:#fff;border:none;border-radius:.5rem;white-space:nowrap"
+                  data-cs-confirm="Resend SMS to rider for Order #{{ $t->order_id }}?"
+                  data-cs-title="Resend Rider SMS"
+                  data-cs-ok="Resend"
+                  data-cs-icon="bi-send"
+                  data-cs-icon-bg="#fff7ed"
+                  data-cs-icon-color="#ea580c">
+            <i class="bi bi-send me-1"></i>Resend SMS
+          </button>
+        </form>
+      </div>
+      @endif
+
       <pre class="mb-0 p-3 rounded small" style="background:#f8f9fa;white-space:pre-wrap;font-family:'Courier New',monospace">{{ $t->instructions }}</pre>
     </div>
   </div>

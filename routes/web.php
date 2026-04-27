@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\KitchenController;
 use App\Http\Controllers\Admin\CustomOrderOptionsController;
 use App\Http\Controllers\Admin\CustomOrderController as AdminCustomOrder;
 use App\Http\Controllers\Admin\DeliveryZoneController;
+use App\Http\Controllers\Admin\RiderController as AdminRider;
 use App\Http\Controllers\Guest\CatalogController as GuestCatalog;
 use App\Http\Controllers\Guest\CheckoutController as GuestCheckout;
 use App\Http\Controllers\Guest\CustomOrderController as GuestCustomOrder;
@@ -58,6 +59,50 @@ Route::post('/catalog/select',  [GuestCatalog::class, 'selectProduct'])->name('c
 // ── Catalog Availability Check (AJAX) ────────────────────────────────────
 Route::get('/catalog/availability', [GuestCatalog::class, 'checkAvailability'])->name('catalog.availability');
 
+// ── Reverse Geocode Proxy (avoids CORS & rate-limit on Nominatim) ────────
+Route::get('/api/geocode/reverse', function (\Illuminate\Http\Request $req) {
+    $lat = (float) $req->query('lat', 0);
+    $lng = (float) $req->query('lng', 0);
+    if (!$lat || !$lng) return response()->json(['error' => 'Missing coordinates'], 422);
+
+    $cacheKey = 'geocode_' . round($lat, 4) . '_' . round($lng, 4);
+    $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function () use ($lat, $lng) {
+        $res = \Illuminate\Support\Facades\Http::withHeaders([
+            'User-Agent' => 'CakeshopApp/1.0 (contact@cakeshop.local)',
+            'Accept-Language' => 'en',
+        ])->timeout(8)->get('https://nominatim.openstreetmap.org/reverse', [
+            'format'         => 'jsonv2',
+            'lat'            => $lat,
+            'lon'            => $lng,
+            'addressdetails' => 1,
+        ]);
+        return $res->successful() ? $res->json() : null;
+    });
+
+    if (!$data) return response()->json(['error' => 'Geocoding unavailable'], 503);
+    return response()->json($data);
+})->name('api.geocode.reverse');
+
+Route::get('/api/geocode/search', function (\Illuminate\Http\Request $req) {
+    $q = trim($req->query('q', ''));
+    if (!$q) return response()->json([], 200);
+
+    $cacheKey = 'geocode_search_' . md5($q);
+    $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function () use ($q) {
+        $res = \Illuminate\Support\Facades\Http::withHeaders([
+            'User-Agent' => 'CakeshopApp/1.0 (contact@cakeshop.local)',
+            'Accept-Language' => 'en',
+        ])->timeout(8)->get('https://nominatim.openstreetmap.org/search', [
+            'format' => 'jsonv2',
+            'limit'  => 5,
+            'q'      => $q,
+        ]);
+        return $res->successful() ? $res->json() : [];
+    });
+
+    return response()->json($data);
+})->name('api.geocode.search');
+
 // ── Guest Checkout ────────────────────────────────────────────────────────
 Route::get('/checkout',             [GuestCheckout::class, 'show'])->name('guest.checkout');
 Route::post('/checkout/send-otp',   [GuestCheckout::class, 'sendOtp'])->name('guest.checkout.send_otp');
@@ -86,6 +131,7 @@ Route::post('/track/{trackCode}/messages', [GuestMessage::class, 'send'])->name(
 
 // ── Guest Review ──────────────────────────────────────────────────────────
 Route::post('/track/{trackCode}/review', [GuestReview::class, 'store'])->name('guest.review.store');
+Route::post('/track/{trackCode}/cancel-request', [TrackingController::class, 'requestCancel'])->name('guest.cancel_request');
 Route::post('/track/{trackCode}/set-deposit', [\App\Http\Controllers\Guest\PaymentController::class, 'setDeposit'])->name('guest.set_deposit');
 
 // ── Guest GCash Payment ───────────────────────────────────────────────────
@@ -96,6 +142,9 @@ Route::get('/track/{trackCode}/pay-deposit',     [\App\Http\Controllers\Guest\Pa
 Route::get('/track/{trackCode}/deposit-return',  [\App\Http\Controllers\Guest\PaymentController::class, 'depositReturn'])->name('guest.deposit_return');
 Route::get('/track/{trackCode}/pay-remaining',   [\App\Http\Controllers\Guest\PaymentController::class, 'payRemaining'])->name('guest.pay_remaining');
 Route::get('/track/{trackCode}/remaining-return',[\App\Http\Controllers\Guest\PaymentController::class, 'remainingReturn'])->name('guest.remaining_return');
+
+// ── Rider access via pasted code from catalog sidebar ─────────────────────
+Route::post('/rider/access', [\App\Http\Controllers\RiderController::class, 'accessByCode'])->name('rider.access');
 
 // ── Rider Delivery Page (no login) ────────────────────────────────────────
 Route::get('/rider/{orderId}/{token}',           [\App\Http\Controllers\RiderController::class, 'show'])->name('rider.show');
@@ -200,6 +249,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/products/{id}/update',     [\App\Http\Controllers\Seller\ProductController::class, 'update'])->name('products.update');
     Route::post('/products/{id}/delete',     [\App\Http\Controllers\Seller\ProductController::class, 'destroy'])->name('products.destroy');
     Route::post('/products/{id}/toggle',     [\App\Http\Controllers\Seller\ProductController::class, 'toggleAvailable'])->name('products.toggle');
+    Route::post('/products/{id}/discount',   [\App\Http\Controllers\Seller\ProductController::class, 'saveDiscount'])->name('products.discount');
     Route::post('/products/{id}/sizes',      [\App\Http\Controllers\Seller\ProductController::class, 'storeSize'])->name('products.sizes.store');
     Route::post('/products/sizes/{id}/delete',[\App\Http\Controllers\Seller\ProductController::class, 'destroySize'])->name('products.sizes.destroy');
 
@@ -212,12 +262,19 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/settings',          [\App\Http\Controllers\Seller\SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/shop',    [\App\Http\Controllers\Seller\SettingsController::class, 'updateShop'])->name('settings.shop');
     Route::post('/settings/password',[\App\Http\Controllers\Seller\SettingsController::class, 'updatePassword'])->name('settings.password');
-    Route::post('/settings/daily-capacity', [\App\Http\Controllers\Seller\SettingsController::class, 'saveDailyCapacity'])->name('settings.daily_capacity');
+    Route::post('/settings/daily-capacity',  [\App\Http\Controllers\Seller\SettingsController::class, 'saveDailyCapacity'])->name('settings.daily_capacity');
+    Route::post('/settings/shop-location',   [\App\Http\Controllers\Seller\SettingsController::class, 'saveShopLocation'])->name('settings.shop_location');
+    Route::post('/zones/shop-location',      [\App\Http\Controllers\Seller\SettingsController::class, 'saveShopLocation'])->name('zones.shop_location');
+    Route::get('/settings/shop-location',    fn() => redirect()->route('seller.settings'));
+    Route::post('/settings/delivery-calc',   [\App\Http\Controllers\Seller\SettingsController::class, 'saveDeliveryCalc'])->name('settings.delivery_calc');
+    Route::get('/settings/delivery-calc',    fn() => redirect()->route('seller.settings'));
+    Route::post('/settings/appearance',      [\App\Http\Controllers\Seller\SettingsController::class, 'saveAppearance'])->name('settings.appearance');
 
     // Kitchen
-    Route::get('/kitchen',                          [\App\Http\Controllers\Seller\KitchenController::class, 'index'])->name('kitchen');
-    Route::post('/kitchen/{id}/update',             [\App\Http\Controllers\Seller\KitchenController::class, 'update'])->name('kitchen.update');
-    Route::post('/kitchen/{orderId}/assign-rider',  [\App\Http\Controllers\Seller\KitchenController::class, 'assignRiderAndDone'])->name('kitchen.assign_rider');
+    Route::get('/kitchen',                             [\App\Http\Controllers\Seller\KitchenController::class, 'index'])->name('kitchen');
+    Route::post('/kitchen/{id}/update',                [\App\Http\Controllers\Seller\KitchenController::class, 'update'])->name('kitchen.update');
+    Route::post('/kitchen/{orderId}/assign-rider',     [\App\Http\Controllers\Seller\KitchenController::class, 'assignRiderAndDone'])->name('kitchen.assign_rider');
+    Route::post('/kitchen/{orderId}/resend-rider-sms', [\App\Http\Controllers\Seller\KitchenController::class, 'resendRiderSms'])->name('kitchen.resend_sms');
 
     // Messages
     Route::get('/messages',                              [\App\Http\Controllers\Seller\MessageController::class, 'index'])->name('messages');
@@ -274,9 +331,13 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
 // ── Super Admin Routes ───────────────────────────────────────────────────────
 Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->group(function () {
     Route::get('/sellers',                     [\App\Http\Controllers\SuperAdmin\SellerController::class, 'index'])->name('sellers');
-    Route::post('/sellers/{id}/approve',       [\App\Http\Controllers\SuperAdmin\SellerController::class, 'approve'])->name('sellers.approve');
-    Route::post('/sellers/{id}/reject',        [\App\Http\Controllers\SuperAdmin\SellerController::class, 'reject'])->name('sellers.reject');
-    Route::post('/sellers/{id}/suspend',       [\App\Http\Controllers\SuperAdmin\SellerController::class, 'suspend'])->name('sellers.suspend');
+    Route::post('/sellers/{id}/approve',              [\App\Http\Controllers\SuperAdmin\SellerController::class, 'approve'])->name('sellers.approve');
+    Route::post('/sellers/{id}/reject',               [\App\Http\Controllers\SuperAdmin\SellerController::class, 'reject'])->name('sellers.reject');
+    Route::post('/sellers/{id}/suspend',              [\App\Http\Controllers\SuperAdmin\SellerController::class, 'suspend'])->name('sellers.suspend');
+    Route::post('/sellers/{id}/toggle-commission',    [\App\Http\Controllers\SuperAdmin\SellerController::class, 'toggleCommission'])->name('sellers.toggle_commission');
+    Route::post('/sellers/commission-bulk',           [\App\Http\Controllers\SuperAdmin\SellerController::class, 'bulkCommission'])->name('sellers.commission_bulk');
+    Route::post('/sellers/{id}/commission-rate',      [\App\Http\Controllers\SuperAdmin\SellerController::class, 'updateCommissionRate'])->name('sellers.commission_rate');
+    Route::post('/sellers/commission-rate-bulk',      [\App\Http\Controllers\SuperAdmin\SellerController::class, 'bulkCommissionRate'])->name('sellers.commission_rate_bulk');
     Route::get('/platform-dashboard',          [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/platform-settings',           [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'index'])->name('settings');
     Route::post('/platform-settings',                     [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'update'])->name('settings.update');
@@ -297,6 +358,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/products/{id}/update',           [ProductController::class, 'update'])->name('products.update');
     Route::post('/products/{id}/delete',           [ProductController::class, 'destroy'])->name('products.destroy');
     Route::post('/products/{id}/toggle-available', [ProductController::class, 'toggleAvailable'])->name('products.toggle_available');
+    Route::post('/products/{id}/discount',         [ProductController::class, 'saveDiscount'])->name('products.discount');
     Route::post('/products/{id}/sizes',            [ProductSizeController::class, 'store'])->name('products.sizes.store');
     Route::post('/products/sizes/{id}/delete',     [ProductSizeController::class, 'destroy'])->name('products.sizes.destroy');
 
@@ -367,9 +429,10 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/custom-orders/{id}/reject',      [AdminCustomOrder::class, 'reject'])->name('custom_orders.reject');
     Route::post('/custom-orders/{id}/progress',    [AdminCustomOrder::class, 'sendProgress'])->name('custom_orders.progress');
 
-    Route::get('/kitchen',              [KitchenController::class, 'index'])->name('kitchen.index');
-    Route::post('/kitchen/{id}/update', [KitchenController::class, 'update'])->name('kitchen.update');
-    Route::post('/kitchen/{orderId}/assign-rider', [KitchenController::class, 'assignRiderAndDone'])->name('kitchen.assign_rider');
+    Route::get('/kitchen',                             [KitchenController::class, 'index'])->name('kitchen.index');
+    Route::post('/kitchen/{id}/update',                [KitchenController::class, 'update'])->name('kitchen.update');
+    Route::post('/kitchen/{orderId}/assign-rider',     [KitchenController::class, 'assignRiderAndDone'])->name('kitchen.assign_rider');
+    Route::post('/kitchen/{orderId}/resend-rider-sms', [KitchenController::class, 'resendRiderSms'])->name('kitchen.resend_sms');
 
     Route::get('/logs', [LogController::class, 'index'])->name('logs.index');
     Route::get('/notifications/mark-read', [NotificationController::class, 'markReadAdmin'])->name('notifications.mark_read');
@@ -454,9 +517,10 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/custom-orders/{id}/reject',   [AdminCustomOrder::class, 'reject'])->name('custom_orders.reject');
     Route::post('/custom-orders/{id}/progress', [AdminCustomOrder::class, 'sendProgress'])->name('custom_orders.progress');
 
-    Route::get('/kitchen',              [KitchenController::class, 'index'])->name('kitchen.index');
-    Route::post('/kitchen/{id}/update', [KitchenController::class, 'update'])->name('kitchen.update');
-    Route::post('/kitchen/{orderId}/assign-rider', [KitchenController::class, 'assignRiderAndDone'])->name('kitchen.assign_rider');
+    Route::get('/kitchen',                             [KitchenController::class, 'index'])->name('kitchen.index');
+    Route::post('/kitchen/{id}/update',                [KitchenController::class, 'update'])->name('kitchen.update');
+    Route::post('/kitchen/{orderId}/assign-rider',     [KitchenController::class, 'assignRiderAndDone'])->name('kitchen.assign_rider');
+    Route::post('/kitchen/{orderId}/resend-rider-sms', [KitchenController::class, 'resendRiderSms'])->name('kitchen.resend_sms');
 
     Route::get('/logs', [LogController::class, 'index'])->name('logs.index');
     Route::get('/notifications/mark-read', [NotificationController::class, 'markReadAdmin'])->name('notifications.mark_read');

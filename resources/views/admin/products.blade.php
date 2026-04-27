@@ -4,19 +4,21 @@
   <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
       <h4 class="fw-bold mb-0"><i class="bi bi-cake2 me-2" style="color:var(--primary)"></i>Products</h4>
-      <p class="text-muted small mb-0" id="productsCountLabel">{{ count($products) }} products</p>
+      <p class="text-muted small mb-0" id="productsCountLabel">{{ $products->total() }} products</p>
     </div>
     <div class="d-flex gap-2 flex-wrap align-items-center">
       <div class="cs-search-bar" style="max-width:220px">
-        
         <input type="text" id="productSearch" class="form-control form-control-sm"
-               placeholder="Search products…" oninput="filterProducts()">
+               placeholder="Search products…"
+               value="{{ $search }}"
+               oninput="pgSearch(this.value)">
       </div>
-      <select id="productClassFilter" class="form-select form-select-sm" style="width:auto" onchange="filterProducts()">
-        <option value="">All Types</option>
-        <option value="Standard">Standard</option>
-        <option value="Fondant">Fondant</option>
-        <option value="Perishable">Perishable</option>
+      <select id="productClassFilter" class="form-select form-select-sm" style="width:auto"
+              onchange="pgFilter('filter', this.value)">
+        <option value="All" {{ ($filter??'All')==='All'?'selected':'' }}>All Types</option>
+        <option value="Standard" {{ ($filter??'')==='Standard'?'selected':'' }}>Standard</option>
+        <option value="Fondant" {{ ($filter??'')==='Fondant'?'selected':'' }}>Fondant</option>
+        <option value="Perishable" {{ ($filter??'')==='Perishable'?'selected':'' }}>Perishable</option>
       </select>
       <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addModal">
         <i class="bi bi-plus me-1"></i>Add Product
@@ -31,6 +33,8 @@
     @forelse($products as $p)
     @php
       $sizes = $productSizes[$p->id] ?? collect();
+      $discount = $discounts[$p->id] ?? null;
+      $discountBadge = $discount ? \App\Helpers\CakeshopHelper::discountBadgeText($discount->discount_type ?? null, $discount->discount_value ?? null) : null;
       $classColors = [
         'Standard'   => ['bg'=>'#dbeafe','color'=>'#1e40af'],
         'Fondant'    => ['bg'=>'#fce7f3','color'=>'#9d174d'],
@@ -82,9 +86,19 @@
               <span class="fw-bold" style="color:var(--primary)">₱{{ number_format($p->price,2) }}
                 @if($sizes->count() > 0)<span class="text-muted fw-normal" style="font-size:clamp(.68rem,1.3vw,.72rem)"> base</span>@endif
               </span>
-
+              @if($discount && $discount->is_active && $discountBadge)
+              <div class="mt-1">
+                <span class="badge" style="background:#dcfce7;color:#166534;font-size:clamp(.66rem,1.3vw,.7rem)">{{ $discountBadge }}</span>
+              </div>
+              @elseif($discount && !$discount->is_active)
+              <div class="mt-1 text-muted" style="font-size:clamp(.66rem,1.3vw,.7rem)">Discount saved but disabled</div>
+              @endif
             </div>
             <div class="d-flex gap-1">
+              <button class="btn btn-outline-success btn-sm" title="Manage Discount"
+                      data-bs-toggle="modal" data-bs-target="#discountModal{{ $p->id }}">
+                <i class="bi bi-tags"></i>
+              </button>
               {{-- Sizes Button --}}
               <button class="btn btn-outline-secondary btn-sm" title="Manage Sizes"
                       data-bs-toggle="modal" data-bs-target="#sizesModal{{ $p->id }}">
@@ -116,6 +130,57 @@
     </div>
 
     {{-- ── SIZES MODAL ─────────────────────────────────────────────────── --}}
+    <div class="modal fade" id="discountModal{{ $p->id }}" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0" style="border-radius:1.2rem">
+          <div class="modal-header border-0 pb-0">
+            <div>
+              <h5 class="modal-title fw-bold"><i class="bi bi-tags me-2" style="color:#16a34a"></i>Manage Discount</h5>
+              <div class="text-muted small">{{ $p->name }}</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form action="{{ route('admin.products.discount', $p->id) }}" method="POST">
+              @csrf
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" role="switch" id="discountEnabled{{ $p->id }}" name="discount_enabled" value="1" {{ ($discount->is_active ?? 0) ? 'checked' : '' }}>
+                <label class="form-check-label fw-semibold" for="discountEnabled{{ $p->id }}">Enable product discount</label>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">Promo Label <span class="text-muted fw-normal">(optional)</span></label>
+                <input type="text" class="form-control" name="discount_label" value="{{ $discount->label ?? '' }}" placeholder="e.g. Summer Sale">
+              </div>
+              <div class="row g-2">
+                <div class="col-sm-6">
+                  <label class="form-label fw-semibold small">Discount Type</label>
+                  <select class="form-select" name="discount_type">
+                    <option value="percent" {{ ($discount->discount_type ?? 'percent') === 'percent' ? 'selected' : '' }}>Percentage</option>
+                    <option value="fixed" {{ ($discount->discount_type ?? '') === 'fixed' ? 'selected' : '' }}>Fixed Amount</option>
+                  </select>
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label fw-semibold small">Discount Value</label>
+                  <input type="number" step="0.01" min="0" class="form-control" name="discount_value" value="{{ $discount->discount_value ?? '' }}" placeholder="e.g. 20 or 150">
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label fw-semibold small">Start <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="datetime-local" class="form-control" name="discount_starts_at" value="{{ !empty($discount->starts_at) ? \Carbon\Carbon::parse($discount->starts_at)->format('Y-m-d\TH:i') : '' }}">
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label fw-semibold small">End <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="datetime-local" class="form-control" name="discount_ends_at" value="{{ !empty($discount->ends_at) ? \Carbon\Carbon::parse($discount->ends_at)->format('Y-m-d\TH:i') : '' }}">
+                </div>
+              </div>
+              <div class="alert border-0 py-2 small mt-3 mb-0" style="background:#f0fdf4;color:#166534">
+                Discount applies to the actual checkout unit price, including selected size pricing.
+              </div>
+              <button type="submit" class="btn btn-success w-100 mt-3">Save Discount</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="modal fade" id="sizesModal{{ $p->id }}" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0" style="border-radius:1.2rem">
@@ -243,8 +308,7 @@
     @endforelse
   </div>
 
-  {{-- Pagination --}}
-  <div class="mt-3" id="productsList_pager"></div>
+  {{ $products->links('vendor.pagination.custom') }}
 </div>
 
 {{-- ── ADD MODAL ──────────────────────────────────────────────────────────── --}}

@@ -8,8 +8,11 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $search = trim($request->input('search', ''));
+        $status = $request->input('status', 'All');
+
         $orders = DB::table('orders as o')
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->join('products as p', 'p.id', '=', 'o.product_id')
@@ -19,12 +22,23 @@ class OrderController extends Controller
                 DB::raw("COALESCE(u.username, 'Guest') as username"),
                 DB::raw("COALESCE(u.email, '') as email"),
                 'p.name as product_name', 'p.image_path', 'p.price')
+            ->when($search, fn($q) => $q->where(fn($sq) => $sq
+                ->where('o.id', 'like', "%$search%")
+                ->orWhereRaw("COALESCE(o.guest_name, u.fullname) like ?", ["%$search%"])
+                ->orWhereRaw("COALESCE(o.guest_phone, u.phone) like ?", ["%$search%"])
+                ->orWhere('p.name', 'like', "%$search%")
+            ))
+            ->when($status && $status !== 'All', fn($q) =>
+                $status === 'Cancel Requests'
+                    ? $q->where('o.cancel_status', 'pending')
+                    : $q->where('o.status', $status)
+            )
             ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")
             ->orderByDesc('o.id')
-            ->get();
+            ->paginate(10)
+            ->withQueryString();
 
-        // Load add-ons per order
-        $orderIds = $orders->pluck('id')->toArray();
+        $orderIds = collect($orders->items())->pluck('id')->toArray();
         $orderAddons = [];
         $orderReviews = [];
         if ($orderIds) {
@@ -36,9 +50,9 @@ class OrderController extends Controller
             } catch (\Exception $e) {}
         }
 
-        $pendingCancelCount = $orders->where('cancel_status', 'pending')->count();
+        $pendingCancelCount = DB::table('orders')->where('cancel_status', 'pending')->count();
 
-        return view('admin.orders', compact('orders','pendingCancelCount','orderAddons','orderReviews'));
+        return view('admin.orders', compact('orders','pendingCancelCount','orderAddons','orderReviews','search','status'));
     }
 
     /** Admin confirms order — only allowed after deposit is paid */
@@ -232,28 +246,27 @@ class OrderController extends Controller
             $order->rider_token = $token;
 
             if ($order->rider_id) {
-                $rider      = DB::table('riders')->where('id',$order->rider_id)->first();
-                $riderPhone = $rider->phone ?? null;
-                if ($riderPhone) {
-                    $custName  = $order->guest_name ?? 'Customer';
-                    $custPhone = $order->guest_phone ?? '';
-                    $addr      = $order->delivery_address ?? 'See link';
-                    $payment   = $order->payment_method === 'COD'
-                        ? "COLLECT \u{20B1}" . number_format($order->total_price, 2) . " cash"
-                        : ($order->payment_status === 'Paid' ? "GCash Paid \u{2713} — No collection needed" : "GCash (not yet paid) — \u{20B1}" . number_format($order->total_price, 2));
+                $rider = DB::table('riders')->where('id', $order->rider_id)->first();
+                if ($rider && $rider->phone) {
                     $siteName  = config('app.name', 'Cake Shop');
                     $shopName  = SmsHelper::getShopName($order->shop_id ?? null);
                     $header    = SmsHelper::header($siteName, $shopName);
-                    SmsHelper::send($riderPhone,
-                        "{$header}\n"
-                        . "New Delivery Assignment\n\n"
-                        . "Order No.: #{$id}\n"
-                        . "Customer: {$custName}\n"
-                        . "Phone: {$custPhone}\n"
-                        . "Address: {$addr}\n"
-                        . "Payment: {$payment}\n\n"
-                        . "Please contact your dispatcher for the delivery portal link to update the status. Thank you!"
-                    );
+                    $custName  = $order->guest_name
+                        ?? DB::table('users')->where('id', $order->user_id)->value('fullname')
+                        ?? 'Customer';
+                    $custPhone = $order->guest_phone
+                        ?? DB::table('users')->where('id', $order->user_id)->value('phone')
+                        ?? '';
+                    $addr      = $order->delivery_address ?? 'N/A';
+                    $riderPin = SmsHelper::generateRiderPin();
+                    DB::table('orders')->where('id', $id)->update(['rider_pin' => $riderPin]);
+
+                    $riderSmsSent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
+                        $header, $id, $custName, $custPhone, $addr,
+                        SmsHelper::paymentLine($order), $riderPin, $rider->phone
+                    ));
+                    DB::table('orders')->where('id', $id)
+                        ->update(['rider_sms_sent' => $riderSmsSent ? 1 : 0]);
                 }
             }
         }

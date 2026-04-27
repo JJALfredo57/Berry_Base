@@ -69,7 +69,8 @@
     </div>
     @endif
 
-    @if($receipt->guest_name || ($receipt->fulfillment_type === 'Delivery' && $receipt->address))
+    @php $receiptAddr = $receipt->delivery_address ?? null; @endphp
+    @if($receipt->guest_name || ($receipt->fulfillment_type === 'Delivery' && $receiptAddr))
     <div class="mb-3">
       @if($receipt->guest_name)
       <div class="receipt-row">
@@ -77,10 +78,10 @@
         <span class="val">{{ $receipt->guest_name }}</span>
       </div>
       @endif
-      @if($receipt->fulfillment_type === 'Delivery' && $receipt->address)
+      @if($receipt->fulfillment_type === 'Delivery' && $receiptAddr)
       <div class="receipt-row">
         <span class="lbl"><i class="bi bi-geo-alt me-1"></i>Address</span>
-        <span class="val" style="font-weight:400;color:#374151">{{ $receipt->address }}</span>
+        <span class="val" style="font-weight:400;color:#374151">{{ $receiptAddr }}</span>
       </div>
       @endif
     </div>

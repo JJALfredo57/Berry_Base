@@ -17,9 +17,12 @@ class CustomOrderController extends Controller
         return $shop;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $shop = $this->getShop();
+        $shop   = $this->getShop();
+        $search = trim($request->input('search', ''));
+        $status = $request->input('status', 'All');
+
         $customOrders = DB::table('custom_orders as co')
             ->leftJoin('users as u', 'u.id', '=', 'co.user_id')
             ->leftJoin('orders as o', 'o.id', '=', 'co.order_id')
@@ -30,9 +33,16 @@ class CustomOrderController extends Controller
                 DB::raw("COALESCE(u.username, 'Guest') as username"),
                 'o.status as order_status', 'o.total_price as order_total',
                 'o.fulfillment_type', 'o.schedule_date', 'o.payment_method', 'o.payment_status', 'o.address')
-            ->orderByDesc('co.id')->get();
+            ->when($search, fn($q) => $q->where(fn($sq) => $sq
+                ->where('co.cake_name', 'like', "%$search%")
+                ->orWhereRaw("COALESCE(o.guest_name, u.fullname) like ?", ["%$search%"])
+            ))
+            ->when($status && $status !== 'All', fn($q) => $q->where('co.review_status', $status))
+            ->orderByDesc('co.id')
+            ->paginate(10)
+            ->withQueryString();
 
-        $orderIds   = $customOrders->pluck('order_id')->filter()->values()->toArray();
+        $orderIds   = collect($customOrders->items())->pluck('order_id')->filter()->values()->toArray();
         $orderAddons = [];
         if ($orderIds) {
             try {
@@ -40,8 +50,10 @@ class CustomOrderController extends Controller
                     $orderAddons[$a->order_id][] = $a;
             } catch (\Exception $e) {}
         }
-        $pendingCount = $customOrders->where('review_status', 'pending')->count();
-        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount'));
+        $pendingCount = DB::table('custom_orders')
+            ->join('orders', 'orders.id', '=', 'custom_orders.order_id')
+            ->where('orders.shop_id', $shop->id)->where('custom_orders.review_status', 'pending')->count();
+        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'search', 'status'));
     }
 
     public function approve(Request $request, string $id)

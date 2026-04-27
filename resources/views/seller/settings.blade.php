@@ -1,12 +1,74 @@
 @extends('layouts.app')
 @section('page_title','Shop Settings')
 @section('content')
+@php
+  $commissionEnabled = (bool)($shop->commission_enabled ?? 1);
+  $commissionRate = $commissionEnabled ? (float)($shop->commission_rate ?? 0) : 0;
+@endphp
+<style>
+.s-tab {
+  background: none; border: none; border-bottom: 3px solid transparent;
+  padding: .65rem 1.1rem; font-size: .875rem; font-weight: 600;
+  color: var(--gray-500); cursor: pointer; white-space: nowrap;
+  display: flex; align-items: center; gap: .45rem;
+  transition: color .15s, border-color .15s;
+  margin-bottom: -2px;
+}
+.s-tab:hover { color: var(--primary); }
+.s-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.setting-card {
+  background: #fff; border-radius: var(--radius-lg);
+  border: 1.5px solid var(--gray-100); overflow: hidden; margin-bottom: 1.5rem;
+}
+.setting-card-header {
+  padding: 1.1rem 1.5rem; border-bottom: 1.5px solid var(--gray-100);
+  display: flex; align-items: center; gap: .6rem;
+}
+.setting-card-header .title {
+  font-size: .95rem; font-weight: 700; color: var(--gray-900);
+}
+.setting-card-header .subtitle {
+  font-size: .78rem; color: var(--gray-500); margin: .2rem 0 0;
+}
+.setting-card-body { padding: 1.5rem; }
+.formula-box {
+  background: #0f172a; border-radius: 10px; padding: 1.25rem 1.5rem;
+  font-family: 'Courier New', monospace; color: #e2e8f0;
+  font-size: .85rem; line-height: 1.9; margin-bottom: 1.25rem;
+}
+.formula-box .f-label  { color: #94a3b8; font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .5rem; }
+.formula-box .f-main   { color: #f8fafc; font-size: 1rem; font-weight: 600; }
+.formula-box .f-var-a  { color: #34d399; }
+.formula-box .f-var-b  { color: #60a5fa; }
+.formula-box .f-var-c  { color: #f472b6; }
+.formula-box .f-var-d  { color: #fbbf24; }
+.formula-box .f-dim    { color: #64748b; }
+.sim-result {
+  background: #f8fafc; border: 1.5px solid var(--gray-100);
+  border-radius: 10px; padding: 1rem 1.25rem;
+}
+.sim-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .35rem 0; font-size: .83rem; border-bottom: 1px solid var(--gray-100);
+}
+.sim-row:last-child { border-bottom: none; }
+.sim-row .lbl { color: var(--gray-500); }
+.sim-row .val { font-weight: 600; color: var(--gray-900); }
+.sim-row.sim-total { padding-top: .6rem; margin-top: .25rem; border-top: 2px solid var(--gray-200); border-bottom: none; }
+.sim-row.sim-total .lbl { font-weight: 700; color: var(--gray-700); font-size: .88rem; }
+.sim-row.sim-total .val { font-size: 1.1rem; color: var(--primary); }
+.sim-free { text-align: center; padding: 1rem; color: #15803d; font-weight: 700; font-size: .95rem; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; }
+.legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .35rem; }
+</style>
+
 <div>
-  <div style="margin-bottom:2rem">
+  {{-- Header --}}
+  <div style="margin-bottom:1.75rem">
     <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem">Shop Settings</h1>
-    <p style="font-size:.875rem;color:var(--gray-500);margin:0">Manage your shop profile and account</p>
+    <p style="font-size:.875rem;color:var(--gray-500);margin:0">Manage your shop profile, capacity, delivery pricing, and account security.</p>
   </div>
 
+  {{-- Alerts --}}
   @if(session('msg'))
     <div class="alert alert-success d-flex align-items-center gap-2 mb-4">
       <i class="bi bi-check-circle-fill flex-shrink-0"></i><span>{{ session('msg') }}</span>
@@ -23,140 +85,171 @@
     </div>
   @endforeach
 
-  {{-- Seller Tier Info --}}
-  <div style="background:{{ $shop->tier==='verified' ? '#FFF3E0' : '#F5F5F5' }};border:1.5px solid {{ $shop->tier==='verified' ? '#FFCC80' : '#E0E0E0' }};border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+  {{-- Tier Banner --}}
+  <div style="background:{{ $shop->tier==='verified' ? '#FFF3E0' : '#F5F5F5' }};border:1.5px solid {{ $shop->tier==='verified' ? '#FFCC80' : '#E0E0E0' }};border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.75rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
     <i class="bi bi-{{ $shop->tier==='verified' ? 'patch-check-fill' : 'person-check' }}" style="font-size:1.5rem;color:{{ $shop->tier==='verified' ? '#E65100' : 'var(--gray-500)' }}"></i>
     <div>
       <div style="font-size:.9rem;font-weight:700;color:var(--gray-900)">{{ ucfirst($shop->tier) }} Seller</div>
       <div style="font-size:.78rem;color:var(--gray-600)">
-        Commission: Free (0%) — Platform currently not collecting commission
-        @if($shop->tier === 'basic') &mdash; Upgrade to Verified for lower fees & more features @endif
+        @if($commissionEnabled)
+          Commission: {{ number_format($commissionRate, 2) }}% on paid orders
+        @else
+          Commission: OFF for your shop right now
+        @endif
+        @if($shop->tier === 'basic') &mdash; Upgrade to Verified for lower fees &amp; more features @endif
       </div>
     </div>
   </div>
 
-  <div class="row g-4">
+  {{-- Tab Navigation --}}
+  <div style="display:flex;border-bottom:2px solid var(--gray-100);margin-bottom:2rem;overflow-x:auto;gap:0">
+    <button onclick="showSettingsTab('profile')"  id="stab-profile"  class="s-tab active">
+      <i class="bi bi-shop"></i> Shop Profile
+    </button>
+    <button onclick="showSettingsTab('capacity')" id="stab-capacity" class="s-tab">
+      <i class="bi bi-calendar-check"></i> Daily Capacity
+    </button>
+    <button onclick="showSettingsTab('delivery')" id="stab-delivery" class="s-tab">
+      <i class="bi bi-truck"></i> Delivery Fee
+    </button>
+    <button onclick="showSettingsTab('appearance')" id="stab-appearance" class="s-tab">
+      <i class="bi bi-palette"></i> Appearance
+    </button>
+    <button onclick="showSettingsTab('password')" id="stab-password" class="s-tab">
+      <i class="bi bi-lock"></i> Change Password
+    </button>
+  </div>
 
-    {{-- Shop Profile --}}
-    <div class="col-lg-7">
-      <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);overflow:hidden">
-        <div style="padding:1.1rem 1.5rem;border-bottom:1.5px solid var(--gray-100)">
-          <span style="font-size:.95rem;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:.6rem">
-            <i class="bi bi-shop" style="color:var(--primary)"></i> Shop Profile
-          </span>
+  {{-- ── PANE: Shop Profile ─────────────────────────────── --}}
+  <div id="spane-profile">
+    <div class="setting-card" style="max-width:780px">
+      <div class="setting-card-header">
+        <i class="bi bi-shop" style="font-size:1.1rem;color:var(--primary)"></i>
+        <div>
+          <div class="title">Shop Profile</div>
+          <div class="subtitle">Your shop's public-facing information</div>
         </div>
-        <form action="{{ route('seller.settings.shop') }}" method="POST" enctype="multipart/form-data" novalidate style="padding:1.5rem">
+      </div>
+      <div class="setting-card-body">
+        <form action="{{ route('seller.settings.shop') }}" method="POST" enctype="multipart/form-data" novalidate>
           @csrf
+          <input type="hidden" name="_section" value="profile">
           <div class="row g-3">
             <div class="col-12">
-              <label class="form-label">Shop Name <span style="color:var(--danger)">*</span></label>
-              <input type="text" class="form-control" name="shop_name" value="{{ $shop->shop_name }}"
+              <label class="form-label fw-semibold">Shop Name <span style="color:var(--danger)">*</span></label>
+              <input type="text" class="form-control" name="shop_name" value="{{ old('shop_name', $shop->shop_name) }}"
                      required minlength="3" maxlength="100"
                      oninvalid="this.setCustomValidity('Shop name is required (min 3 chars)')"
                      oninput="this.setCustomValidity('')">
             </div>
             <div class="col-12">
-              <label class="form-label">Description <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
-              <textarea class="form-control" name="description" rows="3" maxlength="500">{{ $shop->description }}</textarea>
+              <label class="form-label fw-semibold">Description <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label>
+              <textarea class="form-control" name="description" rows="3" maxlength="500">{{ old('description', $shop->description) }}</textarea>
               <div class="form-text">Max 500 characters</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">City / Municipality <span style="color:var(--danger)">*</span></label>
-              <input type="text" class="form-control" name="city" value="{{ $shop->city }}"
+              <label class="form-label fw-semibold">City / Municipality <span style="color:var(--danger)">*</span></label>
+              <input type="text" class="form-control" name="city" value="{{ old('city', $shop->city) }}"
                      required maxlength="80"
                      oninvalid="this.setCustomValidity('City is required')"
                      oninput="this.setCustomValidity('')">
             </div>
             <div class="col-md-6">
-              <label class="form-label">GCash Number <span style="color:var(--danger)">*</span></label>
-              <input type="text" class="form-control" name="gcash_number" value="{{ $shop->gcash_number }}"
+              <label class="form-label fw-semibold">GCash Number <span style="color:var(--danger)">*</span></label>
+              <input type="text" class="form-control" name="gcash_number" value="{{ old('gcash_number', $shop->gcash_number) }}"
                      required pattern="(\+63)?9[0-9]{9}"
                      oninvalid="this.setCustomValidity('Enter a valid GCash number')"
                      oninput="this.setCustomValidity('')">
             </div>
             <div class="col-12">
-              <label class="form-label">Business Address <span style="color:var(--danger)">*</span></label>
-              <input type="text" class="form-control" name="address" value="{{ $shop->address }}"
+              <label class="form-label fw-semibold">Business Address <span style="color:var(--danger)">*</span></label>
+              <input type="text" class="form-control" name="address" value="{{ old('address', $shop->address) }}"
                      required maxlength="255"
                      oninvalid="this.setCustomValidity('Address is required')"
                      oninput="this.setCustomValidity('')">
             </div>
             <div class="col-md-6">
-              <label class="form-label">Shop Logo <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
+              <label class="form-label fw-semibold">Shop Logo <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label>
               @if($shop->shop_logo)
                 <img src="{{ $shop->shop_logo }}" style="display:block;width:72px;height:72px;border-radius:14px;object-fit:cover;margin-bottom:.5rem;border:2px solid var(--gray-200)">
               @endif
               <input type="file" class="form-control" name="shop_logo" accept=".jpg,.jpeg,.png"
                      onchange="previewFile(this,'logoPreview')" style="font-size:.8rem">
               <img id="logoPreview" style="display:none;max-height:72px;margin-top:.4rem;border-radius:14px;object-fit:cover">
-              <div class="form-text">JPG or PNG. Max 3MB.</div>
+              <div class="form-text">JPG or PNG · Max 3 MB</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Cover Photo <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
+              <label class="form-label fw-semibold">Cover Photo <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label>
               @if($shop->shop_cover)
                 <img src="{{ $shop->shop_cover }}" style="display:block;width:100%;height:60px;border-radius:var(--radius-sm);object-fit:cover;margin-bottom:.5rem;border:1.5px solid var(--gray-200)">
               @endif
               <input type="file" class="form-control" name="shop_cover" accept=".jpg,.jpeg,.png"
                      onchange="previewFile(this,'coverPreview')" style="font-size:.8rem">
               <img id="coverPreview" style="display:none;max-height:60px;width:100%;margin-top:.4rem;border-radius:var(--radius-sm);object-fit:cover">
-              <div class="form-text">JPG or PNG. Max 5MB.</div>
+              <div class="form-text">JPG or PNG · Max 5 MB</div>
             </div>
             <div class="col-12">
-              <label class="form-label">Shop Theme Color <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
+              <label class="form-label fw-semibold">Shop Theme Color <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label>
               <div style="display:flex;align-items:center;gap:.75rem">
                 <input type="color" name="theme_color" id="themeColorPicker"
-                       value="{{ $shop->theme_color ?? '#E53935' }}"
+                       value="{{ old('theme_color', $shop->theme_color ?? '#E53935') }}"
                        style="width:48px;height:40px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer;background:#fff">
                 <div id="colorPreviewBox"
-                     style="height:40px;flex:1;border-radius:var(--radius-sm);border:1.5px solid var(--gray-200);background:{{ $shop->theme_color ?? '#E53935' }};transition:background .15s"></div>
+                     style="height:40px;flex:1;border-radius:var(--radius-sm);border:1.5px solid var(--gray-200);background:{{ old('theme_color', $shop->theme_color ?? '#E53935') }};transition:background .15s"></div>
               </div>
               <div class="form-text">Customers will see this as your shop's accent color.</div>
             </div>
           </div>
-          <button type="submit" class="btn btn-primary mt-4" style="padding:.65rem 2rem;font-weight:600">
-            Save Shop Profile
-          </button>
+          <div class="mt-4">
+            <button type="submit" class="btn btn-primary" style="padding:.65rem 2rem;font-weight:600">
+              <i class="bi bi-check-lg me-1"></i> Save Shop Profile
+            </button>
+          </div>
         </form>
       </div>
     </div>
+  </div>
 
-    {{-- Daily Capacity --}}
-    <div class="col-12">
-      <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);overflow:hidden">
-        <div style="padding:1.1rem 1.5rem;border-bottom:1.5px solid var(--gray-100)">
-          <span style="font-size:.95rem;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:.6rem">
-            <i class="bi bi-calendar-check" style="color:var(--primary)"></i> Daily Order Capacity
-          </span>
-          <p style="font-size:.8rem;color:var(--gray-500);margin:.25rem 0 0">Set how many cake orders you can accept per day. Set to 0 for unlimited.</p>
+  {{-- ── PANE: Daily Capacity ────────────────────────────── --}}
+  <div id="spane-capacity" style="display:none">
+    <div class="setting-card" style="max-width:780px">
+      <div class="setting-card-header">
+        <i class="bi bi-calendar-check" style="font-size:1.1rem;color:var(--primary)"></i>
+        <div>
+          <div class="title">Daily Order Capacity</div>
+          <div class="subtitle">Limit how many cake orders you can accept per day. Set to 0 for unlimited.</div>
         </div>
-        <form action="{{ route('seller.settings.daily_capacity') }}" method="POST" style="padding:1.5rem">
+      </div>
+      <div class="setting-card-body">
+        <form action="{{ route('seller.settings.daily_capacity') }}" method="POST">
           @csrf
+          <input type="hidden" name="_section" value="capacity">
           <div class="row g-3">
             <div class="col-md-6 col-lg-3">
-              <label class="form-label fw-semibold">Max Orders Per Day</label>
+              <label class="form-label fw-semibold">Default Max / Day</label>
               <input type="number" min="0" class="form-control" name="daily_max_cakes"
-                     value="{{ $shopSettings->daily_max_cakes ?? 0 }}"
+                     value="{{ old('daily_max_cakes', $shopSettings->daily_max_cakes ?? 0) }}"
                      oninput="updateCapacityPreview()">
               <div class="form-text">0 = unlimited</div>
             </div>
             <div class="col-md-6 col-lg-3">
               <label class="form-label fw-semibold">Tomorrow (1-day lead)</label>
               <input type="number" min="0" class="form-control" name="lead_1day_max"
-                     value="{{ $shopSettings->lead_1day_max ?? 0 }}"
+                     value="{{ old('lead_1day_max', $shopSettings->lead_1day_max ?? 0) }}"
                      oninput="updateCapacityPreview()">
               <div class="form-text">0 = use default</div>
             </div>
             <div class="col-md-6 col-lg-3">
               <label class="form-label fw-semibold">2-Day Lead</label>
               <input type="number" min="0" class="form-control" name="lead_2day_max"
-                     value="{{ $shopSettings->lead_2day_max ?? 0 }}"
+                     value="{{ old('lead_2day_max', $shopSettings->lead_2day_max ?? 0) }}"
                      oninput="updateCapacityPreview()">
               <div class="form-text">0 = use default</div>
             </div>
             <div class="col-md-6 col-lg-3">
               <label class="form-label fw-semibold">3+ Day Lead</label>
               <input type="number" min="0" class="form-control" name="lead_3day_plus_max"
-                     value="{{ $shopSettings->lead_3day_plus_max ?? 0 }}"
+                     value="{{ old('lead_3day_plus_max', $shopSettings->lead_3day_plus_max ?? 0) }}"
                      oninput="updateCapacityPreview()">
               <div class="form-text">0 = use default</div>
             </div>
@@ -164,107 +257,413 @@
               <div id="capacityPreview" style="font-size:.82rem;color:var(--gray-600);background:var(--gray-50);border-radius:var(--radius-sm);padding:.6rem 1rem"></div>
             </div>
           </div>
-          <button type="submit" class="btn btn-primary mt-4" style="padding:.65rem 2rem;font-weight:600">
-            Save Capacity Settings
-          </button>
+          <div class="mt-4">
+            <button type="submit" class="btn btn-primary" style="padding:.65rem 2rem;font-weight:600">
+              <i class="bi bi-check-lg me-1"></i> Save Capacity Settings
+            </button>
+          </div>
         </form>
       </div>
     </div>
+  </div>
 
-    {{-- Change Password --}}
-    <div class="col-lg-5">
-      <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);overflow:hidden">
-        <div style="padding:1.1rem 1.5rem;border-bottom:1.5px solid var(--gray-100)">
-          <span style="font-size:.95rem;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:.6rem">
-            <i class="bi bi-lock" style="color:var(--primary)"></i> Change Password
-          </span>
-        </div>
-        <form action="{{ route('seller.settings.password') }}" method="POST" novalidate style="padding:1.5rem">
-          @csrf
-          <div class="row g-3">
-            <div class="col-12">
-              <label class="form-label">Current Password <span style="color:var(--danger)">*</span></label>
-              <div class="input-group">
-                <input type="password" class="form-control" name="current_password" id="curPwd" required
-                       oninvalid="this.setCustomValidity('Current password is required')"
-                       oninput="this.setCustomValidity('')">
-                <button type="button" class="btn btn-secondary" onclick="togglePwd('curPwd',this)"
-                        style="border:1.5px solid var(--gray-200);border-left:0;background:var(--gray-50);padding:.6rem .875rem">
-                  <i class="bi bi-eye" style="color:var(--gray-500)"></i>
-                </button>
-              </div>
-            </div>
-            <div class="col-12">
-              <label class="form-label">New Password <span style="color:var(--danger)">*</span></label>
-              <div class="input-group">
-                <input type="password" class="form-control" name="password" id="newPwd"
-                       required minlength="8"
-                       oninvalid="this.setCustomValidity('Min 8 characters')"
-                       oninput="this.setCustomValidity('');checkMatch()">
-                <button type="button" class="btn btn-secondary" onclick="togglePwd('newPwd',this)"
-                        style="border:1.5px solid var(--gray-200);border-left:0;background:var(--gray-50);padding:.6rem .875rem">
-                  <i class="bi bi-eye" style="color:var(--gray-500)"></i>
-                </button>
-              </div>
-            </div>
-            <div class="col-12">
-              <label class="form-label">Confirm Password <span style="color:var(--danger)">*</span></label>
-              <div class="input-group">
-                <input type="password" class="form-control" name="password_confirmation" id="confPwd"
-                       required oninput="checkMatch()"
-                       oninvalid="this.setCustomValidity('Please confirm your password')"
-                       onchange="this.setCustomValidity('')">
-                <button type="button" class="btn btn-secondary" onclick="togglePwd('confPwd',this)"
-                        style="border:1.5px solid var(--gray-200);border-left:0;background:var(--gray-50);padding:.6rem .875rem">
-                  <i class="bi bi-eye" style="color:var(--gray-500)"></i>
-                </button>
-              </div>
-              <div id="matchMsg" class="form-text"></div>
+  {{-- ── PANE: Delivery Fee ──────────────────────────────── --}}
+  <div id="spane-delivery" style="display:none">
+    <div class="row g-4" style="max-width:1100px">
+
+      {{-- Left: Settings Form --}}
+      <div class="col-lg-5">
+        <div class="setting-card">
+          <div class="setting-card-header">
+            <i class="bi bi-sliders" style="font-size:1.1rem;color:var(--primary)"></i>
+            <div>
+              <div class="title">Fee Parameters</div>
+              <div class="subtitle">Adjust how the delivery fee is calculated</div>
             </div>
           </div>
-          <button type="submit" class="btn btn-primary mt-4" style="padding:.65rem 2rem;font-weight:600">
-            Update Password
+          <div class="setting-card-body">
+            <form action="{{ route('seller.settings.delivery_calc') }}" method="POST" id="deliveryCalcForm">
+              @csrf
+              <input type="hidden" name="_section" value="delivery">
+              <div class="mb-3">
+                <label class="form-label fw-semibold">
+                  <span class="legend-dot" style="background:#34d399"></span>Base Rate per Meter (₱/m)
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text">₱</span>
+                  <input type="number" step="0.001" min="0" class="form-control" name="fee_per_meter" id="inp_fpm"
+                         value="{{ old('fee_per_meter', $shopSettings->fee_per_meter ?? 0.05) }}"
+                         oninput="updateDeliveryCalc()">
+                  <span class="input-group-text">/m</span>
+                </div>
+                <div class="form-text">Charged for every meter of distance from your shop.</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">
+                  <span class="legend-dot" style="background:#60a5fa"></span>Maintenance Charge (₱/km)
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text">₱</span>
+                  <input type="number" step="0.01" min="0" class="form-control" name="maintenance_per_km" id="inp_mnt"
+                         value="{{ old('maintenance_per_km', $shopSettings->maintenance_per_km ?? 5) }}"
+                         oninput="updateDeliveryCalc()">
+                  <span class="input-group-text">/km</span>
+                </div>
+                <div class="form-text">Rider's vehicle maintenance cost per km.</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">
+                  <span class="legend-dot" style="background:#f472b6"></span>Fuel Charge (₱/km)
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text">₱</span>
+                  <input type="number" step="0.01" min="0" class="form-control" name="fuel_per_km" id="inp_fuel"
+                         value="{{ old('fuel_per_km', $shopSettings->fuel_per_km ?? 8) }}"
+                         oninput="updateDeliveryCalc()">
+                  <span class="input-group-text">/km</span>
+                </div>
+                <div class="form-text">Estimated fuel cost per km of travel.</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">
+                  <i class="bi bi-gift text-success me-1"></i>Free Delivery Radius (meters)
+                </label>
+                <div class="input-group">
+                  <input type="number" step="1" min="0" class="form-control" name="free_delivery_radius" id="inp_free"
+                         value="{{ old('free_delivery_radius', $shopSettings->free_delivery_radius ?? 0) }}"
+                         oninput="updateDeliveryCalc()">
+                  <span class="input-group-text">m</span>
+                </div>
+                <div class="form-text">Orders within this radius get free delivery. Set to 0 to disable.</div>
+              </div>
+              <div class="mt-4">
+                <button type="submit" class="btn btn-primary w-100" style="padding:.65rem;font-weight:600">
+                  <i class="bi bi-check-lg me-1"></i> Save Delivery Fee Settings
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      {{-- Right: Formula Display + Simulator --}}
+      <div class="col-lg-7">
+
+        {{-- Formula Card --}}
+        <div class="setting-card">
+          <div class="setting-card-header">
+            <i class="bi bi-function" style="font-size:1.1rem;color:var(--primary)"></i>
+            <div>
+              <div class="title">Fee Formula</div>
+              <div class="subtitle">How the system calculates your delivery fee in real-time</div>
+            </div>
+          </div>
+          <div class="setting-card-body" style="padding-bottom:1rem">
+
+            {{-- Code-style formula display --}}
+            <div class="formula-box">
+              <div class="f-label">Formula</div>
+              <div class="f-main">
+                Fee = ⌈ (<span class="f-var-a" id="fml_a">₱0.05</span> × <span class="f-var-d">D</span>)
+                + ((<span class="f-var-b" id="fml_b">₱5.00</span> + <span class="f-var-c" id="fml_c">₱8.00</span>) × <span class="f-var-d">D</span>/1000) ⌉
+              </div>
+              <div style="margin-top:.75rem;font-size:.8rem;color:#64748b">
+                Simplified &nbsp;→&nbsp;
+                Fee = ⌈ <span class="f-var-d">D</span> × (<span id="fml_simplified" style="color:#e2e8f0">0.063</span>) ⌉ &nbsp;
+                <span style="color:#475569">(D in meters)</span>
+              </div>
+            </div>
+
+            {{-- Legend --}}
+            <div style="display:flex;flex-wrap:wrap;gap:.5rem 1.25rem;margin-bottom:1.25rem;font-size:.78rem">
+              <span><span class="legend-dot" style="background:#34d399"></span><span style="color:#94a3b8" id="legend_a">₱0.05/m</span> = Base rate</span>
+              <span><span class="legend-dot" style="background:#60a5fa"></span><span style="color:#94a3b8" id="legend_b">₱5.00/km</span> = Maintenance</span>
+              <span><span class="legend-dot" style="background:#f472b6"></span><span style="color:#94a3b8" id="legend_c">₱8.00/km</span> = Fuel</span>
+              <span><span class="legend-dot" style="background:#fbbf24"></span><span style="color:#94a3b8">D</span> = Distance (meters)</span>
+            </div>
+
+            {{-- Free radius note --}}
+            <div id="fml_free_note" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:.55rem 1rem;font-size:.8rem;color:#15803d;margin-bottom:1rem">
+              <i class="bi bi-gift-fill me-1"></i>
+              Free delivery for orders within <strong id="fml_free_val">0</strong> m of your shop.
+            </div>
+
+            {{-- Per-km breakdown --}}
+            <div style="background:#f8fafc;border:1.5px solid var(--gray-100);border-radius:8px;padding:.75rem 1rem;font-size:.82rem">
+              <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-500);margin-bottom:.5rem">Cost Per Kilometer</div>
+              <div style="display:flex;gap:1rem;flex-wrap:wrap">
+                <div>
+                  <span style="color:var(--gray-500)">Base:</span>
+                  <strong id="perkm_base" style="color:var(--gray-900)">₱50.00</strong>
+                </div>
+                <div>
+                  <span style="color:var(--gray-500)">Fuel + Maint:</span>
+                  <strong id="perkm_extra" style="color:var(--gray-900)">₱13.00</strong>
+                </div>
+                <div>
+                  <span style="color:var(--gray-500)">Total / km:</span>
+                  <strong id="perkm_total" style="color:var(--primary)">₱63.00</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {{-- Simulator Card --}}
+        <div class="setting-card">
+          <div class="setting-card-header">
+            <i class="bi bi-calculator" style="font-size:1.1rem;color:var(--primary)"></i>
+            <div>
+              <div class="title">Fee Simulator</div>
+              <div class="subtitle">Test how much a customer would be charged at any distance</div>
+            </div>
+          </div>
+          <div class="setting-card-body">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">
+                Test Distance: <span id="sim_km_label" style="color:var(--primary)">3.0 km</span>
+              </label>
+              <input type="range" class="form-range" id="sim_slider" min="0.1" max="20" step="0.1" value="3"
+                     oninput="runSimulator(this.value)" style="accent-color:var(--primary)">
+              <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--gray-400)">
+                <span>0.1 km</span><span>5 km</span><span>10 km</span><span>15 km</span><span>20 km</span>
+              </div>
+              <div class="mt-2">
+                <div class="input-group" style="max-width:180px">
+                  <input type="number" class="form-control form-control-sm" id="sim_input"
+                         min="0.1" max="20" step="0.1" value="3"
+                         oninput="document.getElementById('sim_slider').value=this.value;runSimulator(this.value)"
+                         placeholder="km">
+                  <span class="input-group-text">km</span>
+                </div>
+              </div>
+            </div>
+
+            <div id="sim_output"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  {{-- ── PANE: Appearance ──────────────────────────────────── --}}
+  <div id="spane-appearance" style="display:none">
+    <div class="setting-card" style="max-width:780px">
+      <div class="setting-card-header">
+        <i class="bi bi-palette" style="font-size:1.1rem;color:var(--primary)"></i>
+        <div>
+          <div class="title">Shop Page Appearance</div>
+          <div class="subtitle">Customize the background of your public shop page (<code>/shop/{{ $shop->shop_slug }}</code>)</div>
+        </div>
+      </div>
+      <div class="setting-card-body">
+        <form action="{{ route('seller.settings.appearance') }}" method="POST" enctype="multipart/form-data">
+          @csrf
+          @php $curShopBg = $shopSettings->bg_type ?? 'color'; @endphp
+
+          {{-- Background Type --}}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Background Type</label>
+            <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+              @foreach(['color'=>'Solid Color','gradient'=>'Gradient','image'=>'Image'] as $bv => $bl)
+              <label style="display:flex;align-items:center;gap:.4rem;font-size:.83rem;font-weight:600;cursor:pointer;padding:.45rem .9rem;border:1.5px solid {{ $curShopBg===$bv ? 'var(--primary)' : 'var(--gray-200)' }};border-radius:var(--radius-md);background:{{ $curShopBg===$bv ? 'var(--primary-bg,#fdf8f4)' : '#fff' }};color:{{ $curShopBg===$bv ? 'var(--primary)' : 'var(--gray-700)' }}">
+                <input type="radio" name="shop_bg_type" value="{{ $bv }}" {{ $curShopBg===$bv ? 'checked' : '' }}
+                       style="accent-color:var(--primary)" onchange="switchShopBgType('{{ $bv }}')"> {{ $bl }}
+              </label>
+              @endforeach
+            </div>
+          </div>
+
+          {{-- Solid Color --}}
+          <div id="sbg-color" style="display:{{ $curShopBg==='color' ? 'flex' : 'none' }};align-items:center;gap:.75rem;margin-bottom:1rem">
+            <input type="color" name="shop_bg_color" id="sbgColorPicker"
+                   value="{{ $shopSettings->bg_color ?? '#f9f9f9' }}"
+                   style="width:48px;height:40px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer"
+                   oninput="document.getElementById('sbgColorHex').value=this.value;updateShopBgPreview()">
+            <input type="text" id="sbgColorHex" value="{{ $shopSettings->bg_color ?? '#f9f9f9' }}"
+                   maxlength="7" class="form-control" style="width:110px;font-family:monospace"
+                   oninput="if(/^#[0-9A-Fa-f]{6}$/.test(this.value)){document.getElementById('sbgColorPicker').value=this.value;updateShopBgPreview()}">
+            <div class="form-text">Background color of your shop page.</div>
+          </div>
+
+          {{-- Gradient --}}
+          <div id="sbg-gradient" style="display:{{ $curShopBg==='gradient' ? 'flex' : 'none' }};align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem">
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <span class="form-text" style="white-space:nowrap;margin:0">From</span>
+              <input type="color" name="shop_bg_gradient_start" id="sbgGradStart"
+                     value="{{ $shopSettings->gradient_start ?? '#fff7fb' }}"
+                     style="width:44px;height:38px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer"
+                     oninput="updateShopBgPreview()">
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <span class="form-text" style="white-space:nowrap;margin:0">To</span>
+              <input type="color" name="shop_bg_gradient_end" id="sbgGradEnd"
+                     value="{{ $shopSettings->gradient_end ?? '#ffe3f1' }}"
+                     style="width:44px;height:38px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer"
+                     oninput="updateShopBgPreview()">
+            </div>
+            <div class="form-text">Diagonal gradient on your shop page.</div>
+          </div>
+
+          {{-- Image --}}
+          <div id="sbg-image" style="display:{{ $curShopBg==='image' ? 'block' : 'none' }};margin-bottom:1rem">
+            @if(!empty($shopSettings->bg_image_path))
+            <img src="{{ $shopSettings->bg_image_path }}" style="display:block;width:100%;max-width:340px;height:80px;object-fit:cover;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);margin-bottom:.5rem">
+            @endif
+            <input type="file" class="form-control" name="shop_bg_image" accept=".jpg,.jpeg,.png,.webp" style="font-size:.8rem;max-width:340px">
+            <div class="form-text">JPG, PNG or WebP · Max 5 MB. Leave blank to keep current image.</div>
+            <div style="margin-top:.65rem">
+              <label class="form-label fw-semibold" style="font-size:.8rem">Image Opacity: <span id="sbgOpacityVal">{{ number_format(($shopSettings->bg_image_opacity ?? 1.0) * 100) }}%</span></label>
+              <input type="range" name="shop_bg_opacity" min="0.1" max="1" step="0.05"
+                     value="{{ $shopSettings->bg_image_opacity ?? 1.0 }}"
+                     style="width:100%;max-width:280px;accent-color:var(--primary)"
+                     oninput="document.getElementById('sbgOpacityVal').textContent=Math.round(this.value*100)+'%'">
+            </div>
+          </div>
+
+          {{-- Live Preview --}}
+          <div style="margin-bottom:1.25rem">
+            <div class="form-text mb-1">Preview</div>
+            <div id="sbgPreview" style="height:64px;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);transition:background .2s;
+              @if($curShopBg==='gradient') background:linear-gradient(135deg,{{ $shopSettings->gradient_start ?? '#fff7fb' }} 0%,{{ $shopSettings->gradient_end ?? '#ffe3f1' }} 100%)
+              @elseif($curShopBg==='image' && !empty($shopSettings->bg_image_path)) background:url('{{ $shopSettings->bg_image_path }}') center/cover no-repeat
+              @else background:{{ $shopSettings->bg_color ?? '#f9f9f9' }}
+              @endif
+            "></div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="padding:.65rem 2rem;font-weight:600">
+            <i class="bi bi-check-lg me-1"></i> Save Appearance
           </button>
         </form>
       </div>
     </div>
   </div>
-</div>
-<script>
-function updateCapacityPreview() {
-  const daily = parseInt(document.querySelector('[name="daily_max_cakes"]')?.value) || 0;
-  const d1    = parseInt(document.querySelector('[name="lead_1day_max"]')?.value) || 0;
-  const d2    = parseInt(document.querySelector('[name="lead_2day_max"]')?.value) || 0;
-  const d3    = parseInt(document.querySelector('[name="lead_3day_plus_max"]')?.value) || 0;
-  const el    = document.getElementById('capacityPreview');
-  if (!el) return;
-  if (daily === 0) { el.textContent = 'Unlimited orders per day.'; return; }
-  el.textContent = `Default: ${daily} pcs/day`
-    + (d1 > 0 ? ` | Tomorrow: ${d1} pcs` : '')
-    + (d2 > 0 ? ` | 2-day: ${d2} pcs` : '')
-    + (d3 > 0 ? ` | 3+ days: ${d3} pcs` : '');
-}
-updateCapacityPreview();
-document.querySelectorAll('[name="daily_max_cakes"],[name="lead_1day_max"],[name="lead_2day_max"],[name="lead_3day_plus_max"]')
-  .forEach(el => el.addEventListener('input', updateCapacityPreview));
 
+  {{-- ── PANE: Change Password ───────────────────────────── --}}
+  <div id="spane-password" style="display:none">
+    <div class="setting-card" style="max-width:480px">
+      <div class="setting-card-header">
+        <i class="bi bi-lock" style="font-size:1.1rem;color:var(--primary)"></i>
+        <div>
+          <div class="title">Change Password</div>
+          <div class="subtitle">Update your account login password</div>
+        </div>
+      </div>
+      <div class="setting-card-body">
+        <form action="{{ route('seller.settings.password') }}" method="POST" novalidate>
+          @csrf
+          <input type="hidden" name="_section" value="password">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Current Password <span style="color:var(--danger)">*</span></label>
+              <div class="input-group">
+                <input type="password" class="form-control" name="current_password" id="curPwd" required
+                       oninvalid="this.setCustomValidity('Current password is required')"
+                       oninput="this.setCustomValidity('')">
+                <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('curPwd',this)">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">New Password <span style="color:var(--danger)">*</span></label>
+              <div class="input-group">
+                <input type="password" class="form-control" name="password" id="newPwd"
+                       required minlength="8"
+                       oninvalid="this.setCustomValidity('Minimum 8 characters')"
+                       oninput="this.setCustomValidity('');checkMatch()">
+                <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('newPwd',this)">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+              <div class="form-text">At least 8 characters</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Confirm New Password <span style="color:var(--danger)">*</span></label>
+              <div class="input-group">
+                <input type="password" class="form-control" name="password_confirmation" id="confPwd"
+                       required oninput="checkMatch()"
+                       oninvalid="this.setCustomValidity('Please confirm your password')"
+                       onchange="this.setCustomValidity('')">
+                <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('confPwd',this)">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+              <div id="matchMsg" class="form-text"></div>
+            </div>
+          </div>
+          <div class="mt-4">
+            <button type="submit" class="btn btn-primary" style="padding:.65rem 2rem;font-weight:600">
+              <i class="bi bi-shield-lock me-1"></i> Update Password
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Tab switching ────────────────────────────────────────
+function showSettingsTab(name) {
+  ['profile','capacity','delivery','appearance','password'].forEach(t => {
+    document.getElementById('spane-' + t).style.display = t === name ? '' : 'none';
+    document.getElementById('stab-'  + t).classList.toggle('active', t === name);
+  });
+  if (name === 'delivery') { updateDeliveryCalc(); runSimulator(document.getElementById('sim_slider').value); }
+  if (name === 'capacity') updateCapacityPreview();
+}
+
+// ── Shop Appearance helpers ──────────────────────────────
+function switchShopBgType(type) {
+  ['color','gradient','image'].forEach(t => {
+    const el = document.getElementById('sbg-' + t);
+    if (el) el.style.display = t === type ? (t === 'gradient' ? 'flex' : 'block') : 'none';
+  });
+  updateShopBgPreview();
+}
+function updateShopBgPreview() {
+  const preview = document.getElementById('sbgPreview');
+  if (!preview) return;
+  const type = document.querySelector('[name=shop_bg_type]:checked')?.value || 'color';
+  if (type === 'gradient') {
+    const s = document.getElementById('sbgGradStart')?.value || '#fff7fb';
+    const e = document.getElementById('sbgGradEnd')?.value   || '#ffe3f1';
+    preview.style.background = `linear-gradient(135deg,${s} 0%,${e} 100%)`;
+  } else if (type === 'color') {
+    preview.style.background = document.getElementById('sbgColorPicker')?.value || '#f9f9f9';
+  }
+}
+
+// Restore active tab from URL ?tab= param or old('_section')
+(function () {
+  const urlTab  = new URLSearchParams(window.location.search).get('tab');
+  const oldSect = '{{ old("_section") }}';
+  const active  = urlTab || oldSect || 'profile';
+  if (active !== 'profile') showSettingsTab(active);
+  else { updateDeliveryCalc(); updateCapacityPreview(); }
+})();
+
+// ── Shop Profile helpers ─────────────────────────────────
 document.getElementById('themeColorPicker').addEventListener('input', function() {
   document.getElementById('colorPreviewBox').style.background = this.value;
 });
 function previewFile(input, id) {
   const img = document.getElementById(id);
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
-  reader.readAsDataURL(file);
+  if (!input.files[0]) return;
+  const r = new FileReader();
+  r.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
+  r.readAsDataURL(input.files[0]);
 }
+
+// ── Password helpers ─────────────────────────────────────
 function togglePwd(id, btn) {
   const input = document.getElementById(id);
-  const icon  = btn.querySelector('i');
-  input.type  = input.type === 'password' ? 'text' : 'password';
-  icon.className = input.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
-  icon.style.color = 'var(--gray-500)';
+  input.type = input.type === 'password' ? 'text' : 'password';
+  btn.querySelector('i').className = input.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
 }
 function checkMatch() {
   const p = document.getElementById('newPwd');
@@ -272,12 +671,133 @@ function checkMatch() {
   const m = document.getElementById('matchMsg');
   if (!c.value) { m.textContent = ''; return; }
   if (p.value === c.value) {
-    m.textContent = 'Passwords match'; m.style.color = 'var(--success,#2E7D32)';
+    m.textContent = 'Passwords match ✓'; m.style.color = 'var(--success,#2E7D32)';
     c.setCustomValidity('');
   } else {
     m.textContent = 'Passwords do not match'; m.style.color = 'var(--danger,#C62828)';
     c.setCustomValidity('Passwords do not match');
   }
 }
+
+// ── Capacity preview ─────────────────────────────────────
+function updateCapacityPreview() {
+  const daily = parseInt(document.querySelector('[name="daily_max_cakes"]')?.value) || 0;
+  const d1    = parseInt(document.querySelector('[name="lead_1day_max"]')?.value)   || 0;
+  const d2    = parseInt(document.querySelector('[name="lead_2day_max"]')?.value)   || 0;
+  const d3    = parseInt(document.querySelector('[name="lead_3day_plus_max"]')?.value) || 0;
+  const el    = document.getElementById('capacityPreview');
+  if (!el) return;
+  if (daily === 0) { el.textContent = 'Unlimited orders per day — no restrictions applied.'; return; }
+  let txt = `Default: up to ${daily} orders/day`;
+  if (d1 > 0) txt += `  |  Tomorrow: ${d1} orders`;
+  if (d2 > 0) txt += `  |  2-day lead: ${d2} orders`;
+  if (d3 > 0) txt += `  |  3+ days: ${d3} orders`;
+  el.textContent = txt;
+}
+
+// ── Delivery Fee Calculator ──────────────────────────────
+function getDeliveryParams() {
+  return {
+    fpm  : parseFloat(document.getElementById('inp_fpm').value)  || 0,
+    mnt  : parseFloat(document.getElementById('inp_mnt').value)  || 0,
+    fuel : parseFloat(document.getElementById('inp_fuel').value) || 0,
+    free : parseInt(document.getElementById('inp_free').value)   || 0,
+  };
+}
+
+function calcFee(distMeters, p) {
+  if (p.free > 0 && distMeters <= p.free) return 0;
+  const km = distMeters / 1000;
+  return Math.ceil((p.fpm * distMeters) + ((p.mnt + p.fuel) * km));
+}
+
+function fmt(n) { return '₱' + n.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function updateDeliveryCalc() {
+  const p = getDeliveryParams();
+
+  // Update formula display
+  document.getElementById('fml_a').textContent = '₱' + p.fpm.toFixed(3).replace(/\.?0+$/, '');
+  document.getElementById('fml_b').textContent = '₱' + p.mnt.toFixed(2);
+  document.getElementById('fml_c').textContent = '₱' + p.fuel.toFixed(2);
+  document.getElementById('legend_a').textContent = '₱' + p.fpm + '/m';
+  document.getElementById('legend_b').textContent = '₱' + p.mnt + '/km';
+  document.getElementById('legend_c').textContent = '₱' + p.fuel + '/km';
+
+  // Simplified coefficient (per meter)
+  const coeff = p.fpm + (p.mnt + p.fuel) / 1000;
+  document.getElementById('fml_simplified').textContent = coeff.toFixed(5).replace(/0+$/, '');
+
+  // Per-km summary
+  const basePerKm  = p.fpm * 1000;
+  const extraPerKm = p.mnt + p.fuel;
+  document.getElementById('perkm_base').textContent  = fmt(basePerKm);
+  document.getElementById('perkm_extra').textContent = fmt(extraPerKm);
+  document.getElementById('perkm_total').textContent = fmt(basePerKm + extraPerKm);
+
+  // Free radius note
+  const freeNote = document.getElementById('fml_free_note');
+  if (p.free > 0) {
+    freeNote.style.display = '';
+    document.getElementById('fml_free_val').textContent = p.free.toLocaleString();
+  } else {
+    freeNote.style.display = 'none';
+  }
+
+  // Re-run simulator with current distance
+  runSimulator(document.getElementById('sim_slider')?.value || 3);
+}
+
+function runSimulator(km) {
+  km = parseFloat(km) || 3;
+  document.getElementById('sim_km_label').textContent = km.toFixed(1) + ' km';
+  document.getElementById('sim_input').value = km;
+
+  const p = getDeliveryParams();
+  const distM = km * 1000;
+  const out   = document.getElementById('sim_output');
+
+  if (p.free > 0 && distM <= p.free) {
+    out.innerHTML = `<div class="sim-free"><i class="bi bi-gift-fill me-2"></i>Free Delivery — within your ${p.free.toLocaleString()} m free zone</div>`;
+    return;
+  }
+
+  const baseAmt  = p.fpm * distM;
+  const extraAmt = (p.mnt + p.fuel) * km;
+  const rawTotal = baseAmt + extraAmt;
+  const finalFee = Math.ceil(rawTotal);
+
+  out.innerHTML = `
+    <div class="sim-result">
+      <div class="sim-row">
+        <span class="lbl">Distance</span>
+        <span class="val">${km.toFixed(1)} km &nbsp;=&nbsp; ${distM.toLocaleString()} m</span>
+      </div>
+      <div class="sim-row">
+        <span class="lbl"><span class="legend-dot" style="background:#34d399;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.3rem"></span>Base (₱${p.fpm}/m × ${distM.toLocaleString()} m)</span>
+        <span class="val">${fmt(baseAmt)}</span>
+      </div>
+      <div class="sim-row">
+        <span class="lbl"><span class="legend-dot" style="background:#60a5fa;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.3rem"></span>Maintenance (₱${p.mnt}/km × ${km.toFixed(1)} km)</span>
+        <span class="val">${fmt(p.mnt * km)}</span>
+      </div>
+      <div class="sim-row">
+        <span class="lbl"><span class="legend-dot" style="background:#f472b6;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.3rem"></span>Fuel (₱${p.fuel}/km × ${km.toFixed(1)} km)</span>
+        <span class="val">${fmt(p.fuel * km)}</span>
+      </div>
+      <div class="sim-row">
+        <span class="lbl" style="color:var(--gray-400)">Raw total</span>
+        <span class="val" style="font-weight:400;color:var(--gray-500)">${fmt(rawTotal)}</span>
+      </div>
+      <div class="sim-row sim-total">
+        <span class="lbl">Estimated Fee <span style="font-size:.72rem;font-weight:400;color:var(--gray-400)">(⌈ rounded up ⌉)</span></span>
+        <span class="val">${fmt(finalFee)}</span>
+      </div>
+    </div>`;
+}
+
+// Init
+updateDeliveryCalc();
+updateCapacityPreview();
 </script>
 @endsection

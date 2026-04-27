@@ -9,7 +9,7 @@
   <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
       <h4 class="fw-bold mb-0"><i class="bi bi-bag-check me-2" style="color:var(--primary)"></i>Orders</h4>
-      <p class="text-muted small mb-0" id="ordersCountLabel">{{ count($orders) }} total orders
+      <p class="text-muted small mb-0" id="ordersCountLabel">{{ $orders->total() }} total orders
         @if($pendingCancelCount > 0)
           &nbsp;·&nbsp;<span class="badge bg-danger">{{ $pendingCancelCount }} cancel request{{ $pendingCancelCount > 1 ? 's' : '' }}</span>
         @endif
@@ -17,7 +17,9 @@
     </div>
     <div class="cs-search-bar" style="flex:1;min-width:0;max-width:280px">
       <input type="text" id="searchInput" class="form-control form-control-sm"
-             placeholder="Search customer, order ID…" oninput="doFilter()">
+             placeholder="Search customer, order ID…"
+             value="{{ $search }}"
+             oninput="pgSearch(this.value)">
     </div>
   </div>
 
@@ -48,15 +50,13 @@
   {{-- Status filter tabs --}}
   <div class="d-flex gap-2 flex-wrap mb-3" id="filterTabs">
     @foreach(['All'=>'All','Pending'=>'⏳ Pending','Confirmed'=>'✅ Confirmed','Preparing'=>'🍳 Preparing','Out for Delivery'=>'🚴 Out for Delivery','Pickup'=>'🏪 Ready for Pickup','Delivered'=>'🏠 Delivered','Picked Up'=>'🎂 Picked Up','Cancelled'=>'❌ Cancelled','Cancel Requests'=>'🚨 Cancel Requests'] as $val=>$lbl)
-    <button class="btn btn-sm {{ $val==='All' ? 'btn-primary' : 'btn-outline-secondary' }}"
-            data-filter="{{ $val }}" onclick="setFilter('{{ $val }}',this)">{{ $lbl }}
+    @php $isActive = ($status === $val) || ($val === 'All' && $status === 'All'); @endphp
+    <a href="{{ url()->current() }}?status={{ urlencode($val) }}&search={{ urlencode($search) }}"
+       class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }}">{{ $lbl }}
       @if($val === 'Cancel Requests' && $pendingCancelCount > 0)
         <span class="badge rounded-pill bg-danger ms-1">{{ $pendingCancelCount }}</span>
-      @elseif($val !== 'Cancel Requests')
-        @php $cnt = $val==='All' ? count($orders) : collect($orders)->where('status',$val)->count(); @endphp
-        <span class="badge rounded-pill ms-1" style="background:rgba(0,0,0,.12)">{{ $cnt }}</span>
       @endif
-    </button>
+    </a>
     @endforeach
   </div>
 
@@ -141,7 +141,7 @@
               </div>
               @endif
               <div class="small text-muted">
-                {{ $o->payment_method }}
+                {{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}
                 <span class="badge rounded-pill ms-1"
                       style="font-size:clamp(.66rem,1.3vw,.7rem);background:{{ $o->payment_status==='Paid'?'#d4edda':($o->payment_status==='Partial Payment'?'#dbeafe':'#fff3cd') }};color:{{ $o->payment_status==='Paid'?'#155724':($o->payment_status==='Partial Payment'?'#1e40af':'#856404') }}">
                   {{ $o->payment_status }}
@@ -162,10 +162,20 @@
           </div>
           @endif
 
+          @if(!empty($o->discount_type) && (float)($o->discount_amount ?? 0) > 0)
+          <div class="px-3 py-2 small" style="background:#fff7ed;border-top:1px dashed #fdba74">
+            <span class="fw-semibold me-2" style="color:#c2410c"><i class="bi bi-tags me-1"></i>Discount:</span>
+            <span style="color:#9a3412">{{ \App\Helpers\CakeshopHelper::discountBadgeText($o->discount_type, $o->discount_value) ?? 'Product Discount' }}</span>
+            @if(!empty($o->discount_label))
+              <span class="text-muted ms-1">({{ $o->discount_label }})</span>
+            @endif
+          </div>
+          @endif
+
           {{-- Details --}}
           <div class="px-3 py-2 bg-light small text-muted d-flex flex-wrap gap-3">
             <span><i class="bi bi-truck me-1"></i>{{ $o->fulfillment_type }}</span>
-            @if($o->address)<span><i class="bi bi-geo-alt me-1"></i>{{ Str::limit($o->address,50) }}</span>@endif
+            @if($o->delivery_address)<span><i class="bi bi-geo-alt me-1"></i>{{ Str::limit($o->delivery_address,50) }}</span>@endif
             @if($o->schedule_date)
               <span><i class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($o->schedule_date)->format('M d, Y') }}
                 {{ $o->schedule_time ? \Carbon\Carbon::parse($o->schedule_time)->format('g:i A') : '' }}</span>
@@ -462,17 +472,17 @@
                   </div>
                   <div class="col-sm-6">
                     <div class="text-muted">Payment</div>
-                    <div class="fw-semibold">{{ $o->payment_method }}
+                    <div class="fw-semibold">{{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}
                       <span class="badge ms-1"
                             style="background:{{ $o->payment_status==='Paid'?'#d4edda':($o->payment_status==='Partial Payment'?'#dbeafe':'#fff3cd') }};color:{{ $o->payment_status==='Paid'?'#155724':($o->payment_status==='Partial Payment'?'#1e40af':'#856404') }}">
                         {{ $o->payment_status }}
                       </span>
                     </div>
                   </div>
-                  @if($o->address)
+                  @if($o->delivery_address)
                   <div class="col-12">
                     <div class="text-muted">Delivery Address</div>
-                    <div class="fw-semibold">{{ $o->address }}</div>
+                    <div class="fw-semibold">{{ $o->delivery_address }}</div>
                   </div>
                   @endif
                   @if($o->schedule_date)
@@ -572,10 +582,7 @@
     @endforelse
   </div>
 
-  {{-- Pagination --}}
-  <div class="mt-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <div id="ordersList_pager"></div>
-  </div>
+  {{ $orders->links('vendor.pagination.custom') }}
 </div>
 @endsection
 @push('scripts')

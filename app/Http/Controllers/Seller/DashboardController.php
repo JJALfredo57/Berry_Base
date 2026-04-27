@@ -39,9 +39,10 @@ class DashboardController extends Controller
             $stats = ['pending'=>0,'confirmed'=>0,'preparing'=>0,'total'=>0,'revenue'=>0,'products'=>0];
         }
 
-        // Commission disabled for now (platform not yet collecting)
-        $commission = 0;
-        $netRevenue = $stats['revenue'];
+        $commissionEnabled = (bool)($shop->commission_enabled ?? 1);
+        $commissionRate    = $commissionEnabled ? (float)($shop->commission_rate ?? 0) : 0;
+        $commission        = round($stats['revenue'] * $commissionRate / 100, 2);
+        $netRevenue        = $stats['revenue'] - $commission;
 
         // Recent orders
         try {

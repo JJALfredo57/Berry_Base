@@ -9,6 +9,20 @@ use Illuminate\Support\Facades\DB;
 
 class SellerController extends Controller
 {
+    private function validateCommissionRate(Request $request): float
+    {
+        $validated = $request->validate([
+            'commission_rate' => 'required|numeric|min:0|max:100',
+        ], [
+            'commission_rate.required' => 'Commission rate is required.',
+            'commission_rate.numeric'  => 'Commission rate must be a valid number.',
+            'commission_rate.min'      => 'Commission rate cannot be below 0%.',
+            'commission_rate.max'      => 'Commission rate cannot exceed 100%.',
+        ]);
+
+        return round((float) $validated['commission_rate'], 2);
+    }
+
     public function index()
     {
         $applications = DB::table('shops as s')
@@ -75,7 +89,7 @@ class SellerController extends Controller
     public function reject(Request $request, string $shopId)
     {
         $request->validate([
-            'rejected_reason' => 'required|string|min:10|max:500',
+            'reason' => 'required|string|min:10|max:500',
         ],[
             'reason.required' => 'Please provide a reason for rejection.',
             'reason.min'      => 'Reason must be at least 10 characters.',
@@ -84,7 +98,7 @@ class SellerController extends Controller
         $shop = DB::table('shops')->where('id',$shopId)->first();
         if (!$shop) return back()->with('err','Shop not found.');
 
-        $rejectedReason = trim($request->input('rejected_reason', ''));
+        $rejectedReason = trim($request->input('reason', ''));
 
         DB::table('shops')->where('id',$shopId)->update([
             'status'          => 'rejected',
@@ -122,5 +136,68 @@ class SellerController extends Controller
         $action = $newStatus === 'suspended' ? 'Suspend Seller' : 'Reactivate Seller';
         CakeshopHelper::logActivity(session('user')['id'],'admin',$action,"Shop: {$shop->shop_name}");
         return back()->with('msg',"Shop {$newStatus}.");
+    }
+
+    public function toggleCommission(string $shopId)
+    {
+        $shop = DB::table('shops')->where('id',$shopId)->first();
+        if (!$shop) return back()->with('err','Shop not found.');
+        if (!in_array($shop->status, ['approved', 'suspended'], true)) {
+            return back()->with('err','Commission can only be changed for approved or suspended sellers.');
+        }
+
+        $newVal = $shop->commission_enabled ? 0 : 1;
+        DB::table('shops')->where('id',$shopId)->update(['commission_enabled' => $newVal]);
+
+        $label = $newVal ? 'enabled' : 'disabled';
+        CakeshopHelper::logActivity(session('user')['id'],'admin','Toggle Commission',"Shop: {$shop->shop_name} — commission {$label}");
+        return back()->with('msg',"Commission {$label} for {$shop->shop_name}.");
+    }
+
+    public function bulkCommission(Request $request)
+    {
+        $action = $request->input('action'); // 'enable' or 'disable'
+        if (!in_array($action, ['enable','disable'])) return back()->with('err','Invalid action.');
+
+        $val = $action === 'enable' ? 1 : 0;
+        DB::table('shops')->whereIn('status',['approved','suspended'])->update(['commission_enabled' => $val]);
+
+        $label = $action === 'enable' ? 'enabled' : 'disabled';
+        CakeshopHelper::logActivity(session('user')['id'],'admin','Bulk Commission',"Commission {$label} for all approved and suspended sellers");
+        return back()->with('msg',"Commission {$label} for all approved and suspended sellers.");
+    }
+
+    public function updateCommissionRate(Request $request, string $shopId)
+    {
+        $shop = DB::table('shops')->where('id', $shopId)->first();
+        if (!$shop) return back()->with('err', 'Shop not found.');
+        if (!in_array($shop->status, ['approved', 'suspended'], true)) {
+            return back()->with('err', 'Commission rate can only be changed for approved or suspended sellers.');
+        }
+
+        $rate = $this->validateCommissionRate($request);
+
+        DB::table('shops')->where('id', $shopId)->update([
+            'commission_rate' => $rate,
+            'updated_at'      => now(),
+        ]);
+
+        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Update Commission Rate', "Shop: {$shop->shop_name} - {$rate}%");
+        return back()->with('msg', "Commission rate updated to {$rate}% for {$shop->shop_name}.");
+    }
+
+    public function bulkCommissionRate(Request $request)
+    {
+        $rate = $this->validateCommissionRate($request);
+
+        DB::table('shops')
+            ->whereIn('status', ['approved', 'suspended'])
+            ->update([
+                'commission_rate' => $rate,
+                'updated_at'      => now(),
+            ]);
+
+        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Bulk Commission Rate', "Commission rate set to {$rate}% for all approved and suspended sellers");
+        return back()->with('msg', "Commission rate set to {$rate}% for all approved and suspended sellers.");
     }
 }

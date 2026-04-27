@@ -142,8 +142,9 @@ class PlatformController extends Controller
         $avgRating    = $reviews->avg('rating');
         $reviewCount  = $reviews->count();
 
-        $platform = DB::table('platform_settings')->first();
+        $platform   = DB::table('platform_settings')->first();
+        $shopSettings = DB::table('site_settings')->where('shop_id', $shop->id)->first();
 
-        return view('platform.shop', compact('shop', 'products', 'productSizes', 'productRatings', 'productReviews', 'reviews', 'avgRating', 'reviewCount', 'platform'));
+        return view('platform.shop', compact('shop', 'products', 'productSizes', 'productRatings', 'productReviews', 'reviews', 'avgRating', 'reviewCount', 'platform', 'shopSettings'));
     }
 }

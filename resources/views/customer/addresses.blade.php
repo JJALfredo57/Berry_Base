@@ -93,10 +93,7 @@ async function reverseGeocode(lat, lng) {
   const indicator = document.getElementById('addressLoading');
   if (indicator) indicator.style.display = 'inline';
   try {
-    const res  = await fetch(
-      'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=' + lng + '&addressdetails=1',
-      { headers: { 'Accept-Language': 'en', 'User-Agent': 'CakeshopApp/1.0' } }
-    );
+    const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
     const data = await res.json();
     if (data && data.display_name) {
       const a     = data.address || {};

@@ -1,5 +1,9 @@
 @extends('layouts.app')
 @section('content')
+@php
+  $isSeller   = (session('user')['role'] ?? '') === 'seller';
+  $routePrefix = $isSeller ? 'seller.' : 'admin.';
+@endphp
 <div class="page-header">
   <h4 class="page-title"><i class="bi bi-palette me-2" style="color:var(--primary)"></i>Custom Orders</h4>
   <p class="page-subtitle">Review, approve, and manage customer custom cake requests.</p>
@@ -7,6 +11,20 @@
 
 @if(session('msg'))<div class="alert alert-success border-0 py-2 mb-3">{{ session('msg') }}</div>@endif
 @if(session('err'))<div class="alert alert-danger border-0 py-2 mb-3">{{ session('err') }}</div>@endif
+
+{{-- Search + Filter Bar --}}
+<div class="d-flex gap-2 flex-wrap align-items-center mb-3">
+  <div class="cs-search-bar" style="max-width:260px;flex:1">
+    <input type="text" class="form-control form-control-sm" placeholder="Search cake name, customer…"
+           value="{{ $search ?? '' }}" oninput="pgSearch(this.value)">
+  </div>
+  @foreach(['All'=>'All','pending'=>'Pending Review','approved'=>'Approved','rejected'=>'Rejected'] as $val=>$lbl)
+  @php $isActive = ($status??'All') === $val; @endphp
+  <a href="{{ url()->current() }}?status={{ $val }}&search={{ urlencode($search??'') }}"
+     class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }}">{{ $lbl }}</a>
+  @endforeach
+  <span class="text-muted small ms-auto">{{ $customOrders->total() }} total</span>
+</div>
 
 @forelse($customOrders as $co)
 @php
@@ -58,7 +76,7 @@
           Custom Order #{{ $co->id }}
         </span>
         @if($co->order_id)
-        <a href="{{ route('admin.messages.thread', $co->order_id) }}" class="btn btn-outline-primary btn-sm">
+        <a href="{{ route($routePrefix.'messages.thread', $co->order_id) }}" class="btn btn-outline-primary btn-sm">
           <i class="bi bi-chat-dots me-1"></i>Message
         </a>
         @endif
@@ -214,7 +232,7 @@
             {{-- Approve Form --}}
             <div class="p-3 rounded-3" style="border:2px solid #22c55e;background:#f0fdf4">
               <div class="fw-semibold mb-3" style="color:#16a34a"><i class="bi bi-check-circle me-1"></i>Approve this Order</div>
-              <form action="{{ route('admin.custom_orders.approve', $co->id) }}" method="POST">
+              <form action="{{ route($routePrefix.'custom_orders.approve', $co->id) }}" method="POST">
                 @csrf
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">
@@ -255,7 +273,7 @@
             {{-- Reject Form --}}
             <div class="p-3 rounded-3" style="border:2px solid #ef4444;background:#fef2f2">
               <div class="fw-semibold mb-3" style="color:#dc2626"><i class="bi bi-x-circle me-1"></i>Reject this Order</div>
-              <form action="{{ route('admin.custom_orders.reject', $co->id) }}" method="POST">
+              <form action="{{ route($routePrefix.'custom_orders.reject', $co->id) }}" method="POST">
                 @csrf
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">Reason for Rejection <span class="text-danger">*</span></label>
@@ -284,7 +302,7 @@
             <div class="fw-semibold mb-3" style="color:var(--primary)">
               <i class="bi bi-camera me-1"></i>Send Progress Photo to Customer
             </div>
-            <form action="{{ route('admin.custom_orders.progress', $co->id) }}" method="POST" enctype="multipart/form-data">
+            <form action="{{ route($routePrefix.'custom_orders.progress', $co->id) }}" method="POST" enctype="multipart/form-data">
               @csrf
 
               {{-- Image preview --}}
@@ -355,9 +373,11 @@
 @empty
 <div class="card text-center py-5">
   <i class="bi bi-palette" style="font-size:3rem;color:#ddd"></i>
-  <p class="text-muted mt-3">No custom orders yet.</p>
+  <p class="text-muted mt-3">No custom orders found.</p>
 </div>
 @endforelse
+
+{{ $customOrders->links('vendor.pagination.custom') }}
 
 @push('scripts')
 <script>

@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
+use App\Helpers\CakeshopHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -14,6 +15,15 @@ class CatalogController extends Controller
             ->select('products.*', 'shops.shop_name', 'shops.shop_slug', 'shops.shop_logo')
             ->orderByDesc('products.id')
             ->get();
+
+        $discountMap = CakeshopHelper::getActiveDiscountMap($products->pluck('id')->toArray());
+        foreach ($products as $product) {
+            $product->active_discount = $discountMap[$product->id] ?? null;
+            $product->discount_snapshot = CakeshopHelper::calculateDiscountSnapshot(
+                (float) $product->price,
+                $product->active_discount
+            );
+        }
 
         // Load sizes per product
         $productSizes = [];
@@ -90,10 +100,16 @@ class CatalogController extends Controller
 
     public function order(Request $request)
     {
+        $parts = [];
+        if ($d = trim($request->input('dedication', '')))   $parts[] = 'Dedication: "' . $d . '"';
+        if ($c = trim($request->input('color_theme', '')))  $parts[] = 'Color/Theme: ' . $c;
+        if ($s = trim($request->input('special_note', ''))) $parts[] = 'Notes: ' . $s;
+        if ($n = trim($request->input('custom_note', '')))  $parts[] = $n;
+
         $request->session()->put('checkout', [
-            'product_id'    => (int) $request->input('product_id'),
+            'product_id'    => $request->input('product_id'),
             'quantity'      => max(1, (int) $request->input('quantity', 1)),
-            'custom_note'   => trim($request->input('custom_note', '')),
+            'custom_note'   => implode(' | ', $parts),
             'selected_size' => trim($request->input('selected_size', '')),
         ]);
         return redirect()->route('customer.checkout');

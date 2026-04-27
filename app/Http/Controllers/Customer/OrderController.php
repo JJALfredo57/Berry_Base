@@ -7,60 +7,49 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $uid = session('user')['id'];
+        $uid    = session('user')['id'];
+        $search = trim($request->input('search', ''));
+        $status = $request->input('status', 'All');
+
         $orders = DB::table('orders as o')
             ->join('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.user_id', $uid)
             ->select('o.*', 'p.name as product_name', 'p.image_path')
+            ->when($search, fn($q) => $q->where(fn($sq) => $sq
+                ->where('o.id', 'like', "%$search%")
+                ->orWhere('p.name', 'like', "%$search%")
+            ))
+            ->when($status && $status !== 'All', fn($q) => $q->where('o.status', $status))
             ->orderByDesc('o.id')
-            ->get();
+            ->paginate(10)
+            ->withQueryString();
 
-        $orderIds = $orders->pluck('id')->toArray();
+        $orderIds = collect($orders->items())->pluck('id')->toArray();
         $tracking = [];
         $orderAddons = [];
         $orderReviews = [];
-        $customOrderData = []; // custom_orders keyed by order_id
+        $customOrderData = [];
 
         if ($orderIds) {
-            // Tracking
-            $rows = DB::table('order_tracking')
-                ->whereIn('order_id', $orderIds)
-                ->orderBy('created_at')->get();
-            foreach ($rows as $t) {
-                $tracking[$t->order_id][] = $t;
-            }
-            // Add-ons per order
+            $rows = DB::table('order_tracking')->whereIn('order_id', $orderIds)->orderBy('created_at')->get();
+            foreach ($rows as $t) $tracking[$t->order_id][] = $t;
             try {
-                $addonRows = DB::table('order_addons')
-                    ->whereIn('order_id', $orderIds)
-                    ->orderBy('id')->get();
-                foreach ($addonRows as $a) {
-                    $orderAddons[$a->order_id][] = $a;
-                }
+                $addonRows = DB::table('order_addons')->whereIn('order_id', $orderIds)->orderBy('id')->get();
+                foreach ($addonRows as $a) $orderAddons[$a->order_id][] = $a;
             } catch (\Exception $e) {}
-
-            // Reviews per order
             try {
-                $reviewRows = DB::table('order_reviews')
-                    ->whereIn('order_id', $orderIds)->get();
-                foreach ($reviewRows as $r) {
-                    $orderReviews[$r->order_id] = $r;
-                }
+                $reviewRows = DB::table('order_reviews')->whereIn('order_id', $orderIds)->get();
+                foreach ($reviewRows as $r) $orderReviews[$r->order_id] = $r;
             } catch (\Exception $e) {}
-
-            // Custom order details
             try {
-                $coRows = DB::table('custom_orders')
-                    ->whereIn('order_id', $orderIds)->get();
-                foreach ($coRows as $co) {
-                    $customOrderData[$co->order_id] = $co;
-                }
+                $coRows = DB::table('custom_orders')->whereIn('order_id', $orderIds)->get();
+                foreach ($coRows as $co) $customOrderData[$co->order_id] = $co;
             } catch (\Exception $e) {}
         }
 
-        return view('customer.orders', compact('orders','tracking','orderAddons','orderReviews','customOrderData'));
+        return view('customer.orders', compact('orders','tracking','orderAddons','orderReviews','customOrderData','search','status'));
     }
 
     public function requestCancel(Request $request, string $id)
@@ -72,6 +61,12 @@ class OrderController extends Controller
 
         $order = DB::table('orders')->where('id', $id)->where('user_id', $uid)->first();
         if (!$order) return back()->with('error', 'Order not found.');
+
+        $hasPaidDeposit = ($order->deposit_status ?? null) === 'paid'
+            || in_array(($order->payment_status ?? ''), ['Partial Payment', 'Paid'], true);
+        if ($hasPaidDeposit) {
+            return back()->with('error', 'Cannot cancel this order because your deposit has already been paid.');
+        }
 
         $notAllowed = ['Preparing','Out for Delivery','Delivered','Cancelled'];
         if (in_array($order->status, $notAllowed)) {
@@ -254,7 +249,7 @@ class OrderController extends Controller
         $schedInfo   = $order->schedule_date
             ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) : '';
         $payInfo     = $order->payment_method === 'COD'
-            ? "COD — Deposit ₱{$order->deposit_amount} acknowledged"
+            ? CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null) . " — Deposit ₱{$order->deposit_amount} acknowledged"
             : "GCash Deposit ₱{$order->deposit_amount} ✓ Paid";
 
         DB::table('kitchen_tickets')->where('order_id', $co->order_id)->delete();

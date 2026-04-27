@@ -8,8 +8,11 @@ use Illuminate\Support\Facades\DB;
 
 class CustomOrderController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $search = trim($request->input('search', ''));
+        $status = $request->input('status', 'All');
+
         $customOrders = DB::table('custom_orders as co')
             ->leftJoin('users as u', 'u.id', '=', 'co.user_id')
             ->leftJoin('orders as o', 'o.id', '=', 'co.order_id')
@@ -24,11 +27,17 @@ class CustomOrderController extends Controller
                 'o.fulfillment_type', 'o.schedule_date', 'o.schedule_time',
                 'o.payment_method', 'o.payment_status', 'o.address'
             )
+            ->when($search, fn($q) => $q->where(fn($sq) => $sq
+                ->where('co.cake_name', 'like', "%$search%")
+                ->orWhereRaw("COALESCE(o.guest_name, u.fullname) like ?", ["%$search%"])
+                ->orWhere('co.order_id', 'like', "%$search%")
+            ))
+            ->when($status && $status !== 'All', fn($q) => $q->where('co.review_status', $status))
             ->orderByDesc('co.id')
-            ->get();
+            ->paginate(10)
+            ->withQueryString();
 
-        // Load addons per order
-        $orderIds = $customOrders->pluck('order_id')->filter()->values()->toArray();
+        $orderIds = collect($customOrders->items())->pluck('order_id')->filter()->values()->toArray();
         $orderAddons = [];
         if ($orderIds) {
             try {
@@ -37,9 +46,9 @@ class CustomOrderController extends Controller
             } catch (\Exception $e) {}
         }
 
-        $pendingCount = $customOrders->where('review_status', 'pending')->count();
+        $pendingCount = DB::table('custom_orders')->where('review_status', 'pending')->count();
 
-        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount'));
+        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'search', 'status'));
     }
 
     public function approve(Request $request, string $id)

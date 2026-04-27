@@ -8,10 +8,19 @@ use Illuminate\Support\Facades\DB;
 
 class RiderController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $riders = DB::table('riders')->orderBy('name')->get();
-        $riderIds = $riders->pluck('id')->toArray();
+        $search = trim($request->input('search', ''));
+        $riders = DB::table('riders')
+            ->when($search, fn($q) => $q->where(fn($sq) => $sq
+                ->where('name', 'like', "%$search%")
+                ->orWhere('phone', 'like', "%$search%")
+                ->orWhere('vehicle_type', 'like', "%$search%")
+            ))
+            ->orderBy('name')
+            ->paginate(10)
+            ->withQueryString();
+        $riderIds = collect($riders->items())->pluck('id')->toArray();
         $incidents = []; $deliveries = [];
         if ($riderIds) {
             foreach (DB::table('orders')->whereIn('rider_id',$riderIds)->whereNotNull('issue_type')
@@ -21,7 +30,7 @@ class RiderController extends Controller
                 ->select('rider_id',DB::raw('count(*) as cnt'))->groupBy('rider_id')->get() as $d)
                 $deliveries[$d->rider_id] = $d->cnt;
         }
-        return view('admin.riders', compact('riders','incidents','deliveries'));
+        return view('admin.riders', compact('riders','incidents','deliveries','search'));
     }
 
     public function store(Request $request)

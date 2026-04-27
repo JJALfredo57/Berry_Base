@@ -19,6 +19,11 @@
   {{-- Status Badge --}}
   @php
     $isPickup = $order->fulfillment_type === 'Pickup';
+    $hasDepositLock = ($order->deposit_status ?? null) === 'paid' || in_array(($order->payment_status ?? ''), ['Partial Payment', 'Paid']);
+    $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Confirmed']) && !$hasDepositLock;
+    $hasPendingCancel = ($order->cancel_requested ?? 0) && ($order->cancel_status ?? '') === 'pending';
+    $cancelApproved = ($order->cancel_status ?? '') === 'accepted';
+    $cancelRejected = ($order->cancel_status ?? '') === 'rejected';
     $statusColors = [
       'Pending'          => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split'],
       'Pending Review'   => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split'],
@@ -58,6 +63,26 @@
     </div>
     @endif
   </div>
+
+  @if($hasPendingCancel)
+  <div class="alert border-0 mb-4" style="background:#fff3cd;color:#854d0e">
+    <i class="bi bi-hourglass-split me-2"></i>Cancellation request pending. Waiting for admin approval.
+  </div>
+  @elseif($cancelApproved)
+  <div class="alert border-0 mb-4" style="background:#dcfce7;color:#166534">
+    <i class="bi bi-check-circle me-2"></i>Cancellation request approved.
+    @if($order->cancel_admin_note) {{ $order->cancel_admin_note }} @endif
+  </div>
+  @elseif($cancelRejected)
+  <div class="alert border-0 mb-4" style="background:#fee2e2;color:#991b1b">
+    <i class="bi bi-x-circle me-2"></i>Cancellation request rejected.
+    @if($order->cancel_admin_note) Reason: {{ $order->cancel_admin_note }} @endif
+  </div>
+  @elseif($hasDepositLock && $order->status !== 'Cancelled')
+  <div class="alert border-0 mb-4" style="background:#eff6ff;color:#1d4ed8">
+    <i class="bi bi-shield-lock me-2"></i>Cancellation locked because the deposit has already been paid.
+  </div>
+  @endif
 
   {{-- Progress Bar (non-cancelled) --}}
   @if($order->status !== 'Cancelled')
@@ -120,6 +145,14 @@
           <div class="text-muted small">Qty: {{ $order->quantity }}
             @if($order->selected_size) &bull; {{ $order->selected_size }} @endif
           </div>
+          @if(!empty($order->discount_type) && (float)($order->discount_amount ?? 0) > 0)
+            <div class="small mt-1" style="color:#c2410c">
+              <i class="bi bi-tags me-1"></i>{{ \App\Helpers\CakeshopHelper::discountBadgeText($order->discount_type, $order->discount_value) ?? 'Product Discount' }}
+              @if(!empty($order->discount_label))
+                <span class="text-muted">({{ $order->discount_label }})</span>
+              @endif
+            </div>
+          @endif
           @if($order->custom_note)
             <div class="small text-muted mt-1"><i class="bi bi-chat-left-text me-1"></i>{{ $order->custom_note }}</div>
           @endif
@@ -166,7 +199,7 @@
         <div class="col-sm-6">
           <div class="p-2 rounded-2" style="background:#f8f9fa">
             <div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Payment</div>
-            <div class="fw-semibold">{{ $order->payment_method }}
+            <div class="fw-semibold">{{ \App\Helpers\CakeshopHelper::displayPaymentMethod($order->payment_method, $order->fulfillment_type) }}
               <span class="badge ms-1 {{ $order->payment_status === 'Paid' ? 'bg-success' : ($order->payment_status === 'Partial Payment' ? 'bg-primary' : 'bg-warning text-dark') }}">
                 {{ $order->payment_status }}
               </span>
@@ -334,6 +367,35 @@
       </div>
     </div>
   </div>
+
+  @if($canRequestCancel && !$hasPendingCancel && !$cancelApproved)
+  <div class="card mb-3">
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-3"><i class="bi bi-x-circle me-2" style="color:#dc2626"></i>Request Cancellation</h6>
+      <div class="small text-muted mb-3">
+        You may still request cancellation because no paid deposit has been recorded for this order.
+      </div>
+      <form action="{{ route('guest.cancel_request', $order->track_code) }}" method="POST">
+        @csrf
+        <div class="mb-3">
+          <label class="form-label fw-semibold small">Reason for Cancellation <span class="text-danger">*</span></label>
+          <textarea class="form-control" name="cancel_reason" rows="3" required placeholder="Please explain why you want to cancel this order."></textarea>
+        </div>
+        <button type="submit"
+                class="btn btn-outline-danger"
+                data-cs-confirm="Submit a cancellation request for this order?"
+                data-cs-title="Request Cancellation"
+                data-cs-ok="Submit Request"
+                data-cs-ok-color="#dc2626"
+                data-cs-icon="bi-x-octagon"
+                data-cs-icon-bg="#fee2e2"
+                data-cs-icon-color="#dc2626">
+          <i class="bi bi-send me-1"></i>Submit Cancel Request
+        </button>
+      </form>
+    </div>
+  </div>
+  @endif
 
   {{-- Custom Order Info --}}
   @if($customOrder)

@@ -98,6 +98,18 @@
     /* ── Spinner ─────────────── */
     .spin { width: clamp(18px, 4.5vw, 24px); height: clamp(18px, 4.5vw, 24px); border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: sp .7s linear infinite; display: inline-block; }
     @keyframes sp { to { transform: rotate(360deg); } }
+
+    /* ── Confirm sheet ───────── */
+    .rc-overlay { position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .22s; }
+    .rc-overlay.open { opacity:1;pointer-events:all; }
+    .rc-sheet { background:#fff;width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:clamp(20px,5vw,28px) clamp(20px,5vw,28px) clamp(24px,6vw,32px);transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1); }
+    .rc-overlay.open .rc-sheet { transform:translateY(0); }
+    .rc-icon { width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin:0 auto 14px; }
+    .rc-title { font-size:clamp(16px,4.5vw,20px);font-weight:800;color:#111;text-align:center;margin-bottom:6px; }
+    .rc-msg { font-size:clamp(13px,3.5vw,16px);color:#6b7280;text-align:center;line-height:1.5;margin-bottom:22px; }
+    .rc-btns { display:flex;flex-direction:column;gap:10px; }
+    .rc-ok { width:100%;padding:clamp(14px,4vw,18px);border:none;border-radius:13px;font-size:clamp(15px,4vw,18px);font-weight:700;color:#fff;cursor:pointer; }
+    .rc-cancel { width:100%;padding:clamp(12px,3.5vw,15px);border:none;border-radius:13px;font-size:clamp(13px,3.5vw,16px);font-weight:600;color:#6b7280;background:#f3f4f6;cursor:pointer; }
   </style>
 </head>
 <body>
@@ -150,17 +162,18 @@
   </div>
   @endif
 
-  @if($order->address)
+  @php $deliveryAddr = $order->delivery_address ?? $order->address ?? null; @endphp
+  @if($deliveryAddr)
   <div class="row">
     <div class="row-icon" style="background:#eff6ff">📍</div>
     <div class="row-body">
       <div class="row-label">Delivery Address</div>
-      <div class="row-value">{{ $order->address }}</div>
-      @if($order->latitude && $order->longitude)
+      <div class="row-value">{{ $deliveryAddr }}</div>
+      @if(($order->latitude ?? null) && ($order->longitude ?? null))
       <a href="https://www.google.com/maps/dir/?api=1&destination={{ $order->latitude }},{{ $order->longitude }}&travelmode=driving"
          target="_blank" class="row-link">🗺️ Get Directions →</a>
       @else
-      <a href="https://www.google.com/maps/dir/?api=1&destination={{ urlencode($order->address) }}&travelmode=driving"
+      <a href="https://www.google.com/maps/dir/?api=1&destination={{ urlencode($deliveryAddr) }}&travelmode=driving"
          target="_blank" class="row-link">🗺️ Get Directions →</a>
       @endif
     </div>
@@ -301,9 +314,39 @@
 
 @endif
 
+{{-- Confirm bottom-sheet --}}
+<div class="rc-overlay" id="rcOverlay" onclick="rcClose(event)">
+  <div class="rc-sheet">
+    <div class="rc-icon" id="rcIcon"></div>
+    <div class="rc-title" id="rcTitle"></div>
+    <div class="rc-msg"   id="rcMsg"></div>
+    <div class="rc-btns">
+      <button class="rc-ok"     id="rcOk"></button>
+      <button class="rc-cancel" id="rcCancel" onclick="rcDismiss()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const ORDER_ID = '{{ $order->id }}', TOKEN = '{{ $order->rider_token }}';
-let selectedIssue = null;
+let selectedIssue = null, _rcCb = null;
+
+function rcOpen({ icon, iconBg, title, message, okLabel, okColor, onConfirm }) {
+  document.getElementById('rcIcon').style.background = iconBg || '#dcfce7';
+  document.getElementById('rcIcon').textContent = icon || '✅';
+  document.getElementById('rcTitle').textContent = title || 'Are you sure?';
+  document.getElementById('rcMsg').textContent = message || '';
+  const ok = document.getElementById('rcOk');
+  ok.textContent = okLabel || 'Confirm';
+  ok.style.background = okColor || '#16a34a';
+  _rcCb = onConfirm || null;
+  ok.onclick = function() { rcDismiss(); if (_rcCb) _rcCb(); };
+  document.getElementById('rcOverlay').classList.add('open');
+}
+function rcDismiss() { document.getElementById('rcOverlay').classList.remove('open'); }
+function rcClose(e) { if (e.target === document.getElementById('rcOverlay')) rcDismiss(); }
+
+function cakeConfirm(opts) { rcOpen(opts); }
 
 function previewPhoto(input, imgId, lblId) {
   if (input.files && input.files[0]) {
@@ -332,15 +375,14 @@ function hide() {
   document.querySelectorAll('.section,.pay-banner,.pay-cod,.pay-ok,.pay-gcash').forEach(el => el.style.display = 'none');
 }
 function confirmDeliver() {
-  cakeConfirm({
-    title:'Mark as Delivered?',
-    message:'Mark Order #' + ORDER_ID + ' as DELIVERED?',
-    icon:'bi-check-circle',
-    iconBg:'#dcfce7',
-    iconColor:'#16a34a',
-    okLabel:'Mark Delivered',
-    okColor:'#16a34a',
-    onConfirm:function() {
+  rcOpen({
+    icon: '✅',
+    iconBg: '#dcfce7',
+    title: 'Mark as Delivered?',
+    message: 'Confirm Order #' + ORDER_ID + ' as delivered to the customer.',
+    okLabel: 'Mark Delivered',
+    okColor: '#16a34a',
+    onConfirm: function() {
       doFetch('/rider/' + ORDER_ID + '/' + TOKEN + '/delivered', {
         note: document.getElementById('deliveryNote').value,
         photo: document.getElementById('deliveryPhoto').files[0],

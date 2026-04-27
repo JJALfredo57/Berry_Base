@@ -44,7 +44,24 @@ class CheckoutController extends Controller
         $shopSettings = \Illuminate\Support\Facades\DB::table('site_settings')->first();
         $shopLat = $shopSettings->shop_lat ?? 15.8107127;
         $shopLng = $shopSettings->shop_lng ?? 120.4716710;
-        return view('guest.checkout', compact('product','checkout','sizes','deliveryZones','defaultAddr','shopLat','shopLng'));
+        $selectedSize = trim((string) ($checkout['selected_size'] ?? ''));
+        $originalUnitPrice = CakeshopHelper::resolveProductUnitPrice($product->id, (float) $product->price, $selectedSize);
+        $discount = CakeshopHelper::getActiveProductDiscount($product->id);
+        $pricing = CakeshopHelper::calculateDiscountSnapshot($originalUnitPrice, $discount);
+        $addonCategories  = collect();
+        $addonsByCategory = collect();
+        try {
+            $addonCategories = DB::table('cake_addon_categories')
+                ->where('is_active', 1)->orderBy('sort_order')->get();
+            $addonsByCategory = DB::table('cake_addons as a')
+                ->join('cake_addon_categories as c', 'c.id', '=', 'a.category_id')
+                ->where('a.is_active', 1)->where('c.is_active', 1)
+                ->select('a.*', 'c.name as category_name', 'c.icon as category_icon')
+                ->orderBy('a.category_id')->orderBy('a.sort_order')
+                ->get()->groupBy('category_id');
+        } catch (\Exception $e) {}
+
+        return view('guest.checkout', compact('product','checkout','sizes','deliveryZones','defaultAddr','shopLat','shopLng','pricing','addonCategories','addonsByCategory'));
     }
 
     public function sendOtp(Request $request)
@@ -154,14 +171,9 @@ class CheckoutController extends Controller
             } catch (\Exception $e) {}
         }
 
-        $sizePrice = (float)$product->price;
-        if ($selectedSize) {
-            try {
-                $sz = DB::table('product_sizes')->where('product_id',$pid)
-                    ->where('label',$selectedSize)->where('is_active',1)->first();
-                if ($sz) $sizePrice = (float)$sz->price;
-            } catch (\Exception $e) {}
-        }
+        $sizePrice = CakeshopHelper::resolveProductUnitPrice($product->id, (float) $product->price, $selectedSize);
+        $discount = CakeshopHelper::getActiveProductDiscount($product->id);
+        $pricing = CakeshopHelper::calculateDiscountSnapshot($sizePrice, $discount);
 
         // ── SHOP-WIDE DAILY CAPACITY CHECK ───────────────────────────────────
         if ($sdate) {
@@ -196,7 +208,19 @@ class CheckoutController extends Controller
             }
         }
 
-        $total     = ($sizePrice * $qty) + ($fulfillment === 'Delivery' ? $deliveryFee + $serviceCharge : 0);
+        // Add-ons
+        $selectedAddonIds = array_filter(array_map('intval', $request->input('addons', [])));
+        $addonTotal  = 0;
+        $validAddons = [];
+        if (!empty($selectedAddonIds)) {
+            $addons = DB::table('cake_addons')->whereIn('id', $selectedAddonIds)->where('is_active', 1)->get();
+            foreach ($addons as $addon) {
+                $addonTotal += (float) $addon->price;
+                $validAddons[] = $addon;
+            }
+        }
+
+        $total     = ($pricing['final_unit_price'] * $qty) + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee + $serviceCharge : 0);
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $request->session()->get('guest_pre_track') ?: $this->generateTrackCode();
 
@@ -218,6 +242,12 @@ class CheckoutController extends Controller
             'service_charge'      => $serviceCharge,
             'selected_size'       => $selectedSize ?: null,
             'selected_size_price' => $sizePrice,
+            'original_unit_price' => $pricing['original_unit_price'],
+            'discount_label'      => $pricing['discount_label'],
+            'discount_type'       => $pricing['discount_type'],
+            'discount_value'      => $pricing['discount_value'],
+            'discount_amount'     => $pricing['discount_amount'],
+            'final_unit_price'    => $pricing['final_unit_price'],
             'delivery_address'    => $address ?? '',
             'schedule_date'       => $sdate,
             'schedule_time'       => $stime,
@@ -225,6 +255,16 @@ class CheckoutController extends Controller
             'payment_status'      => 'Unpaid',
             'created_at'          => now(),
         ]);
+
+        foreach ($validAddons as $addon) {
+            DB::table('order_addons')->insert([
+                'order_id'    => $oid,
+                'addon_id'    => $addon->id,
+                'addon_name'  => $addon->name,
+                'addon_price' => $addon->price,
+                'created_at'  => now(),
+            ]);
+        }
 
         DB::table('order_tracking')->insert([
             'order_id'   => $oid, 'status' => 'Pending',
