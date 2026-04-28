@@ -154,37 +154,6 @@
         @error('valid_id')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
       </div>
 
-      {{-- DTI (only for verified) --}}
-      @if(session('seller_apply.tier') === 'verified')
-      <div style="margin-bottom:1.25rem">
-        <label class="form-label" for="dti_certificate">
-          DTI Certificate or Business Permit <span style="color:var(--danger)">*</span>
-        </label>
-        <div style="background:var(--info-bg);border-radius:var(--radius-md);padding:.875rem;margin-bottom:.875rem;font-size:.82rem;color:var(--info);display:flex;align-items:flex-start;gap:.6rem">
-          <i class="bi bi-info-circle-fill flex-shrink-0" style="margin-top:.1rem"></i>
-          <span>Your document will be automatically scanned using OCR. Our admin team will then manually verify it against the DTI BNRS portal before approving your application.</span>
-        </div>
-        <div id="dtiDropZone" style="border:2px dashed var(--gray-300);border-radius:var(--radius-md);padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--gray-50)"
-             onclick="document.getElementById('dti_certificate').click()"
-             ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
-             ondragleave="this.style.borderColor='var(--gray-300)'"
-             ondrop="handleDrop(event,'dti_certificate','dtiPreview','dtiDropZone')">
-          <div id="dtiPreview" style="display:none;margin-bottom:.75rem">
-            <img id="dtiPreviewImg" style="max-height:120px;border-radius:var(--radius-sm);object-fit:cover">
-            <div id="dtiFileName" style="font-size:.78rem;color:var(--gray-500);margin-top:.4rem"></div>
-          </div>
-          <i class="bi bi-cloud-upload" style="font-size:1.8rem;color:var(--gray-400);display:block;margin-bottom:.5rem" id="dtiIcon"></i>
-          <div style="font-size:.85rem;font-weight:600;color:var(--gray-700)" id="dtiText">Click or drag to upload DTI Certificate</div>
-          <div style="font-size:.75rem;color:var(--gray-400);margin-top:.25rem">JPG, PNG, or PDF. Max 5MB.</div>
-        </div>
-        <input type="file" id="dti_certificate" name="dti_certificate" accept=".jpg,.jpeg,.png,.pdf"
-               required class="d-none"
-               onchange="previewFile(this,'dtiPreview','dtiPreviewImg','dtiFileName','dtiIcon','dtiText')"
-               oninvalid="this.setCustomValidity('Please upload your DTI certificate or business permit')">
-        @error('dti_certificate')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-      </div>
-      @endif
-
       {{-- Shop Assets --}}
       <div class="row g-3">
         <div class="col-6">
@@ -350,10 +319,6 @@ document.getElementById('otpForm').addEventListener('submit', function(e) {
   // Check valid ID
   const validId = document.getElementById('valid_id');
   if (!validId.files || !validId.files.length) errors.push('Please upload your government-issued ID.');
-
-  // Check DTI if verified tier
-  const dtiInput = document.getElementById('dti_certificate');
-  if (dtiInput && (!dtiInput.files || !dtiInput.files.length)) errors.push('Please upload your DTI Certificate or Business Permit.');
 
   if (errors.length > 0) {
     e.preventDefault(); e.stopPropagation();

@@ -130,11 +130,6 @@ class ApplicationController extends Controller
             return redirect()->route('seller.apply')->withErrors(['phone' => 'OTP has expired. Please start over.']);
         }
 
-        // Validated tier requires DTI
-        if ($apply['tier'] === 'verified' && !$request->hasFile('dti_certificate')) {
-            return back()->withErrors(['dti_certificate' => 'DTI or Business Permit is required for Verified Seller tier.']);
-        }
-
         // Create user account
         $userId = CakeshopHelper::generateId('users');
         $username = Str::slug($apply['full_name']) . rand(10, 99);
@@ -201,9 +196,6 @@ class ApplicationController extends Controller
 
         // Upload documents
         $this->uploadDocument($request, 'valid_id', $shopId, 'valid_id', null);
-        if ($apply['tier'] === 'verified') {
-            $this->uploadDocument($request, 'dti_certificate', $shopId, 'dti', $apply['shop_name']);
-        }
 
         // Notify super admin
         $superAdmin = DB::table('users')->where('role', 'superadmin')->first();

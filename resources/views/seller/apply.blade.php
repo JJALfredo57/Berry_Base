@@ -233,7 +233,7 @@
               </div>
             </div>
             <ul style="list-style:none;padding:0;margin:0;font-size:.8rem;color:var(--gray-600)">
-              <li style="padding:.2rem 0;display:flex;align-items:center;gap:.5rem"><i class="bi bi-check" style="color:var(--success)"></i>Valid ID + DTI/Business Permit</li>
+              <li style="padding:.2rem 0;display:flex;align-items:center;gap:.5rem"><i class="bi bi-check" style="color:var(--success)"></i>Valid Government ID only</li>
               <li style="padding:.2rem 0;display:flex;align-items:center;gap:.5rem"><i class="bi bi-check" style="color:var(--success)"></i>Unlimited products</li>
               <li style="padding:.2rem 0;display:flex;align-items:center;gap:.5rem"><i class="bi bi-check" style="color:var(--success)"></i>Custom orders feature</li>
               <li style="padding:.2rem 0;display:flex;align-items:center;gap:.5rem"><i class="bi bi-check" style="color:var(--success)"></i>Verified badge on shop</li>
