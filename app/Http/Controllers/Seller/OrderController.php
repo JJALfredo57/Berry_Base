@@ -187,8 +187,10 @@ class OrderController extends Controller
         $riderSmsSent = null;
         if ($rider->phone) {
             try {
-                if (!$order->rider_token) {
-                    DB::table('orders')->where('id', $id)->update(['rider_token' => bin2hex(random_bytes(16))]);
+                $riderToken = $order->rider_token;
+                if (!$riderToken) {
+                    $riderToken = bin2hex(random_bytes(16));
+                    DB::table('orders')->where('id', $id)->update(['rider_token' => $riderToken]);
                 }
                 $siteName  = config('app.name', 'Cake Shop');
                 $shopName  = SmsHelper::getShopName($shop->id ?? null);
@@ -206,7 +208,7 @@ class OrderController extends Controller
 
                 $riderSmsSent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
                     $header, $id, $custName, $custPhone, $addr,
-                    SmsHelper::paymentLine($order), $riderPin, $rider->phone
+                    SmsHelper::paymentLine($order), $riderPin, $rider->phone, $riderToken
                 ));
                 DB::table('orders')->where('id', $id)
                     ->update(['rider_sms_sent' => $riderSmsSent ? 1 : 0]);

@@ -167,18 +167,24 @@ class SmsHelper
         string $addr,
         string $paymentInfo,
         string $pin = '',
-        string $riderPhone = ''
+        string $riderPhone = '',
+        string $token = ''
     ): string {
         $phoneLine = $custPhone ? "\nPhone: {$custPhone}" : '';
 
         $pinLine = '';
         if ($pin) {
-            // Normalize rider phone to 09xxx format
-            $rp = preg_replace('/\D/', '', $riderPhone);
-            if (str_starts_with($rp, '63')) $rp = '0' . substr($rp, 2);
-            $code = ($rp ?: '?') . '|' . $pin;
             $host = parse_url(config('app.url', ''), PHP_URL_HOST) ?: request()->getHost();
-            $pinLine = "\n\nYour delivery code:\n{$code}\nOpen {$host}, tap the menu, select Rider.";
+            if ($token) {
+                // Direct tappable link (no https:// so it passes carrier filters)
+                $pinLine = "\n\nTap to open your delivery page:\n{$host}/rider/{$orderId}/{$token}";
+            } else {
+                // Fallback: manual code entry
+                $rp = preg_replace('/\D/', '', $riderPhone);
+                if (str_starts_with($rp, '63')) $rp = '0' . substr($rp, 2);
+                $code = ($rp ?: '?') . '|' . $pin;
+                $pinLine = "\n\nYour delivery code:\n{$code}\nOpen {$host}, tap the menu, select Rider.";
+            }
         }
 
         return "{$header}\n"

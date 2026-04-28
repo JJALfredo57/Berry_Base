@@ -144,9 +144,10 @@ class KitchenController extends Controller
                 if ($order->fulfillment_type === 'Delivery' && $order->rider_id) {
                     $rider = DB::table('riders')->where('id', $order->rider_id)->first();
                     if ($rider && $rider->phone) {
-                        if (!$order->rider_token) {
-                            DB::table('orders')->where('id', $orderId)
-                                ->update(['rider_token' => bin2hex(random_bytes(16))]);
+                        $riderToken = $order->rider_token;
+                        if (!$riderToken) {
+                            $riderToken = bin2hex(random_bytes(16));
+                            DB::table('orders')->where('id', $orderId)->update(['rider_token' => $riderToken]);
                         }
                         $siteName  = config('app.name', 'Cake Shop');
                         $shopName  = SmsHelper::getShopName($order->shop_id ?? null);
@@ -165,7 +166,7 @@ class KitchenController extends Controller
 
                         $riderSmsSent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
                             $header, $orderId, $custName, $custPhone, $addr,
-                            SmsHelper::paymentLine($order), $riderPin, $rider->phone
+                            SmsHelper::paymentLine($order), $riderPin, $rider->phone, $riderToken
                         ));
                         DB::table('orders')->where('id', $orderId)
                             ->update(['rider_sms_sent' => $riderSmsSent ? 1 : 0]);
@@ -220,7 +221,7 @@ class KitchenController extends Controller
 
         $sent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
             $header, $orderId, $custName, $custPhone, $addr,
-            SmsHelper::paymentLine($order), $riderPin, $rider->phone
+            SmsHelper::paymentLine($order), $riderPin, $rider->phone, $order->rider_token ?? ''
         ));
 
         DB::table('orders')->where('id', $orderId)->update(['rider_sms_sent' => $sent ? 1 : 0]);
