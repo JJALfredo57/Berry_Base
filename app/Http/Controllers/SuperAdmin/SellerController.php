@@ -194,12 +194,16 @@ class SellerController extends Controller
             return back()->with('err', 'No pending upgrade request for this shop.');
         }
 
-        DB::table('shops')->where('id', $shopId)->update([
-            'tier'                   => 'verified',
-            'upgrade_request_status' => 'approved',
-            'upgrade_request_note'   => null,
-            'verified_at'            => now(),
-        ]);
+        try {
+            DB::table('shops')->where('id', $shopId)->update([
+                'tier'                   => 'verified',
+                'upgrade_request_status' => 'approved',
+                'upgrade_request_note'   => null,
+                'verified_at'            => now(),
+            ]);
+        } catch (\Throwable $e) {
+            return back()->with('err', 'Failed to approve upgrade. Please try again.');
+        }
 
         $seller = DB::table('users')->where('id', $shop->seller_id)->first();
         if ($seller?->phone) {
@@ -232,10 +236,14 @@ class SellerController extends Controller
         if (!$shop) return back()->with('err', 'Shop not found.');
 
         $reason = trim($request->input('reason'));
-        DB::table('shops')->where('id', $shopId)->update([
-            'upgrade_request_status' => 'rejected',
-            'upgrade_request_note'   => $reason,
-        ]);
+        try {
+            DB::table('shops')->where('id', $shopId)->update([
+                'upgrade_request_status' => 'rejected',
+                'upgrade_request_note'   => $reason,
+            ]);
+        } catch (\Throwable $e) {
+            return back()->with('err', 'Failed to reject upgrade. Please try again.');
+        }
 
         $seller = DB::table('users')->where('id', $shop->seller_id)->first();
         if ($seller?->phone) {

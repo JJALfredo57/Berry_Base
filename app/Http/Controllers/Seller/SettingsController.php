@@ -156,37 +156,50 @@ class SettingsController extends Controller
             'business_permit.max'      => 'File must not exceed 5MB.',
         ]);
 
-        $file = $request->file('business_permit');
-        $fn   = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$file->getClientOriginalExtension();
-        $file->storeAs('uploads/seller_docs', $fn, 'public');
-        $path = '/storage/uploads/seller_docs/'.$fn;
+        try {
+            $file = $request->file('business_permit');
+            $fn   = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$file->getClientOriginalExtension();
+            $file->storeAs('uploads/seller_docs', $fn, 'public');
+            $path = '/storage/uploads/seller_docs/'.$fn;
 
-        DB::table('seller_documents')->insert([
-            'shop_id'       => $shop->id,
-            'document_type' => 'upgrade_permit',
-            'file_path'     => $path,
-            'ocr_status'    => null,
-            'created_at'    => now(),
-            'updated_at'    => now(),
-        ]);
-
-        DB::table('shops')->where('id', $shop->id)->update([
-            'upgrade_request_status' => 'pending',
-            'upgrade_request_note'   => null,
-            'upgrade_requested_at'   => now(),
-        ]);
-
-        // Notify superadmin
-        $superAdmin = DB::table('users')->where('role', 'superadmin')->first();
-        if ($superAdmin) {
-            DB::table('notifications')->insert([
-                'receiver_role'    => 'superadmin',
-                'receiver_user_id' => $superAdmin->id,
-                'title'            => 'Upgrade Request: ' . $shop->shop_name,
-                'message'          => $shop->shop_name . ' is requesting to upgrade from Basic to Verified Seller.',
-                'is_read'          => 0,
-                'created_at'       => now(),
+            DB::table('seller_documents')->insert([
+                'shop_id'            => $shop->id,
+                'document_type'      => 'upgrade_permit',
+                'file_path'          => $path,
+                'ocr_text'           => null,
+                'ocr_business_name'  => null,
+                'ocr_expiry_date'    => null,
+                'ocr_is_expired'     => null,
+                'ocr_is_dti_document'=> null,
+                'ocr_name_match'     => null,
+                'ocr_status'         => null,
+                'created_at'         => now(),
+                'updated_at'         => now(),
             ]);
+
+            DB::table('shops')->where('id', $shop->id)->update([
+                'upgrade_request_status' => 'pending',
+                'upgrade_request_note'   => null,
+                'upgrade_requested_at'   => now(),
+            ]);
+
+            // Notify superadmin
+            try {
+                $superAdmin = DB::table('users')->where('role', 'superadmin')->first();
+                if ($superAdmin) {
+                    DB::table('notifications')->insert([
+                        'receiver_role'    => 'superadmin',
+                        'receiver_user_id' => $superAdmin->id,
+                        'title'            => 'Upgrade Request: ' . $shop->shop_name,
+                        'message'          => $shop->shop_name . ' is requesting to upgrade from Basic to Verified Seller.',
+                        'is_read'          => 0,
+                        'created_at'       => now(),
+                    ]);
+                }
+            } catch (\Throwable $e) {}
+
+        } catch (\Throwable $e) {
+            return back()->with('err', 'Failed to submit upgrade request. Please try again or contact support.');
         }
 
         return redirect()->to(route('seller.settings').'?tab=upgrade')
