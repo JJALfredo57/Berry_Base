@@ -49,28 +49,33 @@
   // ── Seller: apply their own shop background & theme color ─────────────
   if ($isSeller && $uid) {
       try {
-          $sellerShop = \Illuminate\Support\Facades\DB::table('shops')->where('seller_id', $uid)->first();
-          if ($sellerShop) {
-              if (!empty($sellerShop->theme_color) && preg_match('/^#[0-9A-Fa-f]{6}$/', $sellerShop->theme_color)) {
-                  $rawPrimary = $sellerShop->theme_color;
+          $sellerShopRow = \Illuminate\Support\Facades\DB::table('shops')->where('seller_id', $uid)->first();
+          if ($sellerShopRow) {
+              $tc = $sellerShopRow->theme_color ?? '';
+              if ($tc && preg_match('/^#[0-9A-Fa-f]{6}$/', $tc)) {
+                  $rawPrimary = $tc;
               }
-              $ss = \Illuminate\Support\Facades\DB::table('site_settings')->where('shop_id', $sellerShop->id)->first();
+              $ss = \Illuminate\Support\Facades\DB::table('site_settings')->where('shop_id', $sellerShopRow->id)->first();
               if ($ss) {
-                  $sBgType = $ss->bg_type ?? 'color';
+                  $sBgType  = $ss->bg_type  ?? 'color';
+                  $sBgColor = $ss->bg_color ?? '#f9f9f9';
                   if ($sBgType === 'gradient') {
-                      $bodyBgCss = 'background: linear-gradient(135deg, ' . ($ss->gradient_start ?? '#fff7fb') . ' 0%, ' . ($ss->gradient_end ?? '#ffe3f1') . ' 100%);';
+                      $gs = $ss->gradient_start ?? '#fff7fb';
+                      $ge = $ss->gradient_end   ?? '#ffe3f1';
+                      $bodyBgCss = "background: linear-gradient(135deg, {$gs} 0%, {$ge} 100%);";
                       $pbgType = 'gradient'; $pbgImage = '';
                   } elseif ($sBgType === 'image' && !empty($ss->bg_image_path)) {
-                      $bodyBgCss = 'background: ' . ($ss->bg_color ?? $pbgColor) . ';';
-                      $pbgType = 'image'; $pbgImage = $ss->bg_image_path;
+                      $bodyBgCss = "background: {$sBgColor};";
+                      $pbgType   = 'image';
+                      $pbgImage  = $ss->bg_image_path;
                       $pbgOpacity = (float)($ss->bg_image_opacity ?? 1.0);
                   } else {
-                      $bodyBgCss = 'background: ' . ($ss->bg_color ?? $pbgColor) . ';';
+                      $bodyBgCss = "background: {$sBgColor};";
                       $pbgType = 'color'; $pbgImage = '';
                   }
               }
           }
-      } catch (\Exception $e) {}
+      } catch (\Throwable $e) {}
   }
 
   if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $rawPrimary)) $rawPrimary = '#7B3A0F';
