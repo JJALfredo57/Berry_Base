@@ -240,7 +240,7 @@ document.body.style.paddingRight = '';
                         <i class="bi bi-check-circle-fill me-1"></i>Pinned!
                       </span>
                     </label>
-                    <div class="form-text mb-2"><i class="bi bi-info-circle me-1"></i>Hindi mo alam kung saan ka sa mapa? Pindutin ang <strong>"Hanapin ang Aking Lokasyon"</strong> para awtomatikong ma-pin ang iyong lugar.</div>
+                    <div class="form-text mb-2"><i class="bi bi-info-circle me-1"></i>Not sure where you are on the map? Tap <strong>"Find My Location"</strong> to automatically pin your place.</div>
                     <div id="mapWrapper" style="position:relative">
                       <div id="map" style="height:300px;border-radius:.9rem;border:2px dashed #f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15)"></div>
 
@@ -248,18 +248,18 @@ document.body.style.paddingRight = '';
                       <div id="mapOverlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;border-radius:.9rem;background:rgba(0,0,0,.18)">
                         <div style="background:#fff;border:2px solid #f59e0b;border-radius:1rem;padding:1rem 1.4rem;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.18);max-width:240px">
                           <div style="font-size:2rem;line-height:1;margin-bottom:.4rem">📍</div>
-                          <div style="font-size:.82rem;font-weight:700;color:#92400e;margin-bottom:.6rem">I-pin ang iyong eksaktong lokasyon</div>
+                          <div style="font-size:.82rem;font-weight:700;color:#92400e;margin-bottom:.6rem">Pin your exact location</div>
                           <button type="button" onclick="useMyLocation()" id="overlayLocBtn"
                                   style="background:#2563eb;color:#fff;border:none;border-radius:.7rem;padding:.55rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer;width:100%;margin-bottom:.5rem;display:flex;align-items:center;justify-content:center;gap:.4rem">
-                            <i class="bi bi-geo-alt-fill"></i> Hanapin ang Aking Lokasyon
+                            <i class="bi bi-geo-alt-fill"></i> Find My Location
                           </button>
-                          <div style="font-size:.7rem;color:#6b7280">o i-click ang mapa para mag-pin ng mano-mano</div>
+                          <div style="font-size:.7rem;color:#6b7280">or click the map to pin manually</div>
                         </div>
                       </div>
 
                       {{-- Floating GPS button inside map (bottom-right) --}}
                       <button type="button" id="floatGpsBtn" onclick="useMyLocation()"
-                              title="Hanapin ang Aking Lokasyon"
+                              title="Find My Location"
                               style="position:absolute;bottom:12px;right:12px;z-index:1000;background:#fff;border:2px solid #2563eb;border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);transition:background .2s"
                               onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#fff'">
                         <i class="bi bi-crosshair2" style="font-size:1.1rem;color:#2563eb"></i>
@@ -670,14 +670,14 @@ function useMyLocation() {
   if (!map) initMap();
 
   if (!navigator.geolocation) {
-    cakeToast('Hindi sinusuportahan ng browser mo ang GPS. I-click ang mapa para mag-pin ng mano-mano.', 'error');
+    cakeToast('GPS is not supported by your browser. Click the map to pin manually.', 'error');
     return;
   }
 
   // Disable all GPS buttons and show loading state
   const overlayBtn = document.getElementById('overlayLocBtn');
   const floatBtn   = document.getElementById('floatGpsBtn');
-  if (overlayBtn) { overlayBtn.disabled = true; overlayBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Hinahanap…'; }
+  if (overlayBtn) { overlayBtn.disabled = true; overlayBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Locating…'; }
   if (floatBtn)   { floatBtn.disabled = true; floatBtn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:.9rem;height:.9rem;border-width:2px"></span>'; }
 
   navigator.geolocation.getCurrentPosition(
@@ -689,19 +689,19 @@ function useMyLocation() {
       setMarkerAt({ lat, lng });
       // autoSelectBarangayFromCoords is called inside setMarkerAt
 
-      if (overlayBtn) { overlayBtn.disabled = false; overlayBtn.innerHTML = '<i class="bi bi-geo-alt-fill"></i> Hanapin ang Aking Lokasyon'; }
+      if (overlayBtn) { overlayBtn.disabled = false; overlayBtn.innerHTML = '<i class="bi bi-geo-alt-fill"></i> Find My Location'; }
       if (floatBtn)   { floatBtn.disabled = false; floatBtn.innerHTML = '<i class="bi bi-crosshair2" style="font-size:1.1rem;color:#2563eb"></i>'; }
-      cakeToast('📍 Nahanap! Ang iyong lokasyon ay na-pin na sa mapa.', 'success');
+      cakeToast('📍 Found! Your location has been pinned on the map.', 'success');
     },
     (err) => {
-      if (overlayBtn) { overlayBtn.disabled = false; overlayBtn.innerHTML = '<i class="bi bi-geo-alt-fill"></i> Hanapin ang Aking Lokasyon'; }
+      if (overlayBtn) { overlayBtn.disabled = false; overlayBtn.innerHTML = '<i class="bi bi-geo-alt-fill"></i> Find My Location'; }
       if (floatBtn)   { floatBtn.disabled = false; floatBtn.innerHTML = '<i class="bi bi-crosshair2" style="font-size:1.1rem;color:#2563eb"></i>'; }
       const msgs = {
-        1: 'Hindi pinahintulutan ang lokasyon. Pakibigyan ng access ang browser, o i-click ang mapa para mag-pin ng mano-mano.',
-        2: 'Hindi makuha ang iyong lokasyon. Subukan ulit.',
-        3: 'Nag-time out ang paghahanap ng lokasyon. Subukan ulit.',
+        1: 'Location permission denied. Please allow location access, or click the map to pin manually.',
+        2: 'Could not get your location. Please try again.',
+        3: 'Location request timed out. Please try again.',
       };
-      cakeToast(msgs[err.code] || 'Hindi makuha ang lokasyon. I-click ang mapa para mag-pin.', 'error');
+      cakeToast(msgs[err.code] || 'Could not get location. Click the map to pin manually.', 'error');
     },
     { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
   );

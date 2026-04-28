@@ -4,8 +4,8 @@
 <style>
 .catalog-grid{
   display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap:16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap:1.25rem;
 }
 .catalog-item{ transition: all .3s ease; }
 @media (hover: hover) {
@@ -13,6 +13,10 @@
     transform: translateY(-8px) scale(1.02) !important;
     box-shadow: 0 20px 40px rgba(233,30,99,.18) !important;
   }
+}
+@media(max-width:600px){
+  .catalog-grid{ grid-template-columns: 1fr; gap:.75rem; }
+  .catalog-img-wrap{ height:200px !important; }
 }
 </style>
 
@@ -57,7 +61,7 @@
       <div class="catalog-card card h-100" style="{{ !$isAvailable ? 'opacity:.75' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
 
         {{-- Image --}}
-        <div class="img-zoom-wrap position-relative overflow-hidden" style="border-radius:1.1rem 1.1rem 0 0;height:220px">
+        <div class="catalog-img-wrap img-zoom-wrap position-relative overflow-hidden" style="border-radius:1.1rem 1.1rem 0 0;height:220px">
           <img src="{{ $p->image_path }}" alt="{{ $p->name }}"
                class="img-zoom-target"
                style="width:100%;height:100%;object-fit:cover;transition:transform .4s ease;cursor:zoom-in;user-select:none;-webkit-user-drag:none"
@@ -95,7 +99,7 @@
           @if(!empty($p->shop_name))
           <a href="/shop/{{ $p->shop_slug }}" target="_blank"
              class="d-inline-flex align-items-center gap-1 text-decoration-none mb-1"
-             style="font-size:.72rem;color:var(--primary)" onclick="event.stopPropagation()">
+             style="font-size:.88rem;color:var(--primary)" onclick="event.stopPropagation()">
             @if(!empty($p->shop_logo))
               <img src="{{ $p->shop_logo }}" style="width:14px;height:14px;border-radius:3px;object-fit:cover;flex-shrink:0">
             @else
@@ -113,7 +117,7 @@
           @if($avgRating)
           <div class="d-flex align-items-center gap-1 mb-2">
             @for($i=1;$i<=5;$i++)
-              <i class="bi bi-star{{ $i <= round($avgRating) ? '-fill' : '' }}" style="color:#fbbf24;font-size:.8rem"></i>
+              <i class="bi bi-star{{ $i <= round($avgRating) ? '-fill' : '' }}" style="color:#fbbf24;font-size:.95rem"></i>
             @endfor
             <span class="text-muted small ms-1">{{ number_format($avgRating,1) }} ({{ $reviewCount }} review{{ $reviewCount != 1 ? 's' : '' }})</span>
           </div>
@@ -125,7 +129,7 @@
             <div class="text-muted small mb-1">Available Sizes:</div>
             <div class="d-flex flex-wrap gap-1">
               @foreach($sizes as $sz)
-              <span class="badge" style="background:var(--primary-light);color:var(--primary);font-size:.72rem">
+              <span class="badge" style="background:var(--primary-light);color:var(--primary);font-size:.85rem">
                 {{ $sz->label }} — ₱{{ number_format($sz->price,2) }}
               </span>
               @endforeach
@@ -133,29 +137,29 @@
           </div>
           @endif
 
-          <div class="d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center justify-content-between mb-3">
             <div>
               @if(!empty($pricing['has_discount']))
-                <div class="text-muted text-decoration-line-through" style="font-size:.78rem">₱{{ number_format($pricing['original_unit_price'],2) }}</div>
+                <div class="text-muted text-decoration-line-through" style="font-size:.85rem">₱{{ number_format($pricing['original_unit_price'],2) }}</div>
                 <span class="fw-bold fs-5" style="color:#dc2626">₱{{ number_format($pricing['final_unit_price'],2) }}</span>
-                <div style="font-size:.68rem;color:#be123c;font-weight:700">{{ $pricing['badge_text'] }}</div>
+                <div style="font-size:.8rem;color:#be123c;font-weight:700">{{ $pricing['badge_text'] }}</div>
               @else
                 <span class="fw-bold fs-5" style="color:var(--primary)">₱{{ number_format($p->price,2) }}</span>
               @endif
               @if(count($sizes) > 0)
-                <div class="text-muted" style="font-size:.72rem">Base price</div>
+                <div class="text-muted" style="font-size:.85rem">Base price</div>
               @endif
             </div>
-            @if($isAvailable)
-            <button class="btn btn-primary btn-sm px-3" data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}">
-              <i class="bi bi-cart-plus me-1"></i>Order
-            </button>
-            @else
-            <button class="btn btn-secondary btn-sm px-3" disabled>
-              <i class="bi bi-x-circle me-1"></i>Not Available
-            </button>
-            @endif
           </div>
+          @if($isAvailable)
+          <button class="btn btn-primary w-100 py-2" style="font-size:1rem;font-weight:600" data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}">
+            <i class="bi bi-cart-plus me-2"></i>Order Now
+          </button>
+          @else
+          <button class="btn btn-secondary w-100 py-2" style="font-size:1rem" disabled>
+            <i class="bi bi-x-circle me-2"></i>Not Available
+          </button>
+          @endif
         </div>
       </div>
     </div>
