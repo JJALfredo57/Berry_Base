@@ -718,6 +718,20 @@
 </head>
 <body>
 
+{{-- ═══ Facebook/Messenger in-app browser warning ═══ --}}
+<div id="fbBrowserBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#1877f2;color:#fff;padding:12px 16px;font-size:14px;line-height:1.4;text-align:center;box-shadow:0 -2px 8px rgba(0,0,0,.3);">
+  <strong>Para gumana ang lokasyon</strong>, i-open ang page sa Chrome o Safari.<br>
+  I-tap ang <strong>⋮ menu</strong> sa itaas → piliin ang <strong>"Open in Chrome"</strong> o <strong>"Open in external browser"</strong>.
+  <button onclick="document.getElementById('fbBrowserBanner').style.display='none'" style="margin-left:10px;background:rgba(255,255,255,.25);border:none;color:#fff;padding:4px 10px;border-radius:4px;font-size:13px;cursor:pointer;">✕</button>
+</div>
+<script>
+(function(){
+  var ua = navigator.userAgent || '';
+  var isFbIab = /FBAN|FBAV|FB_IAB|FBIOS|FBDV|MessengerLiteForiOS|Messenger|Instagram/.test(ua);
+  if (isFbIab) document.getElementById('fbBrowserBanner').style.display = 'block';
+})();
+</script>
+
 {{-- ═══ PLATFORM BG IMAGE OVERLAY (superadmin-controlled) ═══ --}}
 @if($pbgType === 'image' && !empty($pbgImage))
 <div aria-hidden="true" style="
