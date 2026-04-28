@@ -49,7 +49,7 @@
   // ── Seller: apply their own shop background & theme color ─────────────
   if ($isSeller && $uid) {
       try {
-          $sellerShop = \Illuminate\Support\Facades\DB::table('shops')->where('user_id', $uid)->first();
+          $sellerShop = \Illuminate\Support\Facades\DB::table('shops')->where('seller_id', $uid)->first();
           if ($sellerShop) {
               if (!empty($sellerShop->theme_color) && preg_match('/^#[0-9A-Fa-f]{6}$/', $sellerShop->theme_color)) {
                   $rawPrimary = $sellerShop->theme_color;
