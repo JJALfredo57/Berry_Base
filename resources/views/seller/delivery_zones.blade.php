@@ -498,7 +498,8 @@ function showCovPinInfo(lat, lng) {
     coords.innerHTML = `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)} &nbsp;·&nbsp; <span class="text-primary">${distTxt}</span>`;
     address.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width:.65rem;height:.65rem"></span> Looking up address…';
 
-    fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`)
+    const _ctrl1 = new AbortController(); setTimeout(() => _ctrl1.abort(), 6000);
+    fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl1.signal })
     .then(r => r.json())
     .then(d => {
         const a = d.address || {};
@@ -597,7 +598,8 @@ function setEditPin(lat, lng) {
     if (editPinMode) toggleEditPinMode();
 
     // Reverse geocode and fill fields
-    fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`)
+    const _ctrl2 = new AbortController(); setTimeout(() => _ctrl2.abort(), 6000);
+    fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl2.signal })
     .then(r => r.json())
     .then(d => {
         const a = d.address || {};

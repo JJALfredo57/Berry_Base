@@ -646,7 +646,8 @@ async function onBarangayChange(barangayName) {
   // Build geocode query: e.g. "Baluyot, Bautista, Pangasinan, Philippines"
   const query = barangayName.replace(/\(.*?\)/g,'').trim() + ', Pangasinan, Philippines';
   try {
-    const res  = await fetch('/api/geocode/search?q=' + encodeURIComponent(query));
+    const _ctrl1 = new AbortController(); setTimeout(() => _ctrl1.abort(), 6000);
+  const res  = await fetch('/api/geocode/search?q=' + encodeURIComponent(query), { signal: _ctrl1.signal });
     const data = await res.json();
     if (data && data[0]) {
       const lat = parseFloat(data[0].lat);
@@ -702,14 +703,15 @@ function useMyLocation() {
       };
       cakeToast(msgs[err.code] || 'Hindi makuha ang lokasyon. I-click ang mapa para mag-pin.', 'error');
     },
-    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
   );
 }
 
 // ── Auto-select barangay from pinned coords via Nominatim ──────────────
 async function autoSelectBarangayFromCoords(lat, lng) {
   try {
-    const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
+    const _ctrl2 = new AbortController(); setTimeout(() => _ctrl2.abort(), 6000);
+    const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl2.signal });
     const data = await res.json();
     if (!data || !data.address) return;
 

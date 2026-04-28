@@ -612,7 +612,8 @@ function detectMyLocation() {
       btn.disabled = false;
       btn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Detect My Location';
       alert('Could not detect your location. Please pin it manually on the map.');
-    }
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
   );
 }
 
@@ -622,7 +623,8 @@ async function reverseGeocode(lat, lng) {
   const ind   = document.getElementById('addressLoading');
   if (ind) ind.style.display = 'inline';
   try {
-    const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
+    const _ctrl = new AbortController(); setTimeout(() => _ctrl.abort(), 6000);
+    const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl.signal });
     const data = await res.json();
     if (data && data.display_name) {
       const a = data.address || {};

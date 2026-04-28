@@ -610,7 +610,7 @@ function useMyLocation() {
       var msgs = {1:'Location permission denied.',2:'Could not get your location.',3:'Location request timed out.'};
       cakeToast(msgs[err.code]||'Could not get location.','error');
     },
-    { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+    { enableHighAccuracy:false, timeout:10000, maximumAge:30000 }
   );
 }
 
