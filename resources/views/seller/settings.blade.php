@@ -86,20 +86,59 @@
   @endforeach
 
   {{-- Tier Banner --}}
-  <div style="background:{{ $shop->tier==='verified' ? '#FFF3E0' : '#F5F5F5' }};border:1.5px solid {{ $shop->tier==='verified' ? '#FFCC80' : '#E0E0E0' }};border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.75rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-    <i class="bi bi-{{ $shop->tier==='verified' ? 'patch-check-fill' : 'person-check' }}" style="font-size:1.5rem;color:{{ $shop->tier==='verified' ? '#E65100' : 'var(--gray-500)' }}"></i>
+  @php $upgradeStatus = $shop->upgrade_request_status ?? null; @endphp
+  @if($shop->tier === 'verified')
+  <div style="background:#FFF3E0;border:1.5px solid #FFCC80;border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.75rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+    <i class="bi bi-patch-check-fill" style="font-size:1.5rem;color:#E65100"></i>
     <div>
-      <div style="font-size:.9rem;font-weight:700;color:var(--gray-900)">{{ ucfirst($shop->tier) }} Seller</div>
+      <div style="font-size:.9rem;font-weight:700;color:var(--gray-900)">Verified Seller</div>
       <div style="font-size:.78rem;color:var(--gray-600)">
-        @if($commissionEnabled)
-          Commission: {{ number_format($commissionRate, 2) }}% on paid orders
-        @else
-          Commission: OFF for your shop right now
-        @endif
-        @if($shop->tier === 'basic') &mdash; Upgrade to Verified for lower fees &amp; more features @endif
+        @if($commissionEnabled) Commission: {{ number_format($commissionRate, 2) }}% on paid orders
+        @else Commission: OFF for your shop right now @endif
       </div>
     </div>
   </div>
+  @elseif($upgradeStatus === 'pending')
+  <div style="background:#EFF6FF;border:1.5px solid #93C5FD;border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.75rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:.875rem">
+      <i class="bi bi-hourglass-split" style="font-size:1.4rem;color:#2563EB"></i>
+      <div>
+        <div style="font-size:.9rem;font-weight:700;color:var(--gray-900)">Upgrade to Verified — Under Review</div>
+        <div style="font-size:.78rem;color:#3B82F6">Your upgrade request is being reviewed by our team. We'll notify you within 1-3 business days.</div>
+      </div>
+    </div>
+    <span style="background:#DBEAFE;color:#1D4ED8;font-size:.75rem;font-weight:700;padding:.3rem .85rem;border-radius:99px;white-space:nowrap">Pending Review</span>
+  </div>
+  @elseif($upgradeStatus === 'rejected')
+  <div style="background:#FFF1F2;border:1.5px solid #FDA4AF;border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.75rem">
+    <div style="display:flex;align-items:center;gap:.875rem;margin-bottom:.6rem">
+      <i class="bi bi-x-circle-fill" style="font-size:1.4rem;color:#E11D48"></i>
+      <div>
+        <div style="font-size:.9rem;font-weight:700;color:var(--gray-900)">Upgrade Request Not Approved</div>
+        <div style="font-size:.78rem;color:#E11D48">{{ $shop->upgrade_request_note ?? 'Please review your submitted documents and try again.' }}</div>
+      </div>
+    </div>
+    <button onclick="showSettingsTab('upgrade')" style="background:var(--primary);color:#fff;border:none;border-radius:var(--radius-md);padding:.45rem 1.1rem;font-size:.82rem;font-weight:600;cursor:pointer">
+      <i class="bi bi-arrow-repeat me-1"></i> Re-submit Upgrade Request
+    </button>
+  </div>
+  @else
+  <div style="background:linear-gradient(135deg,#fffbf2 0%,#fff7e6 100%);border:1.5px solid #FCD34D;border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.75rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:.875rem">
+      <i class="bi bi-person-check" style="font-size:1.4rem;color:var(--gray-500)"></i>
+      <div>
+        <div style="font-size:.9rem;font-weight:700;color:var(--gray-900)">Basic Seller</div>
+        <div style="font-size:.78rem;color:var(--gray-600)">
+          @if($commissionEnabled) Commission: {{ number_format($commissionRate, 2) }}% on paid orders
+          @else Commission: OFF for your shop right now @endif
+        </div>
+      </div>
+    </div>
+    <button onclick="showSettingsTab('upgrade')" style="background:var(--primary);color:#fff;border:none;border-radius:var(--radius-md);padding:.45rem 1.25rem;font-size:.82rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
+      <i class="bi bi-patch-check-fill"></i> Upgrade to Verified
+    </button>
+  </div>
+  @endif
 
   {{-- Tab Navigation --}}
   <div style="display:flex;border-bottom:2px solid var(--gray-100);margin-bottom:2rem;overflow-x:auto;gap:0">
@@ -118,6 +157,16 @@
     <button onclick="showSettingsTab('password')" id="stab-password" class="s-tab">
       <i class="bi bi-lock"></i> Change Password
     </button>
+    @if($shop->tier !== 'verified')
+    <button onclick="showSettingsTab('upgrade')" id="stab-upgrade" class="s-tab" style="position:relative">
+      <i class="bi bi-patch-check-fill" style="color:#E65100"></i> Upgrade to Verified
+      @if(($shop->upgrade_request_status ?? null) === 'pending')
+        <span style="position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#2563EB"></span>
+      @elseif(($shop->upgrade_request_status ?? null) === 'rejected')
+        <span style="position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#E11D48"></span>
+      @endif
+    </button>
+    @endif
   </div>
 
   {{-- ── PANE: Shop Profile ─────────────────────────────── --}}
@@ -609,9 +658,11 @@
 <script>
 // ── Tab switching ────────────────────────────────────────
 function showSettingsTab(name) {
-  ['profile','capacity','delivery','appearance','password'].forEach(t => {
-    document.getElementById('spane-' + t).style.display = t === name ? '' : 'none';
-    document.getElementById('stab-'  + t).classList.toggle('active', t === name);
+  ['profile','capacity','delivery','appearance','password','upgrade'].forEach(t => {
+    const pane = document.getElementById('spane-' + t);
+    const tab  = document.getElementById('stab-'  + t);
+    if (pane) pane.style.display = t === name ? '' : 'none';
+    if (tab)  tab.classList.toggle('active', t === name);
   });
   if (name === 'delivery') { updateDeliveryCalc(); runSimulator(document.getElementById('sim_slider').value); }
   if (name === 'capacity') updateCapacityPreview();
@@ -800,4 +851,189 @@ function runSimulator(km) {
 updateDeliveryCalc();
 updateCapacityPreview();
 </script>
+
+{{-- ── PANE: Upgrade to Verified ────────────────────── --}}
+@if($shop->tier !== 'verified')
+<div id="spane-upgrade" style="display:none;max-width:780px">
+
+  @php $upgradeStatus = $shop->upgrade_request_status ?? null; @endphp
+
+  {{-- Status: Pending --}}
+  @if($upgradeStatus === 'pending')
+  <div style="background:#EFF6FF;border:1.5px solid #93C5FD;border-radius:var(--radius-lg);padding:2rem;text-align:center;margin-bottom:1.5rem">
+    <div style="width:64px;height:64px;border-radius:50%;background:#DBEAFE;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem">
+      <i class="bi bi-hourglass-split" style="font-size:1.8rem;color:#2563EB"></i>
+    </div>
+    <h3 style="font-size:1.1rem;font-weight:700;color:var(--gray-900);margin:0 0 .5rem">Upgrade Request Under Review</h3>
+    <p style="font-size:.875rem;color:#3B82F6;margin:0">Your documents have been submitted and are currently being reviewed by our team.<br>You will be notified via SMS once a decision has been made.</p>
+    <div style="margin-top:1.25rem;display:inline-flex;align-items:center;gap:.5rem;background:#DBEAFE;border-radius:99px;padding:.4rem 1rem;font-size:.78rem;font-weight:600;color:#1D4ED8">
+      <i class="bi bi-clock"></i> Typically reviewed within 1-3 business days
+    </div>
+  </div>
+
+  {{-- Benefits preview --}}
+  <div class="setting-card">
+    <div class="setting-card-header">
+      <i class="bi bi-patch-check-fill" style="font-size:1.1rem;color:#E65100"></i>
+      <div><div class="title">What You'll Get After Approval</div></div>
+    </div>
+    <div class="setting-card-body">
+      <div class="row g-3">
+        @foreach([
+          ['bi-infinity',        '#059669', '#ECFDF5', 'Unlimited Products',        'No cap on how many products you can list.'],
+          ['bi-patch-check-fill','#E65100', '#FFF3E0', 'Verified Badge',             'A gold verified badge displayed on your public shop page.'],
+          ['bi-star-fill',       '#2563EB', '#EFF6FF', 'Custom Order Feature',       'Accept personalized cake orders with full design control.'],
+          ['bi-shield-check',    '#7C3AED', '#F5F3FF', 'Higher Customer Trust',      'Verified shops rank higher and convert more browsers to buyers.'],
+        ] as [$icon, $color, $bg, $title, $desc])
+        <div class="col-md-6">
+          <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.875rem;background:{{ $bg }};border-radius:var(--radius-md)">
+            <i class="bi {{ $icon }}" style="font-size:1.2rem;color:{{ $color }};margin-top:.1rem;flex-shrink:0"></i>
+            <div>
+              <div style="font-size:.85rem;font-weight:700;color:var(--gray-900)">{{ $title }}</div>
+              <div style="font-size:.77rem;color:var(--gray-500);margin-top:.15rem">{{ $desc }}</div>
+            </div>
+          </div>
+        </div>
+        @endforeach
+      </div>
+    </div>
+  </div>
+
+  @else
+
+  {{-- Form --}}
+  <div class="setting-card">
+    <div class="setting-card-header">
+      <i class="bi bi-patch-check-fill" style="font-size:1.1rem;color:#E65100"></i>
+      <div>
+        <div class="title">Upgrade to Verified Seller</div>
+        <div class="subtitle">Submit your Business Permit or DTI Certificate for review</div>
+      </div>
+    </div>
+    <div class="setting-card-body">
+
+      @if($upgradeStatus === 'rejected')
+      <div style="background:#FFF1F2;border:1.5px solid #FDA4AF;border-radius:var(--radius-md);padding:.875rem 1rem;margin-bottom:1.25rem;font-size:.83rem;color:#BE123C">
+        <strong><i class="bi bi-exclamation-triangle-fill me-1"></i>Previous request was not approved:</strong>
+        {{ $shop->upgrade_request_note ?? 'Please check your documents and re-submit.' }}
+      </div>
+      @endif
+
+      {{-- Benefits --}}
+      <div style="background:linear-gradient(135deg,#fffbf2 0%,#fff3e0 100%);border:1.5px solid #FCD34D;border-radius:var(--radius-md);padding:1.1rem;margin-bottom:1.5rem">
+        <div style="font-size:.85rem;font-weight:700;color:#92400E;margin-bottom:.75rem"><i class="bi bi-stars me-2"></i>Benefits of Verified Seller</div>
+        <div class="row g-2">
+          @foreach([
+            ['bi-infinity',         'Unlimited products'],
+            ['bi-patch-check-fill', 'Verified badge on your shop'],
+            ['bi-star-fill',        'Custom orders feature'],
+            ['bi-shield-check',     'Higher customer trust & visibility'],
+          ] as [$icon, $label])
+          <div class="col-md-6">
+            <div style="font-size:.8rem;color:#78350F;display:flex;align-items:center;gap:.5rem">
+              <i class="bi {{ $icon }}" style="color:#E65100"></i> {{ $label }}
+            </div>
+          </div>
+          @endforeach
+        </div>
+      </div>
+
+      <form action="{{ route('seller.upgrade_request') }}" method="POST" enctype="multipart/form-data" novalidate id="upgradeForm">
+        @csrf
+
+        <div style="margin-bottom:1.25rem">
+          <label class="form-label fw-semibold">
+            Business Permit or DTI Certificate <span style="color:var(--danger)">*</span>
+          </label>
+          <div style="font-size:.8rem;color:var(--gray-500);margin-bottom:.75rem">
+            Upload a clear photo or scan of your valid DTI Certificate, Mayor's Permit, or Business Permit.
+            Our team will verify this document before approving your upgrade.
+          </div>
+          <div id="upgradeDropZone"
+               style="border:2px dashed var(--gray-300);border-radius:var(--radius-md);padding:2rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--gray-50)"
+               onclick="document.getElementById('business_permit').click()"
+               ondragover="event.preventDefault();this.style.borderColor='var(--primary)';this.style.background='var(--primary-bg)'"
+               ondragleave="this.style.borderColor='var(--gray-300)';this.style.background='var(--gray-50)'"
+               ondrop="upgradeHandleDrop(event)">
+            <div id="upgradeFilePreview" style="display:none;margin-bottom:.75rem">
+              <img id="upgradePreviewImg" style="max-height:140px;border-radius:var(--radius-sm);object-fit:contain;border:1.5px solid var(--gray-200)">
+              <div id="upgradeFileName" style="font-size:.78rem;color:var(--gray-500);margin-top:.4rem"></div>
+            </div>
+            <i class="bi bi-cloud-upload" style="font-size:2rem;color:var(--gray-400);display:block;margin-bottom:.5rem" id="upgradeUploadIcon"></i>
+            <div style="font-size:.875rem;font-weight:600;color:var(--gray-700)" id="upgradeUploadText">Click or drag to upload document</div>
+            <div style="font-size:.75rem;color:var(--gray-400);margin-top:.25rem">JPG, PNG, or PDF &bull; Max 5MB</div>
+            <div style="font-size:.72rem;color:var(--gray-400);margin-top:.2rem">Accepted: DTI Certificate, Mayor's Permit, Business Permit</div>
+          </div>
+          <input type="file" id="business_permit" name="business_permit" accept=".jpg,.jpeg,.png,.pdf"
+                 required class="d-none"
+                 onchange="upgradePreviewFile(this)"
+                 oninvalid="this.setCustomValidity('Please upload your Business Permit or DTI Certificate')">
+          @error('business_permit')
+            <div style="color:var(--danger);font-size:.82rem;margin-top:.35rem"><i class="bi bi-exclamation-circle me-1"></i>{{ $message }}</div>
+          @enderror
+        </div>
+
+        <div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:var(--radius-md);padding:.875rem;margin-bottom:1.25rem;font-size:.8rem;color:#15803D">
+          <i class="bi bi-info-circle-fill me-1"></i>
+          Your document will be reviewed manually by our team. You'll receive an SMS notification once a decision is made. The upgrade process typically takes 1-3 business days.
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100" style="padding:.75rem;font-size:.95rem;font-weight:600" id="upgradeSubmitBtn">
+          <i class="bi bi-send-fill me-2"></i>Submit Upgrade Request
+        </button>
+      </form>
+    </div>
+  </div>
+  @endif
+
+</div>
+@endif
+
+<script>
+function upgradePreviewFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { alert('File must not exceed 5MB.'); input.value = ''; return; }
+  const zone = document.getElementById('upgradeDropZone');
+  const preview = document.getElementById('upgradeFilePreview');
+  const img = document.getElementById('upgradePreviewImg');
+  const name = document.getElementById('upgradeFileName');
+  const icon = document.getElementById('upgradeUploadIcon');
+  const text = document.getElementById('upgradeUploadText');
+  preview.style.display = 'block';
+  name.textContent = file.name;
+  icon.style.display = 'none';
+  text.style.display = 'none';
+  zone.style.borderColor = 'var(--primary)';
+  zone.style.background  = 'var(--primary-bg)';
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
+    reader.readAsDataURL(file);
+  } else {
+    img.style.display = 'none';
+    name.textContent = 'PDF: ' + file.name;
+  }
+}
+function upgradeHandleDrop(e) {
+  e.preventDefault();
+  const input = document.getElementById('business_permit');
+  const dt = new DataTransfer();
+  dt.items.add(e.dataTransfer.files[0]);
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change'));
+}
+document.getElementById('upgradeForm')?.addEventListener('submit', function(e) {
+  const file = document.getElementById('business_permit');
+  if (!file.files || !file.files.length) {
+    e.preventDefault();
+    alert('Please upload your Business Permit or DTI Certificate before submitting.');
+    return;
+  }
+  const btn = document.getElementById('upgradeSubmitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+});
+</script>
+
 @endsection

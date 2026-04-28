@@ -145,6 +145,12 @@
 
     {{-- Action Buttons --}}
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+      {{-- Upgrade Request Badge --}}
+      @if(($app->upgrade_request_status ?? null) === 'pending')
+        <span style="background:#DBEAFE;color:#1D4ED8;font-size:.72rem;font-weight:700;padding:.25rem .75rem;border-radius:99px;display:inline-flex;align-items:center;gap:.3rem">
+          <i class="bi bi-arrow-up-circle-fill"></i> Upgrade Requested
+        </span>
+      @endif
       @if($app->status === 'pending')
         <form action="{{ route('superadmin.sellers.approve',$app->id) }}" method="POST" class="d-inline">
           @csrf
@@ -335,6 +341,83 @@
 
     </div>
 
+    {{-- Upgrade Request Section --}}
+    @php
+      $upgradeDoc = collect($docs)->filter(fn($d) => $d->document_type === 'upgrade_permit')->last();
+    @endphp
+    @if(($app->upgrade_request_status ?? null) === 'pending')
+    <div style="margin-top:1.25rem;padding:1.25rem;background:#EFF6FF;border:1.5px solid #93C5FD;border-radius:var(--radius-md)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.875rem;margin-bottom:1rem">
+        <div style="display:flex;align-items:center;gap:.6rem">
+          <i class="bi bi-arrow-up-circle-fill" style="font-size:1.2rem;color:#2563EB"></i>
+          <div>
+            <div style="font-size:.9rem;font-weight:700;color:var(--gray-900)">Upgrade Request — Basic → Verified</div>
+            <div style="font-size:.76rem;color:#3B82F6">Submitted {{ $app->upgrade_requested_at ? \Carbon\Carbon::parse($app->upgrade_requested_at)->diffForHumans() : '' }}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <form action="{{ route('superadmin.sellers.approve_upgrade', $app->id) }}" method="POST" class="d-inline">
+            @csrf
+            <button type="submit"
+                    style="background:#ECFDF5;color:#065F46;border:1.5px solid #6EE7B7;border-radius:var(--radius-md);padding:.45rem 1.1rem;font-size:.82rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem"
+                    data-cs-confirm="Upgrade {{ addslashes($app->shop_name) }} to Verified Seller?" data-cs-title="Approve Upgrade" data-cs-icon="bi-patch-check-fill" data-cs-icon-bg="#ECFDF5" data-cs-icon-color="#059669" data-cs-ok="Approve Upgrade" data-cs-ok-color="#059669">
+              <i class="bi bi-patch-check-fill"></i> Approve Upgrade
+            </button>
+          </form>
+          <button type="button"
+                  style="background:#FFF1F2;color:#BE123C;border:1.5px solid #FDA4AF;border-radius:var(--radius-md);padding:.45rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem"
+                  onclick="toggleUpgradeRejectForm('upg-reject-{{ $app->id }}')">
+            <i class="bi bi-x-lg"></i> Reject Upgrade
+          </button>
+        </div>
+      </div>
+
+      {{-- Upgrade Document --}}
+      @if($upgradeDoc)
+      <div style="margin-bottom:1rem">
+        <div style="font-size:.75rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Submitted Document</div>
+        @if(str_ends_with(strtolower($upgradeDoc->file_path), '.pdf'))
+          <a href="{{ $upgradeDoc->file_path }}" target="_blank"
+             style="display:inline-flex;align-items:center;gap:.4rem;background:#DBEAFE;color:#1D4ED8;padding:.5rem .875rem;border-radius:var(--radius-md);font-size:.8rem;font-weight:600">
+            <i class="bi bi-file-pdf" style="color:#C62828"></i> View PDF Document
+          </a>
+        @else
+          <img src="{{ $upgradeDoc->file_path }}" alt="Business Permit"
+               style="max-height:120px;border-radius:var(--radius-md);cursor:pointer;border:1.5px solid #BFDBFE"
+               onclick="openDocViewer('{{ $upgradeDoc->file_path }}','Business Permit / DTI Certificate')">
+        @endif
+      </div>
+      @endif
+
+      {{-- Reject form (hidden) --}}
+      <div id="upg-reject-{{ $app->id }}" style="display:none;margin-top:.875rem">
+        <form action="{{ route('superadmin.sellers.reject_upgrade', $app->id) }}" method="POST" novalidate>
+          @csrf
+          <label style="font-size:.83rem;font-weight:700;color:#BE123C;display:block;margin-bottom:.4rem">Reason for Rejection <span style="color:var(--danger)">*</span></label>
+          <textarea name="reason" class="form-control" rows="3" required minlength="10"
+                    placeholder="Explain why the upgrade is not approved (e.g. expired document, wrong document submitted)..."
+                    style="margin-bottom:.75rem;border-color:#FDA4AF"
+                    oninvalid="this.setCustomValidity('Please provide a reason (min 10 characters)')"
+                    oninput="this.setCustomValidity('')"></textarea>
+          <div style="display:flex;gap:.5rem">
+            <button type="submit" style="background:#BE123C;color:#fff;border:none;border-radius:var(--radius-md);padding:.45rem 1.25rem;font-size:.83rem;font-weight:600;cursor:pointer"
+                    data-cs-confirm="Reject upgrade for {{ addslashes($app->shop_name) }}?" data-cs-title="Reject Upgrade" data-cs-icon="bi-x-circle" data-cs-icon-bg="#FFF1F2" data-cs-icon-color="#E11D48" data-cs-ok="Reject" data-cs-ok-color="#E11D48">
+              Confirm Rejection
+            </button>
+            <button type="button" onclick="toggleUpgradeRejectForm('upg-reject-{{ $app->id }}')"
+                    style="background:var(--gray-100);color:var(--gray-700);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:.45rem 1rem;font-size:.83rem;font-weight:600;cursor:pointer">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    @elseif(($app->upgrade_request_status ?? null) === 'rejected' && $app->tier === 'basic')
+    <div style="margin-top:.875rem;padding:.75rem 1rem;background:#FFF1F2;border-radius:var(--radius-md);border-left:3px solid #E11D48;font-size:.82rem;color:#BE123C">
+      <strong>Upgrade Rejected:</strong> {{ $app->upgrade_request_note }}
+    </div>
+    @endif
+
     {{-- Reject Form --}}
     @if($app->status === 'pending')
     <div id="reject-{{ $app->id }}" style="display:none;margin-top:1.25rem;padding:1.25rem;background:var(--danger-bg);border-radius:var(--radius-md);border:1.5px solid var(--primary-light)">
@@ -397,6 +480,10 @@
 
 <script>
 function toggleRejectForm(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function toggleUpgradeRejectForm(id) {
   const el = document.getElementById(id);
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }

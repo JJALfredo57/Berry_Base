@@ -186,6 +186,75 @@ class SellerController extends Controller
         return back()->with('msg', "Commission rate updated to {$rate}% for {$shop->shop_name}.");
     }
 
+    public function approveUpgrade(string $shopId)
+    {
+        $shop = DB::table('shops')->where('id', $shopId)->first();
+        if (!$shop) return back()->with('err', 'Shop not found.');
+        if (($shop->upgrade_request_status ?? null) !== 'pending') {
+            return back()->with('err', 'No pending upgrade request for this shop.');
+        }
+
+        DB::table('shops')->where('id', $shopId)->update([
+            'tier'                   => 'verified',
+            'upgrade_request_status' => 'approved',
+            'upgrade_request_note'   => null,
+            'verified_at'            => now(),
+        ]);
+
+        $seller = DB::table('users')->where('id', $shop->seller_id)->first();
+        if ($seller?->phone) {
+            try {
+                $siteName = config('app.name', 'Cake Shop');
+                $header   = SmsHelper::header($siteName);
+                SmsHelper::send($seller->phone,
+                    "{$header}\n"
+                    . "Congratulations! Your shop has been upgraded to Verified Seller!\n\n"
+                    . "Shop: {$shop->shop_name}\n\n"
+                    . "You now have access to unlimited products, custom orders, and a Verified badge. Log in to your dashboard to get started!"
+                );
+            } catch (\Exception $e) {}
+        }
+
+        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Approve Upgrade', "Shop: {$shop->shop_name} → Verified");
+        return back()->with('msg', "'{$shop->shop_name}' has been upgraded to Verified Seller.");
+    }
+
+    public function rejectUpgrade(Request $request, string $shopId)
+    {
+        $request->validate([
+            'reason' => 'required|string|min:10|max:500',
+        ], [
+            'reason.required' => 'Please provide a reason for rejecting the upgrade.',
+            'reason.min'      => 'Reason must be at least 10 characters.',
+        ]);
+
+        $shop = DB::table('shops')->where('id', $shopId)->first();
+        if (!$shop) return back()->with('err', 'Shop not found.');
+
+        $reason = trim($request->input('reason'));
+        DB::table('shops')->where('id', $shopId)->update([
+            'upgrade_request_status' => 'rejected',
+            'upgrade_request_note'   => $reason,
+        ]);
+
+        $seller = DB::table('users')->where('id', $shop->seller_id)->first();
+        if ($seller?->phone) {
+            try {
+                $siteName = config('app.name', 'Cake Shop');
+                $header   = SmsHelper::header($siteName);
+                SmsHelper::send($seller->phone,
+                    "{$header}\n"
+                    . "Your upgrade request for '{$shop->shop_name}' was not approved.\n\n"
+                    . "Reason: {$reason}\n\n"
+                    . "You may re-submit your request after addressing the concern. Log in to your seller dashboard for more details."
+                );
+            } catch (\Exception $e) {}
+        }
+
+        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Reject Upgrade', "Shop: {$shop->shop_name}");
+        return back()->with('msg', "Upgrade request rejected for '{$shop->shop_name}'.");
+    }
+
     public function bulkCommissionRate(Request $request)
     {
         $rate = $this->validateCommissionRate($request);
