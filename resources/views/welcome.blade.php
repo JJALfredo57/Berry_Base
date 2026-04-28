@@ -548,10 +548,7 @@
           <path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
-      <a href="{{ route('login') }}" class="btn-secondary">
-        <i class="bi bi-person-circle"></i>
-        Sign In
-      </a>
+
     </div>
 
     <div class="hint">
