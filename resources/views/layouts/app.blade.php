@@ -45,6 +45,34 @@
   } else {
       $bodyBgCss = "background: {$pbgColor};";
   }
+
+  // ── Seller: apply their own shop background & theme color ─────────────
+  if ($isSeller && $uid) {
+      try {
+          $sellerShop = \Illuminate\Support\Facades\DB::table('shops')->where('user_id', $uid)->first();
+          if ($sellerShop) {
+              if (!empty($sellerShop->theme_color) && preg_match('/^#[0-9A-Fa-f]{6}$/', $sellerShop->theme_color)) {
+                  $rawPrimary = $sellerShop->theme_color;
+              }
+              $ss = \Illuminate\Support\Facades\DB::table('site_settings')->where('shop_id', $sellerShop->id)->first();
+              if ($ss) {
+                  $sBgType = $ss->bg_type ?? 'color';
+                  if ($sBgType === 'gradient') {
+                      $bodyBgCss = 'background: linear-gradient(135deg, ' . ($ss->gradient_start ?? '#fff7fb') . ' 0%, ' . ($ss->gradient_end ?? '#ffe3f1') . ' 100%);';
+                      $pbgType = 'gradient'; $pbgImage = '';
+                  } elseif ($sBgType === 'image' && !empty($ss->bg_image_path)) {
+                      $bodyBgCss = 'background: ' . ($ss->bg_color ?? $pbgColor) . ';';
+                      $pbgType = 'image'; $pbgImage = $ss->bg_image_path;
+                      $pbgOpacity = (float)($ss->bg_image_opacity ?? 1.0);
+                  } else {
+                      $bodyBgCss = 'background: ' . ($ss->bg_color ?? $pbgColor) . ';';
+                      $pbgType = 'color'; $pbgImage = '';
+                  }
+              }
+          }
+      } catch (\Exception $e) {}
+  }
+
   if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $rawPrimary)) $rawPrimary = '#7B3A0F';
 
   // Compute color variants from hex
