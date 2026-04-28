@@ -718,17 +718,48 @@
 </head>
 <body>
 
-{{-- ═══ Facebook/Messenger in-app browser warning ═══ --}}
-<div id="fbBrowserBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#1877f2;color:#fff;padding:12px 16px;font-size:14px;line-height:1.4;text-align:center;box-shadow:0 -2px 8px rgba(0,0,0,.3);">
-  <strong>Para gumana ang lokasyon</strong>, i-open ang page sa Chrome o Safari.<br>
-  I-tap ang <strong>⋮ menu</strong> sa itaas → piliin ang <strong>"Open in Chrome"</strong> o <strong>"Open in external browser"</strong>.
-  <button onclick="document.getElementById('fbBrowserBanner').style.display='none'" style="margin-left:10px;background:rgba(255,255,255,.25);border:none;color:#fff;padding:4px 10px;border-radius:4px;font-size:13px;cursor:pointer;">✕</button>
+{{-- ═══ Facebook/Messenger in-app browser – full modal warning ═══ --}}
+<div id="fbIabOverlay" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:18px;padding:28px 22px;max-width:360px;width:100%;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.35);">
+    <div style="font-size:52px;margin-bottom:8px;">🗺️</div>
+    <h5 style="color:#dc2626;font-weight:800;font-size:17px;margin:0 0 8px;">Hindi Gagana ang Mapa!</h5>
+    <p style="color:#374151;font-size:14px;margin:0 0 14px;line-height:1.5;">
+      Ang <strong>Facebook / Messenger browser</strong> ay hindi sumusuporta sa GPS at mapa ng sistema.<br><br>
+      Kailangan buksan sa <strong>Chrome</strong> para gumana nang buo ang order.
+    </p>
+    <div style="background:#fef9c3;border:1px solid #fde047;border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:13px;color:#713f12;text-align:left;line-height:1.6;">
+      <strong>Paano buksan sa Chrome:</strong><br>
+      1. I-tap ang <strong>⋮</strong> o <strong>···</strong> sa itaas-kanan<br>
+      2. Piliin ang <strong>"Open in Chrome"</strong><br>
+      &nbsp;&nbsp;&nbsp;o <strong>"Open in external browser"</strong>
+    </div>
+    <a id="fbOpenChromeBtn" href="#" style="display:block;background:#1a73e8;color:#fff;padding:13px;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none;margin-bottom:10px;">
+      🌐 Buksan sa Chrome
+    </a>
+    <button onclick="document.getElementById('fbIabOverlay').style.display='none'" style="background:none;border:1px solid #d1d5db;color:#6b7280;padding:10px;border-radius:10px;font-size:13px;cursor:pointer;width:100%;">
+      Isara (hindi gagana ang GPS/mapa)
+    </button>
+  </div>
 </div>
 <script>
 (function(){
   var ua = navigator.userAgent || '';
   var isFbIab = /FBAN|FBAV|FB_IAB|FBIOS|FBDV|MessengerLiteForiOS|Messenger|Instagram/.test(ua);
-  if (isFbIab) document.getElementById('fbBrowserBanner').style.display = 'block';
+  if (!isFbIab) return;
+  var overlay = document.getElementById('fbIabOverlay');
+  overlay.style.display = 'flex';
+  var btn = document.getElementById('fbOpenChromeBtn');
+  var isAndroid = /Android/.test(ua);
+  if (isAndroid) {
+    // Android: intent URL forces open in Chrome
+    btn.href = 'intent://' + location.host + location.pathname + location.search
+             + '#Intent;scheme=https;package=com.android.chrome;end;';
+  } else {
+    // iOS: can't force Chrome, instruct user manually
+    btn.closest('div').querySelector('a').outerHTML =
+      '<div style="background:#e5e7eb;color:#374151;padding:12px;border-radius:10px;font-size:13px;margin-bottom:10px;">'
+      + '📱 Sa iPhone: I-tap <strong>⋮</strong> → <strong>Open in Safari</strong></div>';
+  }
 })();
 </script>
 
