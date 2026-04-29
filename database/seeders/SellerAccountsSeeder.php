@@ -41,9 +41,12 @@ class SellerAccountsSeeder extends Seeder
         ];
 
         foreach ($sellers as $s) {
-            if (DB::table('users')->where('email', $s['email'])->exists()) {
-                $this->command->warn("Skipped (already exists): {$s['email']}");
-                continue;
+            // Delete existing user + shop before re-inserting
+            $existing = DB::table('users')->where('email', $s['email'])->first();
+            if ($existing) {
+                DB::table('shops')->where('seller_id', $existing->id)->delete();
+                DB::table('users')->where('id', $existing->id)->delete();
+                $this->command->warn("Removed old account: {$s['email']}");
             }
 
             $uid = CakeshopHelper::generateId('users');
