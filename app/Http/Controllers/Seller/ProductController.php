@@ -173,7 +173,7 @@ class ProductController extends Controller
 
         // Check if product has existing orders
         $hasOrders = DB::table('orders')->where('product_id', $id)
-            ->whereNotIn('status', ['Cancelled'])->exists();
+            ->whereNotIn('status', ['Cancelled', 'Awaiting Deposit'])->exists();
         if ($hasOrders) {
             // Soft delete — just deactivate
             DB::table('products')->where('id', $id)->update(['is_available' => false, 'updated_at' => now()]);

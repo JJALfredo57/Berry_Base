@@ -1874,6 +1874,8 @@ document.addEventListener('click', function(e) {
       el.removeAttribute('data-cs-confirm');
       if (el.tagName==='A' && el.href && el.href!==window.location.href+'#') {
         el.target==='_blank' ? window.open(el.href) : (window.location.href=el.href);
+      } else if (el.tagName==='FORM') {
+        el.submit();
       } else {
         el.click();
         setTimeout(function(){ el.setAttribute('data-cs-confirm',msg); }, 200);
