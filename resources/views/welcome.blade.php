@@ -475,6 +475,11 @@
     @keyframes slideLeft   { to { opacity:0; transform:translateX(-56px); } }
     @keyframes slideRight  { to { opacity:0; transform:translateX(56px); } }
 
+    /* Hide intro/splash instantly on mobile before JS runs */
+    html.is-mobile #intro,
+    html.is-mobile #splash { display: none !important; }
+    html.is-mobile #mobile-warning { display: flex !important; }
+
     /* ─── Mobile Warning Modal ─────────────────────────────────── */
     #mobile-warning {
       position: fixed; inset: 0; z-index: 999999;
@@ -605,6 +610,12 @@
   </style>
 </head>
 <body>
+{{-- Immediate mobile detection — runs before any element renders --}}
+<script>
+  if (window.innerWidth <= 900 || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent)) {
+    document.documentElement.classList.add('is-mobile');
+  }
+</script>
 
 {{-- ── Mobile Warning Modal ────────────────────────────────────── --}}
 <div id="mobile-warning">
