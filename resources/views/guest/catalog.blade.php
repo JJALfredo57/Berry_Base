@@ -601,43 +601,6 @@
 </div>{{-- end modal --}}
 @endforeach
 
-{{-- Lightbox --}}
-<div id="lightboxOverlay"
-     style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:rgba(0,0,0,0);align-items:center;justify-content:center;transition:background .3s ease"
-     onclick="catLbBgClick(event)">
-
-  {{-- Image wrapper --}}
-  <div id="lightboxWrapper"
-       style="position:relative;transform:scale(0.3);opacity:0;transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s ease">
-    <img id="lightboxImg" src=""
-         style="max-width:90vw;max-height:82vh;border-radius:1rem;object-fit:contain;display:block;cursor:default;user-select:none"
-         onclick="event.stopPropagation()">
-
-    {{-- Zoom controls --}}
-    <div style="position:absolute;bottom:-56px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center">
-      <button onclick="event.stopPropagation();catLbZoom(-0.25)"
-              style="background:rgba(255,255,255,.18);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:1.3rem;cursor:pointer">−</button>
-      <span id="zoomLabel" style="color:#fff;font-size:clamp(.76rem,1.5vw,.82rem);min-width:48px;text-align:center">100%</span>
-      <button onclick="event.stopPropagation();catLbZoom(0.25)"
-              style="background:rgba(255,255,255,.18);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:1.3rem;cursor:pointer">+</button>
-      <button onclick="event.stopPropagation();catLbReset()"
-              style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:0 14px;height:40px;border-radius:20px;font-size:.78rem;cursor:pointer">Reset</button>
-    </div>
-  </div>
-
-  {{-- Close button --}}
-  <button id="lbCloseBtn"
-          style="position:fixed;top:20px;right:24px;background:rgba(255,255,255,.18);border:none;color:#fff;width:44px;height:44px;border-radius:50%;font-size:clamp(.95rem,2.5vw,1.2rem);cursor:pointer;opacity:0;transition:opacity .3s ease .15s"
-          onclick="catLbClose()">
-    <i class="bi bi-x-lg"></i>
-  </button>
-
-  {{-- Hint --}}
-  <div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.45);font-size:clamp(.7rem,1.4vw,.75rem);opacity:0;transition:opacity .3s ease .2s" id="lbHint">
-    Scroll to zoom &nbsp;·&nbsp; Click outside to close &nbsp;·&nbsp; ESC to exit
-  </div>
-</div>
-
 <script>
 function forceCleanModals() {
   document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
@@ -692,84 +655,6 @@ function cancelLongPress() {
   if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
 }
 
-// ── Lightbox ─────────────────────────────────────────────────
-let catLbScale = 1;
-
-function catLbOpen(src) {
-  const overlay  = document.getElementById('lightboxOverlay');
-  const wrapper  = document.getElementById('lightboxWrapper');
-  const img      = document.getElementById('lightboxImg');
-  const closeBtn = document.getElementById('lbCloseBtn');
-  const hint     = document.getElementById('lbHint');
-
-  catLbScale = 1;
-  document.getElementById('zoomLabel').textContent = '100%';
-  img.style.transform = 'scale(1)';
-  img.src = src;
-
-  overlay.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-
-  // Animate in
-  requestAnimationFrame(() => {
-    overlay.style.background  = 'rgba(0,0,0,.92)';
-    wrapper.style.transform   = 'scale(1)';
-    wrapper.style.opacity     = '1';
-    closeBtn.style.opacity    = '1';
-    hint.style.opacity        = '1';
-  });
-}
-
-function catLbClose() {
-  const overlay  = document.getElementById('lightboxOverlay');
-  const wrapper  = document.getElementById('lightboxWrapper');
-  const closeBtn = document.getElementById('lbCloseBtn');
-  const hint     = document.getElementById('lbHint');
-
-  // Disable pointer events immediately so overlay doesn't block clicks during animation
-  overlay.style.pointerEvents = 'none';
-  overlay.style.background  = 'rgba(0,0,0,0)';
-  wrapper.style.transform   = 'scale(0.3)';
-  wrapper.style.opacity     = '0';
-  closeBtn.style.opacity    = '0';
-  hint.style.opacity        = '0';
-
-  setTimeout(() => {
-    overlay.style.display = 'none';
-    overlay.style.pointerEvents = '';
-    document.body.style.overflow = '';
-  }, 380);
-}
-
-function catLbBgClick(e) {
-  if (e.target === document.getElementById('lightboxOverlay')) catLbClose();
-}
-
-function catLbZoom(delta) {
-  catLbScale = Math.min(3, Math.max(0.5, catLbScale + delta));
-  document.getElementById('lightboxImg').style.transform = 'scale(' + catLbScale + ')';
-  document.getElementById('zoomLabel').textContent = Math.round(catLbScale * 100) + '%';
-}
-
-function catLbReset() {
-  catLbScale = 1;
-  document.getElementById('lightboxImg').style.transform = 'scale(1)';
-  document.getElementById('zoomLabel').textContent = '100%';
-}
-
-// Scroll to zoom
-document.getElementById('lightboxOverlay').addEventListener('wheel', e => {
-  if (document.getElementById('lightboxOverlay').style.display === 'flex') {
-    e.preventDefault();
-    catLbZoom(e.deltaY < 0 ? 0.15 : -0.15);
-  }
-}, { passive: false });
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') catLbClose();
-  if (e.key === '+' || e.key === '=') catLbZoom(0.25);
-  if (e.key === '-') catLbZoom(-0.25);
-});
 
 // Clean on back-button restore
 window.addEventListener('pageshow', function(e) { if (e.persisted) forceCleanModals(); });

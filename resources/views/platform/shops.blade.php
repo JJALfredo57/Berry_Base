@@ -47,7 +47,6 @@
       </a>
       <div style="display:flex;gap:.75rem">
         <a href="{{ route('login') }}" style="font-size:.875rem;font-weight:500;color:var(--gray-700)">Sign In</a>
-        <a href="{{ route('seller.apply') }}" style="background:var(--primary);color:#fff;padding:.45rem 1rem;border-radius:var(--radius-md);font-size:.875rem;font-weight:600">Sell Here</a>
       </div>
     </div>
   </div>

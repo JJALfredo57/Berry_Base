@@ -466,18 +466,6 @@
 
 </div>
 
-{{-- Document Viewer Modal --}}
-<div id="docViewer" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);align-items:center;justify-content:center;flex-direction:column"
-     onclick="if(event.target===this)closeDocViewer()">
-  <div style="position:absolute;top:1rem;right:1rem;display:flex;gap:.75rem">
-    <div id="docTitle" style="color:#fff;font-size:.9rem;font-weight:600;align-self:center"></div>
-    <button onclick="closeDocViewer()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1rem">
-      <i class="bi bi-x-lg"></i>
-    </button>
-  </div>
-  <img id="docImg" src="" alt="" style="max-width:90vw;max-height:85vh;object-fit:contain;border-radius:var(--radius-md)">
-</div>
-
 <script>
 function toggleRejectForm(id) {
   const el = document.getElementById(id);
@@ -487,18 +475,6 @@ function toggleUpgradeRejectForm(id) {
   const el = document.getElementById(id);
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
-function openDocViewer(src, title) {
-  document.getElementById('docImg').src = src;
-  document.getElementById('docTitle').textContent = title;
-  document.getElementById('docViewer').style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-}
-function closeDocViewer() {
-  document.getElementById('docViewer').style.display = 'none';
-  document.body.style.overflow = '';
-}
-document.addEventListener('keydown', e => { if (e.key==='Escape') closeDocViewer(); });
-
 function filterSellerManagement() {
   const search = (document.getElementById('sellerMgmtSearch')?.value || '').toLowerCase().trim();
   const status = (document.getElementById('sellerMgmtStatus')?.value || '').toLowerCase();
