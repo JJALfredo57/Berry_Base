@@ -1255,6 +1255,80 @@
 /* ── customer-wrap adjust ── */
 .customer-wrap { padding-top:56px; }
 @@media(max-width:767px) { .customer-wrap { padding-top:56px; } }
+
+/* Become Seller modal */
+.bsm-overlay {
+  position:fixed;inset:0;z-index:1060;
+  display:none;align-items:center;justify-content:center;
+  padding:18px;background:rgba(17,24,39,.58);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+}
+.bsm-overlay.bsm-open { display:flex; }
+.bsm-panel {
+  position:relative;overflow:hidden;
+  width:min(920px,100%);min-height:min(560px,calc(100vh - 36px));
+  border-radius:18px;background:var(--primary-dark);
+  box-shadow:0 28px 80px rgba(0,0,0,.32);
+  display:flex;align-items:center;justify-content:center;
+}
+.bsm-panel::before {
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 14% 20%, rgba(255,241,118,.95) 0 12%, transparent 12.5%),
+    radial-gradient(circle at 88% 14%, rgba(255,138,128,.9) 0 16%, transparent 16.5%),
+    radial-gradient(circle at 88% 88%, rgba(255,255,255,.16) 0 20%, transparent 20.5%),
+    linear-gradient(145deg,var(--primary-dark),var(--primary) 48%,#2f1f18);
+}
+.bsm-panel::after {
+  content:"";position:absolute;left:-7%;right:-7%;bottom:-1px;height:26%;
+  background:#fff;
+  clip-path:polygon(0 48%,8% 40%,15% 55%,22% 43%,31% 58%,40% 46%,50% 61%,62% 44%,72% 58%,84% 43%,94% 57%,100% 47%,100% 100%,0 100%);
+}
+.bsm-close {
+  position:absolute;top:16px;right:16px;z-index:2;
+  width:38px;height:38px;border-radius:10px;border:0;
+  background:rgba(255,255,255,.9);color:#111827;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+}
+.bsm-content {
+  position:relative;z-index:1;text-align:center;color:#fff;
+  width:min(620px,88%);padding:72px 0 112px;
+}
+.bsm-kicker {
+  display:inline-flex;align-items:center;gap:8px;
+  padding:7px 12px;border-radius:999px;
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+  font-size:.78rem;font-weight:700;margin-bottom:18px;
+}
+.bsm-title {
+  font-family:'Playfair Display',serif;
+  font-size:clamp(2rem,6vw,3.9rem);
+  line-height:1.08;font-weight:700;margin:0 0 14px;
+}
+.bsm-text {
+  font-size:clamp(.95rem,2vw,1.1rem);
+  line-height:1.7;margin:0 auto 24px;
+  color:rgba(255,255,255,.88);max-width:520px;
+}
+.bsm-actions { display:flex;justify-content:center;gap:12px;flex-wrap:wrap; }
+.bsm-primary {
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:46px;padding:0 24px;border-radius:999px;
+  background:#fff;color:var(--primary);font-weight:800;text-decoration:none;
+  box-shadow:0 12px 28px rgba(0,0,0,.18);
+}
+.bsm-secondary {
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:46px;padding:0 20px;border-radius:999px;
+  background:rgba(255,255,255,.12);color:#fff;font-weight:700;text-decoration:none;
+  border:1px solid rgba(255,255,255,.24);
+}
+@media(max-width:640px) {
+  .bsm-panel { min-height:min(520px,calc(100vh - 36px));border-radius:16px; }
+  .bsm-content { width:86%;padding:72px 0 96px; }
+  .bsm-actions { flex-direction:column;align-items:stretch; }
+}
 </style>
 
 {{-- Overlay --}}
@@ -1325,9 +1399,10 @@
     <a href="{{ route('login') }}" class="csb-link" onclick="closeCustSidebar()" style="color:#e53935;font-weight:600">
       <i class="bi bi-person-badge"></i> Seller Login
     </a>
-    <a href="{{ route('seller.apply') }}" class="csb-link" onclick="closeCustSidebar()" style="color:#e53935;font-weight:600">
-      <i class="bi bi-shop-window"></i> Sell Here
-    </a>
+    <button onclick="openBecomeSellerModal()"
+            class="csb-link" style="color:#e53935;font-weight:600;background:none;border:none;cursor:pointer;width:100%;text-align:left;padding:0">
+      <i class="bi bi-stars"></i> Become a Seller
+    </button>
 
     @if($role === 'admin')
     <div class="csb-divider"></div>
@@ -1345,6 +1420,84 @@
     <div class="csb-footer-note">&copy; {{ date('Y') }} {{ $brandTitle }}</div>
   </div>
 </div>
+
+{{-- Become a Seller Modal --}}
+<div id="becomeSellerModal" class="bsm-overlay" onclick="if(event.target===this)closeBecomeSellerModal()">
+  <div class="bsm-card">
+    <button class="bsm-close" onclick="closeBecomeSellerModal()" aria-label="Close">&times;</button>
+
+    <div class="bsm-hero">
+      <div class="bsm-hero-icon"><i class="bi bi-shop-window"></i></div>
+      <h2 class="bsm-title">Start Selling on {{ $brandTitle }}</h2>
+      <p class="bsm-sub">Join our growing community of cake sellers. Reach more customers and grow your business online.</p>
+    </div>
+
+    <div class="bsm-perks">
+      <div class="bsm-perk">
+        <div class="bsm-perk-icon" style="background:#fdf2f8;color:var(--primary)"><i class="bi bi-people-fill"></i></div>
+        <div>
+          <div class="bsm-perk-title">Reach More Customers</div>
+          <div class="bsm-perk-desc">Get discovered by customers in your area browsing for custom cakes and pastries.</div>
+        </div>
+      </div>
+      <div class="bsm-perk">
+        <div class="bsm-perk-icon" style="background:#f0fdf4;color:#16a34a"><i class="bi bi-phone-fill"></i></div>
+        <div>
+          <div class="bsm-perk-title">Accept GCash &amp; Cash Payments</div>
+          <div class="bsm-perk-desc">Receive payments via GCash, Cash on Pickup, or Cash on Delivery — all in one place.</div>
+        </div>
+      </div>
+      <div class="bsm-perk">
+        <div class="bsm-perk-icon" style="background:#eff6ff;color:#1d4ed8"><i class="bi bi-graph-up-arrow"></i></div>
+        <div>
+          <div class="bsm-perk-title">Manage Orders Easily</div>
+          <div class="bsm-perk-desc">Your own seller dashboard — track orders, manage products, and view your sales history.</div>
+        </div>
+      </div>
+      <div class="bsm-perk">
+        <div class="bsm-perk-icon" style="background:#fff7ed;color:#ea580c"><i class="bi bi-shield-check-fill"></i></div>
+        <div>
+          <div class="bsm-perk-title">Verified &amp; Trusted</div>
+          <div class="bsm-perk-desc">Your shop is reviewed before going live. Customers trust verified sellers on our platform.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bsm-footer">
+      <a href="{{ route('seller.apply') }}" class="bsm-cta-btn">
+        <i class="bi bi-shop-window me-2"></i>Start Selling Now
+      </a>
+      <a href="{{ route('login') }}" class="bsm-login-link">
+        Already a seller? <strong>Sign in here</strong>
+      </a>
+    </div>
+  </div>
+</div>
+
+<style>
+.bsm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(3px)}
+.bsm-overlay.bsm-open{display:flex;animation:bsmFadeIn .22s ease}
+@keyframes bsmFadeIn{from{opacity:0}to{opacity:1}}
+.bsm-card{background:#fff;border-radius:24px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 24px 64px rgba(0,0,0,.2);animation:bsmSlideUp .28s cubic-bezier(.34,1.56,.64,1)}
+@keyframes bsmSlideUp{from{transform:translateY(36px);opacity:0}to{transform:translateY(0);opacity:1}}
+.bsm-close{position:absolute;top:.875rem;right:.875rem;width:2rem;height:2rem;border:none;border-radius:50%;background:#f3f4f6;color:#6b7280;font-size:1.2rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;z-index:1}
+.bsm-close:hover{background:#e5e7eb;color:#111}
+.bsm-hero{background:linear-gradient(135deg,var(--primary,#e91e63) 0%,#c2185b 100%);border-radius:24px 24px 0 0;padding:2.25rem 2rem 1.75rem;text-align:center;color:#fff}
+.bsm-hero-icon{width:60px;height:60px;background:rgba(255,255,255,.18);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;font-size:1.6rem;margin-bottom:.875rem}
+.bsm-title{font-family:'Playfair Display',serif;font-size:1.45rem;font-weight:700;margin:0 0 .4rem;line-height:1.3}
+.bsm-sub{font-size:.85rem;opacity:.88;margin:0;line-height:1.5}
+.bsm-perks{padding:1.5rem 1.75rem;display:flex;flex-direction:column;gap:1rem}
+.bsm-perk{display:flex;align-items:flex-start;gap:.875rem}
+.bsm-perk-icon{width:2.4rem;height:2.4rem;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.bsm-perk-title{font-size:.875rem;font-weight:700;color:#111827;margin-bottom:.12rem}
+.bsm-perk-desc{font-size:.78rem;color:#6b7280;line-height:1.45}
+.bsm-footer{padding:1.25rem 1.75rem 1.75rem;display:flex;flex-direction:column;align-items:center;gap:.75rem;border-top:1.5px solid #f3f4f6}
+.bsm-cta-btn{display:inline-flex;align-items:center;justify-content:center;width:100%;background:linear-gradient(135deg,var(--primary,#e91e63),#c2185b);color:#fff;border-radius:12px;padding:.875rem 1.5rem;font-size:.975rem;font-weight:700;text-decoration:none;transition:opacity .15s,transform .15s;box-shadow:0 4px 16px rgba(233,30,99,.28)}
+.bsm-cta-btn:hover{opacity:.9;transform:translateY(-1px);color:#fff}
+.bsm-login-link{font-size:.82rem;color:#9ca3af;text-decoration:none}
+.bsm-login-link:hover{color:var(--primary,#e91e63)}
+.bsm-login-link strong{color:var(--primary,#e91e63)}
+</style>
 
 {{-- Top bar --}}
 <div class="cust-topbar">
@@ -1368,9 +1521,30 @@
     <a href="{{ route('login') }}" class="btn btn-sm btn-outline-danger fw-semibold">
       <i class="bi bi-person-badge me-1"></i>Seller Login
     </a>
-    <a href="{{ route('seller.apply') }}" class="btn btn-sm btn-danger fw-semibold">
-      <i class="bi bi-shop-window me-1"></i>Sell Here
-    </a>
+  </div>
+</div>
+
+{{-- Become Seller modal --}}
+<div class="bsm-overlay" id="becomeSellerModal" onclick="closeBecomeSellerModal(event)" aria-hidden="true">
+  <div class="bsm-panel" role="dialog" aria-modal="true" aria-labelledby="bsmTitle">
+    <button type="button" class="bsm-close" onclick="closeBecomeSellerModal()" aria-label="Close">
+      <i class="bi bi-x-lg"></i>
+    </button>
+    <div class="bsm-content">
+      <div class="bsm-kicker"><i class="bi bi-shop-window"></i>{{ $brandTitle }} Sellers</div>
+      <h1 class="bsm-title" id="bsmTitle">Let more customers discover your cakes</h1>
+      <p class="bsm-text">
+        Open your shop profile, accept online orders, and manage your cakes from one seller dashboard built for {{ $brandTitle }}.
+      </p>
+      <div class="bsm-actions">
+        <a href="{{ route('seller.apply') }}" class="bsm-primary">
+          <i class="bi bi-shop-window"></i> Sell Here
+        </a>
+        <a href="{{ route('login') }}" class="bsm-secondary">
+          <i class="bi bi-person-badge"></i> Seller Login
+        </a>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1385,7 +1559,28 @@ function closeCustSidebar() {
   document.getElementById('csbOverlay').classList.remove('open');
   document.body.style.overflow = '';
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCustSidebar(); });
+function openBecomeSellerModal() {
+  var modal = document.getElementById('becomeSellerModal');
+  if (!modal) return;
+  closeCustSidebar();
+  modal.classList.add('bsm-open');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+function closeBecomeSellerModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  var modal = document.getElementById('becomeSellerModal');
+  if (!modal) return;
+  modal.classList.remove('bsm-open');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeCustSidebar();
+    closeBecomeSellerModal();
+  }
+});
 
 @if(session('rider_err'))
 // Auto-open sidebar and focus the rider input when there's an access error
@@ -1443,6 +1638,72 @@ document.addEventListener('DOMContentLoaded', function () {
       </div>
       <div id="csDlgBtns" style="display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap"></div>
     </div>
+  </div>
+</div>
+
+{{-- ── Global Lightbox (image / PDF viewer) ── --}}
+<div id="csLightbox"
+     style="display:none;position:fixed;inset:0;z-index:10200;
+            background:rgba(0,0,0,0);align-items:center;justify-content:center;
+            transition:background .25s ease;overflow:hidden"
+     onclick="if(event.target.id==='csLightbox')csLightboxClose()">
+  <button id="csLbClose" onclick="csLightboxClose()"
+          style="position:absolute;top:18px;right:20px;z-index:3;
+                 background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.18);
+                 color:#fff;width:46px;height:46px;border-radius:50%;font-size:1.1rem;
+                 cursor:pointer;display:flex;align-items:center;justify-content:center;
+                 transition:background .15s;opacity:0"
+          onmouseover="this.style.background='rgba(255,255,255,.28)'"
+          onmouseout="this.style.background='rgba(255,255,255,.15)'">
+    <i class="bi bi-x-lg"></i>
+  </button>
+  <div id="csLbTitle"
+       style="position:absolute;top:22px;left:20px;z-index:3;
+              color:rgba(255,255,255,.9);font-size:.9rem;font-weight:600;
+              max-width:calc(100% - 110px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+              opacity:0;transition:opacity .25s .1s"></div>
+  <div id="csLbImgWrap"
+       style="display:flex;align-items:center;justify-content:center;
+              width:100%;height:100%;padding:72px 24px 82px;overflow:hidden;
+              transform:scale(0.88);opacity:0;
+              transition:transform .32s cubic-bezier(.34,1.56,.64,1),opacity .22s ease">
+    <img id="csLbImg" src="" alt=""
+         style="max-width:100%;max-height:100%;object-fit:contain;
+                border-radius:.75rem;transition:transform .25s ease;cursor:zoom-in;user-select:none"
+         onclick="csLbToggleZoom()" ondragstart="return false">
+  </div>
+  <div id="csLbPdfWrap"
+       style="display:none;width:100%;height:100%;padding:72px 20px 20px;
+              transform:scale(0.88);opacity:0;
+              transition:transform .32s cubic-bezier(.34,1.56,.64,1),opacity .22s ease">
+    <iframe id="csLbPdf" src=""
+            style="width:100%;height:100%;border:none;border-radius:.75rem;background:#fff"></iframe>
+  </div>
+  <div id="csLbZoomBar"
+       style="position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+              display:flex;gap:8px;align-items:center;z-index:3;
+              background:rgba(0,0,0,.5);backdrop-filter:blur(8px);
+              padding:6px 12px;border-radius:40px;
+              opacity:0;transition:opacity .25s .15s">
+    <button onclick="csLbZoom(-0.25)"
+            style="background:rgba(255,255,255,.15);border:none;color:#fff;
+                   width:36px;height:36px;border-radius:50%;font-size:1.2rem;
+                   cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">−</button>
+    <span id="csLbZoomLbl" style="color:rgba(255,255,255,.85);font-size:.8rem;min-width:42px;text-align:center">100%</span>
+    <button onclick="csLbZoom(0.25)"
+            style="background:rgba(255,255,255,.15);border:none;color:#fff;
+                   width:36px;height:36px;border-radius:50%;font-size:1.2rem;
+                   cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">+</button>
+    <div style="width:1px;height:20px;background:rgba(255,255,255,.2);margin:0 4px"></div>
+    <button onclick="csLbReset()"
+            style="background:rgba(255,255,255,.12);border:none;color:rgba(255,255,255,.7);
+                   padding:0 12px;height:36px;border-radius:20px;font-size:.75rem;cursor:pointer">Reset</button>
+  </div>
+  <div id="csLbHint"
+       style="position:absolute;bottom:62px;left:50%;transform:translateX(-50%);
+              color:rgba(255,255,255,.3);font-size:.7rem;white-space:nowrap;z-index:3;
+              opacity:0;transition:opacity .25s .2s">
+    Click image to toggle zoom &bull; Scroll to zoom &bull; ESC to close
   </div>
 </div>
 
@@ -1639,8 +1900,15 @@ document.addEventListener('submit', function(e) {
   });
 }, true);
 
-// ESC closes dialog
+// ESC closes lightbox or dialog; +/- to zoom lightbox
 document.addEventListener('keydown', function(e) {
+  var lb = document.getElementById('csLightbox');
+  if (lb && lb.style.display !== 'none') {
+    if (e.key === 'Escape')             { if (typeof window.csLightboxClose==='function') window.csLightboxClose(); return; }
+    if (e.key === '+' || e.key === '=') { if (typeof window.csLbZoom==='function') window.csLbZoom(0.25); return; }
+    if (e.key === '-')                  { if (typeof window.csLbZoom==='function') window.csLbZoom(-0.25); return; }
+    return;
+  }
   var bd = document.getElementById('csDlgBackdrop');
   if (e.key==='Escape' && bd && bd.style.display!=='none') _csDlgCancel();
 });
@@ -2857,6 +3125,94 @@ function pgFilter(param, val) {
   url.searchParams.set('page', '1');
   window.location = url.toString();
 }
+</script>
+<script>
+// ── Global Lightbox ──────────────────────────────────────────────────────
+(function() {
+  var _lbScale = 1;
+  var _lbOpen  = false;
+  function _lbEl(id) { return document.getElementById(id); }
+  function _applyZoom() {
+    var img = _lbEl('csLbImg');
+    if (img) { img.style.transform='scale('+_lbScale+')'; img.style.cursor=_lbScale>1?'zoom-out':'zoom-in'; }
+    var lbl = _lbEl('csLbZoomLbl');
+    if (lbl) lbl.textContent = Math.round(_lbScale*100)+'%';
+  }
+  window.csLightboxOpen = function(src, title) {
+    if (!src) return;
+    var isPdf = /\.pdf(\?.*)?$/i.test(src);
+    var lb = _lbEl('csLightbox'); if (!lb) return;
+    var imgWrap  = _lbEl('csLbImgWrap');
+    var pdfWrap  = _lbEl('csLbPdfWrap');
+    var zoomBar  = _lbEl('csLbZoomBar');
+    var hint     = _lbEl('csLbHint');
+    var closeBtn = _lbEl('csLbClose');
+    var titleEl  = _lbEl('csLbTitle');
+    _lbScale = 1; _applyZoom();
+    titleEl.textContent = title || '';
+    imgWrap.style.transform='scale(0.88)'; imgWrap.style.opacity='0';
+    pdfWrap.style.transform='scale(0.88)'; pdfWrap.style.opacity='0';
+    closeBtn.style.opacity='0'; titleEl.style.opacity='0';
+    zoomBar.style.opacity='0'; hint.style.opacity='0';
+    lb.style.background='rgba(0,0,0,0)';
+    if (isPdf) {
+      imgWrap.style.display='none'; pdfWrap.style.display='';
+      zoomBar.style.display='none'; hint.style.display='none';
+      _lbEl('csLbPdf').src=src; _lbEl('csLbImg').src='';
+    } else {
+      pdfWrap.style.display='none'; imgWrap.style.display='flex';
+      zoomBar.style.display='flex'; hint.style.display='';
+      _lbEl('csLbImg').src=src; _lbEl('csLbPdf').src='';
+    }
+    lb.style.display='flex';
+    document.body.style.overflow='hidden';
+    _lbOpen=true;
+    requestAnimationFrame(function() {
+      lb.style.background='rgba(0,0,0,.92)';
+      var target=isPdf?pdfWrap:imgWrap;
+      target.style.transform='scale(1)'; target.style.opacity='1';
+      closeBtn.style.opacity='1'; titleEl.style.opacity='1';
+      if (!isPdf) { zoomBar.style.opacity='1'; hint.style.opacity='1'; }
+    });
+  };
+  window.csLightboxClose = function() {
+    var lb=_lbEl('csLightbox'); if (!lb||!_lbOpen) return;
+    _lbOpen=false;
+    var imgWrap=_lbEl('csLbImgWrap'), pdfWrap=_lbEl('csLbPdfWrap');
+    lb.style.background='rgba(0,0,0,0)';
+    imgWrap.style.transform='scale(0.88)'; imgWrap.style.opacity='0';
+    pdfWrap.style.transform='scale(0.88)'; pdfWrap.style.opacity='0';
+    _lbEl('csLbClose').style.opacity='0'; _lbEl('csLbTitle').style.opacity='0';
+    _lbEl('csLbZoomBar').style.opacity='0'; _lbEl('csLbHint').style.opacity='0';
+    setTimeout(function() {
+      lb.style.display='none';
+      _lbEl('csLbImg').src=''; _lbEl('csLbPdf').src='';
+      document.body.style.overflow='';
+      _lbScale=1; _applyZoom();
+    }, 300);
+  };
+  window.csLbToggleZoom = function() { _lbScale=_lbScale>=2?1:2; _applyZoom(); };
+  window.csLbZoom  = function(d) { _lbScale=Math.min(4,Math.max(0.5,_lbScale+d)); _applyZoom(); };
+  window.csLbReset = function() { _lbScale=1; _applyZoom(); };
+  // Backward-compat aliases so existing call sites keep working
+  window.kitchenImgOpen  = function(s,t) { window.csLightboxOpen(s,t||''); };
+  window.kitchenImgClose = window.csLightboxClose;
+  window.openDocViewer   = function(s,t) { window.csLightboxOpen(s,t||''); };
+  window.closeDocViewer  = window.csLightboxClose;
+  window.catLbOpen       = function(s)   { window.csLightboxOpen(s,''); };
+  window.catLbClose      = window.csLightboxClose;
+  window.catLbZoom       = function(d)   { window.csLbZoom(d); };
+  window.catLbReset      = window.csLbReset;
+  window.catLbBgClick    = function(e)   { if (e&&e.target&&(e.target.id==='lightboxOverlay'||e.target.id==='csLightbox')) window.csLightboxClose(); };
+  document.addEventListener('DOMContentLoaded', function() {
+    var lb=document.getElementById('csLightbox'); if (!lb) return;
+    lb.addEventListener('wheel', function(e) {
+      if (_lbOpen && _lbEl('csLbImgWrap') && _lbEl('csLbImgWrap').style.display!=='none') {
+        e.preventDefault(); window.csLbZoom(e.deltaY<0?0.15:-0.15);
+      }
+    }, { passive: false });
+  });
+})();
 </script>
 </body>
 </html>
