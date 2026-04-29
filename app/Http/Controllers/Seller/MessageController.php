@@ -68,22 +68,22 @@ class MessageController extends Controller
 
         $text = trim($request->input('message',''));
         $file = $request->file('attachment');
-        $attachment = null;
+        $imgPath = null;
 
         if ($file && $file->isValid()) {
             $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$file->getClientOriginalExtension();
             $file->storeAs('uploads/messages', $fn, 'public');
-            $attachment = '/storage/uploads/messages/'.$fn;
+            $imgPath = '/storage/uploads/messages/'.$fn;
         }
 
-        if (!$text && !$attachment) return response()->json(['ok'=>false,'error'=>'Cannot send empty message.']);
+        if (!$text && !$imgPath) return response()->json(['ok'=>false,'error'=>'Cannot send empty message.']);
 
         $msgId = DB::table('messages')->insertGetId([
             'order_id'    => $orderId,
             'sender_role' => 'seller',
             'sender_id'   => session('user')['id'],
             'message'     => $text ?: null,
-            'attachment'  => $attachment,
+            'image_path'  => $imgPath,
             'is_read'     => 0,
             'created_at'  => now(),
         ]);
