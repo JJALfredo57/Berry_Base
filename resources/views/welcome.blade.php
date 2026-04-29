@@ -478,7 +478,7 @@
     /* Hide intro/splash instantly on mobile before JS runs */
     html.is-mobile #intro,
     html.is-mobile #splash { display: none !important; }
-    html.is-mobile #mobile-warning { display: flex !important; }
+    html.is-mobile #mobile-warning { display: flex; }
 
     /* ─── Mobile Warning Modal ─────────────────────────────────── */
     #mobile-warning {
