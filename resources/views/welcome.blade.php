@@ -475,6 +475,118 @@
     @keyframes slideLeft   { to { opacity:0; transform:translateX(-56px); } }
     @keyframes slideRight  { to { opacity:0; transform:translateX(56px); } }
 
+    /* ─── Mobile Warning Modal ─────────────────────────────────── */
+    #mobile-warning {
+      position: fixed; inset: 0; z-index: 999999;
+      background: rgba(0,0,0,0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 20px;
+      transition: opacity 0.45s ease;
+    }
+    #mobile-warning.mw-active { display: flex; }
+    #mobile-warning.mw-hiding { opacity: 0; pointer-events: none; }
+
+    .mw-card {
+      background: var(--cream);
+      border-radius: 22px;
+      padding: 38px 30px 34px;
+      max-width: 370px; width: 100%;
+      position: relative;
+      box-shadow: 0 36px 90px rgba(0,0,0,0.55), 0 8px 28px rgba(0,0,0,0.28);
+      border: 1px solid rgba(200,134,10,0.20);
+      overflow: hidden;
+      text-align: center;
+    }
+    .mw-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent 0%, var(--gold) 30%, var(--peach-soft) 60%, var(--gold) 80%, transparent 100%);
+    }
+
+    .mw-icon-wrap {
+      width: 76px; height: 76px; border-radius: 50%;
+      background: linear-gradient(135deg, rgba(200,134,10,0.13), rgba(200,134,10,0.05));
+      border: 1.5px solid rgba(200,134,10,0.28);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px; position: relative;
+    }
+    .mw-icon-wrap::after {
+      content: ''; position: absolute; inset: -7px; border-radius: 50%;
+      border: 1px solid rgba(200,134,10,0.10);
+    }
+    .mw-icon-wrap i { font-size: 30px; color: var(--gold); }
+
+    .mw-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 14px;
+      background: rgba(200,134,10,0.09);
+      border: 1px solid rgba(200,134,10,0.22);
+      border-radius: 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 9px; font-weight: 500; letter-spacing: 2.8px;
+      text-transform: uppercase; color: var(--gold);
+      margin-bottom: 14px;
+    }
+    .mw-badge::before {
+      content: ''; width: 5px; height: 5px;
+      border-radius: 50%; background: var(--gold); flex-shrink: 0;
+    }
+
+    .mw-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 23px; font-weight: 700;
+      color: var(--text-dark); line-height: 1.2;
+      margin-bottom: 12px;
+    }
+
+    .mw-desc {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13.5px; color: var(--text-mid);
+      line-height: 1.78; margin-bottom: 20px;
+    }
+
+    .mw-notice {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 13px 15px;
+      background: rgba(200,134,10,0.06);
+      border: 1px solid rgba(200,134,10,0.16);
+      border-radius: 12px;
+      margin-bottom: 26px; text-align: left;
+    }
+    .mw-notice i { color: var(--gold); font-size: 15px; flex-shrink: 0; margin-top: 2px; }
+    .mw-notice span {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12.5px; color: var(--text-mid); line-height: 1.65;
+    }
+
+    .mw-btn {
+      width: 100%; padding: 15px 24px;
+      background: linear-gradient(140deg, var(--choc-mid) 0%, #8B4418 60%, var(--choc) 100%);
+      color: #fff; border: none; border-radius: 50px; cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px; font-weight: 500; letter-spacing: 0.3px;
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      box-shadow: 0 8px 26px rgba(var(--choc-mid-rgb),0.35), inset 0 1px 0 rgba(255,255,255,0.10);
+      transition: transform 0.22s ease, box-shadow 0.22s ease;
+      position: relative; overflow: hidden;
+    }
+    .mw-btn::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(140deg, rgba(255,255,255,0.13), transparent 55%);
+    }
+    .mw-btn:active { transform: scale(0.97); }
+    .mw-btn i { font-size: 16px; }
+
+    .mw-footer {
+      margin-top: 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 10px; color: var(--text-soft);
+      letter-spacing: 0.4px; opacity: 0.75;
+    }
+
     /* ─── Responsive ────────────────────────────────────────────── */
     @media (max-width: 700px) {
       #splash { flex-direction: column; }
@@ -493,6 +605,27 @@
   </style>
 </head>
 <body>
+
+{{-- ── Mobile Warning Modal ────────────────────────────────────── --}}
+<div id="mobile-warning">
+  <div class="mw-card">
+    <div class="mw-icon-wrap">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+    </div>
+    <div class="mw-badge">Notice</div>
+    <div class="mw-title">Mobile Device Detected</div>
+    <p class="mw-desc">You are visiting from a mobile device. You can still browse our cakes and place orders, but some features are built for desktop.</p>
+    <div class="mw-notice">
+      <i class="bi bi-map-fill"></i>
+      <span>The interactive delivery area map requires a desktop or laptop browser. It will not load correctly on this device.</span>
+    </div>
+    <button class="mw-btn" id="mw-continue-btn">
+      <i class="bi bi-arrow-right-circle-fill"></i>
+      Continue to Website
+    </button>
+    <div class="mw-footer">Ordering and browsing still work on mobile</div>
+  </div>
+</div>
 
 {{-- ── Brand Intro Overlay ─────────────────────────────────────── --}}
 <div id="intro">
@@ -607,6 +740,10 @@
 <script>
 (function () {
   var AUTO_MS = 14000;
+  var autoTimer = null;
+
+  var isMobile = (window.innerWidth <= 900) ||
+    /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent);
 
   function enterSystem() {
     var btn = document.getElementById('openBtn');
@@ -621,8 +758,31 @@
     }, 820);
   }
 
+  function startIntro() {
+    document.getElementById('intro').style.display = 'flex';
+    document.getElementById('splash').style.display = 'flex';
+    autoTimer = setTimeout(enterSystem, AUTO_MS);
+  }
+
+  function dismissWarning() {
+    var modal = document.getElementById('mobile-warning');
+    modal.classList.add('mw-hiding');
+    setTimeout(function () {
+      modal.style.display = 'none';
+      startIntro();
+    }, 450);
+  }
+
+  if (isMobile) {
+    document.getElementById('intro').style.display = 'none';
+    document.getElementById('splash').style.display = 'none';
+    document.getElementById('mobile-warning').classList.add('mw-active');
+    document.getElementById('mw-continue-btn').addEventListener('click', dismissWarning);
+  } else {
+    autoTimer = setTimeout(enterSystem, AUTO_MS);
+  }
+
   document.getElementById('openBtn').addEventListener('click', enterSystem);
-  setTimeout(enterSystem, AUTO_MS);
 }());
 </script>
 </body>
