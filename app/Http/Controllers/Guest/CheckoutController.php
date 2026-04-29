@@ -224,6 +224,9 @@ class CheckoutController extends Controller
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $request->session()->get('guest_pre_track') ?: $this->generateTrackCode();
 
+        $needsDeposit  = ($payment === 'COD');
+        $depositAmount = $needsDeposit ? round($total * 0.5, 2) : null;
+
         DB::table('orders')->insert([
             'id'                  => $oid,
             'shop_id'             => $product->shop_id ?? null,
@@ -235,7 +238,10 @@ class CheckoutController extends Controller
             'quantity'            => $qty,
             'custom_note'         => $note ?: null,
             'total_price'         => $total,
-            'status'              => 'Pending',
+            'status'              => $needsDeposit ? 'Awaiting Deposit' : 'Pending',
+            'deposit_required'    => $needsDeposit ? 1 : 0,
+            'deposit_amount'      => $depositAmount,
+            'deposit_status'      => $needsDeposit ? 'pending' : null,
             'fulfillment_type'    => $fulfillment,
             'delivery_zone'       => $zone ?? '',
             'delivery_fee'        => $deliveryFee,
@@ -267,8 +273,12 @@ class CheckoutController extends Controller
         }
 
         DB::table('order_tracking')->insert([
-            'order_id'   => $oid, 'status' => 'Pending',
-            'notes'      => 'Guest order placed.', 'created_at' => now(),
+            'order_id'   => $oid,
+            'status'     => $needsDeposit ? 'Awaiting Deposit' : 'Pending',
+            'notes'      => $needsDeposit
+                ? 'Order placed. Awaiting 50% deposit payment via GCash.'
+                : 'Guest order placed.',
+            'created_at' => now(),
         ]);
 
         DB::table('notifications')->insert([
@@ -285,16 +295,31 @@ class CheckoutController extends Controller
         $shopName = SmsHelper::getShopName($product->shop_id ?? null);
         $header   = SmsHelper::header($siteName, $shopName);
         $shopLine = $shopName ? "\nShop: {$shopName}" : '';
-        SmsHelper::send($phone,
-            "{$header}\n"
-            . "Hi {$guestName}! Thank you for your order!\n\n"
-            . "Order No.: #{$oid}{$shopLine}\n"
-            . "Status: Pending Confirmation\n\n"
-            . "We'll review and confirm your order shortly.\n\n"
-            . "Your Tracking Code: {$trackCode}\n"
-            . "Use this code to track your order on our website.\n\n"
-            . "For concerns, contact us through our shop page."
-        );
+        if ($needsDeposit) {
+            SmsHelper::send($phone,
+                "{$header}\n"
+                . "Hi {$guestName}! Your order has been received.\n\n"
+                . "Order No.: #{$oid}{$shopLine}\n"
+                . "Action Required: Pay ₱" . number_format($depositAmount, 2) . " deposit via GCash to confirm your order.\n\n"
+                . "Your Tracking Code: {$trackCode}\n"
+                . "Track your order and pay the deposit on our website."
+            );
+        } else {
+            SmsHelper::send($phone,
+                "{$header}\n"
+                . "Hi {$guestName}! Thank you for your order!\n\n"
+                . "Order No.: #{$oid}{$shopLine}\n"
+                . "Status: Pending Confirmation\n\n"
+                . "We'll review and confirm your order shortly.\n\n"
+                . "Your Tracking Code: {$trackCode}\n"
+                . "Use this code to track your order on our website.\n\n"
+                . "For concerns, contact us through our shop page."
+            );
+        }
+
+        if ($needsDeposit) {
+            return redirect()->route('guest.pay_deposit', $trackCode);
+        }
 
         return redirect()->route('track.order', $trackCode)
             ->with('msg','Order placed! We\'ll contact you soon to confirm. 🎂');

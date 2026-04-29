@@ -37,7 +37,7 @@
         <select id="sellerOrderStatusFilter" class="form-select" style="flex:1;min-width:0;max-width:160px"
                 onchange="pgFilter('status', this.value)">
           <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All status</option>
-          @foreach(['Pending','Confirmed','Preparing','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
+          @foreach(['Awaiting Deposit','Pending','Confirmed','Preparing','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
           <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st }}</option>
           @endforeach
         </select>
@@ -51,6 +51,7 @@
     $custom = $customData[$o->id] ?? null;
     $addons = $orderAddons[$o->id] ?? [];
     $sc = match($o->status) {
+      'Awaiting Deposit'         => 'background:#FCE4EC;color:#880E4F',
       'Pending','Pending Review' => 'background:#FFF3E0;color:#E65100',
       'Confirmed'                => 'background:#E3F2FD;color:#1565C0',
       'Preparing'                => 'background:#F3E5F5;color:#6A1B9A',
@@ -157,6 +158,29 @@
       </div>
       @endif
 
+      {{-- Deposit Alert --}}
+      @if($o->deposit_required && ($o->deposit_status ?? '') !== 'paid')
+      <div style="margin-bottom:1rem;background:#FCE4EC;border-radius:10px;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem">
+        <i class="bi bi-lock-fill" style="color:#880E4F;font-size:1.1rem;flex-shrink:0"></i>
+        <div>
+          <div style="font-size:.78rem;font-weight:800;color:#880E4F;letter-spacing:.04em">AWAITING DEPOSIT</div>
+          <div style="font-size:.8rem;color:#880E4F;margin-top:.1rem">
+            Customer must pay ₱{{ number_format($o->deposit_amount, 2) }} deposit via GCash before this order enters the queue.
+          </div>
+        </div>
+      </div>
+      @elseif($o->deposit_required && ($o->deposit_status ?? '') === 'paid')
+      <div style="margin-bottom:1rem;background:#E8F5E9;border-radius:10px;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem">
+        <i class="bi bi-check-circle-fill" style="color:#2E7D32;font-size:1.1rem;flex-shrink:0"></i>
+        <div>
+          <div style="font-size:.78rem;font-weight:800;color:#2E7D32;letter-spacing:.04em">DEPOSIT RECEIVED</div>
+          <div style="font-size:.8rem;color:#2E7D32;margin-top:.1rem">
+            ₱{{ number_format($o->deposit_amount, 2) }} deposit paid. Remaining ₱{{ number_format($o->total_price - $o->deposit_amount, 2) }} to be collected on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}.
+          </div>
+        </div>
+      </div>
+      @endif
+
       {{-- Info grid --}}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem 1.25rem;font-size:.82rem">
         <div><span style="color:var(--gray-500)">Track Code</span><br><strong style="font-family:monospace">{{ strtoupper($o->track_code) }}</strong></div>
@@ -179,6 +203,13 @@
         <div><span style="color:var(--gray-500)">Total</span><br><strong style="color:var(--primary)">₱{{ number_format($o->total_price,2) }}</strong></div>
         @if($o->delivery_fee)
         <div><span style="color:var(--gray-500)">Delivery Fee</span><br><strong>₱{{ number_format($o->delivery_fee,2) }}</strong></div>
+        @endif
+        @if($o->deposit_required)
+        <div><span style="color:var(--gray-500)">Deposit</span><br>
+          <strong style="color:{{ ($o->deposit_status??'') === 'paid' ? '#16a34a' : '#880E4F' }}">
+            ₱{{ number_format($o->deposit_amount,2) }} — {{ ($o->deposit_status??'') === 'paid' ? 'Paid' : 'Pending' }}
+          </strong>
+        </div>
         @endif
       </div>
 
@@ -270,8 +301,28 @@
       @endif
     @endif
 
+    {{-- Awaiting Deposit — seller info only, no actions until paid --}}
+    @if($o->status === 'Awaiting Deposit')
+    <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fce4ec 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+      <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
+        <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#f8bbd0;color:#880E4F;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="bi bi-lock"></i>
+        </div>
+        <div>
+          <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">WAITING FOR DEPOSIT</div>
+          <div style="font-size:.82rem;color:#880E4F;line-height:1.5;font-weight:600">
+            Customer needs to pay the 50% deposit (₱{{ number_format($o->deposit_amount,2) }}) via GCash. The order will appear in your queue once payment is confirmed.
+          </div>
+        </div>
+      </div>
+      <span style="background:#FCE4EC;color:#880E4F;border:1.5px solid #F48FB1;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:700;margin-left:auto">
+        <i class="bi bi-hourglass-split"></i> Awaiting Customer Payment
+      </span>
+    </div>
+    @endif
+
     {{-- Status Actions (non-final, non-Pickup orders) --}}
-    @if(!in_array($o->status, ['Delivered','Picked Up','Cancelled','Pickup']))
+    @if(!in_array($o->status, ['Awaiting Deposit','Delivered','Picked Up','Cancelled','Pickup']))
     <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fff8fb 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
       <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
         <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#fdf2f8;color:#be185d;display:flex;align-items:center;justify-content:center;flex-shrink:0">

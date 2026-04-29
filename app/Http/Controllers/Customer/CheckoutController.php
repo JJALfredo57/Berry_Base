@@ -105,7 +105,8 @@ class CheckoutController extends Controller
 
         // ── DUPLICATE PREVENTION ──────────────────────────────
         $recentDuplicate = DB::table('orders')
-            ->where('user_id', $uid)->where('product_id', $pid)->where('status', 'Pending')
+            ->where('user_id', $uid)->where('product_id', $pid)
+            ->whereIn('status', ['Pending', 'Awaiting Deposit'])
             ->where('created_at', '>=', now()->subSeconds(30)->format('Y-m-d H:i:s'))
             ->first();
         if ($recentDuplicate) {
@@ -231,6 +232,9 @@ class CheckoutController extends Controller
         $total     = $baseTotal + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
         $oid       = CakeshopHelper::generateId('orders');
 
+        $needsDeposit  = ($payment === 'COD');
+        $depositAmount = $needsDeposit ? round($total * 0.5, 2) : null;
+
         DB::table('orders')->insert([
             'id'               => $oid,
             'shop_id'          => $product->shop_id ?? null,
@@ -239,7 +243,10 @@ class CheckoutController extends Controller
             'quantity'         => $qty,
             'custom_note'      => $note,
             'total_price'      => $total,
-            'status'           => 'Pending',
+            'status'           => $needsDeposit ? 'Awaiting Deposit' : 'Pending',
+            'deposit_required' => $needsDeposit ? 1 : 0,
+            'deposit_amount'   => $depositAmount,
+            'deposit_status'   => $needsDeposit ? 'pending' : null,
             'fulfillment_type' => $fulfillment,
             'delivery_zone'    => $zone ?: ($address ? substr($address, 0, 80) : ''),
             'delivery_fee'     => $deliveryFee,
@@ -272,8 +279,10 @@ class CheckoutController extends Controller
 
         DB::table('order_tracking')->insert([
             'order_id'   => $oid,
-            'status'     => 'Pending',
-            'notes'      => 'Order placed successfully.',
+            'status'     => $needsDeposit ? 'Awaiting Deposit' : 'Pending',
+            'notes'      => $needsDeposit
+                ? 'Order placed. Awaiting 50% deposit payment via GCash before confirmation.'
+                : 'Order placed successfully.',
             'created_at' => now(),
         ]);
 
@@ -302,6 +311,7 @@ class CheckoutController extends Controller
             return redirect()->route('customer.pay_gcash', ['id' => $oid]);
         }
 
-        return redirect()->route('customer.orders')->with('msg', "Order #{$oid} placed successfully!");
+        // COD / Pickup — require deposit before seller sees the order
+        return redirect()->route('customer.pay_deposit', $oid);
     }
 }

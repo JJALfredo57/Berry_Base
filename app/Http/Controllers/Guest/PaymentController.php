@@ -349,7 +349,20 @@ class PaymentController extends Controller
             ]);
         } catch (\Exception $e) {}
 
-        // ── Auto-confirm if still pending ───────────────────────────────
+        // ── Move 'Awaiting Deposit' → 'Pending' so seller can confirm ──
+        if ($order->status === 'Awaiting Deposit') {
+            DB::table('orders')->where('id', $order->id)->update(['status' => 'Pending']);
+            try {
+                DB::table('order_tracking')->insert([
+                    'order_id'   => $order->id,
+                    'status'     => 'Pending',
+                    'notes'      => 'Order activated and pending baker confirmation.',
+                    'created_at' => now(),
+                ]);
+            } catch (\Exception $e) {}
+        }
+
+        // ── Auto-confirm custom orders already in pending state ─────────
         if (in_array($order->status, ['Pending', 'Pending Review'])) {
             DB::table('orders')->where('id', $order->id)->update(['status' => 'Confirmed']);
             try {

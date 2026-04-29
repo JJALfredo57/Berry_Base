@@ -19,7 +19,7 @@
       </div>
       <select class="form-select form-select-sm" style="width:auto" onchange="pgFilter('status', this.value)">
         <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All Status</option>
-        @foreach(['Pending Review','Pending','Confirmed','Preparing','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
+        @foreach(['Awaiting Deposit','Pending Review','Pending','Confirmed','Preparing','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
         <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st }}</option>
         @endforeach
       </select>
@@ -113,10 +113,22 @@
           <div class="col-6 col-md-3">
             <i class="bi bi-credit-card me-1"></i>{{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}
             <span class="badge rounded-pill ms-1"
-                  style="font-size:.7rem;background:{{ $o->payment_status==='Paid'?'#d4edda':'#fff3cd' }};color:{{ $o->payment_status==='Paid'?'#155724':'#856404' }}">
+                  style="font-size:.7rem;background:{{ $o->payment_status==='Paid'?'#d4edda':($o->payment_status==='Partial Payment'?'#fff3cd':'#fff3cd') }};color:{{ $o->payment_status==='Paid'?'#155724':'#856404' }}">
               {{ $o->payment_status }}
             </span>
           </div>
+          @if(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'paid')
+          <div class="col-12">
+            <i class="bi bi-cash-stack me-1" style="color:#16a34a"></i>
+            <span style="color:#16a34a;font-weight:600">Deposit paid: ₱{{ number_format($o->deposit_amount,2) }}</span>
+            <span class="ms-2" style="color:#d97706;font-weight:600">Balance due on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}: ₱{{ number_format($o->total_price - $o->deposit_amount,2) }}</span>
+          </div>
+          @elseif(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'pending')
+          <div class="col-12">
+            <i class="bi bi-exclamation-circle me-1" style="color:#880E4F"></i>
+            <span style="color:#880E4F;font-weight:600">Deposit required: ₱{{ number_format($o->deposit_amount,2) }} — not yet paid</span>
+          </div>
+          @endif
           @if($o->schedule_date)
           <div class="col-6 col-md-3"><i class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($o->schedule_date)->format('M d') }}</div>
           @endif
@@ -501,7 +513,29 @@
       </div>
       @endif{{-- end custom order banner --}}
       @php $steps = ['Pending','Confirmed','Preparing','Out for Delivery','Delivered']; @endphp
-      @if($o->status !== 'Cancelled')
+      @if($o->status === 'Awaiting Deposit')
+      <div class="px-3 py-3">
+        <div class="d-flex align-items-center gap-3 p-3 rounded-3" style="background:#FCE4EC;border:1.5px solid #F48FB1">
+          <i class="bi bi-shield-lock-fill" style="font-size:1.6rem;color:#880E4F;flex-shrink:0"></i>
+          <div>
+            <div class="fw-bold small" style="color:#880E4F">Deposit Required to Activate Order</div>
+            <div class="small" style="color:#880E4F">Pay the <strong>₱{{ number_format($o->deposit_amount,2) }} deposit</strong> via GCash to confirm your order. The remaining ₱{{ number_format($o->total_price - $o->deposit_amount,2) }} will be collected upon {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}.</div>
+          </div>
+        </div>
+      </div>
+      @elseif($o->status !== 'Cancelled')
+      {{-- Deposit paid — show balance reminder --}}
+      @if(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'paid')
+      <div class="px-3 pt-3">
+        <div class="d-flex align-items-center gap-3 p-3 rounded-3" style="background:#E8F5E9;border:1.5px solid #A5D6A7">
+          <i class="bi bi-check-circle-fill" style="font-size:1.4rem;color:#2E7D32;flex-shrink:0"></i>
+          <div class="small">
+            <div class="fw-bold" style="color:#2E7D32">Deposit Paid — ₱{{ number_format($o->deposit_amount,2) }}</div>
+            <div style="color:#388E3C">Remaining balance of <strong>₱{{ number_format($o->total_price - $o->deposit_amount,2) }}</strong> is due upon {{ $o->fulfillment_type === 'Delivery' ? 'delivery (Cash on Delivery)' : 'pickup (Cash on Pickup)' }}.</div>
+          </div>
+        </div>
+      </div>
+      @endif
       <div class="px-3 py-3">
         <p class="small fw-semibold text-muted mb-2"><i class="bi bi-geo-alt me-1"></i>Order Tracking</p>
         <div class="d-flex align-items-start overflow-auto pb-1">
@@ -622,6 +656,13 @@
         @if($o->payment_method === 'GCash' && $o->payment_status === 'Unpaid' && $o->status !== 'Cancelled')
           <a href="{{ route('customer.pay_gcash', ['order_id'=>$o->id]) }}" class="btn btn-warning btn-sm">
             <i class="bi bi-phone me-1"></i>Pay via GCash
+          </a>
+        @endif
+
+        @if(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'pending' && $o->status === 'Awaiting Deposit')
+          <a href="{{ route('customer.pay_deposit', $o->id) }}" class="btn btn-sm fw-semibold"
+             style="background:#880E4F;color:#fff;border:none">
+            <i class="bi bi-shield-lock me-1"></i>Pay Deposit (₱{{ number_format($o->deposit_amount, 2) }})
           </a>
         @endif
 

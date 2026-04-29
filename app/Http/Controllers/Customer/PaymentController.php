@@ -149,6 +149,202 @@ class PaymentController extends Controller
     }
 
     /**
+     * Initiate deposit payment for COD / Pickup orders
+     */
+    public function payDeposit(Request $request, string $id)
+    {
+        $secretKey = CakeshopHelper::getPaymongoSecretKey();
+        $uid       = session('user')['id'];
+
+        $order = DB::table('orders as o')
+            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->where('o.id', $id)
+            ->where('o.user_id', $uid)
+            ->select('o.*', 'p.name as product_name')
+            ->first();
+
+        if (!$order)
+            return redirect()->route('customer.orders')->with('error', 'Order not found.');
+        if (!$order->deposit_required)
+            return redirect()->route('customer.orders')->with('error', 'No deposit required for this order.');
+        if ($order->deposit_status === 'paid')
+            return redirect()->route('customer.orders')->with('msg', 'Deposit already paid. Your order is pending confirmation.');
+        if (!$secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY'))
+            return redirect()->route('customer.orders')->with('error', 'Online payment is not configured yet. Contact the shop.');
+
+        $amountCentavos = (int) round((float) $order->deposit_amount * 100);
+        if ($amountCentavos < 10000)
+            return redirect()->route('customer.orders')->with('error', 'Minimum deposit amount is ₱100.00.');
+
+        $successUrl = url('/customer/deposit-return?order_id=' . $id . '&status=success');
+        $cancelUrl  = url('/customer/deposit-return?order_id=' . $id . '&status=cancelled');
+        $customer   = DB::table('users')->where('id', $uid)->first();
+
+        $payload = [
+            'data' => [
+                'attributes' => [
+                    'billing' => [
+                        'name'  => $customer->fullname ?? 'Customer',
+                        'email' => $customer->email ?? '',
+                        'phone' => $customer->phone ?? '',
+                    ],
+                    'line_items' => [[
+                        'currency' => 'PHP',
+                        'amount'   => $amountCentavos,
+                        'name'     => 'Deposit (50%) — ' . $order->product_name . ' Order #' . $id,
+                        'quantity' => 1,
+                    ]],
+                    'payment_method_types' => $this->getPaymongoCheckoutMethods(),
+                    'success_url'          => $successUrl,
+                    'cancel_url'           => $cancelUrl,
+                    'description'          => 'Deposit for Order #' . $id . ' (' . $order->payment_method . ')',
+                    'reference_number'     => 'DEP-' . $id,
+                    'send_email_receipt'   => true,
+                    'show_description'     => true,
+                    'show_line_items'      => true,
+                ],
+            ],
+        ];
+
+        $ch = curl_init('https://api.paymongo.com/v1/checkout_sessions');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($payload),
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'accept: application/json',
+                'Authorization: Basic ' . base64_encode($secretKey . ':'),
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_TIMEOUT        => 30,
+        ]);
+
+        $res      = curl_exec($ch);
+        $errno    = curl_errno($ch);
+        $errMsg   = curl_error($ch);
+        curl_close($ch);
+
+        Log::info('PayMongo Deposit Session', ['order_id' => $id, 'response' => $res]);
+
+        if ($errno) {
+            Log::error('PayMongo deposit cURL error: ' . $errMsg);
+            return redirect()->route('customer.orders')->with('error', 'Network error. Please try again.');
+        }
+
+        $data        = json_decode($res, true);
+        $sessionId   = $data['data']['id'] ?? null;
+        $checkoutUrl = $data['data']['attributes']['checkout_url'] ?? null;
+
+        if (!$sessionId || !$checkoutUrl) {
+            $apiErr = $data['errors'][0]['detail'] ?? 'Could not create payment session.';
+            return redirect()->route('customer.orders')->with('error', 'PayMongo: ' . $apiErr);
+        }
+
+        DB::table('orders')->where('id', $id)->update(['deposit_paymongo_id' => $sessionId]);
+
+        return redirect()->away($checkoutUrl);
+    }
+
+    /**
+     * Handle return from PayMongo after deposit payment
+     */
+    public function depositReturn(Request $request)
+    {
+        $secretKey = CakeshopHelper::getPaymongoSecretKey();
+        $orderId   = trim($request->input('order_id', ''));
+        $urlStatus = $request->input('status', '');
+        $uid       = session('user')['id'];
+
+        if (!$orderId) return redirect()->route('customer.orders');
+
+        if ($urlStatus === 'cancelled') {
+            return redirect()->route('customer.orders')
+                ->with('error', 'Deposit payment cancelled. You can try again from your orders page.');
+        }
+
+        $order = DB::table('orders as o')
+            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->where('o.id', $orderId)
+            ->where('o.user_id', $uid)
+            ->select('o.*', 'p.name as product_name')
+            ->first();
+
+        if (!$order) return redirect()->route('customer.orders');
+
+        if ($order->deposit_status === 'paid') {
+            return redirect()->route('customer.orders')
+                ->with('msg', 'Deposit already paid! Your order is now pending confirmation from the baker.');
+        }
+
+        $sessionStatus = '';
+        $paymentStatus = '';
+
+        if ($order->deposit_paymongo_id && $secretKey) {
+            $ch = curl_init('https://api.paymongo.com/v1/checkout_sessions/' . $order->deposit_paymongo_id);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HTTPHEADER     => [
+                    'accept: application/json',
+                    'Authorization: Basic ' . base64_encode($secretKey . ':'),
+                ],
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_TIMEOUT        => 30,
+            ]);
+            $apiRes        = json_decode(curl_exec($ch), true);
+            curl_close($ch);
+            $sessionStatus = $apiRes['data']['attributes']['status'] ?? '';
+            $paymentStatus = $apiRes['data']['attributes']['payment_intent']['attributes']['status'] ?? '';
+        }
+
+        $paymentConfirmed = ($sessionStatus === 'completed' || $paymentStatus === 'succeeded')
+            || ($urlStatus === 'success' && $order->deposit_required && $order->deposit_paymongo_id);
+
+        if (!$paymentConfirmed) {
+            return redirect()->route('customer.orders')
+                ->with('error', 'Payment could not be confirmed. Contact the shop if your GCash was deducted.');
+        }
+
+        $isFullPayment = abs((float) $order->deposit_amount - (float) $order->total_price) < 0.01;
+
+        DB::table('orders')->where('id', $orderId)->update([
+            'deposit_status' => 'paid',
+            'status'         => 'Pending',
+            'payment_status' => $isFullPayment ? 'Paid' : 'Partial Payment',
+            'paid_at'        => $isFullPayment ? now() : null,
+        ]);
+
+        DB::table('order_tracking')->insert([
+            'order_id'   => $orderId,
+            'status'     => 'Deposit Paid',
+            'notes'      => 'Deposit of ₱' . number_format($order->deposit_amount, 2) . ' paid via GCash.',
+            'created_at' => now(),
+        ]);
+
+        DB::table('order_tracking')->insert([
+            'order_id'   => $orderId,
+            'status'     => 'Pending',
+            'notes'      => 'Order is now pending baker confirmation.',
+            'created_at' => now(),
+        ]);
+
+        $custName = session('user')['fullname'] ?? 'Customer';
+        DB::table('notifications')->insert([
+            'receiver_role'    => 'admin',
+            'receiver_user_id' => null,
+            'title'            => 'Deposit Paid — Order #' . $orderId,
+            'message'          => "{$custName} paid ₱" . number_format($order->deposit_amount, 2) . " deposit for Order #{$orderId}.",
+            'is_read'          => 0,
+            'created_at'       => now(),
+        ]);
+
+        CakeshopHelper::logActivity($uid, 'customer', 'Deposit Payment', "Deposit paid for Order #{$orderId}.");
+
+        return redirect()->route('customer.orders')
+            ->with('msg', 'Deposit paid! Your order is now pending confirmation from the baker. The remaining balance will be collected upon ' . ($order->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup') . '.');
+    }
+
+    /**
      * Handle return from PayMongo after payment
      */
     public function paymentReturn(Request $request)
