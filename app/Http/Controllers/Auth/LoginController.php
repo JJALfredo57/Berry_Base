@@ -78,26 +78,34 @@ class LoginController extends Controller
             'username' => 'required|string',
             'password' => 'required|string',
         ],[
-            'username.required' => 'Username is required.',
+            'username.required' => 'Username or email is required.',
             'password.required' => 'Password is required.',
         ]);
 
+        $identifier = trim($request->username);
+
         $user = DB::table('users')
-            ->where('username', trim($request->username))
+            ->where(function ($q) use ($identifier) {
+                $q->where('username', $identifier)
+                  ->orWhere('email', $identifier);
+            })
             ->where('role', 'seller')
             ->first();
 
         if (!$user) {
             // Check if admin trying to use seller login
             $isAdmin = DB::table('users')
-                ->where('username', trim($request->username))
+                ->where(function ($q) use ($identifier) {
+                    $q->where('username', $identifier)
+                      ->orWhere('email', $identifier);
+                })
                 ->whereIn('role', ['admin','superadmin'])
                 ->exists();
             if ($isAdmin) {
                 return back()->with('error','Admin accounts use a different login portal.')
                              ->withInput(['username' => $request->username]);
             }
-            return back()->with('error','Invalid username or password.')->withInput(['username' => $request->username]);
+            return back()->with('error','Invalid username/email or password.')->withInput(['username' => $request->username]);
         }
 
         if (!password_verify($request->password, $user->password)) {

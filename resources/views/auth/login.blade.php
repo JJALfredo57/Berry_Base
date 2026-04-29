@@ -57,12 +57,12 @@
         @csrf
 
         <div class="mb-3">
-          <label class="form-label" for="username">Username</label>
+          <label class="form-label" for="username">Username or Email</label>
           <div class="input-group">
             <span class="input-group-text"><i class="bi bi-person" style="color:var(--primary)"></i></span>
             <input type="text" class="form-control @error('username') is-invalid @enderror"
                    id="username" name="username" value="{{ old('username') }}"
-                   placeholder="Enter your username" required autofocus autocomplete="username">
+                   placeholder="Enter your username or email" required autofocus autocomplete="username">
             @error('username')<div class="invalid-feedback">{{ $message }}</div>@enderror
           </div>
         </div>

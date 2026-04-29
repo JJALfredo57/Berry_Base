@@ -26,6 +26,7 @@ class ApplicationController extends Controller
         $validated = $request->validate([
             'shop_name'      => 'required|string|min:3|max:100',
             'full_name'      => 'required|string|min:2|max:100',
+            'username'       => 'required|string|min:3|max:60|regex:/^[a-zA-Z0-9_]+$/',
             'email'          => 'required|email|max:150',
             'phone'          => 'required|regex:/^9[0-9]{9}$/|max:10',
             'city'           => 'required|string|max:80',
@@ -37,6 +38,10 @@ class ApplicationController extends Controller
             'shop_name.required'    => 'Shop name is required.',
             'shop_name.min'         => 'Shop name must be at least 3 characters.',
             'full_name.required'    => 'Full name is required.',
+            'username.required'     => 'Username is required.',
+            'username.min'          => 'Username must be at least 3 characters.',
+            'username.max'          => 'Username must not exceed 60 characters.',
+            'username.regex'        => 'Username may only contain letters, numbers, and underscores.',
             'email.required'        => 'Email address is required.',
             'email.email'           => 'Please enter a valid email address.',
             'phone.required'        => 'Phone number is required.',
@@ -52,6 +57,11 @@ class ApplicationController extends Controller
         $slug = Str::slug($validated['shop_name']);
         if (DB::table('shops')->where('shop_slug', $slug)->exists()) {
             return back()->withInput()->withErrors(['shop_name' => 'A shop with this name already exists. Please choose a different name.']);
+        }
+
+        // Check for duplicate username
+        if (DB::table('users')->where('username', $validated['username'])->exists()) {
+            return back()->withInput()->withErrors(['username' => 'This username is already taken. Please choose another.']);
         }
 
         // Check for duplicate email in users
@@ -131,12 +141,8 @@ class ApplicationController extends Controller
         }
 
         // Create user account
-        $userId = CakeshopHelper::generateId('users');
-        $username = Str::slug($apply['full_name']) . rand(10, 99);
-        // ensure unique username
-        while (DB::table('users')->where('username', $username)->exists()) {
-            $username = Str::slug($apply['full_name']) . rand(100, 999);
-        }
+        $userId   = CakeshopHelper::generateId('users');
+        $username = $apply['username'];
 
         DB::table('users')->insert([
             'id'          => $userId,

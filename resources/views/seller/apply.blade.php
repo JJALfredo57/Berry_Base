@@ -129,6 +129,25 @@
           @error('full_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
 
+        <div class="col-12">
+          <label class="form-label" for="username">
+            Username <span style="color:var(--danger)">*</span>
+          </label>
+          <div class="input-group">
+            <span class="input-group-text" style="font-weight:600;color:var(--gray-500)">@</span>
+            <input type="text" class="form-control @error('username') is-invalid @enderror"
+                   id="username" name="username"
+                   value="{{ old('username') }}"
+                   placeholder="e.g. mariasantos_cakes"
+                   required minlength="3" maxlength="60"
+                   pattern="[a-zA-Z0-9_]+"
+                   oninput="this.value=this.value.replace(/[^a-zA-Z0-9_]/g,'');this.setCustomValidity('')"
+                   oninvalid="this.setCustomValidity('Username required: letters, numbers, underscores only (min 3)')">
+            @error('username')<div class="invalid-feedback">{{ $message }}</div>@enderror
+          </div>
+          <div class="form-text">This is what you will use to log in. Only letters, numbers, and underscores — no spaces.</div>
+        </div>
+
         <div class="col-md-6">
           <label class="form-label" for="email">Email Address <span style="color:var(--danger)">*</span></label>
           <div class="input-group">
