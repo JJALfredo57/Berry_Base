@@ -592,6 +592,170 @@
       letter-spacing: 0.4px; opacity: 0.75;
     }
 
+    /* ─── Mobile Welcome Page ──────────────────────────────────── */
+    #mobile-splash {
+      display: none;
+      position: fixed; inset: 0; z-index: 9998;
+      flex-direction: column; align-items: stretch;
+      background: linear-gradient(168deg, {{ $chocXDark }} 0%, {{ $chocDark }} 42%, {{ $chocPanel2 }} 100%);
+      overflow-y: auto; overflow-x: hidden;
+    }
+    #mobile-splash.ms-visible { display: flex; }
+
+    .ms-topbar {
+      height: 3px; flex-shrink: 0;
+      background: linear-gradient(90deg, transparent 0%, var(--gold) 30%, var(--peach-soft) 60%, var(--gold) 80%, transparent 100%);
+      transform: scaleX(0); transform-origin: left;
+    }
+    #mobile-splash.ms-animate .ms-topbar { animation: lineReveal 0.8s ease 0.05s forwards; }
+
+    .ms-logo-section {
+      flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 44px 0 28px;
+    }
+    .ms-logo-stage {
+      width: 170px; height: 170px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .ms-ring {
+      position: absolute; border-radius: 50%;
+      border: 1px solid; opacity: 0; pointer-events: none;
+    }
+    #mobile-splash.ms-animate .ms-ring { animation: msFadeRing 0.6s ease forwards, ringPulse 4.2s ease-in-out 0.8s infinite; }
+    .ms-r1 { width: 44%; height: 44%; border-color: rgba(200,134,10,0.45); animation-delay: 0.35s, 0.35s; }
+    .ms-r2 { width: 63%; height: 63%; border-color: rgba(200,134,10,0.25); animation-delay: 0.48s, 0.48s; }
+    .ms-r3 { width: 84%; height: 84%; border-color: rgba(200,134,10,0.12); animation-delay: 0.60s, 0.60s; }
+    .ms-spin-ring {
+      position: absolute; width: 70%; height: 70%; border-radius: 50%;
+      border: 1px dashed rgba(200,134,10,0.20);
+      opacity: 0; pointer-events: none;
+    }
+    #mobile-splash.ms-animate .ms-spin-ring { animation: fadeIn 0.5s ease 0.55s forwards, spin 22s linear 1s infinite; }
+    .ms-glow {
+      position: absolute; width: 54%; height: 54%; border-radius: 50%;
+      background: radial-gradient(circle, rgba(200,134,10,0.32) 0%, transparent 70%);
+      opacity: 0; pointer-events: none;
+    }
+    #mobile-splash.ms-animate .ms-glow { animation: fadeIn 0.5s ease 0.4s forwards, glowPulse 3.8s ease-in-out 0.9s infinite; }
+    .ms-logo-img {
+      width: 76%; height: 76%; object-fit: contain;
+      position: relative; z-index: 5; opacity: 0;
+      filter: drop-shadow(0 18px 48px rgba(200,134,10,0.42)) drop-shadow(0 5px 18px rgba(200,134,10,0.24)) drop-shadow(0 2px 8px rgba(0,0,0,0.50));
+    }
+    #mobile-splash.ms-animate .ms-logo-img { animation: logoReveal 1.0s cubic-bezier(0.34,1.56,0.64,1) 0.28s forwards, logoFloat 6.5s ease-in-out 1.3s infinite; }
+
+    .ms-location-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 18px; opacity: 0;
+      font-family: 'Inter', sans-serif;
+      font-size: 9px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase;
+      color: rgba(200,134,10,0.60);
+    }
+    #mobile-splash.ms-animate .ms-location-tag { animation: fadeIn 0.5s ease 0.75s forwards; }
+    .ms-loc-dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(200,134,10,0.55); }
+
+    .ms-content {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 4px 28px 52px; text-align: center;
+    }
+    .ms-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(28px, 9vw, 38px); font-weight: 700;
+      color: #FFF8F2; line-height: 1.1;
+      margin-bottom: 10px; opacity: 0; transform: translateY(20px);
+    }
+    #mobile-splash.ms-animate .ms-title { animation: fadeUp 0.7s ease 0.62s forwards; }
+
+    .ms-tagline {
+      font-family: 'Playfair Display', serif; font-style: italic;
+      font-size: clamp(13px, 4vw, 17px); color: var(--peach);
+      margin-bottom: 20px; opacity: 0; transform: translateY(14px);
+    }
+    #mobile-splash.ms-animate .ms-tagline { animation: fadeUp 0.65s ease 0.76s forwards; }
+
+    .ms-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px; opacity: 0;
+    }
+    #mobile-splash.ms-animate .ms-divider { animation: fadeIn 0.5s ease 0.88s forwards; }
+    .ms-dv-line { height: 1px; width: 36px; background: linear-gradient(90deg, var(--gold), rgba(200,134,10,0.08)); }
+    .ms-dv-diamond { width: 5px; height: 5px; background: var(--gold); transform: rotate(45deg); border-radius: 1px; flex-shrink: 0; }
+
+    .ms-desc {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px; color: rgba(248,235,220,0.68);
+      line-height: 1.82; margin-bottom: 22px; opacity: 0; transform: translateY(12px);
+      max-width: 310px;
+    }
+    #mobile-splash.ms-animate .ms-desc { animation: fadeUp 0.65s ease 0.98s forwards; }
+
+    .ms-features {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      justify-content: center; margin-bottom: 30px; opacity: 0;
+    }
+    #mobile-splash.ms-animate .ms-features { animation: fadeIn 0.5s ease 1.10s forwards; }
+    .ms-fbadge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 6px 13px;
+      background: rgba(200,134,10,0.09);
+      border: 1px solid rgba(200,134,10,0.22);
+      border-radius: 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px; font-weight: 500; color: rgba(248,235,220,0.78);
+    }
+    .ms-fbadge i { color: var(--gold); font-size: 10px; }
+
+    .ms-cta-btn {
+      width: 100%; max-width: 300px;
+      padding: 16px 28px;
+      background: linear-gradient(140deg, var(--choc-mid) 0%, #8B4418 60%, var(--choc) 100%);
+      color: #fff; border: none; border-radius: 50px; cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px; font-weight: 500; letter-spacing: 0.4px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      box-shadow: 0 10px 34px rgba(var(--choc-mid-rgb),0.40), inset 0 1px 0 rgba(255,255,255,0.10);
+      transition: transform 0.22s ease, box-shadow 0.22s ease;
+      position: relative; overflow: hidden; opacity: 0; transform: translateY(12px);
+    }
+    #mobile-splash.ms-animate .ms-cta-btn { animation: fadeUp 0.65s ease 1.22s forwards; }
+    .ms-cta-btn::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(140deg, rgba(255,255,255,0.13), transparent 55%);
+    }
+    .ms-cta-btn::after {
+      content: ''; position: absolute;
+      top: -50%; left: -75%; width: 50%; height: 200%;
+      background: rgba(255,255,255,0.10);
+      transform: skewX(-20deg);
+      transition: left 0.5s ease;
+    }
+    .ms-cta-btn:active { transform: scale(0.97); }
+    .ms-cta-btn svg { transition: transform 0.25s ease; flex-shrink: 0; }
+    .ms-cta-btn:active svg { transform: translateX(4px); }
+
+    .ms-hint {
+      display: flex; align-items: center; gap: 9px;
+      margin-top: 22px; opacity: 0;
+      font-family: 'Inter', sans-serif;
+      font-size: 9px; letter-spacing: 2.2px; text-transform: uppercase;
+      color: rgba(200,134,10,0.40);
+    }
+    #mobile-splash.ms-animate .ms-hint { animation: fadeIn 0.5s ease 1.45s forwards; }
+    .ms-hint-line { width: 18px; height: 1px; background: rgba(200,134,10,0.28); }
+
+    .ms-pbar {
+      position: fixed; bottom: 0; left: 0; z-index: 9999;
+      height: 3px; width: 0%;
+      background: linear-gradient(90deg, var(--choc), var(--gold), var(--peach-soft), var(--gold-light), var(--gold), var(--choc));
+      background-size: 200% 100%;
+    }
+    #mobile-splash.ms-animate .ms-pbar { animation: loadBar 3.2s ease 0.15s forwards, shimmer 1.8s linear 0.15s infinite; }
+
+    @keyframes msFadeRing { from { opacity:0; transform:scale(0.5); } to { opacity:1; transform:scale(1); } }
+
     /* ─── Responsive ────────────────────────────────────────────── */
     @media (max-width: 700px) {
       #splash { flex-direction: column; }
@@ -636,6 +800,62 @@
     </button>
     <div class="mw-footer">Ordering and browsing still work on mobile</div>
   </div>
+</div>
+
+{{-- ── Mobile Welcome Page ─────────────────────────────────────── --}}
+@php
+  $mSettings  = DB::table('site_settings')->first();
+  $mSiteTitle = $mSettings->site_title ?? 'Simple Cake Shop';
+  $mTagline   = $mSettings->tagline   ?? 'Order your dream cake';
+@endphp
+<div id="mobile-splash">
+  <div class="ms-topbar"></div>
+
+  <div class="ms-logo-section">
+    <div class="ms-logo-stage">
+      <div class="ms-ring ms-r1"></div>
+      <div class="ms-ring ms-r2"></div>
+      <div class="ms-ring ms-r3"></div>
+      <div class="ms-spin-ring"></div>
+      <div class="ms-glow"></div>
+      <img class="ms-logo-img" src="/Logocake_system.png" alt="{{ $mSiteTitle }}">
+    </div>
+    <div class="ms-location-tag">
+      <div class="ms-loc-dot"></div>
+      Bautista, Pangasinan
+      <div class="ms-loc-dot"></div>
+    </div>
+  </div>
+
+  <div class="ms-content">
+    <div class="ms-title">{{ $mSiteTitle }}</div>
+    <div class="ms-tagline">{{ $mTagline }}</div>
+    <div class="ms-divider">
+      <div class="ms-dv-line"></div>
+      <div class="ms-dv-diamond"></div>
+      <div class="ms-dv-line" style="transform:scaleX(-1)"></div>
+    </div>
+    <p class="ms-desc">Browse our handcrafted cakes, place your order online, and enjoy seamless pickup or delivery &mdash; made fresh every single day.</p>
+    <div class="ms-features">
+      <span class="ms-fbadge"><i class="bi bi-cake2"></i> Custom Cakes</span>
+      <span class="ms-fbadge"><i class="bi bi-truck"></i> Delivery</span>
+      <span class="ms-fbadge"><i class="bi bi-star-fill"></i> Fresh Daily</span>
+      <span class="ms-fbadge"><i class="bi bi-phone"></i> Order Online</span>
+    </div>
+    <button class="ms-cta-btn" id="ms-enter-btn">
+      Browse Our Cakes
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <div class="ms-hint">
+      <div class="ms-hint-line"></div>
+      Freshly baked with love
+      <div class="ms-hint-line"></div>
+    </div>
+  </div>
+
+  <div class="ms-pbar"></div>
 </div>
 
 {{-- ── Brand Intro Overlay ─────────────────────────────────────── --}}
@@ -756,6 +976,7 @@
   var isMobile = (window.innerWidth <= 900) ||
     /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent);
 
+  /* \u2500\u2500 Desktop: enter catalog \u2500\u2500 */
   function enterSystem() {
     var btn = document.getElementById('openBtn');
     var txt = document.getElementById('btnText');
@@ -764,37 +985,64 @@
     btn.style.opacity = '0.72';
     txt.textContent = 'Loading\u2026';
     document.getElementById('splash').classList.add('exiting');
-    setTimeout(function () {
-      window.location.href = '{{ route("catalog") }}';
-    }, 820);
+    setTimeout(function () { window.location.href = '{{ route("catalog") }}'; }, 820);
   }
 
-  function startIntro() {
+  /* \u2500\u2500 Mobile: enter catalog \u2500\u2500 */
+  function enterSystemMobile() {
+    var btn = document.getElementById('ms-enter-btn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.style.opacity = '0.72';
+    btn.querySelector('span') && (btn.querySelector('span').textContent = 'Loading\u2026');
+    var ms = document.getElementById('mobile-splash');
+    ms.style.transition = 'opacity 0.5s ease';
+    ms.style.opacity = '0';
+    setTimeout(function () { window.location.href = '{{ route("catalog") }}'; }, 520);
+  }
+
+  /* \u2500\u2500 Show mobile welcome page \u2500\u2500 */
+  function startMobileSplash() {
+    var ms = document.getElementById('mobile-splash');
+    ms.classList.add('ms-visible');
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        ms.classList.add('ms-animate');
+      });
+    });
+    document.getElementById('ms-enter-btn').addEventListener('click', enterSystemMobile);
+    autoTimer = setTimeout(enterSystemMobile, AUTO_MS);
+  }
+
+  /* \u2500\u2500 Show desktop intro \u2500\u2500 */
+  function startDesktopSplash() {
     document.getElementById('intro').style.display = 'flex';
     document.getElementById('splash').style.display = 'flex';
     autoTimer = setTimeout(enterSystem, AUTO_MS);
   }
 
+  /* \u2500\u2500 Dismiss warning modal \u2500\u2500 */
   function dismissWarning() {
     var modal = document.getElementById('mobile-warning');
     modal.classList.add('mw-hiding');
     setTimeout(function () {
       modal.style.display = 'none';
-      document.documentElement.classList.remove('is-mobile');
-      startIntro();
+      if (isMobile) {
+        startMobileSplash();
+      } else {
+        startDesktopSplash();
+      }
     }, 450);
   }
 
+  /* \u2500\u2500 Init \u2500\u2500 */
   if (isMobile) {
-    document.getElementById('intro').style.display = 'none';
-    document.getElementById('splash').style.display = 'none';
     document.getElementById('mobile-warning').classList.add('mw-active');
     document.getElementById('mw-continue-btn').addEventListener('click', dismissWarning);
   } else {
     autoTimer = setTimeout(enterSystem, AUTO_MS);
+    document.getElementById('openBtn').addEventListener('click', enterSystem);
   }
-
-  document.getElementById('openBtn').addEventListener('click', enterSystem);
 }());
 </script>
 </body>
