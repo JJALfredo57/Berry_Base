@@ -780,6 +780,7 @@
     modal.classList.add('mw-hiding');
     setTimeout(function () {
       modal.style.display = 'none';
+      document.documentElement.classList.remove('is-mobile');
       startIntro();
     }, 450);
   }
