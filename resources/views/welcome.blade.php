@@ -594,23 +594,18 @@
     }
 
     /* ─── Mobile Welcome Page ──────────────────────────────────── */
-    /* ─── Mobile Welcome Page ──────────────────────────────────────
-       display:none by default — JS sets style.display='flex' to show it.
-       All animations auto-play from t=0 the moment the element renders.
-    ─────────────────────────────────────────────────────────────── */
     #mobile-splash {
       display: none;
       position: fixed; inset: 0; z-index: 9998;
       flex-direction: column; align-items: stretch;
       background: linear-gradient(168deg, {{ $chocXDark }} 0%, {{ $chocDark }} 42%, {{ $chocPanel2 }} 100%);
       overflow-y: auto; overflow-x: hidden;
+      animation: fadeIn 0.45s ease forwards;
     }
 
     .ms-topbar {
       height: 3px; flex-shrink: 0;
       background: linear-gradient(90deg, transparent 0%, var(--gold) 30%, var(--peach-soft) 60%, var(--gold) 80%, transparent 100%);
-      transform: scaleX(0); transform-origin: left;
-      animation: lineReveal 0.8s ease 0.1s forwards;
     }
     .ms-logo-section {
       flex-shrink: 0;
@@ -624,37 +619,35 @@
     }
     .ms-ring {
       position: absolute; border-radius: 50%;
-      border: 1px solid; opacity: 0; pointer-events: none;
-      animation: msFadeRing 0.6s ease forwards, ringPulse 4.2s ease-in-out infinite;
+      border: 1px solid; pointer-events: none;
+      animation: ringPulse 4.2s ease-in-out infinite;
     }
-    .ms-r1 { width: 44%; height: 44%; border-color: rgba(200,134,10,0.45); animation-delay: 0.35s, 1.15s; }
-    .ms-r2 { width: 63%; height: 63%; border-color: rgba(200,134,10,0.25); animation-delay: 0.48s, 1.38s; }
-    .ms-r3 { width: 84%; height: 84%; border-color: rgba(200,134,10,0.12); animation-delay: 0.60s, 1.60s; }
+    .ms-r1 { width: 44%; height: 44%; border-color: rgba(200,134,10,0.45); }
+    .ms-r2 { width: 63%; height: 63%; border-color: rgba(200,134,10,0.25); animation-delay: 0.9s; }
+    .ms-r3 { width: 84%; height: 84%; border-color: rgba(200,134,10,0.12); animation-delay: 1.8s; }
     .ms-spin-ring {
       position: absolute; width: 70%; height: 70%; border-radius: 50%;
-      border: 1px dashed rgba(200,134,10,0.20);
-      opacity: 0; pointer-events: none;
-      animation: fadeIn 0.5s ease 0.55s forwards, spin 22s linear 1s infinite;
+      border: 1px dashed rgba(200,134,10,0.20); pointer-events: none;
+      animation: spin 22s linear infinite;
     }
     .ms-glow {
       position: absolute; width: 54%; height: 54%; border-radius: 50%;
       background: radial-gradient(circle, rgba(200,134,10,0.32) 0%, transparent 70%);
-      opacity: 0; pointer-events: none;
-      animation: fadeIn 0.5s ease 0.4s forwards, glowPulse 3.8s ease-in-out 0.9s infinite;
+      pointer-events: none;
+      animation: glowPulse 3.8s ease-in-out infinite;
     }
     .ms-logo-img {
       width: 76%; height: 76%; object-fit: contain;
-      position: relative; z-index: 5; opacity: 0;
+      position: relative; z-index: 5;
       filter: drop-shadow(0 18px 48px rgba(200,134,10,0.42)) drop-shadow(0 5px 18px rgba(200,134,10,0.24)) drop-shadow(0 2px 8px rgba(0,0,0,0.50));
-      animation: logoReveal 1.0s cubic-bezier(0.34,1.56,0.64,1) 0.28s forwards, logoFloat 6.5s ease-in-out 1.3s infinite;
+      animation: logoFloat 6.5s ease-in-out infinite;
     }
     .ms-location-tag {
       display: inline-flex; align-items: center; gap: 6px;
-      margin-top: 18px; opacity: 0;
+      margin-top: 18px;
       font-family: 'Inter', sans-serif;
       font-size: 9px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase;
       color: rgba(200,134,10,0.60);
-      animation: fadeIn 0.5s ease 0.75s forwards;
     }
     .ms-loc-dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(200,134,10,0.55); }
 
@@ -667,19 +660,16 @@
       font-family: 'Playfair Display', serif;
       font-size: clamp(28px, 9vw, 38px); font-weight: 700;
       color: #FFF8F2; line-height: 1.1;
-      margin-bottom: 10px; opacity: 0; transform: translateY(20px);
-      animation: fadeUp 0.7s ease 0.62s forwards;
+      margin-bottom: 10px;
     }
     .ms-tagline {
       font-family: 'Playfair Display', serif; font-style: italic;
       font-size: clamp(13px, 4vw, 17px); color: var(--peach);
-      margin-bottom: 20px; opacity: 0; transform: translateY(14px);
-      animation: fadeUp 0.65s ease 0.76s forwards;
+      margin-bottom: 20px;
     }
     .ms-divider {
       display: flex; align-items: center; gap: 10px;
-      margin-bottom: 16px; opacity: 0;
-      animation: fadeIn 0.5s ease 0.88s forwards;
+      margin-bottom: 16px;
     }
     .ms-dv-line { height: 1px; width: 36px; background: linear-gradient(90deg, var(--gold), rgba(200,134,10,0.08)); }
     .ms-dv-diamond { width: 5px; height: 5px; background: var(--gold); transform: rotate(45deg); border-radius: 1px; flex-shrink: 0; }
@@ -687,14 +677,12 @@
     .ms-desc {
       font-family: 'DM Sans', sans-serif;
       font-size: 13px; color: rgba(248,235,220,0.68);
-      line-height: 1.82; margin-bottom: 22px; opacity: 0; transform: translateY(12px);
+      line-height: 1.82; margin-bottom: 22px;
       max-width: 310px;
-      animation: fadeUp 0.65s ease 0.98s forwards;
     }
     .ms-features {
       display: flex; flex-wrap: wrap; gap: 8px;
-      justify-content: center; margin-bottom: 30px; opacity: 0;
-      animation: fadeIn 0.5s ease 1.10s forwards;
+      justify-content: center; margin-bottom: 30px;
     }
     .ms-fbadge {
       display: inline-flex; align-items: center; gap: 5px;
@@ -716,8 +704,7 @@
       font-size: 15px; font-weight: 500; letter-spacing: 0.4px;
       display: flex; align-items: center; justify-content: center; gap: 10px;
       box-shadow: 0 10px 34px rgba(var(--choc-mid-rgb),0.40), inset 0 1px 0 rgba(255,255,255,0.10);
-      position: relative; overflow: hidden; opacity: 0; transform: translateY(12px);
-      animation: fadeUp 0.65s ease 1.22s forwards;
+      position: relative; overflow: hidden;
     }
     .ms-cta-btn::before {
       content: ''; position: absolute; inset: 0;
@@ -728,22 +715,12 @@
 
     .ms-hint {
       display: flex; align-items: center; gap: 9px;
-      margin-top: 22px; opacity: 0;
+      margin-top: 22px;
       font-family: 'Inter', sans-serif;
       font-size: 9px; letter-spacing: 2.2px; text-transform: uppercase;
       color: rgba(200,134,10,0.40);
-      animation: fadeIn 0.5s ease 1.45s forwards;
     }
     .ms-hint-line { width: 18px; height: 1px; background: rgba(200,134,10,0.28); }
-
-    .ms-pbar {
-      position: fixed; bottom: 0; left: 0; z-index: 9999;
-      height: 3px; width: 0%;
-      background: linear-gradient(90deg, var(--choc), var(--gold), var(--peach-soft), var(--gold-light), var(--gold), var(--choc));
-      background-size: 200% 100%;
-      animation: loadBar 3.2s ease 0.15s forwards, shimmer 1.8s linear 0.15s infinite;
-    }
-    @keyframes msFadeRing { from { opacity:0; transform:scale(0.5); } to { opacity:1; transform:scale(1); } }
 
     /* ─── Responsive ────────────────────────────────────────────── */
     @media (max-width: 700px) {
