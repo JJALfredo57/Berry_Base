@@ -203,78 +203,75 @@
                 </div>
 
                 <div id="deliverySection" style="display:none">
-                  <div class="mb-3">
-                    <label class="form-label fw-semibold small">
-                      Select Barangay <span class="text-danger">*</span>
-                    </label>
-                    <div class="form-text mb-1"><i class="bi bi-info-circle me-1"></i>Select your barangay to see the delivery fee and estimated travel time.</div>
-                    <select class="form-select cv-field" name="delivery_zone" id="zoneSelect" onchange="updateFee();cvValidateZone()">
-                      <option value="">-- Select your Barangay --</option>
-                      @php
-                        $zoneTypeLabels = ['free'=>'Poblacion','near'=>'Nearby','mid'=>'Mid-range','far'=>'Far','ooc'=>'Out of Coverage'];
-                        $grouped = $deliveryZones->groupBy('zone_type');
-                        $order   = ['free','near','mid','far','ooc'];
-                      @endphp
-                      @foreach($order as $typeKey)
-                        @php $group = $grouped[$typeKey] ?? collect(); @endphp
-                        @if($group->count() > 0)
-                        <optgroup label="{{ $zoneTypeLabels[$typeKey] ?? $typeKey }} — {{ $typeKey === 'free' ? 'FREE' : ($typeKey === 'ooc' ? '₱250+' : '₱'.$group->first()->fee) }}">
-                          @foreach($group as $z)
-                          <option value="{{ $z->barangay }}"
-                                  data-fee="{{ $z->fee }}"
-                                  data-type="{{ $z->zone_type }}"
-                                  data-eta="{{ $z->estimated_time ?? '30-45 mins' }}">
-                            {{ $z->barangay }}{{ $z->fee == 0 ? ' (Free)' : ' — ₱'.number_format($z->fee,2) }}
-                            — ~{{ $z->estimated_time ?? '30-45 mins' }}
-                          </option>
-                          @endforeach
-                        </optgroup>
-                        @endif
+                  {{-- Hidden zone select — used by updateFee() / autoSelectBarangayFromCoords() --}}
+                  @php
+                    $zoneTypeLabels = ['free'=>'Poblacion','near'=>'Nearby','mid'=>'Mid-range','far'=>'Far','ooc'=>'Out of Coverage'];
+                    $zoneTypeColors = ['free'=>'#10b981','near'=>'#0ea5e9','mid'=>'#f59e0b','far'=>'#f97316','ooc'=>'#e11d48'];
+                    $grouped = $deliveryZones->groupBy('zone_type');
+                    $order   = ['free','near','mid','far','ooc'];
+                  @endphp
+                  <select id="zoneSelect" name="delivery_zone" style="display:none" onchange="updateFee();cvValidateZone()">
+                    <option value=""></option>
+                    @foreach($order as $typeKey)
+                      @php $group = $grouped[$typeKey] ?? collect(); @endphp
+                      @foreach($group as $z)
+                      <option value="{{ $z->barangay }}"
+                              data-fee="{{ $z->fee }}"
+                              data-type="{{ $z->zone_type }}"
+                              data-eta="{{ $z->estimated_time ?? '30-45 mins' }}"
+                              data-label="{{ $zoneTypeLabels[$z->zone_type] ?? $z->zone_type }}"
+                              data-color="{{ $zoneTypeColors[$z->zone_type] ?? '#888' }}">{{ $z->barangay }}</option>
                       @endforeach
-                    </select>
-                    <input type="hidden" name="delivery_fee" id="deliveryFeeInput" value="0">
-                    <input type="hidden" name="service_charge" id="serviceChargeInput" value="0">
-                    <div class="cv-msg" id="msgZone"></div>
-
-                    {{-- ETA Display --}}
-                    <div id="etaDisplay" style="display:none;margin-top:6px" class="d-flex align-items-start gap-2 flex-column">
-                      <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-clock" style="color:#0369a1;font-size:.9rem"></i>
-                        <span class="small" style="color:#0369a1">Estimated delivery time: <strong id="etaText"></strong></span>
-                      </div>
-                      <div class="small text-muted" style="font-size:clamp(.68rem,1.3vw,.72rem);padding-left:1.3rem">
-                        <i class="bi bi-exclamation-circle me-1"></i>
-                        Note: This is the approximate <strong>travel time</strong> from our shop to your location — not the cake preparation time. This only applies once your order is out for delivery.
-                      </div>
-                    </div>
-
-                    <div id="oocNotice" style="display:none" class="alert border-0 mt-2 py-2">
-                      <i class="bi bi-info-circle me-1" style="color:#e11d48"></i>
-                      <span class="small" style="color:#9f1239">
-                        <strong>Out of Coverage</strong> — Delivery fee starts at ₱250. Admin will confirm after reviewing your location.
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="mb-3 p-3 rounded" id="feePreview" style="background:#f0fdf4;display:none">
-                    <div class="d-flex align-items-center justify-content-between">
-                      <div class="small fw-semibold" style="color:#166534"><i class="bi bi-bicycle me-1"></i>Delivery Fee</div>
-                      <div class="fw-bold" id="feePreviewAmount" style="color:#166534">₱0.00</div>
-                    </div>
-                  </div>
+                    @endforeach
+                  </select>
 
                   <div class="mb-3">
                     <label class="form-label fw-semibold small">Pin Your Location</label>
-                    <div class="form-text mb-1"><i class="bi bi-info-circle me-1"></i>Click the map or use "Use My Current Location" to pin your exact delivery location — this helps our rider find you faster.</div>
+                    <div class="form-text mb-1"><i class="bi bi-info-circle me-1"></i>Click the map or use "Find My Location" to pin your exact delivery address — delivery fee and ETA update automatically.</div>
                     <button type="button" id="useMyLocationBtn" onclick="useMyLocation()"
                             class="btn btn-outline-primary btn-sm mb-2 w-100" style="border-radius:.7rem">
-                      <i class="bi bi-geo-alt-fill me-1"></i>📍 Use My Current Location
+                      <i class="bi bi-geo-alt-fill me-1"></i>📍 Find My Location
                     </button>
                     <div id="map" style="height:240px;border-radius:.9rem;border:1px solid #dee2e6"></div>
                     <div class="cv-msg" id="msgMap"></div>
                     <input type="hidden" name="latitude"  id="lat">
                     <input type="hidden" name="longitude" id="lng">
                   </div>
+
+                  {{-- ── Auto-detected Delivery Zone Card ──────────────────── --}}
+                  <div id="feePreview" style="display:none;margin-top:.75rem;border-radius:.85rem;padding:.9rem 1.1rem;background:#f0fdf4;border:1.5px solid #d1fae5;transition:background .3s">
+                    <div class="d-flex align-items-start gap-2">
+                      <i class="bi bi-geo-alt-fill mt-1" style="font-size:.95rem;flex-shrink:0;color:#059669"></i>
+                      <div style="flex:1;min-width:0">
+                        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+                          <span class="fw-semibold small" style="color:#064e3b">Delivery Zone Detected</span>
+                          <span id="zoneBadge"></span>
+                        </div>
+                        <div class="d-flex align-items-center gap-3 flex-wrap">
+                          <span class="small fw-semibold">
+                            <i class="bi bi-bicycle me-1"></i>Fee:&nbsp;<span id="feePreviewAmount" style="color:#166534">₱0.00</span>
+                          </span>
+                          <div id="etaDisplay" style="display:none">
+                            <span class="small" style="color:#0369a1">
+                              <i class="bi bi-clock me-1"></i>ETA:&nbsp;<strong id="etaText"></strong>
+                            </span>
+                          </div>
+                        </div>
+                        <div class="small text-muted mt-1" style="font-size:clamp(.64rem,1.2vw,.68rem)">
+                          <i class="bi bi-exclamation-circle me-1"></i>ETA is approximate travel time from our shop — not cake preparation time.
+                        </div>
+                      </div>
+                    </div>
+                    <div id="oocNotice" style="display:none" class="alert border-0 mt-2 py-2 mb-0">
+                      <i class="bi bi-info-circle me-1" style="color:#e11d48"></i>
+                      <span class="small" style="color:#9f1239">
+                        <strong>Out of Coverage</strong> — Delivery fee starts at ₱250. Admin will confirm after reviewing your location.
+                      </span>
+                    </div>
+                  </div>
+                  <input type="hidden" name="delivery_fee" id="deliveryFeeInput" value="0">
+                  <input type="hidden" name="service_charge" id="serviceChargeInput" value="0">
+                  <div class="cv-msg" id="msgZone"></div>
 
                   <div class="mb-3">
                     <label class="form-label fw-semibold small">
@@ -628,18 +625,28 @@ async function autoSelectBarangayFromCoords(lat, lng) {
       var optVal = sel.options[i].value.toLowerCase();
       if (optVal && suburb && (suburb.includes(optVal) || optVal.includes(suburb))) {
         sel.selectedIndex = i; matched = true; updateFee();
-        cakeToast('✅ Barangay auto-selected: ' + sel.options[i].value,'success'); break;
+        updateZoneBadge(sel.options[i]);
+        cakeToast('📍 Delivery zone detected: ' + sel.options[i].value,'success'); break;
       }
     }
     if (!matched) {
       for (var i = 0; i < sel.options.length; i++) {
         if (sel.options[i].dataset.type === 'ooc') {
           sel.selectedIndex = i; updateFee();
-          cakeToast('⚠️ Your location is outside our delivery zones. Out of Coverage selected.','warn'); break;
+          updateZoneBadge(sel.options[i]);
+          cakeToast('⚠️ Your location is outside our delivery zones — Out of Coverage applied.','warn'); break;
         }
       }
     }
   } catch(e) {}
+}
+
+function updateZoneBadge(opt) {
+  var el = document.getElementById('zoneBadge');
+  if (!el || !opt) return;
+  var col = opt.dataset.color || '#888';
+  var lbl = opt.dataset.label || '';
+  el.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;background:'+col+'22;color:'+col+';border:1.5px solid '+col+'66;border-radius:20px;padding:2px 10px;font-size:.7rem;font-weight:700"><i class="bi bi-circle-fill" style="font-size:.38rem"></i>'+lbl+'</span>';
 }
 
 function updateFee() {
@@ -664,6 +671,7 @@ function updateFee() {
   if (feePreview && opt && opt.value) {
     feePreview.style.display = 'block';
     feePreview.style.background = deliveryFee === 0 ? '#f0fdf4' : '#eff6ff';
+    feePreview.style.borderColor = deliveryFee === 0 ? '#d1fae5' : '#bfdbfe';
     if (feeAmt) {
       feeAmt.style.color = deliveryFee === 0 ? '#166534' : '#1e40af';
       feeAmt.textContent = deliveryFee === 0 ? 'FREE' : (zoneType==='ooc' ? '₱250+ (to be confirmed)' : '₱'+deliveryFee.toFixed(2));
@@ -733,9 +741,9 @@ function cvValidateOtp(input) {
 function cvValidateZone() {
   var sel=document.getElementById('zoneSelect'), msg=document.getElementById('msgZone');
   if(!sel||!msg) return;
-  sel.classList.remove('cv-valid','cv-invalid'); msg.className='cv-msg';
-  if (!sel.value) { sel.classList.add('cv-invalid'); msg.classList.add('cv-err'); msg.textContent='Please select your barangay.'; cvShake(sel); }
-  else { sel.classList.add('cv-valid'); msg.classList.add('cv-ok'); msg.textContent='✓ Barangay selected.'; }
+  msg.className='cv-msg';
+  if (!sel.value) { msg.classList.add('cv-err'); msg.textContent='Please pin your delivery location on the map above.'; cvShake(document.getElementById('map')); }
+  else { msg.classList.add('cv-ok'); msg.textContent='✓ Delivery zone detected.'; }
 }
 function cvValidateMap() {
   var lat=document.getElementById('lat')?.value, lng=document.getElementById('lng')?.value;
@@ -796,7 +804,7 @@ function confirmCustomOrder(btn) {
   var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   if (isDelivery) {
     var zone = document.getElementById('zoneSelect')?.value;
-    if (!zone) { cakeToast('Please select your barangay for delivery.','error'); return false; }
+    if (!zone) { cakeToast('Please pin your delivery location on the map first.','error'); return false; }
   }
   var total = document.getElementById('totalDisplay').textContent;
   cakeConfirm({ title:'📋 Confirm Custom Order?', message:'Total: '+total+' — Your order will be reviewed by the baker.', icon:'bi-cake2', okLabel:'Place Order',
