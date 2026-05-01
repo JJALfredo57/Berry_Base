@@ -48,7 +48,7 @@
   <div id="pane-pending">
     @forelse($ticketsPending as $t)
       @php $isDelivery = $t->fulfillment_type === 'Delivery'; @endphp
-      @include('seller._kitchen_ticket', ['t' => $t, 'isDelivery' => $isDelivery, 'riders' => $riders, 'customImages' => $customImages])
+      @include('seller._kitchen_ticket_regular', ['t' => $t, 'isDelivery' => $isDelivery, 'riders' => $riders, 'customImages' => $customImages])
     @empty
       <div class="card text-center py-5">
         <i class="bi bi-hourglass" style="font-size:3rem;color:#ddd"></i>
@@ -61,7 +61,7 @@
   <div id="pane-in_progress" style="display:none">
     @forelse($ticketsPreparing as $t)
       @php $isDelivery = $t->fulfillment_type === 'Delivery'; @endphp
-      @include('seller._kitchen_ticket', ['t' => $t, 'isDelivery' => $isDelivery, 'riders' => $riders, 'customImages' => $customImages])
+      @include('seller._kitchen_ticket_regular', ['t' => $t, 'isDelivery' => $isDelivery, 'riders' => $riders, 'customImages' => $customImages])
     @empty
       <div class="card text-center py-5">
         <i class="bi bi-fire" style="font-size:3rem;color:#ddd"></i>
@@ -74,7 +74,7 @@
   <div id="pane-done" style="display:none">
     @forelse($ticketsDone as $t)
       @php $isDelivery = $t->fulfillment_type === 'Delivery'; @endphp
-      @include('seller._kitchen_ticket', ['t' => $t, 'isDelivery' => $isDelivery, 'riders' => $riders, 'customImages' => $customImages])
+      @include('seller._kitchen_ticket_regular', ['t' => $t, 'isDelivery' => $isDelivery, 'riders' => $riders, 'customImages' => $customImages])
     @empty
       <div class="card text-center py-5">
         <i class="bi bi-check-all" style="font-size:3rem;color:#ddd"></i>
