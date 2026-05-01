@@ -851,10 +851,9 @@ class PaymentController extends Controller
             ->with('error', 'Payment was not completed. Please try again.');
     }
 
-    /** Normalize phone to E.164 (+639XXXXXXXXX) for PayMongo */
     private function getPaymongoCheckoutMethods(): array
     {
-        return ['gcash', 'card'];
+        return ['gcash'];
     }
 
     private function formatPhoneE164(string $phone): string
