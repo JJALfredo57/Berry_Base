@@ -1520,16 +1520,6 @@
     @endif
     <span>{{ $brandTitle }}</span>
   </a>
-  {{-- Quick links on desktop --}}
-  <div class="d-none d-md-flex gap-1 ms-auto align-items-center">
-    <a href="{{ route('catalog') }}" class="btn btn-sm {{ $currentRoute==='catalog' ? 'btn-primary' : 'btn-outline-secondary' }}">
-      <i class="bi bi-shop me-1"></i>Catalog
-    </a>
-    <div style="width:1px;height:22px;background:#e5e7eb;margin:0 6px"></div>
-    <a href="{{ route('login') }}" class="btn btn-sm btn-outline-danger fw-semibold">
-      <i class="bi bi-person-badge me-1"></i>Seller Login
-    </a>
-  </div>
 </div>
 
 {{-- Become Seller modal --}}
