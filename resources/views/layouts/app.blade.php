@@ -111,6 +111,14 @@
           if ($role === 'admin') {
               $unreadMessages = (int) \Illuminate\Support\Facades\DB::table('messages')
                   ->where('sender_role', 'customer')->where('is_read', 0)->count();
+          } elseif ($role === 'seller') {
+              $unreadMessages = (int) \Illuminate\Support\Facades\DB::table('messages as m')
+                  ->join('orders as o', 'o.id', '=', 'm.order_id')
+                  ->join('shops as s', 's.id', '=', 'o.shop_id')
+                  ->where('s.seller_id', $uid)
+                  ->where('m.sender_role', 'customer')
+                  ->where('m.is_read', 0)
+                  ->count();
           } else {
               $unreadMessages = (int) \Illuminate\Support\Facades\DB::table('messages as m')
                   ->join('orders as o', 'o.id', '=', 'm.order_id')
@@ -2076,12 +2084,12 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 {{-- ── Mini Chat Popup ─────────────────────────────────────────── --}}
-@if($isAdmin)
+@if($isAdmin || $isSeller)
 @php
-  $popupDataUrl = route('admin.messages.popup_data');
-  $popupSendUrl = route('admin.messages.popup_send');
-  $csrfToken = csrf_token();
-  $fullMsgUrl = route('admin.messages.index');
+  $popupDataUrl = $isAdmin ? route('admin.messages.popup_data') : route('seller.messages.popup_data');
+  $popupSendUrl = $isAdmin ? route('admin.messages.popup_send') : route('seller.messages.popup_send');
+  $csrfToken    = csrf_token();
+  $fullMsgUrl   = $isAdmin ? route('admin.messages.index') : route('seller.messages');
 @endphp
 <style>
 @@keyframes chatPopIn { from{opacity:0;transform:scale(.85) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
@@ -2250,9 +2258,10 @@ var MC_CSRF      = '{{ $csrfToken }}';
 var MC_ROLE      = '{{ session("user")["role"] ?? "" }}';
 var MC_USER_ID   = '{{ session("user")["id"] ?? "" }}';
 @php
-  $markOrderReadUrl = (session('user')['role'] ?? '') === 'admin'
+  $_mcRole = session('user')['role'] ?? '';
+  $markOrderReadUrl = $_mcRole === 'admin'
     ? url('/admin/messages/mark-order-read')
-    : url('/customer/messages/mark-order-read');
+    : ($_mcRole === 'seller' ? url('/seller/messages/mark-order-read') : url('/customer/messages/mark-order-read'));
 @endphp
 var MC_MARK_URL  = '{{ $markOrderReadUrl }}';
 
@@ -2309,7 +2318,7 @@ async function silentRefreshList() {
     if (mcViewState !== 'list') return;
     const container = document.getElementById('miniChatMessages');
     container.innerHTML = '';
-    if (MC_ROLE === 'admin') renderAdminList(container, data.messages);
+    if (MC_ROLE === 'admin' || MC_ROLE === 'seller') renderAdminList(container, data.messages);
     else renderMcTimeline(container, data.messages);
     container.scrollTop = container.scrollHeight;
   } catch(e) {}
@@ -2363,7 +2372,7 @@ async function loadMcMessages() {
       return;
     }
 
-    if (MC_ROLE === 'admin') {
+    if (MC_ROLE === 'admin' || MC_ROLE === 'seller') {
       mcViewState = 'list';
       renderAdminList(container, data.messages);
     } else {
@@ -2504,7 +2513,7 @@ async function openCustomerChat(customerName, orderId, customerData, userId) {
 // ── Mark single message read (fallback) ──────────────────────────────
 async function markMsgRead(msgId) {
   try {
-    await fetch('{{ session("user") ? (session("user")["role"] === "admin" ? url("/admin/messages/mark-read-msg") : url("/customer/messages/mark-read-msg")) : "" }}/' + msgId, {
+    await fetch('{{ session("user") ? (session("user")["role"] === "admin" ? url("/admin/messages/mark-read-msg") : (session("user")["role"] === "seller" ? url("/seller/messages/mark-read-msg") : url("/customer/messages/mark-read-msg"))) : "" }}/' + msgId, {
       method: 'POST',
       headers: { 'X-CSRF-TOKEN': MC_CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
     });
@@ -2551,7 +2560,8 @@ function renderMcTimeline(container, messages, appendOnly = false) {
   }, { threshold: 0.6 });
 
   messages.forEach(msg => {
-    const isMe = (MC_ROLE === 'admin'    && msg.sender_role === 'admin') ||
+    const isMe = (MC_ROLE === 'admin'    && msg.sender_role === 'admin')   ||
+                 (MC_ROLE === 'seller'   && msg.sender_role === 'seller')  ||
                  (MC_ROLE === 'customer' && msg.sender_role === 'customer');
 
     if (msg.order_id !== lastOrderId) {
@@ -2741,10 +2751,10 @@ function formatMcTime(dateStr) {
 </script>
 @endif
 
-{{-- ── Floating Cake Messenger Bubble (Admin only) ─────────────── --}}
-@if($isAdmin)
+{{-- ── Floating Cake Messenger Bubble (Seller only) ─────────────── --}}
+@if($isSeller)
 @php
-  $msgRoute    = route('admin.messages.index');
+  $msgRoute    = route('seller.messages');
   $unreadCount = $unreadMessages ?? 0;
 @endphp
 <style>

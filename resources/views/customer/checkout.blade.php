@@ -223,40 +223,6 @@ document.body.style.paddingRight = '';
           </div>
         </div>
 
-        {{-- Add-ons --}}
-        @if($addonCategories->count() > 0)
-        <div class="card mb-3">
-          <div class="card-body p-4">
-            <h6 class="fw-bold mb-3"><i class="bi bi-gift me-2" style="color:var(--primary)"></i>Add-ons <span class="fw-normal text-muted small">(optional)</span></h6>
-            @foreach($addonCategories as $cat)
-              @php $catAddons = $addonsByCategory[$cat->id] ?? collect(); @endphp
-              @if($catAddons->count() > 0)
-              <div class="mb-3">
-                <div class="fw-semibold small mb-2" style="color:var(--primary)">
-                  @if($cat->icon)<i class="{{ $cat->icon }} me-1"></i>@endif{{ $cat->name }}
-                </div>
-                <div class="d-flex flex-wrap gap-2">
-                  @foreach($catAddons as $addon)
-                  <label class="addon-card d-flex align-items-center gap-2 px-3 py-2 rounded-3 border"
-                         data-price="{{ $addon->price }}"
-                         style="cursor:pointer;font-size:.83rem;border-color:#e9ecef!important;transition:all .15s;background:#fff"
-                         onmouseover="this.style.borderColor='var(--primary)'"
-                         onmouseout="if(!this.querySelector('input').checked)this.style.borderColor='#e9ecef'">
-                    <input type="checkbox" class="addon-check form-check-input m-0"
-                           name="addons[]" value="{{ $addon->id }}"
-                           onchange="onAddonChange(this)">
-                    <span>{{ $addon->name }}</span>
-                    <span class="fw-bold ms-1" style="color:var(--primary)">+₱{{ number_format($addon->price,2) }}</span>
-                  </label>
-                  @endforeach
-                </div>
-              </div>
-              @endif
-            @endforeach
-          </div>
-        </div>
-        @endif
-
         {{-- Payment --}}
         <div class="card mb-3">
           <div class="card-body p-4">

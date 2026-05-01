@@ -15,7 +15,10 @@ class DashboardController extends Controller
             'total_products' => DB::table('products')->count(),
             'total_orders'   => DB::table('orders')->whereNotIn('status',['Cancelled'])->count(),
             'total_revenue'  => DB::table('orders')->where('payment_status','Paid')->sum('total_price'),
-            'total_customers'=> DB::table('users')->where('role','customer')->count(),
+            'total_customers'=> (
+                DB::table('orders')->whereNotIn('status',['Cancelled'])->whereNotNull('user_id')->distinct()->count('user_id') +
+                DB::table('orders')->whereNotIn('status',['Cancelled'])->whereNull('user_id')->count()
+            ),
         ];
 
         // Pending seller applications
