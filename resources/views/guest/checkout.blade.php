@@ -154,49 +154,52 @@ document.body.style.paddingRight = '';
                   {{-- ── Barangay / Delivery Zone ────────────────────────── --}}
                   <div class="mb-3">
                     <label class="form-label fw-semibold small">
-                      Select Barangay <span class="text-danger">*</span>
+                      Barangay <span class="text-danger">*</span>
                     </label>
-                    <div class="form-text mb-1"><i class="bi bi-info-circle me-1"></i>Select your barangay to see the delivery fee and estimated travel time.</div>
-                    <select class="form-select cv-field" name="delivery_zone" id="zoneSelect" onchange="updateFee();cvValidateZone();onBarangayChange(this.value)">
-                      <option value="">-- Select your Barangay --</option>
-                      @php
-                        $zoneTypeLabels = [
-                          'free' => 'Poblacion',
-                          'near' => 'Nearby',
-                          'mid'  => 'Mid-range',
-                          'far'  => 'Far',
-                          'ooc'  => 'Out of Coverage',
-                        ];
-                        $zoneTypeColors = [
-                          'free' => '#10b981',
-                          'near' => '#0ea5e9',
-                          'mid'  => '#f59e0b',
-                          'far'  => '#f97316',
-                          'ooc'  => '#e11d48',
-                        ];
-                        $grouped = $deliveryZones->groupBy('zone_type');
-                        $order   = ['free','near','mid','far','ooc'];
-                      @endphp
+                    <div class="form-text mb-2"><i class="bi bi-info-circle me-1"></i>Type to search your barangay — delivery fee and ETA will update automatically.</div>
+
+                    {{-- Hidden native select keeps all existing JS working --}}
+                    @php
+                      $zoneTypeLabels = ['free'=>'Poblacion','near'=>'Nearby','mid'=>'Mid-range','far'=>'Far','ooc'=>'Out of Coverage'];
+                      $zoneTypeColors = ['free'=>'#10b981','near'=>'#0ea5e9','mid'=>'#f59e0b','far'=>'#f97316','ooc'=>'#e11d48'];
+                      $grouped = $deliveryZones->groupBy('zone_type');
+                      $order   = ['free','near','mid','far','ooc'];
+                    @endphp
+                    <select id="zoneSelect" name="delivery_zone" style="display:none" onchange="updateFee();cvValidateZone();onBarangayChange(this.value)">
+                      <option value=""></option>
                       @foreach($order as $typeKey)
                         @php $group = $grouped[$typeKey] ?? collect(); @endphp
-                        @if($group->count() > 0)
-                        <optgroup label="{{ $zoneTypeLabels[$typeKey] ?? $typeKey }} — {{ $typeKey === 'free' ? 'FREE' : ($typeKey === 'ooc' ? '₱250+' : '₱'.$group->first()->fee) }}">
-                          @foreach($group as $z)
-                          <option value="{{ $z->barangay }}"
-                                  data-fee="{{ $z->fee }}"
-                                  data-type="{{ $z->zone_type }}"
-                                  data-eta="{{ $z->estimated_time ?? '30-45 mins' }}">
-                            {{ $z->barangay }}
-                            @if($z->fee == 0) (Free)
-                            @else — ₱{{ number_format($z->fee, 2) }}
-                            @endif
-                            — ~{{ $z->estimated_time ?? '30-45 mins' }}
-                          </option>
-                          @endforeach
-                        </optgroup>
-                        @endif
+                        @foreach($group as $z)
+                        <option value="{{ $z->barangay }}"
+                                data-fee="{{ $z->fee }}"
+                                data-type="{{ $z->zone_type }}"
+                                data-eta="{{ $z->estimated_time ?? '30-45 mins' }}"
+                                data-label="{{ $zoneTypeLabels[$z->zone_type] ?? $z->zone_type }}"
+                                data-color="{{ $zoneTypeColors[$z->zone_type] ?? '#888' }}">{{ $z->barangay }}</option>
+                        @endforeach
                       @endforeach
                     </select>
+
+                    {{-- Searchable combobox --}}
+                    <div id="zoneComboWrap" style="position:relative">
+                      <div style="position:relative">
+                        <i class="bi bi-geo-alt-fill" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--primary);font-size:.85rem;pointer-events:none;z-index:1"></i>
+                        <input type="text" id="zoneSearch" autocomplete="off"
+                               class="form-control cv-field ps-4 pe-5"
+                               style="border-radius:10px;font-size:.9rem"
+                               placeholder="Search barangay…"
+                               onfocus="zoneOpenDrop()"
+                               oninput="zoneFilter(this.value)"
+                               onkeydown="zoneKeyNav(event)">
+                        <button type="button" onclick="zoneToggleDrop()" tabindex="-1"
+                                style="position:absolute;right:0;top:0;bottom:0;width:40px;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#adb5bd">
+                          <i class="bi bi-chevron-down" id="zoneChevron" style="font-size:.72rem;transition:transform .2s"></i>
+                        </button>
+                      </div>
+                      <div id="zoneBadge" style="display:none;margin-top:6px"></div>
+                      <div id="zoneDropdown"
+                           style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid #e9ecef;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.13);max-height:260px;overflow-y:auto;z-index:9999;padding:6px 0"></div>
+                    </div>
                     <input type="hidden" name="delivery_fee" id="deliveryFeeInput" value="0">
                     <div class="cv-msg" id="msgZone"></div>
 
@@ -1256,4 +1259,134 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   updatePaymentTransparency();
 });
+
+// ── Searchable Barangay Combobox ───────────────────────────────────────
+(function() {
+  const ZONE_COLORS = { free:'#10b981', near:'#0ea5e9', mid:'#f59e0b', far:'#f97316', ooc:'#e11d48' };
+  const ZONE_LABELS = { free:'Free', near:'Nearby', mid:'Mid-range', far:'Far', ooc:'Out of Coverage' };
+  let zoneActive = -1, zoneDropOpen = false, zoneItems = [];
+
+  function buildZoneItems() {
+    const sel = document.getElementById('zoneSelect');
+    if (!sel) return;
+    zoneItems = [];
+    for (const opt of sel.options) {
+      if (!opt.value) continue;
+      zoneItems.push({
+        value : opt.value,
+        fee   : opt.dataset.fee,
+        type  : opt.dataset.type,
+        eta   : opt.dataset.eta,
+        color : opt.dataset.color || '#888',
+        label : opt.dataset.label || '',
+      });
+    }
+  }
+
+  function renderDrop(filter) {
+    const drop = document.getElementById('zoneDropdown');
+    if (!drop) return;
+    const q = (filter || '').toLowerCase().trim();
+    const list = q ? zoneItems.filter(z => z.value.toLowerCase().includes(q)) : zoneItems;
+    if (!list.length) {
+      drop.innerHTML = '<div style="padding:14px 16px;color:#aaa;font-size:.83rem;text-align:center"><i class="bi bi-search me-1"></i>No barangay found</div>';
+      zoneActive = -1; return;
+    }
+    let html = '';
+    let lastType = null;
+    list.forEach((z, i) => {
+      if (z.type !== lastType) {
+        const col = ZONE_COLORS[z.type] || '#888';
+        const lbl = ZONE_LABELS[z.type] || z.type;
+        const feeLabel = z.type === 'free' ? 'FREE' : (z.type === 'ooc' ? '₱250+' : '₱' + parseFloat(z.fee).toFixed(0));
+        html += `<div style="padding:5px 14px 3px;font-size:.68rem;font-weight:700;letter-spacing:.06em;color:${col};background:#fafafa;border-top:${lastType ? '1px solid #f0f0f0' : 'none'}">${lbl.toUpperCase()} — ${feeLabel}</div>`;
+        lastType = z.type;
+      }
+      const feeTag = parseFloat(z.fee) === 0
+        ? `<span style="color:#10b981;font-weight:700;font-size:.72rem">Free</span>`
+        : `<span style="color:${z.color};font-weight:700;font-size:.72rem">₱${parseFloat(z.fee).toFixed(0)}</span>`;
+      html += `<div class="zone-opt" data-idx="${i}" data-value="${z.value}"
+        style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 14px;cursor:pointer;font-size:.85rem;transition:background .12s"
+        onmouseenter="this.style.background='#fdf2f8'" onmouseleave="this.style.background=''"
+        onclick="zoneSelect('${z.value.replace(/'/g,"\\'")}',${i})">
+        <span><i class="bi bi-geo-alt me-1" style="color:${z.color};font-size:.75rem"></i>${z.value}</span>
+        <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">${feeTag}<span style="color:#aaa;font-size:.68rem">~${z.eta}</span></span>
+      </div>`;
+    });
+    drop.innerHTML = html;
+    zoneActive = -1;
+  }
+
+  window.zoneFilter = function(val) {
+    renderDrop(val);
+    zoneDrop(true);
+  };
+
+  window.zoneOpenDrop = function() {
+    buildZoneItems();
+    const search = document.getElementById('zoneSearch');
+    renderDrop(search ? search.value : '');
+    zoneDrop(true);
+  };
+
+  window.zoneToggleDrop = function() {
+    if (zoneDropOpen) { zoneDrop(false); } else { zoneOpenDrop(); }
+  };
+
+  function zoneDrop(open) {
+    const drop = document.getElementById('zoneDropdown');
+    const chev = document.getElementById('zoneChevron');
+    if (!drop) return;
+    zoneDropOpen = open;
+    drop.style.display = open ? 'block' : 'none';
+    if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
+  }
+
+  window.zoneSelect = function(val) {
+    const sel = document.getElementById('zoneSelect');
+    const search = document.getElementById('zoneSearch');
+    const badge = document.getElementById('zoneBadge');
+    if (!sel) return;
+    sel.value = val;
+    sel.dispatchEvent(new Event('change'));
+    if (search) search.value = val;
+    zoneDrop(false);
+    const opt = Array.from(sel.options).find(o => o.value === val);
+    if (opt && badge) {
+      const col = opt.dataset.color || '#888';
+      const lbl = opt.dataset.label || '';
+      const fee = parseFloat(opt.dataset.fee || 0);
+      const feeStr = fee === 0 ? 'Free delivery' : '₱' + fee.toFixed(0) + ' delivery fee';
+      badge.style.display = 'flex';
+      badge.style.alignItems = 'center';
+      badge.style.gap = '8px';
+      badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;background:${col}18;color:${col};border:1px solid ${col}44;border-radius:20px;padding:3px 10px;font-size:.75rem;font-weight:600"><i class="bi bi-check-circle-fill"></i>${val}</span><span style="color:#888;font-size:.75rem">${feeStr}</span>`;
+    }
+  };
+
+  window.zoneKeyNav = function(e) {
+    const drop = document.getElementById('zoneDropdown');
+    if (!drop || drop.style.display === 'none') return;
+    const opts = drop.querySelectorAll('.zone-opt');
+    if (!opts.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      zoneActive = Math.min(zoneActive + 1, opts.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      zoneActive = Math.max(zoneActive - 1, 0);
+    } else if (e.key === 'Enter' && zoneActive >= 0) {
+      e.preventDefault();
+      zoneSelect(opts[zoneActive].dataset.value);
+    } else if (e.key === 'Escape') {
+      zoneDrop(false);
+    }
+    opts.forEach((o, i) => o.style.background = i === zoneActive ? '#fdf2f8' : '');
+    if (zoneActive >= 0) opts[zoneActive].scrollIntoView({ block: 'nearest' });
+  };
+
+  document.addEventListener('click', function(e) {
+    if (!document.getElementById('zoneComboWrap')?.contains(e.target)) zoneDrop(false);
+  });
+})();
 </script>
