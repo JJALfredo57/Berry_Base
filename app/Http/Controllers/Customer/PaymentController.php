@@ -10,7 +10,7 @@ class PaymentController extends Controller
 {
     private function getPaymongoCheckoutMethods(): array
     {
-        return ['gcash', 'card'];
+        return ['gcash'];
     }
 
     /**
