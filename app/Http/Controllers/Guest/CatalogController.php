@@ -31,6 +31,7 @@ class CatalogController extends Controller
         $products = DB::table('products')
             ->leftJoin('shops', 'shops.id', '=', 'products.shop_id')
             ->where('products.is_available', true)
+            ->whereNull('products.archived_at')
             ->select('products.*', 'shops.shop_name', 'shops.shop_slug', 'shops.shop_logo')
             ->orderBy('products.classification')
             ->orderBy('products.name')

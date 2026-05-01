@@ -220,7 +220,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/products',                  [\App\Http\Controllers\Seller\ProductController::class, 'index'])->name('products');
     Route::post('/products',                 [\App\Http\Controllers\Seller\ProductController::class, 'store'])->name('products.store');
     Route::post('/products/{id}/update',     [\App\Http\Controllers\Seller\ProductController::class, 'update'])->name('products.update');
-    Route::post('/products/{id}/delete',     [\App\Http\Controllers\Seller\ProductController::class, 'destroy'])->name('products.destroy');
+    Route::post('/products/{id}/archive',    [\App\Http\Controllers\Seller\ProductController::class, 'archive'])->name('products.archive');
+    Route::post('/products/{id}/restore',    [\App\Http\Controllers\Seller\ProductController::class, 'restore'])->name('products.restore');
     Route::post('/products/{id}/toggle',     [\App\Http\Controllers\Seller\ProductController::class, 'toggleAvailable'])->name('products.toggle');
     Route::post('/products/{id}/discount',   [\App\Http\Controllers\Seller\ProductController::class, 'saveDiscount'])->name('products.discount');
     Route::post('/products/{id}/sizes',      [\App\Http\Controllers\Seller\ProductController::class, 'storeSize'])->name('products.sizes.store');

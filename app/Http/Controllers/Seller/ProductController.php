@@ -33,9 +33,12 @@ class ProductController extends Controller
         $platform = DB::table('platform_settings')->first();
         $maxProd  = $shop->tier === 'verified' ? null : (int)($platform->max_products_basic ?? 20);
         $search   = trim($request->input('search', ''));
+        $tab      = $request->input('tab', 'active'); // 'active' or 'archived'
 
         $products = DB::table('products')
             ->where('shop_id', $shop->id)
+            ->when($tab === 'archived', fn($q) => $q->whereNotNull('archived_at'),
+                                        fn($q) => $q->whereNull('archived_at'))
             ->when($search, fn($q) => $q->where(fn($sq) => $sq
                 ->where('name', 'like', "%$search%")
                 ->orWhere('flavor', 'like', "%$search%")
@@ -44,6 +47,8 @@ class ProductController extends Controller
             ->orderByDesc('id')
             ->paginate(10)
             ->withQueryString();
+
+        $archivedCount = DB::table('products')->where('shop_id', $shop->id)->whereNotNull('archived_at')->count();
 
         $productSizes = [];
         try {
@@ -56,7 +61,7 @@ class ProductController extends Controller
 
         $discounts = CakeshopHelper::getDiscountConfigMap(collect($products->items())->pluck('id')->toArray());
 
-        return view('seller.products', compact('shop','products','productSizes','discounts','maxProd','search'));
+        return view('seller.products', compact('shop','products','productSizes','discounts','maxProd','search','tab','archivedCount'));
     }
 
     public function store(Request $request)
@@ -165,23 +170,31 @@ class ProductController extends Controller
         return back()->with('msg', "Product updated successfully.");
     }
 
-    public function destroy(string $id)
+    public function archive(string $id)
     {
         $shop = $this->getShop();
         $p    = DB::table('products')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$p) return back()->with('err', 'Product not found.');
 
-        // Check if product has existing orders
-        $hasOrders = DB::table('orders')->where('product_id', $id)
-            ->whereNotIn('status', ['Cancelled', 'Awaiting Deposit'])->exists();
-        if ($hasOrders) {
-            // Soft delete — just deactivate
-            DB::table('products')->where('id', $id)->update(['is_available' => false, 'updated_at' => now()]);
-            return back()->with('msg', "Product deactivated (has existing orders — cannot permanently delete).");
-        }
+        DB::table('products')->where('id', $id)->update([
+            'archived_at' => now(),
+            'is_available' => false,
+            'updated_at'  => now(),
+        ]);
+        return back()->with('msg', "Product \"{$p->name}\" archived. It is now hidden from customers.");
+    }
 
-        DB::table('products')->where('id', $id)->delete();
-        return back()->with('msg', "Product deleted.");
+    public function restore(string $id)
+    {
+        $shop = $this->getShop();
+        $p    = DB::table('products')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$p) return back()->with('err', 'Product not found.');
+
+        DB::table('products')->where('id', $id)->update([
+            'archived_at' => null,
+            'updated_at'  => now(),
+        ]);
+        return back()->with('msg', "Product \"{$p->name}\" restored and is now visible to customers.");
     }
 
     public function toggleAvailable(string $id)

@@ -39,8 +39,23 @@
 <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);padding:1rem 1.25rem;margin-bottom:1.25rem">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
     <div>
-      <div style="font-size:.95rem;font-weight:700;color:var(--gray-900)">Smart Product Filter</div>
-      <div style="font-size:.8rem;color:var(--gray-500)">Search by product name, flavor, category, or availability</div>
+      <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+        <div style="font-size:.95rem;font-weight:700;color:var(--gray-900)">Products</div>
+        <div style="display:flex;gap:.35rem">
+          <a href="{{ route('seller.products', ['tab'=>'active','search'=>$search]) }}"
+             style="padding:.3rem .85rem;border-radius:2rem;font-size:.78rem;font-weight:600;text-decoration:none;border:1.5px solid {{ $tab==='active' ? 'var(--primary)' : 'var(--gray-200)' }};background:{{ $tab==='active' ? 'var(--primary)' : '#fff' }};color:{{ $tab==='active' ? '#fff' : 'var(--gray-600)' }}">
+            Active
+          </a>
+          <a href="{{ route('seller.products', ['tab'=>'archived','search'=>$search]) }}"
+             style="padding:.3rem .85rem;border-radius:2rem;font-size:.78rem;font-weight:600;text-decoration:none;border:1.5px solid {{ $tab==='archived' ? '#d97706' : 'var(--gray-200)' }};background:{{ $tab==='archived' ? '#d97706' : '#fff' }};color:{{ $tab==='archived' ? '#fff' : 'var(--gray-600)' }};display:flex;align-items:center;gap:.35rem">
+            <i class="bi bi-archive"></i> Archived
+            @if($archivedCount > 0)
+              <span style="background:{{ $tab==='archived' ? 'rgba(255,255,255,.3)' : '#d97706' }};color:#fff;border-radius:99px;font-size:.65rem;padding:0 .4rem;min-width:1.2rem;text-align:center">{{ $archivedCount }}</span>
+            @endif
+          </a>
+        </div>
+      </div>
+      <div style="font-size:.8rem;color:var(--gray-500)">{{ $tab==='archived' ? 'Archived products are hidden from customers' : 'Search by product name, flavor, or category' }}</div>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
       <input type="text" id="sellerProductSearch" class="form-control" placeholder="Search products..."
@@ -122,7 +137,7 @@
      data-search="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? ''))) }}"
      data-classification="{{ strtolower($p->classification ?? '') }}"
      data-status="{{ $p->is_available ? 'visible' : 'hidden' }}"
-     style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid {{ $p->is_available ? 'var(--gray-100)' : 'var(--gray-200)' }};margin-bottom:1rem;overflow:hidden;opacity:{{ $p->is_available ? '1' : '.65' }}">
+     style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid {{ $p->archived_at ? '#fcd34d' : ($p->is_available ? 'var(--gray-100)' : 'var(--gray-200)') }};margin-bottom:1rem;overflow:hidden;opacity:{{ $p->archived_at ? '.75' : ($p->is_available ? '1' : '.65') }}">
   <div style="display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;flex-wrap:wrap">
 
     {{-- Product Image --}}
@@ -141,7 +156,9 @@
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
         <span style="font-size:.95rem;font-weight:700;color:var(--gray-900)">{{ $p->name }}</span>
-        @if(!$p->is_available)
+        @if($p->archived_at)
+          <span style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;display:inline-flex;align-items:center;gap:.25rem"><i class="bi bi-archive-fill"></i> Archived</span>
+        @elseif(!$p->is_available)
           <span style="background:var(--gray-200);color:var(--gray-600);font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px">Hidden</span>
         @endif
         <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:600;padding:.15rem .5rem;border-radius:99px">{{ $p->classification }}</span>
@@ -161,39 +178,52 @@
       @endif
       <div style="font-size:.75rem;color:var(--gray-500)">
         @if($p->flavor)<span style="margin-right:.75rem"><i class="bi bi-droplet" style="font-size:.7rem"></i> {{ $p->flavor }}</span>@endif
-        @if($sizes->count() > 0)<span>{{ $sizes->count() }} size{{ $sizes->count() > 1 ? 's' : '' }}</span>@endif
+        @if($sizes->count() > 0)<span style="margin-right:.75rem">{{ $sizes->count() }} size{{ $sizes->count() > 1 ? 's' : '' }}</span>@endif
+        @if($p->archived_at)<span style="color:#d97706"><i class="bi bi-calendar-x me-1" style="font-size:.7rem"></i>Archived {{ \Carbon\Carbon::parse($p->archived_at)->diffForHumans() }}</span>@endif
       </div>
     </div>
 
     {{-- Actions --}}
     <div style="display:flex;gap:.5rem;flex-shrink:0;flex-wrap:wrap">
-      <form action="{{ route('seller.products.toggle', $p->id) }}" method="POST" class="d-inline">
-        @csrf
-        <button type="submit" style="background:{{ $p->is_available ? '#FFF3E0' : '#E8F5E9' }};color:{{ $p->is_available ? '#E65100' : '#2E7D32' }};border:1.5px solid {{ $p->is_available ? '#FFCC80' : '#A5D6A7' }};border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
-          <i class="bi bi-{{ $p->is_available ? 'eye-slash' : 'eye' }}"></i>
-          {{ $p->is_available ? 'Hide' : 'Show' }}
+      @if($p->archived_at)
+        {{-- Archived product: show only Restore --}}
+        <form action="{{ route('seller.products.restore', $p->id) }}" method="POST" class="d-inline"
+              data-cs-confirm="Restore &quot;{{ addslashes($p->name) }}&quot;? It will be visible to customers again." data-cs-title="Restore Product" data-cs-icon="bi-arrow-counterclockwise" data-cs-icon-bg="#ecfdf5" data-cs-icon-color="#059669" data-cs-ok="Restore" data-cs-ok-color="#059669">
+          @csrf
+          <button type="submit" style="background:#ecfdf5;color:#059669;border:1.5px solid #6ee7b7;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
+            <i class="bi bi-arrow-counterclockwise"></i> Restore
+          </button>
+        </form>
+      @else
+        {{-- Active product: show Hide/Show, Edit, Discount, Archive --}}
+        <form action="{{ route('seller.products.toggle', $p->id) }}" method="POST" class="d-inline">
+          @csrf
+          <button type="submit" style="background:{{ $p->is_available ? '#FFF3E0' : '#E8F5E9' }};color:{{ $p->is_available ? '#E65100' : '#2E7D32' }};border:1.5px solid {{ $p->is_available ? '#FFCC80' : '#A5D6A7' }};border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
+            <i class="bi bi-{{ $p->is_available ? 'eye-slash' : 'eye' }}"></i>
+            {{ $p->is_available ? 'Hide' : 'Show' }}
+          </button>
+        </form>
+        <button type="button" onclick="toggleEditForm('edit-{{ $p->id }}')"
+                style="background:var(--info-bg,#E3F2FD);color:#1565C0;border:1.5px solid #90CAF9;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
+          <i class="bi bi-pencil"></i> Edit
         </button>
-      </form>
-      <button type="button" onclick="toggleEditForm('edit-{{ $p->id }}')"
-              style="background:var(--info-bg,#E3F2FD);color:#1565C0;border:1.5px solid #90CAF9;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
-        <i class="bi bi-pencil"></i> Edit
-      </button>
-      <button type="button" onclick="toggleDiscountForm('discount-{{ $p->id }}')"
-              style="background:#fff7ed;color:#c2410c;border:1.5px solid #fdba74;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
-        <i class="bi bi-tags"></i> Discount
-      </button>
-      <form action="{{ route('seller.products.destroy', $p->id) }}" method="POST" class="d-inline"
-            data-cs-confirm="Delete {{ addslashes($p->name) }}?" data-cs-title="Delete Product" data-cs-icon="bi-trash" data-cs-icon-bg="#fff1f2" data-cs-icon-color="#ef4444" data-cs-ok="Delete" data-cs-ok-color="#ef4444">
-        @csrf
-        <button type="submit" style="background:var(--danger-bg,#FFEBEE);color:#C62828;border:1.5px solid #FFCDD2;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
-          <i class="bi bi-trash"></i>
+        <button type="button" onclick="toggleDiscountForm('discount-{{ $p->id }}')"
+                style="background:#fff7ed;color:#c2410c;border:1.5px solid #fdba74;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
+          <i class="bi bi-tags"></i> Discount
         </button>
-      </form>
+        <form action="{{ route('seller.products.archive', $p->id) }}" method="POST" class="d-inline"
+              data-cs-confirm="Archive &quot;{{ addslashes($p->name) }}&quot;? It will be hidden from customers until restored." data-cs-title="Archive Product" data-cs-icon="bi-archive" data-cs-icon-bg="#fffbeb" data-cs-icon-color="#d97706" data-cs-ok="Archive" data-cs-ok-color="#d97706">
+          @csrf
+          <button type="submit" style="background:#fffbeb;color:#92400e;border:1.5px solid #fcd34d;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
+            <i class="bi bi-archive"></i> Archive
+          </button>
+        </form>
+      @endif
     </div>
   </div>
 
-  {{-- Sizes --}}
-  @if($sizes->count() > 0)
+  {{-- Sizes (hidden for archived products) --}}
+  @if($sizes->count() > 0 && !$p->archived_at)
   <div style="border-top:1px solid var(--gray-100);padding:.625rem 1.25rem;background:var(--gray-50);display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
     <span style="font-size:.72rem;font-weight:700;color:var(--gray-500);margin-right:.25rem">SIZES:</span>
     @foreach($sizes as $sz)
@@ -326,12 +356,18 @@
 </div>
 @empty
 <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px dashed var(--gray-300);padding:4rem;text-align:center">
-  <i class="bi bi-cake2" style="font-size:2.5rem;color:var(--gray-300);display:block;margin-bottom:1rem"></i>
-  <h3 style="font-size:1rem;font-weight:700;color:var(--gray-900);margin:0 0 .5rem">No products yet</h3>
-  <p style="font-size:.875rem;color:var(--gray-500);margin:0 0 1.5rem">Add your first product to start receiving orders.</p>
-  <button onclick="toggleAddForm()" class="btn btn-primary" style="padding:.6rem 1.5rem;font-weight:600">
-    <i class="bi bi-plus-lg me-1"></i> Add Product
-  </button>
+  @if($tab === 'archived')
+    <i class="bi bi-archive" style="font-size:2.5rem;color:#fcd34d;display:block;margin-bottom:1rem"></i>
+    <h3 style="font-size:1rem;font-weight:700;color:var(--gray-900);margin:0 0 .5rem">No archived products</h3>
+    <p style="font-size:.875rem;color:var(--gray-500);margin:0">Products you archive will appear here.</p>
+  @else
+    <i class="bi bi-cake2" style="font-size:2.5rem;color:var(--gray-300);display:block;margin-bottom:1rem"></i>
+    <h3 style="font-size:1rem;font-weight:700;color:var(--gray-900);margin:0 0 .5rem">No products yet</h3>
+    <p style="font-size:.875rem;color:var(--gray-500);margin:0 0 1.5rem">Add your first product to start receiving orders.</p>
+    <button onclick="toggleAddForm()" class="btn btn-primary" style="padding:.6rem 1.5rem;font-weight:600">
+      <i class="bi bi-plus-lg me-1"></i> Add Product
+    </button>
+  @endif
 </div>
 @endforelse
 
