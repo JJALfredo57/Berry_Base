@@ -36,12 +36,31 @@ class CatalogController extends Controller
             ->orderBy('products.name')
             ->get();
 
+        $zonesByShop = collect();
+        $barangayOptions = collect();
+        try {
+            $deliveryZones = DB::table('delivery_zones')
+                ->where('is_active', true)
+                ->whereNotNull('shop_id')
+                ->where('barangay', '<>', '')
+                ->select('shop_id', 'barangay')
+                ->orderBy('barangay')
+                ->get();
+
+            $zonesByShop = $deliveryZones->groupBy(fn ($zone) => (string) $zone->shop_id);
+            $barangayOptions = $deliveryZones->pluck('barangay')->filter()->unique()->sort()->values();
+        } catch (\Exception $e) {}
+
         $discountMap = CakeshopHelper::getActiveDiscountMap($products->pluck('id')->toArray());
 
         foreach ($products as $product) {
             $bestSeller = $bestSellerStats[$product->id] ?? null;
+            $shopZones = $zonesByShop->get((string)($product->shop_id ?? ''), collect());
             $product->total_sold = (int)($bestSeller->total_sold ?? 0);
             $product->total_orders = (int)($bestSeller->total_orders ?? 0);
+            $product->delivery_barangays = $shopZones->pluck('barangay')->filter()->unique()->sort()->values();
+            $product->delivery_barangays_text = $product->delivery_barangays->implode(' ');
+            $product->delivery_barangays_filter = '|' . $product->delivery_barangays->map(fn ($barangay) => strtolower(trim($barangay)))->implode('|') . '|';
             $product->active_discount = $discountMap[$product->id] ?? null;
             $product->discount_snapshot = CakeshopHelper::calculateDiscountSnapshot(
                 (float) $product->price,
@@ -128,7 +147,7 @@ class CatalogController extends Controller
         } catch (\Exception $e) {}
 
         return view('guest.catalog', compact(
-            'products','bestSellers','sizesMap','reviewsMap','productReviews','addonCategories','addonsByCategory','capacityMap'
+            'products','bestSellers','sizesMap','reviewsMap','productReviews','addonCategories','addonsByCategory','capacityMap','barangayOptions'
         ));
     }
 

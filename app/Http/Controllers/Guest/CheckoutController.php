@@ -36,8 +36,13 @@ class CheckoutController extends Controller
 
         $deliveryZones = collect();
         try {
-            $deliveryZones = DB::table('delivery_zones')
-                ->where('is_active', true)->orderBy('sort_order')->get();
+            $deliveryZonesQuery = DB::table('delivery_zones')->where('is_active', true);
+            if (!empty($product->shop_id)) {
+                $deliveryZonesQuery->where('shop_id', $product->shop_id);
+            } else {
+                $deliveryZonesQuery->whereNull('shop_id');
+            }
+            $deliveryZones = $deliveryZonesQuery->orderBy('sort_order')->orderBy('barangay')->get();
         } catch (\Exception $e) {}
 
         $defaultAddr = null;
@@ -166,7 +171,18 @@ class CheckoutController extends Controller
 
         if ($fulfillment === 'Delivery' && $zone) {
             try {
-                $zoneRow = DB::table('delivery_zones')->where('barangay',$zone)->where('is_active', true)->first();
+                $zoneQuery = DB::table('delivery_zones')
+                    ->where('barangay', $zone)
+                    ->where('is_active', true);
+                if (!empty($product->shop_id)) {
+                    $zoneQuery->where('shop_id', $product->shop_id);
+                } else {
+                    $zoneQuery->whereNull('shop_id');
+                }
+                $zoneRow = $zoneQuery->first();
+                if (!$zoneRow) {
+                    return back()->with('error', 'This shop does not deliver to the selected barangay. Please choose pickup or select another product.')->withInput();
+                }
                 if ($zoneRow) $deliveryFee = (float)$zoneRow->fee;
             } catch (\Exception $e) {}
         }

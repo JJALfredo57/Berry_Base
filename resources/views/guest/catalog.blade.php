@@ -86,19 +86,19 @@
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div>
         <h5 class="fw-bold mb-1" style="color:var(--primary)"><i class="bi bi-funnel me-2"></i>Smart Product Filters</h5>
-        <p class="text-muted small mb-0">Search by cake name, flavor, seller, category, or rating</p>
+        <p class="text-muted small mb-0">Search by cake name, flavor, seller, category, rating, or covered barangay</p>
       </div>
       <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetCatalogFilters()">
         <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
       </button>
     </div>
     <div class="row g-2">
-      <div class="col-lg-5">
+      <div class="col-lg-4">
         <input type="text" id="catalogSearch" class="form-control form-control-lg"
-          placeholder="Search cakes, flavors, shops, reviews..."
+          placeholder="Search cakes, flavors, shops, barangays..."
           oninput="filterCatalog()">
       </div>
-      <div class="col-sm-4 col-lg-3">
+      <div class="col-sm-6 col-lg-2">
         <select id="catalogClassFilter" class="form-select form-select-lg" onchange="filterCatalog()">
           <option value="">All categories</option>
           @foreach($products->pluck('classification')->filter()->unique()->sort()->values() as $classificationOption)
@@ -106,7 +106,7 @@
           @endforeach
         </select>
       </div>
-      <div class="col-sm-4 col-lg-2">
+      <div class="col-sm-6 col-lg-2">
         <select id="catalogRatingFilter" class="form-select form-select-lg" onchange="filterCatalog()">
           <option value="">Any rating</option>
           <option value="4">4 stars & up</option>
@@ -114,11 +114,19 @@
           <option value="1">With reviews</option>
         </select>
       </div>
-      <div class="col-sm-4 col-lg-2">
+      <div class="col-sm-6 col-lg-2">
         <select id="catalogSellerFilter" class="form-select form-select-lg" onchange="filterCatalog()">
           <option value="">All sellers</option>
           @foreach($products->pluck('shop_name')->filter()->unique()->sort()->values() as $shopName)
           <option value="{{ strtolower($shopName) }}">{{ $shopName }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="col-sm-6 col-lg-2">
+        <select id="catalogBarangayFilter" class="form-select form-select-lg" onchange="filterCatalog()">
+          <option value="">All barangays</option>
+          @foreach(($barangayOptions ?? collect()) as $barangay)
+          <option value="{{ strtolower(trim($barangay)) }}">{{ $barangay }}</option>
           @endforeach
         </select>
       </div>
@@ -153,11 +161,12 @@
       $pricing = $p->discount_snapshot ?? null;
     @endphp
     <div class="catalog-item"
-         data-name="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? '') . ' ' . ($p->shop_name ?? '') . ' ' . ($latestReview->review ?? ''))) }}"
+         data-name="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? '') . ' ' . ($p->shop_name ?? '') . ' ' . ($p->delivery_barangays_text ?? '') . ' ' . ($latestReview->review ?? ''))) }}"
          data-classification="{{ strtolower($classification) }}"
          data-rating="{{ $avgRating ? number_format($avgRating, 1, '.', '') : 0 }}"
          data-reviewed="{{ $reviewCount > 0 ? 1 : 0 }}"
-         data-seller="{{ strtolower($p->shop_name ?? '') }}">
+         data-seller="{{ strtolower($p->shop_name ?? '') }}"
+         data-barangays="{{ $p->delivery_barangays_filter ?? '||' }}">
       <div class="catalog-card card h-100" style="{{ ($isArchived || !$isAvailable) ? 'opacity:.72' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
 
         {{-- Image --}}
@@ -665,20 +674,23 @@ function filterCatalog(){
   const classification = (document.getElementById('catalogClassFilter')?.value || '').toLowerCase();
   const rating = parseFloat(document.getElementById('catalogRatingFilter')?.value || '0');
   const seller = (document.getElementById('catalogSellerFilter')?.value || '').toLowerCase();
+  const barangay = (document.getElementById('catalogBarangayFilter')?.value || '').toLowerCase();
   let visibleCount = 0;
 
   document.querySelectorAll('.catalog-item').forEach(el => {
     const haystack = (el.getAttribute('data-name') || '').toLowerCase();
     const elClass = (el.getAttribute('data-classification') || '').toLowerCase();
     const elSeller = (el.getAttribute('data-seller') || '').toLowerCase();
+    const elBarangays = (el.getAttribute('data-barangays') || '').toLowerCase();
     const elRating = parseFloat(el.getAttribute('data-rating') || '0');
     const reviewed = (el.getAttribute('data-reviewed') || '0') === '1';
 
     const matchesSearch = !q || haystack.includes(q);
     const matchesClass = !classification || elClass === classification;
     const matchesSeller = !seller || elSeller === seller;
+    const matchesBarangay = !barangay || elBarangays.includes('|' + barangay + '|');
     const matchesRating = !rating || (rating === 1 ? reviewed : elRating >= rating);
-    const matches = matchesSearch && matchesClass && matchesSeller && matchesRating;
+    const matches = matchesSearch && matchesClass && matchesSeller && matchesBarangay && matchesRating;
 
     el.style.display = matches ? '' : 'none';
     if (matches) visibleCount++;
@@ -689,12 +701,14 @@ function filterCatalog(){
 
   const summary = document.getElementById('catalogFilterSummary');
   if (summary) {
-    summary.textContent = 'Showing ' + visibleCount + ' of ' + document.querySelectorAll('.catalog-item').length + ' cake options';
+    const barangayLabel = document.getElementById('catalogBarangayFilter')?.selectedOptions?.[0]?.text || '';
+    const suffix = barangay ? ' for ' + barangayLabel : '';
+    summary.textContent = 'Showing ' + visibleCount + ' of ' + document.querySelectorAll('.catalog-item').length + ' cake options' + suffix;
   }
 }
 
 function resetCatalogFilters() {
-  ['catalogSearch','catalogClassFilter','catalogRatingFilter','catalogSellerFilter'].forEach(id => {
+  ['catalogSearch','catalogClassFilter','catalogRatingFilter','catalogSellerFilter','catalogBarangayFilter'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
