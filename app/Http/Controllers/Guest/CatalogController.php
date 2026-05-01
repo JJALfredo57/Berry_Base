@@ -31,7 +31,6 @@ class CatalogController extends Controller
         $products = DB::table('products')
             ->leftJoin('shops', 'shops.id', '=', 'products.shop_id')
             ->where('products.is_available', true)
-            ->whereNull('products.archived_at')
             ->select('products.*', 'shops.shop_name', 'shops.shop_slug', 'shops.shop_logo')
             ->orderBy('products.classification')
             ->orderBy('products.name')
@@ -238,7 +237,7 @@ class CatalogController extends Controller
         if ($n = trim($request->input('custom_note', '')))  $parts[] = $n;
         $note = implode(' | ', $parts);
 
-        $product = DB::table('products')->where('id', $pid)->where('is_available', true)->first();
+        $product = DB::table('products')->where('id', $pid)->where('is_available', true)->whereNull('archived_at')->first();
         if (!$product) return back()->with('error', 'Product not available.');
 
         $request->session()->put('guest_checkout', [

@@ -148,6 +148,7 @@
       $reviews     = $productReviews[$p->id] ?? [];
       $reviewCount = isset($reviewsMap[$p->id]) ? $reviewsMap[$p->id]->total : 0 ?? 0;
       $isAvailable = (int)($p->is_available ?? 1);
+      $isArchived  = !empty($p->archived_at);
       $latestReview = $reviews[0] ?? null;
       $pricing = $p->discount_snapshot ?? null;
     @endphp
@@ -157,7 +158,7 @@
          data-rating="{{ $avgRating ? number_format($avgRating, 1, '.', '') : 0 }}"
          data-reviewed="{{ $reviewCount > 0 ? 1 : 0 }}"
          data-seller="{{ strtolower($p->shop_name ?? '') }}">
-      <div class="catalog-card card h-100" style="{{ !$isAvailable ? 'opacity:.75' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
+      <div class="catalog-card card h-100" style="{{ ($isArchived || !$isAvailable) ? 'opacity:.72' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
 
         {{-- Image --}}
         <div class="catalog-img-wrap img-zoom-wrap position-relative overflow-hidden" style="border-radius:1.1rem 1.1rem 0 0;height:260px">
@@ -170,6 +171,11 @@
                data-src="{{ $p->image_path }}"
                onmousedown="startLongPress(event,this)" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()"
                ontouchstart="startLongPress(event,this)" ontouchend="cancelLongPress()" ontouchcancel="cancelLongPress()">
+          @if($isArchived)
+          <div style="position:absolute;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:2;border-radius:1.1rem 1.1rem 0 0">
+            <span style="background:rgba(0,0,0,.7);color:#fff;font-size:.82rem;font-weight:700;padding:.4rem 1rem;border-radius:99px;letter-spacing:.03em"><i class="bi bi-slash-circle me-1"></i>Out of Stock</span>
+          </div>
+          @endif
           {{-- Classification Badge --}}
           <span class="position-absolute top-0 start-0 m-2 badge"
                 style="background:{{ $cls['bg'] }};color:{{ $cls['color'] }};font-size:clamp(.68rem,1.3vw,.72rem)">
@@ -262,7 +268,11 @@
             </span>
             @endif
           </div>
-          @if($isAvailable)
+          @if($isArchived)
+          <button class="btn w-100 py-2" style="font-size:1rem;background:#f3f4f6;color:#6b7280;border:1.5px solid #e5e7eb;cursor:not-allowed" disabled>
+            <i class="bi bi-slash-circle me-2"></i>Out of Stock
+          </button>
+          @elseif($isAvailable)
           <button class="btn btn-primary w-100 py-2" style="font-size:1rem;font-weight:600" data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}">
             <i class="bi bi-cart-plus me-2"></i>Order Now
           </button>
@@ -299,6 +309,7 @@
   $reviews     = $productReviews[$p->id] ?? [];
   $reviewCount = isset($reviewsMap[$p->id]) ? $reviewsMap[$p->id]->total : 0 ?? 0;
   $isAvailable = (int)($p->is_available ?? 1);
+  $isArchived  = !empty($p->archived_at);
   $pricing     = $p->discount_snapshot ?? null;
 @endphp
 <div class="modal fade" id="detailModal{{ $p->id }}" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="true">
@@ -437,7 +448,11 @@
 
           <hr class="my-3">
 
-          @if($isAvailable)
+          @if($isArchived)
+          <div class="alert border-0 text-center" style="background:#f3f4f6;color:#6b7280">
+            <i class="bi bi-slash-circle me-2"></i><strong>Out of Stock</strong> — This cake is temporarily unavailable.
+          </div>
+          @elseif($isAvailable)
           <form action="{{ route('catalog.select') }}" method="POST">
             @csrf
             <input type="hidden" name="product_id" value="{{ $p->id }}">

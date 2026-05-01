@@ -12,7 +12,6 @@ class CatalogController extends Controller
         $products = DB::table('products')
             ->leftJoin('shops', 'shops.id', '=', 'products.shop_id')
             ->where('products.classification', '!=', 'Custom')
-            ->whereNull('products.archived_at')
             ->select('products.*', 'shops.shop_name', 'shops.shop_slug', 'shops.shop_logo')
             ->orderByDesc('products.id')
             ->get();
@@ -101,6 +100,10 @@ class CatalogController extends Controller
 
     public function order(Request $request)
     {
+        $pid = $request->input('product_id');
+        $product = DB::table('products')->where('id', $pid)->where('is_available', true)->whereNull('archived_at')->first();
+        if (!$product) return back()->with('error', 'Product not available.');
+
         $parts = [];
         if ($d = trim($request->input('dedication', '')))   $parts[] = 'Dedication: "' . $d . '"';
         if ($c = trim($request->input('color_theme', '')))  $parts[] = 'Color/Theme: ' . $c;
@@ -108,7 +111,7 @@ class CatalogController extends Controller
         if ($n = trim($request->input('custom_note', '')))  $parts[] = $n;
 
         $request->session()->put('checkout', [
-            'product_id'    => $request->input('product_id'),
+            'product_id'    => $pid,
             'quantity'      => max(1, (int) $request->input('quantity', 1)),
             'custom_note'   => implode(' | ', $parts),
             'selected_size' => trim($request->input('selected_size', '')),

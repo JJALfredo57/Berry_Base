@@ -98,7 +98,6 @@ class PlatformController extends Controller
         $products = DB::table('products')
             ->where('shop_id', $shop->id)
             ->where('is_available', true)
-            ->whereNull('archived_at')
             ->orderBy('classification')->orderBy('name')
             ->get();
 

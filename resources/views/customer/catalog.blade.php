@@ -55,10 +55,11 @@
       $reviews     = $productReviews[$p->id] ?? [];
       $reviewCount = $productReviewCounts[$p->id] ?? 0;
       $isAvailable = (int)($p->is_available ?? 1);
+      $isArchived  = !empty($p->archived_at);
       $pricing     = $p->discount_snapshot ?? null;
     @endphp
     <div class="catalog-item"  data-name="{{ strtolower($p->name . ' ' . ($p->description ?? '')) }}">
-      <div class="catalog-card card h-100" style="{{ !$isAvailable ? 'opacity:.75' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
+      <div class="catalog-card card h-100" style="{{ ($isArchived || !$isAvailable) ? 'opacity:.72' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
 
         {{-- Image --}}
         <div class="catalog-img-wrap img-zoom-wrap position-relative overflow-hidden" style="border-radius:1.1rem 1.1rem 0 0;height:220px">
@@ -83,8 +84,12 @@
             ★ {{ number_format($avgRating,1) }}
           </span>
           @endif
-          {{-- Not Available overlay --}}
-          @if(!$isAvailable)
+          @if($isArchived)
+          <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+               style="background:rgba(0,0,0,.35);border-radius:1.1rem 1.1rem 0 0">
+            <span style="background:rgba(0,0,0,.7);color:#fff;font-size:.82rem;font-weight:700;padding:.4rem 1rem;border-radius:99px"><i class="bi bi-slash-circle me-1"></i>Out of Stock</span>
+          </div>
+          @elseif(!$isAvailable)
           <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
                style="background:rgba(0,0,0,.45);border-radius:1.1rem 1.1rem 0 0">
             <span class="badge bg-danger px-3 py-2" style="font-size:.9rem">
@@ -151,7 +156,11 @@
               @endif
             </div>
           </div>
-          @if($isAvailable)
+          @if($isArchived)
+          <button class="btn w-100 py-2" style="font-size:1rem;background:#f3f4f6;color:#6b7280;border:1.5px solid #e5e7eb;cursor:not-allowed" disabled>
+            <i class="bi bi-slash-circle me-2"></i>Out of Stock
+          </button>
+          @elseif($isAvailable)
           <button class="btn btn-primary w-100 py-2" style="font-size:1rem;font-weight:600" data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}">
             <i class="bi bi-cart-plus me-2"></i>Order Now
           </button>
@@ -175,7 +184,9 @@
               <span class="badge" style="background:{{ $cls['bg'] }};color:{{ $cls['color'] }};font-size:.72rem">
                 <i class="bi {{ $cls['icon'] }} me-1"></i>{{ $classification }}
               </span>
-              @if($isAvailable)
+              @if($isArchived)
+                <span class="badge" style="background:#f3f4f6;color:#6b7280;font-size:.72rem"><i class="bi bi-slash-circle me-1"></i>Out of Stock</span>
+              @elseif($isAvailable)
                 <span class="badge bg-success" style="font-size:.72rem"><i class="bi bi-check-circle me-1"></i>Available</span>
               @else
                 <span class="badge bg-danger" style="font-size:.72rem"><i class="bi bi-x-circle me-1"></i>Not Available</span>
@@ -317,7 +328,11 @@
               <hr class="my-3">
 
               {{-- Order Form --}}
-              @if($isAvailable)
+              @if($isArchived)
+              <div class="alert border-0 text-center" style="background:#f3f4f6;color:#6b7280">
+                <i class="bi bi-slash-circle me-2"></i><strong>Out of Stock</strong> — This cake is temporarily unavailable.
+              </div>
+              @elseif($isAvailable)
               <form action="{{ route('customer.catalog.order') }}" method="POST" onsubmit="return confirmOrder(this)">
                 @csrf
                 <input type="hidden" name="product_id" value="{{ $p->id }}">

@@ -185,34 +185,28 @@
 
     {{-- Actions --}}
     <div style="display:flex;gap:.5rem;flex-shrink:0;flex-wrap:wrap">
+      {{-- Edit & Discount always available --}}
+      <button type="button" onclick="toggleEditForm('edit-{{ $p->id }}')"
+              style="background:var(--info-bg,#E3F2FD);color:#1565C0;border:1.5px solid #90CAF9;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
+        <i class="bi bi-pencil"></i> Edit
+      </button>
+      <button type="button" onclick="toggleDiscountForm('discount-{{ $p->id }}')"
+              style="background:#fff7ed;color:#c2410c;border:1.5px solid #fdba74;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
+        <i class="bi bi-tags"></i> Discount
+      </button>
       @if($p->archived_at)
-        {{-- Archived product: show only Restore --}}
+        {{-- Archived: show Restore only --}}
         <form action="{{ route('seller.products.restore', $p->id) }}" method="POST" class="d-inline"
-              data-cs-confirm="Restore &quot;{{ addslashes($p->name) }}&quot;? It will be visible to customers again." data-cs-title="Restore Product" data-cs-icon="bi-arrow-counterclockwise" data-cs-icon-bg="#ecfdf5" data-cs-icon-color="#059669" data-cs-ok="Restore" data-cs-ok-color="#059669">
+              data-cs-confirm="Restore &quot;{{ addslashes($p->name) }}&quot;? Customers can order it again." data-cs-title="Restore Product" data-cs-icon="bi-arrow-counterclockwise" data-cs-icon-bg="#ecfdf5" data-cs-icon-color="#059669" data-cs-ok="Restore" data-cs-ok-color="#059669">
           @csrf
           <button type="submit" style="background:#ecfdf5;color:#059669;border:1.5px solid #6ee7b7;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
             <i class="bi bi-arrow-counterclockwise"></i> Restore
           </button>
         </form>
       @else
-        {{-- Active product: show Hide/Show, Edit, Discount, Archive --}}
-        <form action="{{ route('seller.products.toggle', $p->id) }}" method="POST" class="d-inline">
-          @csrf
-          <button type="submit" style="background:{{ $p->is_available ? '#FFF3E0' : '#E8F5E9' }};color:{{ $p->is_available ? '#E65100' : '#2E7D32' }};border:1.5px solid {{ $p->is_available ? '#FFCC80' : '#A5D6A7' }};border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
-            <i class="bi bi-{{ $p->is_available ? 'eye-slash' : 'eye' }}"></i>
-            {{ $p->is_available ? 'Hide' : 'Show' }}
-          </button>
-        </form>
-        <button type="button" onclick="toggleEditForm('edit-{{ $p->id }}')"
-                style="background:var(--info-bg,#E3F2FD);color:#1565C0;border:1.5px solid #90CAF9;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
-          <i class="bi bi-pencil"></i> Edit
-        </button>
-        <button type="button" onclick="toggleDiscountForm('discount-{{ $p->id }}')"
-                style="background:#fff7ed;color:#c2410c;border:1.5px solid #fdba74;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
-          <i class="bi bi-tags"></i> Discount
-        </button>
+        {{-- Active: show Archive --}}
         <form action="{{ route('seller.products.archive', $p->id) }}" method="POST" class="d-inline"
-              data-cs-confirm="Archive &quot;{{ addslashes($p->name) }}&quot;? It will be hidden from customers until restored." data-cs-title="Archive Product" data-cs-icon="bi-archive" data-cs-icon-bg="#fffbeb" data-cs-icon-color="#d97706" data-cs-ok="Archive" data-cs-ok-color="#d97706">
+              data-cs-confirm="Archive &quot;{{ addslashes($p->name) }}&quot;? It will show as Out of Stock to customers." data-cs-title="Archive Product" data-cs-icon="bi-archive" data-cs-icon-bg="#fffbeb" data-cs-icon-color="#d97706" data-cs-ok="Archive" data-cs-ok-color="#d97706">
           @csrf
           <button type="submit" style="background:#fffbeb;color:#92400e;border:1.5px solid #fcd34d;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
             <i class="bi bi-archive"></i> Archive
@@ -222,8 +216,8 @@
     </div>
   </div>
 
-  {{-- Sizes (hidden for archived products) --}}
-  @if($sizes->count() > 0 && !$p->archived_at)
+  {{-- Sizes --}}
+  @if($sizes->count() > 0)
   <div style="border-top:1px solid var(--gray-100);padding:.625rem 1.25rem;background:var(--gray-50);display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
     <span style="font-size:.72rem;font-weight:700;color:var(--gray-500);margin-right:.25rem">SIZES:</span>
     @foreach($sizes as $sz)
