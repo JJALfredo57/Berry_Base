@@ -3216,5 +3216,89 @@ function pgFilter(param, val) {
   });
 })();
 </script>
+
+<script>
+/* ── Image upload size preview ─────────────────────────────────────────── */
+(function () {
+  var MAX_PX = 1200, QUALITY = 0.80;
+
+  function fmtSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  function getOrCreatePreview(input) {
+    var id = 'img-size-preview-' + (input.dataset.sizePreviewId || Math.random().toString(36).slice(2));
+    input.dataset.sizePreviewId = id;
+    var el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      el.style.cssText = 'font-size:.75rem;margin-top:.3rem;color:#6b7280;display:none';
+      input.parentNode.insertBefore(el, input.nextSibling);
+    }
+    return el;
+  }
+
+  function compressAndShow(input, file, preview) {
+    var orig = file.size;
+    var ext  = file.name.split('.').pop().toLowerCase();
+    var imageExts = ['jpg','jpeg','png','webp'];
+
+    if (!imageExts.includes(ext)) {
+      preview.innerHTML = '<span style="color:#6b7280">📎 Size: <strong>' + fmtSize(orig) + '</strong></span>';
+      preview.style.display = 'block';
+      return;
+    }
+
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var w = img.width, h = img.height;
+        var scale = Math.min(MAX_PX / w, MAX_PX / h, 1);
+        var canvas = document.createElement('canvas');
+        canvas.width  = Math.round(w * scale);
+        canvas.height = Math.round(h * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(function (blob) {
+          if (!blob) return;
+          var saved = Math.round((1 - blob.size / orig) * 100);
+          var color = saved >= 50 ? '#059669' : saved >= 20 ? '#d97706' : '#6b7280';
+          preview.innerHTML =
+            '<span style="color:#6b7280">Original: <strong>' + fmtSize(orig) + '</strong></span>' +
+            '&nbsp;&nbsp;→&nbsp;&nbsp;' +
+            '<span style="color:' + color + '">Saved as: <strong>~' + fmtSize(blob.size) + '</strong>' +
+            (saved > 0 ? ' <span style="background:' + color + ';color:#fff;border-radius:4px;padding:1px 5px;font-size:.68rem">-' + saved + '%</span>' : '') +
+            '</span>';
+          preview.style.display = 'block';
+        }, 'image/jpeg', QUALITY);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function attachToInput(input) {
+    if (input.dataset.sizePreviewAttached) return;
+    input.dataset.sizePreviewAttached = '1';
+    input.addEventListener('change', function () {
+      var preview = getOrCreatePreview(input);
+      if (!this.files || !this.files[0]) { preview.style.display = 'none'; return; }
+      compressAndShow(input, this.files[0], preview);
+    });
+  }
+
+  function attachAll() {
+    document.querySelectorAll('input[type="file"]').forEach(attachToInput);
+  }
+
+  document.addEventListener('DOMContentLoaded', attachAll);
+  // Also catch dynamically added inputs (e.g. inside modals)
+  var obs = new MutationObserver(attachAll);
+  obs.observe(document.body, { childList: true, subtree: true });
+})();
+</script>
 </body>
 </html>
