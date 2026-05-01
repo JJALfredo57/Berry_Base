@@ -16,7 +16,7 @@ return [
     'default' => env('FILESYSTEM_DISK', 'local'),
 
     // Disk used for user-uploaded files (products, orders, messages, etc.)
-    // Set UPLOAD_DISK=r2 in production Laravel Cloud env vars
+    // Set UPLOAD_DISK=s3 in Laravel Cloud env vars (uses the attached Object Storage bucket)
     'upload_disk' => env('UPLOAD_DISK', 'public'),
 
     /*
