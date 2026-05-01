@@ -73,7 +73,7 @@ class CheckoutController extends Controller
                 ->get()->groupBy('category_id');
         } catch (\Exception $e) {}
 
-        return view('customer.checkout', compact(
+        return view('customer.checkout_regular', compact(
             'product', 'checkout', 'defaultAddr', 'customer',
             'sizes', 'deliveryZones', 'shop', 'shopSettings', 'pricing',
             'addonCategories', 'addonsByCategory'
