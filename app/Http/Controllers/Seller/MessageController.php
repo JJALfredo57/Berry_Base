@@ -3,11 +3,13 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class MessageController extends Controller
 {
+    use UploadsFiles;
     private function getShop(): object
     {
         $uid  = session('user')['id'];
@@ -71,9 +73,7 @@ class MessageController extends Controller
         $imgPath = null;
 
         if ($file && $file->isValid()) {
-            $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$file->getClientOriginalExtension();
-            $file->storeAs('uploads/messages', $fn, 'public');
-            $imgPath = '/storage/uploads/messages/'.$fn;
+            $imgPath = $this->uploadFile($file, 'uploads/messages');
         }
 
         if (!$text && !$imgPath) return response()->json(['ok'=>false,'error'=>'Cannot send empty message.']);

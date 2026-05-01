@@ -2,11 +2,13 @@
 namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ReviewController extends Controller
 {
+    use UploadsFiles;
     public function store(Request $request, string $trackCode)
     {
         $order = DB::table('orders')->where('track_code', strtoupper($trackCode))->first();
@@ -25,9 +27,7 @@ class ReviewController extends Controller
             $file = $request->file('review_image');
             $ext  = strtolower($file->getClientOriginalExtension());
             if (in_array($ext, ['jpg','jpeg','png','webp']) && $file->getSize() <= 5*1024*1024) {
-                $filename = date('YmdHis').'_'.bin2hex(random_bytes(6)).'.'.$ext;
-                $file->storeAs('uploads/reviews', $filename, 'public');
-                $imgPath = '/storage/uploads/reviews/'.$filename;
+                $imgPath = $this->uploadFile($file, 'uploads/reviews');
             }
         }
 

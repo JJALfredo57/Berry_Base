@@ -3,11 +3,13 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PlatformSettingsController extends Controller
 {
+    use UploadsFiles;
     public function index(Request $request)
     {
         $tab      = $request->input('tab', 'platform');
@@ -64,15 +66,10 @@ class PlatformSettingsController extends Controller
         ];
 
         if ($request->hasFile('platform_logo') && $request->file('platform_logo')->isValid()) {
-            $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$request->file('platform_logo')->getClientOriginalExtension();
-            $request->file('platform_logo')->storeAs('uploads/platform', $fn, 'public');
-            $updates['platform_logo'] = '/storage/uploads/platform/'.$fn;
+            $updates['platform_logo'] = $this->uploadFile($request->file('platform_logo'), 'uploads/platform');
         }
-
         if ($request->hasFile('platform_bg_image') && $request->file('platform_bg_image')->isValid()) {
-            $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$request->file('platform_bg_image')->getClientOriginalExtension();
-            $request->file('platform_bg_image')->storeAs('uploads/platform', $fn, 'public');
-            $updates['platform_bg_image'] = '/storage/uploads/platform/'.$fn;
+            $updates['platform_bg_image'] = $this->uploadFile($request->file('platform_bg_image'), 'uploads/platform');
         }
 
         $existing = DB::table('platform_settings')->first();

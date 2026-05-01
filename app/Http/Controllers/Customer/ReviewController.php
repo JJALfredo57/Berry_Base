@@ -1,11 +1,13 @@
 <?php
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ReviewController extends Controller
 {
+    use UploadsFiles;
     public function store(Request $request, string $orderId)
     {
         $uid    = session('user')['id'];
@@ -32,9 +34,7 @@ class ReviewController extends Controller
             if ($file->isValid() && $file->getSize() <= 5 * 1024 * 1024) {
                 $ext = strtolower($file->getClientOriginalExtension());
                 if (in_array($ext, ['jpg','jpeg','png','webp'])) {
-                    $filename = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-                    $file->storeAs('uploads/reviews', $filename, 'public');
-                    $imagePath = '/storage/uploads/reviews/' . $filename;
+                    $imagePath = $this->uploadFile($file, 'uploads/reviews');
                 }
             }
         }

@@ -15,6 +15,10 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    // Disk used for user-uploaded files (products, orders, messages, etc.)
+    // Set UPLOAD_DISK=r2 in production Laravel Cloud env vars
+    'upload_disk' => env('UPLOAD_DISK', 'public'),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
@@ -56,6 +60,20 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ],
+
+        // Cloudflare R2 — S3-compatible, free up to 10 GB/month
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('CLOUDFLARE_R2_ACCESS_KEY_ID'),
+            'secret' => env('CLOUDFLARE_R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('CLOUDFLARE_R2_BUCKET'),
+            'url' => env('CLOUDFLARE_R2_URL'),           // public bucket URL
+            'endpoint' => env('CLOUDFLARE_R2_ENDPOINT'), // https://<accountId>.r2.cloudflarestorage.com
+            'use_path_style_endpoint' => false,
             'throw' => false,
             'report' => false,
         ],

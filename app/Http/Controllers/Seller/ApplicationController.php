@@ -3,12 +3,15 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ApplicationController extends Controller
 {
+    use UploadsFiles;
+
     /** Show seller application form */
     public function show()
     {
@@ -164,16 +167,10 @@ class ApplicationController extends Controller
         $logoPath  = null;
         $coverPath = null;
         if ($request->hasFile('shop_logo') && $request->file('shop_logo')->isValid()) {
-            $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.
-                  $request->file('shop_logo')->getClientOriginalExtension();
-            $request->file('shop_logo')->storeAs('uploads/shops', $fn, 'public');
-            $logoPath = '/storage/uploads/shops/'.$fn;
+            $logoPath = $this->uploadFile($request->file('shop_logo'), 'uploads/shops');
         }
         if ($request->hasFile('shop_cover') && $request->file('shop_cover')->isValid()) {
-            $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.
-                  $request->file('shop_cover')->getClientOriginalExtension();
-            $request->file('shop_cover')->storeAs('uploads/shops', $fn, 'public');
-            $coverPath = '/storage/uploads/shops/'.$fn;
+            $coverPath = $this->uploadFile($request->file('shop_cover'), 'uploads/shops');
         }
 
         // Get commission rate from platform settings
@@ -226,14 +223,9 @@ class ApplicationController extends Controller
         if (!$request->hasFile($field) || !$request->file($field)->isValid()) return;
 
         $file = $request->file($field);
-        $fn   = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$file->getClientOriginalExtension();
-        $file->storeAs('uploads/seller_docs', $fn, 'public');
-        $path = '/storage/uploads/seller_docs/'.$fn;
+        $path = $this->uploadFile($file, 'uploads/seller_docs');
 
         $ocrData = ['ocr_status' => null];
-        if ($type === 'dti' && $shopName) {
-            $ocrData = $this->runOcr(storage_path('app/public/uploads/seller_docs/'.$fn), $shopName);
-        }
 
         DB::table('seller_documents')->insert([
             'shop_id'            => $shopId,

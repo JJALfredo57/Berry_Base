@@ -2,21 +2,21 @@
 namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
+    use UploadsFiles;
+
     private function saveUpload($file): string
     {
         if (!$file || !$file->isValid()) return '';
         if ($file->getSize() > 5 * 1024 * 1024) return '';
         $ext = strtolower($file->getClientOriginalExtension());
         if (!in_array($ext, ['jpg','jpeg','png','webp'])) return '';
-        $filename = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-        $path = $file->storeAs('uploads/products', $filename, 'public');
-        if (!$path) return '';
-        return '/storage/uploads/products/' . $filename;
+        return $this->uploadFile($file, 'uploads/products');
     }
 
     public function index(Request $request)

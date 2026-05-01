@@ -3,28 +3,22 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class SettingsController extends Controller
 {
-    /**
-     * FIX: Store in storage/app/public/uploads/* which symlinks to public/storage/uploads/*
-     * This ensures correct path via asset('/storage/uploads/...') or url('/storage/uploads/...')
-     */
+    use UploadsFiles;
+
     private function saveBrandFile($file, string $folder = 'branding'): string
     {
         if (!$file || !$file->isValid()) return '';
         if ($file->getSize() > 5 * 1024 * 1024) return '';
         $ext = strtolower($file->getClientOriginalExtension());
         if (!in_array($ext, ['jpg','jpeg','png','webp','gif'])) return '';
-        $filename = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-        // Store using Laravel's "public" disk: storage/app/public/...
-        $path = $file->storeAs('uploads/' . $folder, $filename, 'public');
-        if (!$path) return '';
-        // Return URL path: /storage/uploads/branding/filename.ext
-        return '/storage/uploads/' . $folder . '/' . $filename;
+        return $this->uploadFile($file, 'uploads/' . $folder);
     }
 
     private function saveProfilePhoto($file): string
@@ -33,10 +27,7 @@ class SettingsController extends Controller
         if ($file->getSize() > 5 * 1024 * 1024) return '';
         $ext = strtolower($file->getClientOriginalExtension());
         if (!in_array($ext, ['jpg','jpeg','png','webp'])) return '';
-        $filename = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-        $path = $file->storeAs('uploads/profiles', $filename, 'public');
-        if (!$path) return '';
-        return '/storage/uploads/profiles/' . $filename;
+        return $this->uploadFile($file, 'uploads/profiles');
     }
 
     public function index(Request $request)

@@ -3,21 +3,21 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProfileController extends Controller
 {
+    use UploadsFiles;
+
     private function saveProfilePhoto($file): string
     {
         if (!$file || !$file->isValid()) return '';
         if ($file->getSize() > 5 * 1024 * 1024) return '';
         $ext = strtolower($file->getClientOriginalExtension());
         if (!in_array($ext, ['jpg','jpeg','png','webp'])) return '';
-        $filename = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-        $path = $file->storeAs('uploads/profiles', $filename, 'public');
-        if (!$path) return '';
-        return '/storage/uploads/profiles/' . $filename;
+        return $this->uploadFile($file, 'uploads/profiles');
     }
 
     public function show()

@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CustomOrderController extends Controller
 {
+    use UploadsFiles;
+
     private function generateTrackCode(): string
     {
         $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -133,9 +136,7 @@ class CustomOrderController extends Controller
                 if (!$file->isValid() || $file->getSize() > 5*1024*1024) continue;
                 $ext = strtolower($file->getClientOriginalExtension());
                 if (!in_array($ext,['jpg','jpeg','png','webp','gif'])) continue;
-                $filename = date('YmdHis').'_'.bin2hex(random_bytes(6)).'.'.$ext;
-                $file->storeAs('uploads/custom_orders',$filename,'public');
-                $refImages[] = '/storage/uploads/custom_orders/'.$filename;
+                $refImages[] = $this->uploadFile($file, 'uploads/custom_orders');
             }
         }
 

@@ -3,12 +3,15 @@ namespace App\Http\Controllers;
 
 use App\Helpers\SmsHelper;
 use App\Helpers\CakeshopHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class RiderController extends Controller
 {
+    use UploadsFiles;
+
     /** Resolve a pasted PHONE|PIN access code from the catalog sidebar */
     public function accessByCode(Request $request)
     {
@@ -91,9 +94,7 @@ class RiderController extends Controller
             $photoPath = null;
             if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
                 $file  = $request->file('photo');
-                $fname = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $file->getClientOriginalExtension();
-                $file->storeAs('public/uploads/delivery', $fname);
-                $photoPath = '/storage/uploads/delivery/' . $fname;
+                $photoPath = $this->uploadFile($file, 'uploads/delivery');
             }
 
             $riderNote = trim($request->input('note', '')) ?: null;
@@ -167,9 +168,7 @@ class RiderController extends Controller
             $photoPath = null;
             if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
                 $file  = $request->file('photo');
-                $fname = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $file->getClientOriginalExtension();
-                $file->storeAs('public/uploads/delivery', $fname);
-                $photoPath = '/storage/uploads/delivery/' . $fname;
+                $photoPath = $this->uploadFile($file, 'uploads/delivery');
             }
 
             $newStatus = match($issueType) {

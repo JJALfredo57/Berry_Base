@@ -3,11 +3,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CustomOrderController extends Controller
 {
+    use UploadsFiles;
     public function index(Request $request)
     {
         $search = trim($request->input('search', ''));
@@ -196,9 +198,7 @@ class CustomOrderController extends Controller
             $file = $request->file('progress_image');
             $ext  = strtolower($file->getClientOriginalExtension());
             if ($file->getSize() <= 5 * 1024 * 1024 && in_array($ext, ['jpg','jpeg','png','webp'])) {
-                $filename = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-                $file->storeAs('uploads/custom_orders', $filename, 'public');
-                $imgPath = '/storage/uploads/custom_orders/' . $filename;
+                $imgPath = $this->uploadFile($file, 'uploads/custom_orders');
             }
         }
 

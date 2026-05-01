@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CustomOrderController extends Controller
 {
+    use UploadsFiles;
+
     private function getShop(): object
     {
         $uid  = session('user')['id'];
@@ -131,9 +134,7 @@ class CustomOrderController extends Controller
 
         $photoPath = null;
         if ($request->hasFile('progress_image') && $request->file('progress_image')->isValid()) {
-            $fn = date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $request->file('progress_image')->getClientOriginalExtension();
-            $request->file('progress_image')->storeAs('uploads/custom_orders', $fn, 'public');
-            $photoPath = '/storage/uploads/custom_orders/' . $fn;
+            $photoPath = $this->uploadFile($request->file('progress_image'), 'uploads/custom_orders');
         }
         $note = trim($request->input('progress_note', ''));
         if ($photoPath) DB::table('custom_orders')->where('id', $id)->update(['progress_image' => $photoPath]);

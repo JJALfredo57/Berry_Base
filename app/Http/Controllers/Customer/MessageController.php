@@ -2,11 +2,13 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class MessageController extends Controller
 {
+    use UploadsFiles;
     public function index()
     {
         $uid = session('user')['id'];
@@ -157,9 +159,7 @@ public function popupSend(Request $request)
             foreach ($request->file('images') as $file) {
                 if ($file->isValid() && $file->getSize() <= 5*1024*1024
                     && in_array(strtolower($file->getClientOriginalExtension()), $exts)) {
-                    $filename = date('YmdHis').'_'.bin2hex(random_bytes(6)).'.'.$file->getClientOriginalExtension();
-                    $file->storeAs('uploads/messages', $filename, 'public');
-                    $paths[] = '/storage/uploads/messages/'.$filename;
+                    $paths[] = $this->uploadFile($file, 'uploads/messages');
                 }
             }
             if (count($paths) === 1) $imgPath = $paths[0];
@@ -226,9 +226,7 @@ public function popupSend(Request $request)
             foreach ($request->file('images') as $file) {
                 if ($file->isValid() && $file->getSize() <= 5*1024*1024
                     && in_array(strtolower($file->getClientOriginalExtension()), $exts)) {
-                    $filename = date('YmdHis').'_'.bin2hex(random_bytes(6)).'.'.$file->getClientOriginalExtension();
-                    $file->storeAs('uploads/messages', $filename, 'public');
-                    $paths[] = '/storage/uploads/messages/'.$filename;
+                    $paths[] = $this->uploadFile($file, 'uploads/messages');
                 }
             }
             if (count($paths) === 1) $img = $paths[0];

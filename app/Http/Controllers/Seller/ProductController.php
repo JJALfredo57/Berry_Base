@@ -3,11 +3,13 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
+    use UploadsFiles;
     private function getShop(): object
     {
         $uid  = session('user')['id'];
@@ -22,9 +24,7 @@ class ProductController extends Controller
         if ($file->getSize() > 5 * 1024 * 1024) return '';
         $ext = strtolower($file->getClientOriginalExtension());
         if (!in_array($ext, ['jpg','jpeg','png','webp'])) return '';
-        $fn = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-        $file->storeAs('uploads/products', $fn, 'public');
-        return '/storage/uploads/products/' . $fn;
+        return $this->uploadFile($file, 'uploads/products');
     }
 
     public function index(Request $request)

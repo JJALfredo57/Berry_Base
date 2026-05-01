@@ -3,11 +3,13 @@ namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\SmsHelper;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class MessageController extends Controller
 {
+    use UploadsFiles;
     /** Get messages for polling (returns JSON) */
     public function poll(string $trackCode)
     {
@@ -55,9 +57,7 @@ class MessageController extends Controller
             $file = $request->file('image');
             $ext  = strtolower($file->getClientOriginalExtension());
             if (in_array($ext, ['jpg','jpeg','png','webp','gif']) && $file->getSize() <= 5*1024*1024) {
-                $filename = date('YmdHis').'_'.bin2hex(random_bytes(6)).'.'.$ext;
-                $file->storeAs('uploads/messages', $filename, 'public');
-                $imgPath = '/storage/uploads/messages/'.$filename;
+                $imgPath = $this->uploadFile($file, 'uploads/messages');
             }
         }
 

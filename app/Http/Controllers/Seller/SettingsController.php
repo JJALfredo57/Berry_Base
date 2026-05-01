@@ -2,12 +2,14 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class SettingsController extends Controller
 {
+    use UploadsFiles;
     private function getShop(): object
     {
         $uid  = session('user')['id'];
@@ -69,18 +71,11 @@ class SettingsController extends Controller
             'theme_color'    => $validated['theme_color'] ?? null,
         ];
 
-        // Logo upload
         if ($request->hasFile('shop_logo') && $request->file('shop_logo')->isValid()) {
-            $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$request->file('shop_logo')->getClientOriginalExtension();
-            $request->file('shop_logo')->storeAs('uploads/shops', $fn, 'public');
-            $updates['shop_logo'] = '/storage/uploads/shops/'.$fn;
+            $updates['shop_logo'] = $this->uploadFile($request->file('shop_logo'), 'uploads/shops');
         }
-
-        // Cover upload
         if ($request->hasFile('shop_cover') && $request->file('shop_cover')->isValid()) {
-            $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$request->file('shop_cover')->getClientOriginalExtension();
-            $request->file('shop_cover')->storeAs('uploads/shops', $fn, 'public');
-            $updates['shop_cover'] = '/storage/uploads/shops/'.$fn;
+            $updates['shop_cover'] = $this->uploadFile($request->file('shop_cover'), 'uploads/shops');
         }
 
         DB::table('shops')->where('id', $shop->id)->update($updates);
@@ -158,9 +153,7 @@ class SettingsController extends Controller
 
         try {
             $file = $request->file('business_permit');
-            $fn   = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$file->getClientOriginalExtension();
-            $file->storeAs('uploads/seller_docs', $fn, 'public');
-            $path = '/storage/uploads/seller_docs/'.$fn;
+            $path = $this->uploadFile($file, 'uploads/seller_docs');
 
             DB::table('seller_documents')->insert([
                 'shop_id'            => $shop->id,
@@ -229,9 +222,7 @@ class SettingsController extends Controller
         ];
 
         if ($request->hasFile('shop_bg_image') && $request->file('shop_bg_image')->isValid()) {
-            $fn = date('YmdHis').'_'.bin2hex(random_bytes(4)).'.'.$request->file('shop_bg_image')->getClientOriginalExtension();
-            $request->file('shop_bg_image')->storeAs('uploads/shops', $fn, 'public');
-            $data['bg_image_path'] = '/storage/uploads/shops/'.$fn;
+            $data['bg_image_path'] = $this->uploadFile($request->file('shop_bg_image'), 'uploads/shops');
         }
 
         $this->upsertSettings($shop->id, $data);
