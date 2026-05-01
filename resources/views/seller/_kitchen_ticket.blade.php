@@ -145,6 +145,15 @@
     </div>
     @endif
 
+    @if(!empty($t->custom_note))
+    <div class="mb-3 p-3 rounded-3" style="background:#fff7ed;border:1.5px solid #fed7aa">
+      <div class="text-muted small fw-semibold mb-1">
+        <i class="bi bi-chat-left-quote me-1" style="color:#d97706"></i>Cake Message / Product Note
+      </div>
+      <div class="fw-semibold" style="color:#7c2d12;white-space:pre-wrap">{{ $t->custom_note }}</div>
+    </div>
+    @endif
+
     <pre class="mb-0 p-3 rounded small" style="background:#f8f9fa;white-space:pre-wrap;font-family:'Courier New',monospace">{{ $t->instructions }}</pre>
   </div>
 </div>

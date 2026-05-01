@@ -98,7 +98,8 @@ class CheckoutController extends Controller
 
         $pid  = (int) $checkout['product_id'];
         $qty  = (int) $checkout['quantity'];
-        $note = $checkout['custom_note'];
+        $note = trim((string) $request->input('custom_note', $checkout['custom_note'] ?? ''));
+        $note = substr(preg_replace('/\s+/', ' ', $note), 0, 160);
 
         $product = DB::table('products')->where('id', $pid)->first();
         if (!$product) return redirect()->route('customer.catalog');
@@ -216,17 +217,8 @@ class CheckoutController extends Controller
             }
         }
 
-        // Add-ons
-        $selectedAddonIds = array_filter(array_map('intval', $request->input('addons', [])));
         $addonTotal = 0;
         $validAddons = [];
-        if (!empty($selectedAddonIds)) {
-            $addons = DB::table('cake_addons')->whereIn('id', $selectedAddonIds)->where('is_active', true)->get();
-            foreach ($addons as $addon) {
-                $addonTotal += (float) $addon->price;
-                $validAddons[] = $addon;
-            }
-        }
 
         $baseTotal = $pricing['final_unit_price'] * $qty;
         $total     = $baseTotal + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee : 0);

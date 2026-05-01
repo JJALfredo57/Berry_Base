@@ -65,6 +65,17 @@ document.body.style.paddingRight = '';
           </div>
         </div>
 
+        {{-- Cake Message --}}
+        <div class="card mb-3">
+          <div class="card-body p-4">
+            <h6 class="fw-bold mb-3"><i class="bi bi-chat-left-quote me-2" style="color:var(--primary)"></i>Cake Message</h6>
+            <label class="form-label fw-semibold small" for="customNoteField">Product note/message <span class="text-muted fw-normal">(optional)</span></label>
+            <textarea class="form-control" name="custom_note" id="customNoteField" rows="2" maxlength="160"
+              placeholder="Example: Happy Birthday, Maria!">{{ old('custom_note', $checkout['custom_note'] ?? '') }}</textarea>
+            <div class="form-text"><i class="bi bi-info-circle me-1"></i>This note will be sent to the kitchen with your order.</div>
+          </div>
+        </div>
+
         {{-- Customer Info --}}
         <div class="card mb-3">
           <div class="card-body p-4">

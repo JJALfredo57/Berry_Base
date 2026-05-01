@@ -54,6 +54,17 @@ document.body.style.paddingRight = '';
               </div>
             </div>
 
+            {{-- Cake Message --}}
+            <div class="card mb-3">
+              <div class="card-body p-4">
+                <h6 class="fw-bold mb-3"><i class="bi bi-chat-left-quote me-2" style="color:var(--primary)"></i>Cake Message</h6>
+                <label class="form-label fw-semibold small" for="customNoteField">Product note/message <span class="text-muted fw-normal">(optional)</span></label>
+                <textarea class="form-control" name="custom_note" id="customNoteField" rows="2" maxlength="160"
+                  placeholder="Example: Happy Birthday, Maria!">{{ old('custom_note', $checkout['custom_note'] ?? '') }}</textarea>
+                <div class="form-text"><i class="bi bi-info-circle me-1"></i>This note will be sent to the kitchen with your order.</div>
+              </div>
+            </div>
+
             {{-- Guest Info + OTP --}}
             <div class="card mb-3">
               <div class="card-body p-4">
@@ -378,7 +389,7 @@ document.body.style.paddingRight = '';
 
               <div class="mt-3 p-2 rounded small text-muted" style="background:#f8f9fa;font-size:clamp(.7rem,1.4vw,.75rem)">
                 <i class="bi bi-info-circle me-1"></i>
-                Final price includes all selected add-ons and delivery fee (if applicable).
+                Final price includes the delivery fee if applicable.
               </div>
               <div class="mt-2 p-2 rounded small" id="summaryPaymentFeeNote" style="background:#fff7ed;color:#9a3412;font-size:clamp(.7rem,1.4vw,.75rem);display:none">
                 <i class="bi bi-receipt-cutoff me-1"></i>Estimated processor fee preview: around 3% when paying online.

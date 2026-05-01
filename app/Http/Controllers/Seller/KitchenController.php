@@ -26,7 +26,7 @@ class KitchenController extends Controller
             ->select('kt.*','kt.status as ticket_status','o.id as order_id',
                 \Illuminate\Support\Facades\DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
                 'p.name as product_name','p.image_path as product_image',
-                'o.user_id','o.fulfillment_type','o.rider_id','o.rider_sms_sent')
+                'o.user_id','o.fulfillment_type','o.rider_id','o.rider_sms_sent','o.custom_note')
             ->where('o.shop_id', $shop->id)
             ->orderByDesc('kt.id')
             ->get();
