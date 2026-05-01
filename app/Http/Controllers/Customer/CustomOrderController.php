@@ -10,10 +10,11 @@ use Illuminate\Support\Facades\DB;
 class CustomOrderController extends Controller
 {
     use UploadsFiles;
-    private function loadOptions(): array
+    private function loadOptions(?string $shopId = null): array
     {
         $rows = DB::table('custom_order_options')
             ->where('is_active', true)
+            ->when($shopId, fn($q) => $q->where('shop_id', $shopId), fn($q) => $q->whereNull('shop_id'))
             ->orderBy('sort_order')->orderBy('id')
             ->get()->groupBy('type');
 
@@ -38,29 +39,33 @@ class CustomOrderController extends Controller
 
     public function show(Request $request)
     {
-        $options = $this->loadOptions();
+        $uid        = session('user')['id'];
+        $targetShop = null;
+        $shopId     = null;
+        if ($slug = $request->query('shop')) {
+            $targetShop = DB::table('shops')->where('shop_slug', $slug)->where('status', 'approved')->first();
+            if ($targetShop) $shopId = $targetShop->id;
+        }
+
+        $options = $this->loadOptions($shopId);
 
         $addonCategories = DB::table('cake_addon_categories')
-            ->where('is_active', true)->orderBy('sort_order')->orderBy('id')->get();
+            ->where('is_active', true)
+            ->when($shopId, fn($q) => $q->where('shop_id', $shopId), fn($q) => $q->whereNull('shop_id'))
+            ->orderBy('sort_order')->orderBy('id')->get();
 
         $addonsByCategory = DB::table('cake_addons as a')
             ->join('cake_addon_categories as c', 'c.id', '=', 'a.category_id')
             ->where('a.is_active', true)->where('c.is_active', true)
+            ->when($shopId, fn($q) => $q->where('c.shop_id', $shopId), fn($q) => $q->whereNull('c.shop_id'))
             ->select('a.*', 'c.name as category_name', 'c.icon as category_icon')
             ->orderBy('a.category_id')->orderBy('a.sort_order')
             ->get()->groupBy('category_id');
 
-        $uid         = session('user')['id'];
         $customer    = DB::table('users')->where('id', $uid)->first();
         $defaultAddr = DB::table('user_addresses')
             ->where('user_id', $uid)
             ->orderByDesc('is_default')->orderByDesc('id')->first();
-
-        $targetShop = null;
-        if ($slug = $request->query('shop')) {
-            $targetShop = DB::table('shops')
-                ->where('shop_slug', $slug)->where('status', 'approved')->first();
-        }
 
         // Shop settings and coverage zones
         $shopSettings  = null;
