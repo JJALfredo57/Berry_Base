@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
@@ -70,7 +70,7 @@ class DashboardController extends Controller
                 ->join('orders as o','o.id','=','m.order_id')
                 ->where('o.shop_id', $shopId)
                 ->where('m.sender_role','customer')
-                ->where('m.is_read', 0)
+                ->where('m.is_read', false)
                 ->count();
         } catch (\Exception $e) { $unreadMsg = 0; }
 

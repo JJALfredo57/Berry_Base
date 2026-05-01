@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -110,19 +110,19 @@
       try {
           if ($role === 'admin') {
               $unreadMessages = (int) \Illuminate\Support\Facades\DB::table('messages')
-                  ->where('sender_role', 'customer')->where('is_read', 0)->count();
+                  ->where('sender_role', 'customer')->where('is_read', false)->count();
           } elseif ($role === 'seller') {
               $unreadMessages = (int) \Illuminate\Support\Facades\DB::table('messages as m')
                   ->join('orders as o', 'o.id', '=', 'm.order_id')
                   ->join('shops as s', 's.id', '=', 'o.shop_id')
                   ->where('s.seller_id', $uid)
                   ->where('m.sender_role', 'customer')
-                  ->where('m.is_read', 0)
+                  ->where('m.is_read', false)
                   ->count();
           } else {
               $unreadMessages = (int) \Illuminate\Support\Facades\DB::table('messages as m')
                   ->join('orders as o', 'o.id', '=', 'm.order_id')
-                  ->where('o.user_id', $uid)->where('m.sender_role', 'admin')->where('m.is_read', 0)->count();
+                  ->where('o.user_id', $uid)->where('m.sender_role', 'admin')->where('m.is_read', false)->count();
           }
       } catch (\Exception $e) {}
   }
@@ -131,10 +131,10 @@
   if ($uid && $role) {
       try {
           if ($role === 'admin') {
-              $notifCount    = (int) \Illuminate\Support\Facades\DB::table('notifications')->where('receiver_role','admin')->where('is_read',0)->count();
+              $notifCount    = (int) \Illuminate\Support\Facades\DB::table('notifications')->where('receiver_role','admin')->where('is_read', false)->count();
               $notifications = \Illuminate\Support\Facades\DB::table('notifications')->where('receiver_role','admin')->orderByDesc('id')->limit(10)->get();
           } else {
-              $notifCount    = (int) \Illuminate\Support\Facades\DB::table('notifications')->where('receiver_role','customer')->where('receiver_user_id',$uid)->where('is_read',0)->count();
+              $notifCount    = (int) \Illuminate\Support\Facades\DB::table('notifications')->where('receiver_role','customer')->where('receiver_user_id',$uid)->where('is_read', false)->count();
               $notifications = \Illuminate\Support\Facades\DB::table('notifications')->where('receiver_role','customer')->where('receiver_user_id',$uid)->orderByDesc('id')->limit(10)->get();
           }
       } catch (\Exception $e) {}
@@ -1061,7 +1061,7 @@
     </a>
     <a href="{{ route('seller.messages') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.messages') ? 'active' : '' }}">
       <i class="bi bi-chat-dots"></i><span class="sb-link-text">Messages</span>
-      @php try { $selMsg = (int)\Illuminate\Support\Facades\DB::table('messages as m')->join('orders as o','o.id','=','m.order_id')->where('o.shop_id',$sellerShop?->id)->where('m.sender_role','customer')->where('m.is_read',0)->count(); } catch(\Exception $e){ $selMsg=0; } @endphp
+      @php try { $selMsg = (int)\Illuminate\Support\Facades\DB::table('messages as m')->join('orders as o','o.id','=','m.order_id')->where('o.shop_id',$sellerShop?->id)->where('m.sender_role','customer')->where('m.is_read', false)->count(); } catch(\Exception $e){ $selMsg=0; } @endphp
       @if($selMsg > 0)<span class="sb-badge">{{ $selMsg > 9 ? '9+' : $selMsg }}</span>@endif
     </a>
 

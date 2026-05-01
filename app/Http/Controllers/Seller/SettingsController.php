@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
@@ -185,7 +185,7 @@ class SettingsController extends Controller
                         'receiver_user_id' => $superAdmin->id,
                         'title'            => 'Upgrade Request: ' . $shop->shop_name,
                         'message'          => $shop->shop_name . ' is requesting to upgrade from Basic to Verified Seller.',
-                        'is_read'          => 0,
+                        'is_read' => false,
                         'created_at'       => now(),
                     ]);
                 }

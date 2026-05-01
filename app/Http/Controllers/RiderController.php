@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers;
 
 use App\Helpers\SmsHelper;
@@ -142,7 +142,7 @@ class RiderController extends Controller
                 'receiver_user_id' => null,
                 'title'            => "Order #{$orderId} Delivered",
                 'message'          => "Rider {$riderName} marked Order #{$orderId} as delivered.",
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
 
@@ -221,7 +221,7 @@ class RiderController extends Controller
                 'receiver_user_id' => null,
                 'title'            => "Delivery Issue — Order #{$orderId}",
                 'message'          => "Rider {$riderName} reported: {$issueLabel}." . ($note ? " Note: {$note}" : ''),
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
 

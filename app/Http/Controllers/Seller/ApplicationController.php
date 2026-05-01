@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
@@ -208,7 +208,7 @@ class ApplicationController extends Controller
                 'receiver_user_id' => $superAdmin->id,
                 'title'            => 'New Seller Application',
                 'message'          => $apply['shop_name'] . ' applied to become a ' . ucfirst($apply['tier']) . ' Seller.',
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
         }

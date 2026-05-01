@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
@@ -39,8 +39,8 @@ class MessageController extends Controller
         DB::table('messages')
             ->where('order_id', $orderId)
             ->where('sender_role', 'admin')
-            ->where('is_read', 0)
-            ->update(['is_read' => 1]);
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
 
         $messages = DB::table('messages')->where('order_id', $orderId)->orderBy('created_at')->get();
         return view('customer.thread', compact('order','messages','orderId'));
@@ -52,7 +52,7 @@ class MessageController extends Controller
         DB::table('messages')
             ->where('id', $id)
             ->where('sender_role', 'admin')
-            ->update(['is_read' => 1]);
+            ->update(['is_read' => true]);
         return response()->json(['ok' => true]);
     }
 
@@ -67,8 +67,8 @@ class MessageController extends Controller
         DB::table('messages')
             ->where('order_id', $orderId)
             ->where('sender_role', 'admin')
-            ->where('is_read', 0)
-            ->update(['is_read' => 1]);
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
         return response()->json(['ok' => true]);
     }
 
@@ -186,7 +186,7 @@ public function popupSend(Request $request)
             'sender_id'   => $uid,
             'message'     => $text,
             'image_path'  => $imgPath,
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -199,7 +199,7 @@ public function popupSend(Request $request)
             'receiver_user_id' => null,
             'title'            => 'New Message',
             'message'          => $notifMsg,
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 
@@ -244,7 +244,7 @@ public function popupSend(Request $request)
             'sender_id'   => $uid,
             'message'     => $text,
             'image_path'  => $img,
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -253,7 +253,7 @@ public function popupSend(Request $request)
             'receiver_user_id' => null,
             'title'            => 'New Message',
             'message'          => "New message from customer (Order #{$orderId}).",
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 

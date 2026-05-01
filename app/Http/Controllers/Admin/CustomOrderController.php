@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -102,7 +102,7 @@ class CustomOrderController extends Controller
                     'sender_role' => 'admin',
                     'sender_id'   => $user['id'],
                     'message'     => $msg,
-                    'is_read'     => 0,
+                    'is_read' => false,
                     'created_at'  => now(),
                 ]);
                 DB::table('notifications')->insert([
@@ -110,7 +110,7 @@ class CustomOrderController extends Controller
                     'receiver_user_id' => $co->user_id,
                     'title'            => 'Price Proposal — Custom Order #' . $co->order_id,
                     'message'          => 'Baker set final price: PHP ' . number_format($price, 2) . '. Please accept or cancel in My Orders.',
-                    'is_read'          => 0,
+                    'is_read' => false,
                     'created_at'       => now(),
                 ]);
                 DB::table('order_tracking')->insert([
@@ -171,7 +171,7 @@ class CustomOrderController extends Controller
                 'sender_role' => 'admin',
                 'sender_id'   => $user['id'],
                 'message'     => $msg,
-                'is_read'     => 0,
+                'is_read' => false,
                 'created_at'  => now(),
             ]);
             DB::table('notifications')->insert([
@@ -179,7 +179,7 @@ class CustomOrderController extends Controller
                 'receiver_user_id' => $co->user_id,
                 'title'            => 'Custom Order #' . $co->order_id . ' Not Approved',
                 'message'          => 'Reason: ' . $reason,
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
         }
@@ -224,7 +224,7 @@ class CustomOrderController extends Controller
             'sender_id'   => $user['id'],
             'message'     => $fullMsg,
             'image_path'  => $imgPath,
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -233,7 +233,7 @@ class CustomOrderController extends Controller
             'receiver_user_id' => $co->user_id,
             'title'   => '🍰 Progress Update on Your Custom Cake!',
             'message' => $message ?: 'Admin sent a progress photo of your custom cake.',
-            'is_read' => 0,
+            'is_read' => false,
             'created_at' => now(),
         ]);
 

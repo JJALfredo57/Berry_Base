@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
@@ -87,7 +87,7 @@ class KitchenController extends Controller
                         'receiver_user_id' => $order->user_id,
                         'title'            => 'Order Update: Preparing',
                         'message'          => "Your order #{$orderId} is now being prepared.",
-                        'is_read'          => 0,
+                        'is_read' => false,
                         'created_at'       => now(),
                     ]);
                     // No SMS for Preparing — in-app notification is sufficient
@@ -133,7 +133,7 @@ class KitchenController extends Controller
                         'receiver_user_id' => $order->user_id,
                         'title'            => 'Order Update: ' . $nextStatus,
                         'message'          => $msg,
-                        'is_read'          => 0,
+                        'is_read' => false,
                         'created_at'       => now(),
                     ]);
                     $phone = DB::table('users')->where('id', $order->user_id)->value('phone');
@@ -169,7 +169,7 @@ class KitchenController extends Controller
                             SmsHelper::paymentLine($order), $riderPin, $rider->phone, $riderToken
                         ));
                         DB::table('orders')->where('id', $orderId)
-                            ->update(['rider_sms_sent' => $riderSmsSent ? 1 : 0]);
+                            ->update(['rider_sms_sent' => (bool) $riderSmsSent]);
                     }
                 }
             }
@@ -224,7 +224,7 @@ class KitchenController extends Controller
             SmsHelper::paymentLine($order), $riderPin, $rider->phone, $order->rider_token ?? ''
         ));
 
-        DB::table('orders')->where('id', $orderId)->update(['rider_sms_sent' => $sent ? 1 : 0]);
+        DB::table('orders')->where('id', $orderId)->update(['rider_sms_sent' => (bool) $sent]);
 
         $user = session('user');
         CakeshopHelper::logActivity($user['id'], 'admin', 'Resend Rider SMS', "Order #{$orderId}: SMS " . ($sent ? 'sent' : 'failed'));

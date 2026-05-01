@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
@@ -91,7 +91,7 @@ class OrderController extends Controller
             'receiver_user_id' => null,
             'title'            => '❌ Cancel Request — Order #' . $id,
             'message'          => "{$custName} wants to cancel Order #{$id}. Reason: {$reason}",
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 
@@ -99,7 +99,7 @@ class OrderController extends Controller
                         'sender_role' => 'customer',
             'sender_id'   => $uid,
             'message'     => "❌ Cancel Request submitted.\n\nReason: {$reason}",
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -134,7 +134,7 @@ class OrderController extends Controller
             'sender_role' => 'customer',
             'sender_id'   => $uid,
             'message'     => "I accept the final price of PHP " . number_format($co->admin_price, 2) . ". I will proceed with the deposit payment.",
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
         DB::table('notifications')->insert([
@@ -142,7 +142,7 @@ class OrderController extends Controller
             'receiver_user_id' => null,
             'title'            => 'Custom Order #' . $co->order_id . ' - Price Accepted',
             'message'          => "{$custName} accepted PHP " . number_format($co->admin_price, 2) . " for Custom Order #{$co->order_id}. Waiting for deposit payment.",
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 
@@ -225,7 +225,7 @@ class OrderController extends Controller
             'receiver_user_id' => null,
             'title'            => 'Custom Order #' . $co->order_id . ' - COD Deposit Acknowledged',
             'message'          => "Customer acknowledged COD deposit of PHP {$depositAmount} for Custom Order #{$co->order_id}. Auto-confirmed.",
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 
@@ -264,7 +264,7 @@ class OrderController extends Controller
             'created_at'   => now(),
             'updated_at'   => now(),
         ]);
-        DB::table('orders')->where('id', $co->order_id)->update(['kitchen_sent' => 1]);
+        DB::table('orders')->where('id', $co->order_id)->update(['kitchen_sent' => true]);
     }
 
     /** Customer cancels order after admin sets a different price */
@@ -295,7 +295,7 @@ class OrderController extends Controller
                 'sender_role' => 'customer',
                 'sender_id'   => $uid,
                 'message'     => "I am cancelling my custom cake order. The final price of PHP " . number_format($co->admin_price, 2) . " does not work for me. Thank you.",
-                'is_read'     => 0,
+                'is_read' => false,
                 'created_at'  => now(),
             ]);
             DB::table('notifications')->insert([
@@ -303,7 +303,7 @@ class OrderController extends Controller
                 'receiver_user_id' => null,
                 'title'            => 'Custom Order #' . $co->order_id . ' - Price Declined',
                 'message'          => "{$custName} declined PHP " . number_format($co->admin_price, 2) . " and cancelled Custom Order #{$co->order_id}.",
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
         }

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers\Admin;
 
@@ -46,8 +46,8 @@ class MessageController extends Controller
         DB::table('messages')
             ->where('order_id', $orderId)
             ->where('sender_role', 'customer')
-            ->where('is_read', 0)
-            ->update(['is_read' => 1]);
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
 
         $messages = DB::table('messages')->where('order_id', $orderId)->orderBy('created_at')->get();
         return view('admin.thread', compact('order','messages','orderId'));
@@ -58,7 +58,7 @@ class MessageController extends Controller
         DB::table('messages')
             ->where('id', $id)
             ->where('sender_role', 'customer')
-            ->update(['is_read' => 1]);
+            ->update(['is_read' => true]);
         return response()->json(['ok' => true]);
     }
 
@@ -68,8 +68,8 @@ class MessageController extends Controller
         DB::table('messages')
             ->where('order_id', $orderId)
             ->where('sender_role', 'customer')
-            ->where('is_read', 0)
-            ->update(['is_read' => 1]);
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
         return response()->json(['ok' => true]);
     }
 
@@ -152,7 +152,7 @@ public function popupSend(Request $request)
             'sender_id'   => $user['id'],
             'message'     => $text,
             'image_path'  => $imgPath,
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -162,7 +162,7 @@ public function popupSend(Request $request)
                 'receiver_user_id' => $custId,
                 'title'            => 'New Message',
                 'message'          => $orderId ? "New message from Admin for Order #{$orderId}" : "New message from Admin.",
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
         }
@@ -207,7 +207,7 @@ public function popupSend(Request $request)
             'sender_id'   => $user['id'],
             'message'     => $text,
             'image_path'  => $img,
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -221,7 +221,7 @@ public function popupSend(Request $request)
                 'receiver_user_id' => $order->user_id,
                 'title'            => 'New Message',
                 'message'          => "New message from Admin for Order #{$orderId}",
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
         }

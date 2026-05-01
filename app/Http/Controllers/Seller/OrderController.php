@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
@@ -135,7 +135,7 @@ class OrderController extends Controller
                         'receiver_user_id' => $order->user_id,
                         'title'            => 'Order Update: ' . $newStatus,
                         'message'          => $notifMsgs[$newStatus],
-                        'is_read'          => 0,
+                        'is_read' => false,
                         'created_at'       => now(),
                     ]);
                 }
@@ -145,7 +145,7 @@ class OrderController extends Controller
                         'receiver_user_id' => $order->user_id,
                         'title'            => 'Rate Your Order #' . $id,
                         'message'          => "How was your cake? Please leave a rating for Order #{$id}!",
-                        'is_read'          => 0,
+                        'is_read' => false,
                         'created_at'       => now(),
                     ]);
                 }
@@ -211,10 +211,10 @@ class OrderController extends Controller
                     SmsHelper::paymentLine($order), $riderPin, $rider->phone, $riderToken
                 ));
                 DB::table('orders')->where('id', $id)
-                    ->update(['rider_sms_sent' => $riderSmsSent ? 1 : 0]);
+                    ->update(['rider_sms_sent' => (bool) $riderSmsSent]);
             } catch (\Exception $e) {
                 $riderSmsSent = false;
-                DB::table('orders')->where('id', $id)->update(['rider_sms_sent' => 0]);
+                DB::table('orders')->where('id', $id)->update(['rider_sms_sent' => false]);
             }
         }
 

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
@@ -239,7 +239,7 @@ class CustomOrderController extends Controller
             'receiver_role'=>'admin','receiver_user_id'=>null,
             'title'=>'🎨 New Custom Order from '.$guestName,
             'message'=>$notifMsg,
-            'is_read'=>0,'created_at'=>now(),
+            'is_read' => false,'created_at'=>now(),
         ]);
         if ($shopId) {
             $sellerUser = DB::table('shops')->join('users','users.id','=','shops.seller_id')
@@ -249,7 +249,7 @@ class CustomOrderController extends Controller
                     'receiver_role'=>'seller','receiver_user_id'=>$sellerUser,
                     'title'=>'🎨 New Custom Order from '.$guestName,
                     'message'=>$notifMsg,
-                    'is_read'=>0,'created_at'=>now(),
+                    'is_read' => false,'created_at'=>now(),
                 ]);
             }
         }
@@ -307,7 +307,7 @@ class CustomOrderController extends Controller
             'sender_role' => 'guest',
             'sender_id'   => null,
             'message'     => "I accept the final price of PHP " . number_format($co->admin_price, 2) . ". I will proceed with the deposit payment.",
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -316,7 +316,7 @@ class CustomOrderController extends Controller
             'receiver_user_id' => null,
             'title'            => 'Custom Order #' . $co->order_id . ' - Price Accepted',
             'message'          => ($co->guest_name ?? 'Guest') . " accepted PHP " . number_format($co->admin_price, 2) . " for Custom Order #{$co->order_id}. Waiting for deposit.",
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 

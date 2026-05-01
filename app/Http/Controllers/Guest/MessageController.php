@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
@@ -38,8 +38,8 @@ class MessageController extends Controller
         DB::table('messages')
             ->where('order_id', $order->id)
             ->where('sender_role', 'admin')
-            ->where('is_read', 0)
-            ->update(['is_read' => 1]);
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
 
         return response()->json(['messages' => $messages]);
     }
@@ -70,7 +70,7 @@ class MessageController extends Controller
             'sender_id'   => null,
             'message'     => $message ?: null,
             'image_path'  => $imgPath,
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -80,7 +80,7 @@ class MessageController extends Controller
             'receiver_user_id' => null,
             'title'            => 'Message from ' . ($order->guest_name ?? 'Customer'),
             'message'          => ($order->guest_name ?? 'Customer') . ' sent a message on Order #' . $order->id,
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 

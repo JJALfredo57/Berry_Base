@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
@@ -334,7 +334,7 @@ class PaymentController extends Controller
             'receiver_user_id' => null,
             'title'            => 'Deposit Paid — Order #' . $orderId,
             'message'          => "{$custName} paid ₱" . number_format($order->deposit_amount, 2) . " deposit for Order #{$orderId}.",
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 
@@ -426,7 +426,7 @@ class PaymentController extends Controller
                 'receiver_user_id' => null,
                 'title'            => 'GCash Payment Received — Order #' . $orderId,
                 'message'          => "{$custName} paid via GCash for Order #{$orderId}.",
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
 

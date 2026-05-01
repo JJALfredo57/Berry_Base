@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
@@ -53,7 +53,7 @@ class ReviewController extends Controller
             'receiver_user_id' => null,
             'title'            => '⭐ New Review from '.($order->guest_name ?? 'Customer'),
             'message'          => ($order->guest_name ?? 'Customer').' left a '.str_repeat('★',$rating).' review for Order #'.$order->id,
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 

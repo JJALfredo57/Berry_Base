@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
@@ -55,8 +55,8 @@ class MessageController extends Controller
         DB::table('messages')
             ->where('order_id', $orderId)
             ->where('sender_role', 'customer')
-            ->where('is_read', 0)
-            ->update(['is_read' => 1]);
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
 
         $messages = DB::table('messages')->where('order_id', $orderId)->orderBy('created_at')->get();
         return view('seller.thread', compact('order','messages','orderId','shop'));
@@ -84,7 +84,7 @@ class MessageController extends Controller
             'sender_id'   => session('user')['id'],
             'message'     => $text ?: null,
             'image_path'  => $imgPath,
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -94,7 +94,7 @@ class MessageController extends Controller
 
     public function markReadMsg(Request $request, string $id)
     {
-        DB::table('messages')->where('id', $id)->where('sender_role', 'customer')->update(['is_read' => 1]);
+        DB::table('messages')->where('id', $id)->where('sender_role', 'customer')->update(['is_read' => true]);
         return response()->json(['ok' => true]);
     }
 
@@ -104,8 +104,8 @@ class MessageController extends Controller
         DB::table('messages')
             ->where('order_id', $orderId)
             ->where('sender_role', 'customer')
-            ->where('is_read', 0)
-            ->update(['is_read' => 1]);
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
         return response()->json(['ok' => true]);
     }
 
@@ -122,7 +122,7 @@ class MessageController extends Controller
                 'p.name as product_name')
             ->orderByDesc('m.created_at')
             ->limit($limit)->get();
-        $unread = $messages->where('sender_role','customer')->where('is_read',0)->count();
+        $unread = $messages->where('sender_role','customer')->where('is_read', false)->count();
         return response()->json(['messages'=>$messages,'unread'=>$unread]);
     }
 
@@ -141,7 +141,7 @@ class MessageController extends Controller
             'sender_role' => 'seller',
             'sender_id'   => session('user')['id'],
             'message'     => $text,
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
         return response()->json(['ok'=>true]);

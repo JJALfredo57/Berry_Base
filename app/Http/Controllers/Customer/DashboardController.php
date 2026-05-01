@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +12,7 @@ class DashboardController extends Controller
         DB::table('notifications')
             ->where('receiver_role','customer')
             ->where('receiver_user_id', $uid)
-            ->update(['is_read' => 1]);
+            ->update(['is_read' => true]);
         return view('customer.dashboard');
     }
 }

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
@@ -285,7 +285,7 @@ class CheckoutController extends Controller
             'receiver_role'    => 'admin', 'receiver_user_id' => null,
             'title'            => '🛍️ New Order from '.$guestName,
             'message'          => "{$guestName} ({$phone}) placed Order #{$oid}.",
-            'is_read'          => 0, 'created_at' => now(),
+            'is_read' => false, 'created_at' => now(),
         ]);
 
         $request->session()->forget(['guest_checkout','guest_otp','guest_otp_exp','guest_phone','guest_pre_track']);

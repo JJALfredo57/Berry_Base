@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
@@ -291,7 +291,7 @@ class CheckoutController extends Controller
             'sender_role' => 'customer',
             'sender_id'   => $uid,
             'message'     => "New order placed. Order #{$oid}." . ($note ? "\nNote: {$note}" : ''),
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -300,7 +300,7 @@ class CheckoutController extends Controller
             'receiver_user_id' => null,
             'title'            => 'New Order #' . $oid,
             'message'          => 'New order from ' . (session('user')['fullname'] ?? 'Customer') . '.',
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers;
 
 use App\Helpers\CakeshopHelper;
@@ -82,7 +82,7 @@ class TrackingController extends Controller
             'receiver_user_id' => null,
             'title'            => 'Cancel Request - Order #' . $order->id,
             'message'          => ($order->guest_name ?? 'Guest customer') . " wants to cancel Order #{$order->id}. Reason: {$reason}",
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 
@@ -91,7 +91,7 @@ class TrackingController extends Controller
             'sender_role' => 'guest',
             'sender_id'   => null,
             'message'     => "Cancel request submitted.\n\nReason: {$reason}",
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 

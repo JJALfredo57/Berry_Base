@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
@@ -393,7 +393,7 @@ class PaymentController extends Controller
                 'receiver_user_id' => null,
                 'title'            => 'Deposit Paid - Order #' . $order->id,
                 'message'          => ($order->guest_name ?? 'Guest') . ' paid PHP ' . number_format($order->deposit_amount, 2) . ' for Order #' . $order->id . '. Auto-confirmed.',
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
         } catch (\Exception $e) {}
@@ -470,7 +470,7 @@ class PaymentController extends Controller
                 'created_at'    => now(),
                 'updated_at'    => now(),
             ]);
-            DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => 1]);
+            DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => true]);
         } catch (\Exception $e) {}
     }
 
@@ -656,7 +656,7 @@ class PaymentController extends Controller
                         'created_at'   => now(),
                         'updated_at'   => now(),
                     ]);
-                    DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => 1]);
+                    DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => true]);
                 }
             }
             // ── END AUTO CONFIRM ────────────────────────────────────────
@@ -666,7 +666,7 @@ class PaymentController extends Controller
                 'receiver_user_id' => null,
                 'title'            => 'GCash Payment Received - Order #' . $order->id,
                 'message'          => ($order->guest_name ?? 'Guest') . ' completed GCash payment for Order #' . $order->id . '. Order auto-confirmed and sent to kitchen.',
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
 
@@ -813,7 +813,7 @@ class PaymentController extends Controller
                         'updated_at'   => now(),
                     ]);
 
-                    DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => 1]);
+                    DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => true]);
                 }
             }
             // ── END AUTO CONFIRM ────────────────────────────────────────
@@ -823,7 +823,7 @@ class PaymentController extends Controller
                 'receiver_user_id' => null,
                 'title'            => 'GCash Payment Received - Order #' . $order->id,
                 'message'          => ($order->guest_name ?? 'Guest') . ' paid via GCash for Order #' . $order->id . '. Order auto-confirmed and sent to kitchen.',
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
 
@@ -1023,7 +1023,7 @@ class PaymentController extends Controller
                     'created_at'   => now(),
                     'updated_at'   => now(),
                 ]);
-                DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => 1]);
+                DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => true]);
             }
 
             DB::table('notifications')->insert([
@@ -1031,7 +1031,7 @@ class PaymentController extends Controller
                 'receiver_user_id' => null,
                 'title'            => 'Custom Order #' . $order->id . ' - GCash Deposit Paid',
                 'message'          => "{$fullname} paid GCash deposit of PHP {$order->deposit_amount} for Custom Order #{$order->id}. Auto-confirmed.",
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
 

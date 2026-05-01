@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Helpers;
 
@@ -348,7 +348,7 @@ class CakeshopHelper
             if ($role === 'admin') {
                 return (int) DB::table('messages')
                     ->where('sender_role', 'customer')
-                    ->where('is_read', 0)
+                    ->where('is_read', false)
                     ->count();
             }
             // Count unread admin messages on order threads
@@ -356,7 +356,7 @@ class CakeshopHelper
                 ->join('orders as o', 'o.id', '=', 'm.order_id')
                 ->where('o.user_id', $userId)
                 ->where('m.sender_role', 'admin')
-                ->where('m.is_read', 0)
+                ->where('m.is_read', false)
                 ->count();
 
             // Count unread general messages (no order) sent to this customer
@@ -366,7 +366,7 @@ class CakeshopHelper
                     ->whereNull('order_id')
                     ->where('sender_role', 'admin')
                     ->where('user_id', $userId)
-                    ->where('is_read', 0)
+                    ->where('is_read', false)
                     ->count();
             } catch (\Exception $e) {}
 

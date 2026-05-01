@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
@@ -162,7 +162,7 @@ class OrderController extends Controller
             'receiver_user_id' => null,
             'title'            => "Deposit Requested — Order #{$id}",
             'message'          => "Deposit of ₱{$amount} requested from " . ($order->guest_name ?? 'Guest') . ".",
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 
@@ -266,7 +266,7 @@ class OrderController extends Controller
                         SmsHelper::paymentLine($order), $riderPin, $rider->phone, $order->rider_token ?? ''
                     ));
                     DB::table('orders')->where('id', $id)
-                        ->update(['rider_sms_sent' => $riderSmsSent ? 1 : 0]);
+                        ->update(['rider_sms_sent' => (bool) $riderSmsSent]);
                 }
             }
         }
@@ -312,7 +312,7 @@ class OrderController extends Controller
                 'receiver_user_id' => $custId,
                 'title'            => 'Order Update: ' . $status,
                 'message'          => $notifMessages[$status] ?? "Order #{$id} updated to {$status}.",
-                'is_read'          => 0,
+                'is_read' => false,
                 'created_at'       => now(),
             ]);
 
@@ -331,7 +331,7 @@ class OrderController extends Controller
                     'receiver_user_id' => $custId,
                     'title'            => '⭐ Rate Your Order #' . $id,
                     'message'          => "How was your cake? Please leave a rating for Order #{$id}!",
-                    'is_read'          => 0,
+                    'is_read' => false,
                     'created_at'       => now(),
                 ]);
             }
@@ -395,7 +395,7 @@ class OrderController extends Controller
             'created_at'   => now(),
             'updated_at'   => now(),
         ]);
-        DB::table('orders')->where('id', $id)->update(['kitchen_sent' => 1]);
+        DB::table('orders')->where('id', $id)->update(['kitchen_sent' => true]);
         CakeshopHelper::logActivity($user['id'], $user['role'], 'Send to Kitchen', "Order #{$id}");
     }
 
@@ -443,7 +443,7 @@ class OrderController extends Controller
             'receiver_user_id' => $order->user_id,
             'title'            => 'Cancel Approved — Order #' . $id,
             'message'          => "Your cancel request for Order #{$id} was approved. {$adminNote}",
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
         DB::table('messages')->insert([
@@ -451,7 +451,7 @@ class OrderController extends Controller
             'sender_role' => 'admin',
             'sender_id'   => $user['id'],
             'message'     => "Cancel request approved.\n\n{$adminNote}",
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -493,14 +493,14 @@ class OrderController extends Controller
             'receiver_user_id' => $order->user_id,
             'title'            => '❌ Cancel Rejected — Order #' . $id,
             'message'          => "Your cancel request for Order #{$id} was rejected. Reason: {$adminNote}",
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
         DB::table('messages')->insert([
                         'sender_role' => 'admin',
             'sender_id'   => $user['id'],
             'message'     => "❌ Cancel request rejected.\n\nReason: {$adminNote}",
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 

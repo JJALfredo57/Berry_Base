@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
@@ -312,7 +312,7 @@ class CustomOrderController extends Controller
             'sender_role' => 'customer',
             'sender_id'   => $uid,
             'message'     => "🎨 CUSTOM ORDER #{$oid} — Pending Review\n{$fullNote}" . $addonNames . $refNote,
-            'is_read'     => 0,
+            'is_read' => false,
             'created_at'  => now(),
         ]);
 
@@ -324,7 +324,7 @@ class CustomOrderController extends Controller
             'receiver_user_id' => null,
             'title'            => '🎨 New Custom Order #' . $oid,
             'message'          => $notifMsg,
-            'is_read'          => 0,
+            'is_read' => false,
             'created_at'       => now(),
         ]);
 
@@ -337,7 +337,7 @@ class CustomOrderController extends Controller
                     'receiver_user_id' => $sellerUser,
                     'title'            => '🎨 New Custom Order #' . $oid,
                     'message'          => $notifMsg,
-                    'is_read'          => 0,
+                    'is_read' => false,
                     'created_at'       => now(),
                 ]);
             }
