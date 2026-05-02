@@ -1,11 +1,20 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up(): void
     {
+        // Add description column if missing (table may have been created without it)
+        if (Schema::hasTable('custom_order_options') && !Schema::hasColumn('custom_order_options', 'description')) {
+            Schema::table('custom_order_options', function (Blueprint $t) {
+                $t->text('description')->nullable()->after('price');
+            });
+        }
+
         // Only seed if no platform defaults exist yet
         if (DB::table('custom_order_options')->whereNull('shop_id')->exists()) return;
 
