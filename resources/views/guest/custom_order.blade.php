@@ -540,6 +540,38 @@ function toggleDelivery() {
   updateFee();
 }
 
+function clearDetectedDeliveryZone(message = '') {
+  var sel = document.getElementById('zoneSelect');
+  if (sel) sel.selectedIndex = 0;
+  deliveryFee = 0;
+
+  var feeInput = document.getElementById('deliveryFeeInput');
+  if (feeInput) feeInput.value = 0;
+
+  var feePreview = document.getElementById('feePreview');
+  if (feePreview) feePreview.style.display = 'none';
+
+  var zoneBadge = document.getElementById('zoneBadge');
+  if (zoneBadge) zoneBadge.innerHTML = '';
+
+  var etaDisplay = document.getElementById('etaDisplay');
+  if (etaDisplay) etaDisplay.style.display = 'none';
+
+  var oocNotice = document.getElementById('oocNotice');
+  if (oocNotice) oocNotice.style.display = 'none';
+
+  var feeRow = document.getElementById('feeRow');
+  if (feeRow) feeRow.style.display = 'none';
+
+  var msg = document.getElementById('msgZone');
+  if (msg) {
+    msg.className = message ? 'cv-msg cv-err' : 'cv-msg';
+    msg.textContent = message;
+  }
+
+  updatePriceSummary();
+}
+
 function updateCashPaymentCopy() {
   var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   var codLabel = document.getElementById('codLabelText');
@@ -576,6 +608,7 @@ async function reverseGeocode(lat, lng) {
 }
 
 function setMarkerAt(latlng) {
+  clearDetectedDeliveryZone();
   if (marker) marker.setLatLng(latlng);
   else {
     marker = L.marker(latlng, { draggable:true }).addTo(map);
@@ -612,7 +645,6 @@ function useMyLocation() {
       var lat = pos.coords.latitude, lng = pos.coords.longitude;
       map.setView([lat, lng], 16);
       setMarkerAt({ lat, lng });
-      autoSelectBarangayFromCoords(lat, lng);
       btn.disabled = false;
       btn.innerHTML = '<i class="bi bi-geo-alt-fill me-1"></i>📍 Use My Current Location';
       cakeToast('📍 Location found! Map updated.','success');
@@ -628,10 +660,14 @@ function useMyLocation() {
 }
 
 async function autoSelectBarangayFromCoords(lat, lng) {
+  clearDetectedDeliveryZone();
   try {
     var res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
     var data = await res.json();
-    if (!data || !data.address) return;
+    if (!data || !data.address) {
+      clearDetectedDeliveryZone('Delivery is not available at this pinned location.');
+      return;
+    }
     var a = data.address;
     var suburb = (a.suburb||a.village||a.neighbourhood||a.hamlet||'').toLowerCase();
     var sel = document.getElementById('zoneSelect');
@@ -646,15 +682,12 @@ async function autoSelectBarangayFromCoords(lat, lng) {
       }
     }
     if (!matched) {
-      for (var i = 0; i < sel.options.length; i++) {
-        if (sel.options[i].dataset.type === 'ooc') {
-          sel.selectedIndex = i; updateFee();
-          updateZoneBadge(sel.options[i]);
-          cakeToast('⚠️ Your location is outside our delivery zones — Out of Coverage applied.','warn'); break;
-        }
-      }
+      clearDetectedDeliveryZone('Delivery is not available at this pinned location.');
+      cakeToast('⚠️ Delivery is not available at this pinned location.','warn');
     }
-  } catch(e) {}
+  } catch(e) {
+    clearDetectedDeliveryZone('We could not verify delivery availability. Please move the pin and try again.');
+  }
 }
 
 function updateZoneBadge(opt) {

@@ -182,9 +182,22 @@ class CustomOrderController extends Controller
 
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null))
             return back()->with('error','Please pin your location.')->withInput();
+        if ($fulfillment === 'Delivery' && !$zone)
+            return back()->with('error','Delivery is not available at the pinned location. Please move the pin or choose pickup.')->withInput();
 
         if ($fulfillment === 'Delivery' && $zone) {
-            try { $zr = DB::table('delivery_zones')->where('barangay',$zone)->where('is_active', true)->first(); if ($zr) $deliveryFee = (float)$zr->fee; } catch (\Exception $e) {}
+            try {
+                $zoneQuery = DB::table('delivery_zones')->where('barangay',$zone)->where('is_active', true);
+                if ($shopId) $zoneQuery->where('shop_id', $shopId);
+                else $zoneQuery->whereNull('shop_id');
+                $zr = $zoneQuery->first();
+                if (!$zr) {
+                    return back()->with('error','This shop does not deliver to the pinned location. Please move the pin or choose pickup.')->withInput();
+                }
+                $deliveryFee = (float)$zr->fee;
+            } catch (\Exception $e) {
+                return back()->with('error','We could not verify delivery availability. Please try again.')->withInput();
+            }
         }
 
         $unitPrice = $basePrice + $sizeSurcharge + $layerSurcharge + $complexitySurcharge;

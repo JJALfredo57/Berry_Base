@@ -531,6 +531,38 @@ function toggleDelivery() {
   updateFee();
 }
 
+function clearDetectedDeliveryZone(message = '') {
+  const sel = document.getElementById('zoneSelect');
+  if (sel) sel.selectedIndex = 0;
+  deliveryFee = 0;
+
+  const feeInput = document.getElementById('deliveryFeeInput');
+  if (feeInput) feeInput.value = 0;
+
+  const feePreview = document.getElementById('feePreview');
+  if (feePreview) feePreview.style.display = 'none';
+
+  const zoneBadge = document.getElementById('zoneBadge');
+  if (zoneBadge) zoneBadge.innerHTML = '';
+
+  const etaEl = document.getElementById('etaDisplay');
+  if (etaEl) etaEl.style.display = 'none';
+
+  const oocNotice = document.getElementById('oocNotice');
+  if (oocNotice) oocNotice.style.display = 'none';
+
+  const feeRow = document.getElementById('feeRow');
+  if (feeRow) feeRow.style.display = 'none';
+
+  const msg = document.getElementById('msgZone');
+  if (msg) {
+    msg.className = message ? 'cv-msg cv-err' : 'cv-msg';
+    msg.textContent = message;
+  }
+
+  updateTotal(getCurrentAddonTotal());
+}
+
 // ── Reverse Geocoding via OpenStreetMap Nominatim ─────────────
 async function reverseGeocode(lat, lng) {
   const field = document.getElementById('addressField');
@@ -568,6 +600,7 @@ function markPinned() {
 }
 
 function setMarkerAt(latlng) {
+  clearDetectedDeliveryZone();
   if (marker) marker.setLatLng(latlng);
   else {
     marker = L.marker(latlng, { draggable: true }).addTo(map);
@@ -664,11 +697,15 @@ function useMyLocation() {
 
 // ── Auto-select barangay from pinned coords via Nominatim ──────────────
 async function autoSelectBarangayFromCoords(lat, lng) {
+  clearDetectedDeliveryZone();
   try {
     const _ctrl2 = new AbortController(); setTimeout(() => _ctrl2.abort(), 6000);
     const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl2.signal });
     const data = await res.json();
-    if (!data || !data.address) return;
+    if (!data || !data.address) {
+      clearDetectedDeliveryZone('Delivery is not available at this pinned location.');
+      return;
+    }
 
     const a = data.address;
     // Collect all candidate name fields Nominatim might return for a barangay
@@ -721,10 +758,11 @@ async function autoSelectBarangayFromCoords(lat, lng) {
       }
       cakeToast('📍 Delivery zone detected: ' + sel.options[bestIdx].value, 'success');
     } else {
+      clearDetectedDeliveryZone('Delivery is not available at this pinned location.');
       cakeToast('⚠️ Could not detect your area — try moving the pin or tap Find My Location.', 'warn');
     }
   } catch (e) {
-    // Silent fail — user selects manually
+    clearDetectedDeliveryZone('We could not verify delivery availability. Please move the pin and try again.');
   }
 }
 

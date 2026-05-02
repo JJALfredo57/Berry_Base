@@ -422,7 +422,15 @@ function onPinSet(lat, lng) {
     msgEl.textContent = '✓ Your location is within the delivery coverage area.';
   } else {
     statusEl.style.cssText = 'display:block;background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;border-radius:.5rem;padding:.5rem .75rem';
-    msgEl.textContent = '⚠ Your location appears to be outside the delivery area. Your order may be rejected.';
+    msgEl.textContent = 'Delivery is not available at this pinned location. Please move the pin or choose pickup.';
+    deliveryFee = 0;
+    document.getElementById('deliveryFeeInput').value = 0;
+    document.getElementById('deliveryCalcBox').style.display = 'none';
+    const feeRow = document.getElementById('feeRow');
+    if (feeRow) feeRow.style.display = 'none';
+    updateTotal(getCurrentAddonTotal());
+    reverseGeocode(lat, lng);
+    return;
   }
 
   // Fee + ETA
