@@ -557,9 +557,7 @@
 
           {{-- Image --}}
           <div id="sbg-image" style="display:{{ $curShopBg==='image' ? 'block' : 'none' }};margin-bottom:1rem">
-            @if(!empty($shopSettings->bg_image_path))
-            <img src="{{ $shopSettings->bg_image_path }}" style="display:block;width:100%;max-width:340px;height:80px;object-fit:cover;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);margin-bottom:.5rem">
-            @endif
+
             <input type="file" class="form-control" name="shop_bg_image" accept=".jpg,.jpeg,.png,.webp" style="font-size:.8rem;max-width:340px">
             <div class="form-text">JPG, PNG or WebP · Max 5 MB. Leave blank to keep current image.</div>
             <div style="margin-top:.65rem">
