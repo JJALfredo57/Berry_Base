@@ -24,17 +24,23 @@ class CustomOrderController extends Controller
 
     private function loadOptions(?string $shopId = null): array
     {
-        $rows = DB::table('custom_order_options')
-            ->where('is_active', true)
-            ->when($shopId, fn($q) => $q->where('shop_id', $shopId), fn($q) => $q->whereNull('shop_id'))
-            ->orderBy('sort_order')->orderBy('id')
-            ->get()->groupBy('type');
+        $base = DB::table('custom_order_options')->where('is_active', true);
+
+        $shopRows     = $shopId
+            ? (clone $base)->where('shop_id', $shopId)->orderBy('sort_order')->orderBy('id')->get()->groupBy('type')
+            : collect();
+        $defaultRows  = (clone $base)->whereNull('shop_id')->orderBy('sort_order')->orderBy('id')->get()->groupBy('type');
+
+        $resolve = fn(string $type) => $shopRows->get($type)?->isNotEmpty()
+            ? $shopRows->get($type)
+            : ($defaultRows->get($type) ?? collect());
+
         return [
-            'flavors'      => $rows['flavor']     ?? collect(),
-            'sizes'        => $rows['size']        ?? collect(),
-            'layers'       => $rows['layer']       ?? collect(),
-            'complexities' => $rows['complexity']  ?? collect(),
-            'timeSlots'    => $rows['time_slot']   ?? collect(),
+            'flavors'      => $resolve('flavor'),
+            'sizes'        => $resolve('size'),
+            'layers'       => $resolve('layer'),
+            'complexities' => $resolve('complexity'),
+            'timeSlots'    => $resolve('time_slot'),
         ];
     }
 
