@@ -8,10 +8,15 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        // Add description column if missing (table may have been created without it)
-        if (Schema::hasTable('custom_order_options') && !Schema::hasColumn('custom_order_options', 'description')) {
+        // Add missing columns if table was created without them
+        if (Schema::hasTable('custom_order_options')) {
             Schema::table('custom_order_options', function (Blueprint $t) {
-                $t->text('description')->nullable()->after('price');
+                if (!Schema::hasColumn('custom_order_options', 'description')) {
+                    $t->text('description')->nullable()->after('price');
+                }
+                if (!Schema::hasColumn('custom_order_options', 'updated_at')) {
+                    $t->timestamp('updated_at')->nullable()->after('created_at');
+                }
             });
         }
 
