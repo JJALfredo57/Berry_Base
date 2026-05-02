@@ -13,6 +13,21 @@ class PaymentController extends Controller
         return ['gcash'];
     }
 
+    private function formatPaymongoCheckoutPhone(?string $phone): string
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+
+        if (strlen($digits) === 12 && str_starts_with($digits, '63')) {
+            $digits = substr($digits, 2);
+        }
+
+        if (strlen($digits) === 11 && str_starts_with($digits, '0')) {
+            $digits = substr($digits, 1);
+        }
+
+        return strlen($digits) === 10 && str_starts_with($digits, '9') ? $digits : '';
+    }
+
     /**
      * Initiate GCash payment via PayMongo Checkout Session API
      * Docs: https://developers.paymongo.com/reference/checkout-session-resource
@@ -55,6 +70,7 @@ class PaymentController extends Controller
         $successUrl = url('/customer/payment-return?order_id=' . $orderId . '&status=success');
         $cancelUrl  = url('/customer/payment-return?order_id=' . $orderId . '&status=cancelled');
         $customer   = DB::table('users')->where('id', $uid)->first();
+        $phone      = $this->formatPaymongoCheckoutPhone($customer->phone ?? '');
 
         // --- Build Checkout Session payload ---
         $payload = [
@@ -63,7 +79,7 @@ class PaymentController extends Controller
                     'billing' => [
                         'name'  => $customer->fullname ?? 'Customer',
                         'email' => $customer->email ?? '',
-                        'phone' => $customer->phone ?? '',
+                        'phone' => $phone,
                     ],
                     'line_items' => [
                         [
@@ -179,6 +195,7 @@ class PaymentController extends Controller
         $successUrl = url('/customer/deposit-return?order_id=' . $id . '&status=success');
         $cancelUrl  = url('/customer/deposit-return?order_id=' . $id . '&status=cancelled');
         $customer   = DB::table('users')->where('id', $uid)->first();
+        $phone      = $this->formatPaymongoCheckoutPhone($customer->phone ?? '');
 
         $payload = [
             'data' => [
@@ -186,7 +203,7 @@ class PaymentController extends Controller
                     'billing' => [
                         'name'  => $customer->fullname ?? 'Customer',
                         'email' => $customer->email ?? '',
-                        'phone' => $customer->phone ?? '',
+                        'phone' => $phone,
                     ],
                     'line_items' => [[
                         'currency' => 'PHP',

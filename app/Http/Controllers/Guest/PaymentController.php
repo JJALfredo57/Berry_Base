@@ -45,9 +45,9 @@ class PaymentController extends Controller
         $successUrl = url('/track/' . $trackCode . '/payment-return?status=success');
         $cancelUrl  = url('/track/' . $trackCode . '/payment-return?status=cancelled');
 
-        // PayMongo expects E.164 format: +639XXXXXXXXX (no double prefix)
+        // PayMongo checkout already renders +63, so send only 9XXXXXXXXX.
         $rawPhone = $order->guest_phone ?? '';
-        $phone    = $this->formatPhoneE164($rawPhone);
+        $phone    = $this->formatPaymongoCheckoutPhone($rawPhone);
 
         $payload = [
             'data' => [
@@ -203,7 +203,7 @@ class PaymentController extends Controller
         $successUrl = url('/track/' . $trackCode . '/deposit-return?status=success');
         $cancelUrl  = url('/track/' . $trackCode . '/deposit-return?status=cancelled');
 
-        $phone = $this->formatPhoneE164($order->guest_phone ?? '');
+        $phone = $this->formatPaymongoCheckoutPhone($order->guest_phone ?? '');
 
         $payload = [
             'data' => [
@@ -515,7 +515,7 @@ class PaymentController extends Controller
         $label      = $depositPaid ? 'Remaining Balance' : 'Full Payment';
         $successUrl = url('/track/' . $trackCode . '/remaining-return?status=success');
         $cancelUrl  = url('/track/' . $trackCode . '/remaining-return?status=cancelled');
-        $phone      = $this->formatPhoneE164($order->guest_phone ?? '');
+        $phone      = $this->formatPaymongoCheckoutPhone($order->guest_phone ?? '');
 
         $payload = [
             'data' => [
@@ -856,22 +856,21 @@ class PaymentController extends Controller
         return ['gcash'];
     }
 
-    private function formatPhoneE164(string $phone): string
+    private function formatPaymongoCheckoutPhone(?string $phone): string
     {
-        $digits = preg_replace('/\D/', '', $phone);
-        // Remove leading country code duplicates
+        $digits = preg_replace('/\D/', '', (string) $phone);
+        // Normalize PH numbers for PayMongo's hosted phone field.
         if (strlen($digits) === 12 && substr($digits, 0, 2) === '63') {
             $digits = substr($digits, 2); // strip 63 → 9XXXXXXXXX
         }
         if (strlen($digits) === 11 && substr($digits, 0, 1) === '0') {
             $digits = substr($digits, 1); // strip leading 0 → 9XXXXXXXXX
         }
-        // Now should be 10 digits starting with 9
+        // The hosted checkout prepends +63, so only pass the national number.
         if (strlen($digits) === 10 && substr($digits, 0, 1) === '9') {
-            return '+63' . $digits;
+            return $digits;
         }
-        // Fallback — return as-is if already E.164
-        return $phone;
+        return '';
     }
 
     /**
