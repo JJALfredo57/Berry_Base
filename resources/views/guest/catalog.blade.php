@@ -510,21 +510,6 @@
               You'll choose pickup/delivery on the next step.
             </div>
 
-            <div class="mb-3 p-3 rounded-3" style="background:#fff0f5;border:1px solid #fce7f3">
-              <label class="form-label fw-semibold small mb-1">
-                <i class="bi bi-calendar3 me-1" style="color:var(--primary)"></i>Check Date Availability
-              </label>
-              <input type="date" class="form-control form-control-sm modal-avail-date"
-                     id="availDate{{ $p->id }}"
-                     min="{{ date('Y-m-d') }}"
-                     data-product-id="{{ $p->id }}"
-                     data-shop-id="{{ $p->shop_id }}"
-                     data-max-per-day="{{ (int)($p->max_per_day ?? 0) }}"
-                     onchange="checkModalAvailability('{{ $p->id }}')">
-              <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date.</div>
-              <div id="availResult{{ $p->id }}" class="mt-2" style="font-size:.82rem;min-height:20px"></div>
-            </div>
-
             <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
               <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
             </button>
@@ -716,32 +701,5 @@ function resetCatalogFilters() {
 }
 </script>
 
-
-<script>
-function checkModalAvailability(productId) {
-  const input    = document.getElementById('availDate' + productId);
-  const date     = input?.value;
-  const shopId   = input?.dataset?.shopId || '';
-  const resultEl = document.getElementById('availResult' + productId);
-  if (!date || !resultEl) return;
-  resultEl.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking...</span>';
-  fetch('/catalog/availability?date=' + date + (shopId ? '&shop_id=' + shopId : ''))
-    .then(r => r.json())
-    .then(data => {
-      if (data.status === 'available') {
-        resultEl.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + data.message + '</span>';
-      } else if (data.status === 'almost') {
-        resultEl.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + data.message + '</span>';
-      } else if (data.status === 'full') {
-        resultEl.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + data.message + '</span>';
-      } else if (data.status === 'invalid') {
-        resultEl.innerHTML = '<span class="text-danger small"><i class="bi bi-x-circle me-1"></i>' + data.message + '</span>';
-      } else {
-        resultEl.innerHTML = '<span class="text-muted small">Could not check availability.</span>';
-      }
-    })
-    .catch(function() { resultEl.innerHTML = '<span class="text-muted small">Could not check.</span>'; });
-}
-</script>
 
 @endsection
