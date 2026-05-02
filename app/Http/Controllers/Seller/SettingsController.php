@@ -222,7 +222,11 @@ class SettingsController extends Controller
         ];
 
         if ($request->hasFile('shop_bg_image') && $request->file('shop_bg_image')->isValid()) {
-            $data['bg_image_path'] = $this->uploadFile($request->file('shop_bg_image'), 'uploads/shops');
+            try {
+                $data['bg_image_path'] = $this->uploadFile($request->file('shop_bg_image'), 'uploads/shops');
+            } catch (\Throwable $e) {
+                return back()->with('err', 'Image upload failed: ' . $e->getMessage())->withInput();
+            }
         }
 
         $this->upsertSettings($shop->id, $data);
