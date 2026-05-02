@@ -138,46 +138,6 @@
                         </div>
                       </td>
                     </tr>
-
-                    {{-- Edit Modal --}}
-                    <div class="modal fade" id="editModal{{ $opt->id }}" tabindex="-1">
-                      <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content border-0" style="border-radius:1.2rem">
-                          <div class="modal-header border-0">
-                            <h5 class="modal-title fw-bold">Edit Option</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                          </div>
-                          <div class="modal-body">
-                            <form action="{{ route('seller.custom_options.update', $opt->id) }}" method="POST">
-                              @csrf
-                              <div class="mb-3">
-                                <label class="form-label fw-semibold small">Label <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="label"
-                                       value="{{ $opt->label }}" required maxlength="120">
-                              </div>
-                              @if($typeMeta['has_price'])
-                              <div class="mb-3">
-                                <label class="form-label fw-semibold small">Price Surcharge (₱)</label>
-                                <input type="number" step="0.01" min="0" class="form-control"
-                                       name="price" value="{{ $opt->price }}">
-                                <div class="form-text">Idadagdag sa base price ng custom order</div>
-                              </div>
-                              @else
-                              <input type="hidden" name="price" value="0">
-                              @endif
-                              <div class="mb-3">
-                                <label class="form-label fw-semibold small">Description <span class="text-muted fw-normal">(optional)</span></label>
-                                <input type="text" class="form-control" name="description"
-                                       value="{{ $opt->description }}"
-                                       placeholder="Short note shown to customer" maxlength="255">
-                              </div>
-                              <button type="submit" class="btn btn-primary w-100">Save Changes</button>
-                            </form>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
                     @endforeach
                   </tbody>
                 </table>
@@ -265,6 +225,50 @@
   </div>
 
 </div>
+
+{{-- Edit Modals (outside table to ensure correct centering) --}}
+@foreach($types as $typeKey => $typeMeta)
+  @foreach(($allOptions[$typeKey] ?? collect()) as $opt)
+  <div class="modal fade" id="editModal{{ $opt->id }}" tabindex="-1" aria-modal="true" role="dialog">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0" style="border-radius:1.2rem">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold">Edit Option</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body pt-3">
+          <form action="{{ route('seller.custom_options.update', $opt->id) }}" method="POST">
+            @csrf
+            <div class="mb-3">
+              <label class="form-label fw-semibold small">Label <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" name="label"
+                     value="{{ $opt->label }}" required maxlength="120">
+            </div>
+            @if($typeMeta['has_price'])
+            <div class="mb-3">
+              <label class="form-label fw-semibold small">Price Surcharge (₱)</label>
+              <input type="number" step="0.01" min="0" class="form-control"
+                     name="price" value="{{ $opt->price }}">
+              <div class="form-text">Idadagdag sa base price ng custom order</div>
+            </div>
+            @else
+            <input type="hidden" name="price" value="0">
+            @endif
+            <div class="mb-3">
+              <label class="form-label fw-semibold small">Description <span class="text-muted fw-normal">(optional)</span></label>
+              <input type="text" class="form-control" name="description"
+                     value="{{ $opt->description }}"
+                     placeholder="Short note shown to customer" maxlength="255">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Save Changes</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  @endforeach
+@endforeach
+
 @push('scripts')
 <script>
 // Keep active tab styled
