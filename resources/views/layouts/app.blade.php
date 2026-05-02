@@ -2892,6 +2892,7 @@ function formatMcTime(dateStr) {
 </a>
 @endif
 
+@stack('modals')
 @stack('scripts')
 
 {{-- ── Global Image Lightbox ─────────────────────────────────────── --}}

@@ -226,7 +226,7 @@
 
 </div>
 
-{{-- Edit Modals (outside table to ensure correct centering) --}}
+@push('modals')
 @foreach($types as $typeKey => $typeMeta)
   @foreach(($allOptions[$typeKey] ?? collect()) as $opt)
   <div class="modal fade" id="editModal{{ $opt->id }}" tabindex="-1" aria-modal="true" role="dialog">
@@ -268,6 +268,7 @@
   </div>
   @endforeach
 @endforeach
+@endpush
 
 @push('scripts')
 <script>
