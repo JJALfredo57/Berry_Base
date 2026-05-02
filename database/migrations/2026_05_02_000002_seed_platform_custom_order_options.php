@@ -38,18 +38,11 @@ return new class extends Migration {
             ['type' => 'size', 'label' => 'Half Sheet (35–40 slices)',                'price' => 1200, 'description' => 'Large sheet cake for big events and reunions.',                  'sort_order' => 9],
 
             // ── Number of Layers ──────────────────────────────────────────
-            ['type' => 'layer', 'label' => '1 Layer (Single Tier)',  'price' => 0,   'description' => 'Classic single-tier cake.',                                               'sort_order' => 1],
-            ['type' => 'layer', 'label' => '2 Layers (Double Tier)', 'price' => 0,   'description' => 'Two layers with filling in between — more height and servings.',          'sort_order' => 2],
-            ['type' => 'layer', 'label' => '3 Layers (Triple Tier)', 'price' => 0,   'description' => 'Three generous layers with filling — perfect for special occasions.',     'sort_order' => 3],
-            ['type' => 'layer', 'label' => '2-Tier Stacked Cake',    'price' => 800, 'description' => 'Two separate tiers stacked — stunning centerpiece for events.',           'sort_order' => 4],
-            ['type' => 'layer', 'label' => '3-Tier Stacked Cake',    'price' => 1800,'description' => 'Three dramatic stacked tiers — ideal for weddings and debut.',            'sort_order' => 5],
-
-            // ── Design Complexity ─────────────────────────────────────────
-            ['type' => 'complexity', 'label' => 'Simple / Minimal',     'price' => 0,    'description' => 'Clean frosting, minimal decoration. Focus on flavor over design.',      'sort_order' => 1],
-            ['type' => 'complexity', 'label' => 'Standard',             'price' => 300,  'description' => 'Smooth frosting with piped borders, rosettes, or basic flowers.',       'sort_order' => 2],
-            ['type' => 'complexity', 'label' => 'Moderate',             'price' => 700,  'description' => 'Fondant accents, detailed piping, and a custom color palette.',        'sort_order' => 3],
-            ['type' => 'complexity', 'label' => 'Elaborate',            'price' => 1400, 'description' => 'Full fondant work, hand-crafted figurines, and intricate details.',    'sort_order' => 4],
-            ['type' => 'complexity', 'label' => 'Premium / Signature',  'price' => 2500, 'description' => 'Fully custom sculpted design — multiple techniques, premium finish.',  'sort_order' => 5],
+            ['type' => 'layer', 'label' => '1 Layer (Single Tier)',  'price' => 0,    'description' => 'Classic single-tier cake — base price, no surcharge.',                  'sort_order' => 1],
+            ['type' => 'layer', 'label' => '2 Layers (Double Tier)', 'price' => 200,  'description' => 'Two layers with filling in between — more height and servings.',         'sort_order' => 2],
+            ['type' => 'layer', 'label' => '3 Layers (Triple Tier)', 'price' => 400,  'description' => 'Three generous layers with filling — perfect for special occasions.',    'sort_order' => 3],
+            ['type' => 'layer', 'label' => '2-Tier Stacked Cake',    'price' => 800,  'description' => 'Two separate tiers stacked — stunning centerpiece for events.',          'sort_order' => 4],
+            ['type' => 'layer', 'label' => '3-Tier Stacked Cake',    'price' => 1800, 'description' => 'Three dramatic stacked tiers — ideal for weddings and debut.',           'sort_order' => 5],
 
             // ── Delivery Time Slots ───────────────────────────────────────
             ['type' => 'time_slot', 'label' => 'Morning (8:00 AM – 11:00 AM)',          'price' => 0, 'description' => null, 'sort_order' => 1],
