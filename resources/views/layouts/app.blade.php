@@ -1079,6 +1079,9 @@
     <a href="{{ route('seller.addons') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.addons') ? 'active' : '' }}">
       <i class="bi bi-gift"></i><span class="sb-link-text">Add-ons</span>
     </a>
+    <a href="{{ route('seller.custom_options') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.custom_options') ? 'active' : '' }}">
+      <i class="bi bi-sliders"></i><span class="sb-link-text">Custom Options</span>
+    </a>
 
     <div class="sb-label">Delivery</div>
     <a href="{{ route('seller.zones') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.zones') ? 'active' : '' }}">

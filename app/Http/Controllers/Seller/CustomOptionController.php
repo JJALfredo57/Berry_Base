@@ -17,9 +17,19 @@ class CustomOptionController extends Controller
         'time_slot'  => ['label' => 'Delivery Time Slots','icon' => 'bi-clock',      'has_price' => false],
     ];
 
+    private function getShopId(): ?string
+    {
+        $uid  = session('user')['id'];
+        $shop = DB::table('shops')->where('seller_id', $uid)->where('status', 'approved')->first();
+        return $shop?->id;
+    }
+
     public function index()
     {
+        $shopId = $this->getShopId();
+
         $allOptions = DB::table('custom_order_options')
+            ->where('shop_id', $shopId)
             ->orderBy('type')
             ->orderBy('sort_order')
             ->orderBy('id')
@@ -33,18 +43,20 @@ class CustomOptionController extends Controller
 
     public function store(Request $request)
     {
-        $type  = $request->input('type');
-        $label = trim($request->input('label', ''));
-        $price = (float) $request->input('price', 0);
-        $desc  = trim($request->input('description', ''));
+        $shopId = $this->getShopId();
+        $type   = $request->input('type');
+        $label  = trim($request->input('label', ''));
+        $price  = (float) $request->input('price', 0);
+        $desc   = trim($request->input('description', ''));
 
         if (!$label || !array_key_exists($type, self::TYPES)) {
             return back()->with('err', 'Invalid option type or empty label.');
         }
 
-        // Duplicate check — same label within same type
+        // Duplicate check — same label within same type and shop
         $exists = DB::table('custom_order_options')
             ->where('type', $type)
+            ->where('shop_id', $shopId)
             ->whereRaw('LOWER(label) = ?', [strtolower($label)])
             ->exists();
         if ($exists) {
@@ -54,15 +66,17 @@ class CustomOptionController extends Controller
 
         $max = DB::table('custom_order_options')
             ->where('type', $type)
+            ->where('shop_id', $shopId)
             ->max('sort_order') ?? 0;
 
         DB::table('custom_order_options')->insert([
+            'shop_id'     => $shopId,
             'type'        => $type,
             'label'       => $label,
             'price'       => $price,
             'description' => $desc ?: null,
             'sort_order'  => $max + 1,
-            'is_active' => true,
+            'is_active'   => true,
             'created_at'  => now(),
         ]);
 
@@ -118,14 +132,14 @@ class CustomOptionController extends Controller
 
     public function sortUp(string $id)
     {
-        $opt = DB::table('custom_order_options')->where('id', $id)->first();
+        $shopId = $this->getShopId();
+        $opt    = DB::table('custom_order_options')->where('id', $id)->where('shop_id', $shopId)->first();
         if (!$opt) return back();
 
         $prev = DB::table('custom_order_options')
-            ->where('type', $opt->type)
+            ->where('type', $opt->type)->where('shop_id', $shopId)
             ->where('sort_order', '<', $opt->sort_order)
-            ->orderByDesc('sort_order')
-            ->first();
+            ->orderByDesc('sort_order')->first();
 
         if ($prev) {
             DB::table('custom_order_options')->where('id', $opt->id)->update(['sort_order' => $prev->sort_order]);
@@ -137,14 +151,14 @@ class CustomOptionController extends Controller
 
     public function sortDown(string $id)
     {
-        $opt = DB::table('custom_order_options')->where('id', $id)->first();
+        $shopId = $this->getShopId();
+        $opt    = DB::table('custom_order_options')->where('id', $id)->where('shop_id', $shopId)->first();
         if (!$opt) return back();
 
         $next = DB::table('custom_order_options')
-            ->where('type', $opt->type)
+            ->where('type', $opt->type)->where('shop_id', $shopId)
             ->where('sort_order', '>', $opt->sort_order)
-            ->orderBy('sort_order')
-            ->first();
+            ->orderBy('sort_order')->first();
 
         if ($next) {
             DB::table('custom_order_options')->where('id', $opt->id)->update(['sort_order' => $next->sort_order]);
