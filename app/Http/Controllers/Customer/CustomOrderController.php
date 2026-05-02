@@ -93,14 +93,13 @@ class CustomOrderController extends Controller
     public function store(Request $request)
     {
         $uid     = session('user')['id'];
-        $options = $this->loadOptions();
-
         $shopId = null;
         $shop   = null;
         if ($slug = $request->input('shop_slug')) {
             $shop = DB::table('shops')->where('shop_slug', $slug)->where('status', 'approved')->first();
             if ($shop) $shopId = $shop->id;
         }
+        $options = $this->loadOptions($shopId);
 
         $cakeName   = trim($request->input('cake_name', 'Customized Cake'));
         $flavor     = trim($request->input('flavor', ''));
@@ -126,11 +125,16 @@ class CustomOrderController extends Controller
 
         $basePrice           = 1200.00;
         $sizeSurcharge       = 0.00;
+        $layerSurcharge      = 0.00;
         $complexitySurcharge = 0.00;
 
         if ($sizeLabel) {
             $sizeOpt = $options['sizes']->firstWhere('label', $sizeLabel);
             if ($sizeOpt) $sizeSurcharge = (float)$sizeOpt->price;
+        }
+        if ($layerLabel) {
+            $layerOpt = $options['layers']->firstWhere('label', $layerLabel);
+            if ($layerOpt) $layerSurcharge = (float)$layerOpt->price;
         }
         if ($compLabel) {
             $compOpt = $options['complexities']->firstWhere('label', $compLabel);
@@ -212,13 +216,14 @@ class CustomOrderController extends Controller
             ]);
         }
 
-        $unitPrice = $basePrice + $sizeSurcharge + $complexitySurcharge;
+        $unitPrice = $basePrice + $sizeSurcharge + $layerSurcharge + $complexitySurcharge;
         $subtotal  = $unitPrice * $qty;
         $total     = $subtotal + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
 
         $breakdown = [
             'base_price'           => $basePrice,
             'size_surcharge'       => $sizeSurcharge,
+            'layer_surcharge'      => $layerSurcharge,
             'complexity_surcharge' => $complexitySurcharge,
             'unit_price'           => $unitPrice,
             'quantity'             => $qty,

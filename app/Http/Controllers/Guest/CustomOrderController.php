@@ -131,7 +131,12 @@ class CustomOrderController extends Controller
         $guestName = trim($request->input('guest_name',''));
         if (!$guestName) return back()->with('error','Please enter your name.')->withInput();
 
-        $options = $this->loadOptions();
+        $shopId = null;
+        if ($slug = $request->input('shop_slug')) {
+            $shopRow = DB::table('shops')->where('shop_slug', $slug)->where('status', 'approved')->first();
+            if ($shopRow) $shopId = $shopRow->id;
+        }
+        $options = $this->loadOptions($shopId);
         $cakeName   = trim($request->input('cake_name','Customized Cake'));
         $flavor     = trim($request->input('flavor',''));
         $sizeLabel  = trim($request->input('size',''));
@@ -153,8 +158,9 @@ class CustomOrderController extends Controller
             }
         }
 
-        $basePrice = 1200.00; $sizeSurcharge = 0; $complexitySurcharge = 0;
+        $basePrice = 1200.00; $sizeSurcharge = 0; $layerSurcharge = 0; $complexitySurcharge = 0;
         if ($sizeLabel) { $so = $options['sizes']->firstWhere('label',$sizeLabel); if ($so) $sizeSurcharge = (float)$so->price; }
+        if ($layerLabel) { $lo = $options['layers']->firstWhere('label',$layerLabel); if ($lo) $layerSurcharge = (float)$lo->price; }
         if ($compLabel) { $co = $options['complexities']->firstWhere('label',$compLabel); if ($co) $complexitySurcharge = (float)$co->price; }
 
         $selectedAddonIds = array_filter(array_map('intval',$request->input('addons',[])));
@@ -181,11 +187,11 @@ class CustomOrderController extends Controller
             try { $zr = DB::table('delivery_zones')->where('barangay',$zone)->where('is_active', true)->first(); if ($zr) $deliveryFee = (float)$zr->fee; } catch (\Exception $e) {}
         }
 
-        $unitPrice = $basePrice + $sizeSurcharge + $complexitySurcharge;
+        $unitPrice = $basePrice + $sizeSurcharge + $layerSurcharge + $complexitySurcharge;
         $total     = ($unitPrice * $qty) + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee + $serviceCharge : 0);
 
         $breakdown = [
-            'base_price'=>$basePrice,'size_surcharge'=>$sizeSurcharge,
+            'base_price'=>$basePrice,'size_surcharge'=>$sizeSurcharge,'layer_surcharge'=>$layerSurcharge,
             'complexity_surcharge'=>$complexitySurcharge,'unit_price'=>$unitPrice,
             'quantity'=>$qty,'subtotal'=>$unitPrice*$qty,
             'addon_total'=>$addonTotal,'delivery_fee'=>$fulfillment==='Delivery'?$deliveryFee:0,
@@ -206,12 +212,6 @@ class CustomOrderController extends Controller
             $customPid = CakeshopHelper::generateId('products');
             DB::table('products')->insert(['id'=>$customPid,'name'=>'Custom Cake Order','description'=>'Custom cake placeholder.','price'=>$basePrice,'image_path'=>'/storage/uploads/products/default.png','classification'=>'Custom','flavor'=>null,'created_at'=>now()]);
         } else { $customPid = $customProduct->id; }
-
-        $shopId = null;
-        if ($slug = $request->input('shop_slug')) {
-            $shopRow = DB::table('shops')->where('shop_slug', $slug)->where('status', 'approved')->first();
-            if ($shopRow) $shopId = $shopRow->id;
-        }
 
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $request->session()->get('co_guest_pre_track') ?: $this->generateTrackCode();

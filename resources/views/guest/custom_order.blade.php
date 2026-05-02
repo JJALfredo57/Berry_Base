@@ -102,11 +102,11 @@
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Number of Layers</label>
-                    <select class="form-select" name="layers">
+                    <select class="form-select" name="layers" onchange="updatePriceSummary()">
                       <option value="">-- Select Layers --</option>
                       @foreach($layers as $l)
                         <option value="{{ $l->label }}" {{ old('layers')==$l->label ? 'selected':'' }}>
-                          {{ $l->label }}
+                          {{ $l->label }}@if($l->price > 0) (+&#8369;{{ number_format($l->price,2) }})@endif
                         </option>
                       @endforeach
                     </select>
@@ -404,6 +404,10 @@
                 <span class="text-muted">Size Surcharge</span>
                 <span id="sizeSurchargeDisplay" class="fw-semibold" style="color:var(--primary)">+₱0.00</span>
               </div>
+              <div class="d-flex justify-content-between small mb-2" id="layerSurchargeRow" style="display:none!important">
+                <span class="text-muted">Layer Surcharge</span>
+                <span id="layerSurchargeDisplay" class="fw-semibold" style="color:var(--primary)">+&#8369;0.00</span>
+              </div>
               <div id="addonSummary"></div>
               <div class="d-flex justify-content-between small mb-1" id="feeRow" style="display:none!important">
                 <span class="text-muted">Delivery Fee</span>
@@ -467,6 +471,11 @@ var SIZE_PRICES = {
     {!! json_encode($s->label) !!}: {{ (float)$s->price }},
   @endforeach
 };
+var LAYER_PRICES = {
+  @foreach($layers as $l)
+    {!! json_encode($l->label) !!}: {{ (float)$l->price }},
+  @endforeach
+};
 var BASE_CUSTOM = 1200;
 var deliveryFee = 0;
 var map, marker;
@@ -474,9 +483,11 @@ var map, marker;
 function updatePriceSummary() {
   var qty       = parseInt(document.querySelector('[name=quantity]')?.value || 1);
   var size      = document.querySelector('[name=size]')?.value || '';
+  var layer     = document.querySelector('[name=layers]')?.value || '';
   var isDelivery= document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   var svcCharge = parseFloat(document.getElementById('serviceChargeInput')?.value || 0);
   var sizeSurcharge = SIZE_PRICES[size] ?? 0;
+  var layerSurcharge = LAYER_PRICES[layer] ?? 0;
 
   var addonTotal = 0, addonDetails = [];
   document.querySelectorAll('.addon-check:checked').forEach(chk => {
@@ -486,7 +497,7 @@ function updatePriceSummary() {
     addonTotal += price; addonDetails.push({ name, price });
   });
 
-  var unitPrice = BASE_CUSTOM + sizeSurcharge;
+  var unitPrice = BASE_CUSTOM + sizeSurcharge + layerSurcharge;
   var subtotal  = unitPrice * qty;
   var total     = subtotal + addonTotal + (isDelivery ? deliveryFee + svcCharge : 0);
 
@@ -494,6 +505,11 @@ function updatePriceSummary() {
   if (sizeSurRow) { sizeSurRow.style.display = sizeSurcharge > 0 ? 'flex' : 'none'; }
   var sizeSurDisp = document.getElementById('sizeSurchargeDisplay');
   if (sizeSurDisp && sizeSurcharge > 0) sizeSurDisp.textContent = '+₱' + sizeSurcharge.toFixed(2);
+
+  var layerSurRow = document.getElementById('layerSurchargeRow');
+  if (layerSurRow) { layerSurRow.style.display = layerSurcharge > 0 ? 'flex' : 'none'; }
+  var layerSurDisp = document.getElementById('layerSurchargeDisplay');
+  if (layerSurDisp && layerSurcharge > 0) layerSurDisp.textContent = '+\u20b1' + layerSurcharge.toFixed(2);
 
   document.getElementById('addonSummary').innerHTML = addonDetails.map(d =>
     '<div class="d-flex justify-content-between small mb-1 text-muted">'

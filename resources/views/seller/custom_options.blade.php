@@ -182,6 +182,7 @@
                          name="price" placeholder="0.00">
                   <div class="form-text">
                     @if($typeKey==='size') Dagdag sa base price base sa sukat. @endif
+                    @if($typeKey==='layer') Dagdag sa base price base sa bilang ng layers. @endif
                     @if($typeKey==='complexity') Dagdag sa base price base sa kahirapan ng design. @endif
                   </div>
                 </div>
@@ -208,7 +209,7 @@
                 @elseif($typeKey==='size')
                   <div class="text-muted">Diameter ng cake. Ang price surcharge ay idadagdag sa ₱1,200 base price.</div>
                 @elseif($typeKey==='layer')
-                  <div class="text-muted">Bilang ng layers ng cake.</div>
+                  <div class="text-muted">Bilang ng layers ng cake. Ang price surcharge ay idadagdag sa base price.</div>
                 @elseif($typeKey==='complexity')
                   <div class="text-muted">Kahirapan ng design. Mas mataas ang complexity, mas mataas ang surcharge.</div>
                 @elseif($typeKey==='time_slot')
