@@ -201,36 +201,39 @@ class SettingsController extends Controller
 
     public function saveAppearance(Request $request)
     {
-        $shop = $this->getShop();
+        try {
+            $shop = $this->getShop();
 
-        $request->validate([
-            'shop_bg_color'          => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
-            'shop_bg_gradient_start' => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
-            'shop_bg_gradient_end'   => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
-            'shop_bg_image'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-        ]);
+            $request->validate([
+                'shop_bg_color'          => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+                'shop_bg_gradient_start' => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+                'shop_bg_gradient_end'   => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+                'shop_bg_image'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            ]);
 
-        $bgType    = $request->input('shop_bg_type', 'color');
-        $bgOpacity = max(0.1, min(1.0, (float) $request->input('shop_bg_opacity', 1.0)));
+            $bgType    = $request->input('shop_bg_type', 'color');
+            $bgOpacity = max(0.1, min(1.0, (float) $request->input('shop_bg_opacity', 1.0)));
 
-        $data = [
-            'bg_type'          => $bgType,
-            'bg_color'         => $request->input('shop_bg_color', '#f9f9f9'),
-            'gradient_start'   => $request->input('shop_bg_gradient_start', '#fff7fb'),
-            'gradient_end'     => $request->input('shop_bg_gradient_end', '#ffe3f1'),
-            'bg_image_opacity' => $bgOpacity,
-        ];
+            $data = [
+                'bg_type'          => $bgType,
+                'bg_color'         => $request->input('shop_bg_color', '#f9f9f9'),
+                'gradient_start'   => $request->input('shop_bg_gradient_start', '#fff7fb'),
+                'gradient_end'     => $request->input('shop_bg_gradient_end', '#ffe3f1'),
+                'bg_image_opacity' => $bgOpacity,
+            ];
 
-        if ($request->hasFile('shop_bg_image') && $request->file('shop_bg_image')->isValid()) {
-            try {
+            if ($request->hasFile('shop_bg_image') && $request->file('shop_bg_image')->isValid()) {
                 $data['bg_image_path'] = $this->uploadFile($request->file('shop_bg_image'), 'uploads/shops');
-            } catch (\Throwable $e) {
-                return back()->with('err', 'Image upload failed: ' . $e->getMessage())->withInput();
             }
-        }
 
-        $this->upsertSettings($shop->id, $data);
-        return redirect()->to(route('seller.settings').'?tab=appearance')->with('msg', 'Shop page appearance saved!');
+            $this->upsertSettings($shop->id, $data);
+            return redirect()->to(route('seller.settings').'?tab=appearance')->with('msg', 'Shop page appearance saved!');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return back()->with('err', '[DEBUG] ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine())->withInput();
+        }
     }
 
     public function updatePassword(Request $request)
