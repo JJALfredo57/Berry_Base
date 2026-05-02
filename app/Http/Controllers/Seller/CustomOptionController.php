@@ -10,11 +10,10 @@ class CustomOptionController extends Controller
 {
     // All option types with their display labels
     const TYPES = [
-        'flavor'     => ['label' => 'Flavors',            'icon' => 'bi-droplet',    'has_price' => false],
-        'size'       => ['label' => 'Sizes (Diameter)',   'icon' => 'bi-rulers',     'has_price' => true],
-        'layer'      => ['label' => 'Number of Layers',   'icon' => 'bi-layers',     'has_price' => false],
-        'complexity' => ['label' => 'Design Complexity',  'icon' => 'bi-magic',      'has_price' => true],
-        'time_slot'  => ['label' => 'Delivery Time Slots','icon' => 'bi-clock',      'has_price' => false],
+        'flavor'    => ['label' => 'Flavors',            'icon' => 'bi-droplet', 'has_price' => false],
+        'size'      => ['label' => 'Sizes (Diameter)',   'icon' => 'bi-rulers',  'has_price' => true],
+        'layer'     => ['label' => 'Number of Layers',   'icon' => 'bi-layers',  'has_price' => true],
+        'time_slot' => ['label' => 'Delivery Time Slots','icon' => 'bi-clock',   'has_price' => false],
     ];
 
     private function getShopId(): ?string

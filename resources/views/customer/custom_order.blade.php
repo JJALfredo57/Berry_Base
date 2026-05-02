@@ -117,46 +117,6 @@
               </div>
             </div>
 
-            {{-- 3. Design Complexity --}}
-            <div class="card mb-3">
-              <div class="card-body p-4">
-                <h6 class="fw-bold mb-3">
-                  <i class="bi bi-magic me-2" style="color:var(--primary)"></i>Design Complexity
-                  <span class="badge ms-1" style="background:#fff0f5;color:var(--primary);font-size:.7rem">Affects price</span>
-                </h6>
-                @if($complexities->count() > 0)
-                <div class="row g-2">
-                  @foreach($complexities as $c)
-                  <div class="col-sm-6">
-                    <label class="complexity-card d-block p-3 rounded"
-                           style="border:2px solid #e9ecef;cursor:pointer;transition:.15s"
-                           onmouseenter="if(!this.querySelector('input').checked)this.style.borderColor='var(--primary)'"
-                           onmouseleave="if(!this.querySelector('input').checked)this.style.borderColor='#e9ecef'">
-                      <div class="d-flex align-items-start gap-2">
-                        <input type="radio" name="design_complexity" value="{{ $c->label }}"
-                               class="form-check-input mt-1 flex-shrink-0"
-                               {{ (old('design_complexity', $complexities->first()?->label) == $c->label) ? 'checked' : '' }}
-                               onchange="updatePriceSummary(); highlightComplexity(this)">
-                        <div>
-                          <div class="fw-semibold small">{{ $c->label }}</div>
-                          @if($c->description)
-                            <div class="text-muted" style="font-size:.72rem">{{ $c->description }}</div>
-                          @endif
-                          <div class="fw-bold small mt-1" style="color:var(--primary)">
-                            {{ $c->price > 0 ? '+₱'.number_format($c->price,2) : 'Included' }}
-                          </div>
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-                  @endforeach
-                </div>
-                @else
-                <p class="text-muted small">No complexity options set yet. Contact the shop.</p>
-                @endif
-              </div>
-            </div>
-
             {{-- 4. Dedication --}}
             <div class="card mb-3">
               <div class="card-body p-4">
@@ -390,10 +350,7 @@
                 <span class="text-muted">Size Surcharge</span>
                 <span id="sizeSurchargeDisplay" class="fw-semibold" style="color:var(--primary)">+₱0.00</span>
               </div>
-              <div class="d-flex justify-content-between small mb-2" id="complexityRow" style="display:none!important">
-                <span class="text-muted">Design Complexity</span>
-                <span id="complexityDisplay" class="fw-semibold" style="color:var(--primary)">+₱0.00</span>
-              </div>
+
               <div id="addonSummary"></div>
               <div class="d-flex justify-content-between small mb-1" id="feeRow" style="display:none!important">
                 <span class="text-muted">Delivery Fee</span>
@@ -444,11 +401,7 @@ const SIZE_PRICES = {
     {!! json_encode($s->label) !!}: {{ (float)$s->price }},
   @endforeach
 };
-const COMPLEXITY_PRICES = {
-  @foreach($complexities as $c)
-    {!! json_encode($c->label) !!}: {{ (float)$c->price }},
-  @endforeach
-};
+
 const BASE_CUSTOM = 1200;
 
 // ── Shop & coverage data ──────────────────────────────
@@ -588,10 +541,8 @@ function onPinSet(lat, lng) {
 function updatePriceSummary() {
   const qty             = parseInt(document.querySelector('[name=quantity]')?.value || 1);
   const size            = document.querySelector('[name=size]')?.value || '';
-  const complexity      = document.querySelector('[name=design_complexity]:checked')?.value || '';
   const isDelivery      = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   const sizeSurcharge       = SIZE_PRICES[size] ?? 0;
-  const complexitySurcharge = COMPLEXITY_PRICES[complexity] ?? 0;
 
   let addonTotal = 0;
   const addonDetails = [];
@@ -603,7 +554,7 @@ function updatePriceSummary() {
     addonDetails.push({ name, price });
   });
 
-  const unitPrice = BASE_CUSTOM + sizeSurcharge + complexitySurcharge;
+  const unitPrice = BASE_CUSTOM + sizeSurcharge;
   const subtotal  = unitPrice * qty;
   const total     = subtotal + addonTotal + (isDelivery ? deliveryFee : 0);
 
@@ -611,11 +562,6 @@ function updatePriceSummary() {
   sizeSurRow.style.display = sizeSurcharge > 0 ? 'flex' : 'none';
   if (sizeSurcharge > 0)
     document.getElementById('sizeSurchargeDisplay').textContent = '+₱' + sizeSurcharge.toFixed(2);
-
-  const cplxRow = document.getElementById('complexityRow');
-  cplxRow.style.display = complexitySurcharge > 0 ? 'flex' : 'none';
-  if (complexitySurcharge > 0)
-    document.getElementById('complexityDisplay').textContent = '+₱' + complexitySurcharge.toFixed(2);
 
   document.getElementById('addonSummary').innerHTML = addonDetails.map(d =>
     '<div class="d-flex justify-content-between small mb-1 text-muted">
@@ -630,16 +576,6 @@ function updatePriceSummary() {
 
   document.getElementById('totalDisplay').textContent =
     '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2});
-}
-
-function highlightComplexity(input) {
-  document.querySelectorAll('.complexity-card').forEach(c => {
-    c.style.borderColor = '#e9ecef';
-    c.style.background  = '';
-  });
-  const card = input.closest('.complexity-card');
-  card.style.borderColor = 'var(--primary)';
-  card.style.background  = 'var(--primary-light)';
 }
 
 function highlightAddonCard(input) {
@@ -793,8 +729,6 @@ function confirmCustomOrder(btn) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const checked = document.querySelector('[name=design_complexity]:checked');
-  if (checked) highlightComplexity(checked);
   updatePaymentMethodLabel();
   updatePriceSummary();
 });
