@@ -38,6 +38,28 @@
   @if(session('warn'))
     <div class="alert alert-warning border-0"><i class="bi bi-exclamation-triangle me-2"></i>{{ session('warn') }}</div>
   @endif
+  <style>
+    @keyframes depositShake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+    .deposit-amount-input.is-invalid {
+      border-color: #dc2626 !important;
+      box-shadow: 0 0 0 .18rem rgba(220, 38, 38, .12) !important;
+    }
+    .deposit-error {
+      display: none;
+      color: #dc2626;
+      font-size: .7rem;
+      font-weight: 700;
+      margin-top: .3rem;
+    }
+    .deposit-error.show {
+      display: block;
+      animation: depositShake .32s ease;
+    }
+  </style>
 
   <div id="custOrdersList">
 @forelse($orders as $o)
@@ -242,9 +264,28 @@
               <span style="font-weight:800;color:#111827;font-size:.95rem">₱{{ number_format($coTotal, 2) }}</span>
             </div>
             <div class="d-flex flex-column gap-2">
-              <form action="{{ route('customer.custom_orders.set_deposit', $co->id) }}" method="POST">
+              <form action="{{ route('customer.custom_orders.set_deposit', $co->id) }}" method="POST"
+                    class="deposit-amount-form"
+                    data-min="{{ $minDep }}"
+                    data-max="{{ $coTotal }}">
                 @csrf
-                <input type="hidden" name="deposit_amount" value="{{ $minDep }}">
+                <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now</label>
+                <div class="input-group">
+                  <span class="input-group-text" style="font-weight:800;color:#059669;background:#ecfdf5;border-color:#bbf7d0">₱</span>
+                  <input type="text"
+                         name="deposit_amount"
+                         class="form-control deposit-amount-input"
+                         value="{{ number_format($minDep, 2, '.', '') }}"
+                         inputmode="decimal"
+                         autocomplete="off"
+                         data-min="{{ $minDep }}"
+                         data-max="{{ $coTotal }}"
+                         style="font-weight:800;color:#111827;border-color:#bbf7d0">
+                </div>
+                <div class="deposit-error">Minimum payment is 50%: ₱{{ number_format($minDep, 2) }}.</div>
+                <div style="font-size:.66rem;color:#6b7280;margin-top:.25rem">
+                  Enter at least ₱{{ number_format($minDep, 2) }}. You may pay more up to ₱{{ number_format($coTotal, 2) }}.
+                </div>
                 <button type="submit" class="btn w-100 fw-bold py-2"
                         style="background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:.7rem;font-size:.88rem"
                         data-cs-confirm="Pay 50% deposit of ₱{{ number_format($minDep,2) }} via GCash?\n\nYou'll be redirected to PayMongo. GCash is pre-selected and your phone number is pre-filled."
@@ -253,7 +294,7 @@
                         data-cs-icon="bi-phone-fill"
                         data-cs-icon-bg="#d1fae5"
                         data-cs-icon-color="#059669">
-                  <i class="bi bi-phone-fill me-1"></i>Pay 50% Deposit — ₱{{ number_format($minDep, 2) }}
+                  <i class="bi bi-phone-fill me-1"></i>Pay Deposit via GCash
                 </button>
                 <div style="font-size:.66rem;color:#6b7280;text-align:center;margin-top:.25rem">
                   Remaining: ₱{{ number_format($coTotal - $minDep, 2) }} (paid on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }})
@@ -871,6 +912,98 @@ function selectStar(orderId, count) {
   starSelections[orderId] = count;
   resetStars(orderId);
 }
+
+function setupDepositAmountForms() {
+  document.querySelectorAll('.deposit-amount-form').forEach(form => {
+    const input = form.querySelector('.deposit-amount-input');
+    const error = form.querySelector('.deposit-error');
+    const button = form.querySelector('button[type="submit"]');
+    const min = parseFloat(form.dataset.min || input?.dataset.min || '0');
+    const max = parseFloat(form.dataset.max || input?.dataset.max || '0');
+
+    if (!input || !error) return;
+
+    const setButtonCopy = () => {
+      const amount = parseFloat(input.value || '0');
+      if (button) {
+        button.innerHTML = '<i class="bi bi-phone-fill me-1"></i>Pay Deposit via GCash';
+        button.dataset.csConfirm = 'Pay deposit of ₱' + (amount || min).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' via GCash?\\n\\nYou will be redirected to PayMongo.';
+        button.dataset.csTitle = 'Pay Deposit';
+        button.dataset.csOk = 'Pay Now';
+        button.dataset.csIcon = 'bi-phone-fill';
+        button.dataset.csIconBg = '#d1fae5';
+        button.dataset.csIconColor = '#059669';
+      }
+    };
+
+    const showError = message => {
+      input.classList.add('is-invalid');
+      error.textContent = message;
+      error.classList.remove('show');
+      void error.offsetWidth;
+      error.classList.add('show');
+      if (navigator.vibrate) navigator.vibrate(120);
+    };
+
+    const clearError = () => {
+      input.classList.remove('is-invalid');
+      error.classList.remove('show');
+    };
+
+    input.addEventListener('input', () => {
+      let value = input.value.replace(/[^\d.]/g, '');
+      const firstDot = value.indexOf('.');
+      if (firstDot !== -1) {
+        value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, '');
+      }
+      input.value = value;
+      clearError();
+      setButtonCopy();
+    });
+
+    input.addEventListener('blur', () => {
+      const amount = parseFloat(input.value || '0');
+      if (!amount) input.value = min.toFixed(2);
+      else input.value = Math.min(amount, max).toFixed(2);
+      setButtonCopy();
+    });
+
+    button?.addEventListener('click', event => {
+      const amount = parseFloat(input.value || '0');
+      if (!amount || amount < min) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        showError('Minimum payment is 50%: ₱' + min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '.');
+        input.focus();
+      }
+    });
+
+    form.addEventListener('submit', event => {
+      const amount = parseFloat(input.value || '0');
+      if (!amount || amount < min) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        showError('Minimum payment is 50%: ₱' + min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '.');
+        input.focus();
+        return false;
+      }
+      if (max && amount > max) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        showError('Payment cannot exceed the order total: ₱' + max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '.');
+        input.focus();
+        return false;
+      }
+      input.value = amount.toFixed(2);
+      setButtonCopy();
+      return true;
+    }, true);
+
+    setButtonCopy();
+  });
+}
+
+setupDepositAmountForms();
 </script>
 @endpush
 
