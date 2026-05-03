@@ -74,34 +74,51 @@ class DashboardController extends Controller
             ->whereMonth('orders.paid_at', now()->month)
             ->sum('orders.total_price');
 
-        $monthlyStart = now()->startOfMonth()->subMonths(5);
-        $monthlyRows = $this->commissionQuery()
-            ->where('orders.paid_at', '>=', $monthlyStart)
-            ->select(
-                DB::raw("DATE_FORMAT(orders.paid_at, '%Y-%m') as month_key"),
-                DB::raw('SUM(orders.total_price * shops.commission_rate / 100) as commission'),
-                DB::raw('SUM(orders.total_price) as gross_sales'),
-                DB::raw('COUNT(*) as paid_orders')
-            )
-            ->groupBy('month_key')
-            ->orderBy('month_key')
-            ->get()
-            ->keyBy('month_key');
-
         $monthlyLabels = [];
         $monthlyCommission = [];
         $monthlyGrossSales = [];
         $monthlyOrderCounts = [];
+        $monthlyBuckets = [];
 
         for ($i = 5; $i >= 0; $i--) {
             $month = now()->startOfMonth()->subMonths($i);
             $key = $month->format('Y-m');
-            $row = $monthlyRows->get($key);
+
+            $monthlyBuckets[$key] = [
+                'commission' => 0,
+                'gross_sales' => 0,
+                'paid_orders' => 0,
+            ];
+        }
+
+        $monthlyStart = now()->startOfMonth()->subMonths(5);
+        $this->commissionQuery()
+            ->where('orders.paid_at', '>=', $monthlyStart)
+            ->select('orders.paid_at', 'orders.total_price', 'shops.commission_rate')
+            ->orderBy('orders.paid_at')
+            ->get()
+            ->each(function ($order) use (&$monthlyBuckets) {
+                $key = substr((string) $order->paid_at, 0, 7);
+
+                if (!isset($monthlyBuckets[$key])) {
+                    return;
+                }
+
+                $grossSales = (float) $order->total_price;
+                $monthlyBuckets[$key]['commission'] += $this->commissionAmount($grossSales, (float) $order->commission_rate);
+                $monthlyBuckets[$key]['gross_sales'] += $grossSales;
+                $monthlyBuckets[$key]['paid_orders']++;
+            });
+
+        for ($i = 5; $i >= 0; $i--) {
+            $month = now()->startOfMonth()->subMonths($i);
+            $key = $month->format('Y-m');
+            $row = $monthlyBuckets[$key];
 
             $monthlyLabels[] = $month->format('M Y');
-            $monthlyCommission[] = round((float)($row->commission ?? 0), 2);
-            $monthlyGrossSales[] = round((float)($row->gross_sales ?? 0), 2);
-            $monthlyOrderCounts[] = (int)($row->paid_orders ?? 0);
+            $monthlyCommission[] = round((float) $row['commission'], 2);
+            $monthlyGrossSales[] = round((float) $row['gross_sales'], 2);
+            $monthlyOrderCounts[] = (int) $row['paid_orders'];
         }
 
         $topShops = $this->commissionQuery()
@@ -145,5 +162,10 @@ class DashboardController extends Controller
             ->whereNotNull('orders.paid_at')
             ->where('shops.commission_enabled', 1)
             ->where('shops.commission_rate', '>', 0);
+    }
+
+    private function commissionAmount(float $grossSales, float $commissionRate): float
+    {
+        return $grossSales * $commissionRate / 100;
     }
 }

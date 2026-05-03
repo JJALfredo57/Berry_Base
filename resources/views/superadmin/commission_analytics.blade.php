@@ -146,12 +146,12 @@
 <div class="commission-kpis">
   <div class="commission-kpi">
     <div class="commission-kpi-icon" style="background:#f3e5f5"><i class="bi bi-cash-stack" style="color:#6A1B9A"></i></div>
-    <div class="commission-kpi-value">₱{{ number_format($totalCommission, 2) }}</div>
+    <div class="commission-kpi-value">&#8369;{{ number_format($totalCommission, 2) }}</div>
     <div class="commission-kpi-label">Total Commission</div>
   </div>
   <div class="commission-kpi">
     <div class="commission-kpi-icon" style="background:#e0f2f1"><i class="bi bi-calendar2-check" style="color:#00695C"></i></div>
-    <div class="commission-kpi-value">₱{{ number_format($commissionMonth, 2) }}</div>
+    <div class="commission-kpi-value">&#8369;{{ number_format($commissionMonth, 2) }}</div>
     <div class="commission-kpi-label">This Month</div>
   </div>
   <div class="commission-kpi">
@@ -161,7 +161,7 @@
   </div>
   <div class="commission-kpi">
     <div class="commission-kpi-icon" style="background:#fff7ed"><i class="bi bi-bar-chart-line" style="color:#c2410c"></i></div>
-    <div class="commission-kpi-value">₱{{ number_format($grossSalesMonth, 2) }}</div>
+    <div class="commission-kpi-value">&#8369;{{ number_format($grossSalesMonth, 2) }}</div>
     <div class="commission-kpi-label">Gross Sales</div>
   </div>
 </div>
@@ -204,11 +204,11 @@
           </div>
           <div>
             <div class="text-muted" style="font-size:.72rem">Commission</div>
-            <strong>₱{{ number_format($shop->commission, 2) }}</strong>
+            <strong>&#8369;{{ number_format($shop->commission, 2) }}</strong>
           </div>
           <div>
             <div class="text-muted" style="font-size:.72rem">Gross Sales</div>
-            <strong>₱{{ number_format($shop->gross_sales, 2) }}</strong>
+            <strong>&#8369;{{ number_format($shop->gross_sales, 2) }}</strong>
           </div>
           <div>
             <div class="text-muted" style="font-size:.72rem">Orders</div>

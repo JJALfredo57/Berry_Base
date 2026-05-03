@@ -1,4 +1,67 @@
 @extends('layouts.app')
+
+@push('styles')
+<style>
+  .sa-dashboard-stats > [class*="col-"] {
+    display:flex;
+  }
+
+  .sa-dashboard-stats .cs-stat-card {
+    width:100%;
+    min-height:124px;
+    align-items:center;
+    gap:.85rem;
+    padding:1rem !important;
+  }
+
+  .sa-dashboard-stats .cs-stat-icon {
+    width:44px;
+    height:44px;
+  }
+
+  .sa-dashboard-stats .cs-stat-body {
+    min-width:0;
+  }
+
+  .sa-dashboard-stats .cs-stat-num {
+    font-size:clamp(1rem,2.1vw,1.35rem) !important;
+    line-height:1.12;
+    overflow-wrap:anywhere;
+    word-break:normal;
+  }
+
+  .sa-dashboard-stats .cs-stat-label {
+    max-width:100%;
+    white-space:normal;
+    line-height:1.18;
+    letter-spacing:0;
+    font-size:clamp(.66rem,1.25vw,.74rem);
+  }
+
+  .sa-dashboard-stats a.cs-stat-card {
+    color:inherit;
+  }
+
+  .sa-dashboard-stats a.cs-stat-card:focus-visible {
+    outline:3px solid rgba(37,99,235,.3);
+    outline-offset:3px;
+  }
+
+  @media (max-width: 575.98px) {
+    .sa-dashboard-stats .cs-stat-card {
+      min-height:112px;
+      padding:.95rem !important;
+    }
+
+    .sa-dashboard-stats .cs-stat-icon {
+      width:40px;
+      height:40px;
+      font-size:1rem;
+    }
+  }
+</style>
+@endpush
+
 @section('content')
 
 {{-- Page Header --}}
@@ -21,18 +84,18 @@
 @endif
 
 {{-- Stat Cards --}}
-<div class="row g-3 mb-4 cs-stagger">
+<div class="row g-3 mb-4 cs-stagger sa-dashboard-stats">
   @foreach([
     ['bi-shop',         'Approved Shops',        $stats['total_shops'],                     'var(--primary)',   'var(--primary-bg)', null],
     ['bi-hourglass',    'Pending Applications',   $stats['pending_apps'],                    '#E65100',          '#fff3e0', null],
     ['bi-bag-check',    'Total Orders',           number_format($stats['total_orders']),     '#1565C0',          '#e3f2fd', null],
     ['bi-people',       'Customers',              number_format($stats['total_customers']),  '#2E7D32',          '#e8f5e9', null],
-    ['bi-cash-stack',   'Total Commission',       '₱'.number_format($stats['total_commission'],2), '#6A1B9A',      '#f3e5f5', route('superadmin.commissions')],
-    ['bi-calendar2-check','This Month Commission','₱'.number_format($commissionMonth,2),      '#00695C',         '#e0f2f1', route('superadmin.commissions')],
+    ['bi-cash-stack',   'Total Commission',       '&#8369;'.number_format($stats['total_commission'],2), '#6A1B9A',      '#f3e5f5', route('superadmin.commissions')],
+    ['bi-calendar2-check','This Month Commission','&#8369;'.number_format($commissionMonth,2),      '#00695C',         '#e0f2f1', route('superadmin.commissions')],
   ] as [$icon, $label, $val, $color, $bg, $href])
-  <div class="col-6 col-md-4 col-lg-2">
+  <div class="col-6 col-md-4 col-xl-2">
     @if($href)
-    <a href="{{ $href }}" class="cs-stat-card h-100 text-decoration-none d-block" style="cursor:pointer">
+    <a href="{{ $href }}" class="cs-stat-card h-100 text-decoration-none" style="cursor:pointer">
     @else
     <div class="cs-stat-card h-100">
     @endif
@@ -40,7 +103,7 @@
         <i class="bi {{ $icon }}" style="color:{{ $color }}"></i>
       </div>
       <div class="cs-stat-body">
-        <div class="cs-stat-num" style="color:{{ $color }};font-size:clamp(1.1rem,2.5vw,1.4rem)">{{ $val }}</div>
+        <div class="cs-stat-num" style="color:{{ $color }}">{!! $val !!}</div>
         <div class="cs-stat-label">{{ $label }}</div>
       </div>
     @if($href)
