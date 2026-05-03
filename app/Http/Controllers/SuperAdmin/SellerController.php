@@ -40,7 +40,18 @@ class SellerController extends Controller
             foreach ($docs as $d) $documents[$d->shop_id][] = $d;
         }
 
-        return view('superadmin.sellers', compact('applications','documents'));
+        $platform = DB::table('platform_settings')->first()
+            ?? (object) [
+                'commission_rate_basic' => 0.00,
+                'commission_rate_verified' => 0.00,
+            ];
+
+        $commissionStats = DB::table('shops')
+            ->whereIn('status', ['approved', 'suspended'])
+            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN commission_enabled = 1 THEN 1 ELSE 0 END) as enabled')
+            ->first();
+
+        return view('superadmin.sellers', compact('applications','documents','platform','commissionStats'));
     }
 
     public function approve(Request $request, string $shopId)
@@ -156,7 +167,18 @@ class SellerController extends Controller
 
     public function bulkCommission(Request $request)
     {
-        $action = $request->input('action'); // 'enable' or 'disable'
+        $action = $request->input('action'); // 'enable', 'disable', or automatic toggle
+        if ($action === 'toggle' || !$action) {
+            $stats = DB::table('shops')
+                ->whereIn('status', ['approved', 'suspended'])
+                ->selectRaw('COUNT(*) as total, SUM(CASE WHEN commission_enabled = 1 THEN 1 ELSE 0 END) as enabled')
+                ->first();
+
+            $allEnabled = ((int)($stats->total ?? 0) > 0)
+                && ((int)($stats->enabled ?? 0) === (int)($stats->total ?? 0));
+            $action = $allEnabled ? 'disable' : 'enable';
+        }
+
         if (!in_array($action, ['enable','disable'])) return back()->with('err','Invalid action.');
 
         $val = $action === 'enable' ? 1 : 0;
@@ -265,6 +287,33 @@ class SellerController extends Controller
 
     public function bulkCommissionRate(Request $request)
     {
+        if ($request->has('commission_rate_basic') || $request->has('commission_rate_verified')) {
+            $validated = $request->validate([
+                'commission_rate_basic'    => 'required|numeric|min:0|max:100',
+                'commission_rate_verified' => 'required|numeric|min:0|max:100',
+            ], [
+                'commission_rate_basic.required'    => 'Basic seller commission rate is required.',
+                'commission_rate_verified.required' => 'Verified seller commission rate is required.',
+            ]);
+
+            $updates = [
+                'commission_rate_basic'    => round((float) $validated['commission_rate_basic'], 2),
+                'commission_rate_verified' => round((float) $validated['commission_rate_verified'], 2),
+                'updated_at'               => now(),
+            ];
+
+            $existing = DB::table('platform_settings')->first();
+            if ($existing) {
+                DB::table('platform_settings')->where('id', $existing->id)->update($updates);
+            } else {
+                $updates['created_at'] = now();
+                DB::table('platform_settings')->insert($updates);
+            }
+
+            CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Update Commission Policy', 'Default seller commission rates updated');
+            return back()->with('msg', 'Seller commission policy updated successfully.');
+        }
+
         $rate = $this->validateCommissionRate($request);
 
         DB::table('shops')

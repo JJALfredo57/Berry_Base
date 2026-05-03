@@ -20,7 +20,13 @@ class ApplicationController extends Controller
         if ($role === 'seller') return redirect()->route('seller.dashboard');
         if ($role === 'admin' || $role === 'superadmin') return redirect()->route('admin.dashboard');
 
-        return view('seller.apply');
+        $platform = DB::table('platform_settings')->first()
+            ?? (object) [
+                'commission_rate_basic' => 0.00,
+                'commission_rate_verified' => 0.00,
+            ];
+
+        return view('seller.apply', compact('platform'));
     }
 
     /** Step 1: Save basic info + send OTP */

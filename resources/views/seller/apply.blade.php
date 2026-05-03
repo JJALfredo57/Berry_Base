@@ -222,7 +222,7 @@
               </div>
               <div>
                 <div style="font-size:.95rem;font-weight:700;color:var(--gray-900)">Basic Seller</div>
-                <div style="font-size:.75rem;color:var(--gray-500)">Free to join — no commission for now</div>
+                <div style="font-size:.75rem;color:var(--gray-500)">{{ number_format((float)($platform->commission_rate_basic ?? 0), 2) }}% platform commission after approval</div>
               </div>
             </div>
             <ul style="list-style:none;padding:0;margin:0;font-size:.8rem;color:var(--gray-600)">
@@ -248,7 +248,7 @@
               </div>
               <div>
                 <div style="font-size:.95rem;font-weight:700;color:var(--gray-900)">Verified Seller</div>
-                <div style="font-size:.75rem;color:var(--gray-500)">Free to join — no commission for now</div>
+                <div style="font-size:.75rem;color:var(--gray-500)">{{ number_format((float)($platform->commission_rate_verified ?? 0), 2) }}% platform commission after approval</div>
               </div>
             </div>
             <ul style="list-style:none;padding:0;margin:0;font-size:.8rem;color:var(--gray-600)">
