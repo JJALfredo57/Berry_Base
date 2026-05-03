@@ -72,11 +72,46 @@
     display:grid;
     grid-template-columns:minmax(0,1.7fr) minmax(120px,.7fr) minmax(120px,.7fr) minmax(90px,.45fr);
     gap:1rem;
-    align-items:center;
+    align-items:start;
     padding:1rem 1.15rem;
     border-bottom:1px solid rgba(15,23,42,.08);
   }
   .commission-shop-row:last-child { border-bottom:0; }
+  .commission-shop-main {
+    display:flex;
+    align-items:flex-start;
+    gap:.8rem;
+    min-width:0;
+  }
+  .commission-shop-name {
+    font-weight:700;
+    line-height:1.2;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .commission-shop-meta {
+    color:#64748b;
+    font-size:.75rem;
+    line-height:1.25;
+    margin-top:.15rem;
+  }
+  .commission-shop-metric {
+    min-width:0;
+  }
+  .commission-shop-metric-label {
+    color:#64748b;
+    font-size:.72rem;
+    line-height:1.15;
+  }
+  .commission-shop-metric strong {
+    display:block;
+    margin-top:.18rem;
+    color:#0f172a;
+    font-size:.9rem;
+    line-height:1.2;
+    overflow-wrap:anywhere;
+  }
   .commission-rank {
     width:34px;
     height:34px;
@@ -123,9 +158,26 @@
       flex-direction:column;
     }
     .commission-shop-row {
-      grid-template-columns:1fr;
-      gap:.65rem;
+      grid-template-columns:1fr 1fr;
+      gap:.85rem .75rem;
       padding:1rem;
+    }
+    .commission-shop-main {
+      grid-column:1 / -1;
+    }
+    .commission-shop-name {
+      white-space:normal;
+      overflow:visible;
+      text-overflow:clip;
+    }
+    .commission-shop-meta {
+      font-size:.72rem;
+    }
+    .commission-shop-metric {
+      padding:.65rem .7rem;
+      border:1px solid rgba(15,23,42,.08);
+      border-radius:8px;
+      background:#f8fafc;
     }
   }
 </style>
@@ -194,24 +246,24 @@
       @php $topMax = max((float)($topShops->max('commission') ?? 0), 1); @endphp
       @forelse($topShops as $shop)
         <div class="commission-shop-row">
-          <div class="d-flex align-items-center gap-3" style="min-width:0">
+          <div class="commission-shop-main">
             <div class="commission-rank">{{ $loop->iteration }}</div>
             <div style="min-width:0">
-              <div class="fw-semibold text-truncate">{{ $shop->shop_name }}</div>
-              <div class="text-muted" style="font-size:.75rem">{{ ucfirst($shop->tier ?? 'basic') }} - {{ number_format($shop->commission_rate, 2) }}% rate</div>
+              <div class="commission-shop-name">{{ $shop->shop_name }}</div>
+              <div class="commission-shop-meta">{{ ucfirst($shop->tier ?? 'basic') }} seller - {{ number_format($shop->commission_rate, 2) }}% rate</div>
               <div class="commission-bar"><span style="width:{{ min(100, ((float)$shop->commission / $topMax) * 100) }}%"></span></div>
             </div>
           </div>
-          <div>
-            <div class="text-muted" style="font-size:.72rem">Commission</div>
+          <div class="commission-shop-metric">
+            <div class="commission-shop-metric-label">Commission</div>
             <strong>&#8369;{{ number_format($shop->commission, 2) }}</strong>
           </div>
-          <div>
-            <div class="text-muted" style="font-size:.72rem">Gross Sales</div>
+          <div class="commission-shop-metric">
+            <div class="commission-shop-metric-label">Gross Sales</div>
             <strong>&#8369;{{ number_format($shop->gross_sales, 2) }}</strong>
           </div>
-          <div>
-            <div class="text-muted" style="font-size:.72rem">Orders</div>
+          <div class="commission-shop-metric">
+            <div class="commission-shop-metric-label">Orders</div>
             <strong>{{ number_format($shop->paid_orders) }}</strong>
           </div>
         </div>
