@@ -351,14 +351,6 @@
     .status-Paid             { background:#d4edda; color:#155724; }
     .status-Unpaid           { background:#fff3cd; color:#856404; }
     .img-cover { width:100%; object-fit:cover; border-radius:1rem 1rem 0 0; }
-    .notif-dropdown { min-width:320px; max-height:380px; overflow-y:auto; border-radius:1rem !important; padding:0; }
-    .notif-item { padding:.75rem 1rem; border-bottom:1px solid #f3f3f3; cursor:pointer; transition:.12s; }
-    .notif-item:hover { background:#fafafa; }
-    .notif-item.unread { background:#fff5f8; border-left:3px solid var(--primary); }
-    .notif-item:last-child { border-bottom:0; }
-    .notif-wrap { position:relative; display:inline-flex; }
-    .notif-badge { position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:99px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff;animation:pulse-badge .8s ease-in-out infinite alternate; }
-    @@keyframes pulse-badge { from{transform:scale(1)} to{transform:scale(1.15)} }
     .nav-avatar { width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--primary);flex-shrink:0; }
     .nav-avatar-fallback { width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;font-size:.8rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0; }
 
@@ -589,7 +581,6 @@
     .tb-toggle:hover { background:var(--primary-light);color:var(--primary); }
     .tb-bread { flex:1;font-size:.84rem;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
     .tb-bread strong { color:var(--gray-900); }
-    .tb-actions { display:flex;align-items:center;gap:6px;flex-shrink:0; }
     .tb-btn { width:36px;height:36px;border-radius:9px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#555;transition:all .15s;position:relative; }
     .tb-btn:hover { background:var(--primary-light);color:var(--primary); }
 
@@ -711,15 +702,6 @@
     @@media(max-width:767px) {
       /* Bigger touch targets for topbar buttons */
       .tb-toggle, .tb-btn { width:44px !important; height:44px !important; }
-      .tb-actions { gap:2px !important; }
-
-      /* Notification dropdown: don't overflow screen edge */
-      .notif-dropdown {
-        min-width:min(320px, calc(100vw - 24px)) !important;
-        max-width:calc(100vw - 24px) !important;
-        right:0 !important;
-      }
-
       /* Admin/seller page padding */
       .admin-page { padding:10px 10px 24px !important; }
 
@@ -939,75 +921,6 @@
     <button class="tb-toggle" onclick="toggleSidebar()"><i class="bi bi-list" style="font-size:1.2rem"></i></button>
     <div class="tb-bread">
       @hasSection('breadcrumb') @yield('breadcrumb') @else <strong>{{ $brandTitle }}</strong> @endif
-    </div>
-    <div class="tb-actions">
-      {{-- Dev Mode badge --}}
-      @if(!empty($platformBrand->dev_mode))
-      <span style="display:inline-flex;align-items:center;gap:4px;font-size:.66rem;font-weight:700;color:#d97706;background:#fef3c7;border:1.5px solid #fde68a;padding:3px 10px;border-radius:20px;letter-spacing:.04em;cursor:default" title="Developer Mode is ON — OTP and SMS previews are visible">
-        <i class="bi bi-bug-fill"></i> DEV MODE
-      </span>
-      @endif
-      {{-- Notification --}}
-      <div class="dropdown">
-        <button class="tb-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
-          <span class="notif-wrap">
-            <i class="bi bi-bell" style="font-size:1rem"></i>
-            @if($notifCount > 0)<span class="notif-badge">{{ $notifCount > 9 ? '9+' : $notifCount }}</span>@endif
-          </span>
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow border-0 notif-dropdown p-0">
-          <li class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between">
-            <span class="fw-bold small">Notifications</span>
-            @if($notifCount > 0)<a href="{{ route('admin.notifications.mark_read') }}" class="small" style="color:var(--primary)">Mark all read</a>@endif
-          </li>
-          @forelse($notifications as $n)
-          <li class="notif-item {{ !$n->is_read ? 'unread' : '' }}">
-            <div class="d-flex gap-2 align-items-start">
-              <div style="width:30px;height:30px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                <i class="bi bi-bell-fill" style="color:var(--primary);font-size:.72rem"></i>
-              </div>
-              <div>
-                <div class="small fw-semibold">{{ $n->title }}</div>
-                <div class="small text-muted">{{ $n->message }}</div>
-                <div class="text-muted" style="font-size:.7rem">{{ \Carbon\Carbon::parse($n->created_at)->diffForHumans() }}</div>
-              </div>
-            </div>
-          </li>
-          @empty
-          <li class="text-center text-muted py-4 small">No notifications yet.</li>
-          @endforelse
-        </ul>
-      </div>
-      {{-- User menu --}}
-      <div class="dropdown">
-        <button class="tb-btn px-2 gap-2 d-flex align-items-center" data-bs-toggle="dropdown" style="width:auto;border-radius:9px">
-          @if($userPhoto)
-            <img src="{{ $userPhoto }}" class="nav-avatar" onerror="this.style.display='none'">
-          @else
-            <span class="nav-avatar-fallback">{{ strtoupper(substr($fullname??'A',0,1)) }}</span>
-          @endif
-          <span class="d-none d-md-inline small fw-semibold" style="color:#333">{{ $fullname ?? $username }}</span>
-          <i class="bi bi-chevron-down d-none d-md-inline" style="font-size:.7rem;color:#888"></i>
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius:.9rem;min-width:185px">
-          <li class="px-3 py-2 border-bottom">
-            <div class="fw-bold small">{{ $fullname ?? $username }}</div>
-            <div class="text-muted" style="font-size:.72rem">
-              {{ $sessionRole === 'superadmin' ? 'Super Admin' : 'Administrator' }}
-            </div>
-          </li>
-          @if($sessionRole === 'superadmin')
-            {{-- Super Admin: only platform settings, no shop profile --}}
-            <li><a class="dropdown-item py-2" href="{{ route('superadmin.settings') }}"><i class="bi bi-sliders me-2"></i>Platform Settings</a></li>
-          @else
-            {{-- Regular Admin: profile + settings --}}
-            <li><a class="dropdown-item py-2" href="{{ route('admin.settings.index', ['tab'=>'account']) }}"><i class="bi bi-person me-2"></i>My Profile</a></li>
-            <li><a class="dropdown-item py-2" href="{{ route('admin.settings.index') }}"><i class="bi bi-gear me-2"></i>Settings</a></li>
-          @endif
-          <li><hr class="dropdown-divider my-1"></li>
-          <li><form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="dropdown-item py-2 text-danger" style="background:none;border:none;width:100%;text-align:left;cursor:pointer"><i class="bi bi-box-arrow-right me-2"></i>Logout</button></form></li>
-        </ul>
-      </div>
     </div>
   </div>
 
