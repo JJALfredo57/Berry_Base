@@ -12,27 +12,27 @@
     $commissionEnabled = (int)($commissionStats->enabled ?? 0);
     $allCommissionOn = $commissionTotal > 0 && $commissionEnabled === $commissionTotal;
     $noCommissionOn = $commissionEnabled === 0;
-    $commissionStateLabel = $allCommissionOn ? 'All On' : ($noCommissionOn ? 'All Off' : 'Mixed');
+    $commissionStateLabel = $allCommissionOn ? 'Enabled for all' : ($noCommissionOn ? 'Disabled for all' : 'Partially enabled');
     $commissionNextAction = $allCommissionOn ? 'disable' : 'enable';
   @endphp
   <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
     <span style="font-size:.78rem;font-weight:700;color:{{ $allCommissionOn ? '#166534' : ($noCommissionOn ? '#9a3412' : '#1d4ed8') }};background:{{ $allCommissionOn ? '#f0fdf4' : ($noCommissionOn ? '#fff7ed' : '#eff6ff') }};border:1px solid {{ $allCommissionOn ? '#bbf7d0' : ($noCommissionOn ? '#fed7aa' : '#bfdbfe') }};border-radius:99px;padding:.35rem .75rem">
-      Commission: {{ $commissionStateLabel }}
+      Commission Status: {{ $commissionStateLabel }}
     </span>
     <form action="{{ route('superadmin.sellers.commission_bulk') }}" method="POST" class="d-inline">
       @csrf
       <input type="hidden" name="action" value="{{ $commissionNextAction }}">
       <button type="submit"
               style="background:{{ $allCommissionOn ? '#fff7ed' : '#f0fdf4' }};color:{{ $allCommissionOn ? '#9a3412' : '#166534' }};border:1.5px solid {{ $allCommissionOn ? '#fed7aa' : '#bbf7d0' }};border-radius:var(--radius-md);padding:.45rem .95rem;font-size:.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem"
-              data-cs-confirm="{{ $allCommissionOn ? 'Turn OFF commission for all approved and suspended sellers?' : 'Turn ON commission for all approved and suspended sellers?' }}"
-              data-cs-title="{{ $allCommissionOn ? 'Turn All Commission Off' : 'Turn All Commission On' }}"
+              data-cs-confirm="{{ $allCommissionOn ? 'Disable commission for all approved and suspended sellers?' : 'Enable commission for all approved and suspended sellers?' }}"
+              data-cs-title="{{ $allCommissionOn ? 'Disable Commission for All Sellers' : 'Enable Commission for All Sellers' }}"
               data-cs-icon="{{ $allCommissionOn ? 'bi-toggle-off' : 'bi-toggle-on' }}"
               data-cs-icon-bg="{{ $allCommissionOn ? '#fff7ed' : '#f0fdf4' }}"
               data-cs-icon-color="{{ $allCommissionOn ? '#ea580c' : '#16a34a' }}"
               data-cs-ok="{{ $allCommissionOn ? 'Turn Off' : 'Turn On' }}"
               data-cs-ok-color="{{ $allCommissionOn ? '#ea580c' : '#16a34a' }}">
         <i class="bi {{ $allCommissionOn ? 'bi-toggle-off' : 'bi-toggle-on' }}"></i>
-        {{ $allCommissionOn ? 'Turn All Off' : 'Turn All On' }}
+        {{ $allCommissionOn ? 'Disable for All Sellers' : 'Enable for All Sellers' }}
       </button>
     </form>
   </div>
@@ -209,7 +209,7 @@
         @php $commOn = (bool)($app->commission_enabled ?? 1); @endphp
         <span style="background:{{ $commOn ? '#f0fdf4' : '#fff7ed' }};color:{{ $commOn ? '#166534' : '#9a3412' }};border:1.5px solid {{ $commOn ? '#bbf7d0' : '#fed7aa' }};border-radius:var(--radius-md);padding:.45rem .85rem;font-size:.8rem;font-weight:700;display:inline-flex;align-items:center;gap:.35rem">
           <i class="bi {{ $commOn ? 'bi-check2-circle' : 'bi-slash-circle' }}"></i>
-          {{ $commOn ? 'Commission '.number_format((float)($app->commission_rate ?? 0), 2).'%' : 'Commission Off' }}
+          {{ $commOn ? 'Commission: '.number_format((float)($app->commission_rate ?? 0), 2).'%' : 'Commission Disabled' }}
         </span>
       @endif
     </div>
