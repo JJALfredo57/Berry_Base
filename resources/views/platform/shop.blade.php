@@ -502,11 +502,17 @@
               <hr class="my-3">
 
               {{-- Order Form --}}
-              @if(session('user'))
+              @php
+                $viewerRole = session('user')['role'] ?? null;
+                $canCheckoutFromShop = !$viewerRole || $viewerRole === 'customer';
+              @endphp
+              @if($viewerRole === 'customer')
                 <form action="{{ route('customer.catalog.order') }}" method="POST" onsubmit="return confirmOrder(this)">
               @else
                 <form action="{{ route('catalog.select') }}" method="POST" onsubmit="return confirmOrder(this)">
               @endif
+                <input type="hidden" name="_viewer_can_checkout" value="{{ $canCheckoutFromShop ? '1' : '0' }}">
+                <input type="hidden" name="_viewer_role" value="{{ $viewerRole ?? 'guest' }}">
                 @csrf
                 <input type="hidden" name="product_id" value="{{ $p->id }}">
 
@@ -723,8 +729,164 @@
 
 <div style="height:3rem"></div>
 
+{{-- Checkout dialog --}}
+<div id="shopCheckoutDialog" class="shop-dialog" aria-hidden="true" onclick="shopDialogBackdrop(event)">
+  <div class="shop-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="shopDialogTitle">
+    <div id="shopDialogIconWrap" class="shop-dialog-icon">
+      <i id="shopDialogIcon" class="bi bi-cart-check"></i>
+    </div>
+    <h3 id="shopDialogTitle">Proceed to Checkout?</h3>
+    <p id="shopDialogMessage">You will be redirected to the checkout page.</p>
+    <div class="shop-dialog-actions">
+      <button type="button" id="shopDialogCancel" class="shop-dialog-cancel" onclick="shopDialogClose()">Cancel</button>
+      <button type="button" id="shopDialogOk" class="shop-dialog-ok">Proceed</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .shop-dialog {
+    position:fixed;
+    inset:0;
+    z-index:10050;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:1rem;
+    background:rgba(15,23,42,0);
+    transition:background .22s ease;
+  }
+  .shop-dialog.is-open { background:rgba(15,23,42,.54); }
+  .shop-dialog-panel {
+    width:min(420px,100%);
+    background:#fff;
+    border-radius:18px;
+    box-shadow:0 24px 70px rgba(15,23,42,.28);
+    padding:1.45rem;
+    text-align:center;
+    transform:translateY(18px) scale(.94);
+    opacity:0;
+    transition:transform .22s ease, opacity .22s ease;
+  }
+  .shop-dialog.is-open .shop-dialog-panel { transform:translateY(0) scale(1); opacity:1; }
+  .shop-dialog-icon {
+    width:58px;
+    height:58px;
+    border-radius:16px;
+    margin:0 auto .9rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#dbeafe;
+    color:#2563eb;
+    font-size:1.45rem;
+  }
+  .shop-dialog h3 {
+    margin:0 0 .45rem;
+    color:#111827;
+    font-size:1.12rem;
+    font-weight:800;
+  }
+  .shop-dialog p {
+    margin:0;
+    color:#6b7280;
+    font-size:.9rem;
+    line-height:1.6;
+  }
+  .shop-dialog-actions {
+    display:flex;
+    gap:.65rem;
+    margin-top:1.25rem;
+  }
+  .shop-dialog-actions button {
+    flex:1;
+    border:0;
+    border-radius:12px;
+    padding:.72rem 1rem;
+    font-weight:800;
+    font-size:.88rem;
+  }
+  .shop-dialog-cancel {
+    background:#f3f4f6;
+    color:#374151;
+  }
+  .shop-dialog-ok {
+    background:var(--primary);
+    color:#fff;
+  }
+  @media(max-width:575.98px) {
+    .shop-dialog-panel { padding:1.25rem; }
+    .shop-dialog-actions { flex-direction:column-reverse; }
+  }
+</style>
+
 <script>
+let pendingCheckoutForm = null;
+
+function shopDialogOpen(opts) {
+  const dialog = document.getElementById('shopCheckoutDialog');
+  const iconWrap = document.getElementById('shopDialogIconWrap');
+  const icon = document.getElementById('shopDialogIcon');
+  const title = document.getElementById('shopDialogTitle');
+  const message = document.getElementById('shopDialogMessage');
+  const cancel = document.getElementById('shopDialogCancel');
+  const ok = document.getElementById('shopDialogOk');
+
+  opts = opts || {};
+  title.textContent = opts.title || 'Proceed to Checkout?';
+  message.textContent = opts.message || 'You will be redirected to the checkout page.';
+  icon.className = 'bi ' + (opts.icon || 'bi-cart-check');
+  iconWrap.style.background = opts.iconBg || '#dbeafe';
+  iconWrap.style.color = opts.iconColor || '#2563eb';
+  cancel.style.display = opts.showCancel === false ? 'none' : '';
+  ok.textContent = opts.okLabel || 'Proceed';
+  ok.style.background = opts.okColor || 'var(--primary)';
+  ok.onclick = function() {
+    const cb = opts.onConfirm;
+    shopDialogClose(function() {
+      if (typeof cb === 'function') cb();
+    });
+  };
+
+  dialog.style.display = 'flex';
+  dialog.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  requestAnimationFrame(function() { dialog.classList.add('is-open'); });
+}
+
+function shopDialogClose(afterClose) {
+  const dialog = document.getElementById('shopCheckoutDialog');
+  dialog.classList.remove('is-open');
+  setTimeout(function() {
+    dialog.style.display = 'none';
+    dialog.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    if (typeof afterClose === 'function') afterClose();
+  }, 220);
+}
+
+function shopDialogBackdrop(e) {
+  if (e.target && e.target.id === 'shopCheckoutDialog') shopDialogClose();
+}
+
 function confirmOrder(form) {
+  const canCheckout = form.querySelector('input[name="_viewer_can_checkout"]')?.value === '1';
+  const viewerRole = form.querySelector('input[name="_viewer_role"]')?.value || 'guest';
+
+  if (!canCheckout) {
+    shopDialogOpen({
+      title: 'Admin Preview Mode',
+      message: 'Checkout is disabled while you are signed in as ' + viewerRole + '. To test ordering, sign out or use a customer account.',
+      icon: 'bi-shield-lock',
+      iconBg: '#fff7ed',
+      iconColor: '#ea580c',
+      okLabel: 'Got it',
+      okColor: '#ea580c',
+      showCancel: false
+    });
+    return false;
+  }
+
   if (typeof cakeConfirm === 'function') {
     cakeConfirm({
       title: 'Proceed to Checkout?',
@@ -739,9 +901,21 @@ function confirmOrder(form) {
     return false;
   }
 
-  if (window.confirm('Proceed to checkout?')) {
-    form.submit();
-  }
+  pendingCheckoutForm = form;
+  shopDialogOpen({
+    title: 'Proceed to Checkout?',
+    message: 'Your selected item will be prepared for checkout. You can review delivery and payment details on the next page.',
+    icon: 'bi-cart-check',
+    iconBg: '#dbeafe',
+    iconColor: '#2563eb',
+    okLabel: 'Proceed',
+    okColor: '#2563eb',
+    onConfirm: function() {
+      const submitForm = pendingCheckoutForm;
+      pendingCheckoutForm = null;
+      if (submitForm) submitForm.submit();
+    }
+  });
   return false;
 }
 function updateModalPrice(productId, basePrice, select) {
