@@ -14,7 +14,7 @@ class DashboardController extends Controller
             'pending_apps'   => DB::table('shops')->where('status','pending')->count(),
             'total_products' => DB::table('products')->count(),
             'total_orders'   => DB::table('orders')->whereNotIn('status',['Cancelled'])->count(),
-            'total_revenue'  => DB::table('orders')->where('payment_status','Paid')->sum('total_price'),
+            'total_commission' => $this->commissionQuery()->sum(DB::raw('orders.total_price * shops.commission_rate / 100')),
             'total_customers'=> (
                 DB::table('orders')->whereNotIn('status',['Cancelled'])->whereNotNull('user_id')->distinct()->count('user_id') +
                 DB::table('orders')->whereNotIn('status',['Cancelled'])->whereNull('user_id')->count()
@@ -39,17 +39,111 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        // Revenue this month
-        $revenueMonth = DB::table('orders')
-            ->where('payment_status','Paid')
-            ->whereYear('paid_at', now()->year)
-            ->whereMonth('paid_at', now()->month)
-            ->sum('total_price');
+        // Commission this month
+        $commissionMonth = $this->commissionQuery()
+            ->whereYear('orders.paid_at', now()->year)
+            ->whereMonth('orders.paid_at', now()->month)
+            ->sum(DB::raw('orders.total_price * shops.commission_rate / 100'));
 
         $platform = DB::table('platform_settings')->first();
 
         return view('superadmin.dashboard', compact(
-            'stats','pendingApps','recentShops','revenueMonth','platform'
+            'stats','pendingApps','recentShops','commissionMonth','platform'
         ));
+    }
+
+    public function commissions()
+    {
+        $platform = DB::table('platform_settings')->first();
+
+        $totalCommission = $this->commissionQuery()
+            ->sum(DB::raw('orders.total_price * shops.commission_rate / 100'));
+
+        $commissionMonth = $this->commissionQuery()
+            ->whereYear('orders.paid_at', now()->year)
+            ->whereMonth('orders.paid_at', now()->month)
+            ->sum(DB::raw('orders.total_price * shops.commission_rate / 100'));
+
+        $paidOrdersMonth = $this->commissionQuery()
+            ->whereYear('orders.paid_at', now()->year)
+            ->whereMonth('orders.paid_at', now()->month)
+            ->count();
+
+        $grossSalesMonth = $this->commissionQuery()
+            ->whereYear('orders.paid_at', now()->year)
+            ->whereMonth('orders.paid_at', now()->month)
+            ->sum('orders.total_price');
+
+        $monthlyStart = now()->startOfMonth()->subMonths(5);
+        $monthlyRows = $this->commissionQuery()
+            ->where('orders.paid_at', '>=', $monthlyStart)
+            ->select(
+                DB::raw("DATE_FORMAT(orders.paid_at, '%Y-%m') as month_key"),
+                DB::raw('SUM(orders.total_price * shops.commission_rate / 100) as commission'),
+                DB::raw('SUM(orders.total_price) as gross_sales'),
+                DB::raw('COUNT(*) as paid_orders')
+            )
+            ->groupBy('month_key')
+            ->orderBy('month_key')
+            ->get()
+            ->keyBy('month_key');
+
+        $monthlyLabels = [];
+        $monthlyCommission = [];
+        $monthlyGrossSales = [];
+        $monthlyOrderCounts = [];
+
+        for ($i = 5; $i >= 0; $i--) {
+            $month = now()->startOfMonth()->subMonths($i);
+            $key = $month->format('Y-m');
+            $row = $monthlyRows->get($key);
+
+            $monthlyLabels[] = $month->format('M Y');
+            $monthlyCommission[] = round((float)($row->commission ?? 0), 2);
+            $monthlyGrossSales[] = round((float)($row->gross_sales ?? 0), 2);
+            $monthlyOrderCounts[] = (int)($row->paid_orders ?? 0);
+        }
+
+        $topShops = $this->commissionQuery()
+            ->select(
+                'shops.shop_name',
+                'shops.tier',
+                'shops.commission_rate',
+                DB::raw('SUM(orders.total_price * shops.commission_rate / 100) as commission'),
+                DB::raw('SUM(orders.total_price) as gross_sales'),
+                DB::raw('COUNT(*) as paid_orders')
+            )
+            ->groupBy('shops.id', 'shops.shop_name', 'shops.tier', 'shops.commission_rate')
+            ->orderByDesc('commission')
+            ->limit(5)
+            ->get();
+
+        $chartData = [
+            'labels' => $monthlyLabels,
+            'commission' => $monthlyCommission,
+            'grossSales' => $monthlyGrossSales,
+            'orders' => $monthlyOrderCounts,
+        ];
+
+        return view('superadmin.commission_analytics', compact(
+            'platform',
+            'totalCommission',
+            'commissionMonth',
+            'paidOrdersMonth',
+            'grossSalesMonth',
+            'topShops',
+            'chartData'
+        ));
+    }
+
+    private function commissionQuery()
+    {
+        return DB::table('orders')
+            ->join('shops', 'shops.id', '=', 'orders.shop_id')
+            ->where('orders.payment_status', 'Paid')
+            ->whereNotIn('orders.status', ['Cancelled'])
+            ->whereNotNull('orders.paid_at')
+            ->where('shops.commission_enabled', 1)
+            ->where('shops.commission_rate', '>', 0);
     }
 }

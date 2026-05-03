@@ -316,6 +316,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/sellers/{id}/approve-upgrade',      [\App\Http\Controllers\SuperAdmin\SellerController::class, 'approveUpgrade'])->name('sellers.approve_upgrade');
     Route::post('/sellers/{id}/reject-upgrade',       [\App\Http\Controllers\SuperAdmin\SellerController::class, 'rejectUpgrade'])->name('sellers.reject_upgrade');
     Route::get('/platform-dashboard',          [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/commission-analytics',        [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'commissions'])->name('commissions');
     Route::get('/platform-settings',           [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'index'])->name('settings');
     Route::post('/platform-settings',                     [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'update'])->name('settings.update');
     Route::post('/platform-settings/paymongo',  [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'savePaymongo'])->name('settings.paymongo');
