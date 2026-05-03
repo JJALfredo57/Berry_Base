@@ -70,8 +70,8 @@
   }
   .commission-shop-row {
     display:grid;
-    grid-template-columns:minmax(0,1.7fr) minmax(120px,.7fr) minmax(120px,.7fr) minmax(90px,.45fr);
-    gap:1rem;
+    grid-template-columns:minmax(0,1fr);
+    gap:.85rem;
     align-items:start;
     padding:1rem 1.15rem;
     border-bottom:1px solid rgba(15,23,42,.08);
@@ -96,8 +96,17 @@
     line-height:1.25;
     margin-top:.15rem;
   }
+  .commission-shop-metrics {
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:.6rem;
+  }
   .commission-shop-metric {
     min-width:0;
+    padding:.65rem .7rem;
+    border:1px solid rgba(15,23,42,.08);
+    border-radius:8px;
+    background:#f8fafc;
   }
   .commission-shop-metric-label {
     color:#64748b;
@@ -140,7 +149,6 @@
   @media (max-width: 991.98px) {
     .commission-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .commission-chart-wrap { height:340px; }
-    .commission-shop-row { grid-template-columns:1fr 1fr; }
   }
   @media (max-width: 575.98px) {
     .commission-hero {
@@ -158,12 +166,8 @@
       flex-direction:column;
     }
     .commission-shop-row {
-      grid-template-columns:1fr 1fr;
       gap:.85rem .75rem;
       padding:1rem;
-    }
-    .commission-shop-main {
-      grid-column:1 / -1;
     }
     .commission-shop-name {
       white-space:normal;
@@ -173,11 +177,11 @@
     .commission-shop-meta {
       font-size:.72rem;
     }
-    .commission-shop-metric {
-      padding:.65rem .7rem;
-      border:1px solid rgba(15,23,42,.08);
-      border-radius:8px;
-      background:#f8fafc;
+    .commission-shop-metrics {
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+    .commission-shop-metric:last-child {
+      grid-column:1 / -1;
     }
   }
 </style>
@@ -254,17 +258,19 @@
               <div class="commission-bar"><span style="width:{{ min(100, ((float)$shop->commission / $topMax) * 100) }}%"></span></div>
             </div>
           </div>
-          <div class="commission-shop-metric">
-            <div class="commission-shop-metric-label">Commission</div>
-            <strong>&#8369;{{ number_format($shop->commission, 2) }}</strong>
-          </div>
-          <div class="commission-shop-metric">
-            <div class="commission-shop-metric-label">Gross Sales</div>
-            <strong>&#8369;{{ number_format($shop->gross_sales, 2) }}</strong>
-          </div>
-          <div class="commission-shop-metric">
-            <div class="commission-shop-metric-label">Orders</div>
-            <strong>{{ number_format($shop->paid_orders) }}</strong>
+          <div class="commission-shop-metrics">
+            <div class="commission-shop-metric">
+              <div class="commission-shop-metric-label">Commission</div>
+              <strong>&#8369;{{ number_format($shop->commission, 2) }}</strong>
+            </div>
+            <div class="commission-shop-metric">
+              <div class="commission-shop-metric-label">Gross Sales</div>
+              <strong>&#8369;{{ number_format($shop->gross_sales, 2) }}</strong>
+            </div>
+            <div class="commission-shop-metric">
+              <div class="commission-shop-metric-label">Orders</div>
+              <strong>{{ number_format($shop->paid_orders) }}</strong>
+            </div>
           </div>
         </div>
       @empty
