@@ -228,15 +228,22 @@
       </div>
     </div>
 
+    @php
+      $viewerRole = session('user')['role'] ?? null;
+    @endphp
     <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:.85rem 0 1rem">
-      @if(session('user'))
-        <a href="{{ route('customer.custom_order') }}?shop={{ $shop->shop_slug }}" class="btn-custom-cake">
+      @if($viewerRole === 'customer')
+        <a href="{{ route('customer.custom_order') }}?shop={{ $shop->shop_slug }}" class="btn-custom-cake" onclick="return confirmCustomCake(event, this)">
+          <i class="bi bi-palette-fill"></i> Order Custom Cake
+        </a>
+      @elseif(!$viewerRole)
+        <a href="{{ route('guest.custom_order') }}?shop={{ $shop->shop_slug }}" class="btn-custom-cake" onclick="return confirmCustomCake(event, this)">
           <i class="bi bi-palette-fill"></i> Order Custom Cake
         </a>
       @else
-        <a href="{{ route('guest.custom_order') }}?shop={{ $shop->shop_slug }}" class="btn-custom-cake">
+        <button type="button" class="btn-custom-cake" data-viewer-role="{{ $viewerRole }}" onclick="return confirmCustomCake(event, this)">
           <i class="bi bi-palette-fill"></i> Order Custom Cake
-        </a>
+        </button>
       @endif
     </div>
 
@@ -867,6 +874,40 @@ function shopDialogClose(afterClose) {
 
 function shopDialogBackdrop(e) {
   if (e.target && e.target.id === 'shopCheckoutDialog') shopDialogClose();
+}
+
+function confirmCustomCake(event, el) {
+  if (event) event.preventDefault();
+  const href = el.getAttribute('href');
+  const viewerRole = el.dataset.viewerRole || 'guest';
+
+  if (!href) {
+    shopDialogOpen({
+      title: 'Admin Preview Mode',
+      message: 'Custom cake ordering is disabled while you are signed in as ' + viewerRole + '. To test this flow, sign out or use a customer account.',
+      icon: 'bi-shield-lock',
+      iconBg: '#fff7ed',
+      iconColor: '#ea580c',
+      okLabel: 'Got it',
+      okColor: '#ea580c',
+      showCancel: false
+    });
+    return false;
+  }
+
+  shopDialogOpen({
+    title: 'Start a Custom Cake Order?',
+    message: 'You will be taken to the custom cake request form for this shop.',
+    icon: 'bi-palette-fill',
+    iconBg: '#fce7f3',
+    iconColor: 'var(--primary)',
+    okLabel: 'Continue',
+    okColor: 'var(--primary)',
+    onConfirm: function() {
+      window.location.href = href;
+    }
+  });
+  return false;
 }
 
 function confirmOrder(form) {
