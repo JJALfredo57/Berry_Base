@@ -725,7 +725,23 @@
 
 <script>
 function confirmOrder(form) {
-  cakeConfirm({ title:'Proceed to Checkout?', message:'You will be redirected to the checkout page.', icon:'bi-cart-check', iconBg:'#dbeafe', iconColor:'#2563eb', okLabel:'Proceed', okColor:'#2563eb', onConfirm:() => form.submit() });
+  if (typeof cakeConfirm === 'function') {
+    cakeConfirm({
+      title: 'Proceed to Checkout?',
+      message: 'You will be redirected to the checkout page.',
+      icon: 'bi-cart-check',
+      iconBg: '#dbeafe',
+      iconColor: '#2563eb',
+      okLabel: 'Proceed',
+      okColor: '#2563eb',
+      onConfirm: () => form.submit()
+    });
+    return false;
+  }
+
+  if (window.confirm('Proceed to checkout?')) {
+    form.submit();
+  }
   return false;
 }
 function updateModalPrice(productId, basePrice, select) {

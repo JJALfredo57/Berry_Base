@@ -42,7 +42,7 @@ Route::get('/dev/sms-poll', function () {
 // ── Root — redirect to catalog ────────────────────────────────────────────
 // ── Platform Pages ────────────────────────────────────────────────────────
 Route::get('/shops',          [\App\Http\Controllers\PlatformController::class, 'shops'])->name('platform.shops');
-Route::get('/shop/{slug}',    [\App\Http\Controllers\PlatformController::class, 'shopPage'])->name('platform.shop');
+Route::get('/shop/{slug?}',   [\App\Http\Controllers\PlatformController::class, 'shopPage'])->name('platform.shop');
 
 Route::get('/', function () {
     // If no admin exists yet, go to setup wizard

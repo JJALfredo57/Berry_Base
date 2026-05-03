@@ -90,8 +90,12 @@ class PlatformController extends Controller
         return view('platform.shops', compact('shops', 'cities', 'search', 'city', 'tier', 'platform'));
     }
 
-    public function shopPage(string $slug)
+    public function shopPage(?string $slug = null)
     {
+        if (!$slug) {
+            return redirect()->route('platform.shops');
+        }
+
         $shop = DB::table('shops')->where('shop_slug', $slug)->where('status', 'approved')->first();
         if (!$shop) abort(404, 'Shop not found.');
 
