@@ -379,22 +379,68 @@ class CakeshopHelper
     public static function exportSql(string $dbName): string
     {
         $pdo = DB::getPdo();
-        $sql = "-- Backup of {$dbName}\n-- Generated: " . date('Y-m-d H:i:s') . "\n\n";
+        $driver = DB::connection()->getDriverName();
+        $sql = "-- Backup of {$dbName}\n-- Driver: {$driver}\n-- Generated: " . date('Y-m-d H:i:s') . "\n\n";
+        if ($driver === 'sqlite') {
+            $sql .= "PRAGMA foreign_keys=OFF;\n\n";
+        } elseif ($driver === 'pgsql') {
+            $sql .= "SET CONSTRAINTS ALL DEFERRED;\n\n";
+        } else {
+            $sql .= "SET FOREIGN_KEY_CHECKS=0;\n\n";
+        }
         $tables = [];
-        $res = $pdo->query('SHOW TABLES');
-        while ($row = $res->fetch(\PDO::FETCH_NUM)) $tables[] = $row[0];
+
+        if ($driver === 'sqlite') {
+            $res = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+        } elseif ($driver === 'pgsql') {
+            $res = $pdo->query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name");
+        } else {
+            $res = $pdo->query('SHOW TABLES');
+        }
+
+        while ($row = $res->fetch(\PDO::FETCH_NUM)) {
+            $tables[] = $row[0];
+        }
+
         foreach ($tables as $t) {
-            $sql .= "DROP TABLE IF EXISTS `{$t}`;\n";
-            $create = $pdo->query("SHOW CREATE TABLE `{$t}`")->fetch(\PDO::FETCH_ASSOC);
-            $sql .= $create['Create Table'] . ";\n\n";
-            $rows = $pdo->query("SELECT * FROM `{$t}`");
+            $table = self::quoteIdentifier($t, $driver);
+            if ($driver === 'pgsql') {
+                $sql .= "TRUNCATE TABLE {$table} RESTART IDENTITY CASCADE;\n";
+            } else {
+                $sql .= "DROP TABLE IF EXISTS {$table};\n";
+            }
+
+            if ($driver === 'sqlite') {
+                $create = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name = " . $pdo->quote($t))->fetch(\PDO::FETCH_ASSOC);
+                if (!empty($create['sql'])) {
+                    $sql .= $create['sql'] . ";\n\n";
+                }
+            } elseif ($driver !== 'pgsql') {
+                $create = $pdo->query("SHOW CREATE TABLE {$table}")->fetch(\PDO::FETCH_ASSOC);
+                $sql .= ($create['Create Table'] ?? array_values($create)[1] ?? '') . ";\n\n";
+            }
+
+            $rows = $pdo->query("SELECT * FROM {$table}");
             while ($rr = $rows->fetch(\PDO::FETCH_ASSOC)) {
-                $cols = array_map(fn($c) => "`{$c}`", array_keys($rr));
-                $vals = array_map(fn($v) => $v === null ? 'NULL' : "'" . addslashes($v) . "'", array_values($rr));
-                $sql .= "INSERT INTO `{$t}` (" . implode(',', $cols) . ") VALUES (" . implode(',', $vals) . ");\n";
+                $cols = array_map(fn($c) => self::quoteIdentifier($c, $driver), array_keys($rr));
+                $vals = array_map(fn($v) => $v === null ? 'NULL' : $pdo->quote((string) $v), array_values($rr));
+                $sql .= "INSERT INTO {$table} (" . implode(',', $cols) . ") VALUES (" . implode(',', $vals) . ");\n";
             }
             $sql .= "\n";
         }
+        if ($driver === 'sqlite') {
+            $sql .= "PRAGMA foreign_keys=ON;\n";
+        } elseif ($driver === 'pgsql') {
+            $sql .= "SET CONSTRAINTS ALL IMMEDIATE;\n";
+        } else {
+            $sql .= "SET FOREIGN_KEY_CHECKS=1;\n";
+        }
         return $sql;
+    }
+
+    private static function quoteIdentifier(string $identifier, string $driver): string
+    {
+        $quote = in_array($driver, ['sqlite', 'pgsql'], true) ? '"' : '`';
+        return $quote . str_replace($quote, $quote . $quote, $identifier) . $quote;
     }
 }

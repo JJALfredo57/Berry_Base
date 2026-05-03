@@ -1,5 +1,85 @@
 @extends('layouts.app')
 @section('page_title','Platform Settings')
+
+@push('styles')
+<style>
+  .backup-console {
+    display:grid;
+    grid-template-columns:minmax(0,1.1fr) minmax(260px,.9fr);
+    gap:1rem;
+    align-items:stretch;
+  }
+  .backup-panel {
+    border:1px solid rgba(15,23,42,.08);
+    border-radius:8px;
+    background:#fff;
+    box-shadow:0 10px 26px rgba(15,23,42,.055);
+  }
+  .backup-action {
+    padding:1.25rem;
+  }
+  .backup-icon {
+    width:44px;
+    height:44px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:8px;
+    background:#eef2ff;
+    color:#3730a3;
+    font-size:1.15rem;
+    flex-shrink:0;
+  }
+  .backup-meta {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:.65rem;
+    margin-top:1rem;
+  }
+  .backup-meta-box {
+    padding:.75rem;
+    border:1px solid rgba(15,23,42,.08);
+    border-radius:8px;
+    background:#f8fafc;
+  }
+  .backup-file-row {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:1rem;
+    align-items:center;
+    padding:1rem 0;
+    border-bottom:1px solid rgba(15,23,42,.08);
+  }
+  .backup-file-row:last-child { border-bottom:0; padding-bottom:0; }
+  .backup-file-name {
+    font-weight:700;
+    line-height:1.2;
+    color:#0f172a;
+    overflow-wrap:anywhere;
+  }
+  .backup-file-sub {
+    color:#64748b;
+    font-size:.78rem;
+    margin-top:.2rem;
+  }
+  .backup-actions {
+    display:flex;
+    gap:.45rem;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  @media (max-width: 991.98px) {
+    .backup-console { grid-template-columns:1fr; }
+  }
+  @media (max-width: 575.98px) {
+    .backup-action { padding:1rem; }
+    .backup-meta { grid-template-columns:1fr; }
+    .backup-file-row { grid-template-columns:1fr; }
+    .backup-actions { justify-content:flex-start; }
+  }
+</style>
+@endpush
+
 @section('content')
 <div>
   <div style="margin-bottom:1.5rem">
@@ -569,27 +649,58 @@
 
   {{-- ── BACKUP TAB ───────────────────────────────────────────────── --}}
   @elseif($tab === 'backup')
-  <div class="card mb-4">
-    <div class="card-body p-4">
-      <h6 class="fw-bold mb-3"><i class="bi bi-cloud-arrow-up me-2" style="color:var(--primary)"></i>Database Backup</h6>
-      <p class="text-muted small">Create a full backup of the database. Stored in <code>storage/app/backups/</code>.</p>
-      <form action="{{ route('superadmin.settings.backup') }}" method="POST">
+  @php
+    $totalBackupSize = array_sum(array_map(fn($f) => is_file($f) ? filesize($f) : 0, $files));
+    $latestBackup = count($files) ? $files[0] : null;
+  @endphp
+
+  <div class="backup-console mb-4">
+    <div class="backup-panel backup-action">
+      <div class="d-flex align-items-start gap-3">
+        <div class="backup-icon"><i class="bi bi-cloud-arrow-up"></i></div>
+        <div>
+          <h6 class="fw-bold mb-1">Database Backup</h6>
+          <p class="text-muted small mb-0">Create a full SQL backup of the active database connection and store it securely in <code>storage/app/backups/</code>.</p>
+        </div>
+      </div>
+      <form action="{{ route('superadmin.settings.backup') }}" method="POST" class="mt-3" onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('.backup-btn-text').textContent='Creating Backup...';">
         @csrf
-        <button type="submit" class="btn btn-primary"><i class="bi bi-download me-1"></i>Create Backup Now</button>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-download me-1"></i><span class="backup-btn-text">Create Backup Now</span>
+        </button>
       </form>
     </div>
+
+    <div class="backup-panel backup-action">
+      <h6 class="fw-bold mb-2"><i class="bi bi-shield-check me-2" style="color:#16a34a"></i>Backup Status</h6>
+      <div class="backup-meta">
+        <div class="backup-meta-box">
+          <div class="text-muted small">Files</div>
+          <div class="fw-bold">{{ count($files) }}</div>
+        </div>
+        <div class="backup-meta-box">
+          <div class="text-muted small">Total Size</div>
+          <div class="fw-bold">{{ number_format($totalBackupSize / 1024, 1) }} KB</div>
+        </div>
+      </div>
+      <div class="text-muted small mt-3">
+        Latest:
+        <strong>{{ $latestBackup ? date('M d, Y H:i', filemtime($latestBackup)) : 'No backup yet' }}</strong>
+      </div>
+    </div>
   </div>
+
   @if(count($files) > 0)
-  <div class="card">
+  <div class="backup-panel">
     <div class="card-body p-4">
       <h6 class="fw-bold mb-3">Existing Backups ({{ count($files) }})</h6>
       @foreach($files as $f)
-      <div class="d-flex align-items-center justify-content-between py-2 border-bottom flex-wrap gap-2">
+      <div class="backup-file-row">
         <div>
-          <span class="small fw-semibold">{{ basename($f) }}</span>
-          <span class="text-muted small ms-2">{{ number_format(filesize($f)/1024, 1) }} KB &bull; {{ date('M d, Y H:i', filemtime($f)) }}</span>
+          <div class="backup-file-name">{{ basename($f) }}</div>
+          <div class="backup-file-sub">{{ number_format(filesize($f)/1024, 1) }} KB &bull; {{ date('M d, Y H:i', filemtime($f)) }}</div>
         </div>
-        <div class="d-flex gap-2">
+        <div class="backup-actions">
           <a href="{{ route('superadmin.settings.restore', ['file'=>basename($f)]) }}"
              class="btn btn-outline-secondary btn-sm"
              data-cs-confirm="Restore this backup? Current data will be overwritten." data-cs-title="Restore Backup" data-cs-icon="bi-arrow-counterclockwise" data-cs-ok="Restore">
@@ -606,7 +717,7 @@
     </div>
   </div>
   @else
-  <div class="card"><div class="card-body text-center text-muted py-5">No backups yet.</div></div>
+  <div class="backup-panel"><div class="card-body text-center text-muted py-5">No backups yet.</div></div>
   @endif
   @endif
 
