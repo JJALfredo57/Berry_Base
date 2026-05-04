@@ -159,8 +159,18 @@
     <div class="card-body p-4">
       <h6 class="fw-bold mb-3"><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Order Details</h6>
       <div class="d-flex align-items-center gap-3 mb-3">
-        <img src="{{ $order->image_path ?? '/storage/uploads/products/default.png' }}"
-             style="width:64px;height:64px;object-fit:cover;border-radius:.7rem"
+        @php
+            $thumbSrc = $order->image_path ?? '/storage/uploads/products/default.png';
+            if ($customOrder && !empty($customOrder->reference_images)) {
+                $refImgs = is_array($customOrder->reference_images)
+                    ? $customOrder->reference_images
+                    : json_decode($customOrder->reference_images, true);
+                if (!empty($refImgs[0])) $thumbSrc = $refImgs[0];
+            }
+        @endphp
+        <img src="{{ $thumbSrc }}"
+             style="width:64px;height:64px;object-fit:cover;border-radius:.7rem;cursor:zoom-in"
+             onclick="openLightbox(this)"
              onerror="this.src='https://placehold.co/64x64/fce4ec/e91e63?text=🎂'">
         <div>
           <div class="fw-bold">{{ $order->product_name }}</div>
