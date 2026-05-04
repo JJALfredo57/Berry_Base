@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Support\BecCastilloAddons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -19,6 +20,10 @@ class AddonController extends Controller
     public function index()
     {
         $shop = $this->getShop();
+        if (BecCastilloAddons::isBecCastilloShop($shop)) {
+            BecCastilloAddons::ensureForShop($shop->id);
+        }
+
         $categories = DB::table('cake_addon_categories')
             ->where('shop_id', $shop->id)
             ->orderBy('sort_order')->orderBy('id')->get();

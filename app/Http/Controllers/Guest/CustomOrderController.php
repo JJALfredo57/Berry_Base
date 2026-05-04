@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Support\BecCastilloAddons;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,6 +52,10 @@ class CustomOrderController extends Controller
         if ($slug = $request->query('shop')) {
             $targetShop = DB::table('shops')->where('shop_slug', $slug)->where('status', 'approved')->first();
             if ($targetShop) $shopId = $targetShop->id;
+        }
+
+        if ($targetShop && BecCastilloAddons::isBecCastilloShop($targetShop)) {
+            BecCastilloAddons::ensureForShop($targetShop->id);
         }
 
         $options = $this->loadOptions($shopId);
