@@ -7,6 +7,7 @@ use App\Helpers\SmsHelper;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class CustomOrderController extends Controller
@@ -23,6 +24,20 @@ class CustomOrderController extends Controller
 
     public function index(Request $request)
     {
+        try {
+            return $this->indexInternal($request);
+        } catch (\Throwable $e) {
+            Log::error('Seller CustomOrders index failed: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->with('err', 'Page failed to load: ' . $e->getMessage());
+        }
+    }
+
+    private function indexInternal(Request $request)
+    {
         $shop   = $this->getShop();
         $search = trim($request->input('search', ''));
         $status = $request->input('status', 'All');
@@ -37,6 +52,7 @@ class CustomOrderController extends Controller
                 DB::raw('COALESCE(o.guest_name, co.guest_name, u.fullname) as fullname'),
                 DB::raw('COALESCE(o.guest_phone, co.guest_phone, u.phone) as phone'),
                 DB::raw("COALESCE(u.username, 'Guest') as username"),
+                'u.profile_photo',
                 'o.status as order_status', 'o.total_price as order_total',
                 'o.fulfillment_type', 'o.schedule_date', 'o.payment_method', 'o.payment_status',
                 'o.delivery_address as address')
@@ -66,6 +82,7 @@ class CustomOrderController extends Controller
 
         return view('seller.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'search', 'status'));
     }
+
 
     public function approve(Request $request, string $id)
     {
