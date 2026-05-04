@@ -205,15 +205,17 @@ class CheckoutController extends Controller
                 if ($leadDays === 1 && ($settings->lead_1day_max ?? 0) > 0) $effectiveMax = (int)$settings->lead_1day_max;
                 elseif ($leadDays === 2 && ($settings->lead_2day_max ?? 0) > 0) $effectiveMax = (int)$settings->lead_2day_max;
                 elseif ($leadDays >= 3 && ($settings->lead_3day_plus_max ?? 0) > 0) $effectiveMax = (int)$settings->lead_3day_plus_max;
-                $totalOrdered = (int) DB::table('orders')
+                $ordersQuery = DB::table('orders')
                     ->where('schedule_date', $sdate)
-                    ->whereNotIn('status', ['Cancelled'])
-                    ->sum('quantity');
+                    ->whereNotIn('status', ['Cancelled']);
+                if ($shopId) $ordersQuery->where('shop_id', $shopId);
+                $totalOrdered = (int) $ordersQuery->sum('quantity');
                 try {
-                    $totalOrdered += (int) DB::table('custom_orders')
+                    $customQuery = DB::table('custom_orders')
                         ->where('schedule_date', $sdate)
-                        ->whereNotIn('status', ['Rejected','Cancelled'])
-                        ->sum('quantity');
+                        ->whereNotIn('status', ['Rejected','Cancelled']);
+                    if ($shopId) $customQuery->where('shop_id', $shopId);
+                    $totalOrdered += (int) $customQuery->sum('quantity');
                 } catch (\Exception $e) {}
                 if (($totalOrdered + $qty) > $effectiveMax) {
                     $remaining = max(0, $effectiveMax - $totalOrdered);

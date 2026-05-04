@@ -405,13 +405,16 @@ document.body.style.paddingRight = '';
 function checkCheckoutAvailability() {
   const date      = document.getElementById('fieldDate')?.value;
   const shopId    = '{{ $product->shop_id ?? '' }}';
+  const orderQty  = {{ (int)($checkout['quantity'] ?? 1) }};
   const resultEl  = document.getElementById('checkoutAvailability');
   if (!date || !resultEl) return;
   resultEl.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking availability...</span>';
   fetch('/catalog/availability?date=' + date + (shopId ? '&shop_id=' + shopId : ''))
     .then(r => r.json())
     .then(data => {
-      if (data.status === 'available') {
+      if (data.remaining !== null && orderQty > data.remaining) {
+        resultEl.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Only ' + data.remaining + ' pcs available on this date. Your order quantity is ' + orderQty + ' pcs.</span>';
+      } else if (data.status === 'available') {
         resultEl.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + data.message + '</span>';
       } else if (data.status === 'almost') {
         resultEl.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + data.message + '</span>';

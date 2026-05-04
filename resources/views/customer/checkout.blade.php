@@ -330,15 +330,16 @@ document.body.style.paddingRight = '';
 function checkCustAvailability() {
   const date      = document.getElementById('custFieldDate')?.value;
   const productId = '{{ $product->id }}';
-  const maxPerDay = {{ (int)($product->max_per_day ?? 0) }};
+  const orderQty  = {{ (int)($checkout['quantity'] ?? 1) }};
   const resultEl  = document.getElementById('custCheckoutAvailability');
   if (!date || !resultEl) return;
-  if (maxPerDay === 0) { resultEl.innerHTML = ''; return; }
   resultEl.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking...</span>';
   fetch(`/catalog/availability?product_id=${productId}&date=${date}`)
     .then(r => r.json())
     .then(data => {
-      if (data.status === 'available')
+      if (data.remaining !== null && orderQty > data.remaining) {
+        resultEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Only ${data.remaining} pcs available on this date. Your order quantity is ${orderQty} pcs.</span>`;
+      } else if (data.status === 'available')
         resultEl.innerHTML = `<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>${data.message}</span>`;
       else if (data.status === 'almost')
         resultEl.innerHTML = `<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>${data.message}</span>`;
