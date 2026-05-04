@@ -6,6 +6,7 @@ use App\Helpers\CakeshopHelper;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ProductController extends Controller
 {
@@ -31,37 +32,45 @@ class ProductController extends Controller
     {
         $shop     = $this->getShop();
         $platform = DB::table('platform_settings')->first();
-        $maxProd  = $shop->tier === 'verified' ? null : (int)($platform->max_products_basic ?? 20);
+        $maxProd  = $shop->tier === 'verified' ? null : (int)($platform?->max_products_basic ?? 20);
         $search   = trim($request->input('search', ''));
-        $tab      = $request->input('tab', 'active'); // 'active' or 'archived'
+        $tab      = $request->input('tab', 'active');
+
+        $hasArchivedCol = Schema::hasColumn('products', 'archived_at');
 
         $products = DB::table('products')
             ->where('shop_id', $shop->id)
-            ->when($tab === 'archived', fn($q) => $q->whereNotNull('archived_at'),
-                                        fn($q) => $q->whereNull('archived_at'))
+            ->when($hasArchivedCol && $tab === 'archived', fn($q) => $q->whereNotNull('archived_at'))
+            ->when($hasArchivedCol && $tab !== 'archived', fn($q) => $q->whereNull('archived_at'))
             ->when($search, fn($q) => $q->where(fn($sq) => $sq
                 ->where('name', 'like', "%$search%")
                 ->orWhere('flavor', 'like', "%$search%")
                 ->orWhere('classification', 'like', "%$search%")
             ))
-            ->orderByDesc('id')
+            ->orderByDesc('created_at')
             ->paginate(10)
             ->withQueryString();
 
-        $archivedCount = DB::table('products')->where('shop_id', $shop->id)->whereNotNull('archived_at')->count();
+        $archivedCount = 0;
+        if ($hasArchivedCol) {
+            try {
+                $archivedCount = DB::table('products')->where('shop_id', $shop->id)->whereNotNull('archived_at')->count();
+            } catch (\Exception $e) {}
+        }
+
+        $pids = collect($products->items())->pluck('id')->toArray();
 
         $productSizes = [];
         try {
-            $pids = collect($products->items())->pluck('id')->toArray();
             $sizes = DB::table('product_sizes')
                 ->whereIn('product_id', $pids)
                 ->where('is_active', true)->orderBy('sort_order')->get();
             foreach ($sizes as $s) $productSizes[$s->product_id][] = $s;
         } catch (\Exception $e) {}
 
-        $discounts = CakeshopHelper::getDiscountConfigMap(collect($products->items())->pluck('id')->toArray());
+        $discounts = CakeshopHelper::getDiscountConfigMap($pids);
 
-        return view('seller.products', compact('shop','products','productSizes','discounts','maxProd','search','tab','archivedCount'));
+        return view('seller.products', compact('shop','products','productSizes','discounts','maxProd','search','tab','archivedCount','hasArchivedCol'));
     }
 
     public function store(Request $request)

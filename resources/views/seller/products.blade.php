@@ -46,6 +46,7 @@
              style="padding:.3rem .85rem;border-radius:2rem;font-size:.78rem;font-weight:600;text-decoration:none;border:1.5px solid {{ $tab==='active' ? 'var(--primary)' : 'var(--gray-200)' }};background:{{ $tab==='active' ? 'var(--primary)' : '#fff' }};color:{{ $tab==='active' ? '#fff' : 'var(--gray-600)' }}">
             Active
           </a>
+          @if($hasArchivedCol)
           <a href="{{ route('seller.products', ['tab'=>'archived','search'=>$search]) }}"
              style="padding:.3rem .85rem;border-radius:2rem;font-size:.78rem;font-weight:600;text-decoration:none;border:1.5px solid {{ $tab==='archived' ? '#d97706' : 'var(--gray-200)' }};background:{{ $tab==='archived' ? '#d97706' : '#fff' }};color:{{ $tab==='archived' ? '#fff' : 'var(--gray-600)' }};display:flex;align-items:center;gap:.35rem">
             <i class="bi bi-archive"></i> Archived
@@ -53,6 +54,7 @@
               <span style="background:{{ $tab==='archived' ? 'rgba(255,255,255,.3)' : '#d97706' }};color:#fff;border-radius:99px;font-size:.65rem;padding:0 .4rem;min-width:1.2rem;text-align:center">{{ $archivedCount }}</span>
             @endif
           </a>
+          @endif
         </div>
       </div>
       <div style="font-size:.8rem;color:var(--gray-500)">{{ $tab==='archived' ? 'Archived products are hidden from customers' : 'Search by product name, flavor, or category' }}</div>
@@ -137,7 +139,7 @@
      data-search="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? ''))) }}"
      data-classification="{{ strtolower($p->classification ?? '') }}"
      data-status="{{ $p->is_available ? 'visible' : 'hidden' }}"
-     style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid {{ $p->archived_at ? '#fcd34d' : ($p->is_available ? 'var(--gray-100)' : 'var(--gray-200)') }};margin-bottom:1rem;overflow:hidden;opacity:{{ $p->archived_at ? '.75' : ($p->is_available ? '1' : '.65') }}">
+     style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid {{ ($hasArchivedCol && $p->archived_at) ? '#fcd34d' : ($p->is_available ? 'var(--gray-100)' : 'var(--gray-200)') }};margin-bottom:1rem;overflow:hidden;opacity:{{ ($hasArchivedCol && $p->archived_at) ? '.75' : ($p->is_available ? '1' : '.65') }}">
   <div style="display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;flex-wrap:wrap">
 
     {{-- Product Image --}}
@@ -156,7 +158,7 @@
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
         <span style="font-size:.95rem;font-weight:700;color:var(--gray-900)">{{ $p->name }}</span>
-        @if($p->archived_at)
+        @if($hasArchivedCol && $p->archived_at)
           <span style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;display:inline-flex;align-items:center;gap:.25rem"><i class="bi bi-archive-fill"></i> Archived</span>
         @elseif(!$p->is_available)
           <span style="background:var(--gray-200);color:var(--gray-600);font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px">Hidden</span>
@@ -179,7 +181,7 @@
       <div style="font-size:.75rem;color:var(--gray-500)">
         @if($p->flavor)<span style="margin-right:.75rem"><i class="bi bi-droplet" style="font-size:.7rem"></i> {{ $p->flavor }}</span>@endif
         @if($sizes->count() > 0)<span style="margin-right:.75rem">{{ $sizes->count() }} size{{ $sizes->count() > 1 ? 's' : '' }}</span>@endif
-        @if($p->archived_at)<span style="color:#d97706"><i class="bi bi-calendar-x me-1" style="font-size:.7rem"></i>Archived {{ \Carbon\Carbon::parse($p->archived_at)->diffForHumans() }}</span>@endif
+        @if($hasArchivedCol && $p->archived_at)<span style="color:#d97706"><i class="bi bi-calendar-x me-1" style="font-size:.7rem"></i>Archived {{ \Carbon\Carbon::parse($p->archived_at)->diffForHumans() }}</span>@endif
       </div>
     </div>
 
@@ -194,7 +196,7 @@
               style="background:#fff7ed;color:#c2410c;border:1.5px solid #fdba74;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
         <i class="bi bi-tags"></i> Discount
       </button>
-      @if($p->archived_at)
+      @if($hasArchivedCol && $p->archived_at)
         {{-- Archived: show Restore only --}}
         <form action="{{ route('seller.products.restore', $p->id) }}" method="POST" class="d-inline"
               data-cs-confirm="Restore &quot;{{ addslashes($p->name) }}&quot;? Customers can order it again." data-cs-title="Restore Product" data-cs-icon="bi-arrow-counterclockwise" data-cs-icon-bg="#ecfdf5" data-cs-icon-color="#059669" data-cs-ok="Restore" data-cs-ok-color="#059669">
