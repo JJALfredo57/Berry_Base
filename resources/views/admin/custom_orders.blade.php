@@ -117,12 +117,12 @@
             <div style="overflow-x:auto"><table class="table table-sm table-borderless mb-0" style="font-size:.85rem">
               <tr><td class="text-muted" style="width:40%">Cake Name</td><td class="fw-semibold">{{ $co->cake_name }}</td></tr>
               @if($co->flavor)<tr><td class="text-muted">Flavor</td><td>{{ $co->flavor }}</td></tr>@endif
-              @if($co->size_label)<tr><td class="text-muted">Size</td><td>{{ $co->size_label }}</td></tr>@endif
+              @if($co->size ?? null)<tr><td class="text-muted">Size</td><td>{{ $co->size }}</td></tr>@endif
               @if($co->layers)<tr><td class="text-muted">Layers</td><td>{{ $co->layers }}</td></tr>@endif
               @if($co->design_complexity)<tr><td class="text-muted">Complexity</td><td>{{ $co->design_complexity }}</td></tr>@endif
               @if($co->time_slot)<tr><td class="text-muted">Time Slot</td><td>{{ $co->time_slot }}</td></tr>@endif
               @if($co->dedication)<tr><td class="text-muted">Dedication</td><td><em>"{{ $co->dedication }}"</em></td></tr>@endif
-              @if($co->schedule_date)<tr><td class="text-muted">Schedule</td><td>{{ \Carbon\Carbon::parse($co->schedule_date)->format('M d, Y') }} @if($co->schedule_time) {{ \Carbon\Carbon::parse($co->schedule_time)->format('g:i A') }}@endif</td></tr>@endif
+              @if($co->schedule_date ?? null)<tr><td class="text-muted">Schedule</td><td>{{ \Carbon\Carbon::parse($co->schedule_date)->format('M d, Y') }}@if($co->schedule_time ?? null) {{ \Carbon\Carbon::parse($co->schedule_time)->format('g:i A') }}@endif</td></tr>@endif
               <tr><td class="text-muted">Fulfillment</td><td>{{ $co->fulfillment_type ?? 'Pickup' }}</td></tr>
             </table></div>
           </div>
@@ -176,7 +176,7 @@
               @endif
               @if(!empty($breakdown['size_surcharge']) && $breakdown['size_surcharge'] > 0)
               <div class="d-flex justify-content-between px-3 py-2" style="border-top:1px solid #f0f0f0">
-                <span class="text-muted">Size ({{ $co->size_label }})</span>
+                <span class="text-muted">Size ({{ $co->size }})</span>
                 <span>+₱{{ number_format($breakdown['size_surcharge'],2) }}</span>
               </div>
               @endif
@@ -339,7 +339,7 @@
           <div class="p-3 rounded-3" style="background:#f8f9fa;border:1px solid #e9ecef">
             <div class="fw-semibold small mb-2" style="color:var(--primary)">
               <i class="bi bi-camera me-1"></i>Last Progress Update
-              @if($co->progress_sent_at)
+              @if($co->progress_sent_at ?? null)
                 <span class="text-muted fw-normal ms-1" style="font-size:.72rem">
                   {{ \Carbon\Carbon::parse($co->progress_sent_at)->diffForHumans() }}
                 </span>
@@ -358,7 +358,7 @@
           @endif
 
           {{-- Already reviewed summary (approved/rejected) --}}
-          @if(!$isPending && $co->reviewed_at)
+          @if(!$isPending && ($co->reviewed_at ?? null))
           <div class="text-muted small mt-3">
             <i class="bi bi-clock me-1"></i>Reviewed {{ \Carbon\Carbon::parse($co->reviewed_at)->diffForHumans() }}
           </div>
