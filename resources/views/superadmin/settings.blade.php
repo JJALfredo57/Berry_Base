@@ -161,32 +161,6 @@
                 <input type="text" class="form-control" name="platform_phone"
                        value="{{ $platform->platform_phone ?? '' }}" placeholder="+63 9XX XXX XXXX">
               </div>
-              <div class="col-12">
-                <div style="margin-top:.35rem;padding:1rem 1.1rem;border:1.5px solid #e5e7eb;border-radius:var(--radius-md);background:#fafaf9">
-                  <div style="font-size:.86rem;font-weight:700;color:var(--gray-900);margin-bottom:.25rem">Default Seller Commission Rates</div>
-                  <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:.9rem">These default rates are used when a seller gets approved. You can still override any seller individually in Seller Management.</div>
-                  <div class="row g-3">
-                    <div class="col-md-6">
-                      <label class="form-label fw-semibold">Basic Seller Rate</label>
-                      <div class="input-group">
-                        <input type="number" step="0.01" min="0" max="100" class="form-control" name="commission_rate_basic"
-                               value="{{ number_format((float)($platform->commission_rate_basic ?? 3), 2, '.', '') }}" required>
-                        <span class="input-group-text">%</span>
-                      </div>
-                      <div class="form-text">Applied by default to approved basic sellers.</div>
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label fw-semibold">Verified Seller Rate</label>
-                      <div class="input-group">
-                        <input type="number" step="0.01" min="0" max="100" class="form-control" name="commission_rate_verified"
-                               value="{{ number_format((float)($platform->commission_rate_verified ?? 2), 2, '.', '') }}" required>
-                        <span class="input-group-text">%</span>
-                      </div>
-                      <div class="form-text">Applied by default to approved verified sellers.</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
               <div class="col-md-6">
                 <label class="form-label">Platform Logo</label>
                 @if(!empty($platform->platform_logo))

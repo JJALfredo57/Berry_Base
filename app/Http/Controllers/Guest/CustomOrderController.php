@@ -252,16 +252,25 @@ class CustomOrderController extends Controller
         ]);
 
         DB::table('custom_orders')->insert([
-            'order_id'=>$oid,'shop_id'=>$shopId,
-            'user_id'=>null,'guest_name'=>$guestName,'guest_phone'=>$phone,
-            'cake_name'=>$cakeName,
-            'flavor'=>$flavor?:null,'size'=>$sizeLabel?:null,'layers'=>$layerLabel?:null,
-            'design_complexity'=>$compLabel?:null,'dedication'=>$dedication?:null,
-            'custom_note'=>trim($customNote . (!empty($validAddons) && $addonInstructions ? "\nAdd-on instructions: {$addonInstructions}" : '')) ?: null,
-            'time_slot'=>$timeSlot?:null,
-            'reference_images'=>!empty($refImages)?json_encode($refImages):null,
-            'estimated_price'=>$total,'price_breakdown'=>json_encode($breakdown),
-            'review_status'=>'pending','created_at'=>now(),
+            'id'               => CakeshopHelper::generateId('custom_orders'),
+            'order_id'         => $oid,
+            'shop_id'          => $shopId,
+            'user_id'          => null,
+            'guest_name'       => $guestName,
+            'guest_phone'      => $phone,
+            'cake_name'        => $cakeName,
+            'flavor'           => $flavor ?: null,
+            'size'             => $sizeLabel ?: null,
+            'layers'           => $layerLabel ?: null,
+            'design_complexity'=> $compLabel ?: null,
+            'dedication'       => $dedication ?: null,
+            'custom_note'      => trim($customNote . (!empty($validAddons) && $addonInstructions ? "\nAdd-on instructions: {$addonInstructions}" : '')) ?: null,
+            'time_slot'        => $timeSlot ?: null,
+            'reference_images' => !empty($refImages) ? json_encode($refImages) : null,
+            'estimated_price'  => $total,
+            'price_breakdown'  => json_encode($breakdown),
+            'review_status'    => 'pending',
+            'created_at'       => now(),
         ]);
 
         foreach ($validAddons as $a) {

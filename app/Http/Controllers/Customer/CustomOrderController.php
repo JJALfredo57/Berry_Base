@@ -289,7 +289,8 @@ class CustomOrderController extends Controller
             'created_at'       => now(),
         ]);
 
-        DB::table('custom_orders')->insertGetId([
+        DB::table('custom_orders')->insert([
+            'id'                => CakeshopHelper::generateId('custom_orders'),
             'order_id'          => $oid,
             'shop_id'           => $shopId,
             'user_id'           => $uid,

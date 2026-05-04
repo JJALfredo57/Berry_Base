@@ -357,9 +357,16 @@
             </div>
 
             {{-- Guest Verification --}}
-            <div class="card mb-3">
+            <div class="card mb-3" id="verifyCard">
               <div class="card-body p-4">
-                <h6 class="fw-bold mb-3"><i class="bi bi-shield-lock me-2" style="color:var(--primary)"></i>Verify Your Identity</h6>
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                  <h6 class="fw-bold mb-0">
+                    <i class="bi bi-shield-lock me-2" style="color:var(--primary)"></i>Verify Your Identity
+                  </h6>
+                  <span id="otpStatusBadge" class="badge" style="background:#fef9c3;color:#854d0e;font-size:.72rem;padding:.3rem .75rem">
+                    <i class="bi bi-exclamation-circle me-1"></i>Verification required before placing order
+                  </span>
+                </div>
                 <div class="row g-3">
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Your Name <span class="text-danger">*</span></label>
@@ -368,7 +375,6 @@
                            data-cv-rule="name"
                            oninput="cvValidate(this)" onkeypress="cvBlockChar(event,'name')">
                     <div class="cv-msg" id="msgName"></div>
-                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Enter your full name as it will appear on your order.</div>
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Phone Number <span class="text-danger">*</span></label>
@@ -377,26 +383,28 @@
                              placeholder="09XXXXXXXXX" maxlength="13"
                              data-cv-rule="phone"
                              oninput="cvValidate(this)" onkeypress="cvBlockChar(event,'phone')">
-                      <button type="button" class="btn btn-outline-primary" id="coSendOtpBtn" onclick="sendCoGuestOtp()">
-                        <i class="bi bi-phone me-1"></i>Send OTP
+                      <button type="button" class="btn btn-primary" id="coSendOtpBtn" onclick="sendCoGuestOtp()">
+                        <i class="bi bi-phone-fill me-1"></i>Send OTP
                       </button>
                     </div>
                     <div class="cv-msg" id="msgPhone"></div>
-                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>We'll send your OTP and order updates to this number.</div>
+                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>We'll send a 6-digit code to verify your number.</div>
                   </div>
                 </div>
                 <div class="mt-3" id="coOtpSection" style="display:none">
                   <div class="p-3 rounded-3" style="background:#f0fdf4;border:1.5px solid #bbf7d0">
-                    <div class="fw-semibold small mb-1" style="color:#15803d">
-                      <i class="bi bi-check-circle me-1"></i>OTP sent to your phone
+                    <div class="fw-semibold small mb-2" style="color:#15803d">
+                      <i class="bi bi-check-circle-fill me-1"></i>OTP sent — check your SMS
                     </div>
-                    <label class="form-label fw-semibold small mt-2">Enter 6-digit OTP <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control cv-field" name="otp_code" id="fieldOtp"
-                           placeholder="000000" maxlength="6"
-                           style="letter-spacing:.3em;font-size:clamp(.95rem,2.5vw,1.2rem);width:160px"
-                           oninput="cvValidateOtp(this)" onkeypress="cvBlockChar(event,'otp')">
+                    <label class="form-label fw-semibold small">Enter 6-digit OTP <span class="text-danger">*</span></label>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                      <input type="text" class="form-control cv-field" name="otp_code" id="fieldOtp"
+                             placeholder="000000" maxlength="6"
+                             style="letter-spacing:.3em;font-size:clamp(.95rem,2.5vw,1.2rem);max-width:160px"
+                             oninput="cvValidateOtp(this)" onkeypress="cvBlockChar(event,'otp')">
+                    </div>
                     <div class="cv-msg" id="msgOtp"></div>
-                    <div class="form-text mt-1"><i class="bi bi-info-circle me-1"></i>Enter the 6-digit code sent to your phone via SMS. Valid for 10 minutes.</div>
+                    <div class="form-text mt-1"><i class="bi bi-clock me-1"></i>Valid for 10 minutes.</div>
                   </div>
                 </div>
               </div>
@@ -821,8 +829,15 @@ function cvValidateOtp(input) {
   input.classList.remove('cv-valid','cv-invalid');
   if (msg) { msg.className='cv-msg'; msg.textContent=''; }
   if (!val) return;
-  if (val.length < 6) { input.classList.add('cv-invalid'); if(msg){msg.classList.add('cv-err');msg.textContent=val.length+'/6 digits entered.';} }
-  else { input.classList.add('cv-valid'); if(msg){msg.classList.add('cv-ok');msg.textContent='✓ OTP complete.';} }
+  if (val.length < 6) {
+    input.classList.add('cv-invalid');
+    if (msg) { msg.classList.add('cv-err'); msg.textContent=val.length+'/6 digits entered.'; }
+  } else {
+    input.classList.add('cv-valid');
+    if (msg) { msg.classList.add('cv-ok'); msg.textContent='✓ OTP complete.'; }
+    var badge = document.getElementById('otpStatusBadge');
+    if (badge) { badge.style.background='#dcfce7'; badge.style.color='#166534'; badge.innerHTML='<i class="bi bi-shield-check-fill me-1"></i>Identity verified'; }
+  }
 }
 function cvValidateZone() {
   var sel=document.getElementById('zoneSelect'), msg=document.getElementById('msgZone');
@@ -857,32 +872,47 @@ function cvValidateDate(input) {
 function cvValidateAllCustom() {
   var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   var ok = true, firstErr = null;
+
   var nameEl = document.getElementById('fieldName');
   if (nameEl) {
     cvValidate(nameEl);
-    if (nameEl.classList.contains('cv-invalid')||!nameEl.value.trim()) {
+    if (nameEl.classList.contains('cv-invalid') || !nameEl.value.trim()) {
       cvSetState(nameEl,'msgName','err','Full name is required.'); cvShake(nameEl); ok=false; firstErr=firstErr||nameEl;
     }
   }
+
   var phoneEl = document.getElementById('coGuestPhone');
   if (phoneEl) {
     cvValidate(phoneEl);
-    if (phoneEl.classList.contains('cv-invalid')||!phoneEl.value.trim()) {
+    if (phoneEl.classList.contains('cv-invalid') || !phoneEl.value.trim()) {
       cvSetState(phoneEl,'msgPhone','err','Phone number is required.'); cvShake(phoneEl); ok=false; firstErr=firstErr||phoneEl;
     }
   }
-  var otpSec = document.getElementById('coOtpSection'), otpEl = document.getElementById('fieldOtp');
-  if (otpSec && otpSec.style.display!=='none' && otpEl && otpEl.value.length!==6) {
-    otpEl.classList.add('cv-invalid');
-    var m=document.getElementById('msgOtp'); if(m){m.className='cv-msg cv-err';m.textContent='Please enter the complete 6-digit OTP.';}
-    cvShake(otpEl); ok=false; firstErr=firstErr||otpEl;
+
+  // Require OTP to be sent and completed
+  if (!otpSent) {
+    var msgPhone = document.getElementById('msgPhone');
+    if (msgPhone) { msgPhone.className='cv-msg cv-err'; msgPhone.textContent='Please send and verify your OTP first.'; }
+    if (phoneEl) { phoneEl.classList.add('cv-invalid'); cvShake(phoneEl); }
+    cakeToast('Please tap "Send OTP" to verify your phone number.','error');
+    ok=false; firstErr=firstErr||phoneEl;
+  } else {
+    var otpSec = document.getElementById('coOtpSection'), otpEl = document.getElementById('fieldOtp');
+    if (otpEl && otpEl.value.length !== 6) {
+      otpEl.classList.add('cv-invalid');
+      var m=document.getElementById('msgOtp');
+      if (m) { m.className='cv-msg cv-err'; m.textContent='Please enter the complete 6-digit OTP.'; }
+      cvShake(otpEl); ok=false; firstErr=firstErr||otpEl;
+    }
   }
+
   if (isDelivery) {
     var zoneEl=document.getElementById('zoneSelect');
-    if (zoneEl&&!zoneEl.value) { cvValidateZone(); ok=false; firstErr=firstErr||zoneEl; }
+    if (zoneEl && !zoneEl.value) { cvValidateZone(); ok=false; firstErr=firstErr||document.getElementById('map'); }
     if (!cvValidateMap()) { ok=false; firstErr=firstErr||document.getElementById('map'); }
   }
-  if (!ok && firstErr) firstErr.scrollIntoView({behavior:'smooth',block:'center'});
+
+  if (!ok && firstErr) firstErr.scrollIntoView({behavior:'smooth', block:'center'});
   return ok;
 }
 
@@ -902,6 +932,8 @@ function confirmCustomOrder(btn) {
 document.addEventListener('DOMContentLoaded', () => { updateCashPaymentCopy(); updatePriceSummary(); });
 
 // ── Reference image multi-select ──────────────────────────────────────
+var otpSent = false;
+
 var refFiles = [];
 var MAX_REF  = 5;
 function addRefImages(input) {
@@ -953,6 +985,9 @@ function sendCoGuestOtp() {
       if (!data.ok) { cakeToast(data.error||'Failed to send OTP.','error'); btn.innerHTML='<i class="bi bi-phone me-1"></i>Send OTP'; btn.disabled=false; return; }
       document.getElementById('coOtpSection').style.display='block';
       document.querySelector('[name="otp_code"]').required=true;
+      otpSent = true;
+      var badge = document.getElementById('otpStatusBadge');
+      if (badge) { badge.style.background='#dcfce7'; badge.style.color='#166534'; badge.innerHTML='<i class="bi bi-check-circle-fill me-1"></i>OTP sent — enter code below'; }
       cakeToast('✅ OTP sent! Check your SMS.','success');
       btn.innerHTML='<i class="bi bi-arrow-repeat me-1"></i>Resend'; btn.disabled=false;
     })
