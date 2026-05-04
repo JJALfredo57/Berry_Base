@@ -316,15 +316,34 @@ class CustomOrderController extends Controller
             return redirect()->route('platform.home')->with('err', 'Unauthorized action.');
         }
 
+        $totalPrice    = max((float) $co->admin_price, (float) $order->total_price);
+        $depositAmount = round($totalPrice * 0.5, 2);
+        $isFullPayment = abs($depositAmount - $totalPrice) < 0.01;
+
         DB::table('custom_orders')->where('id', $coId)->update([
             'price_confirmed'       => 'accepted',
             'customer_confirmed_at' => now(),
         ]);
 
+        DB::table('orders')->where('id', $co->order_id)->update([
+            'deposit_required' => 1,
+            'deposit_amount'   => $depositAmount,
+            'deposit_status'   => $order->payment_method === 'GCash' ? 'pending' : 'paid',
+            'deposit_paid_at'  => $order->payment_method === 'GCash' ? null : now(),
+            'payment_status'   => $order->payment_method === 'GCash'
+                ? 'Unpaid'
+                : ($isFullPayment ? 'Paid' : 'Partial Payment'),
+            'paid_at'          => $order->payment_method !== 'GCash' && $isFullPayment ? now() : null,
+            'status'           => $order->payment_method === 'GCash' ? $order->status : 'Confirmed',
+            'total_price'      => $totalPrice,
+        ]);
+
         DB::table('order_tracking')->insert([
             'order_id'   => $co->order_id,
-            'status'     => 'Pending',
-            'notes'      => 'Guest accepted the final price of PHP ' . number_format($co->admin_price, 2) . '. Waiting for deposit payment.',
+            'status'     => $order->payment_method === 'GCash' ? $order->status : 'Confirmed',
+            'notes'      => $order->payment_method === 'GCash'
+                ? 'Guest accepted the final price of PHP ' . number_format($totalPrice, 2) . '. A 50% GCash deposit was prepared automatically.'
+                : CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null) . ' deposit of PHP ' . number_format($depositAmount, 2) . ' acknowledged automatically after price acceptance. Order confirmed.',
             'created_at' => now(),
         ]);
 
@@ -347,7 +366,58 @@ class CustomOrderController extends Controller
         ]);
 
         $order = DB::table('orders')->where('id', $co->order_id)->first();
-        return redirect()->route('track.order', $order->track_code ?? '')->with('msg', '✅ Price accepted! Please proceed with your deposit payment. 🎂');
+        if ($order->payment_method === 'GCash') {
+            return redirect()->route('guest.pay_deposit', $order->track_code);
+        }
+
+        $freshOrder = DB::table('orders')->where('id', $co->order_id)->first();
+        $this->sendGuestCustomToKitchen($co, $freshOrder ?? $order);
+
+        return redirect()->route('track.order', $order->track_code ?? '')->with('msg', 'Price accepted. Your order is now confirmed and sent to the kitchen.');
+    }
+
+    private function sendGuestCustomToKitchen(object $co, object $order): void
+    {
+        if ($order->kitchen_sent) return;
+
+        try {
+            $addons = DB::table('order_addons')->where('order_id', $co->order_id)->get();
+            $addonList = $addons->count() > 0
+                ? "\nADD-ONS:\n" . $addons->map(fn($a) => '  - ' . $a->addon_name . ($a->addon_price > 0 ? ' (+PHP ' . $a->addon_price . ')' : ' (FREE)'))->implode("\n")
+                : '';
+
+            $productName = DB::table('products')->where('id', $order->product_id)->value('name') ?? 'Custom Cake';
+            $fullname    = $order->guest_name ?? $co->guest_name ?? 'Guest';
+            $phone       = $order->guest_phone ?? $co->guest_phone ?? '';
+            $sizeInfo    = $order->selected_size ? "\nSIZE: {$order->selected_size}" : '';
+            $noteInfo    = $order->custom_note ? "\nSPECIAL NOTE: {$order->custom_note}" : '';
+            $schedInfo   = $order->schedule_date ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) : '';
+            $payInfo     = CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null)
+                . ' - Deposit PHP ' . number_format((float) $order->deposit_amount, 2) . ' acknowledged';
+
+            DB::table('kitchen_tickets')->where('order_id', $co->order_id)->delete();
+            DB::table('kitchen_tickets')->insert([
+                'shop_id'       => $order->shop_id ?? null,
+                'order_id'      => $co->order_id,
+                'product_name'  => $productName . ' (Custom)',
+                'product_image' => $order->product_image ?? null,
+                'quantity'      => $order->quantity ?? 1,
+                'instructions'  => "=== KITCHEN ORDER TICKET ===\nOrder #: {$co->order_id}\nCustomer: {$fullname}" . ($phone ? " ({$phone})" : '') . "\nProduct: {$productName} (Custom)\nQty: {$order->quantity}{$sizeInfo}{$noteInfo}{$addonList}{$schedInfo}\nFulfillment: {$order->fulfillment_type}\nPayment: {$payInfo}\n===========================",
+                'status'        => 'pending',
+                'sent_at'       => now()->format('Y-m-d H:i:s'),
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ]);
+
+            DB::table('orders')->where('id', $co->order_id)->update(['kitchen_sent' => true]);
+        } catch (\Exception $e) {
+            DB::table('order_tracking')->insert([
+                'order_id'   => $co->order_id,
+                'status'     => $order->status ?? 'Confirmed',
+                'notes'      => 'Order confirmed, but kitchen ticket could not be generated automatically. Please notify the shop.',
+                'created_at' => now(),
+            ]);
+        }
     }
 
     /** Guest cancels custom order after price set */

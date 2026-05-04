@@ -161,9 +161,9 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::post('/custom-order/place', [CustomerCustomOrder::class, 'store'])->name('custom_order.store');
     Route::post('/custom-orders/{id}/accept-price',    [CustomerOrder::class, 'acceptPrice'])->name('custom_orders.accept_price');
     Route::post('/custom-orders/{id}/cancel-price',    [CustomerOrder::class, 'cancelAfterPrice'])->name('custom_orders.cancel_price');
-    Route::post('/custom-orders/{id}/set-deposit',     [CustomerOrder::class, 'setCustomDeposit'])->name('customer.custom_orders.set_deposit');
-    Route::get('/custom-orders/{id}/pay-deposit',      [\App\Http\Controllers\Guest\PaymentController::class, 'payCustomDeposit'])->name('customer.custom_orders.pay_deposit');
-    Route::get('/custom-orders/{id}/deposit-return',   [\App\Http\Controllers\Guest\PaymentController::class, 'customDepositReturn'])->name('customer.custom_orders.deposit_return');
+    Route::post('/custom-orders/{id}/set-deposit',     [CustomerOrder::class, 'setCustomDeposit'])->name('custom_orders.set_deposit');
+    Route::get('/custom-orders/{id}/pay-deposit',      [\App\Http\Controllers\Guest\PaymentController::class, 'payCustomDeposit'])->name('custom_orders.pay_deposit');
+    Route::get('/custom-orders/{id}/deposit-return',   [\App\Http\Controllers\Guest\PaymentController::class, 'customDepositReturn'])->name('custom_orders.deposit_return');
 
     Route::get('/messages',                           [CustomerMessage::class, 'index'])->name('messages');
     Route::get('/messages/thread/{orderId}',          [CustomerMessage::class, 'thread'])->name('messages.thread');

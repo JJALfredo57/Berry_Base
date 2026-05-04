@@ -156,6 +156,39 @@ class PaymentController extends Controller
         $depositAmount = round($depositAmount, 2);
         $isFullPayment = abs($depositAmount - $maxDeposit) < 0.01;
 
+        if ($order->payment_method !== 'GCash') {
+            DB::table('orders')->where('id', $order->id)->update([
+                'deposit_required' => 1,
+                'deposit_amount'   => $depositAmount,
+                'deposit_status'   => 'paid',
+                'deposit_paid_at'  => now(),
+                'payment_status'   => $isFullPayment ? 'Paid' : 'Partial Payment',
+                'paid_at'          => $isFullPayment ? now() : null,
+                'status'           => 'Confirmed',
+            ]);
+
+            try {
+                DB::table('order_tracking')->insert([
+                    'order_id'   => $order->id,
+                    'status'     => 'Confirmed',
+                    'notes'      => CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null)
+                        . ' deposit of PHP ' . number_format($depositAmount, 2) . ' acknowledged. Order confirmed automatically.',
+                    'created_at' => now(),
+                ]);
+            } catch (\Exception $e) {}
+
+            $freshOrder = DB::table('orders as o')
+                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+                ->where('o.id', $order->id)
+                ->select('o.*', 'p.name as product_name', 'p.image_path as product_image')
+                ->first();
+
+            $this->sendToKitchen($freshOrder ?? $order, $isFullPayment);
+
+            return redirect()->route('track.order', $trackCode)
+                ->with('msg', 'Order confirmed. Your cake request has been sent to the kitchen.');
+        }
+
         // Save deposit info
         DB::table('orders')->where('id', $order->id)->update([
             'deposit_required' => 1,
@@ -453,9 +486,14 @@ class PaymentController extends Controller
                 ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) .
                   ($order->schedule_time ? ' at ' . date('g:i A', strtotime($order->schedule_time)) : '')
                 : '';
-            $payLine = $isFullPayment
-                ? 'GCash Full ₱' . number_format($order->deposit_amount, 2) . ' ✓ Fully Paid'
-                : 'GCash Deposit ₱' . number_format($order->deposit_amount, 2) . ' ✓ Paid (Balance remaining)';
+            if ($order->payment_method === 'GCash') {
+                $payLine = $isFullPayment
+                    ? 'GCash Full PHP ' . number_format($order->deposit_amount, 2) . ' - Fully Paid'
+                    : 'GCash Deposit PHP ' . number_format($order->deposit_amount, 2) . ' - Paid (Balance remaining)';
+            } else {
+                $payLine = CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null)
+                    . ' Deposit PHP ' . number_format($order->deposit_amount, 2) . ' acknowledged';
+            }
 
             DB::table('kitchen_tickets')->where('order_id', $order->id)->delete();
             DB::table('kitchen_tickets')->insert([
@@ -890,6 +928,14 @@ class PaymentController extends Controller
 
         $secretKey      = CakeshopHelper::getPaymongoSecretKey();
         $amountCentavos = (int) round((float)$order->deposit_amount * 100);
+
+        if (!$secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY')) {
+            return redirect()->route('customer.orders')->with('err', 'GCash payment is not configured yet. Please contact the shop.');
+        }
+
+        if ($amountCentavos < 10000) {
+            return redirect()->route('customer.orders')->with('err', 'Minimum GCash payment is PHP 100.00.');
+        }
 
         $successUrl = route('customer.custom_orders.deposit_return', $coId) . '?status=success';
         $cancelUrl  = route('customer.custom_orders.deposit_return', $coId) . '?status=cancelled';
