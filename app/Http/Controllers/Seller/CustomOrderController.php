@@ -25,18 +25,31 @@ class CustomOrderController extends Controller
     public function index(Request $request)
     {
         try {
-            return $this->indexInternal($request);
+            $viewData = $this->buildIndex($request);
+            $html = view('seller.custom_orders', $viewData)->render();
+            return response($html)->header('Content-Type', 'text/html; charset=UTF-8');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e; // let abort(403) / abort(404) pass through normally
         } catch (\Throwable $e) {
-            Log::error('Seller CustomOrders index failed: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
+            Log::error('Seller CustomOrders 500: ' . $e->getMessage(), [
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
+                'trace' => substr($e->getTraceAsString(), 0, 3000),
             ]);
-            return back()->with('err', 'Page failed to load: ' . $e->getMessage());
+            $msg = htmlspecialchars($e->getMessage());
+            $file = htmlspecialchars(basename($e->getFile()) . ':' . $e->getLine());
+            return response("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Custom Orders Error</title>
+<style>body{font-family:sans-serif;padding:40px;background:#fff8f8}.box{background:#fff;border:1.5px solid #f87171;border-radius:12px;padding:32px;max-width:720px;margin:auto}.title{color:#b91c1c;font-size:1.2rem;font-weight:700;margin-bottom:12px}.msg{background:#fef2f2;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:.9rem;word-break:break-all;color:#7f1d1d}.file{color:#6b7280;font-size:.8rem;margin-top:8px}.back{display:inline-block;margin-top:20px;padding:8px 20px;background:#e11d48;color:#fff;text-decoration:none;border-radius:8px;font-weight:600}</style>
+</head><body><div class='box'>
+<div class='title'>⚠ Custom Orders failed to load</div>
+<div class='msg'>{$msg}</div>
+<div class='file'>{$file}</div>
+<a class='back' href='/seller/dashboard'>← Back to Dashboard</a>
+</div></body></html>", 200)->header('Content-Type', 'text/html; charset=UTF-8');
         }
     }
 
-    private function indexInternal(Request $request)
+    private function buildIndex(Request $request): array
     {
         $shop   = $this->getShop();
         $search = trim($request->input('search', ''));
@@ -80,7 +93,7 @@ class CustomOrderController extends Controller
                 ->where('shop_id', $shop->id)->where('review_status', 'pending')->count();
         } catch (\Exception $e) {}
 
-        return view('seller.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'search', 'status'));
+        return compact('customOrders', 'orderAddons', 'pendingCount', 'search', 'status');
     }
 
 
