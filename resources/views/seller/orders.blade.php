@@ -37,8 +37,8 @@
         <select id="sellerOrderStatusFilter" class="form-select" style="flex:1;min-width:0;max-width:160px"
                 onchange="pgFilter('status', this.value)">
           <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All status</option>
-          @foreach(['Awaiting Deposit','Pending','Confirmed','Preparing','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
-          <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st }}</option>
+          @foreach(['Awaiting Deposit','Pending','Confirmed','Preparing','Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
+          <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st === 'Pickup' ? 'Ready for Pickup' : $st }}</option>
           @endforeach
         </select>
       </div>
@@ -55,6 +55,7 @@
       'Pending','Pending Review' => 'background:#FFF3E0;color:#E65100',
       'Confirmed'                => 'background:#E3F2FD;color:#1565C0',
       'Preparing'                => 'background:#F3E5F5;color:#6A1B9A',
+      'Pickup'                   => 'background:#EDE9FE;color:#5B21B6',
       'Out for Delivery'         => 'background:#E8F5E9;color:#2E7D32',
       'Delivered','Picked Up'    => 'background:#E8F5E9;color:#1B5E20',
       'Cancelled'                => 'background:#FFEBEE;color:#C62828',
@@ -89,7 +90,7 @@
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.25rem">
           <span style="font-size:.875rem;font-weight:700;color:var(--gray-900);font-family:monospace">{{ strtoupper($o->track_code) }}</span>
-          <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $o->status }}</span>
+          <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $o->status === 'Pickup' ? 'Ready for Pickup' : $o->status }}</span>
           @if($custom)
             <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Custom</span>
           @endif
@@ -250,7 +251,11 @@
 
     {{-- Pickup Ready: Picked Up button or payment warning --}}
     @if($o->status === 'Pickup')
-      @if($o->payment_status === 'Paid')
+      @php
+        $isCashPickup = ($o->fulfillment_type ?? 'Pickup') === 'Pickup' && strtoupper((string)($o->payment_method ?? '')) === 'COD';
+        $canConfirmPickup = $o->payment_status === 'Paid' || $isCashPickup;
+      @endphp
+      @if($canConfirmPickup)
       <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#f0fdf4 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
         <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
           <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -259,7 +264,11 @@
           <div>
             <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">READY FOR PICKUP</div>
             <div style="font-size:.82rem;color:#16a34a;line-height:1.5;font-weight:600">
-              Payment complete. Confirm once the customer has picked up their order.
+              @if($isCashPickup && $o->payment_status !== 'Paid')
+                Collect the cash payment at the counter, then confirm that the customer has picked up the order.
+              @else
+                Payment complete. Confirm once the customer has picked up their order.
+              @endif
             </div>
           </div>
         </div>
@@ -269,13 +278,13 @@
           <button type="submit"
                   style="background:#16a34a;color:#fff;border:none;border-radius:var(--radius-md);padding:.45rem 1.1rem;font-size:.82rem;font-weight:700;cursor:pointer"
                   data-cs-confirm="Mark this order as Picked Up?"
-                  data-cs-title="Confirm Pickup"
-                  data-cs-ok="Yes, Picked Up"
+                  data-cs-title="{{ $isCashPickup && $o->payment_status !== 'Paid' ? 'Collect Cash and Confirm Pickup' : 'Confirm Pickup' }}"
+                  data-cs-ok="{{ $isCashPickup && $o->payment_status !== 'Paid' ? 'Confirm Paid Pickup' : 'Yes, Picked Up' }}"
                   data-cs-ok-color="#16a34a"
                   data-cs-icon="bi-bag-check"
                   data-cs-icon-bg="#dcfce7"
                   data-cs-icon-color="#16a34a">
-            <i class="bi bi-bag-check"></i> Mark as Picked Up
+            <i class="bi bi-bag-check"></i> {{ $isCashPickup && $o->payment_status !== 'Paid' ? 'Collect Cash & Mark Picked Up' : 'Mark as Picked Up' }}
           </button>
         </form>
       </div>
@@ -290,7 +299,7 @@
             <div style="font-size:.82rem;color:#d97706;line-height:1.5;font-weight:600">
               Order is ready but customer still has an unpaid balance
               @if($o->payment_method === 'GCash') (GCash — ₱{{ number_format($o->total_price - ($o->deposit_amount ?? 0), 2) }} remaining)@endif.
-              The <strong>Picked Up</strong> button will appear once payment is completed.
+              The <strong>Mark as Picked Up</strong> button will appear once GCash payment is completed.
             </div>
           </div>
         </div>

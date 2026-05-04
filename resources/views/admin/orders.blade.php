@@ -356,6 +356,7 @@
               $nexts       = $nextStatuses[$o->status] ?? [];
               $finalStatuses = ['Picked Up'];
               $gcashUnpaid = $o->payment_method === 'GCash' && $o->payment_status !== 'Paid';
+              $isCashPickup = $isPickup && strtoupper((string)($o->payment_method ?? '')) === 'COD';
             @endphp
 
             {{-- Kitchen status info for Confirmed/Preparing --}}
@@ -397,9 +398,9 @@
                 @csrf
                 <input type="hidden" name="status" value="{{ $nextStatus }}">
                 <button type="submit" class="btn btn-sm {{ $btnColors[$nextStatus] ?? 'btn-outline-secondary' }}"
-                        data-cs-confirm="Move Order #{{ $o->id }} to {{ $nextStatus }}?"
-                        data-cs-title="Update Order Status"
-                        data-cs-ok="Update Status"
+                        data-cs-confirm="{{ $nextStatus === 'Picked Up' && $isCashPickup && $o->payment_status !== 'Paid' ? 'Collect the cash payment, then mark Order #'.$o->id.' as Picked Up?' : 'Move Order #'.$o->id.' to '.$nextStatus.'?' }}"
+                        data-cs-title="{{ $nextStatus === 'Picked Up' ? 'Confirm Customer Pickup' : 'Update Order Status' }}"
+                        data-cs-ok="{{ $nextStatus === 'Picked Up' && $isCashPickup && $o->payment_status !== 'Paid' ? 'Confirm Paid Pickup' : 'Update Status' }}"
                         data-cs-icon="bi-arrow-repeat"
                         data-cs-icon-bg="#ede9fe"
                         data-cs-icon-color="#7c3aed">
@@ -407,7 +408,7 @@
                   @elseif($nextStatus === 'Picked Up') <i class="bi bi-bag-check me-1"></i>
                   @elseif($nextStatus === 'Cancelled') <i class="bi bi-x-circle me-1"></i>
                   @endif
-                  {{ $nextStatus }}
+                  {{ $nextStatus === 'Picked Up' ? 'Mark as Picked Up' : $nextStatus }}
                 </button>
               </form>
               @endif

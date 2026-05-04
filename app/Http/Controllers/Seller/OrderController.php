@@ -75,8 +75,11 @@ class OrderController extends Controller
             ]);
         }
 
-        // Picked Up requires full payment
-        if ($newStatus === 'Picked Up' && $order->payment_status !== 'Paid') {
+        $isCashPickup = ($order->fulfillment_type ?? 'Pickup') === 'Pickup'
+            && strtoupper((string) $order->payment_method) === 'COD';
+
+        // Picked Up requires settled payment; Cash on Pickup is settled during pickup confirmation.
+        if ($newStatus === 'Picked Up' && $order->payment_status !== 'Paid' && !$isCashPickup) {
             return back()->with('err', 'Cannot mark as Picked Up — customer still has an unpaid balance. Payment must be completed first.');
         }
 
@@ -88,7 +91,7 @@ class OrderController extends Controller
         if ($newStatus === 'Picked Up') {
             $upd['delivered_at']     = now()->format('Y-m-d H:i:s');
             $upd['review_requested'] = 1;
-            if ($order->payment_method === 'COD' && $order->payment_status !== 'Paid') {
+            if ($isCashPickup && $order->payment_status !== 'Paid') {
                 $upd['payment_status'] = 'Paid';
                 $upd['paid_at']        = now()->format('Y-m-d H:i:s');
             }
