@@ -277,7 +277,7 @@
                 @csrf
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">Reason for Rejection <span class="text-danger">*</span></label>
-                  <textarea class="form-control" name="admin_comment" rows="3"
+                  <textarea class="form-control" name="reason" rows="3"
                             placeholder="e.g. Design too complex for current availability. Please simplify the request." required></textarea>
                 </div>
                 <button type="submit" class="btn btn-danger w-100"

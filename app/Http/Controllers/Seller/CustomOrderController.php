@@ -7,6 +7,7 @@ use App\Helpers\SmsHelper;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CustomOrderController extends Controller
 {
@@ -26,19 +27,23 @@ class CustomOrderController extends Controller
         $search = trim($request->input('search', ''));
         $status = $request->input('status', 'All');
 
+        $hasCakeName = Schema::hasColumn('custom_orders', 'cake_name');
+
         $customOrders = DB::table('custom_orders as co')
             ->leftJoin('users as u', 'u.id', '=', 'co.user_id')
             ->leftJoin('orders as o', 'o.id', '=', 'co.order_id')
-            ->where('o.shop_id', $shop->id)
+            ->where('co.shop_id', $shop->id)
             ->select('co.*',
-                DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
-                DB::raw('COALESCE(o.guest_phone, u.phone) as phone'),
+                DB::raw('COALESCE(o.guest_name, co.guest_name, u.fullname) as fullname'),
+                DB::raw('COALESCE(o.guest_phone, co.guest_phone, u.phone) as phone'),
                 DB::raw("COALESCE(u.username, 'Guest') as username"),
                 'o.status as order_status', 'o.total_price as order_total',
-                'o.fulfillment_type', 'o.schedule_date', 'o.payment_method', 'o.payment_status', 'o.address')
-            ->when($search, fn($q) => $q->where(fn($sq) => $sq
-                ->where('co.cake_name', 'like', "%$search%")
-                ->orWhereRaw("COALESCE(o.guest_name, u.fullname) like ?", ["%$search%"])
+                'o.fulfillment_type', 'o.schedule_date', 'o.payment_method', 'o.payment_status',
+                'o.delivery_address as address')
+            ->when($search, fn($q) => $q->where(fn($sq) => $hasCakeName
+                ? $sq->where('co.cake_name', 'like', "%$search%")
+                      ->orWhereRaw("COALESCE(o.guest_name, co.guest_name, u.fullname) like ?", ["%$search%"])
+                : $sq->whereRaw("COALESCE(o.guest_name, co.guest_name, u.fullname) like ?", ["%$search%"])
             ))
             ->when($status && $status !== 'All', fn($q) => $q->where('co.review_status', $status))
             ->orderByDesc('co.id')
@@ -53,10 +58,13 @@ class CustomOrderController extends Controller
                     $orderAddons[$a->order_id][] = $a;
             } catch (\Exception $e) {}
         }
-        $pendingCount = DB::table('custom_orders')
-            ->join('orders', 'orders.id', '=', 'custom_orders.order_id')
-            ->where('orders.shop_id', $shop->id)->where('custom_orders.review_status', 'pending')->count();
-        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'search', 'status'));
+        $pendingCount = 0;
+        try {
+            $pendingCount = DB::table('custom_orders')
+                ->where('shop_id', $shop->id)->where('review_status', 'pending')->count();
+        } catch (\Exception $e) {}
+
+        return view('seller.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'search', 'status'));
     }
 
     public function approve(Request $request, string $id)
@@ -136,7 +144,6 @@ class CustomOrderController extends Controller
         if ($request->hasFile('progress_image') && $request->file('progress_image')->isValid()) {
             $photoPath = $this->uploadFile($request->file('progress_image'), 'uploads/custom_orders');
         }
-        $note = trim($request->input('progress_note', ''));
         if ($photoPath) DB::table('custom_orders')->where('id', $id)->update(['progress_image' => $photoPath]);
         // No SMS for progress update — customer can view updates on tracking page
         return back()->with('msg', 'Progress update sent.');
