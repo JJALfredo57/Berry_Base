@@ -151,6 +151,7 @@ class CustomOrderController extends Controller
         $timeSlot   = trim($request->input('time_slot',''));
         $qty        = max(1,(int)$request->input('quantity',1));
         $customNote = trim($request->input('custom_note',''));
+        $addonInstructions = trim($request->input('addon_instructions',''));
 
         // Reference images
         $refImages = [];
@@ -223,6 +224,9 @@ class CustomOrderController extends Controller
         if ($compLabel)  $parts[] = "Design: {$compLabel}";
         if ($dedication) $parts[] = "Dedication: \"{$dedication}\"";
         if ($customNote) $parts[] = "Notes: {$customNote}";
+        if (!empty($validAddons) && $addonInstructions) {
+            $parts[] = "Add-on instructions: {$addonInstructions}";
+        }
         $fullNote = implode(' | ',$parts);
 
         $customProduct = DB::table('products')->where('classification','Custom')->orderBy('created_at')->first();
@@ -253,7 +257,8 @@ class CustomOrderController extends Controller
             'cake_name'=>$cakeName,
             'flavor'=>$flavor?:null,'size'=>$sizeLabel?:null,'layers'=>$layerLabel?:null,
             'design_complexity'=>$compLabel?:null,'dedication'=>$dedication?:null,
-            'custom_note'=>$customNote?:null,'time_slot'=>$timeSlot?:null,
+            'custom_note'=>trim($customNote . (!empty($validAddons) && $addonInstructions ? "\nAdd-on instructions: {$addonInstructions}" : '')) ?: null,
+            'time_slot'=>$timeSlot?:null,
             'reference_images'=>!empty($refImages)?json_encode($refImages):null,
             'estimated_price'=>$total,'price_breakdown'=>json_encode($breakdown),
             'review_status'=>'pending','created_at'=>now(),

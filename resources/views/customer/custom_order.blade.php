@@ -147,7 +147,14 @@
                   <i class="bi bi-stars me-2" style="color:var(--primary)"></i>Add-ons &amp; Extras
                   <span class="badge ms-2" style="background:var(--primary-light);color:var(--primary);font-size:.72rem">Optional</span>
                 </h6>
-                <p class="text-muted small mb-4">Select any extras to include with your custom cake.</p>
+                <p class="text-muted small mb-3">Add-ons are optional. Open this only if you want extra toppings, fillings, toppers, candles, or packaging.</p>
+                <button type="button" class="btn btn-outline-primary w-100 fw-semibold mb-3"
+                        id="addonToggleBtn"
+                        onclick="toggleOptionalAddons()">
+                  <i class="bi bi-plus-circle me-1"></i><span id="addonToggleLabel">Add optional add-ons</span>
+                  <span id="addonSelectedCount" class="badge ms-2" style="display:none;background:var(--primary);color:#fff">0 selected</span>
+                </button>
+                <div id="optionalAddonsPanel" style="display:none">
                 @foreach($addonCategories as $cat)
                 @php $catAddons = $addonsByCategory[$cat->id] ?? collect(); @endphp
                 @if($catAddons->count() > 0)
@@ -167,7 +174,7 @@
                         <input type="checkbox" name="addons[]" value="{{ $addon->id }}"
                                class="addon-check form-check-input flex-shrink-0 mt-0"
                                style="width:18px;height:18px"
-                               onchange="updatePriceSummary(); highlightAddonCard(this)">
+                               onchange="updatePriceSummary(); highlightAddonCard(this); updateAddonPanelState()">
                         <div class="flex-grow-1">
                           <div class="fw-semibold small">{{ $addon->name }}</div>
                           @if($addon->description)
@@ -188,6 +195,17 @@
                 </div>
                 @endif
                 @endforeach
+                  <div class="mt-2">
+                    <label class="form-label fw-semibold small">
+                      Add-on Instructions <span class="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <textarea class="form-control" name="addon_instructions" rows="3"
+                              placeholder="Example: put mango slices only on top, use gold topper, no nuts, write candle number 7, separate the candles in the box.">{{ old('addon_instructions') }}</textarea>
+                    <div class="form-text">
+                      This note will be shown to the seller's kitchen together with your selected add-ons after confirmation.
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             @endif
@@ -599,6 +617,25 @@ function highlightAddonCard(input) {
   const card = input.closest('.addon-card');
   card.style.borderColor = input.checked ? 'var(--primary)' : '#e9ecef';
   card.style.background  = input.checked ? 'var(--primary-light)' : '';
+}
+
+function toggleOptionalAddons() {
+  const panel = document.getElementById('optionalAddonsPanel');
+  const btn = document.getElementById('addonToggleBtn');
+  if (!panel || !btn) return;
+  const willOpen = panel.style.display === 'none';
+  panel.style.display = willOpen ? 'block' : 'none';
+  btn.querySelector('i').className = willOpen ? 'bi bi-dash-circle me-1' : 'bi bi-plus-circle me-1';
+  const label = document.getElementById('addonToggleLabel');
+  if (label) label.textContent = willOpen ? 'Hide optional add-ons' : 'Add optional add-ons';
+}
+
+function updateAddonPanelState() {
+  const count = document.querySelectorAll('.addon-check:checked').length;
+  const badge = document.getElementById('addonSelectedCount');
+  if (!badge) return;
+  badge.style.display = count ? 'inline-block' : 'none';
+  badge.textContent = count + ' selected';
 }
 
 function toggleDelivery() {
