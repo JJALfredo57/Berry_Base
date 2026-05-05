@@ -160,7 +160,7 @@
       <h6 class="fw-bold mb-3"><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Order Details</h6>
       <div class="d-flex align-items-center gap-3 mb-3">
         @php
-            $thumbSrc = $order->image_path ?? '/storage/uploads/products/default.png';
+            $thumbSrc = $order->image_path ?? '/images/default-cake.svg';
             if ($customOrder && !empty($customOrder->reference_images)) {
                 $refImgs = is_array($customOrder->reference_images)
                     ? $customOrder->reference_images

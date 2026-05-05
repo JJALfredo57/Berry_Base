@@ -232,7 +232,7 @@ class CustomOrderController extends Controller
         $customProduct = DB::table('products')->where('classification','Custom')->orderBy('created_at')->first();
         if (!$customProduct) {
             $customPid = CakeshopHelper::generateId('products');
-            DB::table('products')->insert(['id'=>$customPid,'name'=>'Custom Cake Order','description'=>'Custom cake placeholder.','price'=>$basePrice,'image_path'=>'/storage/uploads/products/default.png','classification'=>'Custom','flavor'=>null,'created_at'=>now()]);
+            DB::table('products')->insert(['id'=>$customPid,'name'=>'Custom Cake Order','description'=>'Custom cake placeholder.','price'=>$basePrice,'image_path'=>'/images/default-cake.svg','classification'=>'Custom','flavor'=>null,'created_at'=>now()]);
         } else { $customPid = $customProduct->id; }
 
         $oid       = CakeshopHelper::generateId('orders');
