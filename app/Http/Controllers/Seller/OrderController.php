@@ -33,9 +33,13 @@ class OrderController extends Controller
                 'p.name as product_name', 'p.image_path'
             )
             ->when($search, fn($q) => $q->where(fn($sq) => $sq
-                ->where('o.id', 'like', "%$search%")
-                ->orWhereRaw("COALESCE(o.guest_name, u.fullname) like ?", ["%$search%"])
-                ->orWhere('p.name', 'like', "%$search%")
+                ->whereRaw("o.id::text ilike ?", ["%$search%"])
+                ->orWhereRaw("o.track_code ilike ?", ["%$search%"])
+                ->orWhereRaw("COALESCE(o.guest_name, u.fullname) ilike ?", ["%$search%"])
+                ->orWhereRaw("p.name ilike ?", ["%$search%"])
+                ->orWhereRaw("o.payment_status ilike ?", ["%$search%"])
+                ->orWhereRaw("o.payment_method ilike ?", ["%$search%"])
+                ->orWhereRaw("o.status ilike ?", ["%$search%"])
             ))
             ->when($status && $status !== 'All', fn($q) => $q->where('o.status', $status))
             ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")

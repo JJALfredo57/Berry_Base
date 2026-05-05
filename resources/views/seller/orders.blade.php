@@ -37,8 +37,8 @@
         <select id="sellerOrderStatusFilter" class="form-select" style="flex:1;min-width:0;max-width:160px"
                 onchange="pgFilter('status', this.value)">
           <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All status</option>
-          @foreach(['Awaiting Deposit','Pending','Confirmed','Preparing','Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
-          <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st === 'Pickup' ? 'Ready for Pickup' : $st }}</option>
+          @foreach(['Awaiting Deposit','Pending','Pending Review','Confirmed','Preparing','Ready for Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
+          <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st }}</option>
           @endforeach
         </select>
       </div>
@@ -55,7 +55,7 @@
       'Pending','Pending Review' => 'background:#FFF3E0;color:#E65100',
       'Confirmed'                => 'background:#E3F2FD;color:#1565C0',
       'Preparing'                => 'background:#F3E5F5;color:#6A1B9A',
-      'Pickup'                   => 'background:#EDE9FE;color:#5B21B6',
+      'Ready for Pickup'         => 'background:#EDE9FE;color:#5B21B6',
       'Out for Delivery'         => 'background:#E8F5E9;color:#2E7D32',
       'Delivered','Picked Up'    => 'background:#E8F5E9;color:#1B5E20',
       'Cancelled'                => 'background:#FFEBEE;color:#C62828',
@@ -90,7 +90,7 @@
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.25rem">
           <span style="font-size:.875rem;font-weight:700;color:var(--gray-900);font-family:monospace">{{ strtoupper($o->track_code) }}</span>
-          <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $o->status === 'Pickup' ? 'Ready for Pickup' : $o->status }}</span>
+          <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $o->status }}</span>
           @if($custom)
             <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Custom</span>
           @endif
@@ -103,7 +103,7 @@
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0">
-        <div style="font-size:1rem;font-weight:700;color:var(--primary)">₱{{ number_format($o->total_price,2) }}</div>
+        <div style="font-size:1rem;font-weight:700;color:var(--primary)">₱{{ number_format((float)($o->total_price ?? 0),2) }}</div>
         <div style="font-size:.72rem;color:{{ $o->payment_status==='Paid' ? 'var(--success,#2E7D32)' : ($o->payment_status==='Partial Payment' ? '#E65100' : 'var(--gray-500)') }};font-weight:600">
           {{ $o->payment_status ?? 'Unpaid' }}
         </div>
@@ -166,7 +166,7 @@
         <div>
           <div style="font-size:.78rem;font-weight:800;color:#880E4F;letter-spacing:.04em">AWAITING DEPOSIT</div>
           <div style="font-size:.8rem;color:#880E4F;margin-top:.1rem">
-            Customer must pay ₱{{ number_format($o->deposit_amount, 2) }} deposit via GCash before this order enters the queue.
+            Customer must pay ₱{{ number_format((float)($o->deposit_amount ?? 0), 2) }} deposit via GCash before this order enters the queue.
           </div>
         </div>
       </div>
@@ -176,7 +176,7 @@
         <div>
           <div style="font-size:.78rem;font-weight:800;color:#2E7D32;letter-spacing:.04em">DEPOSIT RECEIVED</div>
           <div style="font-size:.8rem;color:#2E7D32;margin-top:.1rem">
-            ₱{{ number_format($o->deposit_amount, 2) }} deposit paid. Remaining ₱{{ number_format($o->total_price - $o->deposit_amount, 2) }} to be collected on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}.
+            ₱{{ number_format((float)($o->deposit_amount ?? 0), 2) }} deposit paid. Remaining ₱{{ number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) }} to be collected on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}.
           </div>
         </div>
       </div>
@@ -201,14 +201,14 @@
             {{ $o->payment_status ?? 'Unpaid' }}
           </strong>
         </div>
-        <div><span style="color:var(--gray-500)">Total</span><br><strong style="color:var(--primary)">₱{{ number_format($o->total_price,2) }}</strong></div>
+        <div><span style="color:var(--gray-500)">Total</span><br><strong style="color:var(--primary)">₱{{ number_format((float)($o->total_price ?? 0),2) }}</strong></div>
         @if($o->delivery_fee)
-        <div><span style="color:var(--gray-500)">Delivery Fee</span><br><strong>₱{{ number_format($o->delivery_fee,2) }}</strong></div>
+        <div><span style="color:var(--gray-500)">Delivery Fee</span><br><strong>₱{{ number_format((float)($o->delivery_fee ?? 0),2) }}</strong></div>
         @endif
         @if($o->deposit_required)
         <div><span style="color:var(--gray-500)">Deposit</span><br>
           <strong style="color:{{ ($o->deposit_status??'') === 'paid' ? '#16a34a' : '#880E4F' }}">
-            ₱{{ number_format($o->deposit_amount,2) }} — {{ ($o->deposit_status??'') === 'paid' ? 'Paid' : 'Pending' }}
+            ₱{{ number_format((float)($o->deposit_amount ?? 0),2) }} — {{ ($o->deposit_status??'') === 'paid' ? 'Paid' : 'Pending' }}
           </strong>
         </div>
         @endif
@@ -219,7 +219,7 @@
       <div style="margin-top:.85rem">
         <div style="font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Add-ons</div>
         @foreach($addons as $a)
-        <div style="font-size:.81rem;color:var(--gray-700)">• {{ $a->addon_name ?? $a->name ?? '—' }} @if($a->price) — ₱{{ number_format($a->price,2) }} @endif</div>
+        <div style="font-size:.81rem;color:var(--gray-700)">• {{ $a->addon_name ?? $a->name ?? '—' }} @if($a->price) — ₱{{ number_format((float)$a->price,2) }} @endif</div>
         @endforeach
       </div>
       @endif
@@ -250,7 +250,7 @@
     </div>
 
     {{-- Pickup Ready: Picked Up button or payment warning --}}
-    @if($o->status === 'Pickup')
+    @if($o->status === 'Ready for Pickup')
       @php
         $isCashPickup = ($o->fulfillment_type ?? 'Pickup') === 'Pickup' && strtoupper((string)($o->payment_method ?? '')) === 'COD';
         $canConfirmPickup = $o->payment_status === 'Paid' || $isCashPickup;
@@ -298,7 +298,7 @@
             <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">AWAITING PAYMENT</div>
             <div style="font-size:.82rem;color:#d97706;line-height:1.5;font-weight:600">
               Order is ready but customer still has an unpaid balance
-              @if($o->payment_method === 'GCash') (GCash — ₱{{ number_format($o->total_price - ($o->deposit_amount ?? 0), 2) }} remaining)@endif.
+              @if($o->payment_method === 'GCash') (GCash — ₱{{ number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) }} remaining)@endif.
               The <strong>Mark as Picked Up</strong> button will appear once GCash payment is completed.
             </div>
           </div>
@@ -320,7 +320,7 @@
         <div>
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">WAITING FOR DEPOSIT</div>
           <div style="font-size:.82rem;color:#880E4F;line-height:1.5;font-weight:600">
-            Customer needs to pay the 50% deposit (₱{{ number_format($o->deposit_amount,2) }}) via GCash. The order will appear in your queue once payment is confirmed.
+            Customer needs to pay the 50% deposit (₱{{ number_format((float)($o->deposit_amount ?? 0),2) }}) via GCash. The order will appear in your queue once payment is confirmed.
           </div>
         </div>
       </div>
@@ -330,8 +330,8 @@
     </div>
     @endif
 
-    {{-- Status Actions (non-final, non-Pickup orders) --}}
-    @if(!in_array($o->status, ['Awaiting Deposit','Delivered','Picked Up','Cancelled','Pickup']))
+    {{-- Status Actions (non-final, non-pickup orders) --}}
+    @if(!in_array($o->status, ['Awaiting Deposit','Delivered','Picked Up','Cancelled','Ready for Pickup']))
     <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fff8fb 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
       <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
         <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#fdf2f8;color:#be185d;display:flex;align-items:center;justify-content:center;flex-shrink:0">
