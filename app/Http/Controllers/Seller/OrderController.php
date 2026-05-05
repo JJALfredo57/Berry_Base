@@ -45,7 +45,7 @@ class OrderController extends Controller
                 ))
                 ->when($status && $status !== 'All', fn($q) => $q->where('o.status', $status))
                 ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")
-                ->orderByDesc('o.created_at')
+                ->orderByDesc('o.id')
                 ->paginate(10)
                 ->withQueryString();
         } catch (\Throwable $e) {
@@ -72,7 +72,14 @@ class OrderController extends Controller
             }
         }
 
-        return view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'search', 'status'));
+        try {
+            return response(
+                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'search', 'status'))->render()
+            );
+        } catch (\Throwable $e) {
+            Log::error('Seller orders VIEW render failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return back()->with('err', 'Page render error: ' . $e->getMessage());
+        }
     }
 
     public function updateStatus(Request $request, string $id)
