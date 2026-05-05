@@ -126,7 +126,7 @@
       @endphp
 
       {{-- Images row --}}
-      @if(count($allRefs) || $o->delivery_photo || $o->issue_photo || ($custom && $custom->progress_image))
+      @if(count($allRefs) || $o->delivery_photo || $o->issue_photo || ($custom && ($custom->progress_image ?? null)))
       <div style="margin-bottom:1rem">
         <div style="font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Photos</div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
@@ -148,7 +148,7 @@
               <span style="position:absolute;bottom:3px;left:3px;background:rgba(0,0,0,.55);color:#fff;font-size:.55rem;padding:1px 5px;border-radius:4px">Issue</span>
             </div>
           @endif
-          @if($custom && $custom->progress_image)
+          @if($custom && ($custom->progress_image ?? null))
             <div style="position:relative">
               <img src="{{ $custom->progress_image }}" onclick="openLightbox(this)"
                    style="width:90px;height:90px;border-radius:10px;object-fit:cover;cursor:zoom-in;border:1.5px solid #ddd6fe">
@@ -225,18 +225,18 @@
       @endif
 
       {{-- Special notes --}}
-      @if($o->special_notes || ($custom && $custom->special_notes))
+      @if($o->special_notes || ($custom && ($custom->special_notes ?? null)))
       <div style="margin-top:.85rem;background:#fffbeb;border-radius:8px;padding:.65rem .85rem;font-size:.81rem;color:#92400e">
         <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem">Special Notes</div>
-        {{ $o->special_notes ?? $custom->special_notes }}
+        {{ $o->special_notes ?? ($custom->special_notes ?? '') }}
       </div>
       @endif
 
       {{-- Custom order description --}}
-      @if($custom && $custom->description)
+      @if($custom && ($custom->description ?? null))
       <div style="margin-top:.65rem;background:#f0fdf4;border-radius:8px;padding:.65rem .85rem;font-size:.81rem;color:#166534">
         <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem">Custom Cake Description</div>
-        {{ $custom->description }}
+        {{ $custom->description ?? '' }}
       </div>
       @endif
 
