@@ -138,11 +138,11 @@ class CatalogController extends Controller
             $today2 = date('Y-m-d');
             $dailyOrders = DB::table('product_daily_orders')
                 ->whereIn('product_id', $productIds)
-                ->where('delivery_date', '>=', $today2)
+                ->where('date', '>=', $today2)
                 ->get();
             foreach ($dailyOrders as $d) {
                 if (!isset($capacityMap[$d->product_id])) $capacityMap[$d->product_id] = [];
-                $capacityMap[$d->product_id][$d->delivery_date] = (int)$d->total_ordered;
+                $capacityMap[$d->product_id][$d->date] = (int)$d->total_ordered;
             }
         } catch (\Exception $e) {}
 

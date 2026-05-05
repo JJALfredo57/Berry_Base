@@ -107,13 +107,16 @@ class CustomOrderController extends Controller
         if ($co->review_status !== 'pending') return back()->with('err', 'Already reviewed.');
         if ($price <= 0) return back()->with('err', 'Please enter a valid price.');
 
-        DB::table('custom_orders')->where('id', $id)->update([
-            'review_status'  => 'approved',
-            'admin_price'    => $price,
-            'admin_comment'  => trim($request->input('admin_comment', '')),
-            'price_confirmed'=> 'pending',
-            'reviewed_at'    => now(),
-        ]);
+        $approveData = [
+            'review_status'   => 'approved',
+            'admin_price'     => $price,
+            'admin_comment'   => trim($request->input('admin_comment', '')),
+            'price_confirmed' => 'pending',
+        ];
+        if (Schema::hasColumn('custom_orders', 'reviewed_at')) {
+            $approveData['reviewed_at'] = now();
+        }
+        DB::table('custom_orders')->where('id', $id)->update($approveData);
         DB::table('orders')->where('id', $co->order_id)->update(['status' => 'Pending Price Confirmation', 'total_price' => $price]);
 
         // Notify customer
@@ -174,8 +177,15 @@ class CustomOrderController extends Controller
         if ($request->hasFile('progress_image') && $request->file('progress_image')->isValid()) {
             $photoPath = $this->uploadFile($request->file('progress_image'), 'uploads/custom_orders');
         }
-        if ($photoPath) DB::table('custom_orders')->where('id', $id)->update(['progress_image' => $photoPath]);
-        // No SMS for progress update — customer can view updates on tracking page
+        $progressData = [];
+        if ($photoPath) $progressData['progress_image'] = $photoPath;
+        if ($message = trim($request->input('progress_message', ''))) {
+            if (Schema::hasColumn('custom_orders', 'progress_message'))
+                $progressData['progress_message'] = $message;
+        }
+        if (Schema::hasColumn('custom_orders', 'progress_sent_at'))
+            $progressData['progress_sent_at'] = now();
+        if ($progressData) DB::table('custom_orders')->where('id', $id)->update($progressData);
         return back()->with('msg', 'Progress update sent.');
     }
 }
