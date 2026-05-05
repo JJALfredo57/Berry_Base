@@ -60,7 +60,8 @@ class MessageController extends Controller
             if ($file && $file->isValid()) {
                 $ext = strtolower($file->getClientOriginalExtension());
                 if (in_array($ext, ['jpg','jpeg','png','webp','gif']) && $file->getSize() <= 10*1024*1024) {
-                    $paths[] = $this->uploadFile($file, 'uploads/messages');
+                    $url = $this->uploadFile($file, 'uploads/messages');
+                    if ($url) $paths[] = $url;
                 }
             }
         }

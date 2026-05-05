@@ -282,8 +282,8 @@ function removeImage(id) {
   if (!pickedImages.length) clearImgPicker();
 }
 
-function clearImgPicker() {
-  pickedImages.forEach(x => { if (x.preview) URL.revokeObjectURL(x.preview); });
+function clearImgPicker(revoke = true) {
+  if (revoke) pickedImages.forEach(x => { if (x.preview) URL.revokeObjectURL(x.preview); });
   pickedImages = [];
   document.getElementById('imgCards').innerHTML = '';
   document.getElementById('imgPreviewBar').style.display = 'none';
@@ -325,7 +325,7 @@ document.getElementById('threadForm').addEventListener('submit', async function 
     if (json.ok) {
       appendMyBubble(text, pickedImages.filter(x => x.preview).map(x => x.preview));
       msgInput.innerHTML = '';
-      clearImgPicker();
+      clearImgPicker(false); // keep blob URLs alive so optimistic bubble images stay clickable
     } else {
       alert(json.error || 'Failed to send.');
     }

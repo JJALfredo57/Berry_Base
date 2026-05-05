@@ -75,7 +75,8 @@ class MessageController extends Controller
         $paths = [];
         foreach ($files as $file) {
             if ($file && $file->isValid()) {
-                $paths[] = $this->uploadFile($file, 'uploads/messages');
+                $url = $this->uploadFile($file, 'uploads/messages');
+                if ($url) $paths[] = $url;
             }
         }
         $imgPath = count($paths) === 1 ? $paths[0] : (count($paths) > 1 ? json_encode($paths) : null);

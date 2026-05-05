@@ -960,8 +960,8 @@ function removeGImg(id) {
   if (!gPicked.length) clearGPicker();
 }
 
-function clearGPicker() {
-  gPicked.forEach(x => { if (x.preview) URL.revokeObjectURL(x.preview); });
+function clearGPicker(revoke = true) {
+  if (revoke) gPicked.forEach(x => { if (x.preview) URL.revokeObjectURL(x.preview); });
   gPicked = [];
   document.getElementById('gImgCards').innerHTML = '';
   document.getElementById('gImgPreviewBar').style.display = 'none';
@@ -1080,7 +1080,7 @@ async function sendGuestMsg() {
       chatBox.appendChild(row);
       chatBox.scrollTop = chatBox.scrollHeight;
       if (input) input.innerHTML = '';
-      clearGPicker();
+      clearGPicker(false); // keep blob URLs alive so optimistic bubble images stay clickable
     } else {
       cakeToast(d.error || 'Failed to send.', 'error');
     }
