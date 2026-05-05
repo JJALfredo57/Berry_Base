@@ -17,6 +17,10 @@ class TrackingController extends Controller
 
         if (!$order) abort(404, 'Order not found. Please check your tracking link.');
 
+        // Persist track code in session so accept/cancel price actions work
+        // even when the guest arrives via direct link (SMS/email) with no prior session
+        session(['guest_track_code' => strtoupper($trackCode)]);
+
         $tracking = DB::table('order_tracking')
             ->where('order_id', $order->id)
             ->orderBy('created_at')->get();
