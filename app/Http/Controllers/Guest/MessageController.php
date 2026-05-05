@@ -27,8 +27,8 @@ class MessageController extends Controller
                     'message'     => $m->message,
                     'image_path'  => $m->image_path,
                     'created_at'  => \Carbon\Carbon::parse($m->created_at)->format('M d, g:i A'),
-                    'is_admin'    => $m->sender_role === 'admin',
-                    'name'        => $m->sender_role === 'admin'
+                    'is_admin'    => in_array($m->sender_role, ['admin', 'seller']),
+                    'name'        => in_array($m->sender_role, ['admin', 'seller'])
                                      ? (config('app.name','Cake Shop').' Baker')
                                      : ($order->guest_name ?? 'You'),
                 ];
@@ -37,7 +37,7 @@ class MessageController extends Controller
         // Mark admin messages as read when customer views
         DB::table('messages')
             ->where('order_id', $order->id)
-            ->where('sender_role', 'admin')
+            ->whereIn('sender_role', ['admin', 'seller'])
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
