@@ -120,6 +120,16 @@ document.getElementById('threadForm').addEventListener('submit', async function(
 
   try {
     const res  = await fetch(sendUrl, { method: 'POST', body: fd });
+
+    // If server returned non-JSON (500 error page, redirect, etc.) show it
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const raw = await res.text();
+      console.error('Unexpected response (HTTP ' + res.status + '):', raw.substring(0, 500));
+      alert('Server error (HTTP ' + res.status + '). Check browser console for details.');
+      return;
+    }
+
     const json = await res.json();
 
     if (json.ok) {
@@ -151,7 +161,8 @@ document.getElementById('threadForm').addEventListener('submit', async function(
       alert(json.error || 'Failed to send message.');
     }
   } catch (err) {
-    alert('Network error. Please try again.');
+    console.error('Send message error:', err);
+    alert('Error: ' + err.message);
   } finally {
     sendBtn.disabled = false;
     sendBtn.innerHTML = '<i class="bi bi-send"></i>';
