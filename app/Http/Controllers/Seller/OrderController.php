@@ -29,20 +29,11 @@ class OrderController extends Controller
                 ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
                 ->where('o.shop_id', $shop->id)
                 ->select(
-                    'o.id', 'o.shop_id', 'o.user_id', 'o.product_id', 'o.rider_id',
-                    'o.track_code', 'o.quantity', 'o.selected_size', 'o.selected_size_price',
-                    'o.total_price', 'o.delivery_fee', 'o.status', 'o.fulfillment_type',
-                    'o.schedule_date', 'o.schedule_time', 'o.delivery_address',
-                    'o.special_notes', 'o.payment_method', 'o.payment_status',
-                    'o.delivery_photo', 'o.issue_photo', 'o.cancel_reason',
-                    'o.deposit_required', 'o.deposit_amount', 'o.deposit_status',
-                    'o.paymongo_link_id', 'o.paymongo_link_url',
-                    'o.review_requested', 'o.delivered_at', 'o.paid_at',
-                    'o.created_at', 'o.updated_at',
-                    DB::raw("COALESCE(o.guest_name, o.fullname, u.fullname, 'Customer') as fullname"),
-                    DB::raw('COALESCE(o.guest_phone, u.phone) as phone'),
+                    'o.*',
+                    DB::raw("COALESCE(o.guest_name, o.fullname, u.fullname, 'Customer') as order_customer_name"),
+                    DB::raw('COALESCE(o.guest_phone, u.phone) as order_customer_phone'),
                     'p.name as product_name',
-                    'p.image_path as image_path'
+                    'p.image_path as product_image_path'
                 )
                 ->when($search, fn($q) => $q->where(fn($sq) => $sq
                     ->whereRaw("o.track_code ilike ?", ["%$search%"])

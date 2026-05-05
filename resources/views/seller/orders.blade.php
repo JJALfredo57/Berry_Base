@@ -64,14 +64,14 @@
   @endphp
 
   <div class="seller-order-item"
-       data-search="{{ strtolower(trim(($o->track_code ?? '') . ' ' . ($o->fullname ?? 'customer') . ' ' . ($o->product_name ?? ($custom->cake_name ?? 'custom cake')) . ' ' . ($o->payment_status ?? '') . ' ' . ($o->payment_method ?? '') . ' ' . ($o->status ?? ''))) }}"
+       data-search="{{ strtolower(trim(($o->track_code ?? '') . ' ' . ($o->order_customer_name ?? 'customer') . ' ' . ($o->product_name ?? ($custom->cake_name ?? 'custom cake')) . ' ' . ($o->payment_status ?? '') . ' ' . ($o->payment_method ?? '') . ' ' . ($o->status ?? ''))) }}"
        data-status="{{ strtolower($o->status ?? '') }}"
        data-fulfillment="{{ strtolower($o->fulfillment_type ?? 'pickup') }}"
        style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);margin-bottom:1rem;overflow:hidden">
 
     {{-- Order Header --}}
     @php
-      $thumb = $o->image_path ?? null;
+      $thumb = $o->product_image_path ?? null;
       if (!$thumb && $custom) {
           $refs  = json_decode($custom->reference_images ?? '[]', true);
           $thumb = is_array($refs) ? ($refs[0] ?? null) : null;
@@ -95,7 +95,7 @@
             <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Custom</span>
           @endif
         </div>
-        <div style="font-size:.8rem;color:var(--gray-700);font-weight:600">{{ $o->fullname ?? 'Customer' }}</div>
+        <div style="font-size:.8rem;color:var(--gray-700);font-weight:600">{{ $o->order_customer_name ?? 'Customer' }}</div>
         <div style="font-size:.75rem;color:var(--gray-500)">
           {{ $o->product_name ?? ($custom->cake_name ?? 'Custom Cake') }}
           &bull; {{ $o->fulfillment_type ?? 'Pickup' }}
@@ -118,7 +118,7 @@
     <div id="order-detail-{{ $o->id }}" style="display:none">
       @php
         $allRefs = [];
-        if ($o->image_path) $allRefs[] = $o->image_path;
+        if ($o->product_image_path) $allRefs[] = $o->product_image_path;
         if ($custom) {
           $refs2 = json_decode($custom->reference_images ?? '[]', true);
           if (is_array($refs2)) $allRefs = array_merge($allRefs, $refs2);
@@ -186,8 +186,8 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem 1.25rem;font-size:.82rem">
         <div><span style="color:var(--gray-500)">Track Code</span><br><strong style="font-family:monospace">{{ strtoupper($o->track_code) }}</strong></div>
         <div><span style="color:var(--gray-500)">Status</span><br><strong>{{ $o->status }}</strong></div>
-        <div><span style="color:var(--gray-500)">Customer</span><br><strong>{{ $o->fullname ?? 'Customer' }}</strong></div>
-        <div><span style="color:var(--gray-500)">Phone</span><br><strong>{{ $o->phone ?? '—' }}</strong></div>
+        <div><span style="color:var(--gray-500)">Customer</span><br><strong>{{ $o->order_customer_name ?? 'Customer' }}</strong></div>
+        <div><span style="color:var(--gray-500)">Phone</span><br><strong>{{ $o->order_customer_phone ?? '—' }}</strong></div>
         <div><span style="color:var(--gray-500)">Product</span><br><strong>{{ $o->product_name ?? ($custom->cake_name ?? 'Custom Cake') }}</strong></div>
         <div><span style="color:var(--gray-500)">Qty / Size</span><br><strong>{{ $o->quantity ?? 1 }}x {{ $o->selected_size ?? ($custom->size_label ?? '—') }}</strong></div>
         <div><span style="color:var(--gray-500)">Fulfillment</span><br><strong>{{ $o->fulfillment_type ?? 'Pickup' }}</strong></div>
