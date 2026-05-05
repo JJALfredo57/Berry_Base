@@ -53,13 +53,18 @@ class MessageController extends Controller
         $message = trim($request->input('message', ''));
         $imgPath = null;
 
-        if ($request->hasFile('image') && $request->file('image')->isValid()) {
-            $file = $request->file('image');
-            $ext  = strtolower($file->getClientOriginalExtension());
-            if (in_array($ext, ['jpg','jpeg','png','webp','gif']) && $file->getSize() <= 5*1024*1024) {
-                $imgPath = $this->uploadFile($file, 'uploads/messages');
+        $files = $request->file('images') ?? [];
+        if (!is_array($files)) $files = [$files];
+        $paths = [];
+        foreach ($files as $file) {
+            if ($file && $file->isValid()) {
+                $ext = strtolower($file->getClientOriginalExtension());
+                if (in_array($ext, ['jpg','jpeg','png','webp','gif']) && $file->getSize() <= 10*1024*1024) {
+                    $paths[] = $this->uploadFile($file, 'uploads/messages');
+                }
             }
         }
+        $imgPath = count($paths) === 1 ? $paths[0] : (count($paths) > 1 ? json_encode($paths) : null);
 
         if (!$message && !$imgPath)
             return response()->json(['ok' => false, 'error' => 'Message cannot be empty.'], 422);
@@ -70,7 +75,7 @@ class MessageController extends Controller
             'sender_id'   => null,
             'message'     => $message ?: null,
             'image_path'  => $imgPath,
-            'is_read' => false,
+            'is_read'     => false,
             'created_at'  => now(),
         ]);
 

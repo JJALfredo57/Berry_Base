@@ -29,6 +29,43 @@
       display: block;
       animation: depositShake .32s ease;
     }
+    /* ── Chat bubbles ── */
+    .chat-box-g{min-height:200px;max-height:380px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:6px;background:#f8f9fa}
+    .msg-row-g{display:flex;gap:8px;align-items:flex-end}
+    .msg-row-g.mine{flex-direction:row-reverse}
+    .msg-av-g{width:28px;height:28px;border-radius:50%;background:#dee2e6;color:#666;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;flex-shrink:0;text-transform:uppercase}
+    .msg-av-g.mine{background:var(--primary);color:#fff}
+    .msg-grp-g{display:flex;flex-direction:column;max-width:72%;gap:2px}
+    .msg-grp-g.mine{align-items:flex-end}
+    .bbl-g{padding:9px 13px;border-radius:16px;font-size:.875rem;line-height:1.5;word-break:break-word}
+    .bbl-g.theirs{background:#fff;color:#333;border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    .bbl-g.mine{background:var(--primary);color:#fff;border-radius:16px 4px 16px 16px}
+    .bbl-imgs-g{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+    .bbl-imgs-g img{border-radius:8px;object-fit:cover;cursor:zoom-in;max-width:180px;max-height:180px;display:block}
+    .bbl-imgs-g img.solo{max-width:220px;max-height:220px}
+    .bbl-time-g{font-size:.65rem;color:#adb5bd;padding:0 2px}
+    .bbl-time-g.mine{text-align:right}
+    .sndr-lbl-g{font-size:.68rem;font-weight:600;color:#6c757d;padding:0 2px;margin-bottom:1px}
+    .sndr-lbl-g.mine{text-align:right;color:var(--primary)}
+    /* preview bar */
+    .g-preview-bar{display:none;padding:10px 14px 6px;border-top:1px solid #f0f0f0;background:#fafafa;max-height:140px;overflow-y:auto}
+    .g-img-cards{display:flex;gap:8px;flex-wrap:wrap}
+    .g-img-card{position:relative;background:#fff;border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;width:96px;flex-shrink:0}
+    .g-img-card img{width:96px;height:72px;object-fit:cover;display:block}
+    .g-img-card-info{padding:3px 5px;font-size:.58rem;line-height:1.3;color:#6c757d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .g-img-card-size{font-size:.58rem;color:#16a34a;font-weight:600}
+    .g-img-card-rm{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.55);border:none;color:#fff;font-size:.55rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+    .g-compressing{opacity:.5;pointer-events:none}
+    /* compose */
+    .g-compose-wrap{padding:10px 14px 12px;border-top:1px solid #e9ecef;background:#fff}
+    .g-compose-row{display:flex;gap:8px;align-items:flex-end}
+    .g-compose-box{flex:1;border:1.5px solid #e9ecef;border-radius:14px;padding:9px 12px;font-size:.9rem;outline:none;max-height:120px;overflow-y:auto;line-height:1.4;color:#333;transition:border-color .2s;min-height:40px}
+    .g-compose-box:focus{border-color:var(--primary)}
+    .g-compose-box:empty:before{content:attr(data-placeholder);color:#adb5bd;pointer-events:none}
+    .g-attach-btn{width:38px;height:38px;border-radius:50%;border:1.5px solid #e9ecef;background:#fff;color:#6c757d;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .15s;flex-shrink:0}
+    .g-attach-btn:hover,.g-attach-btn.active{border-color:var(--primary);color:var(--primary);background:#fce7f3}
+    .g-send-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.95rem;transition:opacity .15s;flex-shrink:0}
+    .g-send-btn:disabled{opacity:.45;cursor:not-allowed}
   </style>
 
   {{-- Header --}}
@@ -756,29 +793,39 @@
   @endif
 
   {{-- ── CHAT SECTION ────────────────────────────────────────────────────── --}}
-  <div class="card mb-4">
-    <div class="card-body p-4">
-      <h6 class="fw-bold mb-3">
-        <i class="bi bi-chat-dots me-2" style="color:var(--primary)"></i>Message the Owner
-      </h6>
-      <div id="msgThread"
-           style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px;margin-bottom:12px;min-height:60px">
-        <div class="text-muted text-center small py-2" id="msgEmpty">No messages yet. Ask us anything! 😊</div>
+  <div class="card mb-4" style="border-radius:14px;overflow:hidden">
+    <div style="background:#fff;padding:14px 16px 10px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:10px">
+      <i class="bi bi-chat-dots" style="color:var(--primary);font-size:1.1rem"></i>
+      <span class="fw-bold" style="font-size:.95rem">Message the Baker</span>
+    </div>
+    <div class="chat-box-g" id="chatBox">
+      <div class="text-center py-4" id="msgEmpty">
+        <i class="bi bi-chat-heart d-block mb-2" style="font-size:2rem;color:#fce4ec"></i>
+        <span class="text-muted small">No messages yet. Ask us anything! 😊</span>
       </div>
-      @if(!in_array($order->status, ['Cancelled','Delivered']))
-      <div class="d-flex gap-2 align-items-end">
-        <textarea id="msgInput" class="form-control" rows="2"
-                  placeholder="Type a message..." style="resize:none;flex:1"></textarea>
-        <button class="btn btn-primary px-3" onclick="sendGuestMsg()" id="msgSendBtn">
-          <i class="bi bi-send"></i>
+    </div>
+    <div class="g-preview-bar" id="gImgPreviewBar">
+      <div class="g-img-cards" id="gImgCards"></div>
+    </div>
+    @if(!in_array($order->status, ['Cancelled','Delivered']))
+    <div class="g-compose-wrap">
+      <div class="g-compose-row">
+        <label class="g-attach-btn" id="gAttachBtn" title="Attach images">
+          <i class="bi bi-paperclip"></i>
+          <input type="file" id="gImgFilePicker" accept="image/*" multiple hidden onchange="onGuestFilePick(this)">
+        </label>
+        <div contenteditable="true" id="msgInput" class="g-compose-box" data-placeholder="Type a message…"
+             onkeydown="handleMsgEnter(event)"></div>
+        <button class="g-send-btn" id="msgSendBtn" onclick="sendGuestMsg()" title="Send">
+          <i class="bi bi-send-fill"></i>
         </button>
       </div>
-      @else
-      <div class="text-muted small text-center pt-1">
-        <i class="bi bi-lock me-1"></i>Messaging closed for {{ strtolower($order->status) }} orders.
-      </div>
-      @endif
     </div>
+    @else
+    <div class="text-muted small text-center p-3 border-top">
+      <i class="bi bi-lock me-1"></i>Messaging closed for {{ strtolower($order->status) }} orders.
+    </div>
+    @endif
   </div>
 
 </div>
@@ -827,36 +874,147 @@ function unhoverRiderRating() {
   });
 }
 
+// ── Image compression ─────────────────────────────────────────────────────
+const G_MAX_PX  = 1200;
+const G_QUALITY = 0.82;
+
+async function compressImage(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const needsResize = w > G_MAX_PX || h > G_MAX_PX;
+      if (needsResize) {
+        const r = Math.min(G_MAX_PX / w, G_MAX_PX / h);
+        w = Math.round(w * r); h = Math.round(h * r);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => {
+        const useOrig = blob.size >= file.size && !needsResize;
+        resolve({
+          file    : useOrig ? file : new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type:'image/jpeg' }),
+          origSize: file.size,
+          newSize : useOrig ? file.size : blob.size,
+          origW   : img.naturalWidth, origH: img.naturalHeight,
+          newW    : w, newH: h,
+        });
+      }, 'image/jpeg', G_QUALITY);
+    };
+    img.src = url;
+  });
+}
+
+function fmtGSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+let gPicked = [];
+let gPickId = 0;
+
+async function onGuestFilePick(input) {
+  const files = Array.from(input.files);
+  input.value = '';
+  if (!files.length) return;
+  const bar   = document.getElementById('gImgPreviewBar');
+  const cards = document.getElementById('gImgCards');
+  bar.style.display = 'block';
+  document.getElementById('gAttachBtn').classList.add('active');
+
+  for (const file of files) {
+    const id = ++gPickId;
+    gPicked.push({ id, file: null, preview: null, compressing: true });
+    const card = document.createElement('div');
+    card.className = 'g-img-card g-compressing';
+    card.id = 'gcard-' + id;
+    card.innerHTML = '<div style="width:96px;height:72px;background:#f0f0f0;display:flex;align-items:center;justify-content:center"><span class="spinner-border spinner-border-sm text-secondary"></span></div><div class="g-img-card-info">Compressing…</div>';
+    cards.appendChild(card);
+
+    const result     = await compressImage(file);
+    const pct        = Math.round((1 - result.newSize / result.origSize) * 100);
+    const previewUrl = URL.createObjectURL(result.file);
+    const entry      = gPicked.find(x => x.id === id);
+    if (!entry) { URL.revokeObjectURL(previewUrl); continue; }
+    Object.assign(entry, { file: result.file, preview: previewUrl, compressing: false,
+      origSize: result.origSize, newSize: result.newSize,
+      origW: result.origW, origH: result.origH, newW: result.newW, newH: result.newH });
+
+    const sizeInfo = result.origSize !== result.newSize
+      ? `${fmtGSize(result.origSize)} → <span class="g-img-card-size">${fmtGSize(result.newSize)}</span> <span style="color:#16a34a">(${pct}% smaller)</span>`
+      : `<span class="g-img-card-size">${fmtGSize(result.newSize)}</span>`;
+    card.className = 'g-img-card';
+    card.innerHTML = `<img src="${previewUrl}" onclick="openGuestImgPv('${previewUrl}')" title="${result.origW}×${result.origH} → ${result.newW}×${result.newH}"><div class="g-img-card-info">${sizeInfo}</div><button class="g-img-card-rm" onclick="removeGImg(${id})" title="Remove">✕</button>`;
+  }
+}
+
+function removeGImg(id) {
+  const idx = gPicked.findIndex(x => x.id === id);
+  if (idx !== -1) { if (gPicked[idx].preview) URL.revokeObjectURL(gPicked[idx].preview); gPicked.splice(idx, 1); }
+  const c = document.getElementById('gcard-' + id);
+  if (c) c.remove();
+  if (!gPicked.length) clearGPicker();
+}
+
+function clearGPicker() {
+  gPicked.forEach(x => { if (x.preview) URL.revokeObjectURL(x.preview); });
+  gPicked = [];
+  document.getElementById('gImgCards').innerHTML = '';
+  document.getElementById('gImgPreviewBar').style.display = 'none';
+  const ab = document.getElementById('gAttachBtn');
+  if (ab) ab.classList.remove('active');
+}
+
+function openGuestImgPv(src) {
+  const el = document.createElement('img');
+  el.src = src; el.dataset.src = src;
+  openLightbox(el);
+}
+
 // ── Messaging ────────────────────────────────────────────────────────────
 let rendered = [];
 
 function renderMessages(msgs) {
-  const thread = document.getElementById('msgThread');
+  const thread = document.getElementById('chatBox');
   const empty  = document.getElementById('msgEmpty');
   if (!msgs.length) return;
-  empty && (empty.style.display = 'none');
+  if (empty) empty.style.display = 'none';
 
-  // Only add new messages
-  const newMsgs = msgs.filter(m => !rendered.includes(m.id));
-  newMsgs.forEach(m => {
+  msgs.filter(m => !rendered.includes(m.id)).forEach(m => {
     rendered.push(m.id);
-    const isAdmin = m.is_admin;
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:' + (isAdmin ? 'flex-start' : 'flex-end');
-
-    let html = '<div style="font-size:clamp(.66rem,1.3vw,.7rem);color:#9ca3af;margin-bottom:2px">' + m.name + ' · ' + m.created_at + '</div>';
-
-    if (m.message) {
-      html += '<div style="max-width:75%;padding:8px 12px;border-radius:' + (isAdmin ? '0 12px 12px 12px' : '12px 0 12px 12px') + ';background:' + (isAdmin ? 'var(--primary)' : '#f3f4f6') + ';color:' + (isAdmin ? '#fff' : '#111') + ';font-size:.88rem;word-break:break-word">' + escapeHtml(m.message) + '</div>';
-    }
+    const isMine = !m.is_admin;
+    let imgs = [];
     if (m.image_path) {
-      html += '<img src="' + m.image_path + '" class="chat-img" data-src="' + m.image_path + '" onclick="openLightbox(this)" style="max-height:160px;border-radius:.6rem;margin-top:4px;cursor:zoom-in">';
+      try { const d = JSON.parse(m.image_path); imgs = Array.isArray(d) ? d : [m.image_path]; }
+      catch(e) { imgs = [m.image_path]; }
     }
-    wrap.innerHTML = html;
-    thread.appendChild(wrap);
+    const initials = isMine ? (GUEST_NAME.charAt(0).toUpperCase() || 'Y') : 'B';
+    let imgHtml = '';
+    if (imgs.length) {
+      imgHtml = '<div class="bbl-imgs-g">' +
+        imgs.map(src => `<img src="${escAttr(src)}" class="${imgs.length===1?'solo':''}" data-src="${escAttr(src)}" onclick="openLightbox(this)" onerror="this.style.display='none'">`).join('') +
+        '</div>';
+    }
+    const row = document.createElement('div');
+    row.className = 'msg-row-g' + (isMine ? ' mine' : '');
+    row.innerHTML = `
+      <div class="msg-av-g${isMine?' mine':''}">${initials}</div>
+      <div class="msg-grp-g${isMine?' mine':''}">
+        <div class="sndr-lbl-g${isMine?' mine':''}">${escapeHtml(m.name)}</div>
+        <div class="bbl-g ${isMine?'mine':'theirs'}">
+          ${m.message?`<div style="white-space:pre-wrap">${escapeHtml(m.message)}</div>`:''}
+          ${imgHtml}
+        </div>
+        <div class="bbl-time-g${isMine?' mine':''}">
+          ${m.created_at}${isMine?' <span style="opacity:.65">✓</span>':''}
+        </div>
+      </div>`;
+    thread.appendChild(row);
   });
-
-  // Scroll to bottom
   thread.scrollTop = thread.scrollHeight;
 }
 
@@ -868,35 +1026,72 @@ async function pollMessages() {
   } catch(e) {}
 }
 
+function handleMsgEnter(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGuestMsg(); }
+}
+
 async function sendGuestMsg() {
-  const input = document.getElementById('msgInput');
-  const msg   = input.value.trim();
-  if (!msg) return;
+  const input   = document.getElementById('msgInput');
+  const text    = input ? input.innerText.trim() : '';
+  const hasImgs = gPicked.filter(x => !x.compressing && x.file).length > 0;
+  if (!text && !hasImgs) return;
 
   const btn = document.getElementById('msgSendBtn');
-  btn.disabled = true;
-  input.disabled = true;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px"></span>'; }
 
   const fd = new FormData();
   fd.append('_token', '{{ csrf_token() }}');
-  fd.append('message', msg);
+  if (text) fd.append('message', text);
+  gPicked.filter(x => !x.compressing && x.file).forEach(x => fd.append('images[]', x.file));
 
   try {
-    const r = await fetch('/track/' + TRACK_CODE + '/messages', { method:'POST', body:fd });
+    const r  = await fetch('/track/' + TRACK_CODE + '/messages', { method:'POST', body:fd });
+    const ct = r.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      console.error('HTTP ' + r.status, (await r.text()).substring(0, 400));
+      cakeToast('Server error. Please try again.', 'error');
+      return;
+    }
     const d = await r.json();
     if (d.ok) {
-      input.value = '';
-      await pollMessages();
+      const now      = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
+      const previews = gPicked.filter(x => x.preview).map(x => x.preview);
+      let imgHtml = '';
+      if (previews.length) {
+        imgHtml = '<div class="bbl-imgs-g">' +
+          previews.map(src => `<img src="${src}" class="${previews.length===1?'solo':''}" onclick="openGuestImgPv('${src}')">`).join('') +
+          '</div>';
+      }
+      const chatBox = document.getElementById('chatBox');
+      const emEl    = document.getElementById('msgEmpty');
+      if (emEl) emEl.style.display = 'none';
+      const row = document.createElement('div');
+      row.className = 'msg-row-g mine';
+      row.innerHTML = `
+        <div class="msg-av-g mine">${GUEST_NAME.charAt(0).toUpperCase() || 'Y'}</div>
+        <div class="msg-grp-g mine">
+          <div class="sndr-lbl-g mine">${escapeHtml(GUEST_NAME)}</div>
+          <div class="bbl-g mine">
+            ${text?`<div style="white-space:pre-wrap">${escapeHtml(text)}</div>`:''}
+            ${imgHtml}
+          </div>
+          <div class="bbl-time-g mine">${now} <span style="opacity:.65">✓</span></div>
+        </div>`;
+      chatBox.appendChild(row);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      if (input) input.innerHTML = '';
+      clearGPicker();
     } else {
       cakeToast(d.error || 'Failed to send.', 'error');
     }
   } catch(e) {
-    cakeToast('Failed to send. Try again.', 'error');
+    cakeToast('Network error. Please try again.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send-fill"></i>'; }
   }
-  btn.disabled = false;
-  input.disabled = false;
-  input.focus();
 }
+
+function escAttr(s) { return s ? s.replace(/"/g, '&quot;') : ''; }
 
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
@@ -993,11 +1188,6 @@ function setupDepositAmountForms() {
 }
 
 setupDepositAmountForms();
-
-// Allow Enter to send (Shift+Enter for newline)
-document.getElementById('msgInput')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGuestMsg(); }
-});
 
 // Initial load + poll every 8 seconds
 pollMessages();

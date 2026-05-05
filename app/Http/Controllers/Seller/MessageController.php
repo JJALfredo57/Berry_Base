@@ -68,15 +68,19 @@ class MessageController extends Controller
         $order   = DB::table('orders')->where('id', $orderId)->where('shop_id', $shop->id)->first();
         if (!$order) return response()->json(['ok'=>false,'error'=>'Order not found.']);
 
-        $text = trim($request->input('message',''));
-        $file = $request->file('attachment');
-        $imgPath = null;
+        $text  = trim($request->input('message', ''));
+        $files = $request->file('images') ?? [];
+        if (!is_array($files)) $files = [$files];
 
-        if ($file && $file->isValid()) {
-            $imgPath = $this->uploadFile($file, 'uploads/messages');
+        $paths = [];
+        foreach ($files as $file) {
+            if ($file && $file->isValid()) {
+                $paths[] = $this->uploadFile($file, 'uploads/messages');
+            }
         }
+        $imgPath = count($paths) === 1 ? $paths[0] : (count($paths) > 1 ? json_encode($paths) : null);
 
-        if (!$text && !$imgPath) return response()->json(['ok'=>false,'error'=>'Cannot send empty message.']);
+        if (!$text && !$imgPath) return response()->json(['ok' => false, 'error' => 'Cannot send empty message.']);
 
         $msgId = DB::table('messages')->insertGetId([
             'order_id'    => $orderId,
@@ -84,7 +88,7 @@ class MessageController extends Controller
             'sender_id'   => session('user')['id'],
             'message'     => $text ?: null,
             'image_path'  => $imgPath,
-            'is_read' => false,
+            'is_read'     => false,
             'created_at'  => now(),
         ]);
 
