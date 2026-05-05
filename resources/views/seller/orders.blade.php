@@ -219,7 +219,7 @@
       <div style="margin-top:.85rem">
         <div style="font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Add-ons</div>
         @foreach($addons as $a)
-        <div style="font-size:.81rem;color:var(--gray-700)">• {{ $a->addon_name ?? $a->name ?? '—' }} @if($a->price) — ₱{{ number_format((float)$a->price,2) }} @endif</div>
+        <div style="font-size:.81rem;color:var(--gray-700)">• {{ $a->addon_name ?? '—' }} @if($a->addon_price ?? 0) — ₱{{ number_format((float)($a->addon_price ?? 0),2) }} @endif</div>
         @endforeach
       </div>
       @endif
