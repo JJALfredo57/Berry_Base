@@ -64,6 +64,20 @@ return [
             'report' => false,
         ],
 
+        // Supabase Storage — S3-compatible, free 1 GB included
+        'supabase' => [
+            'driver'                  => 's3',
+            'key'                     => env('SUPABASE_KEY'),
+            'secret'                  => env('SUPABASE_SECRET'),
+            'region'                  => env('SUPABASE_REGION', 'us-east-1'),
+            'bucket'                  => env('SUPABASE_BUCKET', 'uploads'),
+            'endpoint'                => env('SUPABASE_ENDPOINT'),  // https://<ref>.supabase.co/storage/v1/s3
+            'url'                     => env('SUPABASE_URL'),       // https://<ref>.supabase.co/storage/v1/object/public/<bucket>
+            'use_path_style_endpoint' => true,
+            'throw'                   => false,
+            'report'                  => false,
+        ],
+
         // Cloudflare R2 — S3-compatible, free up to 10 GB/month
         'r2' => [
             'driver' => 's3',
