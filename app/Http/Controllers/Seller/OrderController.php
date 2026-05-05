@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\SmsHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -22,30 +23,49 @@ class OrderController extends Controller
         $search = trim($request->input('search', ''));
         $status = $request->input('status', 'All');
 
-        $orders = DB::table('orders as o')
-            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
-            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
-            ->where('o.shop_id', $shop->id)
-            ->select(
-                'o.*',
-                DB::raw("COALESCE(o.guest_name, u.fullname, 'Customer') as fullname"),
-                DB::raw('COALESCE(o.guest_phone, u.phone) as phone'),
-                'p.name as product_name', 'p.image_path'
-            )
-            ->when($search, fn($q) => $q->where(fn($sq) => $sq
-                ->whereRaw("o.id::text ilike ?", ["%$search%"])
-                ->orWhereRaw("o.track_code ilike ?", ["%$search%"])
-                ->orWhereRaw("COALESCE(o.guest_name, u.fullname) ilike ?", ["%$search%"])
-                ->orWhereRaw("p.name ilike ?", ["%$search%"])
-                ->orWhereRaw("o.payment_status ilike ?", ["%$search%"])
-                ->orWhereRaw("o.payment_method ilike ?", ["%$search%"])
-                ->orWhereRaw("o.status ilike ?", ["%$search%"])
-            ))
-            ->when($status && $status !== 'All', fn($q) => $q->where('o.status', $status))
-            ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")
-            ->orderByDesc('o.id')
-            ->paginate(10)
-            ->withQueryString();
+        try {
+            $orders = DB::table('orders as o')
+                ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+                ->where('o.shop_id', $shop->id)
+                ->select(
+                    'o.id', 'o.shop_id', 'o.user_id', 'o.product_id', 'o.rider_id',
+                    'o.track_code', 'o.quantity', 'o.selected_size', 'o.selected_size_price',
+                    'o.total_price', 'o.delivery_fee', 'o.status', 'o.fulfillment_type',
+                    'o.schedule_date', 'o.schedule_time', 'o.delivery_address',
+                    'o.special_notes', 'o.payment_method', 'o.payment_status',
+                    'o.delivery_photo', 'o.issue_photo', 'o.cancel_reason',
+                    'o.deposit_required', 'o.deposit_amount', 'o.deposit_status',
+                    'o.paymongo_link_id', 'o.paymongo_link_url',
+                    'o.review_requested', 'o.delivered_at', 'o.paid_at',
+                    'o.created_at', 'o.updated_at',
+                    DB::raw("COALESCE(o.guest_name, o.fullname, u.fullname, 'Customer') as fullname"),
+                    DB::raw('COALESCE(o.guest_phone, u.phone) as phone'),
+                    'p.name as product_name',
+                    'p.image_path as image_path'
+                )
+                ->when($search, fn($q) => $q->where(fn($sq) => $sq
+                    ->whereRaw("o.track_code ilike ?", ["%$search%"])
+                    ->orWhereRaw("COALESCE(o.guest_name, o.fullname, u.fullname) ilike ?", ["%$search%"])
+                    ->orWhereRaw("p.name ilike ?", ["%$search%"])
+                    ->orWhereRaw("o.payment_status ilike ?", ["%$search%"])
+                    ->orWhereRaw("o.payment_method ilike ?", ["%$search%"])
+                    ->orWhereRaw("o.status ilike ?", ["%$search%"])
+                ))
+                ->when($status && $status !== 'All', fn($q) => $q->where('o.status', $status))
+                ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")
+                ->orderByDesc('o.created_at')
+                ->paginate(10)
+                ->withQueryString();
+        } catch (\Throwable $e) {
+            Log::error('Seller orders index failed: ' . $e->getMessage(), [
+                'shop_id' => $shop->id,
+                'status'  => $status,
+                'search'  => $search,
+                'trace'   => $e->getTraceAsString(),
+            ]);
+            return back()->with('err', 'Could not load orders. Error: ' . $e->getMessage());
+        }
 
         $orderIds    = collect($orders->items())->pluck('id')->toArray();
         $orderAddons = [];
@@ -56,7 +76,9 @@ class OrderController extends Controller
                 foreach ($addons as $a) $orderAddons[$a->order_id][] = $a;
                 $customs = DB::table('custom_orders')->whereIn('order_id', $orderIds)->get();
                 foreach ($customs as $c) $customData[$c->order_id] = $c;
-            } catch (\Exception $e) {}
+            } catch (\Throwable $e) {
+                Log::error('Seller orders addons/customs failed: ' . $e->getMessage());
+            }
         }
 
         return view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'search', 'status'));
