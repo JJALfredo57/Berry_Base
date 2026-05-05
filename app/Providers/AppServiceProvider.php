@@ -15,6 +15,14 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Auto-create public/storage symlink on first request after deploy
+        // (replaces the need to run `php artisan storage:link` manually)
+        if (!is_link(public_path('storage')) && !file_exists(public_path('storage'))) {
+            try {
+                symlink(storage_path('app/public'), public_path('storage'));
+            } catch (\Throwable $e) {}
+        }
+
         // Apply timezone from shop settings globally
         // This affects Carbon::now(), now(), and all Laravel date functions
         try {
