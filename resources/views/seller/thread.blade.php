@@ -54,15 +54,15 @@
           </div>
 
           <div class="border-top p-3">
-            <form action="{{ route('seller.messages.send', $orderId) }}" method="POST" enctype="multipart/form-data" id="threadForm">
+            <form id="threadForm" enctype="multipart/form-data">
               @csrf
               <div class="d-flex gap-2">
                 <input type="text" class="form-control" name="message" id="threadMsgInput" placeholder="Reply…" autocomplete="off">
-                <label class="btn btn-outline-secondary mb-0" id="threadImgBtn" title="Attach images">
+                <label class="btn btn-outline-secondary mb-0" id="threadImgBtn" title="Attach image">
                   <i class="bi bi-paperclip"></i>
-                  <input type="file" name="images[]" id="threadImgFile" accept="image/*" multiple hidden onchange="previewThreadImgs(this)">
+                  <input type="file" name="attachment" id="threadImgFile" accept="image/*" hidden onchange="previewThreadImgs(this)">
                 </label>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i></button>
+                <button type="submit" class="btn btn-primary" id="threadSendBtn"><i class="bi bi-send"></i></button>
               </div>
             </form>
           </div>
@@ -74,79 +74,130 @@
 @endsection
 @push('scripts')
 <script>
-const cb = document.getElementById('chatBox');
+const cb   = document.getElementById('chatBox');
+const csrf = '{{ csrf_token() }}';
+const sendUrl = '{{ route("seller.messages.send", $orderId) }}';
 if (cb) cb.scrollTop = cb.scrollHeight;
 
-// Mark unread messages as read via IntersectionObserver
+// ── Mark customer messages as read ────────────────────────────────────────
 (function() {
-  const markUrl = '{{ url("/admin/messages/mark-read-msg") }}';
-  const csrf    = '{{ csrf_token() }}';
+  const markUrl = '{{ url("/seller/messages/mark-read-msg") }}';
   const obs = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (!entry.isIntersecting) return;
       const row = entry.target;
-      if (row.dataset.read === '1' || row.dataset.sender === 'admin') return;
-      const id = row.dataset.msgId;
+      if (row.dataset.read === '1' || row.dataset.sender === 'seller') return;
       row.dataset.read = '1';
       obs.unobserve(row);
-      fetch(markUrl + '/' + id, {
+      fetch(markUrl + '/' + row.dataset.msgId, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' }
       }).catch(() => {});
     });
   }, { threshold: 0.5 });
-
   document.querySelectorAll('[data-msg-id]').forEach(el => obs.observe(el));
 })();
 
-let threadFiles = [];
+// ── AJAX form submit ──────────────────────────────────────────────────────
+document.getElementById('threadForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
 
-function previewThreadImgs(input) {
-  threadFiles = Array.from(input.files);
-  renderThreadPreview();
+  const msgInput = document.getElementById('threadMsgInput');
+  const fileInput = document.getElementById('threadImgFile');
+  const sendBtn  = document.getElementById('threadSendBtn');
+  const text = msgInput.value.trim();
+  const hasFile = fileInput.files.length > 0;
+
+  if (!text && !hasFile) return;
+
+  sendBtn.disabled = true;
+  sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  const fd = new FormData();
+  fd.append('_token', csrf);
+  if (text) fd.append('message', text);
+  if (hasFile) fd.append('attachment', fileInput.files[0]);
+
+  try {
+    const res  = await fetch(sendUrl, { method: 'POST', body: fd });
+    const json = await res.json();
+
+    if (json.ok) {
+      // Append message bubble instantly
+      const now = new Date();
+      const timeStr = now.toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
+      let bubbleHtml = '';
+
+      if (text) {
+        bubbleHtml += `<div>${escHtml(text)}</div>`;
+      }
+      if (hasFile && threadPreviewSrc) {
+        bubbleHtml += `<div style="margin-top:${text ? '.4rem' : '0'}"><img src="${threadPreviewSrc}" style="width:200px;max-width:100%;border-radius:.4rem;display:block"></div>`;
+      }
+      bubbleHtml += `<div style="font-size:.65rem;opacity:.7;margin-top:.2rem;text-align:right">${timeStr}</div>`;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'd-flex justify-content-end';
+      wrap.innerHTML = `<div style="max-width:75%;background:var(--primary);color:#fff;border-radius:1rem 1rem 0 1rem;padding:.6rem 1rem;font-size:.9rem">${bubbleHtml}</div>`;
+      cb.appendChild(wrap);
+      cb.scrollTop = cb.scrollHeight;
+
+      // Reset form
+      msgInput.value = '';
+      fileInput.value = '';
+      threadPreviewSrc = null;
+      renderThreadPreview();
+    } else {
+      alert(json.error || 'Failed to send message.');
+    }
+  } catch (err) {
+    alert('Network error. Please try again.');
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = '<i class="bi bi-send"></i>';
+  }
+});
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function renderThreadPreview() {
+// ── Image preview ─────────────────────────────────────────────────────────
+let threadPreviewSrc = null;
+
+function previewThreadImgs(input) {
   const strip = document.getElementById('threadPreviewStrip');
   const bar   = document.getElementById('threadImgPreview');
   const btn   = document.getElementById('threadImgBtn');
   strip.innerHTML = '';
-  if (threadFiles.length === 0) {
+  threadPreviewSrc = null;
+
+  if (!input.files.length) {
     bar.style.display = 'none';
     btn.style.background = ''; btn.style.color = '';
     return;
   }
-  bar.style.display = 'block';
-  btn.style.background = 'var(--primary-light)'; btn.style.color = 'var(--primary)';
-  threadFiles.forEach((file, idx) => {
+
+  const file = input.files[0];
+  const r = new FileReader();
+  r.onload = e => {
+    threadPreviewSrc = e.target.result;
+    bar.style.display = 'block';
+    btn.style.background = 'var(--primary-light)'; btn.style.color = 'var(--primary)';
+
     const wrap = document.createElement('div');
     wrap.style = 'position:relative;display:inline-block';
     const img = document.createElement('img');
+    img.src = e.target.result;
     img.style = 'width:64px;height:64px;border-radius:.4rem;object-fit:cover;border:2px solid var(--primary)';
-    const r = new FileReader();
-    r.onload = e => img.src = e.target.result;
-    r.readAsDataURL(file);
     const rm = document.createElement('button');
-    rm.type = 'button';
-    rm.innerHTML = '✕';
+    rm.type = 'button'; rm.innerHTML = '✕';
     rm.style = 'position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:#ef4444;border:none;color:white;font-size:.55rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0';
-    rm.onclick = () => { threadFiles.splice(idx, 1); rebuildInput(); renderThreadPreview(); };
+    rm.onclick = () => { input.value = ''; threadPreviewSrc = null; bar.style.display = 'none'; btn.style.background = ''; btn.style.color = ''; };
     wrap.appendChild(img); wrap.appendChild(rm);
     strip.appendChild(wrap);
-  });
-}
-
-function rebuildInput() {
-  // Rebuild the file input DataTransfer to reflect removed files
-  const dt = new DataTransfer();
-  threadFiles.forEach(f => dt.items.add(f));
-  document.getElementById('threadImgFile').files = dt.files;
-}
-
-function clearThreadImg() {
-  threadFiles = [];
-  document.getElementById('threadImgFile').value = '';
-  renderThreadPreview();
+  };
+  r.readAsDataURL(file);
 }
 </script>
 @endpush
