@@ -31,51 +31,6 @@
   @if(session('msg'))<div class="alert alert-success border-0"><i class="bi bi-check-circle me-2"></i>{{ session('msg') }}</div>@endif
   @if(session('err'))<div class="alert alert-danger border-0"><i class="bi bi-exclamation-circle me-2"></i>{{ session('err') }}</div>@endif
 
-  {{-- Rider flow info card --}}
-  @php $catalogUrl = url('/'); @endphp
-  <div class="card mb-4 border-0" style="background:linear-gradient(135deg,#fef3c7 0%,#fef9c3 100%);border:1.5px solid #fde68a!important">
-    <div class="card-body p-3">
-      <div class="d-flex align-items-center gap-3 mb-2">
-        <div style="width:38px;height:38px;border-radius:50%;background:#d97706;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.05rem;flex-shrink:0">
-          <i class="bi bi-bicycle"></i>
-        </div>
-        <div>
-          <div class="fw-semibold" style="font-size:.88rem;color:#78350f">How Riders Access Their Delivery</div>
-          <div style="font-size:.74rem;color:#92400e">No app or login needed — works from any browser</div>
-        </div>
-      </div>
-      <ol style="font-size:.78rem;color:#78350f;margin:0 0 10px;padding-left:1.3rem;line-height:1.8">
-        <li>Rider receives SMS with a <strong>delivery code</strong> (e.g. <code style="background:#fff8;border-radius:4px;padding:1px 5px;font-size:.82rem">09171234567|492847</code>)</li>
-        <li>Rider opens your catalog website and taps the <strong>menu icon ☰</strong></li>
-        <li>In the sidebar, rider finds <strong>"For Riders"</strong> and pastes the code</li>
-        <li>Rider is taken directly to their delivery details page</li>
-      </ol>
-      <div class="d-flex align-items-center gap-2 flex-wrap">
-        <span style="font-size:.76rem;color:#92400e;font-weight:600">Catalog URL to share with riders:</span>
-        <code id="riderCatalogUrl"
-              style="background:#fff;border:1.5px solid #fbbf24;border-radius:.4rem;padding:.18rem .55rem;font-size:.8rem;color:#d97706;cursor:pointer;word-break:break-all"
-              onclick="copyRiderUrl()" title="Click to copy">{{ $catalogUrl }}</code>
-        <button onclick="copyRiderUrl()" class="btn btn-sm fw-semibold"
-                style="background:#d97706;color:#fff;border:none;border-radius:.5rem;font-size:.76rem">
-          <i class="bi bi-clipboard me-1" id="riderCopyIcon"></i><span id="riderCopyLabel">Copy</span>
-        </button>
-      </div>
-    </div>
-  </div>
-  <script>
-  function copyRiderUrl() {
-    var text = document.getElementById('riderCatalogUrl').textContent.trim();
-    navigator.clipboard.writeText(text).then(function() {
-      document.getElementById('riderCopyIcon').className = 'bi bi-check2 me-1';
-      document.getElementById('riderCopyLabel').textContent = 'Copied!';
-      setTimeout(function() {
-        document.getElementById('riderCopyIcon').className = 'bi bi-clipboard me-1';
-        document.getElementById('riderCopyLabel').textContent = 'Copy';
-      }, 2000);
-    });
-  }
-  </script>
-
   @if($riders->isEmpty())
   <div class="card"><div class="card-body text-center py-5 text-muted">
     <i class="bi bi-bicycle" style="font-size:3rem;opacity:.3"></i>
