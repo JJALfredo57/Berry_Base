@@ -214,10 +214,11 @@
         <div class="detect-progress">
           <div class="detect-bar" id="detect-bar"></div>
         </div>
-        <div class="small mb-2 d-flex align-items-center gap-2" id="detect-status-text" style="color:#4338ca;min-height:1.4rem">
-          <span class="spinner-border spinner-border-sm flex-shrink-0" id="detect-spinner"
+        {{-- Spinner + status text are SIBLINGS so setStatus(innerHTML) never destroys the spinner --}}
+        <div class="d-flex align-items-center gap-2 small mb-2" style="min-height:1.4rem">
+          <span id="detect-spinner" class="spinner-border spinner-border-sm flex-shrink-0"
                 style="width:.72rem;height:.72rem;border-color:#a5b4fc;border-right-color:transparent"></span>
-          Initializing...
+          <span id="detect-status-text" style="color:#4338ca">Initializing...</span>
         </div>
 
         {{-- Detected cards --}}
