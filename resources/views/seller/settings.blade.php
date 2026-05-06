@@ -372,45 +372,66 @@
       {{-- Right: Formula Display + Simulator --}}
       <div class="col-lg-7">
 
-        {{-- Formula Card --}}
+        {{-- How It Works Card --}}
         <div class="setting-card">
           <div class="setting-card-header">
-            <i class="bi bi-function" style="font-size:1.1rem;color:var(--primary)"></i>
+            <i class="bi bi-info-circle" style="font-size:1.1rem;color:var(--primary)"></i>
             <div>
-              <div class="title">Fee Formula</div>
-              <div class="subtitle">How the system calculates your delivery fee in real-time</div>
+              <div class="title">How is the delivery fee calculated?</div>
+              <div class="subtitle">Updates automatically as you change the values on the left</div>
             </div>
           </div>
-          <div class="setting-card-body" style="padding-bottom:1rem">
+          <div class="setting-card-body" style="padding-bottom:1.25rem">
 
-            {{-- Formula display --}}
-            <div class="formula-box">
-              <div class="f-label">Formula</div>
-              <div class="f-main">
-                Fee = ⌈ <span class="f-var-a" id="fml_base">₱30.00</span>
-                + (<span class="f-var-b" id="fml_pkm">₱15.00</span> × <span class="f-var-d">D</span>) ⌉
+            {{-- Plain explanation --}}
+            <p style="font-size:.875rem;color:var(--gray-600);margin:0 0 1.1rem;line-height:1.65">
+              Every delivery order is charged in <strong>two parts</strong>:
+            </p>
+
+            {{-- Part 1: Base Fee --}}
+            <div style="display:flex;align-items:flex-start;gap:.85rem;margin-bottom:.75rem;padding:.9rem 1rem;background:#f0fdf4;border-radius:10px;border:1.5px solid #bbf7d0">
+              <div style="width:34px;height:34px;border-radius:50%;background:#059669;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-weight:800;font-size:.88rem">1</div>
+              <div>
+                <div style="font-weight:700;font-size:.9rem;color:#065f46;margin-bottom:.2rem">Base Delivery Fee</div>
+                <div style="font-size:.82rem;color:#374151;line-height:1.55">
+                  A fixed charge of <strong id="fml_base" style="color:#059669">₱30.00</strong> is always added to every delivery — regardless of how far the customer is.
+                </div>
               </div>
-              <div style="margin-top:.6rem;font-size:.8rem;color:#64748b">
-                where <span class="f-var-d">D</span> = distance in km from your shop
+            </div>
+
+            {{-- Part 2: Per-km --}}
+            <div style="display:flex;align-items:flex-start;gap:.85rem;margin-bottom:1.25rem;padding:.9rem 1rem;background:#eff6ff;border-radius:10px;border:1.5px solid #bfdbfe">
+              <div style="width:34px;height:34px;border-radius:50%;background:#0284c7;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-weight:800;font-size:.88rem">2</div>
+              <div>
+                <div style="font-weight:700;font-size:.9rem;color:#1e40af;margin-bottom:.2rem">Distance Charge</div>
+                <div style="font-size:.82rem;color:#374151;line-height:1.55">
+                  <strong id="fml_pkm" style="color:#0284c7">₱15.00</strong> is added for every kilometer from your shop to the customer's location.
+                </div>
+              </div>
+            </div>
+
+            {{-- Live example --}}
+            <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;padding:1rem 1.1rem">
+              <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#92400e;margin-bottom:.7rem">
+                <i class="bi bi-lightbulb-fill me-1" style="color:#f59e0b"></i>Example — Customer is 3 km away
+              </div>
+              <div style="display:flex;flex-direction:column;gap:.4rem;font-size:.85rem">
+                <div style="display:flex;justify-content:space-between">
+                  <span style="color:#6b7280">Base Fee</span>
+                  <strong id="ex_base" style="color:#374151">₱30.00</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                  <span style="color:#6b7280">Distance (3 km × <span id="ex_rate">₱15.00</span>/km)</span>
+                  <strong id="ex_dist" style="color:#374151">₱45.00</strong>
+                </div>
+                <div style="height:1px;background:#fde68a;margin:.2rem 0"></div>
+                <div style="display:flex;justify-content:space-between">
+                  <span style="font-weight:700;color:#92400e">Total Delivery Fee</span>
+                  <strong id="ex_total" style="color:var(--primary);font-size:1rem">₱75.00</strong>
+                </div>
               </div>
             </div>
 
-            {{-- Legend --}}
-            <div style="display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin-bottom:1.25rem;font-size:.78rem">
-              <span><span class="legend-dot" style="background:#34d399"></span><span style="color:#94a3b8" id="legend_base">₱30.00</span> = Base fee</span>
-              <span><span class="legend-dot" style="background:#60a5fa"></span><span style="color:#94a3b8" id="legend_pkm">₱15.00/km</span> = Per-km rate</span>
-              <span><span class="legend-dot" style="background:#fbbf24"></span><span style="color:#94a3b8">D</span> = Distance (km)</span>
-            </div>
-
-            {{-- Example breakdown --}}
-            <div style="background:#f8fafc;border:1.5px solid var(--gray-100);border-radius:8px;padding:.75rem 1rem;font-size:.82rem">
-              <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-500);margin-bottom:.5rem">Example at 3 km</div>
-              <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
-                <div><span style="color:var(--gray-500)">Base:</span> <strong id="ex_base" style="color:var(--gray-900)">₱30.00</strong></div>
-                <div><span style="color:var(--gray-500)">Distance:</span> <strong id="ex_dist" style="color:var(--gray-900)">₱45.00</strong></div>
-                <div><span style="color:var(--gray-500)">Total:</span> <strong id="ex_total" style="color:var(--primary)">₱75.00</strong></div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -732,9 +753,11 @@ function updateDeliveryCalc() {
   const exBase  = document.getElementById('ex_base');
   const exDist  = document.getElementById('ex_dist');
   const exTotal = document.getElementById('ex_total');
+  const exRate  = document.getElementById('ex_rate');
   if (exBase)  exBase.textContent  = fmt(p.base);
   if (exDist)  exDist.textContent  = fmt(p.pkm * 3);
   if (exTotal) exTotal.textContent = fmt(Math.ceil(p.base + p.pkm * 3));
+  if (exRate)  exRate.textContent  = fmt(p.pkm);
 
   runSimulator(document.getElementById('sim_slider')?.value || 3);
 }
