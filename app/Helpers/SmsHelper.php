@@ -48,6 +48,9 @@ class SmsHelper
                 'recipient' => '+' . $cleanPhone,
                 'content'   => self::clean($message),
             ];
+            if (!empty($senderId)) {
+                $payload['sender_id'] = $senderId;
+            }
 
             curl_setopt_array($ch, [
                 CURLOPT_URL            => 'https://unismsapi.com/api/sms',
@@ -174,16 +177,15 @@ class SmsHelper
 
         $pinLine = '';
         if ($pin) {
-            $host = parse_url(config('app.url', ''), PHP_URL_HOST) ?: request()->getHost();
+            $base = rtrim(config('app.url', ''), '/');
             if ($token) {
-                // Direct tappable link (no https:// so it passes carrier filters)
-                $pinLine = "\n\nTap to open your delivery page:\n{$host}/rider/{$orderId}/{$token}";
+                $pinLine = "\n\nTap to open your delivery page:\nhttps://" . parse_url($base, PHP_URL_HOST) . "/rider/{$orderId}/{$token}";
             } else {
-                // Fallback: manual code entry
                 $rp = preg_replace('/\D/', '', $riderPhone);
                 if (str_starts_with($rp, '63')) $rp = '0' . substr($rp, 2);
                 $code = ($rp ?: '?') . '|' . $pin;
-                $pinLine = "\n\nYour delivery code:\n{$code}\nOpen {$host}, tap the menu, select Rider.";
+                $host = parse_url($base, PHP_URL_HOST) ?: request()->getHost();
+                $pinLine = "\n\nYour delivery code:\n{$code}\nGo to https://{$host} then tap the menu and select Rider.";
             }
         }
 
@@ -233,10 +235,6 @@ class SmsHelper
 
         // Strip emojis and all remaining non-ASCII characters
         $text = preg_replace('/[^\x00-\x7F]/u', '', $text);
-
-        // Remove URLs — UniSMS prohibits links in SMS content
-        $text = preg_replace('/https?:\/\/\S+/i', '', $text);
-        $text = preg_replace('/www\.\S+/i', '', $text);
 
         // Normalize multiple spaces and blank lines
         $text = preg_replace('/ {2,}/', ' ', $text);
