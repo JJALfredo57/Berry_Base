@@ -731,8 +731,8 @@
     </a>
   </div>
 
-  {{-- ── REVIEW SECTION (only if Delivered) ─────────────────────────────── --}}
-  @if($order->status === 'Delivered')
+  {{-- ── REVIEW SECTION (Delivered or Picked Up) ────────────────────────── --}}
+  @if(in_array($order->status, ['Delivered', 'Picked Up']))
   @php $existingReview = \Illuminate\Support\Facades\DB::table('order_reviews')->where('order_id', $order->id)->first(); @endphp
   <div class="card mb-4">
     <div class="card-body p-4">

@@ -13,7 +13,7 @@ class ReviewController extends Controller
     {
         $order = DB::table('orders')->where('track_code', strtoupper($trackCode))->first();
         if (!$order) return back()->with('err', 'Order not found.');
-        if ($order->status !== 'Delivered') return back()->with('err', 'You can only review delivered orders.');
+        if (!in_array($order->status, ['Delivered', 'Picked Up'])) return back()->with('err', 'You can only review completed orders.');
 
         // Prevent duplicate review
         if (DB::table('order_reviews')->where('order_id', $order->id)->exists())
@@ -37,14 +37,18 @@ class ReviewController extends Controller
         }
 
         DB::table('order_reviews')->insert([
-            'order_id'     => $order->id,
-            'user_id'      => null,
-            'guest_name'   => $order->guest_name,
-            'rating'       => $rating,
-            'rider_rating' => $riderRating,
-            'review'       => $review ?: null,
-            'image_path'   => $imgPath,
-            'created_at'   => now(),
+            'order_id'      => $order->id,
+            'shop_id'       => $order->shop_id ?? null,
+            'user_id'       => null,
+            'guest_name'    => $order->guest_name,
+            'rating'        => $rating,
+            'rider_rating'  => $riderRating,
+            'review'        => $review ?: null,
+            'review_text'   => $review ?: null,
+            'review_status' => 'pending',
+            'image_path'    => $imgPath,
+            'created_at'    => now(),
+            'updated_at'    => now(),
         ]);
 
         // Mark as reviewed in notifications
