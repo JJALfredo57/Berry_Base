@@ -150,7 +150,13 @@ class SmsHelper
 
     public static function generateRiderPin(): string
     {
-        return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // Alphanumeric, uppercase, excluding look-alike chars (0/O, 1/I/L)
+        $chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        $pin   = '';
+        for ($i = 0; $i < 8; $i++) {
+            $pin .= $chars[random_int(0, strlen($chars) - 1)];
+        }
+        return $pin;
     }
 
     public static function buildRiderSms(

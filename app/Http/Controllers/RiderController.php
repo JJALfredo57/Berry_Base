@@ -12,13 +12,13 @@ class RiderController extends Controller
 {
     use UploadsFiles;
 
-    /** Access delivery by 6-digit PIN entered on the catalog sidebar */
+    /** Access delivery by alphanumeric PIN entered on the catalog sidebar */
     public function accessByPin(Request $request)
     {
-        $pin = trim(preg_replace('/\D/', '', $request->input('pin', '')));
+        $pin = strtoupper(trim(preg_replace('/[^A-Za-z0-9]/', '', $request->input('pin', ''))));
 
-        if (strlen($pin) !== 6) {
-            return back()->with('rider_err', 'Please enter your 6-digit PIN from your SMS.');
+        if (strlen($pin) < 6) {
+            return back()->with('rider_err', 'Please enter your delivery PIN from your SMS.');
         }
 
         $order = DB::table('orders')

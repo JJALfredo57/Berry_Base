@@ -1300,10 +1300,10 @@
         <form action="{{ route('rider.pin') }}" method="POST" id="riderAccessForm" style="margin-top:10px">
           @csrf
           <input type="text" name="pin" id="riderPinInput"
-                 inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
-                 placeholder="● ● ● ● ● ●"
-                 autocomplete="one-time-code" autocorrect="off" spellcheck="false"
-                 style="width:100%;border:1.5px solid #fbbf24;border-radius:10px;padding:.6rem .65rem;font-size:1.4rem;font-weight:700;letter-spacing:.35em;text-align:center;font-family:monospace;background:#fffbeb;color:#92400e;outline:none;margin-bottom:6px;transition:border-color .15s,box-shadow .15s"
+                 inputmode="text" maxlength="8"
+                 placeholder="e.g. A3K7X2MQ"
+                 autocomplete="one-time-code" autocorrect="off" autocapitalize="characters" spellcheck="false"
+                 style="width:100%;border:1.5px solid #fbbf24;border-radius:10px;padding:.6rem .65rem;font-size:1.1rem;font-weight:700;letter-spacing:.2em;text-align:center;font-family:monospace;background:#fffbeb;color:#92400e;outline:none;margin-bottom:6px;transition:border-color .15s,box-shadow .15s;text-transform:uppercase"
                  onfocus="this.style.borderColor='#d97706';this.style.boxShadow='0 0 0 3px rgba(217,119,6,.15)'"
                  onblur="this.style.borderColor='#fbbf24';this.style.boxShadow='none'">
           @if(session('rider_err'))
@@ -1508,14 +1508,14 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 @endif
 
-// PIN input: digits only + loading state on submit
+// PIN input: alphanumeric uppercase + loading state on submit
 (function () {
   var pinInput = document.getElementById('riderPinInput');
   var pinForm  = document.getElementById('riderAccessForm');
   var pinBtn   = document.getElementById('riderPinBtn');
   if (pinInput) {
     pinInput.addEventListener('input', function () {
-      this.value = this.value.replace(/\D/g, '').slice(0, 6);
+      this.value = this.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase();
     });
   }
   if (pinForm && pinBtn) {
