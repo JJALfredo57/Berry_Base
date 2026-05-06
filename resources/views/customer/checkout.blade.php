@@ -361,12 +361,10 @@ function checkCustAvailability() {
 <script>
 // ── Shop & coverage data from server ──────────────────
 const SHOP_META = {
-  lat:           {{ $shopSettings->shop_lat        ?? 'null' }},
-  lng:           {{ $shopSettings->shop_lng        ?? 'null' }},
-  feePerMeter:   {{ (float)($shopSettings->fee_per_meter       ?? 0.05) }},
-  maintenanceKm: {{ (float)($shopSettings->maintenance_per_km  ?? 5) }},
-  fuelKm:        {{ (float)($shopSettings->fuel_per_km         ?? 8) }},
-  freeRadius:    {{ (int)($shopSettings->free_delivery_radius   ?? 0) }},
+  lat:       {{ $shopSettings->shop_lat  ?? 'null' }},
+  lng:       {{ $shopSettings->shop_lng  ?? 'null' }},
+  baseFee:   {{ (float)($shopSettings->base_fee   ?? 30) }},
+  feePerKm:  {{ (float)($shopSettings->fee_per_km ?? 15) }},
 };
 const COVERAGE_ZONES   = @json($deliveryZones->values());
 const COVERAGE_RADIUS  = 3000; // metres per coverage pin
@@ -386,9 +384,8 @@ function haversine(lat1, lon1, lat2, lon2) {
 
 // ── Fee + ETA calculation ─────────────────────────────
 function calcFee(dist) {
-  if (SHOP_META.freeRadius > 0 && dist <= SHOP_META.freeRadius) return 0;
   const km = dist / 1000;
-  return Math.ceil(SHOP_META.feePerMeter * dist + (SHOP_META.maintenanceKm + SHOP_META.fuelKm) * km);
+  return Math.ceil(SHOP_META.baseFee + SHOP_META.feePerKm * km);
 }
 
 function calcEtaMinutes(dist) {

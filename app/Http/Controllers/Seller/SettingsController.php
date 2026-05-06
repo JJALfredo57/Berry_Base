@@ -124,10 +124,8 @@ class SettingsController extends Controller
     {
         $shop = $this->getShop();
         $this->upsertSettings($shop->id, [
-            'fee_per_meter'       => max(0, (float) $request->input('fee_per_meter', 0.05)),
-            'maintenance_per_km'  => max(0, (float) $request->input('maintenance_per_km', 5)),
-            'fuel_per_km'         => max(0, (float) $request->input('fuel_per_km', 8)),
-            'free_delivery_radius'=> max(0, (int)   $request->input('free_delivery_radius', 0)),
+            'base_fee'   => max(0, (float) $request->input('base_fee', 30)),
+            'fee_per_km' => max(0, (float) $request->input('fee_per_km', 15)),
         ]);
         return redirect()->to(route('seller.settings').'?tab=delivery')->with('msg', 'Delivery fee settings saved.');
     }

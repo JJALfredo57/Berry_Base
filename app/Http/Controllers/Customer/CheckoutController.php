@@ -155,17 +155,11 @@ class CheckoutController extends Controller
             // ── Recalculate fee server-side (prevent tampering) ─
             $settings = DB::table('site_settings')->where('shop_id', $product->shop_id)->first();
             if ($settings && $settings->shop_lat && $settings->shop_lng) {
-                $dist       = $this->haversine($lat, $lng, (float)$settings->shop_lat, (float)$settings->shop_lng);
-                $freeRadius = (int)($settings->free_delivery_radius ?? 0);
-                if ($freeRadius > 0 && $dist <= $freeRadius) {
-                    $deliveryFee = 0;
-                } else {
-                    $km = $dist / 1000;
-                    $deliveryFee = ceil(
-                        ((float)($settings->fee_per_meter ?? 0.05)) * $dist
-                        + (((float)($settings->maintenance_per_km ?? 5)) + ((float)($settings->fuel_per_km ?? 8))) * $km
-                    );
-                }
+                $dist        = $this->haversine($lat, $lng, (float)$settings->shop_lat, (float)$settings->shop_lng);
+                $km          = $dist / 1000;
+                $baseFee     = (float)($settings->base_fee   ?? 30);
+                $feePerKm    = (float)($settings->fee_per_km ?? 15);
+                $deliveryFee = (int) ceil($baseFee + ($feePerKm * $km));
             }
         }
 

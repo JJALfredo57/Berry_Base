@@ -324,70 +324,44 @@
       <div class="col-lg-5">
         <div class="setting-card">
           <div class="setting-card-header">
-            <i class="bi bi-sliders" style="font-size:1.1rem;color:var(--primary)"></i>
+            <i class="bi bi-truck" style="font-size:1.1rem;color:var(--primary)"></i>
             <div>
-              <div class="title">Fee Parameters</div>
-              <div class="subtitle">Adjust how the delivery fee is calculated</div>
+              <div class="title">Delivery Fee</div>
+              <div class="subtitle">Set your base fee and per-km rate</div>
             </div>
           </div>
           <div class="setting-card-body">
             <form action="{{ route('seller.settings.delivery_calc') }}" method="POST" id="deliveryCalcForm">
               @csrf
               <input type="hidden" name="_section" value="delivery">
-              <div class="mb-3">
+              <div class="mb-4">
                 <label class="form-label fw-semibold">
-                  <span class="legend-dot" style="background:#34d399"></span>Base Rate per Meter (₱/m)
+                  <span class="legend-dot" style="background:#34d399"></span>Base Delivery Fee (₱)
                 </label>
                 <div class="input-group">
-                  <span class="input-group-text">₱</span>
-                  <input type="number" step="0.001" min="0" class="form-control" name="fee_per_meter" id="inp_fpm"
-                         value="{{ old('fee_per_meter', $shopSettings->fee_per_meter ?? 0.05) }}"
+                  <span class="input-group-text fw-bold" style="color:#059669">₱</span>
+                  <input type="number" step="0.01" min="0" class="form-control" name="base_fee" id="inp_base"
+                         value="{{ old('base_fee', $shopSettings->base_fee ?? 30) }}"
                          oninput="updateDeliveryCalc()">
-                  <span class="input-group-text">/m</span>
                 </div>
-                <div class="form-text">Charged for every meter of distance from your shop.</div>
+                <div class="form-text">Fixed charge added to every delivery order regardless of distance.</div>
               </div>
-              <div class="mb-3">
+              <div class="mb-4">
                 <label class="form-label fw-semibold">
-                  <span class="legend-dot" style="background:#60a5fa"></span>Maintenance Charge (₱/km)
+                  <span class="legend-dot" style="background:#60a5fa"></span>Rate per km (₱/km)
                 </label>
                 <div class="input-group">
-                  <span class="input-group-text">₱</span>
-                  <input type="number" step="0.01" min="0" class="form-control" name="maintenance_per_km" id="inp_mnt"
-                         value="{{ old('maintenance_per_km', $shopSettings->maintenance_per_km ?? 5) }}"
+                  <span class="input-group-text fw-bold" style="color:#0284c7">₱</span>
+                  <input type="number" step="0.01" min="0" class="form-control" name="fee_per_km" id="inp_pkm"
+                         value="{{ old('fee_per_km', $shopSettings->fee_per_km ?? 15) }}"
                          oninput="updateDeliveryCalc()">
                   <span class="input-group-text">/km</span>
                 </div>
-                <div class="form-text">Rider's vehicle maintenance cost per km.</div>
-              </div>
-              <div class="mb-3">
-                <label class="form-label fw-semibold">
-                  <span class="legend-dot" style="background:#f472b6"></span>Fuel Charge (₱/km)
-                </label>
-                <div class="input-group">
-                  <span class="input-group-text">₱</span>
-                  <input type="number" step="0.01" min="0" class="form-control" name="fuel_per_km" id="inp_fuel"
-                         value="{{ old('fuel_per_km', $shopSettings->fuel_per_km ?? 8) }}"
-                         oninput="updateDeliveryCalc()">
-                  <span class="input-group-text">/km</span>
-                </div>
-                <div class="form-text">Estimated fuel cost per km of travel.</div>
-              </div>
-              <div class="mb-3">
-                <label class="form-label fw-semibold">
-                  <i class="bi bi-gift text-success me-1"></i>Free Delivery Radius (meters)
-                </label>
-                <div class="input-group">
-                  <input type="number" step="1" min="0" class="form-control" name="free_delivery_radius" id="inp_free"
-                         value="{{ old('free_delivery_radius', $shopSettings->free_delivery_radius ?? 0) }}"
-                         oninput="updateDeliveryCalc()">
-                  <span class="input-group-text">m</span>
-                </div>
-                <div class="form-text">Orders within this radius get free delivery. Set to 0 to disable.</div>
+                <div class="form-text">Additional charge per kilometer from your shop to the customer.</div>
               </div>
               <div class="mt-4">
                 <button type="submit" class="btn btn-primary w-100" style="padding:.65rem;font-weight:600">
-                  <i class="bi bi-check-lg me-1"></i> Save Delivery Fee Settings
+                  <i class="bi bi-check-lg me-1"></i>Save Delivery Fee Settings
                 </button>
               </div>
             </form>
@@ -409,50 +383,32 @@
           </div>
           <div class="setting-card-body" style="padding-bottom:1rem">
 
-            {{-- Code-style formula display --}}
+            {{-- Formula display --}}
             <div class="formula-box">
               <div class="f-label">Formula</div>
               <div class="f-main">
-                Fee = ⌈ (<span class="f-var-a" id="fml_a">₱0.05</span> × <span class="f-var-d">D</span>)
-                + ((<span class="f-var-b" id="fml_b">₱5.00</span> + <span class="f-var-c" id="fml_c">₱8.00</span>) × <span class="f-var-d">D</span>/1000) ⌉
+                Fee = ⌈ <span class="f-var-a" id="fml_base">₱30.00</span>
+                + (<span class="f-var-b" id="fml_pkm">₱15.00</span> × <span class="f-var-d">D</span>) ⌉
               </div>
-              <div style="margin-top:.75rem;font-size:.8rem;color:#64748b">
-                Simplified &nbsp;→&nbsp;
-                Fee = ⌈ <span class="f-var-d">D</span> × (<span id="fml_simplified" style="color:#e2e8f0">0.063</span>) ⌉ &nbsp;
-                <span style="color:#475569">(D in meters)</span>
+              <div style="margin-top:.6rem;font-size:.8rem;color:#64748b">
+                where <span class="f-var-d">D</span> = distance in km from your shop
               </div>
             </div>
 
             {{-- Legend --}}
-            <div style="display:flex;flex-wrap:wrap;gap:.5rem 1.25rem;margin-bottom:1.25rem;font-size:.78rem">
-              <span><span class="legend-dot" style="background:#34d399"></span><span style="color:#94a3b8" id="legend_a">₱0.05/m</span> = Base rate</span>
-              <span><span class="legend-dot" style="background:#60a5fa"></span><span style="color:#94a3b8" id="legend_b">₱5.00/km</span> = Maintenance</span>
-              <span><span class="legend-dot" style="background:#f472b6"></span><span style="color:#94a3b8" id="legend_c">₱8.00/km</span> = Fuel</span>
-              <span><span class="legend-dot" style="background:#fbbf24"></span><span style="color:#94a3b8">D</span> = Distance (meters)</span>
+            <div style="display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin-bottom:1.25rem;font-size:.78rem">
+              <span><span class="legend-dot" style="background:#34d399"></span><span style="color:#94a3b8" id="legend_base">₱30.00</span> = Base fee</span>
+              <span><span class="legend-dot" style="background:#60a5fa"></span><span style="color:#94a3b8" id="legend_pkm">₱15.00/km</span> = Per-km rate</span>
+              <span><span class="legend-dot" style="background:#fbbf24"></span><span style="color:#94a3b8">D</span> = Distance (km)</span>
             </div>
 
-            {{-- Free radius note --}}
-            <div id="fml_free_note" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:.55rem 1rem;font-size:.8rem;color:#15803d;margin-bottom:1rem">
-              <i class="bi bi-gift-fill me-1"></i>
-              Free delivery for orders within <strong id="fml_free_val">0</strong> m of your shop.
-            </div>
-
-            {{-- Per-km breakdown --}}
+            {{-- Example breakdown --}}
             <div style="background:#f8fafc;border:1.5px solid var(--gray-100);border-radius:8px;padding:.75rem 1rem;font-size:.82rem">
-              <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-500);margin-bottom:.5rem">Cost Per Kilometer</div>
-              <div style="display:flex;gap:1rem;flex-wrap:wrap">
-                <div>
-                  <span style="color:var(--gray-500)">Base:</span>
-                  <strong id="perkm_base" style="color:var(--gray-900)">₱50.00</strong>
-                </div>
-                <div>
-                  <span style="color:var(--gray-500)">Fuel + Maint:</span>
-                  <strong id="perkm_extra" style="color:var(--gray-900)">₱13.00</strong>
-                </div>
-                <div>
-                  <span style="color:var(--gray-500)">Total / km:</span>
-                  <strong id="perkm_total" style="color:var(--primary)">₱63.00</strong>
-                </div>
+              <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-500);margin-bottom:.5rem">Example at 3 km</div>
+              <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+                <div><span style="color:var(--gray-500)">Base:</span> <strong id="ex_base" style="color:var(--gray-900)">₱30.00</strong></div>
+                <div><span style="color:var(--gray-500)">Distance:</span> <strong id="ex_dist" style="color:var(--gray-900)">₱45.00</strong></div>
+                <div><span style="color:var(--gray-500)">Total:</span> <strong id="ex_total" style="color:var(--primary)">₱75.00</strong></div>
               </div>
             </div>
           </div>
@@ -487,7 +443,6 @@
                 </div>
               </div>
             </div>
-
             <div id="sim_output"></div>
           </div>
         </div>
@@ -747,17 +702,13 @@ function updateCapacityPreview() {
 // ── Delivery Fee Calculator ──────────────────────────────
 function getDeliveryParams() {
   return {
-    fpm  : parseFloat(document.getElementById('inp_fpm').value)  || 0,
-    mnt  : parseFloat(document.getElementById('inp_mnt').value)  || 0,
-    fuel : parseFloat(document.getElementById('inp_fuel').value) || 0,
-    free : parseInt(document.getElementById('inp_free').value)   || 0,
+    base : parseFloat(document.getElementById('inp_base')?.value) || 0,
+    pkm  : parseFloat(document.getElementById('inp_pkm')?.value)  || 0,
   };
 }
 
-function calcFee(distMeters, p) {
-  if (p.free > 0 && distMeters <= p.free) return 0;
-  const km = distMeters / 1000;
-  return Math.ceil((p.fpm * distMeters) + ((p.mnt + p.fuel) * km));
+function calcFee(km, p) {
+  return Math.ceil(p.base + (p.pkm * km));
 }
 
 function fmt(n) { return '₱' + n.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2}); }
@@ -765,78 +716,62 @@ function fmt(n) { return '₱' + n.toLocaleString('en-PH', {minimumFractionDigit
 function updateDeliveryCalc() {
   const p = getDeliveryParams();
 
-  // Update formula display
-  document.getElementById('fml_a').textContent = '₱' + p.fpm.toFixed(3).replace(/\.?0+$/, '');
-  document.getElementById('fml_b').textContent = '₱' + p.mnt.toFixed(2);
-  document.getElementById('fml_c').textContent = '₱' + p.fuel.toFixed(2);
-  document.getElementById('legend_a').textContent = '₱' + p.fpm + '/m';
-  document.getElementById('legend_b').textContent = '₱' + p.mnt + '/km';
-  document.getElementById('legend_c').textContent = '₱' + p.fuel + '/km';
+  // Formula display
+  const fmlBase = document.getElementById('fml_base');
+  const fmlPkm  = document.getElementById('fml_pkm');
+  if (fmlBase) fmlBase.textContent = fmt(p.base);
+  if (fmlPkm)  fmlPkm.textContent  = fmt(p.pkm);
 
-  // Simplified coefficient (per meter)
-  const coeff = p.fpm + (p.mnt + p.fuel) / 1000;
-  document.getElementById('fml_simplified').textContent = coeff.toFixed(5).replace(/0+$/, '');
+  // Legend
+  const lb = document.getElementById('legend_base');
+  const lp = document.getElementById('legend_pkm');
+  if (lb) lb.textContent = fmt(p.base);
+  if (lp) lp.textContent = fmt(p.pkm) + '/km';
 
-  // Per-km summary
-  const basePerKm  = p.fpm * 1000;
-  const extraPerKm = p.mnt + p.fuel;
-  document.getElementById('perkm_base').textContent  = fmt(basePerKm);
-  document.getElementById('perkm_extra').textContent = fmt(extraPerKm);
-  document.getElementById('perkm_total').textContent = fmt(basePerKm + extraPerKm);
+  // Example at 3 km
+  const exBase  = document.getElementById('ex_base');
+  const exDist  = document.getElementById('ex_dist');
+  const exTotal = document.getElementById('ex_total');
+  if (exBase)  exBase.textContent  = fmt(p.base);
+  if (exDist)  exDist.textContent  = fmt(p.pkm * 3);
+  if (exTotal) exTotal.textContent = fmt(Math.ceil(p.base + p.pkm * 3));
 
-  // Free radius note
-  const freeNote = document.getElementById('fml_free_note');
-  if (p.free > 0) {
-    freeNote.style.display = '';
-    document.getElementById('fml_free_val').textContent = p.free.toLocaleString();
-  } else {
-    freeNote.style.display = 'none';
-  }
-
-  // Re-run simulator with current distance
   runSimulator(document.getElementById('sim_slider')?.value || 3);
 }
 
 function runSimulator(km) {
   km = parseFloat(km) || 3;
-  document.getElementById('sim_km_label').textContent = km.toFixed(1) + ' km';
-  document.getElementById('sim_input').value = km;
+  const lbl = document.getElementById('sim_km_label');
+  const inp = document.getElementById('sim_input');
+  if (lbl) lbl.textContent = km.toFixed(1) + ' km';
+  if (inp) inp.value = km;
 
-  const p = getDeliveryParams();
-  const distM = km * 1000;
-  const out   = document.getElementById('sim_output');
-
-  if (p.free > 0 && distM <= p.free) {
-    out.innerHTML = `<div class="sim-free"><i class="bi bi-gift-fill me-2"></i>Free Delivery — within your ${p.free.toLocaleString()} m free zone</div>`;
-    return;
-  }
-
-  const baseAmt  = p.fpm * distM;
-  const extraAmt = (p.mnt + p.fuel) * km;
-  const rawTotal = baseAmt + extraAmt;
-  const finalFee = Math.ceil(rawTotal);
+  const p       = getDeliveryParams();
+  const distAmt = p.pkm * km;
+  const rawTotal= p.base + distAmt;
+  const finalFee= Math.ceil(rawTotal);
+  const out     = document.getElementById('sim_output');
+  if (!out) return;
 
   out.innerHTML = `
     <div class="sim-result">
       <div class="sim-row">
         <span class="lbl">Distance</span>
-        <span class="val">${km.toFixed(1)} km &nbsp;=&nbsp; ${distM.toLocaleString()} m</span>
+        <span class="val">${km.toFixed(1)} km</span>
       </div>
       <div class="sim-row">
-        <span class="lbl"><span class="legend-dot" style="background:#34d399;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.3rem"></span>Base (₱${p.fpm}/m × ${distM.toLocaleString()} m)</span>
-        <span class="val">${fmt(baseAmt)}</span>
+        <span class="lbl">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;margin-right:.4rem"></span>
+          Base Fee
+        </span>
+        <span class="val">${fmt(p.base)}</span>
       </div>
       <div class="sim-row">
-        <span class="lbl"><span class="legend-dot" style="background:#60a5fa;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.3rem"></span>Maintenance (₱${p.mnt}/km × ${km.toFixed(1)} km)</span>
-        <span class="val">${fmt(p.mnt * km)}</span>
-      </div>
-      <div class="sim-row">
-        <span class="lbl"><span class="legend-dot" style="background:#f472b6;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.3rem"></span>Fuel (₱${p.fuel}/km × ${km.toFixed(1)} km)</span>
-        <span class="val">${fmt(p.fuel * km)}</span>
-      </div>
-      <div class="sim-row">
-        <span class="lbl" style="color:var(--gray-400)">Raw total</span>
-        <span class="val" style="font-weight:400;color:var(--gray-500)">${fmt(rawTotal)}</span>
+        <span class="lbl">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#60a5fa;margin-right:.4rem"></span>
+          Distance (₱${p.pkm.toFixed(2)}/km × ${km.toFixed(1)} km)
+        </span>
+        <span class="val">${fmt(distAmt)}</span>
       </div>
       <div class="sim-row sim-total">
         <span class="lbl">Estimated Fee <span style="font-size:.72rem;font-weight:400;color:var(--gray-400)">(⌈ rounded up ⌉)</span></span>
