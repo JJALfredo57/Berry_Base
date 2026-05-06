@@ -12,6 +12,52 @@ class RiderController extends Controller
 {
     use UploadsFiles;
 
+    /** Show the rider portal login page */
+    public function loginPage()
+    {
+        return view('rider.login');
+    }
+
+    /** Verify phone + PIN submitted from the rider portal login page */
+    public function loginVerify(Request $request)
+    {
+        $phone = trim($request->input('phone', ''));
+        $pin   = trim($request->input('pin', ''));
+
+        if (!$phone || !$pin) {
+            return back()->with('err', 'Please enter both your phone number and PIN.')->withInput();
+        }
+
+        $clean = preg_replace('/\D/', '', $phone);
+        if (str_starts_with($clean, '0'))   $clean = '63' . substr($clean, 1);
+        if (!str_starts_with($clean, '63')) $clean = '63' . $clean;
+        $formats = [$phone, '+' . $clean, $clean, '0' . substr($clean, 2)];
+
+        $rider = DB::table('riders')
+            ->where('is_active', true)
+            ->where(function ($q) use ($formats) {
+                foreach ($formats as $f) $q->orWhere('phone', $f);
+            })->first();
+
+        if (!$rider) {
+            return back()->with('err', 'Phone number not found. Please check and try again.')->withInput();
+        }
+
+        $order = DB::table('orders')
+            ->where('rider_id', $rider->id)
+            ->where('rider_pin', $pin)
+            ->whereIn('status', ['Out for Delivery', 'Attempted Delivery'])
+            ->whereNotNull('rider_token')
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$order) {
+            return back()->with('err', 'No active delivery found for this PIN. It may have expired or already been completed.')->withInput();
+        }
+
+        return redirect()->route('rider.show', [$order->id, $order->rider_token]);
+    }
+
     /** Resolve a pasted PHONE|PIN access code from the catalog sidebar */
     public function accessByCode(Request $request)
     {

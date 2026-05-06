@@ -116,6 +116,10 @@ Route::get('/track/{trackCode}/deposit-return',  [\App\Http\Controllers\Guest\Pa
 Route::get('/track/{trackCode}/pay-remaining',   [\App\Http\Controllers\Guest\PaymentController::class, 'payRemaining'])->name('guest.pay_remaining');
 Route::get('/track/{trackCode}/remaining-return',[\App\Http\Controllers\Guest\PaymentController::class, 'remainingReturn'])->name('guest.remaining_return');
 
+// ── Rider Portal (login with phone + PIN) ─────────────────────────────────
+Route::get('/rider/login',  [\App\Http\Controllers\RiderController::class, 'loginPage'])->name('rider.login');
+Route::post('/rider/login', [\App\Http\Controllers\RiderController::class, 'loginVerify'])->name('rider.login.verify');
+
 // ── Rider access via pasted code from catalog sidebar ─────────────────────
 Route::post('/rider/access', [\App\Http\Controllers\RiderController::class, 'accessByCode'])->name('rider.access');
 

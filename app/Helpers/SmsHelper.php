@@ -168,15 +168,12 @@ class SmsHelper
 
         $pinLine = '';
         if ($pin) {
-            $host = self::resolveHost();
-            if ($token) {
-                $pinLine = "\n\nOpen your delivery page:\nhttps://{$host}/rider/{$orderId}/{$token}";
-            } else {
-                $rp = preg_replace('/\D/', '', $riderPhone);
-                if (str_starts_with($rp, '63')) $rp = '0' . substr($rp, 2);
-                $code    = ($rp ?: '?') . '|' . $pin;
-                $pinLine = "\n\nDelivery code: {$code}\nGo to https://{$host} - tap menu, then Rider.";
-            }
+            $rp = preg_replace('/\D/', '', $riderPhone);
+            if (str_starts_with($rp, '63')) $rp = '0' . substr($rp, 2);
+            $localPhone = $rp ?: preg_replace('/\D/', '', $riderPhone);
+            $pinLine = "\n\nYour Delivery PIN: {$pin}"
+                . "\nPhone on file: {$localPhone}"
+                . "\n\nTo confirm delivery, open the Rider Portal on the " . config('app.name', 'Cake Shop') . " website and log in with your phone number and PIN above.";
         }
 
         return "{$header}\n"
