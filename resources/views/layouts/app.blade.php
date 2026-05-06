@@ -1287,32 +1287,33 @@
     <div class="csb-divider"></div>
     <div class="csb-section-label">For Riders</div>
     <div style="padding:2px 8px 10px">
-      <div style="background:linear-gradient(135deg,#fef3c7,#fef9c3);border:1.5px solid #fde68a;border-radius:12px;padding:12px">
-        <div style="font-size:.78rem;font-weight:700;color:#78350f;margin-bottom:4px">
-          <i class="bi bi-bicycle me-1"></i>Rider Access
+      <div style="background:linear-gradient(135deg,#fef3c7,#fef9c3);border:1.5px solid #fde68a;border-radius:14px;padding:14px">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+          <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#d97706,#b45309);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="bi bi-bicycle" style="color:#fff;font-size:.85rem"></i>
+          </div>
+          <div>
+            <div style="font-size:.82rem;font-weight:700;color:#78350f;line-height:1.2">Rider Access</div>
+            <div style="font-size:.7rem;color:#92400e;line-height:1.3">Enter your 6-digit PIN from SMS</div>
+          </div>
         </div>
-        <div style="font-size:.72rem;color:#92400e;line-height:1.4;margin-bottom:8px">
-          Copy your delivery code from your SMS and paste it below.
-        </div>
-        <form action="{{ route('rider.access') }}" method="POST" id="riderAccessForm">
+        <form action="{{ route('rider.pin') }}" method="POST" id="riderAccessForm" style="margin-top:10px">
           @csrf
-          <input type="text" name="code" id="riderCodeInput"
-                 value="{{ old('code') }}"
-                 placeholder="e.g. 09171234567|492847"
-                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                 style="width:100%;border:1.5px solid #fbbf24;border-radius:8px;padding:.45rem .65rem;font-size:.82rem;font-family:monospace;background:#fffbeb;color:#111827;outline:none;margin-bottom:6px;transition:border-color .15s"
-                 onfocus="this.style.borderColor='#d97706'"
-                 onblur="this.style.borderColor='#fbbf24'">
+          <input type="text" name="pin" id="riderPinInput"
+                 inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+                 placeholder="● ● ● ● ● ●"
+                 autocomplete="one-time-code" autocorrect="off" spellcheck="false"
+                 style="width:100%;border:1.5px solid #fbbf24;border-radius:10px;padding:.6rem .65rem;font-size:1.4rem;font-weight:700;letter-spacing:.35em;text-align:center;font-family:monospace;background:#fffbeb;color:#92400e;outline:none;margin-bottom:6px;transition:border-color .15s,box-shadow .15s"
+                 onfocus="this.style.borderColor='#d97706';this.style.boxShadow='0 0 0 3px rgba(217,119,6,.15)'"
+                 onblur="this.style.borderColor='#fbbf24';this.style.boxShadow='none'">
           @if(session('rider_err'))
-          <div style="color:#b91c1c;font-size:.72rem;margin-bottom:6px;line-height:1.35">
+          <div style="color:#b91c1c;font-size:.72rem;margin-bottom:6px;line-height:1.35;padding:6px 8px;background:#fff1f2;border-radius:7px;border:1px solid #fecdd3">
             <i class="bi bi-exclamation-circle me-1"></i>{{ session('rider_err') }}
           </div>
           @endif
-          <button type="submit"
-                  style="width:100%;padding:.5rem;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:.82rem;cursor:pointer;transition:opacity .15s"
-                  onmouseover="this.style.opacity='.88'"
-                  onmouseout="this.style.opacity='1'">
-            <i class="bi bi-bicycle me-1"></i>Open My Delivery
+          <button type="submit" id="riderPinBtn"
+                  style="width:100%;padding:.6rem;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:6px">
+            <i class="bi bi-arrow-right-circle-fill"></i> Open My Delivery
           </button>
         </form>
       </div>
@@ -1497,15 +1498,33 @@ document.addEventListener('keydown', e => {
 });
 
 @if(session('rider_err'))
-// Auto-open sidebar and focus the rider input when there's an access error
+// Auto-open sidebar and focus the PIN input when there's an access error
 document.addEventListener('DOMContentLoaded', function () {
   openCustSidebar();
   setTimeout(function () {
-    var inp = document.getElementById('riderCodeInput');
+    var inp = document.getElementById('riderPinInput');
     if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); }
   }, 320);
 });
 @endif
+
+// PIN input: digits only + loading state on submit
+(function () {
+  var pinInput = document.getElementById('riderPinInput');
+  var pinForm  = document.getElementById('riderAccessForm');
+  var pinBtn   = document.getElementById('riderPinBtn');
+  if (pinInput) {
+    pinInput.addEventListener('input', function () {
+      this.value = this.value.replace(/\D/g, '').slice(0, 6);
+    });
+  }
+  if (pinForm && pinBtn) {
+    pinForm.addEventListener('submit', function () {
+      pinBtn.disabled = true;
+      pinBtn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:.8rem;height:.8rem"></span>&nbsp;Verifying…';
+    });
+  }
+})();
 </script>
 
 @if(session('msg') || session('error') || session('err') || session('warn'))

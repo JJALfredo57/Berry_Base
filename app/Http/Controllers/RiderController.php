@@ -12,6 +12,29 @@ class RiderController extends Controller
 {
     use UploadsFiles;
 
+    /** Access delivery by 6-digit PIN entered on the catalog sidebar */
+    public function accessByPin(Request $request)
+    {
+        $pin = trim(preg_replace('/\D/', '', $request->input('pin', '')));
+
+        if (strlen($pin) !== 6) {
+            return back()->with('rider_err', 'Please enter your 6-digit PIN from your SMS.');
+        }
+
+        $order = DB::table('orders')
+            ->where('rider_pin', $pin)
+            ->whereIn('status', ['Out for Delivery', 'Attempted Delivery'])
+            ->whereNotNull('rider_token')
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$order) {
+            return back()->with('rider_err', 'PIN not found or delivery already completed. Check your SMS and try again.');
+        }
+
+        return redirect()->route('rider.show', [$order->id, $order->rider_token]);
+    }
+
     /** Show the rider portal login page */
     public function loginPage()
     {

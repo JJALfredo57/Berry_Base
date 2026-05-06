@@ -168,12 +168,9 @@ class SmsHelper
 
         $pinLine = '';
         if ($pin) {
-            $rp = preg_replace('/\D/', '', $riderPhone);
-            if (str_starts_with($rp, '63')) $rp = '0' . substr($rp, 2);
-            $localPhone = $rp ?: preg_replace('/\D/', '', $riderPhone);
-            $pinLine = "\n\nYour Delivery PIN: {$pin}"
-                . "\nPhone on file: {$localPhone}"
-                . "\n\nTo confirm delivery, open the Rider Portal on the " . config('app.name', 'Cake Shop') . " website and log in with your phone number and PIN above.";
+            $siteName = config('app.name', 'Cake Shop');
+            $pinLine  = "\n\nDelivery PIN: {$pin}"
+                . "\n\nOpen {$siteName}, tap the menu, enter your PIN to access your delivery.";
         }
 
         return "{$header}\n"
@@ -207,20 +204,6 @@ class SmsHelper
             return DB::table('shops')->where('id', $shopId)->value('shop_name') ?? '';
         } catch (\Throwable $e) {
             return '';
-        }
-    }
-
-    /** Resolve the public hostname, falling back to the HTTP request host when APP_URL is localhost. */
-    private static function resolveHost(): string
-    {
-        $configured = parse_url(config('app.url', ''), PHP_URL_HOST) ?? '';
-        if ($configured && $configured !== 'localhost') {
-            return $configured;
-        }
-        try {
-            return request()->getHost();
-        } catch (\Throwable $e) {
-            return $configured ?: 'localhost';
         }
     }
 

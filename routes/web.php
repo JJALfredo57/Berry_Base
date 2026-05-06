@@ -120,7 +120,10 @@ Route::get('/track/{trackCode}/remaining-return',[\App\Http\Controllers\Guest\Pa
 Route::get('/rider/login',  [\App\Http\Controllers\RiderController::class, 'loginPage'])->name('rider.login');
 Route::post('/rider/login', [\App\Http\Controllers\RiderController::class, 'loginVerify'])->name('rider.login.verify');
 
-// ── Rider access via pasted code from catalog sidebar ─────────────────────
+// ── Rider PIN access from catalog sidebar ─────────────────────────────────
+Route::post('/rider/pin',    [\App\Http\Controllers\RiderController::class, 'accessByPin'])->name('rider.pin');
+
+// ── Rider access via pasted code (legacy) ─────────────────────────────────
 Route::post('/rider/access', [\App\Http\Controllers\RiderController::class, 'accessByCode'])->name('rider.access');
 
 // ── Rider Delivery Page (no login) ────────────────────────────────────────
