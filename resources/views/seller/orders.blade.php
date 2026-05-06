@@ -396,24 +396,6 @@
   {{ $orders->links('vendor.pagination.custom') }}
 </div>
 
-{{-- Order Detail Modal --}}
-<div class="modal fade" id="orderDetailModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content border-0" style="border-radius:16px">
-      <div class="modal-header border-0 pb-0">
-        <h6 class="modal-title fw-bold"><i class="bi bi-receipt me-1 text-primary"></i>Order Details</h6>
-        <button class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body pt-2" id="orderDetailBody"></div>
-      <div class="modal-footer border-0 pt-0">
-        <button class="btn btn-secondary" data-bs-dismiss="modal" style="font-weight:600">
-          <i class="bi bi-arrow-left me-1"></i>Back
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
 function showOrderDetail(id) {
   const src = document.getElementById('order-detail-' + id);
@@ -449,3 +431,22 @@ function filterSellerOrders() {
 }
 </script>
 @endsection
+
+@push('modals')
+<div class="modal fade" id="orderDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0" style="border-radius:16px">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title fw-bold"><i class="bi bi-receipt me-1 text-primary"></i>Order Details</h6>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-2" id="orderDetailBody"></div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-secondary" data-bs-dismiss="modal" style="font-weight:600">
+          <i class="bi bi-arrow-left me-1"></i>Back
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+@endpush

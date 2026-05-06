@@ -390,7 +390,7 @@
     @@keyframes csShimmer   { 0%{background-position:-200% center} 100%{background-position:200% center} }
     @@keyframes csPendingPulse { 0%,100%{box-shadow:0 0 0 0 rgba(234,179,8,.35)} 50%{box-shadow:0 0 0 6px rgba(234,179,8,0)} }
     @@keyframes csIconBounce { 0%,100%{transform:scale(1)} 40%{transform:scale(1.18) rotate(-5deg)} 70%{transform:scale(.95)} }
-    @@keyframes csPageIn    { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    @@keyframes csPageIn    { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
 
     /* ── Page entrance ── */
     .admin-page { animation: csPageIn .38s ease both; }
