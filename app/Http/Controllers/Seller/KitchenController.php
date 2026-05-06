@@ -243,17 +243,18 @@ class KitchenController extends Controller
         $riderPin = SmsHelper::generateRiderPin();
         DB::table('orders')->where('id', $orderId)->update(['rider_pin' => $riderPin]);
 
-        $sent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
+        $result = SmsHelper::sendWithResult($rider->phone, SmsHelper::buildRiderSms(
             $header, $orderId, $custName, $custPhone, $addr,
             SmsHelper::paymentLine($order), $riderPin, $rider->phone, $order->rider_token ?? ''
         ));
 
-        DB::table('orders')->where('id', $orderId)->update(['rider_sms_sent' => (bool) $sent]);
+        DB::table('orders')->where('id', $orderId)->update(['rider_sms_sent' => $result['ok']]);
 
-        return back()->with(
-            $sent ? 'msg' : 'err',
-            $sent ? 'SMS resent to rider successfully.' : 'SMS still could not be sent. Please verify the rider\'s phone number.'
-        );
+        if ($result['ok']) {
+            return back()->with('msg', 'SMS sent to rider ' . $rider->name . ' (' . $rider->phone . ') successfully.');
+        }
+
+        return back()->with('err', $result['error'] ?? 'SMS could not be sent. Please try again or contact support.');
     }
 
     /** Assign rider then auto-mark kitchen ticket as done */
