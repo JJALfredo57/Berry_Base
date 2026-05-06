@@ -65,6 +65,21 @@
           @endif
         @else
         <span class="badge bg-success px-3 py-2"><i class="bi bi-check-all me-1"></i>Completed</span>
+        @if($isDelivery && $t->rider_id)
+        <form action="{{ route('seller.kitchen.resend_sms', $t->order_id) }}" method="POST" class="d-inline">
+          @csrf
+          <button type="submit" class="btn btn-sm fw-semibold"
+                  style="background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:.6rem;font-size:.8rem;white-space:nowrap"
+                  data-cs-confirm="Resend rider notification for Order #{{ $t->order_id }}?"
+                  data-cs-title="Resend to Rider"
+                  data-cs-ok="Resend"
+                  data-cs-icon="bi-send-check"
+                  data-cs-icon-bg="#eff6ff"
+                  data-cs-icon-color="#1d4ed8">
+            <i class="bi bi-send-check me-1"></i>Resend to Rider
+          </button>
+        </form>
+        @endif
         @endif
       </div>
     </div>
@@ -123,25 +138,12 @@
 
     {{-- SMS failed warning --}}
     @if($t->ticket_status === 'done' && $isDelivery && $t->rider_id && isset($t->rider_sms_sent) && (int)$t->rider_sms_sent === 0)
-    <div class="d-flex align-items-center justify-content-between gap-3 rounded-3 px-3 py-2 mb-3"
+    <div class="d-flex align-items-center gap-2 rounded-3 px-3 py-2 mb-3"
          style="background:#fff7ed;border:1.5px solid #fed7aa">
-      <div class="d-flex align-items-center gap-2" style="color:#9a3412;font-size:.85rem">
-        <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
-        <span><strong>Rider was not notified</strong> — SMS could not be delivered.</span>
-      </div>
-      <form action="{{ route('seller.kitchen.resend_sms', $t->order_id) }}" method="POST" class="flex-shrink-0">
-        @csrf
-        <button type="submit" class="btn btn-sm fw-semibold"
-                style="background:#ea580c;color:#fff;border:none;border-radius:.5rem;white-space:nowrap"
-                data-cs-confirm="Resend SMS to rider for Order #{{ $t->order_id }}?"
-                data-cs-title="Resend Rider SMS"
-                data-cs-ok="Resend"
-                data-cs-icon="bi-send"
-                data-cs-icon-bg="#fff7ed"
-                data-cs-icon-color="#ea580c">
-          <i class="bi bi-send me-1"></i>Resend SMS
-        </button>
-      </form>
+      <i class="bi bi-exclamation-triangle-fill flex-shrink-0" style="color:#9a3412"></i>
+      <span style="color:#9a3412;font-size:.85rem">
+        <strong>Rider was not notified</strong> — Initial SMS failed. Use <em>Resend to Rider</em> above to retry.
+      </span>
     </div>
     @endif
 
