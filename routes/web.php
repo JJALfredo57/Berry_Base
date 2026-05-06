@@ -304,6 +304,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/zones/{id}/toggle',      [\App\Http\Controllers\Seller\DeliveryZoneController::class, 'toggle'])->name('zones.toggle');
     Route::post('/zones/{id}/archive',     [\App\Http\Controllers\Seller\DeliveryZoneController::class, 'archive'])->name('zones.archive');
     Route::post('/zones/{id}/restore',     [\App\Http\Controllers\Seller\DeliveryZoneController::class, 'restore'])->name('zones.restore');
+    Route::post('/zones/bulk',             [\App\Http\Controllers\Seller\DeliveryZoneController::class, 'storeBulk'])->name('zones.storeBulk');
 
     // Riders
     Route::get('/riders',              [\App\Http\Controllers\Seller\RiderController::class, 'index'])->name('riders');

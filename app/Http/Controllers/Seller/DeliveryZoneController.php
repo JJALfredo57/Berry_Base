@@ -112,4 +112,44 @@ class DeliveryZoneController extends Controller
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Restore Coverage Zone', $zone->barangay);
         return back()->with('msg', "Coverage area '{$zone->barangay}' restored.");
     }
+
+    public function storeBulk(\Illuminate\Http\Request $request)
+    {
+        $shop  = $this->getShop();
+        $items = $request->input('items', []);
+        if (!is_array($items)) $items = json_decode($items, true) ?: [];
+
+        $saved = 0;
+        $skipped = 0;
+
+        foreach ($items as $item) {
+            $brgy = trim($item['barangay'] ?? '');
+            if (!$brgy) continue;
+
+            $exists = DB::table('delivery_zones')
+                ->where('shop_id', $shop->id)
+                ->whereNull('archived_at')
+                ->whereRaw('LOWER(barangay) = ?', [strtolower($brgy)])
+                ->exists();
+
+            if ($exists) { $skipped++; continue; }
+
+            DB::table('delivery_zones')->insert([
+                'shop_id'      => $shop->id,
+                'barangay'     => $brgy,
+                'zone_address' => trim($item['address'] ?? '') ?: null,
+                'delivery_fee' => 0,
+                'zone_type'    => 'near',
+                'is_active'    => true,
+                'lat'          => !empty($item['lat']) ? (float) $item['lat'] : null,
+                'lng'          => !empty($item['lng']) ? (float) $item['lng'] : null,
+                'created_at'   => now(),
+                'updated_at'   => now(),
+            ]);
+            $saved++;
+        }
+
+        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Bulk Add Coverage Zones', "Saved: {$saved}, Skipped: {$skipped}");
+        return response()->json(['ok' => true, 'saved' => $saved, 'skipped' => $skipped]);
+    }
 }
