@@ -28,7 +28,7 @@
         <i class="bi {{ $typeMeta['icon'] }} me-1"></i>{{ $typeMeta['label'] }}
         <span class="badge ms-1"
               style="background:rgba(255,255,255,.3);color:inherit;font-size:.68rem">
-          {{ ($allOptions[$typeKey] ?? collect())->where('is_active',1)->count() }}
+          {{ ($allOptions[$typeKey] ?? collect())->count() }}
         </span>
       </a>
     </li>
@@ -69,13 +69,12 @@
                       <th>Label</th>
                       @if($typeMeta['has_price'])<th>Surcharge</th>@endif
                       <th>Description</th>
-                      <th>Status</th>
                       <th class="text-end pe-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     @foreach($options as $opt)
-                    <tr style="{{ !$opt->is_active ? 'opacity:.45' : '' }}">
+                    <tr>
                       {{-- Sort buttons --}}
                       <td class="ps-3">
                         <div class="d-flex flex-column gap-0">
@@ -102,13 +101,6 @@
                       </td>
                       @endif
                       <td class="text-muted">{{ $opt->description ?? '—' }}</td>
-                      <td>
-                        @if($opt->is_active)
-                          <span class="badge" style="background:#d1fae5;color:#065f46;font-size:.7rem">Visible</span>
-                        @else
-                          <span class="badge bg-secondary" style="font-size:.7rem">Hidden</span>
-                        @endif
-                      </td>
                       <td class="text-end pe-3">
                         <div class="d-flex gap-1 justify-content-end">
                           {{-- Edit --}}
@@ -118,15 +110,6 @@
                                   title="Edit">
                             <i class="bi bi-pencil"></i>
                           </button>
-                          {{-- Toggle --}}
-                          <form action="{{ route('seller.custom_options.toggle', $opt->id) }}" method="POST">
-                            @csrf
-                            <button type="submit"
-                                    class="btn btn-sm {{ $opt->is_active ? 'btn-outline-warning' : 'btn-outline-success' }}"
-                                    title="{{ $opt->is_active ? 'Hide' : 'Show' }}">
-                              <i class="bi {{ $opt->is_active ? 'bi-eye-slash' : 'bi-eye' }}"></i>
-                            </button>
-                          </form>
                           {{-- Archive --}}
                           <form action="{{ route('seller.custom_options.archive', $opt->id) }}" method="POST"
                                 onsubmit="return false;" onclick="confirmDelete('Archive &quot;{{ addslashes($opt->label) }}&quot;? It will be hidden from customers and can be restored anytime.', () => this.closest('form').submit())">

@@ -29,16 +29,12 @@
   @php $catAddons = $addons[$cat->id] ?? collect(); @endphp
   <div class="card mb-4">
     {{-- Category Header --}}
-    <div class="card-body border-bottom p-3 d-flex align-items-center justify-content-between flex-wrap gap-2"
-         style="background:{{ $cat->is_active ? '#fff' : '#f8f9fa' }}">
+    <div class="card-body border-bottom p-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
       <div class="d-flex align-items-center gap-2">
         <i class="bi {{ $cat->icon }} fs-5" style="color:var(--primary)"></i>
         <div>
           <span class="fw-bold">{{ $cat->name }}</span>
           <span class="text-muted small ms-2">({{ $catAddons->count() }} items)</span>
-          @if(!$cat->is_active)
-            <span class="badge bg-secondary ms-2" style="font-size:.7rem">Hidden</span>
-          @endif
         </div>
       </div>
       <div class="d-flex gap-2">
@@ -46,13 +42,6 @@
                 data-bs-toggle="modal" data-bs-target="#editCatModal{{ $cat->id }}">
           <i class="bi bi-pencil"></i>
         </button>
-        <form action="{{ route('seller.addons.toggle_category', $cat->id) }}" method="POST" class="d-inline">
-          @csrf
-          <button type="submit" class="btn btn-sm {{ $cat->is_active ? 'btn-outline-warning' : 'btn-outline-success' }}"
-                  title="{{ $cat->is_active ? 'Hide category' : 'Show category' }}">
-            <i class="bi {{ $cat->is_active ? 'bi-eye-slash' : 'bi-eye' }}"></i>
-          </button>
-        </form>
         <form action="{{ route('seller.addons.archive_category', $cat->id) }}" method="POST" class="d-inline"
               onsubmit="return false;" onclick="confirmDelete('Archive &quot;{{ addslashes($cat->name) }}&quot;? This category and all its add-ons will be archived. You can restore them anytime.', () => this.closest('form').submit())">
           @csrf
@@ -69,13 +58,12 @@
             <th class="ps-3">Add-on Name</th>
             <th>Description</th>
             <th>Price</th>
-            <th>Status</th>
             <th class="text-end pe-3">Actions</th>
           </tr>
         </thead>
         <tbody>
           @forelse($catAddons as $a)
-          <tr class="addon-row" data-search="{{ strtolower($a->name . ' ' . ($a->description ?? '')) }}" style="{{ !$a->is_active ? 'opacity:.5' : '' }}">
+          <tr class="addon-row" data-search="{{ strtolower($a->name . ' ' . ($a->description ?? '')) }}">
             <td class="ps-3 fw-semibold">{{ $a->name }}</td>
             <td class="text-muted">{{ $a->description ?? '—' }}</td>
             <td>
@@ -85,26 +73,12 @@
                 <span class="badge bg-success" style="font-size:.7rem">FREE</span>
               @endif
             </td>
-            <td>
-              @if($a->is_active)
-                <span class="badge" style="background:#d1fae5;color:#065f46;font-size:.72rem">Visible</span>
-              @else
-                <span class="badge bg-secondary" style="font-size:.72rem">Hidden</span>
-              @endif
-            </td>
             <td class="text-end pe-3">
               <div class="d-flex gap-1 justify-content-end">
                 <button class="btn btn-outline-secondary btn-sm py-0 px-2"
                         data-bs-toggle="modal" data-bs-target="#editAddonModal{{ $a->id }}">
                   <i class="bi bi-pencil"></i>
                 </button>
-                <form action="{{ route('seller.addons.toggle', $a->id) }}" method="POST" class="d-inline">
-                  @csrf
-                  <button type="submit" class="btn btn-sm py-0 px-2 {{ $a->is_active ? 'btn-outline-warning' : 'btn-outline-success' }}"
-                          title="{{ $a->is_active ? 'Hide' : 'Show' }}">
-                    <i class="bi {{ $a->is_active ? 'bi-eye-slash' : 'bi-eye' }}"></i>
-                  </button>
-                </form>
                 <form action="{{ route('seller.addons.archive', $a->id) }}" method="POST" class="d-inline"
                       onsubmit="return false;" onclick="confirmDelete('Archive &quot;{{ addslashes($a->name) }}&quot;? It will be hidden and can be restored anytime.', () => this.closest('form').submit())">
                   @csrf
@@ -162,7 +136,7 @@
           </div>
 
           @empty
-          <tr><td colspan="5" class="text-center text-muted py-3 ps-3">No add-ons in this category yet.</td></tr>
+          <tr><td colspan="4" class="text-center text-muted py-3 ps-3">No add-ons in this category yet.</td></tr>
           @endforelse
         </tbody>
       </table>

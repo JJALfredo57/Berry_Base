@@ -306,16 +306,13 @@
 
       <div class="zone-list" id="zone-list">
         @forelse($zones as $z)
-        <div class="zone-card {{ $z->is_active ? '' : 'inactive' }}"
+        <div class="zone-card"
              id="zcard-{{ $z->id }}"
              data-name="{{ strtolower($z->barangay) }}"
              onclick="focusZone({{ $z->id }},{{ $z->lat ?? 'null' }},{{ $z->lng ?? 'null' }})">
           <div class="zc-top">
-            <i class="bi bi-geo-alt-fill" style="color:{{ $z->is_active ? 'var(--primary)' : '#bbb' }};font-size:.85rem;flex-shrink:0"></i>
+            <i class="bi bi-geo-alt-fill" style="color:var(--primary);font-size:.85rem;flex-shrink:0"></i>
             <span class="zname">{{ $z->barangay }}</span>
-            @if(!$z->is_active)
-              <span class="badge" style="background:#f3f4f6;color:#6b7280;font-size:.65rem">Hidden</span>
-            @endif
             @if($z->lat && $z->lng)
               <i class="bi bi-pin-fill text-success" style="font-size:.72rem" title="Pinned"></i>
             @else
@@ -332,13 +329,6 @@
               onclick="openEditModal({{ $z->id }}, @js($z->barangay), @js($z->zone_address ?? ''), {{ $z->lat ?? 'null' }}, {{ $z->lng ?? 'null' }})">
               <i class="bi bi-pencil"></i> Edit
             </button>
-            <form method="POST" action="{{ route('seller.zones.toggle', $z->id) }}" class="d-inline">
-              @csrf
-              <button class="btn btn-xs {{ $z->is_active ? 'btn-outline-secondary' : 'btn-outline-success' }}">
-                <i class="bi bi-{{ $z->is_active ? 'eye-slash' : 'eye' }}"></i>
-                {{ $z->is_active ? 'Hide' : 'Show' }}
-              </button>
-            </form>
             <form method="POST" action="{{ route('seller.zones.archive', $z->id) }}" class="d-inline"
                   onsubmit="return confirm('Archive \'{{ addslashes($z->barangay) }}\' from coverage? You can restore it anytime.')">
               @csrf
