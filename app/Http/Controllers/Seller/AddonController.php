@@ -26,14 +26,31 @@ class AddonController extends Controller
 
         $categories = DB::table('cake_addon_categories')
             ->where('shop_id', $shop->id)
+            ->whereNull('archived_at')
             ->orderBy('sort_order')->orderBy('id')->get();
+
         $addons = DB::table('cake_addons as a')
             ->join('cake_addon_categories as c', 'c.id', '=', 'a.category_id')
             ->where('a.shop_id', $shop->id)
+            ->whereNull('a.archived_at')
+            ->whereNull('c.archived_at')
             ->select('a.*', 'c.name as category_name')
             ->orderBy('a.category_id')->orderBy('a.sort_order')->get()
             ->groupBy('category_id');
-        return view('seller.addons', compact('categories', 'addons'));
+
+        $archivedCategories = DB::table('cake_addon_categories')
+            ->where('shop_id', $shop->id)
+            ->whereNotNull('archived_at')
+            ->orderByDesc('archived_at')->get();
+
+        $archivedAddons = DB::table('cake_addons as a')
+            ->join('cake_addon_categories as c', 'c.id', '=', 'a.category_id')
+            ->where('a.shop_id', $shop->id)
+            ->whereNotNull('a.archived_at')
+            ->select('a.*', 'c.name as category_name')
+            ->orderByDesc('a.archived_at')->get();
+
+        return view('seller.addons', compact('categories', 'addons', 'archivedCategories', 'archivedAddons'));
     }
 
     public function storeCategory(Request $request)
@@ -79,14 +96,27 @@ class AddonController extends Controller
         return back()->with('msg', 'Category ' . (!$cat->is_active ? 'enabled' : 'disabled') . '.');
     }
 
-    public function destroyCategory(string $id)
+    public function archiveCategory(string $id)
     {
         $shop = $this->getShop();
         $cat  = DB::table('cake_addon_categories')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$cat) return back()->with('err', 'Not found.');
-        DB::table('cake_addons')->where('category_id', $id)->where('shop_id', $shop->id)->delete();
-        DB::table('cake_addon_categories')->where('id', $id)->delete();
-        return back()->with('msg', 'Category deleted.');
+        $now = now();
+        DB::table('cake_addons')->where('category_id', $id)->where('shop_id', $shop->id)->update(['archived_at' => $now]);
+        DB::table('cake_addon_categories')->where('id', $id)->update(['archived_at' => $now]);
+        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Archive Addon Category', $cat->name);
+        return back()->with('msg', "Category '{$cat->name}' archived.");
+    }
+
+    public function restoreCategory(string $id)
+    {
+        $shop = $this->getShop();
+        $cat  = DB::table('cake_addon_categories')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$cat) return back()->with('err', 'Not found.');
+        DB::table('cake_addons')->where('category_id', $id)->where('shop_id', $shop->id)->update(['archived_at' => null]);
+        DB::table('cake_addon_categories')->where('id', $id)->update(['archived_at' => null]);
+        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Restore Addon Category', $cat->name);
+        return back()->with('msg', "Category '{$cat->name}' restored.");
     }
 
     public function store(Request $request)
@@ -134,12 +164,23 @@ class AddonController extends Controller
         return back()->with('msg', 'Add-on ' . (!$addon->is_active ? 'enabled' : 'disabled') . '.');
     }
 
-    public function destroy(string $id)
+    public function archive(string $id)
     {
         $shop  = $this->getShop();
         $addon = DB::table('cake_addons')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$addon) return back()->with('err', 'Not found.');
-        DB::table('cake_addons')->where('id', $id)->delete();
-        return back()->with('msg', 'Add-on deleted.');
+        DB::table('cake_addons')->where('id', $id)->update(['archived_at' => now()]);
+        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Archive Addon', $addon->name);
+        return back()->with('msg', "Add-on '{$addon->name}' archived.");
+    }
+
+    public function restore(string $id)
+    {
+        $shop  = $this->getShop();
+        $addon = DB::table('cake_addons')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$addon) return back()->with('err', 'Not found.');
+        DB::table('cake_addons')->where('id', $id)->update(['archived_at' => null]);
+        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Restore Addon', $addon->name);
+        return back()->with('msg', "Add-on '{$addon->name}' restored.");
     }
 }

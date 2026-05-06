@@ -29,15 +29,19 @@ class CustomOptionController extends Controller
 
         $allOptions = DB::table('custom_order_options')
             ->where('shop_id', $shopId)
-            ->orderBy('type')
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get()
-            ->groupBy('type');
+            ->whereNull('archived_at')
+            ->orderBy('type')->orderBy('sort_order')->orderBy('id')
+            ->get()->groupBy('type');
+
+        $archivedOptions = DB::table('custom_order_options')
+            ->where('shop_id', $shopId)
+            ->whereNotNull('archived_at')
+            ->orderBy('type')->orderByDesc('archived_at')
+            ->get()->groupBy('type');
 
         $types = self::TYPES;
 
-        return view('seller.custom_options', compact('allOptions', 'types'));
+        return view('seller.custom_options', compact('allOptions', 'archivedOptions', 'types'));
     }
 
     public function store(Request $request)
@@ -116,17 +120,26 @@ class CustomOptionController extends Controller
         return back()->with('msg', "Option " . ($opt->is_active ? 'hidden' : 'shown') . ".");
     }
 
-    public function destroy(string $id)
+    public function archive(string $id)
     {
-        $opt = DB::table('custom_order_options')->where('id', $id)->first();
+        $shopId = $this->getShopId();
+        $opt    = DB::table('custom_order_options')->where('id', $id)->where('shop_id', $shopId)->first();
         if (!$opt) return back()->with('err', 'Option not found.');
-
-        DB::table('custom_order_options')->where('id', $id)->delete();
-
+        DB::table('custom_order_options')->where('id', $id)->update(['archived_at' => now()]);
         $user = session('user');
-        CakeshopHelper::logActivity($user['id'], $user['role'], 'Delete Custom Option', $opt->label);
+        CakeshopHelper::logActivity($user['id'], $user['role'], 'Archive Custom Option', $opt->label);
+        return back()->with('msg', "Option '{$opt->label}' archived.");
+    }
 
-        return back()->with('msg', "Option '{$opt->label}' deleted.");
+    public function restore(string $id)
+    {
+        $shopId = $this->getShopId();
+        $opt    = DB::table('custom_order_options')->where('id', $id)->where('shop_id', $shopId)->first();
+        if (!$opt) return back()->with('err', 'Option not found.');
+        DB::table('custom_order_options')->where('id', $id)->update(['archived_at' => null]);
+        $user = session('user');
+        CakeshopHelper::logActivity($user['id'], $user['role'], 'Restore Custom Option', $opt->label);
+        return back()->with('msg', "Option '{$opt->label}' restored.");
     }
 
     public function sortUp(string $id)

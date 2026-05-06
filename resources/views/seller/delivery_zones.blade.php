@@ -221,10 +221,10 @@
                 {{ $z->is_active ? 'Hide' : 'Show' }}
               </button>
             </form>
-            <form method="POST" action="{{ route('seller.zones.destroy', $z->id) }}" class="d-inline"
-                  onsubmit="return confirm('Remove \'{{ addslashes($z->barangay) }}\' from coverage?')">
+            <form method="POST" action="{{ route('seller.zones.archive', $z->id) }}" class="d-inline"
+                  onsubmit="return confirm('Archive \'{{ addslashes($z->barangay) }}\' from coverage? You can restore it anytime.')">
               @csrf
-              <button class="btn btn-xs btn-outline-danger"><i class="bi bi-trash"></i></button>
+              <button class="btn btn-xs btn-outline-secondary" title="Archive"><i class="bi bi-archive"></i></button>
             </form>
           </div>
         </div>
@@ -291,6 +291,42 @@
     </div>
   </div>
 </div>
+{{-- ── Archived Zones ───────────────────────────────── --}}
+@if($archivedZones->isNotEmpty())
+<div class="mt-4" style="max-width:720px">
+  <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2 mb-3"
+          type="button" data-bs-toggle="collapse" data-bs-target="#archivedZones">
+    <i class="bi bi-archive"></i> Archived Coverage Areas
+    <span class="badge bg-secondary">{{ $archivedZones->count() }}</span>
+    <i class="bi bi-chevron-down" style="font-size:.75rem"></i>
+  </button>
+  <div class="collapse" id="archivedZones">
+    <div class="card" style="border:1.5px dashed #dee2e6;border-radius:14px;overflow:hidden">
+      @foreach($archivedZones as $az)
+      <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom" style="background:#f8f9fa">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-geo-alt text-muted"></i>
+          <span class="fw-semibold text-muted">{{ $az->barangay }}</span>
+          @if($az->zone_address)
+            <span class="text-muted small">— {{ $az->zone_address }}</span>
+          @endif
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="text-muted" style="font-size:.72rem">Archived {{ \Carbon\Carbon::parse($az->archived_at)->diffForHumans() }}</span>
+          <form method="POST" action="{{ route('seller.zones.restore', $az->id) }}" class="d-inline">
+            @csrf
+            <button class="btn btn-sm btn-outline-success">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+            </button>
+          </form>
+        </div>
+      </div>
+      @endforeach
+    </div>
+  </div>
+</div>
+@endif
+
 @endsection
 
 @push('scripts')

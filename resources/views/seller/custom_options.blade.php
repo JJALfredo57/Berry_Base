@@ -127,12 +127,12 @@
                               <i class="bi {{ $opt->is_active ? 'bi-eye-slash' : 'bi-eye' }}"></i>
                             </button>
                           </form>
-                          {{-- Delete --}}
-                          <form action="{{ route('admin.custom_options.destroy', $opt->id) }}" method="POST"
-                                onsubmit="return false;" onclick="confirmDelete('Delete \'{{ addslashes($opt->label) }}\'? This cannot be undone.', () => this.closest('form').submit())">
+                          {{-- Archive --}}
+                          <form action="{{ route('seller.custom_options.archive', $opt->id) }}" method="POST"
+                                onsubmit="return false;" onclick="confirmDelete('Archive &quot;{{ addslashes($opt->label) }}&quot;? It will be hidden from customers and can be restored anytime.', () => this.closest('form').submit())">
                             @csrf
-                            <button type="submit" class="btn btn-outline-danger btn-sm" title="Delete">
-                              <i class="bi bi-trash"></i>
+                            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Archive">
+                              <i class="bi bi-archive"></i>
                             </button>
                           </form>
                         </div>
@@ -286,4 +286,49 @@ document.querySelectorAll('#optionTabs .nav-link').forEach(link => {
 });
 </script>
 @endpush
+
+{{-- ── Archived Options ─────────────────────────────── --}}
+@if($archivedOptions->isNotEmpty())
+<div class="mt-4" style="max-width:860px">
+  <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2 mb-3"
+          type="button" data-bs-toggle="collapse" data-bs-target="#archivedOptions">
+    <i class="bi bi-archive"></i> Archived Options
+    <span class="badge bg-secondary">{{ $archivedOptions->flatten()->count() }}</span>
+    <i class="bi bi-chevron-down" style="font-size:.75rem"></i>
+  </button>
+  <div class="collapse" id="archivedOptions">
+    <div class="card" style="border:1.5px dashed #dee2e6;border-radius:14px;overflow:hidden">
+      @foreach($archivedOptions as $type => $opts)
+      @php $meta = \App\Http\Controllers\Seller\CustomOptionController::TYPES[$type] ?? ['label'=>$type,'icon'=>'bi-list']; @endphp
+      <div class="border-bottom px-4 py-2" style="background:#f1f5f9">
+        <span class="fw-semibold small text-muted"><i class="bi {{ $meta['icon'] }} me-1"></i>{{ $meta['label'] }}</span>
+      </div>
+      @foreach($opts as $ao)
+      <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom" style="background:#f8f9fa">
+        <div>
+          <span class="fw-semibold text-muted">{{ $ao->label }}</span>
+          @if($ao->price > 0)
+            <span class="badge ms-2" style="background:#f3f4f6;color:#6b7280;font-size:.68rem">+₱{{ number_format($ao->price,2) }}</span>
+          @endif
+          @if($ao->description)
+            <span class="text-muted small ms-2">— {{ $ao->description }}</span>
+          @endif
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="text-muted" style="font-size:.72rem">Archived {{ \Carbon\Carbon::parse($ao->archived_at)->diffForHumans() }}</span>
+          <form action="{{ route('seller.custom_options.restore', $ao->id) }}" method="POST" class="d-inline">
+            @csrf
+            <button type="submit" class="btn btn-sm btn-outline-success">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+            </button>
+          </form>
+        </div>
+      </div>
+      @endforeach
+      @endforeach
+    </div>
+  </div>
+</div>
+@endif
+
 @endsection

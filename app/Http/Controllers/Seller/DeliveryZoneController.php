@@ -21,10 +21,15 @@ class DeliveryZoneController extends Controller
         $shop         = $this->getShop();
         $zones        = DB::table('delivery_zones')
             ->where('shop_id', $shop->id)
+            ->whereNull('archived_at')
             ->orderBy('sort_order')->orderBy('id')
             ->get();
+        $archivedZones = DB::table('delivery_zones')
+            ->where('shop_id', $shop->id)
+            ->whereNotNull('archived_at')
+            ->orderByDesc('archived_at')->get();
         $shopSettings = DB::table('site_settings')->where('shop_id', $shop->id)->first();
-        return view('seller.delivery_zones', compact('shop', 'zones', 'shopSettings'));
+        return view('seller.delivery_zones', compact('shop', 'zones', 'archivedZones', 'shopSettings'));
     }
 
     public function store(Request $request)
@@ -88,12 +93,23 @@ class DeliveryZoneController extends Controller
         return back()->with('msg', 'Coverage area ' . ($newState ? 'shown' : 'hidden') . '.');
     }
 
-    public function destroy(string $id)
+    public function archive(string $id)
     {
         $shop = $this->getShop();
         $zone = DB::table('delivery_zones')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$zone) return back()->with('err', 'Not found.');
-        DB::table('delivery_zones')->where('id', $id)->delete();
-        return back()->with('msg', 'Coverage area removed.');
+        DB::table('delivery_zones')->where('id', $id)->update(['archived_at' => now()]);
+        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Archive Coverage Zone', $zone->barangay);
+        return back()->with('msg', "Coverage area '{$zone->barangay}' archived.");
+    }
+
+    public function restore(string $id)
+    {
+        $shop = $this->getShop();
+        $zone = DB::table('delivery_zones')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$zone) return back()->with('err', 'Not found.');
+        DB::table('delivery_zones')->where('id', $id)->update(['archived_at' => null]);
+        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Restore Coverage Zone', $zone->barangay);
+        return back()->with('msg', "Coverage area '{$zone->barangay}' restored.");
     }
 }

@@ -53,10 +53,10 @@
             <i class="bi {{ $cat->is_active ? 'bi-eye-slash' : 'bi-eye' }}"></i>
           </button>
         </form>
-        <form action="{{ route('seller.addons.destroy_category', $cat->id) }}" method="POST" class="d-inline"
-              onsubmit="return false;" onclick="confirmDelete('Delete this category? All its add-ons must be removed first.', () => this.closest('form').submit())">
+        <form action="{{ route('seller.addons.archive_category', $cat->id) }}" method="POST" class="d-inline"
+              onsubmit="return false;" onclick="confirmDelete('Archive &quot;{{ addslashes($cat->name) }}&quot;? This category and all its add-ons will be archived. You can restore them anytime.', () => this.closest('form').submit())">
           @csrf
-          <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+          <button type="submit" class="btn btn-outline-secondary btn-sm" title="Archive category"><i class="bi bi-archive"></i></button>
         </form>
       </div>
     </div>
@@ -105,11 +105,11 @@
                     <i class="bi {{ $a->is_active ? 'bi-eye-slash' : 'bi-eye' }}"></i>
                   </button>
                 </form>
-                <form action="{{ route('seller.addons.destroy', $a->id) }}" method="POST" class="d-inline"
-                      onsubmit="return false;" onclick="confirmDelete('Delete {{ $a->name }}? This cannot be undone.', () => this.closest('form').submit())">
+                <form action="{{ route('seller.addons.archive', $a->id) }}" method="POST" class="d-inline"
+                      onsubmit="return false;" onclick="confirmDelete('Archive &quot;{{ addslashes($a->name) }}&quot;? It will be hidden and can be restored anytime.', () => this.closest('form').submit())">
                   @csrf
-                  <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">
-                    <i class="bi bi-trash"></i>
+                  <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2" title="Archive">
+                    <i class="bi bi-archive"></i>
                   </button>
                 </form>
               </div>
@@ -282,6 +282,73 @@
     </div>
   </div>
 </div>
+{{-- ── Archived Section ───────────────────────────────── --}}
+@if($archivedCategories->isNotEmpty() || $archivedAddons->isNotEmpty())
+<div class="mt-4">
+  <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2 mb-3"
+          type="button" data-bs-toggle="collapse" data-bs-target="#archivedAddons">
+    <i class="bi bi-archive"></i>
+    Archived
+    <span class="badge bg-secondary">{{ $archivedCategories->count() + $archivedAddons->count() }}</span>
+    <i class="bi bi-chevron-down" style="font-size:.75rem"></i>
+  </button>
+  <div class="collapse" id="archivedAddons">
+    <div class="card border-dashed" style="border:1.5px dashed #dee2e6;border-radius:14px;overflow:hidden">
+      <div class="card-body p-0">
+
+        {{-- Archived Categories --}}
+        @foreach($archivedCategories as $arc)
+        <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom" style="background:#f8f9fa">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-folder2 text-muted"></i>
+            <div>
+              <span class="fw-semibold text-muted">{{ $arc->name }}</span>
+              <span class="badge bg-secondary ms-2" style="font-size:.68rem">Category</span>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-muted" style="font-size:.72rem">Archived {{ \Carbon\Carbon::parse($arc->archived_at)->diffForHumans() }}</span>
+            <form action="{{ route('seller.addons.restore_category', $arc->id) }}" method="POST" class="d-inline">
+              @csrf
+              <button type="submit" class="btn btn-sm btn-outline-success" title="Restore">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+              </button>
+            </form>
+          </div>
+        </div>
+        @endforeach
+
+        {{-- Archived Add-ons --}}
+        @foreach($archivedAddons as $ara)
+        <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom" style="background:#fff">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-gift text-muted"></i>
+            <div>
+              <span class="fw-semibold text-muted">{{ $ara->name }}</span>
+              <span class="text-muted small ms-1">— {{ $ara->category_name }}</span>
+              @if($ara->price > 0)
+                <span class="badge ms-1" style="background:#f3f4f6;color:#6b7280;font-size:.68rem">+₱{{ number_format($ara->price,2) }}</span>
+              @endif
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-muted" style="font-size:.72rem">Archived {{ \Carbon\Carbon::parse($ara->archived_at)->diffForHumans() }}</span>
+            <form action="{{ route('seller.addons.restore', $ara->id) }}" method="POST" class="d-inline">
+              @csrf
+              <button type="submit" class="btn btn-sm btn-outline-success" title="Restore">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+              </button>
+            </form>
+          </div>
+        </div>
+        @endforeach
+
+      </div>
+    </div>
+  </div>
+</div>
+@endif
+
 @endsection
 @push('scripts')
 <script>

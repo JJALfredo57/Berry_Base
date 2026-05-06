@@ -218,20 +218,43 @@
     </div>
   </div>
 
-  {{-- Sizes --}}
-  @if($sizes->count() > 0)
-  <div style="border-top:1px solid var(--gray-100);padding:.625rem 1.25rem;background:var(--gray-50);display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
-    <span style="font-size:.72rem;font-weight:700;color:var(--gray-500);margin-right:.25rem">SIZES:</span>
-    @foreach($sizes as $sz)
-    <span style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:var(--gray-700);display:inline-flex;align-items:center;gap:.4rem">
-      {{ $sz->label }} — ₱{{ number_format($sz->price,2) }}
-      <form action="{{ route('seller.products.sizes.destroy', $sz->id) }}" method="POST" class="d-inline"
-            data-cs-confirm="Remove size {{ addslashes($sz->label) }}?" data-cs-title="Remove Size" data-cs-icon="bi-trash" data-cs-icon-bg="#fff1f2" data-cs-icon-color="#ef4444" data-cs-ok="Remove" data-cs-ok-color="#ef4444">
-        @csrf
-        <button type="submit" style="background:none;border:none;color:var(--gray-400);cursor:pointer;padding:0;font-size:.7rem;line-height:1">&times;</button>
-      </form>
-    </span>
-    @endforeach
+  {{-- Active Sizes --}}
+  @php $archivedSz = collect($archivedSizes[$p->id] ?? []); @endphp
+  @if($sizes->count() > 0 || $archivedSz->count() > 0)
+  <div style="border-top:1px solid var(--gray-100);padding:.625rem 1.25rem;background:var(--gray-50)">
+    @if($sizes->count() > 0)
+    <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
+      <span style="font-size:.72rem;font-weight:700;color:var(--gray-500);margin-right:.25rem">SIZES:</span>
+      @foreach($sizes as $sz)
+      <span style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:var(--gray-700);display:inline-flex;align-items:center;gap:.4rem">
+        {{ $sz->label }} — ₱{{ number_format($sz->price,2) }}
+        <form action="{{ route('seller.products.sizes.archive', $sz->id) }}" method="POST" class="d-inline"
+              onsubmit="return false;" onclick="confirmDelete('Archive size &quot;{{ addslashes($sz->label) }}&quot;? It will be hidden and can be restored anytime.', () => this.closest('form').submit())">
+          @csrf
+          <button type="submit" title="Archive size" style="background:none;border:none;color:var(--gray-400);cursor:pointer;padding:0;font-size:.75rem;line-height:1" onmouseover="this.style.color='#d97706'" onmouseout="this.style.color='var(--gray-400)'">
+            <i class="bi bi-archive"></i>
+          </button>
+        </form>
+      </span>
+      @endforeach
+    </div>
+    @endif
+    @if($archivedSz->count() > 0)
+    <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.4rem">
+      <span style="font-size:.72rem;font-weight:700;color:#d97706;margin-right:.25rem">ARCHIVED SIZES:</span>
+      @foreach($archivedSz as $sz)
+      <span style="background:#fffbeb;border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:#92400e;display:inline-flex;align-items:center;gap:.4rem;opacity:.8">
+        {{ $sz->label }} — ₱{{ number_format($sz->price,2) }}
+        <form action="{{ route('seller.products.sizes.restore', $sz->id) }}" method="POST" class="d-inline">
+          @csrf
+          <button type="submit" title="Restore size" style="background:none;border:none;color:#059669;cursor:pointer;padding:0;font-size:.75rem;line-height:1">
+            <i class="bi bi-arrow-counterclockwise"></i>
+          </button>
+        </form>
+      </span>
+      @endforeach
+    </div>
+    @endif
   </div>
   @endif
 

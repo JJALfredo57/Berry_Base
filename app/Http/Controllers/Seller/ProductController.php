@@ -64,13 +64,24 @@ class ProductController extends Controller
         try {
             $sizes = DB::table('product_sizes')
                 ->whereIn('product_id', $pids)
-                ->where('is_active', true)->orderBy('sort_order')->get();
+                ->where('is_active', true)
+                ->whereNull('archived_at')
+                ->orderBy('sort_order')->get();
             foreach ($sizes as $s) $productSizes[$s->product_id][] = $s;
+        } catch (\Exception $e) {}
+
+        $archivedSizes = [];
+        try {
+            $archSizeRows = DB::table('product_sizes')
+                ->whereIn('product_id', $pids)
+                ->whereNotNull('archived_at')
+                ->orderBy('sort_order')->get();
+            foreach ($archSizeRows as $s) $archivedSizes[$s->product_id][] = $s;
         } catch (\Exception $e) {}
 
         $discounts = CakeshopHelper::getDiscountConfigMap($pids);
 
-        return view('seller.products', compact('shop','products','productSizes','discounts','maxProd','search','tab','archivedCount','hasArchivedCol'));
+        return view('seller.products', compact('shop','products','productSizes','archivedSizes','discounts','maxProd','search','tab','archivedCount','hasArchivedCol'));
     }
 
     public function store(Request $request)
@@ -304,16 +315,31 @@ class ProductController extends Controller
         return back()->with('msg', "Size added.");
     }
 
-    public function destroySize(string $sizeId)
+    public function archiveSize(string $sizeId)
     {
         $shop = $this->getShop();
         $size = DB::table('product_sizes as ps')
             ->join('products as p', 'p.id', '=', 'ps.product_id')
             ->where('ps.id', $sizeId)
             ->where('p.shop_id', $shop->id)
+            ->select('ps.*')
             ->first();
         if (!$size) return back()->with('err', 'Size not found.');
-        DB::table('product_sizes')->where('id', $sizeId)->delete();
-        return back()->with('msg', "Size removed.");
+        DB::table('product_sizes')->where('id', $sizeId)->update(['archived_at' => now()]);
+        return back()->with('msg', "Size \"{$size->label}\" archived.");
+    }
+
+    public function restoreSize(string $sizeId)
+    {
+        $shop = $this->getShop();
+        $size = DB::table('product_sizes as ps')
+            ->join('products as p', 'p.id', '=', 'ps.product_id')
+            ->where('ps.id', $sizeId)
+            ->where('p.shop_id', $shop->id)
+            ->select('ps.*')
+            ->first();
+        if (!$size) return back()->with('err', 'Size not found.');
+        DB::table('product_sizes')->where('id', $sizeId)->update(['archived_at' => null]);
+        return back()->with('msg', "Size \"{$size->label}\" restored.");
     }
 }

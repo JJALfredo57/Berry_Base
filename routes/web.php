@@ -232,7 +232,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/products/{id}/toggle',     [\App\Http\Controllers\Seller\ProductController::class, 'toggleAvailable'])->name('products.toggle');
     Route::post('/products/{id}/discount',   [\App\Http\Controllers\Seller\ProductController::class, 'saveDiscount'])->name('products.discount');
     Route::post('/products/{id}/sizes',      [\App\Http\Controllers\Seller\ProductController::class, 'storeSize'])->name('products.sizes.store');
-    Route::post('/products/sizes/{id}/delete',[\App\Http\Controllers\Seller\ProductController::class, 'destroySize'])->name('products.sizes.destroy');
+    Route::post('/products/sizes/{id}/archive', [\App\Http\Controllers\Seller\ProductController::class, 'archiveSize'])->name('products.sizes.archive');
+    Route::post('/products/sizes/{id}/restore', [\App\Http\Controllers\Seller\ProductController::class, 'restoreSize'])->name('products.sizes.restore');
 
     // Orders
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
@@ -278,18 +279,21 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/addons/category',                  [\App\Http\Controllers\Seller\AddonController::class, 'storeCategory'])->name('addons.store_category');
     Route::post('/addons/category/{id}/update',      [\App\Http\Controllers\Seller\AddonController::class, 'updateCategory'])->name('addons.update_category');
     Route::post('/addons/category/{id}/toggle',      [\App\Http\Controllers\Seller\AddonController::class, 'toggleCategory'])->name('addons.toggle_category');
-    Route::post('/addons/category/{id}/delete',      [\App\Http\Controllers\Seller\AddonController::class, 'destroyCategory'])->name('addons.destroy_category');
+    Route::post('/addons/category/{id}/archive',     [\App\Http\Controllers\Seller\AddonController::class, 'archiveCategory'])->name('addons.archive_category');
+    Route::post('/addons/category/{id}/restore',     [\App\Http\Controllers\Seller\AddonController::class, 'restoreCategory'])->name('addons.restore_category');
     Route::post('/addons',                           [\App\Http\Controllers\Seller\AddonController::class, 'store'])->name('addons.store');
     Route::post('/addons/{id}/update',               [\App\Http\Controllers\Seller\AddonController::class, 'update'])->name('addons.update');
     Route::post('/addons/{id}/toggle',               [\App\Http\Controllers\Seller\AddonController::class, 'toggle'])->name('addons.toggle');
-    Route::post('/addons/{id}/delete',               [\App\Http\Controllers\Seller\AddonController::class, 'destroy'])->name('addons.destroy');
+    Route::post('/addons/{id}/archive',              [\App\Http\Controllers\Seller\AddonController::class, 'archive'])->name('addons.archive');
+    Route::post('/addons/{id}/restore',              [\App\Http\Controllers\Seller\AddonController::class, 'restore'])->name('addons.restore');
 
     // Custom Options
     Route::get('/custom-options',                [\App\Http\Controllers\Seller\CustomOptionController::class, 'index'])->name('custom_options');
     Route::post('/custom-options',               [\App\Http\Controllers\Seller\CustomOptionController::class, 'store'])->name('custom_options.store');
     Route::post('/custom-options/{id}/update',   [\App\Http\Controllers\Seller\CustomOptionController::class, 'update'])->name('custom_options.update');
     Route::post('/custom-options/{id}/toggle',   [\App\Http\Controllers\Seller\CustomOptionController::class, 'toggle'])->name('custom_options.toggle');
-    Route::post('/custom-options/{id}/delete',   [\App\Http\Controllers\Seller\CustomOptionController::class, 'destroy'])->name('custom_options.destroy');
+    Route::post('/custom-options/{id}/archive',  [\App\Http\Controllers\Seller\CustomOptionController::class, 'archive'])->name('custom_options.archive');
+    Route::post('/custom-options/{id}/restore',  [\App\Http\Controllers\Seller\CustomOptionController::class, 'restore'])->name('custom_options.restore');
     Route::post('/custom-options/{id}/sort-up',  [\App\Http\Controllers\Seller\CustomOptionController::class, 'sortUp'])->name('custom_options.sort_up');
     Route::post('/custom-options/{id}/sort-down',[\App\Http\Controllers\Seller\CustomOptionController::class, 'sortDown'])->name('custom_options.sort_down');
 
@@ -298,7 +302,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/zones',                  [\App\Http\Controllers\Seller\DeliveryZoneController::class, 'store'])->name('zones.store');
     Route::post('/zones/{id}/update',      [\App\Http\Controllers\Seller\DeliveryZoneController::class, 'update'])->name('zones.update');
     Route::post('/zones/{id}/toggle',      [\App\Http\Controllers\Seller\DeliveryZoneController::class, 'toggle'])->name('zones.toggle');
-    Route::post('/zones/{id}/delete',      [\App\Http\Controllers\Seller\DeliveryZoneController::class, 'destroy'])->name('zones.destroy');
+    Route::post('/zones/{id}/archive',     [\App\Http\Controllers\Seller\DeliveryZoneController::class, 'archive'])->name('zones.archive');
+    Route::post('/zones/{id}/restore',     [\App\Http\Controllers\Seller\DeliveryZoneController::class, 'restore'])->name('zones.restore');
 
     // Riders
     Route::get('/riders',              [\App\Http\Controllers\Seller\RiderController::class, 'index'])->name('riders');
