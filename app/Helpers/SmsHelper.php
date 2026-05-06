@@ -48,9 +48,6 @@ class SmsHelper
                 'recipient' => '+' . $cleanPhone,
                 'content'   => self::clean($message),
             ];
-            if (!empty($senderId)) {
-                $payload['sender_id'] = $senderId;
-            }
 
             curl_setopt_array($ch, [
                 CURLOPT_URL            => 'https://unismsapi.com/api/sms',
