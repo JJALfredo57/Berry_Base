@@ -658,7 +658,7 @@
     ═══════════════════════════════════════ */
 
     /* Prevent horizontal scroll on all screens */
-    html, body { overflow-x:hidden; max-width:100vw; }
+    body { overflow-x:hidden; max-width:100vw; }
 
     /* Make all images and videos responsive by default */
     img, video, iframe { max-width:100%; height:auto; }
