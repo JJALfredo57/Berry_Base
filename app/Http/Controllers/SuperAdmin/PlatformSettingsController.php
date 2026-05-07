@@ -135,9 +135,8 @@ class PlatformSettingsController extends Controller
         $token  = trim($request->input('philsms_token', ''));
         $sender = trim($request->input('philsms_sender', ''));
 
-        $updates = ['updated_at' => now()];
-        if (!empty($token))  $updates['philsms_token']  = $token;
-        if (!empty($sender)) $updates['philsms_sender'] = $sender;
+        $updates = ['updated_at' => now(), 'philsms_sender' => $sender ?: null];
+        if (!empty($token)) $updates['philsms_token'] = $token;
 
         $existing = DB::table('platform_settings')->first();
         if ($existing) {
