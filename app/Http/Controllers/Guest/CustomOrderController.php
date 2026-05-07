@@ -143,7 +143,7 @@ class CustomOrderController extends Controller
             return back()->with('error','Verification code expired.')->withInput();
 
         $guestName = trim($request->input('guest_name',''));
-        if (!$guestName) return back()->with('error','Please enter your name.')->withInput();
+        if (!$guestName) return back()->with('error','Please enter your full name.')->withInput();
 
         $shopId = null;
         if ($slug = $request->input('shop_slug')) {
@@ -151,9 +151,16 @@ class CustomOrderController extends Controller
             if ($shopRow) $shopId = $shopRow->id;
         }
         $options = $this->loadOptions($shopId);
-        $cakeName   = trim($request->input('cake_name','Customized Cake'));
-        $flavor     = trim($request->input('flavor',''));
-        $sizeLabel  = trim($request->input('size',''));
+
+        $cakeName = trim($request->input('cake_name',''));
+        if (!$cakeName) return back()->with('error','Please enter a cake / occasion name.')->withInput();
+
+        $flavor = trim($request->input('flavor',''));
+        if (!$flavor) return back()->with('error','Please select a cake flavor.')->withInput();
+
+        $sizeLabel = trim($request->input('size',''));
+        if (!$sizeLabel) return back()->with('error','Please select a cake size.')->withInput();
+
         $layerLabel = trim($request->input('layers',''));
         $compLabel  = trim($request->input('design_complexity',''));
         $dedication = trim($request->input('dedication',''));

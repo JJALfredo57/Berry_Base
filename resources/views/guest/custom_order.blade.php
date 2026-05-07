@@ -34,10 +34,12 @@
                 </h6>
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">Cake / Occasion Name <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control" name="cake_name"
+                  <input type="text" class="form-control cv-field" name="cake_name" id="fieldCakeName"
                          value="{{ old('cake_name') }}"
                          placeholder="e.g. Birthday Cake for Maria, Wedding Cake"
-                         required maxlength="120">
+                         required maxlength="120"
+                         oninput="cvClearErr(this,'msgCakeName')">
+                  <div class="cv-msg" id="msgCakeName"></div>
                 </div>
 
                 {{-- Reference Images --}}
@@ -62,7 +64,8 @@
                 <div class="row g-3">
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Flavor <span class="text-danger">*</span></label>
-                    <select class="form-select" name="flavor" required>
+                    <select class="form-select cv-field" name="flavor" id="fieldFlavor" required
+                            onchange="cvClearErr(this,'msgFlavor')">
                       <option value="">-- Select Flavor --</option>
                       @foreach($flavors as $f)
                         <option value="{{ $f->label }}" {{ old('flavor')==$f->label ? 'selected':'' }}>
@@ -70,6 +73,7 @@
                         </option>
                       @endforeach
                     </select>
+                    <div class="cv-msg" id="msgFlavor"></div>
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Quantity</label>
@@ -90,7 +94,8 @@
                 <div class="row g-3">
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Diameter <span class="text-danger">*</span></label>
-                    <select class="form-select" name="size" required onchange="updatePriceSummary()">
+                    <select class="form-select cv-field" name="size" id="fieldSize" required
+                            onchange="updatePriceSummary();cvClearErr(this,'msgSize')">
                       <option value="">-- Select Size --</option>
                       @foreach($sizes as $s)
                         <option value="{{ $s->label }}" {{ old('size')==$s->label ? 'selected':'' }}>
@@ -99,6 +104,7 @@
                         </option>
                       @endforeach
                     </select>
+                    <div class="cv-msg" id="msgSize"></div>
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Number of Layers</label>
@@ -908,15 +914,68 @@ function checkCoGuestAvailability() {
     })
     .catch(() => { el.innerHTML = ''; });
 }
+function cvClearErr(el, msgId) {
+  el.classList.remove('cv-invalid');
+  var m = document.getElementById(msgId);
+  if (m) { m.className = 'cv-msg'; m.textContent = ''; }
+}
+
+function cvRequireText(el, msgId, label) {
+  if (!el) return true;
+  var val = el.value.trim();
+  if (!val) {
+    cvSetState(el, msgId, 'err', label + ' is required.');
+    cvShake(el);
+    return false;
+  }
+  cvSetState(el, msgId, 'ok', '');
+  return true;
+}
+
+function cvRequireSelect(el, msgId, label) {
+  if (!el) return true;
+  if (!el.value) {
+    el.classList.remove('cv-valid'); el.classList.add('cv-invalid');
+    var m = document.getElementById(msgId);
+    if (m) { m.className = 'cv-msg cv-err'; m.textContent = 'Please select a ' + label + '.'; }
+    cvShake(el);
+    return false;
+  }
+  el.classList.remove('cv-invalid'); el.classList.add('cv-valid');
+  var m = document.getElementById(msgId);
+  if (m) { m.className = 'cv-msg'; m.textContent = ''; }
+  return true;
+}
+
 function cvValidateAllCustom() {
   var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   var ok = true, firstErr = null;
 
+  // ── 1. Cake name ───────────────────────────────────────────────────────
+  var cakeNameEl = document.getElementById('fieldCakeName');
+  if (!cvRequireText(cakeNameEl, 'msgCakeName', 'Cake name')) { ok = false; firstErr = firstErr || cakeNameEl; }
+
+  // ── 2. Flavor ──────────────────────────────────────────────────────────
+  var flavorEl = document.getElementById('fieldFlavor');
+  if (!cvRequireSelect(flavorEl, 'msgFlavor', 'flavor')) { ok = false; firstErr = firstErr || flavorEl; }
+
+  // ── 3. Size ────────────────────────────────────────────────────────────
+  var sizeEl = document.getElementById('fieldSize');
+  if (!cvRequireSelect(sizeEl, 'msgSize', 'cake size')) { ok = false; firstErr = firstErr || sizeEl; }
+
+  // ── 4. Delivery location ───────────────────────────────────────────────
+  if (isDelivery) {
+    var zoneEl = document.getElementById('zoneSelect');
+    if (zoneEl && !zoneEl.value) { cvValidateZone(); ok = false; firstErr = firstErr || document.getElementById('map'); }
+    if (!cvValidateMap()) { ok = false; firstErr = firstErr || document.getElementById('map'); }
+  }
+
+  // ── 5. Guest identity (name, phone, OTP) ──────────────────────────────
   var nameEl = document.getElementById('fieldName');
   if (nameEl) {
     cvValidate(nameEl);
     if (nameEl.classList.contains('cv-invalid') || !nameEl.value.trim()) {
-      cvSetState(nameEl,'msgName','err','Full name is required.'); cvShake(nameEl); ok=false; firstErr=firstErr||nameEl;
+      cvSetState(nameEl, 'msgName', 'err', 'Full name is required.'); cvShake(nameEl); ok = false; firstErr = firstErr || nameEl;
     }
   }
 
@@ -924,34 +983,27 @@ function cvValidateAllCustom() {
   if (phoneEl) {
     cvValidate(phoneEl);
     if (phoneEl.classList.contains('cv-invalid') || !phoneEl.value.trim()) {
-      cvSetState(phoneEl,'msgPhone','err','Phone number is required.'); cvShake(phoneEl); ok=false; firstErr=firstErr||phoneEl;
+      cvSetState(phoneEl, 'msgPhone', 'err', 'Phone number is required.'); cvShake(phoneEl); ok = false; firstErr = firstErr || phoneEl;
     }
   }
 
-  // Require OTP to be sent and completed
   if (!otpSent) {
     var msgPhone = document.getElementById('msgPhone');
-    if (msgPhone) { msgPhone.className='cv-msg cv-err'; msgPhone.textContent='Please send and verify your OTP first.'; }
+    if (msgPhone) { msgPhone.className = 'cv-msg cv-err'; msgPhone.textContent = 'Please send and verify your OTP first.'; }
     if (phoneEl) { phoneEl.classList.add('cv-invalid'); cvShake(phoneEl); }
-    cakeToast('Please tap "Send OTP" to verify your phone number.','error');
-    ok=false; firstErr=firstErr||phoneEl;
+    cakeToast('Please tap "Send OTP" to verify your phone number.', 'error');
+    ok = false; firstErr = firstErr || phoneEl;
   } else {
-    var otpSec = document.getElementById('coOtpSection'), otpEl = document.getElementById('fieldOtp');
+    var otpEl = document.getElementById('fieldOtp');
     if (otpEl && otpEl.value.length !== 6) {
       otpEl.classList.add('cv-invalid');
-      var m=document.getElementById('msgOtp');
-      if (m) { m.className='cv-msg cv-err'; m.textContent='Please enter the complete 6-digit OTP.'; }
-      cvShake(otpEl); ok=false; firstErr=firstErr||otpEl;
+      var m = document.getElementById('msgOtp');
+      if (m) { m.className = 'cv-msg cv-err'; m.textContent = 'Please enter the complete 6-digit OTP.'; }
+      cvShake(otpEl); ok = false; firstErr = firstErr || otpEl;
     }
   }
 
-  if (isDelivery) {
-    var zoneEl=document.getElementById('zoneSelect');
-    if (zoneEl && !zoneEl.value) { cvValidateZone(); ok=false; firstErr=firstErr||document.getElementById('map'); }
-    if (!cvValidateMap()) { ok=false; firstErr=firstErr||document.getElementById('map'); }
-  }
-
-  if (!ok && firstErr) firstErr.scrollIntoView({behavior:'smooth', block:'center'});
+  if (!ok && firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
   return ok;
 }
 
