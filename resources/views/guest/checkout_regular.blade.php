@@ -838,6 +838,7 @@ function disablePlaceOrder(btn) {
 }
 
 // ── Guest OTP ───────────────────────────────────────────────────────────
+var otpSent = false;
 function sendGuestOtp() {
   const phone = document.getElementById('guestPhone').value.trim();
   if (!phone) { cakeToast('Please enter your phone number first.','error'); return; }
@@ -869,6 +870,7 @@ function sendGuestOtp() {
       }
       document.getElementById('otpSection').style.display = 'block';
       document.querySelector('[name="otp_code"]').required = true;
+      otpSent = true;
       cakeToast('✅ OTP sent! Check your SMS.', 'success');
       btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Resend';
       btn.disabled = false;
@@ -1184,17 +1186,21 @@ function cvValidateAll() {
     }
   }
 
-  // OTP (if shown)
-  const otpSection = document.getElementById('otpSection');
+  // OTP verification
+  const phoneEl2 = document.getElementById('guestPhone');
   const otpEl = document.getElementById('fieldOtp');
-  if (otpSection && otpSection.style.display !== 'none' && otpEl) {
-    if (otpEl.value.length !== 6) {
-      otpEl.classList.add('cv-invalid');
-      const m = document.getElementById('msgOtp');
-      if (m) { m.className='cv-msg cv-err'; m.textContent='Please enter the complete 6-digit OTP.'; }
-      cvShake(otpEl);
-      ok = false; firstErr = firstErr || otpEl;
-    }
+  if (!otpSent) {
+    const msgPhone = document.getElementById('msgPhone');
+    if (msgPhone) { msgPhone.className = 'cv-msg cv-err'; msgPhone.textContent = 'Please tap "Send OTP" to verify your phone number first.'; }
+    if (phoneEl2) { phoneEl2.classList.add('cv-invalid'); cvShake(phoneEl2); }
+    cakeToast('Please tap "Send OTP" to verify your phone number.', 'error');
+    ok = false; firstErr = firstErr || phoneEl2;
+  } else if (otpEl && otpEl.value.length !== 6) {
+    otpEl.classList.add('cv-invalid');
+    const m = document.getElementById('msgOtp');
+    if (m) { m.className = 'cv-msg cv-err'; m.textContent = 'Please enter the complete 6-digit OTP.'; }
+    cvShake(otpEl);
+    ok = false; firstErr = firstErr || otpEl;
   }
 
   if (isDelivery) {
