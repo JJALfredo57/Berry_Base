@@ -1293,15 +1293,11 @@ function updatePaymentTransparency(currentTotal) {
 function updateCashPaymentCopy() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   const codLabel = document.getElementById('codLabelText');
-  const codHelp = document.getElementById('codHelpText');
-  if (codLabel) {
-    codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
-  }
-  if (codHelp) {
-    codHelp.textContent = isDelivery
-      ? 'Pay cash when your order arrives.'
-      : 'Pay cash when you pick up your order.';
-  }
+  const codHelp  = document.getElementById('codHelpText');
+  const codInput = document.getElementById('cod');
+  if (codLabel) codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
+  if (codHelp)  codHelp.textContent  = isDelivery ? 'Pay cash when your order arrives.' : 'Pay cash when you pick up your order.';
+  if (codInput) codInput.value       = isDelivery ? 'COD' : 'COP';
 }
 
 const _origUpdateTotal = updateTotal;

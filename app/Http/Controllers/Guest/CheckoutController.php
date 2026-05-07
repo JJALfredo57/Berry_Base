@@ -237,7 +237,9 @@ class CheckoutController extends Controller
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $request->session()->get('guest_pre_track') ?: $this->generateTrackCode();
 
-        $needsDeposit  = ($payment === 'COD');
+        // Deposit only for Cash on Delivery (COD), not Cash on Pickup (COP).
+        // Both share value="COD" in the form; fulfillment type distinguishes them.
+        $needsDeposit  = ($payment === 'COD' && $fulfillment === 'Delivery');
         $depositAmount = $needsDeposit ? round($total * 0.5, 2) : null;
 
         DB::table('orders')->insert([
