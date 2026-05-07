@@ -117,8 +117,9 @@ class CustomOrderController extends Controller
             $shopName = $shopRow->shop_name ?? '';
         }
 
-        $header  = SmsHelper::header($siteName, $shopName);
-        $message = "{$header}\nCode: {$otp}\nValid 10 mins. Do not share.";
+        $header    = SmsHelper::header($siteName, $shopName);
+        $trackLine = $preTrackCode ? "\nTrack: {$preTrackCode}" : '';
+        $message   = "{$header}\nCode: {$otp}\nValid 10 mins. Do not share.{$trackLine}";
 
         $result = SmsHelper::sendWithResult($phone, $message, true);
 

@@ -127,8 +127,9 @@ class SmsHelper
             }
         } catch (\Throwable $e) {}
 
-        $header  = self::header($siteName, $shopName);
-        $message = "{$header}\nCode: {$otp}\nValid 10 mins. Do not share.";
+        $header    = self::header($siteName, $shopName);
+        $trackLine = $trackCode ? "\nTrack: {$trackCode}" : '';
+        $message   = "{$header}\nCode: {$otp}\nValid 10 mins. Do not share.{$trackLine}";
 
         return self::send($phone, $message, true);
     }
