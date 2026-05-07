@@ -160,10 +160,13 @@ class CheckoutController extends Controller
         $address       = trim($request->input('address',''));
         $lat           = $request->input('latitude') !== '' ? (float)$request->input('latitude') : null;
         $lng           = $request->input('longitude') !== '' ? (float)$request->input('longitude') : null;
-        $sdate         = $request->input('schedule_date') ?: null;
-        $stime         = $request->input('schedule_time') ?: null;
+        $sdate         = trim($request->input('schedule_date','')) ?: null;
+        $stime         = trim($request->input('schedule_time','')) ?: null;
         $payment       = $request->input('payment_method','COD');
         $selectedSize  = trim($request->input('selected_size',''));
+
+        if (!$sdate) return back()->with('error','Please select your preferred date.')->withInput();
+        if (!$stime) return back()->with('error','Please select a preferred time slot.')->withInput();
 
         if ($fulfillment === 'Delivery' && !$zone)
             return back()->with('error','Please select your barangay.')->withInput();
@@ -327,11 +330,10 @@ class CheckoutController extends Controller
             );
         }
 
-        if ($needsDeposit) {
-            return redirect()->route('guest.pay_deposit', $trackCode);
-        }
+        $successMsg = $needsDeposit
+            ? 'Order placed! 🎂 Please pay your 50% deposit below to confirm your order.'
+            : 'Order placed! We\'ll contact you soon to confirm. 🎂';
 
-        return redirect()->route('track.order', $trackCode)
-            ->with('msg','Order placed! We\'ll contact you soon to confirm. 🎂');
+        return redirect()->route('track.order', $trackCode)->with('msg', $successMsg);
     }
 }

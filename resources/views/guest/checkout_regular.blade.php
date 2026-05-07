@@ -274,16 +274,19 @@ document.body.style.paddingRight = '';
 
                 <div class="row g-3 mt-1">
                   <div class="col-sm-6">
-                    <label class="form-label fw-semibold small">Preferred Date</label>
+                    <label class="form-label fw-semibold small">Preferred Date <span class="text-danger">*</span></label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
-                           min="{{ date('Y-m-d') }}" onchange="cvValidateDate(this);checkCheckoutAvailability()" oninput="cvValidateDate(this)">
+                           min="{{ date('Y-m-d') }}"
+                           onchange="cvValidateDate(this);checkCheckoutAvailability()"
+                           oninput="cvValidateDate(this)">
                     <div class="cv-msg" id="msgDate"></div>
-                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Minimum 1 day ahead for preparation. You can order for today or any future date.</div>
+                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred pickup/delivery date. Custom cakes need at least 1 day for preparation.</div>
                     <div id="checkoutAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
                   </div>
                   <div class="col-sm-6">
-                    <label class="form-label fw-semibold small">Preferred Time Slot</label>
-                    <select class="form-select" name="schedule_time">
+                    <label class="form-label fw-semibold small">Preferred Time Slot <span class="text-danger">*</span></label>
+                    <select class="form-select cv-field" name="schedule_time" id="fieldTime"
+                            onchange="cvClearSelectErr(this,'msgTime')">
                       <option value="">-- Select Time Slot --</option>
                       <option value="09:00">9:00 AM – 11:00 AM</option>
                       <option value="11:00">11:00 AM – 1:00 PM</option>
@@ -291,7 +294,8 @@ document.body.style.paddingRight = '';
                       <option value="15:00">3:00 PM – 5:00 PM</option>
                       <option value="17:00">5:00 PM – 7:00 PM</option>
                     </select>
-                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred time slot. Please make sure someone is available to receive the order.</div>
+                    <div class="cv-msg" id="msgTime"></div>
+                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred time slot. Make sure someone is available to receive the order.</div>
                   </div>
                 </div>
               </div>
@@ -1158,6 +1162,12 @@ function cvValidateMap() {
   return true;
 }
 
+function cvClearSelectErr(el, msgId) {
+  el.classList.remove('cv-invalid');
+  const m = document.getElementById(msgId);
+  if (m) { m.className = 'cv-msg'; m.textContent = ''; }
+}
+
 // ── Full form validation before submit ────────────────
 function cvValidateAll() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
@@ -1187,14 +1197,13 @@ function cvValidateAll() {
   }
 
   // OTP verification
-  const phoneEl2 = document.getElementById('guestPhone');
   const otpEl = document.getElementById('fieldOtp');
   if (!otpSent) {
     const msgPhone = document.getElementById('msgPhone');
     if (msgPhone) { msgPhone.className = 'cv-msg cv-err'; msgPhone.textContent = 'Please tap "Send OTP" to verify your phone number first.'; }
-    if (phoneEl2) { phoneEl2.classList.add('cv-invalid'); cvShake(phoneEl2); }
+    if (phoneEl) { phoneEl.classList.add('cv-invalid'); cvShake(phoneEl); }
     cakeToast('Please tap "Send OTP" to verify your phone number.', 'error');
-    ok = false; firstErr = firstErr || phoneEl2;
+    ok = false; firstErr = firstErr || phoneEl;
   } else if (otpEl && otpEl.value.length !== 6) {
     otpEl.classList.add('cv-invalid');
     const m = document.getElementById('msgOtp');
@@ -1203,25 +1212,37 @@ function cvValidateAll() {
     ok = false; firstErr = firstErr || otpEl;
   }
 
+  // Delivery location
   if (isDelivery) {
-    // Barangay
     const zoneEl = document.getElementById('zoneSelect');
-    if (zoneEl && !zoneEl.value) {
-      cvValidateZone();
-      ok = false; firstErr = firstErr || zoneEl;
-    }
-    // Map pin
-    if (!cvValidateMap()) {
-      ok = false;
-      const mapEl = document.getElementById('map');
-      firstErr = firstErr || mapEl;
+    if (zoneEl && !zoneEl.value) { cvValidateZone(); ok = false; firstErr = firstErr || zoneEl; }
+    if (!cvValidateMap()) { ok = false; firstErr = firstErr || document.getElementById('map'); }
+  }
+
+  // Preferred Date (required)
+  const dateEl = document.getElementById('fieldDate');
+  if (dateEl) {
+    if (!dateEl.value) {
+      cvSetState(dateEl, 'msgDate', 'err', 'Please select your preferred date.');
+      cvShake(dateEl);
+      ok = false; firstErr = firstErr || dateEl;
+    } else {
+      cvValidateDate(dateEl);
+      if (dateEl.classList.contains('cv-invalid')) { ok = false; firstErr = firstErr || dateEl; }
     }
   }
 
-  if (!ok && firstErr) {
-    firstErr.scrollIntoView({ behavior:'smooth', block:'center' });
+  // Preferred Time Slot (required)
+  const timeEl = document.getElementById('fieldTime');
+  if (timeEl && !timeEl.value) {
+    timeEl.classList.add('cv-invalid');
+    const m = document.getElementById('msgTime');
+    if (m) { m.className = 'cv-msg cv-err'; m.textContent = 'Please select a preferred time slot.'; }
+    cvShake(timeEl);
+    ok = false; firstErr = firstErr || timeEl;
   }
 
+  if (!ok && firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
   return ok;
 }
 

@@ -84,6 +84,7 @@
     $cancelApproved = ($order->cancel_status ?? '') === 'accepted';
     $cancelRejected = ($order->cancel_status ?? '') === 'rejected';
     $statusColors = [
+      'Awaiting Deposit' => ['bg'=>'#fff7ed','color'=>'#9a3412','icon'=>'bi-credit-card-fill'],
       'Pending'          => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split'],
       'Pending Review'   => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split'],
       'Confirmed'        => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'bi-check-circle-fill'],
@@ -153,11 +154,13 @@
     }
     $stepKeys = array_keys($steps);
 
-    // Map mismatched statuses — e.g. Pickup order that was wrongly set to "Out for Delivery"
+    // Map mismatched / pre-confirmed statuses to nearest progress step
     $statusForProgress = $order->status;
+    if ($statusForProgress === 'Awaiting Deposit')              $statusForProgress = 'Pending';
+    if ($statusForProgress === 'Pending Review')                $statusForProgress = 'Pending';
     if ($isPickup && $statusForProgress === 'Out for Delivery') $statusForProgress = 'Preparing';
-    if (!$isPickup && $statusForProgress === 'Pickup')         $statusForProgress = 'Preparing';
-    if (!$isPickup && $statusForProgress === 'Picked Up')      $statusForProgress = 'Delivered';
+    if (!$isPickup && $statusForProgress === 'Pickup')          $statusForProgress = 'Preparing';
+    if (!$isPickup && $statusForProgress === 'Picked Up')       $statusForProgress = 'Delivered';
 
     $current = array_search($statusForProgress, $stepKeys);
     if ($current === false) $current = 0;
