@@ -117,13 +117,10 @@ class CustomOrderController extends Controller
             $shopName = $shopRow->shop_name ?? '';
         }
 
-        $result = SmsHelper::sendWithResult($phone, (function() use ($otp, $siteName, $shopName, $preTrackCode) {
-            $header          = SmsHelper::header($siteName, $shopName);
-            $trackingSection = $preTrackCode
-                ? "\n\nYour Order Tracking Code: {$preTrackCode}\nUse this code to track your order."
-                : '';
-            return "{$header}\nYour verification code is: {$otp}\n\nValid for 10 minutes. Do not share this code with anyone.{$trackingSection}";
-        })(), true);
+        $header  = SmsHelper::header($siteName, $shopName);
+        $message = "{$header}\nCode: {$otp}\nValid 10 mins. Do not share.";
+
+        $result = SmsHelper::sendWithResult($phone, $message, true);
 
         if (!$result['ok']) {
             return response()->json(['ok' => false, 'error' => $result['error'] ?? 'Failed to send OTP. Please try again.']);
