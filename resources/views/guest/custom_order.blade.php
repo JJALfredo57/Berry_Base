@@ -1017,8 +1017,11 @@ function sendCoGuestOtp() {
   if (phoneEl.classList.contains('cv-invalid')) { cakeToast('Please enter a valid phone number.','error'); return; }
   var btn = document.getElementById('coSendOtpBtn');
   btn.disabled=true; btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Sending...';
-  var fd = new FormData(); fd.append('_token','{{ csrf_token() }}'); fd.append('phone',phone);
-  fetch('{{ route("guest.custom_order.send_otp") }}',{method:'POST',body:fd})
+  var fd = new FormData();
+  fd.append('_token', '{{ csrf_token() }}');
+  fd.append('phone', phone);
+  fd.append('shop_slug', '{{ $targetShop->shop_slug ?? '' }}');
+  fetch('{{ route("guest.custom_order.send_otp") }}', {method:'POST', body:fd})
     .then(r=>r.json())
     .then(data => {
       if (!data.ok) { cakeToast(data.error||'Failed to send OTP.','error'); btn.innerHTML='<i class="bi bi-phone me-1"></i>Send OTP'; btn.disabled=false; return; }

@@ -116,9 +116,20 @@ class CustomOrderController extends Controller
             $shopRow  = \Illuminate\Support\Facades\DB::table('shops')->where('shop_slug', $slug)->where('status', 'approved')->first();
             $shopName = $shopRow->shop_name ?? '';
         }
-        SmsHelper::sendOtp($phone, $otp, $siteName, '', $shopName, $preTrackCode, $preTrackUrl);
 
-        return response()->json(['ok'=>true]);
+        $result = SmsHelper::sendWithResult($phone, (function() use ($otp, $siteName, $shopName, $preTrackCode) {
+            $header          = SmsHelper::header($siteName, $shopName);
+            $trackingSection = $preTrackCode
+                ? "\n\nYour Order Tracking Code: {$preTrackCode}\nUse this code to track your order."
+                : '';
+            return "{$header}\nYour verification code is: {$otp}\n\nValid for 10 minutes. Do not share this code with anyone.{$trackingSection}";
+        })(), true);
+
+        if (!$result['ok']) {
+            return response()->json(['ok' => false, 'error' => $result['error'] ?? 'Failed to send OTP. Please try again.']);
+        }
+
+        return response()->json(['ok' => true]);
     }
 
     public function store(Request $request)
