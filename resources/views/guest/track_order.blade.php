@@ -433,8 +433,9 @@
           </div>
         </div>
 
-        {{-- Already initiated → resume payment --}}
+        {{-- Already initiated → resume payment (editable amount) --}}
         @elseif($order->deposit_required && $order->deposit_status === 'pending')
+        @php $pendingMin = round((float)$order->total_price * 0.5, 2); @endphp
         <div class="col-12 mt-3">
           <div style="border-radius:1rem;overflow:hidden;border:1.5px solid #fed7aa">
             <div style="background:linear-gradient(90deg,#d97706,#ea580c);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.6rem">
@@ -442,26 +443,47 @@
               <span style="color:#fff;font-weight:700;font-size:.88rem">Payment Pending — Complete Your Payment</span>
             </div>
             <div style="background:#fffbeb;padding:1rem">
-              <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:.5rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #fde68a">
-                <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Amount to Pay</span>
-                <span style="font-weight:800;color:#111827;font-size:1rem">₱{{ number_format($order->deposit_amount, 2) }}</span>
+              <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:.85rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #fde68a">
+                <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Order Total</span>
+                <span style="font-weight:800;color:#111827;font-size:1rem">₱{{ number_format($order->total_price, 2) }}</span>
               </div>
-              @if($order->deposit_amount < $order->total_price)
-              <div style="font-size:.72rem;color:#9a3412;text-align:right;margin-bottom:.7rem">
-                Remaining after payment: ₱{{ number_format($order->total_price - $order->deposit_amount, 2) }}
-              </div>
-              @endif
-              <a href="{{ route('guest.pay_deposit', $order->track_code) }}"
-                 class="btn w-100 fw-bold py-3"
-                 style="background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:.75rem;font-size:.95rem"
-                 data-cs-confirm="Continue GCash payment of ₱{{ number_format($order->deposit_amount,2) }}?\n\nYou'll be redirected to PayMongo."
-                 data-cs-title="Resume Payment"
-                 data-cs-ok="Continue"
-                 data-cs-icon="bi-phone-fill"
-                 data-cs-icon-bg="#fef3c7"
-                 data-cs-icon-color="#d97706">
-                <i class="bi bi-phone-fill me-2"></i>Continue Payment — ₱{{ number_format($order->deposit_amount, 2) }}
-              </a>
+              <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST"
+                    class="deposit-amount-form"
+                    data-min="{{ $pendingMin }}"
+                    data-max="{{ $order->total_price }}"
+                    data-btn-label="Continue Payment via GCash">
+                @csrf
+                <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now</label>
+                <div class="input-group">
+                  <span class="input-group-text" style="font-weight:800;color:#d97706;background:#fffbeb;border-color:#fde68a">₱</span>
+                  <input type="text"
+                         name="deposit_amount"
+                         class="form-control deposit-amount-input"
+                         value="{{ number_format((float)$order->deposit_amount >= $pendingMin ? (float)$order->deposit_amount : $pendingMin, 2, '.', '') }}"
+                         inputmode="decimal"
+                         autocomplete="off"
+                         data-min="{{ $pendingMin }}"
+                         data-max="{{ $order->total_price }}"
+                         style="font-weight:800;color:#111827;border-color:#fde68a">
+                </div>
+                <div class="deposit-error">Minimum payment is 50%: ₱{{ number_format($pendingMin, 2) }}.</div>
+                <div style="font-size:.7rem;color:#6b7280;margin-top:.3rem">
+                  Enter at least ₱{{ number_format($pendingMin, 2) }}. You may pay more up to ₱{{ number_format($order->total_price, 2) }}.
+                </div>
+                <button type="submit"
+                        class="btn w-100 fw-bold py-3"
+                        style="margin-top:.65rem;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:.75rem;font-size:.95rem"
+                        data-cs-title="Resume Payment"
+                        data-cs-ok="Continue"
+                        data-cs-icon="bi-phone-fill"
+                        data-cs-icon-bg="#fef3c7"
+                        data-cs-icon-color="#d97706">
+                  <i class="bi bi-phone-fill me-2"></i>Continue Payment via GCash
+                </button>
+                <div style="font-size:.7rem;color:#6b7280;text-align:center;margin-top:.3rem">
+                  Remaining balance paid on delivery if partial.
+                </div>
+              </form>
               <div style="margin-top:.6rem;font-size:.68rem;color:#9ca3af;text-align:center">
                 <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;·&nbsp; GCash only
               </div>
@@ -1112,16 +1134,17 @@ function setupDepositAmountForms() {
 
     if (!input || !error) return;
 
+    const btnLabel = form.dataset.btnLabel || 'Pay Deposit via GCash';
     const setButtonCopy = () => {
       const amount = parseFloat(input.value || '0');
       if (button) {
-        button.innerHTML = '<i class="bi bi-phone-fill me-2"></i>Pay Deposit via GCash';
-        button.dataset.csConfirm = 'Pay deposit of ₱' + (amount || min).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' via GCash?\\n\\nYou will be redirected to PayMongo.';
-        button.dataset.csTitle = 'Confirm Deposit';
+        button.innerHTML = '<i class="bi bi-phone-fill me-2"></i>' + btnLabel;
+        button.dataset.csConfirm = 'Pay ₱' + (amount || min).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' via GCash?\\n\\nYou will be redirected to PayMongo.';
+        button.dataset.csTitle = 'Confirm Payment';
         button.dataset.csOk = 'Pay Now';
         button.dataset.csIcon = 'bi-phone-fill';
-        button.dataset.csIconBg = '#d1fae5';
-        button.dataset.csIconColor = '#059669';
+        button.dataset.csIconBg = '#fef3c7';
+        button.dataset.csIconColor = '#d97706';
       }
     };
 
