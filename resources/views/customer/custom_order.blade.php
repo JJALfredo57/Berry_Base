@@ -305,7 +305,11 @@
                 <div class="row g-3 mt-1">
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Date</label>
-                    <input type="date" class="form-control" name="schedule_date" min="{{ date('Y-m-d', strtotime('+1 day')) }}">
+                    <input type="date" class="form-control" name="schedule_date" id="custCoFieldDate"
+                           min="{{ date('Y-m-d', strtotime('+1 day')) }}"
+                           onchange="checkCustCoAvailability()">
+                    <div id="custCoAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
+                    <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least 2–3 days for preparation.</div>
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Time Slot</label>
@@ -832,6 +836,34 @@ function syncRefInput() {
   const dt = new DataTransfer();
   refFiles.forEach(f => dt.items.add(f));
   input.files = dt.files;
+}
+
+function checkCustCoAvailability() {
+  const date   = document.getElementById('custCoFieldDate')?.value;
+  const shopId = '{{ $targetShop->id ?? '' }}';
+  const qty    = parseInt(document.querySelector('[name=quantity]')?.value || '1', 10);
+  const el     = document.getElementById('custCoAvailability');
+  if (!date || !el) return;
+  el.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking availability…</span>';
+  const url = '/catalog/availability?date=' + encodeURIComponent(date) + (shopId ? '&shop_id=' + encodeURIComponent(shopId) : '');
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'invalid') {
+        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + (data.message || 'Date not available.') + '</span>';
+      } else if (data.status === 'full') {
+        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + data.message + ' — please choose another date.</span>';
+      } else if (typeof data.remaining === 'number' && qty > data.remaining) {
+        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Only ' + data.remaining + ' slot' + (data.remaining !== 1 ? 's' : '') + ' available on this date. Please choose another date or reduce quantity.</span>';
+      } else if (data.status === 'almost') {
+        el.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + data.message + '</span>';
+      } else if (data.status === 'available') {
+        el.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + data.message + '</span>';
+      } else {
+        el.innerHTML = '';
+      }
+    })
+    .catch(() => { el.innerHTML = ''; });
 }
 </script>
 @endpush
