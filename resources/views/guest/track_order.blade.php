@@ -72,7 +72,7 @@
   <div class="text-center mb-4">
     <div style="font-size:3rem">🎂</div>
     <h4 class="fw-bold mb-1" style="color:var(--primary)">Order Tracking</h4>
-    <div class="text-muted small">Order #{{ $order->id }}</div>
+    <div class="text-muted fw-semibold" style="font-size:1.75rem">Order #{{ $order->id }}</div>
   </div>
 
   {{-- Status Badge --}}
