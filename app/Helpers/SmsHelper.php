@@ -12,13 +12,15 @@ class SmsHelper
      */
     public static function sendWithResult(string $phone, string $message, bool $isOtpCall = false): array
     {
-        $apiKey  = config('unisms.api_key', '');
-        $devMode = false;
+        $apiKey   = config('unisms.api_key', '');
+        $senderId = config('unisms.sender_id', '');
+        $devMode  = false;
 
         try {
             $p = DB::table('platform_settings')->first();
-            if (!empty($p->philsms_token)) $apiKey  = $p->philsms_token;
-            if (!empty($p->dev_mode))      $devMode = true;
+            if (!empty($p->philsms_token))  $apiKey   = $p->philsms_token;
+            if (!empty($p->philsms_sender)) $senderId = $p->philsms_sender;
+            if (!empty($p->dev_mode))       $devMode  = true;
         } catch (\Throwable $e) {}
 
         $cleanPhone = preg_replace('/\D/', '', $phone);
@@ -46,6 +48,7 @@ class SmsHelper
             $ch = curl_init();
             $payload = [
                 'recipient' => '+' . $cleanPhone,
+                'sender_id' => $senderId,
                 'content'   => self::clean($message),
             ];
 
@@ -76,6 +79,7 @@ class SmsHelper
             Log::info('UniSMS response.', [
                 'http_code' => $httpCode,
                 'to'        => $cleanPhone,
+                'sender_id' => $senderId,
                 'body'      => $data ?? $response,
             ]);
 
@@ -132,12 +136,8 @@ class SmsHelper
             : '';
 
         $message = "{$header}\n"
-            . "Your one-time verification code is: {$otp}\n\n"
-            . "Valid for 10 minutes only.\n\n"
-            . "WARNING: NEVER share this code with anyone - "
-            . "not even our staff. We will NEVER ask for your OTP. "
-            . "If someone is asking for this code, it is a scam. "
-            . "Do not give it."
+            . "Your verification code is: {$otp}\n\n"
+            . "Valid for 10 minutes. Do not share this code with anyone."
             . $trackingSection;
 
         return self::send($phone, $message, true);
