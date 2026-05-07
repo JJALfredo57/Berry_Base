@@ -796,7 +796,7 @@
   <div class="card mb-4" style="border-radius:14px;overflow:hidden">
     <div style="background:#fff;padding:14px 16px 10px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:10px">
       <i class="bi bi-chat-dots" style="color:var(--primary);font-size:1.1rem"></i>
-      <span class="fw-bold" style="font-size:.95rem">Message the Baker</span>
+      <span class="fw-bold" style="font-size:.95rem">Message the Seller</span>
     </div>
     <div class="chat-box-g" id="chatBox">
       <div class="text-center py-4" id="msgEmpty">
