@@ -64,7 +64,7 @@
 <div class="row g-4">
 
   {{-- Recent Orders --}}
-  <div class="col-lg-8">
+  <div class="col-lg-12">
     <div class="card h-100">
       <div class="card-header d-flex align-items-center justify-content-between">
         <span><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Orders</span>
@@ -91,29 +91,6 @@
     </div>
   </div>
 
-  {{-- Quick Actions --}}
-  <div class="col-lg-4">
-    <div class="card">
-      <div class="card-header"><i class="bi bi-lightning-charge me-2" style="color:var(--primary)"></i>Quick Actions</div>
-      <div class="card-body p-2">
-        @foreach([
-          [route('seller.products'), 'bi-plus-circle-fill',    'Add New Product',  'var(--primary)',   'var(--primary-bg)'],
-          [route('seller.orders'),   'bi-bag-check-fill',      'View Orders',       '#1565C0',          '#e3f2fd'],
-          [route('seller.kitchen'),  'bi-fire',                 'Kitchen Tickets',   '#6A1B9A',          '#f3e5f5'],
-          [route('seller.messages'), 'bi-chat-dots-fill',      'Messages'.($unreadMsg > 0 ? " ($unreadMsg)" : ''), '#2E7D32', '#e8f5e9'],
-          [route('seller.settings'), 'bi-gear-fill',            'Shop Settings',    '#424242',          '#f5f5f5'],
-        ] as [$href, $icon, $label, $color, $bg])
-        <a href="{{ $href }}" class="d-flex align-items-center gap-3 p-3 rounded-2 mb-1" style="color:var(--gray-800);text-decoration:none;transition:background .15s;font-size:.875rem;font-weight:500" onmouseenter="this.style.background='var(--gray-50)'" onmouseleave="this.style.background=''">
-          <div style="width:34px;height:34px;border-radius:9px;background:{{ $bg }};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <i class="bi {{ $icon }}" style="color:{{ $color }};font-size:.9rem"></i>
-          </div>
-          {{ $label }}
-          <i class="bi bi-chevron-right ms-auto text-muted" style="font-size:.75rem"></i>
-        </a>
-        @endforeach
-      </div>
-    </div>
-  </div>
 
 </div>
 @endsection

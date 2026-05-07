@@ -1039,16 +1039,6 @@
     @hasSection('page_title') @yield('page_title') @else {{ $sellerShop?->shop_name ?? 'Seller Dashboard' }} @endif
   </div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:.75rem">
-    @if($sellerShop?->status === 'approved' && $sellerShop?->shop_slug)
-    <a href="{{ route('platform.shop', $sellerShop->shop_slug) }}" target="_blank"
-       style="font-size:.8rem;font-weight:600;color:var(--primary);display:flex;align-items:center;gap:.3rem">
-    @else
-    <a href="{{ route('platform.home') }}"
-       style="font-size:.8rem;font-weight:600;color:var(--gray-400);display:flex;align-items:center;gap:.3rem">
-    @endif
-      <i class="bi bi-box-arrow-up-right" style="font-size:.75rem"></i>
-      <span class="d-none d-sm-inline">View Shop</span>
-    </a>
     @if($userPhoto)
       <img src="{{ $userPhoto }}" class="nav-avatar" onerror="this.style.display='none'">
     @else
