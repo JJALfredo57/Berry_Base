@@ -134,7 +134,7 @@ class PaymentController extends Controller
         $order = DB::table('orders')->where('track_code', strtoupper($trackCode))->first();
         if (!$order) return back()->with('error', 'Order not found.');
 
-        if (!in_array($order->status, ['Pending', 'Pending Review']))
+        if (!in_array($order->status, ['Pending', 'Pending Review', 'Awaiting Deposit']))
             return back()->with('error', 'This order cannot be modified at this stage.');
 
         if ($order->payment_status === 'Paid')
