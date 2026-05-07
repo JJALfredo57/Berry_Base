@@ -1,13 +1,99 @@
 @extends('layouts.app')
 @section('content')
+
 <div class="page-header">
   <h4 class="page-title"><i class="bi bi-palette me-2" style="color:var(--primary)"></i>Custom Orders</h4>
   <p class="page-subtitle">Review, approve, and manage customer custom cake requests.</p>
 </div>
 
-@if(session('msg'))<div class="alert alert-success border-0 py-2 mb-3">{{ session('msg') }}</div>@endif
-@if(session('err'))<div class="alert alert-danger border-0 py-2 mb-3">{{ session('err') }}</div>@endif
+@if(session('msg'))<div class="alert alert-success border-0 py-2 mb-3 rounded-3 d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill"></i>{{ session('msg') }}</div>@endif
+@if(session('err'))<div class="alert alert-danger border-0 py-2 mb-3 rounded-3 d-flex align-items-center gap-2"><i class="bi bi-exclamation-circle-fill"></i>{{ session('err') }}</div>@endif
 
+{{-- ===== FILTER TOOLBAR ===== --}}
+<div class="card mb-3 border-0 shadow-sm" style="border-radius:1rem">
+  <div class="card-body py-3 px-4">
+    <div class="d-flex flex-wrap gap-3 align-items-center">
+
+      {{-- Search --}}
+      <form method="GET" action="{{ route('seller.custom_orders') }}" class="flex-grow-1" style="min-width:200px;max-width:420px">
+        <input type="hidden" name="tab" value="{{ $tab }}">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text border-end-0 bg-white" style="border-radius:.6rem 0 0 .6rem">
+            <i class="bi bi-search text-muted"></i>
+          </span>
+          <input type="text" class="form-control border-start-0 border-end-0 ps-0"
+                 name="search" id="coSearch"
+                 value="{{ $search }}"
+                 placeholder="Customer name, cake, or #order…"
+                 autocomplete="off">
+          <button type="submit" class="btn btn-primary btn-sm px-3 fw-semibold" style="border-radius:0 .6rem .6rem 0">
+            Search
+          </button>
+        </div>
+      </form>
+
+      {{-- Tabs --}}
+      @php
+        $tabDefs = [
+          'pending'  => ['label'=>'Pending',  'icon'=>'bi-hourglass-split', 'count'=>$pendingCount,  'aBg'=>'#f59e0b','aTxt'=>'#fff','iBg'=>'#fef3c7','iTxt'=>'#92400e'],
+          'approved' => ['label'=>'Approved', 'icon'=>'bi-check-circle-fill','count'=>$approvedCount,'aBg'=>'#16a34a','aTxt'=>'#fff','iBg'=>'#dcfce7','iTxt'=>'#14532d'],
+          'rejected' => ['label'=>'Rejected', 'icon'=>'bi-x-circle-fill',  'count'=>$rejectedCount, 'aBg'=>'#dc2626','aTxt'=>'#fff','iBg'=>'#fee2e2','iTxt'=>'#7f1d1d'],
+          'all'      => ['label'=>'All',      'icon'=>'bi-list-ul',         'count'=>$totalCount,    'aBg'=>'var(--primary)','aTxt'=>'#fff','iBg'=>'#f3f4f6','iTxt'=>'#374151'],
+        ];
+      @endphp
+      <div class="d-flex gap-2 flex-wrap ms-auto align-items-center">
+        @foreach($tabDefs as $tKey => $t)
+        @php $isActive = $tab === $tKey; @endphp
+        <a href="{{ route('seller.custom_orders', array_filter(['tab' => $tKey, 'search' => $search])) }}"
+           class="d-flex align-items-center gap-1 fw-semibold text-decoration-none"
+           style="padding:6px 14px;border-radius:2rem;font-size:.82rem;transition:all .18s;
+                  background:{{ $isActive ? $t['aBg'] : $t['iBg'] }};
+                  color:{{ $isActive ? $t['aTxt'] : $t['iTxt'] }};
+                  {{ $isActive ? 'box-shadow:0 2px 10px rgba(0,0,0,.18)' : '' }}">
+          <i class="bi {{ $t['icon'] }}" style="font-size:.85rem"></i>
+          {{ $t['label'] }}
+          @if($t['count'] > 0)
+          <span class="d-inline-flex align-items-center justify-content-center rounded-pill"
+                style="min-width:20px;height:18px;padding:0 5px;font-size:.68rem;line-height:1;
+                       background:{{ $isActive ? 'rgba(255,255,255,.28)' : $t['aBg'] }};
+                       color:{{ $isActive ? '#fff' : $t['aTxt'] }}">
+            {{ $t['count'] }}
+          </span>
+          @endif
+        </a>
+        @endforeach
+        @if($search)
+        <a href="{{ route('seller.custom_orders', ['tab' => $tab]) }}"
+           class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+           style="border-radius:2rem;font-size:.8rem;padding:4px 12px" title="Clear search">
+          <i class="bi bi-x-lg"></i> Clear
+        </a>
+        @endif
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{{-- Results info bar --}}
+<div class="d-flex align-items-center gap-2 mb-3 small" style="color:#6b7280">
+  <i class="bi bi-funnel-fill" style="font-size:.75rem;color:var(--primary)"></i>
+  @if($tab === 'pending')
+    <span>Showing <strong style="color:#d97706">pending</strong> orders — newest first</span>
+  @elseif($tab === 'approved')
+    <span>Showing <strong style="color:#16a34a">approved</strong> orders</span>
+  @elseif($tab === 'rejected')
+    <span>Showing <strong style="color:#dc2626">rejected</strong> orders</span>
+  @else
+    <span>Showing <strong>all</strong> orders — pending first</span>
+  @endif
+  @if($search)
+    &nbsp;&bull; matching <strong>"{{ $search }}"</strong>
+  @endif
+  &nbsp;&bull; <strong>{{ $customOrders->total() }}</strong> result(s)
+</div>
+
+{{-- ===== ORDER CARDS ===== --}}
 @forelse($customOrders as $co)
 @php
   $refImgs = [];
@@ -24,25 +110,25 @@
     'rejected' => ['bg'=>'#fee2e2','color'=>'#991b1b','label'=>'❌ Rejected'],
   ];
   $sc = $statusColors[$co->review_status] ?? $statusColors['pending'];
-  $orderStatus = $co->order_status ?? 'Pending Review';
-  $isPending  = $co->review_status === 'pending';
-  $isApproved = $co->review_status === 'approved';
+  $orderStatus    = $co->order_status ?? 'Pending Review';
+  $isPending      = $co->review_status === 'pending';
+  $isApproved     = $co->review_status === 'approved';
   $priceConfirmed = $co->price_confirmed ?? null;
 @endphp
 
-<div class="card mb-4">
+<div class="card mb-4 border-0 shadow-sm" style="border-radius:1rem;overflow:hidden;
+     {{ $isPending ? 'border-left:4px solid #f59e0b' : ($isApproved ? 'border-left:4px solid #16a34a' : 'border-left:4px solid #dc2626') }}">
   <div class="card-body p-0">
 
     {{-- Header --}}
     <div class="d-flex align-items-center justify-content-between px-4 pt-3 pb-2 flex-wrap gap-2"
-         style="border-bottom:1px solid #f0f0f0">
+         style="border-bottom:1px solid #f3f4f6">
       <div class="d-flex align-items-center gap-3">
-        {{-- Avatar --}}
         @if($co->profile_photo)
           <img src="{{ $co->profile_photo }}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--primary)">
         @else
           <div style="width:44px;height:44px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem">
-            {{ strtoupper(substr($co->fullname,0,1)) }}
+            {{ strtoupper(substr($co->fullname ?? 'G', 0, 1)) }}
           </div>
         @endif
         <div>
@@ -51,10 +137,10 @@
         </div>
       </div>
       <div class="d-flex align-items-center gap-2 flex-wrap">
-        <span class="badge px-3 py-2" style="background:{{ $sc['bg'] }};color:{{ $sc['color'] }};font-size:.8rem">
+        <span class="badge px-3 py-2" style="background:{{ $sc['bg'] }};color:{{ $sc['color'] }};font-size:.8rem;border-radius:2rem">
           {{ $sc['label'] }}
         </span>
-        <span class="badge bg-light text-dark px-3 py-2" style="font-size:.78rem">
+        <span class="badge bg-light text-dark px-3 py-2" style="font-size:.78rem;border-radius:2rem">
           Custom Order #{{ $co->id }}
         </span>
         @if($co->order_id)
@@ -71,7 +157,6 @@
         {{-- LEFT: Reference Images + Details --}}
         <div class="col-lg-5">
 
-          {{-- Reference Images --}}
           @if(count($refImgs) > 0)
           <div class="mb-3">
             <div class="fw-semibold small mb-2" style="color:var(--primary)">
@@ -97,14 +182,14 @@
           <div class="mb-3">
             <div class="fw-semibold small mb-2" style="color:var(--primary)"><i class="bi bi-cake2 me-1"></i>Cake Details</div>
             <div style="overflow-x:auto"><table class="table table-sm table-borderless mb-0" style="font-size:.85rem">
-              <tr><td class="text-muted" style="width:40%">Cake Name</td><td class="fw-semibold">{{ $co->cake_name }}</td></tr>
-              @if($co->flavor)<tr><td class="text-muted">Flavor</td><td>{{ $co->flavor }}</td></tr>@endif
+              <tr><td class="text-muted" style="width:40%">Cake Name</td><td class="fw-semibold">{{ $co->cake_name ?? '—' }}</td></tr>
+              @if($co->flavor ?? null)<tr><td class="text-muted">Flavor</td><td>{{ $co->flavor }}</td></tr>@endif
               @if($co->size ?? null)<tr><td class="text-muted">Size</td><td>{{ $co->size }}</td></tr>@endif
-              @if($co->layers)<tr><td class="text-muted">Layers</td><td>{{ $co->layers }}</td></tr>@endif
-              @if($co->design_complexity)<tr><td class="text-muted">Complexity</td><td>{{ $co->design_complexity }}</td></tr>@endif
-              @if($co->time_slot)<tr><td class="text-muted">Time Slot</td><td>{{ $co->time_slot }}</td></tr>@endif
-              @if($co->dedication)<tr><td class="text-muted">Dedication</td><td><em>"{{ $co->dedication }}"</em></td></tr>@endif
-              @if($co->schedule_date ?? null)<tr><td class="text-muted">Schedule</td><td>{{ \Carbon\Carbon::parse($co->schedule_date)->format('M d, Y') }}@if($co->schedule_time ?? null) {{ \Carbon\Carbon::parse($co->schedule_time)->format('g:i A') }}@endif</td></tr>@endif
+              @if($co->layers ?? null)<tr><td class="text-muted">Layers</td><td>{{ $co->layers }}</td></tr>@endif
+              @if($co->design_complexity ?? null)<tr><td class="text-muted">Complexity</td><td>{{ $co->design_complexity }}</td></tr>@endif
+              @if($co->time_slot ?? null)<tr><td class="text-muted">Time Slot</td><td>{{ $co->time_slot }}</td></tr>@endif
+              @if($co->dedication ?? null)<tr><td class="text-muted">Dedication</td><td><em>"{{ $co->dedication }}"</em></td></tr>@endif
+              @if($co->schedule_date ?? null)<tr><td class="text-muted">Schedule</td><td>{{ \Carbon\Carbon::parse($co->schedule_date)->format('M d, Y') }}</td></tr>@endif
               <tr><td class="text-muted">Fulfillment</td><td>{{ $co->fulfillment_type ?? 'Pickup' }}</td></tr>
             </table></div>
           </div>
@@ -124,7 +209,7 @@
           @endif
 
           {{-- Customer Note --}}
-          @if($co->custom_note)
+          @if($co->custom_note ?? null)
           <div class="mb-3">
             <div class="fw-semibold small mb-1" style="color:var(--primary)"><i class="bi bi-chat-left-text me-1"></i>Customer Notes</div>
             <div class="p-2 rounded-2 small text-muted" style="background:#f8f9fa;border-left:3px solid var(--primary)">
@@ -134,7 +219,7 @@
           @endif
 
           {{-- Admin comment (if already reviewed) --}}
-          @if($co->admin_comment)
+          @if($co->admin_comment ?? null)
           <div class="mb-3">
             <div class="fw-semibold small mb-1" style="color:{{ $isApproved ? '#065f46' : '#991b1b' }}">
               <i class="bi bi-person-check me-1"></i>Admin Comment
@@ -145,7 +230,7 @@
           </div>
           @endif
 
-          {{-- Price Breakdown (always visible) --}}
+          {{-- Price Breakdown --}}
           @if($estimatedPrice > 0 && count($breakdown) > 0)
           <div class="mb-3">
             <div class="fw-semibold small mb-2" style="color:var(--primary)"><i class="bi bi-receipt me-1"></i>Estimated Price Breakdown</div>
@@ -188,16 +273,16 @@
           </div>
           @endif
 
-          @if($co->admin_price)
-          <div class="d-flex align-items-center gap-2 mb-3">
+          @if($co->admin_price ?? null)
+          <div class="d-flex align-items-center gap-2 mb-3 p-2 rounded-2" style="background:#f0fdf4;border:1px solid #bbf7d0">
             <span class="text-muted small">Final Price Set:</span>
-            <span class="fw-bold" style="color:var(--primary);font-size:1.05rem">₱{{ number_format($co->admin_price,2) }}</span>
+            <span class="fw-bold" style="color:#16a34a;font-size:1.05rem">₱{{ number_format($co->admin_price,2) }}</span>
             @if($priceConfirmed === 'pending')
-              <span class="badge" style="background:#fff3cd;color:#856404;font-size:.72rem">⏳ Awaiting customer</span>
+              <span class="badge ms-1" style="background:#fff3cd;color:#856404;font-size:.72rem;border-radius:2rem">⏳ Awaiting customer</span>
             @elseif($priceConfirmed === 'accepted')
-              <span class="badge bg-success" style="font-size:.72rem">✅ Customer accepted</span>
+              <span class="badge ms-1 bg-success" style="font-size:.72rem;border-radius:2rem">✅ Customer accepted</span>
             @elseif($priceConfirmed === 'cancelled')
-              <span class="badge bg-danger" style="font-size:.72rem">❌ Customer cancelled</span>
+              <span class="badge ms-1 bg-danger" style="font-size:.72rem;border-radius:2rem">❌ Customer cancelled</span>
             @endif
           </div>
           @endif
@@ -207,7 +292,6 @@
         {{-- RIGHT: Actions --}}
         <div class="col-lg-7">
 
-          {{-- PENDING — Approve / Reject forms --}}
           @if($isPending)
           <div class="d-flex flex-column gap-3">
 
@@ -247,7 +331,7 @@
                             placeholder="e.g. Your cake will be ready by the scheduled date!"></textarea>
                 </div>
                 <button type="submit" class="btn btn-success w-100">
-                  <i class="bi bi-check-circle me-1"></i>Approve & Set Price
+                  <i class="bi bi-check-circle me-1"></i>Approve &amp; Set Price
                 </button>
               </form>
             </div>
@@ -278,7 +362,7 @@
           </div>
           @endif
 
-          {{-- APPROVED — Progress Photo Form (if order is Preparing or Confirmed) --}}
+          {{-- APPROVED — Progress Photo Form --}}
           @if($isApproved && $co->order_id && in_array($orderStatus, ['Confirmed','Preparing','Out for Delivery']))
           <div class="p-3 rounded-3 mb-3" style="border:2px solid var(--primary);background:#fff0f6">
             <div class="fw-semibold mb-3" style="color:var(--primary)">
@@ -286,8 +370,6 @@
             </div>
             <form action="{{ route('seller.custom_orders.progress', $co->id) }}" method="POST" enctype="multipart/form-data">
               @csrf
-
-              {{-- Image preview --}}
               <div class="mb-3">
                 <label class="form-label fw-semibold small">Progress Photo</label>
                 <div id="progressPreviewWrap{{ $co->id }}" style="display:none;margin-bottom:8px">
@@ -296,13 +378,11 @@
                 <input type="file" class="form-control" name="progress_image" accept="image/*"
                        onchange="previewProgress(this, {{ $co->id }})">
               </div>
-
               <div class="mb-3">
                 <label class="form-label fw-semibold small">Message</label>
                 <textarea class="form-control" name="progress_message" rows="2"
-                          placeholder="e.g. Here's a sneak peek of your cake! 🎂"></textarea>
+                          placeholder="e.g. Here's a sneak peek of your cake!"></textarea>
               </div>
-
               <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-secondary"
                         onclick="this.closest('form').reset();document.getElementById('progressPreviewWrap{{ $co->id }}').style.display='none'">
@@ -317,7 +397,7 @@
           @endif
 
           {{-- Progress photo already sent --}}
-          @if($co->progress_image || $co->progress_message)
+          @if(($co->progress_image ?? null) || ($co->progress_message ?? null))
           <div class="p-3 rounded-3" style="background:#f8f9fa;border:1px solid #e9ecef">
             <div class="fw-semibold small mb-2" style="color:var(--primary)">
               <i class="bi bi-camera me-1"></i>Last Progress Update
@@ -327,19 +407,19 @@
                 </span>
               @endif
             </div>
-            @if($co->progress_image)
+            @if($co->progress_image ?? null)
               <img src="{{ $co->progress_image }}"
                    class="chat-img" data-src="{{ $co->progress_image }}"
                    style="max-height:140px;border-radius:.6rem;cursor:zoom-in;margin-bottom:8px;display:block"
                    onclick="openLightbox(this)">
             @endif
-            @if($co->progress_message)
+            @if($co->progress_message ?? null)
               <div class="small text-muted">{{ str_replace('[custom_order:'.$co->id.']', '', $co->progress_message) }}</div>
             @endif
           </div>
           @endif
 
-          {{-- Already reviewed summary (approved/rejected) --}}
+          {{-- Reviewed timestamp --}}
           @if(!$isPending && ($co->reviewed_at ?? null))
           <div class="text-muted small mt-3">
             <i class="bi bi-clock me-1"></i>Reviewed {{ \Carbon\Carbon::parse($co->reviewed_at)->diffForHumans() }}
@@ -353,15 +433,32 @@
   </div>
 </div>
 @empty
-<div class="card text-center py-5">
-  <i class="bi bi-palette" style="font-size:3rem;color:#ddd"></i>
-  <p class="text-muted mt-3">No custom orders yet.</p>
+<div class="card border-0 shadow-sm text-center py-5" style="border-radius:1rem">
+  <i class="bi bi-palette" style="font-size:3.5rem;color:#ddd"></i>
+  @if($search)
+    <p class="text-muted mt-3 mb-1">No custom orders found matching <strong>"{{ $search }}"</strong>.</p>
+    <a href="{{ route('seller.custom_orders', ['tab' => $tab]) }}" class="btn btn-sm btn-outline-secondary mt-2">Clear search</a>
+  @elseif($tab === 'pending')
+    <p class="text-muted mt-3">No pending custom orders — you're all caught up!</p>
+  @elseif($tab === 'approved')
+    <p class="text-muted mt-3">No approved custom orders yet.</p>
+  @elseif($tab === 'rejected')
+    <p class="text-muted mt-3">No rejected custom orders.</p>
+  @else
+    <p class="text-muted mt-3">No custom orders yet.</p>
+  @endif
 </div>
 @endforelse
 
+{{-- Pagination --}}
+@if($customOrders->hasPages())
+<div class="d-flex justify-content-center mt-4">
+  {{ $customOrders->appends(request()->query())->links() }}
+</div>
+@endif
+
 @push('scripts')
 <script>
-// Make these global so inline onclick= can call them
 window.previewProgress = function(input, id) {
   if (input.files && input.files[0]) {
     const reader = new FileReader();
@@ -389,11 +486,10 @@ window.checkPriceChange = function(id, estimated) {
   }
 };
 
-// Run on page load for all price inputs
 document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('[id^="adminPriceInput"]').forEach(function(input) {
     const id        = input.id.replace('adminPriceInput', '');
-    const estimated = parseFloat(input.dataset.estimated || input.value) || 0;
+    const estimated = parseFloat(input.value) || 0;
     window.checkPriceChange(id, estimated);
   });
 });

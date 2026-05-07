@@ -53,9 +53,11 @@ class CustomOrderController extends Controller
     {
         $shop   = $this->getShop();
         $search = trim($request->input('search', ''));
-        $status = $request->input('status', 'All');
+        $tab    = $request->input('tab', 'pending');
+        if (!in_array($tab, ['pending', 'approved', 'rejected', 'all'])) $tab = 'pending';
 
         $hasCakeName = Schema::hasColumn('custom_orders', 'cake_name');
+        $searchId    = ($search && is_numeric(ltrim($search, '#'))) ? (int)ltrim($search, '#') : null;
 
         $customOrders = DB::table('custom_orders as co')
             ->leftJoin('users as u', 'u.id', '=', 'co.user_id')
@@ -69,17 +71,27 @@ class CustomOrderController extends Controller
                 'o.status as order_status', 'o.total_price as order_total',
                 'o.fulfillment_type', 'o.schedule_date', 'o.payment_method', 'o.payment_status',
                 'o.delivery_address as address')
-            ->when($search, fn($q) => $q->where(fn($sq) => $hasCakeName
-                ? $sq->where('co.cake_name', 'like', "%$search%")
-                      ->orWhereRaw("COALESCE(o.guest_name, co.guest_name, u.fullname) like ?", ["%$search%"])
-                : $sq->whereRaw("COALESCE(o.guest_name, co.guest_name, u.fullname) like ?", ["%$search%"])
+            ->when($search, function ($q) use ($hasCakeName, $search, $searchId) {
+                $q->where(function ($sq) use ($hasCakeName, $search, $searchId) {
+                    $sq->whereRaw("COALESCE(o.guest_name, co.guest_name, u.fullname) like ?", ["%$search%"]);
+                    if ($hasCakeName) {
+                        $sq->orWhere('co.cake_name', 'like', "%$search%");
+                    }
+                    $sq->orWhere('co.guest_phone', 'like', "%$search%");
+                    if ($searchId) {
+                        $sq->orWhere('co.id', $searchId)->orWhere('co.order_id', $searchId);
+                    }
+                });
+            })
+            ->when($tab !== 'all', fn($q) => $q->where('co.review_status', $tab))
+            ->when($tab === 'all', fn($q) => $q->orderByRaw(
+                "CASE WHEN co.review_status = 'pending' THEN 0 WHEN co.review_status = 'approved' THEN 1 ELSE 2 END"
             ))
-            ->when($status && $status !== 'All', fn($q) => $q->where('co.review_status', $status))
             ->orderByDesc('co.id')
             ->paginate(10)
             ->withQueryString();
 
-        $orderIds   = collect($customOrders->items())->pluck('order_id')->filter()->values()->toArray();
+        $orderIds    = collect($customOrders->items())->pluck('order_id')->filter()->values()->toArray();
         $orderAddons = [];
         if ($orderIds) {
             try {
@@ -87,13 +99,27 @@ class CustomOrderController extends Controller
                     $orderAddons[$a->order_id][] = $a;
             } catch (\Exception $e) {}
         }
-        $pendingCount = 0;
+
+        $pendingCount = $approvedCount = $rejectedCount = $totalCount = 0;
         try {
-            $pendingCount = DB::table('custom_orders')
-                ->where('shop_id', $shop->id)->where('review_status', 'pending')->count();
+            $counts = DB::table('custom_orders')
+                ->where('shop_id', $shop->id)
+                ->selectRaw("
+                    COUNT(*) as total_count,
+                    SUM(review_status = 'pending')  as pending_count,
+                    SUM(review_status = 'approved') as approved_count,
+                    SUM(review_status = 'rejected') as rejected_count
+                ")
+                ->first();
+            $pendingCount  = (int)($counts->pending_count  ?? 0);
+            $approvedCount = (int)($counts->approved_count ?? 0);
+            $rejectedCount = (int)($counts->rejected_count ?? 0);
+            $totalCount    = (int)($counts->total_count    ?? 0);
         } catch (\Exception $e) {}
 
-        return compact('customOrders', 'orderAddons', 'pendingCount', 'search', 'status');
+        $status = $tab;
+
+        return compact('customOrders', 'orderAddons', 'pendingCount', 'approvedCount', 'rejectedCount', 'totalCount', 'search', 'tab', 'status');
     }
 
 
