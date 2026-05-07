@@ -305,7 +305,7 @@
                 <div class="row g-3 mt-1">
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Date</label>
-                    <input type="date" class="form-control" name="schedule_date" min="{{ date('Y-m-d') }}">
+                    <input type="date" class="form-control" name="schedule_date" min="{{ date('Y-m-d', strtotime('+1 day')) }}">
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Time Slot</label>

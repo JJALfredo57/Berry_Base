@@ -167,6 +167,9 @@ class CustomOrderController extends Controller
         $sdate       = $request->input('schedule_date') ?: null;
         $payment     = $request->input('payment_method', 'COD');
 
+        if ($sdate && $sdate <= date('Y-m-d'))
+            return back()->with('error', 'Preferred date must be at least tomorrow. Custom cakes require preparation time — same-day orders are not accepted.')->withInput();
+
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null)) {
             return back()->with('error', 'Please pin your location on the map and enter your address.')->withInput();
         }

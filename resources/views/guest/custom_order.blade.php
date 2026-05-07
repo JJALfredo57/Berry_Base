@@ -309,7 +309,7 @@
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Date</label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
-                           min="{{ date('Y-m-d') }}" onchange="cvValidateDate(this)" oninput="cvValidateDate(this)">
+                           min="{{ date('Y-m-d', strtotime('+1 day')) }}" onchange="cvValidateDate(this)" oninput="cvValidateDate(this)">
                     <div class="cv-msg" id="msgDate"></div>
                     <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred delivery or pickup date. Custom cakes need at least 2–3 days for preparation.</div>
                   </div>
@@ -862,12 +862,13 @@ function cvValidateDate(input) {
   input.classList.remove('cv-valid','cv-invalid');
   if(msg){msg.className='cv-msg';msg.textContent='';}
   if(!val) return;
-  var selected=new Date(val), today=new Date(); today.setHours(0,0,0,0);
+  var selected=new Date(val+'T00:00:00'), today=new Date(); today.setHours(0,0,0,0);
+  var tomorrow=new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
   if(isNaN(selected.getTime())) { input.classList.add('cv-invalid'); cvShake(input); if(msg){msg.classList.add('cv-err');msg.textContent='Invalid date.';} return; }
-  if(selected < today) { input.classList.add('cv-invalid'); cvShake(input); if(msg){msg.classList.add('cv-err');msg.textContent='Cannot select a past date.';} return; }
+  if(selected < tomorrow) { input.classList.add('cv-invalid'); cvShake(input); if(msg){msg.classList.add('cv-err');msg.textContent='Please select a date starting from tomorrow. Same-day orders are not accepted.';} return; }
   var days=Math.round((selected-today)/(1000*60*60*24));
   input.classList.add('cv-valid');
-  if(msg){ msg.classList.add('cv-ok'); msg.textContent = days===0 ? '✓ Date set. Note: Same-day orders depend on availability.' : '✓ '+days+' day'+(days>1?'s':'')+' from today.'; }
+  if(msg){ msg.classList.add('cv-ok'); msg.textContent='✓ '+days+' day'+(days>1?'s':'')+' from today.'; }
 }
 function cvValidateAllCustom() {
   var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
