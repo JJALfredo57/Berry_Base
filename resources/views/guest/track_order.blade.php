@@ -800,13 +800,13 @@
         <span class="fw-bold" style="font-size:.95rem">Message the Seller</span>
       </div>
       <div style="font-size:.78rem;color:#9ca3af;margin-top:4px;padding-left:2px">
-        Have questions about your order? Feel free to message us — we're happy to help! 🎂
-      </div>
+        Have questions about your order? Feel free to message us — we're happy to help!
+</div>
     </div>
     <div class="chat-box-g" id="chatBox">
       <div class="text-center py-4" id="msgEmpty">
         <i class="bi bi-chat-heart d-block mb-2" style="font-size:2rem;color:#fce4ec"></i>
-        <span class="text-muted small">No messages yet. Ask us anything! 😊</span>
+        <span class="text-muted small">No messages yet. Ask us anything!</span>
       </div>
     </div>
     <div class="g-preview-bar" id="gImgPreviewBar">
