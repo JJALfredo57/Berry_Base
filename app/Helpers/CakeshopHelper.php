@@ -113,6 +113,10 @@ class CakeshopHelper
     {
         $method = strtoupper(trim((string) $paymentMethod));
 
+        if ($method === 'COP') {
+            return 'Cash on Pickup (COP)';
+        }
+
         if ($method === 'COD') {
             return strtoupper((string) $fulfillmentType) === 'PICKUP'
                 ? 'Cash on Pickup (COP)'
@@ -129,6 +133,10 @@ class CakeshopHelper
     public static function shortPaymentCode(?string $paymentMethod, ?string $fulfillmentType = null): string
     {
         $method = strtoupper(trim((string) $paymentMethod));
+
+        if ($method === 'COP') {
+            return 'COP';
+        }
 
         if ($method === 'COD') {
             return strtoupper((string) $fulfillmentType) === 'PICKUP' ? 'COP' : 'COD';

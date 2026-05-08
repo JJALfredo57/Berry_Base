@@ -96,11 +96,13 @@
       'Cancelled'        => ['bg'=>'#fee2e2','color'=>'#991b1b','icon'=>'bi-x-circle-fill'],
     ];
     $sc = $statusColors[$order->status] ?? $statusColors['Pending'];
+    $statusLabels = ['Pickup' => 'Ready for Pickup'];
+    $statusDisplay = $statusLabels[$order->status] ?? $order->status;
   @endphp
 
   <div class="text-center mb-4">
     <span class="badge px-4 py-3" style="background:{{ $sc['bg'] }};color:{{ $sc['color'] }};font-size:1rem;border-radius:2rem">
-      <i class="bi {{ $sc['icon'] }} me-2"></i>{{ $order->status }}
+      <i class="bi {{ $sc['icon'] }} me-2"></i>{{ $statusDisplay }}
     </span>
     @if($order->status === 'Out for Delivery')
     @php

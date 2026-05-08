@@ -34,7 +34,7 @@ class TrackingController extends Controller
 
         $isPickup    = ($order->fulfillment_type ?? '') === 'Pickup';
         $statusSteps = $isPickup
-            ? ['Pending','Confirmed','Preparing','Ready for Pickup','Picked Up']
+            ? ['Pending','Confirmed','Preparing','Pickup','Picked Up']
             : ['Pending','Confirmed','Preparing','Out for Delivery','Delivered'];
         $currentStep = array_search($order->status, $statusSteps);
         if ($currentStep === false) $currentStep = 0;

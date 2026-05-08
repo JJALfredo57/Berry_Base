@@ -89,7 +89,7 @@ class OrderController extends Controller
         if (!$order) return back()->with('err', 'Order not found.');
 
         $newStatus = $request->input('status');
-        $allowed   = ['Confirmed','Preparing','Ready for Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'];
+        $allowed   = ['Confirmed','Preparing','Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'];
         if (!in_array($newStatus, $allowed)) return back()->with('err', 'Invalid status.');
 
         // Cancellation requires reason
@@ -99,8 +99,10 @@ class OrderController extends Controller
             ]);
         }
 
+        // COP orders store payment_method='COP'; older orders may have stored 'COD' for pickup.
+        // Both cases mean cash is collected at the counter when the customer picks up.
         $isCashPickup = ($order->fulfillment_type ?? 'Pickup') === 'Pickup'
-            && strtoupper((string) $order->payment_method) === 'COD';
+            && in_array(strtoupper((string) $order->payment_method), ['COP', 'COD']);
 
         // Picked Up requires settled payment; Cash on Pickup is settled during pickup confirmation.
         if ($newStatus === 'Picked Up' && $order->payment_status !== 'Paid' && !$isCashPickup) {
@@ -139,7 +141,7 @@ class OrderController extends Controller
                 ?? DB::table('users')->where('id', $order->user_id)->value('fullname')
                 ?? 'Customer';
             $smsMsgs = [
-                'Ready for Pickup' => "{$header}\nHi {$custName}! Your order is ready!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Ready for Pickup\n\nYour cake is now ready for pickup. Please visit our shop at your earliest convenience.\n\nYour Tracking Code: {$order->track_code}",
+                'Pickup'           => "{$header}\nHi {$custName}! Your order is ready!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Ready for Pickup\n\nYour cake is now ready for pickup. Please visit our shop at your earliest convenience.\n\nYour Tracking Code: {$order->track_code}",
                 'Out for Delivery' => "{$header}\nHi {$custName}! Your order is on its way!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Out for Delivery\n\nOur rider is now heading to your location. Please make sure someone is available to receive your order.\n\nYour Tracking Code: {$order->track_code}",
                 'Cancelled'        => "{$header}\nHi {$custName}, your order has been cancelled.\n\nOrder No.: #{$id}{$shopLine}\nStatus: Cancelled\n\nIf you have questions or concerns, please contact us through our shop page. We hope to serve you again soon.",
             ];
@@ -151,7 +153,7 @@ class OrderController extends Controller
                 $notifMsgs = [
                     'Confirmed'        => "Your order #{$id} has been confirmed!",
                     'Preparing'        => "Your order #{$id} is now being prepared.",
-                    'Ready for Pickup' => "Your order #{$id} is ready for pickup!",
+                    'Pickup'           => "Your order #{$id} is ready for pickup!",
                     'Out for Delivery' => "Your order #{$id} is on its way!",
                     'Picked Up'        => "Your order #{$id} has been picked up. Enjoy!",
                     'Cancelled'        => "Your order #{$id} has been cancelled.",

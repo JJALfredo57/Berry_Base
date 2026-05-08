@@ -37,8 +37,8 @@
         <select id="sellerOrderStatusFilter" class="form-select" style="flex:1;min-width:0;max-width:160px"
                 onchange="pgFilter('status', this.value)">
           <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All status</option>
-          @foreach(['Awaiting Deposit','Pending','Pending Review','Confirmed','Preparing','Ready for Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
-          <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st }}</option>
+          @foreach(['Awaiting Deposit','Pending','Pending Review','Confirmed','Preparing','Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
+          <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st === 'Pickup' ? 'Ready for Pickup' : $st }}</option>
           @endforeach
         </select>
       </div>
@@ -55,7 +55,7 @@
       'Pending','Pending Review' => 'background:#FFF3E0;color:#E65100',
       'Confirmed'                => 'background:#E3F2FD;color:#1565C0',
       'Preparing'                => 'background:#F3E5F5;color:#6A1B9A',
-      'Ready for Pickup'         => 'background:#EDE9FE;color:#5B21B6',
+      'Pickup'                   => 'background:#EDE9FE;color:#5B21B6',
       'Out for Delivery'         => 'background:#E8F5E9;color:#2E7D32',
       'Delivered','Picked Up'    => 'background:#E8F5E9;color:#1B5E20',
       'Cancelled'                => 'background:#FFEBEE;color:#C62828',
@@ -90,7 +90,7 @@
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.25rem">
           <span style="font-size:.875rem;font-weight:700;color:var(--gray-900);font-family:monospace">{{ strtoupper($o->track_code) }}</span>
-          <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $o->status }}</span>
+          <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $o->status === 'Pickup' ? 'Ready for Pickup' : $o->status }}</span>
           @if($custom)
             <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Custom</span>
           @endif
@@ -185,7 +185,7 @@
       {{-- Info grid --}}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem 1.25rem;font-size:.82rem">
         <div><span style="color:var(--gray-500)">Track Code</span><br><strong style="font-family:monospace">{{ strtoupper($o->track_code) }}</strong></div>
-        <div><span style="color:var(--gray-500)">Status</span><br><strong>{{ $o->status }}</strong></div>
+        <div><span style="color:var(--gray-500)">Status</span><br><strong>{{ $o->status === 'Pickup' ? 'Ready for Pickup' : $o->status }}</strong></div>
         <div><span style="color:var(--gray-500)">Customer</span><br><strong>{{ $o->order_customer_name ?? 'Customer' }}</strong></div>
         <div><span style="color:var(--gray-500)">Phone</span><br><strong>{{ $o->order_customer_phone ?? '—' }}</strong></div>
         <div><span style="color:var(--gray-500)">Product</span><br><strong>{{ $o->product_name ?? ($custom->cake_name ?? 'Custom Cake') }}</strong></div>
@@ -250,9 +250,11 @@
     </div>
 
     {{-- Pickup Ready: Picked Up button or payment warning --}}
-    @if($o->status === 'Ready for Pickup')
+    @if($o->status === 'Pickup')
       @php
-        $isCashPickup = ($o->fulfillment_type ?? 'Pickup') === 'Pickup' && strtoupper((string)($o->payment_method ?? '')) === 'COD';
+        // COP orders store payment_method='COP'; legacy orders may have 'COD' for pickup.
+        $isCashPickup = ($o->fulfillment_type ?? 'Pickup') === 'Pickup'
+            && in_array(strtoupper((string)($o->payment_method ?? '')), ['COP', 'COD']);
         $canConfirmPickup = $o->payment_status === 'Paid' || $isCashPickup;
       @endphp
       @if($canConfirmPickup)
@@ -331,7 +333,7 @@
     @endif
 
     {{-- Status Actions (non-final, non-pickup orders) --}}
-    @if(!in_array($o->status, ['Awaiting Deposit','Delivered','Picked Up','Cancelled','Ready for Pickup']))
+    @if(!in_array($o->status, ['Awaiting Deposit','Delivered','Picked Up','Cancelled','Pickup']))
     <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fff8fb 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
       <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
         <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#fdf2f8;color:#be185d;display:flex;align-items:center;justify-content:center;flex-shrink:0">

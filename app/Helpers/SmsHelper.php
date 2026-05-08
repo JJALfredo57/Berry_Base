@@ -180,7 +180,7 @@ class SmsHelper
 
     public static function paymentLine(object $order): string
     {
-        if ($order->payment_method === 'COD') {
+        if (in_array($order->payment_method, ['COD', 'COP'])) {
             return CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null)
                 . ' - PHP ' . number_format($order->total_price, 2);
         }
