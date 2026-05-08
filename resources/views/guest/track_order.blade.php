@@ -712,7 +712,7 @@
         </div>
         <div style="background:#fffbeb;padding:1rem">
           <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb">
-            <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Baker's Final Price</span>
+            <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Seller's Final Price</span>
             <span style="font-weight:800;color:var(--primary);font-size:1.1rem">₱{{ number_format($customOrder->admin_price,2) }}</span>
           </div>
           <p class="small text-muted mb-3">The baker has confirmed a final price for your custom cake. Accept to proceed with your deposit, or cancel if you'd like to withdraw.</p>
