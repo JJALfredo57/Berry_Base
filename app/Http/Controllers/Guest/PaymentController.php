@@ -156,40 +156,7 @@ class PaymentController extends Controller
         $depositAmount = round($depositAmount, 2);
         $isFullPayment = abs($depositAmount - $maxDeposit) < 0.01;
 
-        if ($order->payment_method !== 'GCash') {
-            DB::table('orders')->where('id', $order->id)->update([
-                'deposit_required' => 1,
-                'deposit_amount'   => $depositAmount,
-                'deposit_status'   => 'paid',
-                'deposit_paid_at'  => now(),
-                'payment_status'   => $isFullPayment ? 'Paid' : 'Partial Payment',
-                'paid_at'          => $isFullPayment ? now() : null,
-                'status'           => 'Confirmed',
-            ]);
-
-            try {
-                DB::table('order_tracking')->insert([
-                    'order_id'   => $order->id,
-                    'status'     => 'Confirmed',
-                    'notes'      => CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null)
-                        . ' deposit of PHP ' . number_format($depositAmount, 2) . ' acknowledged. Order confirmed automatically.',
-                    'created_at' => now(),
-                ]);
-            } catch (\Exception $e) {}
-
-            $freshOrder = DB::table('orders as o')
-                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
-                ->where('o.id', $order->id)
-                ->select('o.*', 'p.name as product_name', 'p.image_path as product_image')
-                ->first();
-
-            $this->sendToKitchen($freshOrder ?? $order, $isFullPayment);
-
-            return redirect()->route('track.order', $trackCode)
-                ->with('msg', 'Order confirmed. Your cake request has been sent to the kitchen.');
-        }
-
-        // Save deposit info
+        // All payment methods (COP, COD, GCash) pay the deposit through PayMongo.
         DB::table('orders')->where('id', $order->id)->update([
             'deposit_required' => 1,
             'deposit_amount'   => $depositAmount,
@@ -201,13 +168,13 @@ class PaymentController extends Controller
                 'order_id'   => $order->id,
                 'status'     => $order->status,
                 'notes'      => $isFullPayment
-                                ? "Customer chose to pay full amount ₱{$depositAmount} via GCash."
-                                : "Customer set deposit of ₱{$depositAmount} via GCash (min 50%).",
+                    ? "Customer chose to pay full amount ₱{$depositAmount} via GCash (PayMongo)."
+                    : "Customer set deposit of ₱{$depositAmount} via GCash (min 50%).",
                 'created_at' => now(),
             ]);
         } catch (\Exception $e) {}
 
-        // Redirect to PayMongo deposit payment
+        // Redirect to PayMongo for actual payment
         return redirect()->route('guest.pay_deposit', $trackCode);
     }
 
