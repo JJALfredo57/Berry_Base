@@ -354,8 +354,18 @@ class CustomOrderController extends Controller
             return redirect()->route('platform.home')->with('err', 'Unauthorized action.');
         }
 
-        $totalPrice    = max((float) $co->admin_price, (float) $order->total_price);
-        $depositAmount = round($totalPrice * 0.5, 2);
+        $totalPrice = max((float) $co->admin_price, (float) $order->total_price);
+        $minDeposit = round($totalPrice * 0.5, 2);
+
+        if ($order->payment_method === 'GCash') {
+            $requested = (float) request()->input('deposit_amount', $minDeposit);
+            if ($requested < $minDeposit) {
+                return back()->with('err', 'Minimum deposit is 50%: ₱' . number_format($minDeposit, 2) . '.');
+            }
+            $depositAmount = round(min($requested, $totalPrice), 2);
+        } else {
+            $depositAmount = $minDeposit;
+        }
         $isFullPayment = abs($depositAmount - $totalPrice) < 0.01;
 
         DB::table('custom_orders')->where('id', $coId)->update([
@@ -405,8 +415,7 @@ class CustomOrderController extends Controller
 
         $order = DB::table('orders')->where('id', $co->order_id)->first();
         if ($order->payment_method === 'GCash') {
-            return redirect()->route('track.order', $order->track_code)
-                ->with('msg', 'Price accepted! Choose your deposit amount below to secure your custom order.');
+            return redirect()->route('guest.pay_deposit', $order->track_code);
         }
 
         $freshOrder = DB::table('orders')->where('id', $co->order_id)->first();
