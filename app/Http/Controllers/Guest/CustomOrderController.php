@@ -405,7 +405,8 @@ class CustomOrderController extends Controller
 
         $order = DB::table('orders')->where('id', $co->order_id)->first();
         if ($order->payment_method === 'GCash') {
-            return redirect()->route('guest.pay_deposit', $order->track_code);
+            return redirect()->route('track.order', $order->track_code)
+                ->with('msg', 'Price accepted! Choose your deposit amount below to secure your custom order.');
         }
 
         $freshOrder = DB::table('orders')->where('id', $co->order_id)->first();

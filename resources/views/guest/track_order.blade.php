@@ -558,6 +558,15 @@
       <span class="badge mb-3 px-3 py-2" style="background:{{ $cos['bg'] }};color:{{ $cos['color'] }}">
         {{ $cos['label'] }}
       </span>
+      @if($customOrder->price_confirmed === 'accepted' && $customOrder->admin_price > 0)
+      <span class="badge mb-3 px-3 py-2 ms-1" style="background:#dbeafe;color:#1e40af">
+        <i class="bi bi-check2-circle me-1"></i>Price Accepted — Awaiting Deposit
+      </span>
+      @elseif($customOrder->price_confirmed === 'cancelled')
+      <span class="badge mb-3 px-3 py-2 ms-1" style="background:#fee2e2;color:#991b1b">
+        <i class="bi bi-x-circle me-1"></i>Price Declined
+      </span>
+      @endif
       @if($customOrder->admin_price)
         <div class="mb-2 small"><span class="text-muted">Final Price:</span>
           <strong class="ms-1" style="color:var(--primary)">₱{{ number_format($customOrder->admin_price, 2) }}</strong>
@@ -655,21 +664,39 @@
         </div>
       </div>
       @else
-      <div class="mt-3 p-3 rounded-3" style="background:#fffbeb;border:1.5px solid #fbbf24">
-        <div class="fw-semibold small mb-2"><i class="bi bi-cash me-1" style="color:#d97706"></i>COD Deposit — ₱{{ number_format($minDep,2) }}</div>
-        <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST">
-          @csrf
-          <input type="hidden" name="deposit_amount" value="{{ $minDep }}">
-          <button type="submit" class="btn w-100 fw-semibold py-2 btn-warning text-dark"
-                  data-cs-confirm="Acknowledge 50% COD deposit of ₱{{ number_format($minDep,2) }}?"
-                  data-cs-title="Confirm COD Deposit"
-                  data-cs-ok="Acknowledge"
-                  data-cs-icon="bi-cash-stack"
-                  data-cs-icon-bg="#fef3c7"
-                  data-cs-icon-color="#b45309">
-            <i class="bi bi-cash me-1"></i>Acknowledge COD Deposit &amp; Confirm Order
-          </button>
-        </form>
+      @php
+        $isCop   = $order->payment_method === 'COP';
+        $pmLabel = $isCop ? 'Cash on Pickup' : 'Cash on Delivery';
+        $pmIcon  = $isCop ? 'bi-bag-check' : 'bi-truck';
+      @endphp
+      <div class="mt-3" style="border-radius:1rem;overflow:hidden;border:1.5px solid #fde68a">
+        <div style="background:linear-gradient(90deg,#d97706,#b45309);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.6rem">
+          <i class="bi {{ $pmIcon }}" style="color:#fff;font-size:1rem"></i>
+          <span style="color:#fff;font-weight:700;font-size:.88rem;flex:1">Secure Your Order — {{ $pmLabel }}</span>
+        </div>
+        <div style="background:#fffbeb;padding:1rem">
+          <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:.85rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb">
+            <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">50% Deposit Required</span>
+            <span style="font-weight:800;color:#111827;font-size:1rem">₱{{ number_format($minDep,2) }}</span>
+          </div>
+          <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST">
+            @csrf
+            <input type="hidden" name="deposit_amount" value="{{ $minDep }}">
+            <button type="submit" class="btn w-100 fw-bold py-3"
+                    style="background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:.75rem;font-size:.95rem"
+                    data-cs-confirm="Acknowledge 50% {{ $pmLabel }} deposit of ₱{{ number_format($minDep,2) }}?\n\nRemaining ₱{{ number_format($coTotal - $minDep, 2) }} will be due on {{ $isCop ? 'pickup' : 'delivery' }}."
+                    data-cs-title="Confirm {{ $pmLabel }} Deposit"
+                    data-cs-ok="Acknowledge"
+                    data-cs-icon="{{ $pmIcon }}"
+                    data-cs-icon-bg="#fef3c7"
+                    data-cs-icon-color="#b45309">
+              <i class="bi {{ $pmIcon }} me-2"></i>Acknowledge Deposit &amp; Confirm Order
+            </button>
+          </form>
+          <div style="margin-top:.6rem;font-size:.7rem;color:#9ca3af;text-align:center">
+            Remaining ₱{{ number_format($coTotal - $minDep, 2) }} due on {{ $isCop ? 'pickup' : 'delivery' }}
+          </div>
+        </div>
       </div>
       @endif
       @endif
@@ -678,41 +705,44 @@
       @if($customOrder->review_status === 'approved'
           && $customOrder->admin_price > 0
           && $customOrder->price_confirmed === 'pending')
-      <div class="mt-3 p-3 rounded-3" style="background:#fffbeb;border:1.5px solid #fbbf24">
-        <div class="fw-semibold small mb-1" style="color:#d97706">
-          <i class="bi bi-exclamation-circle me-1"></i>Final Price Set — Please Respond
+      <div class="mt-3" style="border-radius:1rem;overflow:hidden;border:1.5px solid #fbbf24">
+        <div style="background:linear-gradient(90deg,#d97706,#92400e);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.6rem">
+          <i class="bi bi-tag-fill" style="color:#fff;font-size:1rem"></i>
+          <span style="color:#fff;font-weight:700;font-size:.88rem">Final Price Set — Please Respond</span>
         </div>
-        <div class="small text-muted mb-3">
-          The baker has set a final price of
-          <strong style="color:var(--primary)">₱{{ number_format($customOrder->admin_price,2) }}</strong>
-          for your custom cake. Please accept or cancel.
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-          <form action="{{ route('guest.custom_order.accept_price', $customOrder->id) }}" method="POST" class="d-inline">
-            @csrf
-            <button type="submit" class="btn btn-success btn-sm"
-                    data-cs-confirm="Accept ₱{{ number_format($customOrder->admin_price,2) }} as final price?"
-                    data-cs-title="Accept Final Price"
-                    data-cs-ok="Accept Price"
-                    data-cs-icon="bi-check-circle"
-                    data-cs-icon-bg="#dcfce7"
-                    data-cs-icon-color="#16a34a">
-              <i class="bi bi-check-circle me-1"></i>✅ Accept Price
-            </button>
-          </form>
-          <form action="{{ route('guest.custom_order.cancel_price', $customOrder->id) }}" method="POST" class="d-inline">
-            @csrf
-            <button type="submit" class="btn btn-outline-danger btn-sm"
-                    data-cs-confirm="Cancel this custom order?"
-                    data-cs-title="Cancel Custom Order"
-                    data-cs-ok="Cancel Order"
-                    data-cs-ok-color="#dc2626"
-                    data-cs-icon="bi-x-octagon"
-                    data-cs-icon-bg="#fee2e2"
-                    data-cs-icon-color="#dc2626">
-              <i class="bi bi-x-circle me-1"></i>❌ Cancel Order
-            </button>
-          </form>
+        <div style="background:#fffbeb;padding:1rem">
+          <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb">
+            <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Baker's Final Price</span>
+            <span style="font-weight:800;color:var(--primary);font-size:1.1rem">₱{{ number_format($customOrder->admin_price,2) }}</span>
+          </div>
+          <p class="small text-muted mb-3">The baker has confirmed a final price for your custom cake. Accept to proceed with your deposit, or cancel if you'd like to withdraw.</p>
+          <div class="d-flex gap-2">
+            <form action="{{ route('guest.custom_order.accept_price', $customOrder->id) }}" method="POST" class="flex-fill">
+              @csrf
+              <button type="submit" class="btn btn-success w-100 fw-bold"
+                      data-cs-confirm="Accept ₱{{ number_format($customOrder->admin_price,2) }} as final price?"
+                      data-cs-title="Accept Final Price"
+                      data-cs-ok="Accept Price"
+                      data-cs-icon="bi-check-circle"
+                      data-cs-icon-bg="#dcfce7"
+                      data-cs-icon-color="#16a34a">
+                <i class="bi bi-check-circle me-1"></i>Accept Price
+              </button>
+            </form>
+            <form action="{{ route('guest.custom_order.cancel_price', $customOrder->id) }}" method="POST" class="flex-fill">
+              @csrf
+              <button type="submit" class="btn btn-outline-danger w-100 fw-bold"
+                      data-cs-confirm="Cancel this custom order?"
+                      data-cs-title="Cancel Custom Order"
+                      data-cs-ok="Cancel Order"
+                      data-cs-ok-color="#dc2626"
+                      data-cs-icon="bi-x-octagon"
+                      data-cs-icon-bg="#fee2e2"
+                      data-cs-icon-color="#dc2626">
+                <i class="bi bi-x-circle me-1"></i>Cancel Order
+              </button>
+            </form>
+          </div>
         </div>
       </div>
       @endif
