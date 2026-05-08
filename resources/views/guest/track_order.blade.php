@@ -717,61 +717,58 @@
             <span style="font-weight:800;color:var(--primary);font-size:1.1rem">₱{{ number_format($customOrder->admin_price,2) }}</span>
           </div>
           <p class="small text-muted mb-3">The seller has set a final price for your custom cake. Choose how much to pay now (minimum 50%), then accept to proceed — or cancel to withdraw.</p>
-          <div class="d-flex gap-2 align-items-start">
-            <form action="{{ route('guest.custom_order.accept_price', $customOrder->id) }}" method="POST"
-                  class="flex-fill deposit-amount-form"
-                  data-min="{{ $acceptMin }}"
-                  data-max="{{ $acceptTotal }}"
-                  data-btn-label="Accept &amp; Pay via GCash">
-              @csrf
-              @if($order->payment_method === 'GCash')
-              <label class="form-label fw-semibold small mb-1" style="color:#374151">
-                Amount to pay now <span style="color:#9ca3af;font-weight:400">(min 50%)</span>
-              </label>
-              <div class="input-group mb-1">
-                <span class="input-group-text fw-bold" style="color:#d97706;background:#fffbeb;border-color:#fde68a">₱</span>
-                <input type="text"
-                       name="deposit_amount"
-                       class="form-control deposit-amount-input"
-                       value="{{ number_format($acceptMin, 2, '.', '') }}"
-                       inputmode="decimal"
-                       autocomplete="off"
-                       data-min="{{ $acceptMin }}"
-                       data-max="{{ $acceptTotal }}"
-                       style="font-weight:800;color:#111827;border-color:#fde68a">
-              </div>
-              <div class="deposit-error">Minimum is 50%: ₱{{ number_format($acceptMin, 2) }}</div>
-              <div style="font-size:.7rem;color:#6b7280;margin-top:.25rem;margin-bottom:.65rem">
-                ₱{{ number_format($acceptMin, 2) }} min · ₱{{ number_format($acceptTotal, 2) }} max · remainder due later
-              </div>
-              @else
-              <input type="hidden" name="deposit_amount" value="{{ $acceptMin }}">
-              @endif
-              <button type="submit" class="btn btn-success w-100 fw-bold"
-                      data-cs-confirm="Accept ₱{{ number_format($customOrder->admin_price,2) }} as final price?"
-                      data-cs-title="Accept Final Price"
-                      data-cs-ok="Accept Price"
-                      data-cs-icon="bi-check-circle"
-                      data-cs-icon-bg="#dcfce7"
-                      data-cs-icon-color="#16a34a">
-                <i class="bi bi-check-circle me-1"></i>Accept Price
-              </button>
-            </form>
-            <form action="{{ route('guest.custom_order.cancel_price', $customOrder->id) }}" method="POST">
-              @csrf
-              <button type="submit" class="btn btn-outline-danger fw-bold"
-                      style="white-space:nowrap"
-                      data-cs-confirm="Cancel this custom order?"
-                      data-cs-title="Cancel Custom Order"
-                      data-cs-ok="Cancel Order"
-                      data-cs-ok-color="#dc2626"
-                      data-cs-icon="bi-x-octagon"
-                      data-cs-icon-bg="#fee2e2"
-                      data-cs-icon-color="#dc2626">
-                <i class="bi bi-x-circle me-1"></i>Cancel
-              </button>
-            </form>
-          </div>
+          <form action="{{ route('guest.custom_order.accept_price', $customOrder->id) }}" method="POST"
+                class="deposit-amount-form"
+                data-min="{{ $acceptMin }}"
+                data-max="{{ $acceptTotal }}"
+                data-btn-label="Accept &amp; Pay via GCash">
+            @csrf
+            @if($order->payment_method === 'GCash')
+            <label class="form-label fw-semibold small mb-1" style="color:#374151">
+              Amount to pay now <span style="color:#9ca3af;font-weight:400">(min 50%)</span>
+            </label>
+            <div class="input-group mb-1">
+              <span class="input-group-text fw-bold" style="color:#d97706;background:#fffbeb;border-color:#fde68a">₱</span>
+              <input type="text"
+                     name="deposit_amount"
+                     class="form-control deposit-amount-input"
+                     value="{{ number_format($acceptMin, 2, '.', '') }}"
+                     inputmode="decimal"
+                     autocomplete="off"
+                     data-min="{{ $acceptMin }}"
+                     data-max="{{ $acceptTotal }}"
+                     style="font-weight:800;color:#111827;border-color:#fde68a">
+            </div>
+            <div class="deposit-error">Minimum is 50%: ₱{{ number_format($acceptMin, 2) }}</div>
+            <div style="font-size:.7rem;color:#6b7280;margin-top:.25rem;margin-bottom:.75rem">
+              ₱{{ number_format($acceptMin, 2) }} min · ₱{{ number_format($acceptTotal, 2) }} max · remainder due later
+            </div>
+            @else
+            <input type="hidden" name="deposit_amount" value="{{ $acceptMin }}">
+            @endif
+            <button type="submit" class="btn btn-success w-100 fw-bold py-2 mb-2"
+                    data-cs-confirm="Accept ₱{{ number_format($customOrder->admin_price,2) }} as final price?"
+                    data-cs-title="Accept Final Price"
+                    data-cs-ok="Accept Price"
+                    data-cs-icon="bi-check-circle"
+                    data-cs-icon-bg="#dcfce7"
+                    data-cs-icon-color="#16a34a">
+              <i class="bi bi-check-circle me-1"></i>Accept Price
+            </button>
+          </form>
+          <form action="{{ route('guest.custom_order.cancel_price', $customOrder->id) }}" method="POST">
+            @csrf
+            <button type="submit" class="btn btn-outline-danger w-100 fw-semibold py-2"
+                    data-cs-confirm="Cancel this custom order?"
+                    data-cs-title="Cancel Custom Order"
+                    data-cs-ok="Cancel Order"
+                    data-cs-ok-color="#dc2626"
+                    data-cs-icon="bi-x-octagon"
+                    data-cs-icon-bg="#fee2e2"
+                    data-cs-icon-color="#dc2626">
+              <i class="bi bi-x-circle me-1"></i>Cancel Order
+            </button>
+          </form>
         </div>
       </div>
       @endif
