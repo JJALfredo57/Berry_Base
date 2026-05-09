@@ -18,10 +18,18 @@
     <input type="text" class="form-control form-control-sm" placeholder="Search cake name, customer…"
            value="{{ $search ?? '' }}" oninput="pgSearch(this.value)">
   </div>
+  @php
+    $tabCounts = ['All'=>null,'pending'=>$pendingCount,'approved'=>$approvedCount,'rejected'=>$rejectedCount];
+  @endphp
   @foreach(['All'=>'All','pending'=>'Pending Review','approved'=>'Approved','rejected'=>'Rejected'] as $val=>$lbl)
-  @php $isActive = ($status??'All') === $val; @endphp
+  @php $isActive = ($status??'All') === $val; $cnt = $tabCounts[$val] ?? null; @endphp
   <a href="{{ url()->current() }}?status={{ $val }}&search={{ urlencode($search??'') }}"
-     class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }}">{{ $lbl }}</a>
+     class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }} d-inline-flex align-items-center gap-1">
+    {{ $lbl }}
+    @if($cnt > 0)
+    <span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:50px;background:#dc2626;color:#fff;font-size:.68rem;line-height:1;font-weight:700">{{ $cnt }}</span>
+    @endif
+  </a>
   @endforeach
   <span class="text-muted small ms-auto">{{ $customOrders->total() }} total</span>
 </div>

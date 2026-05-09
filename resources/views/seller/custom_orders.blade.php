@@ -54,9 +54,8 @@
           {{ $t['label'] }}
           @if($t['count'] > 0)
           <span class="d-inline-flex align-items-center justify-content-center rounded-pill"
-                style="min-width:20px;height:18px;padding:0 5px;font-size:.68rem;line-height:1;
-                       background:{{ $isActive ? 'rgba(255,255,255,.28)' : $t['aBg'] }};
-                       color:{{ $isActive ? '#fff' : $t['aTxt'] }}">
+                style="min-width:20px;height:18px;padding:0 5px;font-size:.68rem;line-height:1;font-weight:700;
+                       background:#dc2626;color:#fff">
             {{ $t['count'] }}
           </span>
           @endif

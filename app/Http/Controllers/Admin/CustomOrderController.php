@@ -48,9 +48,11 @@ class CustomOrderController extends Controller
             } catch (\Exception $e) {}
         }
 
-        $pendingCount = DB::table('custom_orders')->where('review_status', 'pending')->count();
+        $pendingCount  = DB::table('custom_orders')->where('review_status', 'pending')->count();
+        $approvedCount = DB::table('custom_orders')->where('review_status', 'approved')->count();
+        $rejectedCount = DB::table('custom_orders')->where('review_status', 'rejected')->count();
 
-        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'search', 'status'));
+        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'approvedCount', 'rejectedCount', 'search', 'status'));
     }
 
     public function approve(Request $request, string $id)
