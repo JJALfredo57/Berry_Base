@@ -102,23 +102,15 @@ class CustomOrderController extends Controller
 
         $pendingCount = $approvedCount = $approvedNoRiderCount = $rejectedCount = $totalCount = 0;
         try {
-            $counts = DB::table('custom_orders')
-                ->where('shop_id', $shop->id)
-                ->selectRaw("
-                    COUNT(*) as total_count,
-                    SUM(review_status = 'pending')  as pending_count,
-                    SUM(review_status = 'approved') as approved_count,
-                    SUM(review_status = 'rejected') as rejected_count
-                ")
-                ->first();
-            $pendingCount  = (int)($counts->pending_count  ?? 0);
-            $approvedCount = (int)($counts->approved_count ?? 0);
-            $rejectedCount = (int)($counts->rejected_count ?? 0);
-            $totalCount    = (int)($counts->total_count    ?? 0);
+            $base = DB::table('custom_orders')->where('shop_id', (string) $shop->id);
+            $pendingCount  = (clone $base)->where('review_status', 'pending')->count();
+            $approvedCount = (clone $base)->where('review_status', 'approved')->count();
+            $rejectedCount = (clone $base)->where('review_status', 'rejected')->count();
+            $totalCount    = (clone $base)->count();
 
             $approvedNoRiderCount = DB::table('custom_orders as co')
                 ->join('orders as o', 'o.id', '=', 'co.order_id')
-                ->where('co.shop_id', $shop->id)
+                ->where('co.shop_id', (string) $shop->id)
                 ->where('co.review_status', 'approved')
                 ->where('o.fulfillment_type', 'delivery')
                 ->whereNull('o.rider_id')

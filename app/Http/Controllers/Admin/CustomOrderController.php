@@ -48,9 +48,10 @@ class CustomOrderController extends Controller
             } catch (\Exception $e) {}
         }
 
-        $pendingCount  = DB::table('custom_orders')->where('review_status', 'pending')->count();
-        $approvedCount = DB::table('custom_orders')->where('review_status', 'approved')->count();
-        $rejectedCount = DB::table('custom_orders')->where('review_status', 'rejected')->count();
+        $base          = DB::table('custom_orders');
+        $pendingCount  = (clone $base)->where('review_status', 'pending')->count();
+        $approvedCount = (clone $base)->where('review_status', 'approved')->count();
+        $rejectedCount = (clone $base)->where('review_status', 'rejected')->count();
 
         $approvedNoRiderCount = DB::table('custom_orders as co')
             ->join('orders as o', 'o.id', '=', 'co.order_id')
