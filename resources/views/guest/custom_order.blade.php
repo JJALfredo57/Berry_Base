@@ -461,17 +461,8 @@
                 <span>Total</span>
                 <span id="totalDisplay" style="color:var(--primary);font-size:clamp(.9rem,2.2vw,1.1rem)">₱1,200.00</span>
               </div>
-              <div class="mt-3 rounded-3" style="background:#fffbeb;border:1.5px solid #fcd34d;padding:.75rem 1rem">
-                <div class="d-flex align-items-center gap-2 mb-1">
-                  <i class="bi bi-exclamation-triangle-fill" style="color:#d97706;font-size:.95rem;flex-shrink:0"></i>
-                  <span class="fw-bold" style="font-size:clamp(.75rem,1.5vw,.82rem);color:#92400e">Price shown is an estimate only</span>
-                </div>
-                <ul class="mb-0 ps-3" style="font-size:clamp(.68rem,1.3vw,.75rem);color:#78350f;line-height:1.7">
-                  <li>The total above is a <strong>base estimate</strong> based on your selected options.</li>
-                  <li>The <strong>final price may change</strong> depending on your reference photo, design complexity, and special decorations.</li>
-                  <li>Our baker will <strong>review your order and reference image</strong> before providing the confirmed price.</li>
-                  <li>You will be <strong>notified of the final price</strong> before your order is officially confirmed.</li>
-                </ul>
+              <div class="text-muted mt-1" style="font-size:clamp(.65rem,1.2vw,.72rem)">
+                <i class="bi bi-info-circle me-1"></i>Pricing is subject to change. We will notify you immediately of any updates.
               </div>
               @if(!empty($customer))
               <div class="mt-3 pt-3 border-top">
