@@ -43,16 +43,22 @@
       @endphp
       <div class="d-flex gap-2 flex-wrap ms-auto align-items-center">
         @foreach($tabDefs as $tKey => $t)
-        @php $isActive = $tab === $tKey; @endphp
+        @php
+          $isActive  = $tab === $tKey;
+          $hasOrders = $t['count'] > 0;
+          $inactiveBg  = $hasOrders ? $t['iBg']    : '#f1f1f1';
+          $inactiveTxt = $hasOrders ? $t['iTxt']   : '#9ca3af';
+        @endphp
         <a href="{{ route('seller.custom_orders', array_filter(['tab' => $tKey, 'search' => $search])) }}"
-           class="d-flex align-items-center gap-1 fw-semibold text-decoration-none"
+           class="d-flex align-items-center gap-1 fw-semibold text-decoration-none position-relative"
            style="padding:6px 14px;border-radius:2rem;font-size:.82rem;transition:all .18s;
-                  background:{{ $isActive ? $t['aBg'] : $t['iBg'] }};
-                  color:{{ $isActive ? $t['aTxt'] : $t['iTxt'] }};
-                  {{ $isActive ? 'box-shadow:0 2px 10px rgba(0,0,0,.18)' : '' }}">
+                  background:{{ $isActive ? $t['aBg'] : $inactiveBg }};
+                  color:{{ $isActive ? $t['aTxt'] : $inactiveTxt }};
+                  {{ $isActive ? 'box-shadow:0 2px 10px rgba(0,0,0,.18)' : '' }}
+                  {{ !$hasOrders && !$isActive ? 'opacity:.6' : '' }}">
           <i class="bi {{ $t['icon'] }}" style="font-size:.85rem"></i>
           {{ $t['label'] }}
-          @if($t['count'] > 0)
+          @if($hasOrders)
           <span class="d-inline-flex align-items-center justify-content-center rounded-pill"
                 style="min-width:20px;height:18px;padding:0 5px;font-size:.68rem;line-height:1;font-weight:700;
                        background:#dc2626;color:#fff">
