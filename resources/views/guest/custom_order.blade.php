@@ -457,12 +457,12 @@
                 <span></span>
               </div>
               <hr class="my-2">
-              <div class="d-flex justify-content-between fw-bold">
-                <span>Total</span>
+              <div class="d-flex justify-content-between fw-bold align-items-start">
+                <div>
+                  <span>Total</span>
+                  <div class="text-muted fw-normal mt-1" style="font-size:clamp(.78rem,1.6vw,.82rem)">(Pricing is subject to change. We will notify you immediately of any updates.)</div>
+                </div>
                 <span id="totalDisplay" style="color:var(--primary);font-size:clamp(.9rem,2.2vw,1.1rem)">₱1,200.00</span>
-              </div>
-              <div class="text-muted mt-1" style="font-size:clamp(.65rem,1.2vw,.72rem)">
-                <i class="bi bi-info-circle me-1"></i>Pricing is subject to change. We will notify you immediately of any updates.
               </div>
               @if(!empty($customer))
               <div class="mt-3 pt-3 border-top">
