@@ -22,7 +22,7 @@
     $tabMeta = [
       'All'      => ['count'=>null,           'activeCls'=>'btn-primary',        'inactiveCls'=>'btn-outline-secondary'],
       'pending'  => ['count'=>$pendingCount,  'activeCls'=>'btn-warning text-dark','inactiveCls'=>$pendingCount  > 0 ? 'btn-outline-warning'  : 'btn-outline-secondary'],
-      'approved' => ['count'=>$approvedNoRiderCount, 'activeCls'=>'btn-success',         'inactiveCls'=>$approvedNoRiderCount > 0 ? 'btn-outline-success'  : 'btn-outline-secondary'],
+      'approved' => ['count'=>$approvedCount, 'noRider'=>$approvedNoRiderCount, 'activeCls'=>'btn-success', 'inactiveCls'=>$approvedCount > 0 ? 'btn-outline-success' : 'btn-outline-secondary'],
       'rejected' => ['count'=>$rejectedCount, 'activeCls'=>'btn-danger',          'inactiveCls'=>$rejectedCount > 0 ? 'btn-outline-danger'   : 'btn-outline-secondary'],
     ];
   @endphp
@@ -31,14 +31,22 @@
     $isActive = ($status??'All') === $val;
     $meta     = $tabMeta[$val];
     $cnt      = $meta['count'];
+    $noRider  = $meta['noRider'] ?? 0;
     $btnCls   = $isActive ? $meta['activeCls'] : $meta['inactiveCls'];
     $opacity  = (!$isActive && $cnt === 0) ? 'opacity:.5' : '';
   @endphp
   <a href="{{ url()->current() }}?status={{ $val }}&search={{ urlencode($search??'') }}"
      class="btn btn-sm {{ $btnCls }} d-inline-flex align-items-center gap-1" style="{{ $opacity }}">
     {{ $lbl }}
+    {{-- Total count badge --}}
     @if($cnt > 0)
-    <span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:50px;background:#dc2626;color:#fff;font-size:.68rem;line-height:1;font-weight:700">{{ $cnt }}</span>
+    <span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:50px;background:rgba(0,0,0,.18);color:#fff;font-size:.68rem;line-height:1;font-weight:700">{{ $cnt }}</span>
+    @endif
+    {{-- No-rider badge (red) --}}
+    @if($noRider > 0)
+    <span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:50px;background:#dc2626;color:#fff;font-size:.68rem;line-height:1;font-weight:700" title="No rider assigned yet">
+      <i class="bi bi-bicycle" style="font-size:.6rem;margin-right:2px"></i>{{ $noRider }}
+    </span>
     @endif
   </a>
   @endforeach

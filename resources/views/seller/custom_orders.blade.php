@@ -35,10 +35,10 @@
       {{-- Tabs --}}
       @php
         $tabDefs = [
-          'pending'  => ['label'=>'Pending',  'icon'=>'bi-hourglass-split', 'count'=>$pendingCount,  'aBg'=>'#f59e0b','aTxt'=>'#fff','iBg'=>'#fef3c7','iTxt'=>'#92400e'],
-          'approved' => ['label'=>'Approved', 'icon'=>'bi-check-circle-fill','count'=>$approvedNoRiderCount,'aBg'=>'#16a34a','aTxt'=>'#fff','iBg'=>'#dcfce7','iTxt'=>'#14532d'],
-          'rejected' => ['label'=>'Rejected', 'icon'=>'bi-x-circle-fill',  'count'=>$rejectedCount, 'aBg'=>'#dc2626','aTxt'=>'#fff','iBg'=>'#fee2e2','iTxt'=>'#7f1d1d'],
-          'all'      => ['label'=>'All',      'icon'=>'bi-list-ul',         'count'=>$totalCount,    'aBg'=>'var(--primary)','aTxt'=>'#fff','iBg'=>'#f3f4f6','iTxt'=>'#374151'],
+          'pending'  => ['label'=>'Pending',  'icon'=>'bi-hourglass-split', 'count'=>$pendingCount,  'noRider'=>null,                'aBg'=>'#f59e0b','aTxt'=>'#fff','iBg'=>'#fef3c7','iTxt'=>'#92400e'],
+          'approved' => ['label'=>'Approved', 'icon'=>'bi-check-circle-fill','count'=>$approvedCount,'noRider'=>$approvedNoRiderCount,'aBg'=>'#16a34a','aTxt'=>'#fff','iBg'=>'#dcfce7','iTxt'=>'#14532d'],
+          'rejected' => ['label'=>'Rejected', 'icon'=>'bi-x-circle-fill',  'count'=>$rejectedCount, 'noRider'=>null,                'aBg'=>'#dc2626','aTxt'=>'#fff','iBg'=>'#fee2e2','iTxt'=>'#7f1d1d'],
+          'all'      => ['label'=>'All',      'icon'=>'bi-list-ul',         'count'=>$totalCount,    'noRider'=>null,                'aBg'=>'var(--primary)','aTxt'=>'#fff','iBg'=>'#f3f4f6','iTxt'=>'#374151'],
         ];
       @endphp
       <div class="d-flex gap-2 flex-wrap ms-auto align-items-center">
@@ -46,8 +46,8 @@
         @php
           $isActive  = $tab === $tKey;
           $hasOrders = $t['count'] > 0;
-          $inactiveBg  = $hasOrders ? $t['iBg']    : '#f1f1f1';
-          $inactiveTxt = $hasOrders ? $t['iTxt']   : '#9ca3af';
+          $inactiveBg  = $hasOrders ? $t['iBg']  : '#f1f1f1';
+          $inactiveTxt = $hasOrders ? $t['iTxt'] : '#9ca3af';
         @endphp
         <a href="{{ route('seller.custom_orders', array_filter(['tab' => $tKey, 'search' => $search])) }}"
            class="d-flex align-items-center gap-1 fw-semibold text-decoration-none position-relative"
@@ -58,11 +58,21 @@
                   {{ !$hasOrders && !$isActive ? 'opacity:.6' : '' }}">
           <i class="bi {{ $t['icon'] }}" style="font-size:.85rem"></i>
           {{ $t['label'] }}
+          {{-- Total count badge (white/green) --}}
           @if($hasOrders)
           <span class="d-inline-flex align-items-center justify-content-center rounded-pill"
                 style="min-width:20px;height:18px;padding:0 5px;font-size:.68rem;line-height:1;font-weight:700;
-                       background:#dc2626;color:#fff">
+                       background:{{ $isActive ? 'rgba(255,255,255,.3)' : $t['aBg'] }};
+                       color:#fff">
             {{ $t['count'] }}
+          </span>
+          @endif
+          {{-- No-rider badge (red) --}}
+          @if(($t['noRider'] ?? 0) > 0)
+          <span class="d-inline-flex align-items-center justify-content-center rounded-pill"
+                style="min-width:20px;height:18px;padding:0 5px;font-size:.68rem;line-height:1;font-weight:700;
+                       background:#dc2626;color:#fff" title="No rider assigned yet">
+            <i class="bi bi-bicycle me-1" style="font-size:.6rem"></i>{{ $t['noRider'] }}
           </span>
           @endif
         </a>
