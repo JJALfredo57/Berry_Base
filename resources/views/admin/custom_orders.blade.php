@@ -22,7 +22,7 @@
     $tabMeta = [
       'All'      => ['count'=>null,           'activeCls'=>'btn-primary',        'inactiveCls'=>'btn-outline-secondary'],
       'pending'  => ['count'=>$pendingCount,  'activeCls'=>'btn-warning text-dark','inactiveCls'=>$pendingCount  > 0 ? 'btn-outline-warning'  : 'btn-outline-secondary'],
-      'approved' => ['count'=>$approvedCount, 'activeCls'=>'btn-success',         'inactiveCls'=>$approvedCount > 0 ? 'btn-outline-success'  : 'btn-outline-secondary'],
+      'approved' => ['count'=>$approvedNoRiderCount, 'activeCls'=>'btn-success',         'inactiveCls'=>$approvedNoRiderCount > 0 ? 'btn-outline-success'  : 'btn-outline-secondary'],
       'rejected' => ['count'=>$rejectedCount, 'activeCls'=>'btn-danger',          'inactiveCls'=>$rejectedCount > 0 ? 'btn-outline-danger'   : 'btn-outline-secondary'],
     ];
   @endphp

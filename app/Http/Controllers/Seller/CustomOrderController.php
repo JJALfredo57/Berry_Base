@@ -100,7 +100,7 @@ class CustomOrderController extends Controller
             } catch (\Exception $e) {}
         }
 
-        $pendingCount = $approvedCount = $rejectedCount = $totalCount = 0;
+        $pendingCount = $approvedCount = $approvedNoRiderCount = $rejectedCount = $totalCount = 0;
         try {
             $counts = DB::table('custom_orders')
                 ->where('shop_id', $shop->id)
@@ -115,11 +115,20 @@ class CustomOrderController extends Controller
             $approvedCount = (int)($counts->approved_count ?? 0);
             $rejectedCount = (int)($counts->rejected_count ?? 0);
             $totalCount    = (int)($counts->total_count    ?? 0);
+
+            $approvedNoRiderCount = DB::table('custom_orders as co')
+                ->join('orders as o', 'o.id', '=', 'co.order_id')
+                ->where('co.shop_id', $shop->id)
+                ->where('co.review_status', 'approved')
+                ->where('o.fulfillment_type', 'delivery')
+                ->whereNull('o.rider_id')
+                ->whereNotIn('o.status', ['Delivered', 'Cancelled'])
+                ->count();
         } catch (\Exception $e) {}
 
         $status = $tab;
 
-        return compact('customOrders', 'orderAddons', 'pendingCount', 'approvedCount', 'rejectedCount', 'totalCount', 'search', 'tab', 'status');
+        return compact('customOrders', 'orderAddons', 'pendingCount', 'approvedCount', 'approvedNoRiderCount', 'rejectedCount', 'totalCount', 'search', 'tab', 'status');
     }
 
 

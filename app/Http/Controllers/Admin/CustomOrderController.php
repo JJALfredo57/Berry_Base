@@ -52,7 +52,15 @@ class CustomOrderController extends Controller
         $approvedCount = DB::table('custom_orders')->where('review_status', 'approved')->count();
         $rejectedCount = DB::table('custom_orders')->where('review_status', 'rejected')->count();
 
-        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'approvedCount', 'rejectedCount', 'search', 'status'));
+        $approvedNoRiderCount = DB::table('custom_orders as co')
+            ->join('orders as o', 'o.id', '=', 'co.order_id')
+            ->where('co.review_status', 'approved')
+            ->where('o.fulfillment_type', 'delivery')
+            ->whereNull('o.rider_id')
+            ->whereNotIn('o.status', ['Delivered', 'Cancelled'])
+            ->count();
+
+        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'approvedCount', 'approvedNoRiderCount', 'rejectedCount', 'search', 'status'));
     }
 
     public function approve(Request $request, string $id)

@@ -36,7 +36,7 @@
       @php
         $tabDefs = [
           'pending'  => ['label'=>'Pending',  'icon'=>'bi-hourglass-split', 'count'=>$pendingCount,  'aBg'=>'#f59e0b','aTxt'=>'#fff','iBg'=>'#fef3c7','iTxt'=>'#92400e'],
-          'approved' => ['label'=>'Approved', 'icon'=>'bi-check-circle-fill','count'=>$approvedCount,'aBg'=>'#16a34a','aTxt'=>'#fff','iBg'=>'#dcfce7','iTxt'=>'#14532d'],
+          'approved' => ['label'=>'Approved', 'icon'=>'bi-check-circle-fill','count'=>$approvedNoRiderCount,'aBg'=>'#16a34a','aTxt'=>'#fff','iBg'=>'#dcfce7','iTxt'=>'#14532d'],
           'rejected' => ['label'=>'Rejected', 'icon'=>'bi-x-circle-fill',  'count'=>$rejectedCount, 'aBg'=>'#dc2626','aTxt'=>'#fff','iBg'=>'#fee2e2','iTxt'=>'#7f1d1d'],
           'all'      => ['label'=>'All',      'icon'=>'bi-list-ul',         'count'=>$totalCount,    'aBg'=>'var(--primary)','aTxt'=>'#fff','iBg'=>'#f3f4f6','iTxt'=>'#374151'],
         ];
