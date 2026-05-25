@@ -153,6 +153,8 @@ Route::get('/register/back',        [RegisterController::class, 'back'])->name('
 
 Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group(function () {
     Route::get('/dashboard',   [CustomerDashboard::class, 'index'])->name('dashboard');
+    Route::get('/feedback',    [\App\Http\Controllers\Customer\FeedbackController::class, 'create'])->name('feedback');
+    Route::post('/feedback',   [\App\Http\Controllers\Customer\FeedbackController::class, 'store'])->name('feedback.store');
 
     Route::get('/catalog',          [CustomerCatalog::class, 'index'])->name('catalog');
     Route::post('/catalog/order',   [CustomerCatalog::class, 'order'])->name('catalog.order');
@@ -330,6 +332,8 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/sellers/{id}/reject-upgrade',       [\App\Http\Controllers\SuperAdmin\SellerController::class, 'rejectUpgrade'])->name('sellers.reject_upgrade');
     Route::get('/platform-dashboard',          [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/commission-analytics',        [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'commissions'])->name('commissions');
+    Route::get('/feedback',                    [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'index'])->name('feedback');
+    Route::post('/feedback/{id}',              [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'update'])->name('feedback.update');
     Route::get('/platform-settings',           [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'index'])->name('settings');
     Route::post('/platform-settings',                     [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'update'])->name('settings.update');
     Route::post('/platform-settings/paymongo',  [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'savePaymongo'])->name('settings.paymongo');

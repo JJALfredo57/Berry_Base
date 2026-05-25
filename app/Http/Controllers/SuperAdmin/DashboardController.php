@@ -8,12 +8,19 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        try {
+            $openFeedback = DB::table('customer_feedback')->where('status', 'open')->count();
+        } catch (\Throwable $e) {
+            $openFeedback = 0;
+        }
+
         // Platform stats
         $stats = [
             'total_shops'    => DB::table('shops')->where('status','approved')->count(),
             'pending_apps'   => DB::table('shops')->where('status','pending')->count(),
             'total_products' => DB::table('products')->count(),
             'total_orders'   => DB::table('orders')->whereNotIn('status',['Cancelled'])->count(),
+            'open_feedback'  => $openFeedback,
             'total_commission' => $this->commissionQuery()->sum(DB::raw('orders.total_price * shops.commission_rate / 100')),
             'total_customers'=> (
                 DB::table('orders')->whereNotIn('status',['Cancelled'])->whereNotNull('user_id')->distinct()->count('user_id') +

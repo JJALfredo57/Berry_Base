@@ -7,6 +7,10 @@
     $totalOrders    = DB::table('orders')->where('user_id',$uid)->count();
     $pendingOrders  = DB::table('orders')->where('user_id',$uid)->where('status','Pending')->count();
     $deliveredOrders = DB::table('orders')->where('user_id',$uid)->where('status','Delivered')->count();
+    $openFeedback = 0;
+    try {
+      $openFeedback = DB::table('customer_feedback')->where('user_id',$uid)->where('status','open')->count();
+    } catch (\Exception $e) {}
     $recentOrders   = DB::table('orders as o')
       ->join('products as p','p.id','=','o.product_id')
       ->where('o.user_id',$uid)
@@ -42,7 +46,12 @@
 
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h6 class="fw-bold mb-0">Recent Orders</h6>
-    <a href="{{ route('customer.orders') }}" class="small" style="color:var(--primary)">View all →</a>
+    <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+      <a href="{{ route('customer.feedback') }}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-chat-square-heart me-1"></i>Feedback{{ $openFeedback > 0 ? ' ('.$openFeedback.')' : '' }}
+      </a>
+      <a href="{{ route('customer.orders') }}" class="small" style="color:var(--primary)">View all →</a>
+    </div>
   </div>
 
   @forelse($recentOrders as $o)

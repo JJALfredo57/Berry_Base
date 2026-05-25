@@ -832,6 +832,13 @@
       @if($pendingApps > 0)<span class="sb-badge">{{ $pendingApps }}</span>@endif
     </a>
 
+    <div class="sb-label">Customers</div>
+    <a href="{{ route('superadmin.feedback') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.feedback') ? 'active' : '' }}">
+      <i class="bi bi-chat-square-heart"></i><span class="sb-link-text">Feedback</span>
+      @php try { $openFeedback = (int)\Illuminate\Support\Facades\DB::table('customer_feedback')->where('status','open')->count(); } catch(\Exception $e) { $openFeedback=0; } @endphp
+      @if($openFeedback > 0)<span class="sb-badge">{{ $openFeedback > 9 ? '9+' : $openFeedback }}</span>@endif
+    </a>
+
     <div class="sb-label">Settings</div>
     <a href="{{ route('superadmin.settings') }}" class="sb-link {{ ($currentRoute==='superadmin.settings' && request()->input('tab','platform') !== 'logs' && request()->input('tab','platform') !== 'backup') ? 'active' : '' }}">
       <i class="bi bi-sliders"></i><span class="sb-link-text">Platform Settings</span>
@@ -1265,9 +1272,34 @@
 
   <nav class="csb-nav">
     <div class="csb-section-label">Menu</div>
+    @if($role === 'customer')
+    <a href="{{ route('customer.dashboard') }}" class="csb-link {{ $currentRoute==='customer.dashboard' ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-speedometer2"></i> Dashboard
+    </a>
+    <a href="{{ route('customer.catalog') }}" class="csb-link {{ $currentRoute==='customer.catalog' ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-shop"></i> Catalog
+    </a>
+    <a href="{{ route('customer.orders') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.orders') || str_starts_with($currentRoute,'customer.custom_orders') ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-bag-check"></i> Orders
+    </a>
+    <a href="{{ route('customer.messages') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.messages') ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-chat-dots"></i> Messages
+      @if($unreadMessages > 0)<span class="csb-badge">{{ $unreadMessages > 9 ? '9+' : $unreadMessages }}</span>@endif
+    </a>
+    <a href="{{ route('customer.feedback') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.feedback') ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-chat-square-heart"></i> Feedback
+    </a>
+    <a href="{{ route('customer.profile') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.profile') ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-person"></i> Profile
+    </a>
+    <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="csb-link" style="color:#ef4444;background:none;border:none;cursor:pointer;width:100%;text-align:left">
+      <i class="bi bi-box-arrow-right"></i> Logout
+    </button></form>
+    @else
     <a href="{{ route('catalog') }}" class="csb-link {{ $currentRoute==='catalog' ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-shop"></i> Catalog
     </a>
+    @endif
     <div class="csb-divider"></div>
     <div class="csb-section-label">Track</div>
     <a href="#" class="csb-link" onclick="closeCustSidebar(); csTrackPrompt(); return false;">
