@@ -27,7 +27,7 @@
           <span class="fw-bold">Send Feedback</span>
         </div>
         <div class="card-body">
-          <form method="POST" action="{{ route('seller.feedback.store') }}">
+          <form method="POST" action="{{ route('seller.feedback.store') }}" enctype="multipart/form-data">
             @csrf
             <div class="mb-3">
               <label class="form-label fw-semibold">Type</label>
@@ -61,6 +61,25 @@
                 <span><span data-count-for="sellerFeedbackMessage">0</span>/1200</span>
               </div>
               @error('message')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Screenshots / Photos <span class="text-muted fw-normal">(optional)</span></label>
+              <input type="file"
+                     id="sellerFeedbackAttachments"
+                     name="attachments[]"
+                     class="form-control @error('attachments') is-invalid @enderror @error('attachments.*') is-invalid @enderror"
+                     accept="image/jpeg,image/png,image/webp"
+                     multiple
+                     data-size-preview-attached="1"
+                     onchange="handleSellerFeedbackAttachments(this, 'sellerFeedbackAttachmentStrip', 'sellerFeedbackAttachmentNote')">
+              <div class="form-text d-flex justify-content-between flex-wrap gap-1">
+                <span>Attach up to 5 images. JPG, PNG, or WebP only.</span>
+                <span id="sellerFeedbackAttachmentNote">0/5 selected</span>
+              </div>
+              @error('attachments')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+              @error('attachments.*')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+              <div id="sellerFeedbackAttachmentStrip" class="d-flex flex-wrap gap-2 mt-2"></div>
             </div>
 
             <button type="submit" class="btn btn-primary">
@@ -119,5 +138,102 @@ document.addEventListener('DOMContentLoaded', function () {
   bindCounter('input[name="title"]', '[data-count-for="sellerFeedbackTitle"]');
   bindCounter('textarea[name="message"]', '[data-count-for="sellerFeedbackMessage"]');
 });
+
+async function compressSellerFeedbackFile(file) {
+  var maxPx = 1200;
+  var quality = 0.80;
+  var imageUrl = URL.createObjectURL(file);
+
+  try {
+    var img = await new Promise(function(resolve, reject) {
+      var image = new Image();
+      image.onload = function() { resolve(image); };
+      image.onerror = reject;
+      image.src = imageUrl;
+    });
+
+    var scale = Math.min(maxPx / img.width, maxPx / img.height, 1);
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    var blob = await new Promise(function(resolve) {
+      canvas.toBlob(resolve, 'image/jpeg', quality);
+    });
+    if (!blob || blob.size >= file.size) return { file: file, originalSize: file.size, compressedSize: file.size };
+
+    var cleanName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+    return {
+      file: new File([blob], cleanName, { type: 'image/jpeg', lastModified: Date.now() }),
+      originalSize: file.size,
+      compressedSize: blob.size
+    };
+  } catch (e) {
+    return { file: file, originalSize: file.size, compressedSize: file.size };
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function formatSellerFeedbackSize(bytes) {
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+async function handleSellerFeedbackAttachments(input, stripId, noteId) {
+  var strip = document.getElementById(stripId);
+  var note = document.getElementById(noteId);
+  if (!strip) return;
+
+  var valid = [];
+  var files = Array.from(input.files || []);
+  var maxFiles = 5;
+  var maxSize = 5 * 1024 * 1024;
+  var allowed = ['image/jpeg', 'image/png', 'image/webp'];
+  var rejected = [];
+
+  for (var i = 0; i < files.length; i++) {
+    var file = files[i];
+    if (valid.length >= maxFiles) { rejected.push(file.name + ' (limit reached)'); continue; }
+    if (allowed.indexOf(file.type) === -1) { rejected.push(file.name + ' (unsupported type)'); continue; }
+    if (file.size > maxSize) { rejected.push(file.name + ' (over 5MB)'); continue; }
+    valid.push(await compressSellerFeedbackFile(file));
+  }
+
+  var dt = new DataTransfer();
+  valid.forEach(function(item) { dt.items.add(item.file); });
+  input.files = dt.files;
+
+  strip.innerHTML = '';
+  valid.forEach(function(item, idx) {
+    var file = item.file;
+    var url = URL.createObjectURL(file);
+    var saved = item.originalSize > item.compressedSize ? Math.round((1 - item.compressedSize / item.originalSize) * 100) : 0;
+    var card = document.createElement('div');
+    card.style.cssText = 'width:116px;border:1.5px solid var(--gray-100);border-radius:10px;background:#fff;padding:5px;position:relative';
+    card.innerHTML =
+      '<img src="' + url + '" style="width:104px;height:62px;object-fit:cover;border-radius:7px;display:block">' +
+      '<button type="button" aria-label="Remove image" style="position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;border:0;background:#ef4444;color:#fff;font-size:.75rem;line-height:1">x</button>' +
+      '<div style="font-size:.62rem;color:#6b7280;margin-top:3px;line-height:1.25">' +
+        'Original: ' + formatSellerFeedbackSize(item.originalSize) + '<br>' +
+        '<span style="color:#059669">Saved: ' + formatSellerFeedbackSize(item.compressedSize) + (saved ? ' (-' + saved + '%)' : '') + '</span>' +
+      '</div>';
+    card.querySelector('button').onclick = function() {
+      valid.splice(idx, 1);
+      var next = new DataTransfer();
+      valid.forEach(function(item) { next.items.add(item.file); });
+      input.files = next.files;
+      handleSellerFeedbackAttachments(input, stripId, noteId);
+      URL.revokeObjectURL(url);
+    };
+    strip.appendChild(card);
+  });
+
+  if (note) {
+    note.textContent = valid.length + '/5 selected' + (rejected.length ? ' - skipped ' + rejected.length : '');
+    note.style.color = rejected.length ? '#dc2626' : '';
+  }
+}
 </script>
 @endpush

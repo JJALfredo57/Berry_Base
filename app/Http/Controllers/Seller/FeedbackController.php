@@ -2,12 +2,15 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class FeedbackController extends Controller
 {
+    use UploadsFiles;
+
     private function getShop(): object
     {
         $uid = session('user')['id'];
@@ -37,15 +40,21 @@ class FeedbackController extends Controller
             'category' => 'required|in:suggestion,bug,experience,feature,other',
             'title'    => 'required|string|min:4|max:120',
             'message'  => 'required|string|min:10|max:1200',
+            'attachments'   => 'nullable|array|max:5',
+            'attachments.*' => 'image|mimes:jpg,jpeg,png,webp|max:5120',
         ], [
             'title.required'   => 'Please add a short title.',
             'title.max'        => 'Title can only be up to 120 characters.',
             'message.required' => 'Please describe your feedback.',
             'message.max'      => 'Feedback can only be up to 1200 characters.',
+            'attachments.max'  => 'You can attach up to 5 images only.',
+            'attachments.*.image' => 'Attachments must be image files.',
+            'attachments.*.max'   => 'Each image can only be up to 5MB.',
         ]);
 
         $shop = $this->getShop();
         $user = session('user');
+        $attachments = $this->storeFeedbackAttachments($request);
 
         $data = [
             'user_id'    => $user['id'] ?? null,
@@ -61,6 +70,9 @@ class FeedbackController extends Controller
 
         if (Schema::hasColumn('customer_feedback', 'source_role')) $data['source_role'] = 'seller';
         if (Schema::hasColumn('customer_feedback', 'shop_id')) $data['shop_id'] = $shop->id;
+        if (Schema::hasColumn('customer_feedback', 'attachment_paths')) {
+            $data['attachment_paths'] = !empty($attachments) ? json_encode($attachments) : null;
+        }
 
         DB::table('customer_feedback')->insert($data);
 
@@ -74,5 +86,21 @@ class FeedbackController extends Controller
         ]);
 
         return back()->with('msg', 'Thanks. Your feedback was sent to the platform team.');
+    }
+
+    private function storeFeedbackAttachments(Request $request): array
+    {
+        $paths = [];
+        if (!$request->hasFile('attachments')) return $paths;
+
+        foreach (array_slice($request->file('attachments'), 0, 5) as $file) {
+            if (!$file || !$file->isValid() || $file->getSize() > 5 * 1024 * 1024) continue;
+            $ext = strtolower($file->getClientOriginalExtension());
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) continue;
+            $path = $this->uploadFile($file, 'uploads/feedback');
+            if ($path) $paths[] = $path;
+        }
+
+        return $paths;
     }
 }

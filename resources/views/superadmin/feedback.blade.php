@@ -1,6 +1,15 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+.feedback-attachments{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem}
+.feedback-attachment-thumb{width:74px;height:74px;border-radius:10px;object-fit:cover;border:2px solid var(--gray-100);cursor:pointer;transition:transform .15s,box-shadow .15s}
+.feedback-attachment-thumb:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.feedback-lightbox{display:none;position:fixed;inset:0;z-index:9999;background:rgba(17,24,39,.86);align-items:center;justify-content:center;padding:24px}
+.feedback-lightbox.open{display:flex}
+.feedback-lightbox img{max-width:min(94vw,1100px);max-height:88vh;object-fit:contain;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.45);background:#fff}
+.feedback-lightbox button{position:absolute;top:18px;right:18px;width:40px;height:40px;border-radius:50%;border:0;background:#fff;color:#111827;display:flex;align-items:center;justify-content:center}
+</style>
 <div class="cs-page-header">
   <div>
     <h4 class="cs-page-title"><i class="bi bi-chat-square-heart me-2" style="color:var(--primary)"></i>Platform Feedback</h4>
@@ -99,6 +108,25 @@
 
         <p class="mb-3" style="font-size:.9rem;line-height:1.65;white-space:pre-wrap">{{ $item->message }}</p>
 
+        @php
+          $attachments = [];
+          if (!empty($item->attachment_paths ?? null)) {
+            $decoded = json_decode($item->attachment_paths, true);
+            $attachments = is_array($decoded) ? $decoded : [];
+          }
+        @endphp
+        @if(count($attachments) > 0)
+          <div class="feedback-attachments">
+            @foreach($attachments as $attachment)
+              <img src="{{ $attachment }}"
+                   alt="Feedback attachment"
+                   class="feedback-attachment-thumb"
+                   onclick="openFeedbackAttachment(@json($attachment))"
+                   onerror="this.style.display='none'">
+            @endforeach
+          </div>
+        @endif
+
         @if($item->admin_note)
           <div class="mb-3" style="background:var(--gray-50);border:1.5px solid var(--gray-100);border-radius:10px;padding:.75rem .9rem;font-size:.84rem">
             <strong>Admin note:</strong> {{ $item->admin_note }}
@@ -140,4 +168,31 @@
 </div>
 
 {{ $feedback->links('vendor.pagination.custom') }}
+
+<div id="feedbackAttachmentLightbox" class="feedback-lightbox" onclick="if(event.target===this)closeFeedbackAttachment()">
+  <button type="button" onclick="closeFeedbackAttachment()" aria-label="Close preview"><i class="bi bi-x-lg"></i></button>
+  <img id="feedbackAttachmentLightboxImg" src="" alt="Feedback attachment preview">
+</div>
+
+<script>
+function openFeedbackAttachment(src) {
+  var box = document.getElementById('feedbackAttachmentLightbox');
+  var img = document.getElementById('feedbackAttachmentLightboxImg');
+  if (!box || !img) return;
+  img.src = src;
+  box.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeFeedbackAttachment() {
+  var box = document.getElementById('feedbackAttachmentLightbox');
+  var img = document.getElementById('feedbackAttachmentLightboxImg');
+  if (!box || !img) return;
+  box.classList.remove('open');
+  img.src = '';
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeFeedbackAttachment();
+});
+</script>
 @endsection
