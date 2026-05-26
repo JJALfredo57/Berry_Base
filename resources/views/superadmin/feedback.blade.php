@@ -208,6 +208,9 @@ function renderFeedbackAttachment() {
 function openFeedbackAttachment(gallery, index) {
   var box = document.getElementById('feedbackAttachmentLightbox');
   if (!box) return;
+  if (box.parentNode !== document.body) {
+    document.body.appendChild(box);
+  }
   feedbackAttachmentGallery = Array.isArray(gallery) ? gallery : [gallery];
   feedbackAttachmentIndex = Math.max(0, Math.min(parseInt(index || 0, 10), feedbackAttachmentGallery.length - 1));
   renderFeedbackAttachment();
