@@ -319,6 +319,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
 
     // Reviews
     Route::get('/reviews', [\App\Http\Controllers\Seller\ReviewController::class, 'index'])->name('reviews');
+    Route::get('/feedback', [\App\Http\Controllers\Seller\FeedbackController::class, 'create'])->name('feedback');
+    Route::post('/feedback', [\App\Http\Controllers\Seller\FeedbackController::class, 'store'])->name('feedback.store');
 });
 
 // ── Super Admin Routes ───────────────────────────────────────────────────────

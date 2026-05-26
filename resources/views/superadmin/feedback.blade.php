@@ -3,8 +3,8 @@
 @section('content')
 <div class="cs-page-header">
   <div>
-    <h4 class="cs-page-title"><i class="bi bi-chat-square-heart me-2" style="color:var(--primary)"></i>Customer Feedback</h4>
-    <p class="cs-page-sub">Review suggestions, tag what is done, and keep improvement requests organized.</p>
+    <h4 class="cs-page-title"><i class="bi bi-chat-square-heart me-2" style="color:var(--primary)"></i>Platform Feedback</h4>
+    <p class="cs-page-sub">Review customer, guest, and seller suggestions, then keep improvement requests organized.</p>
   </div>
 </div>
 
@@ -50,6 +50,14 @@
         <option value="experience" @selected($category === 'experience')>Experience</option>
         <option value="other" @selected($category === 'other')>Other</option>
       </select>
+      @if($hasSource ?? false)
+      <select class="form-select form-select-sm" style="width:145px" onchange="pgFilter('source', this.value)">
+        <option value="all" @selected($source === 'all')>All Sources</option>
+        <option value="customer" @selected($source === 'customer')>Customers</option>
+        <option value="guest" @selected($source === 'guest')>Guests</option>
+        <option value="seller" @selected($source === 'seller')>Sellers</option>
+      </select>
+      @endif
     </div>
   </div>
 
@@ -65,12 +73,16 @@
           'experience' => 'Experience',
           'other' => 'Other',
         ];
+        $sourceRole = $item->source_role ?? (!empty($item->user_id) ? 'customer' : 'guest');
+        $sourceLabels = ['customer' => 'Customer', 'guest' => 'Guest', 'seller' => 'Seller'];
+        $sourceClasses = ['customer' => 'text-bg-primary', 'guest' => 'text-bg-secondary', 'seller' => 'text-bg-info'];
       @endphp
       <div class="p-4" style="border-bottom:1.5px solid var(--gray-100)">
         <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-2">
           <div style="min-width:0">
             <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
               <h6 class="fw-bold mb-0">{{ $item->title }}</h6>
+              <span class="badge {{ $sourceClasses[$sourceRole] ?? 'text-bg-light' }}">{{ $sourceLabels[$sourceRole] ?? ucfirst($sourceRole) }}</span>
               <span class="badge text-bg-light">{{ $categoryLabels[$item->category] ?? ucfirst($item->category) }}</span>
               <span class="badge {{ $item->status === 'done' ? 'text-bg-success' : 'text-bg-warning' }}">
                 {{ $item->status === 'done' ? 'Done' : 'Not yet' }}

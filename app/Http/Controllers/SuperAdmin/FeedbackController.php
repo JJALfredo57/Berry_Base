@@ -6,6 +6,7 @@ use App\Helpers\CakeshopHelper;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class FeedbackController extends Controller
 {
@@ -14,6 +15,8 @@ class FeedbackController extends Controller
         $search = trim($request->input('search', ''));
         $status = $request->input('status', 'all');
         $category = $request->input('category', 'all');
+        $source = $request->input('source', 'all');
+        $hasSource = Schema::hasColumn('customer_feedback', 'source_role');
 
         $query = DB::table('customer_feedback as f')
             ->leftJoin('users as u', 'u.id', '=', 'f.user_id')
@@ -28,6 +31,7 @@ class FeedbackController extends Controller
             ))
             ->when(in_array($status, ['open', 'done'], true), fn($q) => $q->where('f.status', $status))
             ->when(in_array($category, ['suggestion', 'bug', 'experience', 'feature', 'other'], true), fn($q) => $q->where('f.category', $category))
+            ->when($hasSource && in_array($source, ['customer', 'guest', 'seller'], true), fn($q) => $q->where('f.source_role', $source))
             ->orderByRaw("CASE WHEN f.status = 'open' THEN 0 ELSE 1 END")
             ->orderByDesc('f.created_at');
 
@@ -39,7 +43,7 @@ class FeedbackController extends Controller
             'done'  => DB::table('customer_feedback')->where('status', 'done')->count(),
         ];
 
-        return view('superadmin.feedback', compact('feedback', 'stats', 'search', 'status', 'category'));
+        return view('superadmin.feedback', compact('feedback', 'stats', 'search', 'status', 'category', 'source', 'hasSource'));
     }
 
     public function update(Request $request, int $id)

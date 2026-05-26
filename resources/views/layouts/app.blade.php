@@ -1018,6 +1018,9 @@
     <a href="{{ route('seller.reviews') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.reviews') ? 'active' : '' }}">
       <i class="bi bi-star"></i><span class="sb-link-text">Reviews</span>
     </a>
+    <a href="{{ route('seller.feedback') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.feedback') ? 'active' : '' }}">
+      <i class="bi bi-chat-square-heart"></i><span class="sb-link-text">Platform Feedback</span>
+    </a>
     <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="sb-link" style="margin-top:4px;background:none;border:none;width:100%;text-align:left;padding:0;cursor:pointer">
       <i class="bi bi-box-arrow-right" style="color:#ef4444"></i>
       <span class="sb-link-text" style="color:#ef4444">Logout</span>

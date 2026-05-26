@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class FeedbackController extends Controller
 {
@@ -30,7 +31,7 @@ class FeedbackController extends Controller
             'message.max'      => 'Feedback can only be up to 1000 characters.',
         ]);
 
-        DB::table('customer_feedback')->insert([
+        $data = [
             'user_id'    => null,
             'name'       => trim($validated['name'] ?? '') ?: 'Guest Customer',
             'email'      => trim($validated['email'] ?? '') ?: null,
@@ -40,7 +41,10 @@ class FeedbackController extends Controller
             'status'     => 'open',
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('customer_feedback', 'source_role')) $data['source_role'] = 'guest';
+
+        DB::table('customer_feedback')->insert($data);
 
         DB::table('notifications')->insert([
             'receiver_role' => 'superadmin',
