@@ -23,6 +23,7 @@ use App\Http\Controllers\Guest\CheckoutController as GuestCheckout;
 use App\Http\Controllers\Guest\CustomOrderController as GuestCustomOrder;
 use App\Http\Controllers\Guest\MessageController as GuestMessage;
 use App\Http\Controllers\Guest\ReviewController as GuestReview;
+use App\Http\Controllers\Guest\FeedbackController as GuestFeedback;
 
 // ── Setup ─────────────────────────────────────────────────────────────────
 Route::get('/setup',         [SetupController::class, 'show'])->name('setup');
@@ -55,6 +56,8 @@ Route::get('/', function () {
 // ── Public Catalog (no login needed) ─────────────────────────────────────
 Route::get('/catalog',          [GuestCatalog::class, 'index'])->name('catalog');
 Route::post('/catalog/select',  [GuestCatalog::class, 'selectProduct'])->name('catalog.select');
+Route::get('/feedback',         [GuestFeedback::class, 'create'])->name('guest.feedback');
+Route::post('/feedback',        [GuestFeedback::class, 'store'])->name('guest.feedback.store');
 
 // ── Catalog Availability Check (AJAX) ────────────────────────────────────
 Route::get('/catalog/availability', [GuestCatalog::class, 'checkAvailability'])->name('catalog.availability');

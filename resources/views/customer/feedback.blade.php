@@ -1,14 +1,19 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+  $isPublicFeedback = $isPublicFeedback ?? false;
+  $feedbackStoreRoute = $isPublicFeedback ? route('guest.feedback.store') : route('customer.feedback.store');
+  $backRoute = $isPublicFeedback ? route('catalog') : route('customer.dashboard');
+@endphp
 <div class="container-fluid py-4">
   <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-4">
     <div>
       <h4 class="fw-bold mb-1"><i class="bi bi-chat-square-heart me-2" style="color:var(--primary)"></i>Feedback & Suggestions</h4>
       <p class="text-muted small mb-0">Tell us what works, what feels confusing, or what we should improve next.</p>
     </div>
-    <a href="{{ route('customer.dashboard') }}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left me-1"></i>Dashboard
+    <a href="{{ $backRoute }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>{{ $isPublicFeedback ? 'Catalog' : 'Dashboard' }}
     </a>
   </div>
 
@@ -17,14 +22,32 @@
   @endif
 
   <div class="row g-4">
-    <div class="col-lg-7">
+    <div class="{{ $isPublicFeedback ? 'col-lg-8 col-xl-7 mx-auto' : 'col-lg-7' }}">
       <div class="card">
         <div class="card-header">
           <i class="bi bi-pencil-square me-2" style="color:var(--primary)"></i>Send Feedback
         </div>
         <div class="card-body">
-          <form method="POST" action="{{ route('customer.feedback.store') }}">
+          <form method="POST" action="{{ $feedbackStoreRoute }}">
             @csrf
+            @if($isPublicFeedback)
+            <div class="row g-2 mb-3">
+              <div class="col-md-6">
+                <label class="form-label">Name <span class="text-muted fw-normal">(optional)</span></label>
+                <input type="text" name="name" maxlength="120" value="{{ old('name') }}"
+                       class="form-control @error('name') is-invalid @enderror"
+                       placeholder="Your name">
+                @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Email <span class="text-muted fw-normal">(optional)</span></label>
+                <input type="email" name="email" maxlength="150" value="{{ old('email') }}"
+                       class="form-control @error('email') is-invalid @enderror"
+                       placeholder="you@example.com">
+                @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
+              </div>
+            </div>
+            @endif
             <div class="mb-3">
               <label class="form-label">Type</label>
               <select name="category" class="form-select @error('category') is-invalid @enderror" required>
@@ -70,6 +93,7 @@
       </div>
     </div>
 
+    @if(!$isPublicFeedback)
     <div class="col-lg-5">
       <div class="card h-100">
         <div class="card-header">
@@ -99,6 +123,7 @@
         </div>
       </div>
     </div>
+    @endif
   </div>
 </div>
 @endsection

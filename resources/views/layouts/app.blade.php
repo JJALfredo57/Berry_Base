@@ -1299,6 +1299,9 @@
     <a href="{{ route('catalog') }}" class="csb-link {{ $currentRoute==='catalog' ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-shop"></i> Catalog
     </a>
+    <a href="{{ route('guest.feedback') }}" class="csb-link {{ $currentRoute==='guest.feedback' ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-chat-square-heart"></i> Feedback
+    </a>
     @endif
     <div class="csb-divider"></div>
     <div class="csb-section-label">Track</div>
