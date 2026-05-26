@@ -51,11 +51,14 @@
             <div class="mb-3">
               <label class="form-label">Type</label>
               <select name="category" class="form-select @error('category') is-invalid @enderror" required>
+                @if($isPublicFeedback)
+                  <option value="" @selected(old('category') === null || old('category') === '')>All Types</option>
+                @endif
                 @foreach([
                   'suggestion' => 'Suggestion',
                   'feature' => 'Feature Request',
                   'bug' => 'Bug / Problem',
-                  'experience' => 'Customer Experience',
+                  'experience' => $isPublicFeedback ? 'Experience' : 'Customer Experience',
                   'other' => 'Other',
                 ] as $value => $label)
                   <option value="{{ $value }}" @selected(old('category') === $value)>{{ $label }}</option>
