@@ -5,10 +5,16 @@
 .feedback-attachments{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem}
 .feedback-attachment-thumb{width:74px;height:74px;border-radius:10px;object-fit:cover;border:2px solid var(--gray-100);cursor:pointer;transition:transform .15s,box-shadow .15s}
 .feedback-attachment-thumb:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.12)}
-.feedback-lightbox{display:none;position:fixed;inset:0;z-index:9999;background:rgba(17,24,39,.86);align-items:center;justify-content:center;padding:24px}
+.feedback-lightbox{display:none;position:fixed;inset:0;z-index:9999;background:rgba(17,24,39,.92);align-items:center;justify-content:center;padding:62px 24px 34px}
 .feedback-lightbox.open{display:flex}
-.feedback-lightbox img{max-width:min(94vw,1100px);max-height:88vh;object-fit:contain;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.45);background:#fff}
-.feedback-lightbox button{position:absolute;top:18px;right:18px;width:40px;height:40px;border-radius:50%;border:0;background:#fff;color:#111827;display:flex;align-items:center;justify-content:center}
+.feedback-lightbox img{max-width:min(94vw,1180px);max-height:82vh;object-fit:contain;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.45);background:#fff}
+.feedback-lb-back{position:absolute;top:18px;left:18px;height:40px;border-radius:999px;border:0;background:#fff;color:#111827;display:flex;align-items:center;justify-content:center;gap:7px;padding:0 14px;font-weight:700}
+.feedback-lb-close{position:absolute;top:18px;right:18px;width:40px;height:40px;border-radius:50%;border:0;background:#fff;color:#111827;display:flex;align-items:center;justify-content:center}
+.feedback-lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:#fff;color:#111827;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.feedback-lb-nav.prev{left:18px}
+.feedback-lb-nav.next{right:18px}
+.feedback-lb-counter{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.92);color:#111827;border-radius:999px;padding:5px 12px;font-size:.8rem;font-weight:700}
+@media(max-width:640px){.feedback-lightbox{padding:72px 10px 42px}.feedback-lb-nav{top:auto;bottom:14px;transform:none}.feedback-lb-nav.prev{left:14px}.feedback-lb-nav.next{right:14px}.feedback-lb-counter{bottom:18px}}
 </style>
 <div class="cs-page-header">
   <div>
@@ -121,7 +127,8 @@
               <img src="{{ $attachment }}"
                    alt="Feedback attachment"
                    class="feedback-attachment-thumb"
-                   onclick="openFeedbackAttachment(@json($attachment))"
+                   data-feedback-gallery='@json($attachments)'
+                   data-feedback-index="{{ $loop->index }}"
                    onerror="this.style.display='none'">
             @endforeach
           </div>
@@ -170,29 +177,71 @@
 {{ $feedback->links('vendor.pagination.custom') }}
 
 <div id="feedbackAttachmentLightbox" class="feedback-lightbox" onclick="if(event.target===this)closeFeedbackAttachment()">
-  <button type="button" onclick="closeFeedbackAttachment()" aria-label="Close preview"><i class="bi bi-x-lg"></i></button>
+  <button type="button" class="feedback-lb-back" onclick="closeFeedbackAttachment()" aria-label="Back to feedback">
+    <i class="bi bi-arrow-left"></i>Back
+  </button>
+  <button type="button" class="feedback-lb-close" onclick="closeFeedbackAttachment()" aria-label="Close preview"><i class="bi bi-x-lg"></i></button>
+  <button type="button" class="feedback-lb-nav prev" onclick="moveFeedbackAttachment(-1)" aria-label="Previous image"><i class="bi bi-chevron-left"></i></button>
   <img id="feedbackAttachmentLightboxImg" src="" alt="Feedback attachment preview">
+  <button type="button" class="feedback-lb-nav next" onclick="moveFeedbackAttachment(1)" aria-label="Next image"><i class="bi bi-chevron-right"></i></button>
+  <div id="feedbackAttachmentCounter" class="feedback-lb-counter"></div>
 </div>
 
 <script>
-function openFeedbackAttachment(src) {
-  var box = document.getElementById('feedbackAttachmentLightbox');
+var feedbackAttachmentGallery = [];
+var feedbackAttachmentIndex = 0;
+
+function renderFeedbackAttachment() {
   var img = document.getElementById('feedbackAttachmentLightboxImg');
-  if (!box || !img) return;
-  img.src = src;
+  var counter = document.getElementById('feedbackAttachmentCounter');
+  var prev = document.querySelector('.feedback-lb-nav.prev');
+  var next = document.querySelector('.feedback-lb-nav.next');
+  if (!img || !counter) return;
+
+  var total = feedbackAttachmentGallery.length;
+  img.src = total ? feedbackAttachmentGallery[feedbackAttachmentIndex] : '';
+  counter.textContent = total ? (feedbackAttachmentIndex + 1) + ' / ' + total : '';
+  if (prev) prev.style.display = total > 1 ? 'flex' : 'none';
+  if (next) next.style.display = total > 1 ? 'flex' : 'none';
+}
+
+function openFeedbackAttachment(gallery, index) {
+  var box = document.getElementById('feedbackAttachmentLightbox');
+  if (!box) return;
+  feedbackAttachmentGallery = Array.isArray(gallery) ? gallery : [gallery];
+  feedbackAttachmentIndex = Math.max(0, Math.min(parseInt(index || 0, 10), feedbackAttachmentGallery.length - 1));
+  renderFeedbackAttachment();
   box.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
+
+function moveFeedbackAttachment(step) {
+  if (!feedbackAttachmentGallery.length) return;
+  feedbackAttachmentIndex = (feedbackAttachmentIndex + step + feedbackAttachmentGallery.length) % feedbackAttachmentGallery.length;
+  renderFeedbackAttachment();
+}
+
 function closeFeedbackAttachment() {
   var box = document.getElementById('feedbackAttachmentLightbox');
   var img = document.getElementById('feedbackAttachmentLightboxImg');
   if (!box || !img) return;
   box.classList.remove('open');
   img.src = '';
+  feedbackAttachmentGallery = [];
+  feedbackAttachmentIndex = 0;
   document.body.style.overflow = '';
 }
+document.addEventListener('click', function(e) {
+  var thumb = e.target.closest('.feedback-attachment-thumb');
+  if (!thumb) return;
+  var gallery = [];
+  try { gallery = JSON.parse(thumb.dataset.feedbackGallery || '[]'); } catch (err) { gallery = [thumb.src]; }
+  openFeedbackAttachment(gallery, thumb.dataset.feedbackIndex || 0);
+});
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeFeedbackAttachment();
+  if (e.key === 'ArrowLeft') moveFeedbackAttachment(-1);
+  if (e.key === 'ArrowRight') moveFeedbackAttachment(1);
 });
 </script>
 @endsection
