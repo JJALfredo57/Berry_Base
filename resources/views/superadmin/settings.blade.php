@@ -130,38 +130,44 @@
   <form action="{{ route('superadmin.settings.update') }}" method="POST" enctype="multipart/form-data" novalidate>
     @csrf
     <div class="row g-4">
-      <div class="col-lg-7">
+      <div class="col-12">
         <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);overflow:hidden">
-          <div style="padding:1.1rem 1.5rem;border-bottom:1.5px solid var(--gray-100)">
-            <span style="font-size:.95rem;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:.6rem">
-              <i class="bi bi-shop" style="color:var(--primary)"></i> Platform Branding
-            </span>
+          <div style="padding:1.1rem 1.5rem;border-bottom:1.5px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+            <div>
+              <span style="font-size:.95rem;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:.6rem">
+                <i class="bi bi-shop" style="color:var(--primary)"></i> Platform Branding
+              </span>
+              <div style="font-size:.78rem;color:var(--gray-500);margin-top:.2rem">Controls the public identity and admin dashboard appearance.</div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm" style="padding:.55rem 1rem;font-weight:600">
+              <i class="bi bi-save me-1"></i> Save Changes
+            </button>
           </div>
           <div style="padding:1.5rem">
             <div class="row g-3">
-              <div class="col-12">
+              <div class="col-lg-6">
                 <label class="form-label">Platform Name <span style="color:var(--danger)">*</span></label>
                 <input type="text" class="form-control" name="platform_name"
                        value="{{ $platform->platform_name ?? 'Cake Shop Platform' }}"
                        required minlength="3" maxlength="100">
               </div>
-              <div class="col-12">
+              <div class="col-lg-6">
                 <label class="form-label">Tagline <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
                 <input type="text" class="form-control" name="platform_tagline"
                        value="{{ $platform->platform_tagline ?? '' }}"
                        placeholder="e.g. Your local cake shop" maxlength="200">
               </div>
-              <div class="col-md-6">
+              <div class="col-lg-6">
                 <label class="form-label">Contact Email</label>
                 <input type="email" class="form-control" name="platform_email"
                        value="{{ $platform->platform_email ?? '' }}" placeholder="admin@platform.com">
               </div>
-              <div class="col-md-6">
+              <div class="col-lg-6">
                 <label class="form-label">Contact Phone</label>
                 <input type="text" class="form-control" name="platform_phone"
                        value="{{ $platform->platform_phone ?? '' }}" placeholder="+63 9XX XXX XXXX">
               </div>
-              <div class="col-md-6">
+              <div class="col-lg-6">
                 <label class="form-label">Platform Logo</label>
                 @if(!empty($platform->platform_logo))
                   <img src="{{ $platform->platform_logo }}" style="display:block;height:48px;margin-bottom:.5rem;border-radius:var(--radius-sm)">
@@ -169,7 +175,7 @@
                 <input type="file" class="form-control" name="platform_logo" accept=".jpg,.jpeg,.png" style="font-size:.8rem">
                 <div class="form-text">JPG or PNG. Max 3MB.</div>
               </div>
-              <div class="col-md-6">
+              <div class="col-lg-6">
                 <label class="form-label fw-semibold">Theme Color</label>
                 <div style="display:flex;align-items:center;gap:.75rem">
                   <input type="color" name="platform_primary_color" id="platformColorPicker"
@@ -237,21 +243,21 @@
                 {{-- Image --}}
                 <div id="pbg-image" style="display:{{ $curBgType==='image' ? 'block' : 'none' }};margin-bottom:.75rem">
                   @if(!empty($platform->platform_bg_image))
-                  <img src="{{ $platform->platform_bg_image }}" style="display:block;width:100%;max-width:340px;height:80px;object-fit:cover;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);margin-bottom:.5rem">
+                  <img src="{{ $platform->platform_bg_image }}" style="display:block;width:100%;height:110px;object-fit:cover;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);margin-bottom:.5rem">
                   @endif
-                  <input type="file" class="form-control" name="platform_bg_image" accept=".jpg,.jpeg,.png,.webp" style="font-size:.8rem;max-width:340px">
+                  <input type="file" class="form-control" name="platform_bg_image" accept=".jpg,.jpeg,.png,.webp" style="font-size:.8rem">
                   <div class="form-text">JPG, PNG or WebP · Max 5 MB. Leave blank to keep current image.</div>
                   <div style="margin-top:.65rem">
                     <label class="form-label fw-semibold" style="font-size:.8rem">Image Opacity: <span id="pbgOpacityVal">{{ number_format(($platform->platform_bg_opacity ?? 1.0) * 100) }}%</span></label>
                     <input type="range" name="platform_bg_opacity" min="0.1" max="1" step="0.05"
                            value="{{ $platform->platform_bg_opacity ?? 1.0 }}"
-                           style="width:100%;max-width:280px;accent-color:var(--primary)"
+                           style="width:100%;accent-color:var(--primary)"
                            oninput="document.getElementById('pbgOpacityVal').textContent=Math.round(this.value*100)+'%'">
                   </div>
                 </div>
 
                 {{-- Live Preview --}}
-                <div id="pbgPreview" style="height:52px;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);transition:background .2s;
+                <div id="pbgPreview" style="height:160px;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);transition:background .2s;
                   @if($curBgType==='gradient') background:linear-gradient(135deg,{{ $platform->platform_bg_gradient_start ?? '#fff7fb' }} 0%,{{ $platform->platform_bg_gradient_end ?? '#ffe3f1' }} 100%)
                   @elseif($curBgType==='image' && !empty($platform->platform_bg_image)) background:url('{{ $platform->platform_bg_image }}') center/cover no-repeat
                   @else background:{{ $platform->platform_bg_color ?? '#FFF8F8' }}
@@ -260,9 +266,11 @@
                 <div class="form-text mt-1">Live preview of the dashboard background.</div>
               </div>
             </div>
-            <button type="submit" class="btn btn-primary mt-4" style="padding:.65rem 2rem;font-weight:600">
-              <i class="bi bi-save me-1"></i> Save Platform Settings
-            </button>
+            <div style="display:flex;justify-content:flex-end;margin-top:1.5rem;padding-top:1rem;border-top:1.5px solid var(--gray-100)">
+              <button type="submit" class="btn btn-primary" style="padding:.65rem 2rem;font-weight:600">
+                <i class="bi bi-save me-1"></i> Save Platform Settings
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -271,7 +279,7 @@
 
   {{-- ── Developer Mode Card ──────────────────────────────────────── --}}
   <div class="row g-4 mt-0">
-    <div class="col-lg-7">
+    <div class="col-12">
       <div style="background:#fff;border-radius:var(--radius-lg);border:2px dashed rgba(245,158,11,0.45);overflow:hidden">
         <div style="padding:1rem 1.5rem;border-bottom:1px solid rgba(245,158,11,0.18);background:linear-gradient(90deg,#fffbeb,#fff)">
           <span style="font-size:.92rem;font-weight:700;color:#92400e;display:flex;align-items:center;gap:.6rem">
