@@ -3,6 +3,7 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\BackupService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,10 @@ use Illuminate\Support\Facades\Log;
 class PlatformSettingsController extends Controller
 {
     use UploadsFiles;
+    public function __construct(private BackupService $backups)
+    {
+    }
+
     public function index(Request $request)
     {
         $tab      = $request->input('tab', 'platform');
@@ -20,12 +25,7 @@ class PlatformSettingsController extends Controller
         $platform = DB::table('platform_settings')->first()
             ?? (object)['platform_name' => 'Cake Shop Platform'];
 
-        $files = [];
-        $backupsDir = storage_path('app/backups');
-        if (is_dir($backupsDir)) {
-            $files = array_filter(glob($backupsDir . '/*.sql') ?: [], 'is_file');
-            usort($files, fn($a, $b) => filemtime($b) - filemtime($a));
-        }
+        $files = $this->backups->listBackups();
 
         return view('superadmin.settings', compact('tab', 'platform', 'files'));
     }
@@ -153,84 +153,119 @@ class PlatformSettingsController extends Controller
     public function createBackup()
     {
         try {
-            $backupsDir = storage_path('app/backups');
-            if (!is_dir($backupsDir) && !mkdir($backupsDir, 0755, true) && !is_dir($backupsDir)) {
-                return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Backup folder could not be created.');
-            }
-
-            if (!is_writable($backupsDir)) {
-                return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Backup folder is not writable.');
-            }
-
-            $connection = config('database.default');
-            $database = config("database.connections.{$connection}.database") ?: $connection;
-            $content = CakeshopHelper::exportSql((string) $database);
-
-            if (trim($content) === '') {
-                return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Backup was not created because the database export was empty.');
-            }
-
-            $fname = 'berrybase_' . $connection . '_' . date('Y-m-d_H-i-s') . '.sql';
-            $path = $backupsDir . DIRECTORY_SEPARATOR . $fname;
-
-            if (file_put_contents($path, $content, LOCK_EX) === false) {
-                return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Failed to write backup file.');
-            }
+            $info = $this->backups->createDatabaseBackup('manual');
+            $this->backups->pruneOldBackups((int) DB::table('platform_settings')->value('backup_retention_count') ?: 14);
 
             $user = session('user') ?? ['id' => 'system', 'role' => 'superadmin'];
-            CakeshopHelper::logActivity($user['id'], $user['role'], 'Backup Database', $fname);
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Backup Database', $info['name']);
 
-            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', "Backup created successfully: {$fname}");
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', "Backup created successfully: {$info['name']}");
         } catch (\Throwable $e) {
             Log::error('Super admin backup failed: ' . $e->getMessage(), ['exception' => $e]);
-            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Backup failed. Please check the database connection and storage permissions.');
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Backup failed: ' . $e->getMessage());
+        }
+    }
+
+    public function createFullBackup()
+    {
+        try {
+            $info = $this->backups->createFullBackup('manual');
+            $this->backups->pruneOldBackups((int) DB::table('platform_settings')->value('backup_retention_count') ?: 14);
+
+            $user = session('user') ?? ['id' => 'system', 'role' => 'superadmin'];
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Full Backup', $info['name']);
+
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', "Full backup created successfully: {$info['name']}");
+        } catch (\Throwable $e) {
+            Log::error('Super admin full backup failed: ' . $e->getMessage(), ['exception' => $e]);
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Full backup failed: ' . $e->getMessage());
         }
     }
 
     public function restore(Request $request)
     {
-        $file       = preg_replace('/[^A-Za-z0-9._-]/', '', $request->input('file', ''));
-        $backupsDir = storage_path('app/backups');
-        $path       = $backupsDir . DIRECTORY_SEPARATOR . $file;
-        if (!$file || !is_file($path)) {
-            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Backup file not found.');
-        }
-
-        if (pathinfo($path, PATHINFO_EXTENSION) !== 'sql') {
-            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Only SQL backup files can be restored.');
-        }
-
         try {
-            $sql = file_get_contents($path);
-            if ($sql === false || trim($sql) === '') {
-                return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Backup file is empty or unreadable.');
-            }
-
-            DB::transaction(function () use ($sql) {
-                DB::unprepared($sql);
-            });
+            $result = $this->backups->restoreSqlBackup((string) $request->input('file', ''));
 
             $user = session('user') ?? ['id' => 'system', 'role' => 'superadmin'];
-            CakeshopHelper::logActivity($user['id'], $user['role'], 'Restore Database', $file);
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Restore Database', $result['restored']['name'] . ' | safety: ' . $result['safety']['name']);
 
-            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', "Database restored from: {$file}");
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', "Database restored from {$result['restored']['name']}. Safety backup created first: {$result['safety']['name']}");
         } catch (\Throwable $e) {
-            Log::error('Super admin restore failed: ' . $e->getMessage(), ['file' => $file, 'exception' => $e]);
-            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Restore failed. The backup file may be incompatible or incomplete.');
+            Log::error('Super admin restore failed: ' . $e->getMessage(), ['file' => $request->input('file'), 'exception' => $e]);
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Restore failed: ' . $e->getMessage());
         }
     }
 
     public function deleteBackup(Request $request)
     {
-        $file = preg_replace('/[^A-Za-z0-9._-]/', '', $request->input('file', ''));
-        $path = storage_path('app/backups') . DIRECTORY_SEPARATOR . $file;
-        if ($file && is_file($path)) {
-            if (!unlink($path)) {
-                return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Backup file could not be deleted.');
-            }
+        try {
+            $info = $this->backups->deleteBackup((string) $request->input('file', ''));
             $user = session('user') ?? ['id' => 'system', 'role' => 'superadmin'];
-            CakeshopHelper::logActivity($user['id'], $user['role'], 'Delete Backup', $file);
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Delete Backup', $info['name']);
+
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', 'Backup deleted.');
+        } catch (\Throwable $e) {
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Delete failed: ' . $e->getMessage());
         }
-        return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', 'Backup deleted.');
+    }
+
+    public function downloadBackup(Request $request)
+    {
+        try {
+            $path = $this->backups->resolveBackupPath((string) $request->input('file', ''));
+            $user = session('user') ?? ['id' => 'system', 'role' => 'superadmin'];
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Download Backup', basename($path));
+
+            return response()->download($path, basename($path));
+        } catch (\Throwable $e) {
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Download failed: ' . $e->getMessage());
+        }
+    }
+
+    public function uploadBackup(Request $request)
+    {
+        $request->validate([
+            'backup_file' => 'required|file|mimes:sql,txt|max:51200',
+        ]);
+
+        try {
+            $info = $this->backups->storeUploadedSql($request->file('backup_file'));
+            $user = session('user') ?? ['id' => 'system', 'role' => 'superadmin'];
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Upload Backup', $info['name']);
+
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', "Backup uploaded: {$info['name']}");
+        } catch (\Throwable $e) {
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Upload failed: ' . $e->getMessage());
+        }
+    }
+
+    public function saveBackupSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'backup_auto_enabled' => 'nullable|boolean',
+            'backup_frequency' => 'required|in:daily,weekly,monthly',
+            'backup_retention_count' => 'required|integer|min:1|max:100',
+            'backup_include_uploads' => 'nullable|boolean',
+        ]);
+
+        $updates = [
+            'backup_auto_enabled' => $request->boolean('backup_auto_enabled'),
+            'backup_frequency' => $validated['backup_frequency'],
+            'backup_retention_count' => (int) $validated['backup_retention_count'],
+            'backup_include_uploads' => $request->boolean('backup_include_uploads'),
+            'updated_at' => now(),
+        ];
+
+        $existing = DB::table('platform_settings')->first();
+        if ($existing) {
+            DB::table('platform_settings')->where('id', $existing->id)->update($updates);
+        } else {
+            $updates['platform_name'] = 'Cake Shop Platform';
+            $updates['created_at'] = now();
+            DB::table('platform_settings')->insert($updates);
+        }
+
+        return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', 'Backup automation settings saved.');
     }
 }

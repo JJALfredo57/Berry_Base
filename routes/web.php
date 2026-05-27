@@ -345,8 +345,12 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/platform-settings/unisms',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveUnisms'])->name('settings.unisms');
     Route::post('/platform-settings/dev-mode',  [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveDevMode'])->name('settings.dev_mode');
     Route::post('/platform-settings/backup',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'createBackup'])->name('settings.backup');
-    Route::get('/platform-settings/restore',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'restore'])->name('settings.restore');
-    Route::get('/platform-settings/delete-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'deleteBackup'])->name('settings.delete_backup');
+    Route::post('/platform-settings/full-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'createFullBackup'])->name('settings.full_backup');
+    Route::post('/platform-settings/upload-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'uploadBackup'])->name('settings.upload_backup');
+    Route::post('/platform-settings/backup-settings', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveBackupSettings'])->name('settings.backup_settings');
+    Route::get('/platform-settings/download-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'downloadBackup'])->name('settings.download_backup');
+    Route::post('/platform-settings/restore',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'restore'])->name('settings.restore');
+    Route::post('/platform-settings/delete-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'deleteBackup'])->name('settings.delete_backup');
 });
 
 Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function () {

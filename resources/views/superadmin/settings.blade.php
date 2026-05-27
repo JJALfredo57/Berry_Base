@@ -624,8 +624,17 @@
   {{-- ── BACKUP TAB ───────────────────────────────────────────────── --}}
   @elseif($tab === 'backup')
   @php
-    $totalBackupSize = array_sum(array_map(fn($f) => is_file($f) ? filesize($f) : 0, $files));
+    $totalBackupSize = array_sum(array_map(fn($f) => (int) ($f['size'] ?? 0), $files));
     $latestBackup = count($files) ? $files[0] : null;
+    $backupAutoOn = !empty($platform->backup_auto_enabled);
+    $backupFrequency = $platform->backup_frequency ?? 'daily';
+    $backupRetention = (int) ($platform->backup_retention_count ?? 14);
+    $backupIncludeUploads = !empty($platform->backup_include_uploads);
+    $lastRun = !empty($platform->backup_last_run_at) ? \Carbon\Carbon::parse($platform->backup_last_run_at) : null;
+    $lastBackupAgeHours = $latestBackup ? floor((time() - ($latestBackup['modified_at'] ?? time())) / 3600) : null;
+    $healthColor = !$latestBackup ? '#dc2626' : (($lastBackupAgeHours !== null && $lastBackupAgeHours > 48) ? '#d97706' : '#16a34a');
+    $healthText = !$latestBackup ? 'No backup yet' : (($lastBackupAgeHours !== null && $lastBackupAgeHours > 48) ? 'Backup is getting old' : 'Protected');
+    $fullBackupAvailable = class_exists(\ZipArchive::class);
   @endphp
 
   <div class="backup-console mb-4">
@@ -637,16 +646,30 @@
           <p class="text-muted small mb-0">Create a full SQL backup of the active database connection and store it securely in <code>storage/app/backups/</code>.</p>
         </div>
       </div>
-      <form action="{{ route('superadmin.settings.backup') }}" method="POST" class="mt-3" onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('.backup-btn-text').textContent='Creating Backup...';">
-        @csrf
-        <button type="submit" class="btn btn-primary">
-          <i class="bi bi-download me-1"></i><span class="backup-btn-text">Create Backup Now</span>
-        </button>
-      </form>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <form action="{{ route('superadmin.settings.backup') }}" method="POST" onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('.backup-btn-text').textContent='Creating Backup...';">
+          @csrf
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-database-down me-1"></i><span class="backup-btn-text">Database Backup</span>
+          </button>
+        </form>
+        <form action="{{ route('superadmin.settings.full_backup') }}" method="POST" onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('.backup-btn-text').textContent='Creating Full Backup...';">
+          @csrf
+          <button type="submit" class="btn btn-outline-primary" {{ $fullBackupAvailable ? '' : 'disabled' }}>
+            <i class="bi bi-archive me-1"></i><span class="backup-btn-text">Full Backup</span>
+          </button>
+        </form>
+      </div>
+      <div class="form-text mt-2">
+        Full backup includes the database plus uploaded files.
+        @unless($fullBackupAvailable)
+          Enable PHP ZipArchive on the server to use this.
+        @endunless
+      </div>
     </div>
 
     <div class="backup-panel backup-action">
-      <h6 class="fw-bold mb-2"><i class="bi bi-shield-check me-2" style="color:#16a34a"></i>Backup Status</h6>
+      <h6 class="fw-bold mb-2"><i class="bi bi-shield-check me-2" style="color:{{ $healthColor }}"></i>Backup Status</h6>
       <div class="backup-meta">
         <div class="backup-meta-box">
           <div class="text-muted small">Files</div>
@@ -659,7 +682,73 @@
       </div>
       <div class="text-muted small mt-3">
         Latest:
-        <strong>{{ $latestBackup ? date('M d, Y H:i', filemtime($latestBackup)) : 'No backup yet' }}</strong>
+        <strong>{{ $latestBackup ? date('M d, Y H:i', $latestBackup['modified_at']) : 'No backup yet' }}</strong>
+        <span class="badge ms-1" style="background:{{ $healthColor }};color:#fff">{{ $healthText }}</span>
+      </div>
+      <div class="text-muted small mt-2">
+        Automation:
+        <strong>{{ $backupAutoOn ? ucfirst($backupFrequency) : 'Off' }}</strong>
+        @if($lastRun)
+          &bull; Last run {{ $lastRun->format('M d, Y H:i') }}
+        @endif
+      </div>
+      @if(!empty($platform->backup_last_status))
+        <div class="small mt-2 {{ $platform->backup_last_status === 'success' ? 'text-success' : 'text-danger' }}">
+          <i class="bi {{ $platform->backup_last_status === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle' }} me-1"></i>{{ $platform->backup_last_message }}
+        </div>
+      @endif
+    </div>
+  </div>
+
+  <div class="backup-console mb-4">
+    <div class="backup-panel backup-action">
+      <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Automation Rules</h6>
+      <form action="{{ route('superadmin.settings.backup_settings') }}" method="POST">
+        @csrf
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Auto Backup</label>
+            <select name="backup_auto_enabled" class="form-select">
+              <option value="1" {{ $backupAutoOn ? 'selected' : '' }}>Enabled</option>
+              <option value="0" {{ !$backupAutoOn ? 'selected' : '' }}>Disabled</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Frequency</label>
+            <select name="backup_frequency" class="form-select">
+              @foreach(['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'] as $value => $label)
+                <option value="{{ $value }}" {{ $backupFrequency === $value ? 'selected' : '' }}>{{ $label }}</option>
+              @endforeach
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Keep Latest</label>
+            <input type="number" name="backup_retention_count" class="form-control" min="1" max="100" value="{{ $backupRetention }}">
+          </div>
+          <div class="col-12">
+            <label class="d-flex align-items-center gap-2 small fw-semibold">
+              <input type="checkbox" name="backup_include_uploads" value="1" {{ $backupIncludeUploads && $fullBackupAvailable ? 'checked' : '' }} {{ $fullBackupAvailable ? '' : 'disabled' }} style="accent-color:var(--primary)">
+              Include uploaded files in automated backups
+            </label>
+            @unless($fullBackupAvailable)
+              <div class="form-text">Unavailable until PHP ZipArchive is enabled.</div>
+            @endunless
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-save me-1"></i>Save Automation</button>
+      </form>
+    </div>
+
+    <div class="backup-panel backup-action">
+      <h6 class="fw-bold mb-3"><i class="bi bi-upload me-2" style="color:#2563eb"></i>Upload SQL Backup</h6>
+      <form action="{{ route('superadmin.settings.upload_backup') }}" method="POST" enctype="multipart/form-data">
+        @csrf
+        <input type="file" name="backup_file" class="form-control" accept=".sql" required>
+        <div class="form-text">Upload a trusted SQL backup, then restore it from the list below. Max 50 MB.</div>
+        <button type="submit" class="btn btn-outline-primary mt-3"><i class="bi bi-cloud-upload me-1"></i>Upload Backup</button>
+      </form>
+      <div class="alert alert-warning py-2 mt-3 mb-0 small">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>Restores automatically create a safety backup first.
       </div>
     </div>
   </div>
@@ -671,20 +760,31 @@
       @foreach($files as $f)
       <div class="backup-file-row">
         <div>
-          <div class="backup-file-name">{{ basename($f) }}</div>
-          <div class="backup-file-sub">{{ number_format(filesize($f)/1024, 1) }} KB &bull; {{ date('M d, Y H:i', filemtime($f)) }}</div>
+          <div class="backup-file-name">
+            {{ $f['name'] }}
+            <span class="badge ms-1 {{ $f['extension'] === 'sql' ? 'bg-success' : 'bg-secondary' }}">{{ strtoupper($f['extension']) }}</span>
+          </div>
+          <div class="backup-file-sub">{{ number_format(($f['size'] ?? 0)/1024, 1) }} KB &bull; {{ date('M d, Y H:i', $f['modified_at']) }}</div>
         </div>
         <div class="backup-actions">
-          <a href="{{ route('superadmin.settings.restore', ['file'=>basename($f)]) }}"
-             class="btn btn-outline-secondary btn-sm"
-             data-cs-confirm="Restore this backup? Current data will be overwritten." data-cs-title="Restore Backup" data-cs-icon="bi-arrow-counterclockwise" data-cs-ok="Restore">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+          <a href="{{ route('superadmin.settings.download_backup', ['file'=>$f['name']]) }}"
+             class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-download me-1"></i>Download
           </a>
-          <a href="{{ route('superadmin.settings.delete_backup', ['file'=>basename($f)]) }}"
-             class="btn btn-outline-danger btn-sm"
-             data-cs-confirm="Delete this backup file permanently?" data-cs-title="Delete Backup" data-cs-icon="bi-trash" data-cs-icon-bg="#fff1f2" data-cs-icon-color="#ef4444" data-cs-ok="Delete" data-cs-ok-color="#ef4444">
-            <i class="bi bi-trash me-1"></i>Delete
-          </a>
+          @if($f['is_restorable'])
+          <form action="{{ route('superadmin.settings.restore') }}" method="POST" class="d-inline"
+                data-cs-confirm="Restore this SQL backup? A safety backup will be created first, then current data will be overwritten." data-cs-title="Restore Backup" data-cs-icon="bi-arrow-counterclockwise" data-cs-ok="Restore">
+            @csrf
+            <input type="hidden" name="file" value="{{ $f['name'] }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+          </form>
+          @endif
+          <form action="{{ route('superadmin.settings.delete_backup') }}" method="POST" class="d-inline"
+                data-cs-confirm="Delete this backup file permanently?" data-cs-title="Delete Backup" data-cs-icon="bi-trash" data-cs-icon-bg="#fff1f2" data-cs-icon-color="#ef4444" data-cs-ok="Delete" data-cs-ok-color="#ef4444">
+            @csrf
+            <input type="hidden" name="file" value="{{ $f['name'] }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1"></i>Delete</button>
+          </form>
         </div>
       </div>
       @endforeach
