@@ -753,11 +753,27 @@
     </div>
   </div>
 
-  @if(count($files) > 0)
+  @php
+    $backupTotal = count($files);
+    $backupPerPage = 5;
+    $backupLastPage = max(1, (int) ceil($backupTotal / $backupPerPage));
+    $backupPage = min(max(1, (int) request()->input('backup_page', 1)), $backupLastPage);
+    $backupStartIndex = ($backupPage - 1) * $backupPerPage;
+    $backupPageFiles = array_slice($files, $backupStartIndex, $backupPerPage);
+    $backupShowingFrom = $backupTotal ? $backupStartIndex + 1 : 0;
+    $backupShowingTo = min($backupStartIndex + count($backupPageFiles), $backupTotal);
+    $backupPageUrl = fn($page) => route('superadmin.settings', ['tab' => 'backup', 'backup_page' => $page]);
+    $backupPageBtn = 'min-width:32px;height:32px;padding:0 6px;border:1.5px solid var(--gray-200);border-radius:7px;background:#fff;color:var(--gray-600);font-size:.82rem;display:flex;align-items:center;justify-content:center;text-decoration:none;transition:border-color .15s,color .15s';
+    $backupIconBtn = 'width:32px;height:32px;border:1.5px solid var(--gray-200);border-radius:7px;background:#fff;color:var(--gray-600);display:flex;align-items:center;justify-content:center;font-size:.8rem;text-decoration:none;transition:border-color .15s,color .15s';
+    $backupDisabledBtn = 'width:32px;height:32px;border:1.5px solid var(--gray-200);border-radius:7px;background:#fff;color:var(--gray-300);cursor:not-allowed;display:flex;align-items:center;justify-content:center;font-size:.8rem';
+    $backupActiveBtn = 'min-width:32px;height:32px;padding:0 6px;border:1.5px solid var(--primary);border-radius:7px;background:var(--primary);color:#fff;font-size:.82rem;font-weight:700;cursor:default;display:flex;align-items:center;justify-content:center';
+  @endphp
+
+  @if($backupTotal > 0)
   <div class="backup-panel">
     <div class="card-body p-4">
-      <h6 class="fw-bold mb-3">Existing Backups ({{ count($files) }})</h6>
-      @foreach($files as $f)
+      <h6 class="fw-bold mb-3">Existing Backups ({{ $backupTotal }})</h6>
+      @foreach($backupPageFiles as $f)
       <div class="backup-file-row">
         <div>
           <div class="backup-file-name">
@@ -788,6 +804,43 @@
         </div>
       </div>
       @endforeach
+
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-top:1.25rem;padding-top:1rem;border-top:1.5px solid var(--gray-100)">
+        <div style="font-size:.78rem;color:var(--gray-500)">
+          Showing
+          <strong style="color:var(--gray-700)">{{ $backupShowingFrom }}</strong>
+          -
+          <strong style="color:var(--gray-700)">{{ $backupShowingTo }}</strong>
+          of
+          <strong style="color:var(--gray-700)">{{ $backupTotal }}</strong>
+          results
+        </div>
+        <div style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+          @if($backupPage > 1)
+            <a href="{{ $backupPageUrl(1) }}" style="{{ $backupIconBtn }}" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--gray-200)';this.style.color='var(--gray-600)'"><i class="bi bi-chevron-double-left"></i></a>
+            <a href="{{ $backupPageUrl($backupPage - 1) }}" style="{{ $backupIconBtn }}" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--gray-200)';this.style.color='var(--gray-600)'"><i class="bi bi-chevron-left"></i></a>
+          @else
+            <button disabled style="{{ $backupDisabledBtn }}"><i class="bi bi-chevron-double-left"></i></button>
+            <button disabled style="{{ $backupDisabledBtn }}"><i class="bi bi-chevron-left"></i></button>
+          @endif
+
+          @for($p = 1; $p <= $backupLastPage; $p++)
+            @if($p === $backupPage)
+              <button disabled style="{{ $backupActiveBtn }}">{{ $p }}</button>
+            @else
+              <a href="{{ $backupPageUrl($p) }}" style="{{ $backupPageBtn }}" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--gray-200)';this.style.color='var(--gray-600)'">{{ $p }}</a>
+            @endif
+          @endfor
+
+          @if($backupPage < $backupLastPage)
+            <a href="{{ $backupPageUrl($backupPage + 1) }}" style="{{ $backupIconBtn }}" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--gray-200)';this.style.color='var(--gray-600)'"><i class="bi bi-chevron-right"></i></a>
+            <a href="{{ $backupPageUrl($backupLastPage) }}" style="{{ $backupIconBtn }}" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--gray-200)';this.style.color='var(--gray-600)'"><i class="bi bi-chevron-double-right"></i></a>
+          @else
+            <button disabled style="{{ $backupDisabledBtn }}"><i class="bi bi-chevron-right"></i></button>
+            <button disabled style="{{ $backupDisabledBtn }}"><i class="bi bi-chevron-double-right"></i></button>
+          @endif
+        </div>
+      </div>
     </div>
   </div>
   @else
