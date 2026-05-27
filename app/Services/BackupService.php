@@ -36,7 +36,18 @@ class BackupService
             return [];
         }
 
-        $files = array_filter(glob($dir . DIRECTORY_SEPARATOR . '*.{sql,zip}', GLOB_BRACE) ?: [], 'is_file');
+        try {
+            $files = array_filter(array_map(
+                fn ($file) => $file->getPathname(),
+                File::files($dir)
+            ), function (string $path): bool {
+                return is_file($path) && in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['sql', 'zip'], true);
+            });
+        } catch (\Throwable $e) {
+            Log::warning('Failed to list backup files: ' . $e->getMessage());
+            return [];
+        }
+
         usort($files, fn ($a, $b) => filemtime($b) <=> filemtime($a));
 
         return array_map(function (string $path): array {
