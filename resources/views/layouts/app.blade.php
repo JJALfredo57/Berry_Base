@@ -391,6 +391,35 @@
     @@keyframes csPendingPulse { 0%,100%{box-shadow:0 0 0 0 rgba(234,179,8,.35)} 50%{box-shadow:0 0 0 6px rgba(234,179,8,0)} }
     @@keyframes csIconBounce { 0%,100%{transform:scale(1)} 40%{transform:scale(1.18) rotate(-5deg)} 70%{transform:scale(.95)} }
     @@keyframes csPageIn    { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+    @@keyframes csBarGlow   { 0%,100%{opacity:.55} 50%{opacity:1} }
+    @@keyframes csSpin      { to{transform:rotate(360deg)} }
+
+    /* Smart global loading bar */
+    #csTopProgress {
+      position:fixed;top:0;left:0;right:0;height:3px;z-index:100000;
+      pointer-events:none;opacity:0;transform:translateY(-3px);
+      transition:opacity .18s ease,transform .18s ease;
+    }
+    #csTopProgress.cs-loading { opacity:1;transform:translateY(0); }
+    #csTopProgressBar {
+      height:100%;width:0;
+      background:linear-gradient(90deg,var(--primary-dark),var(--primary),var(--secondary),var(--primary));
+      background-size:180% 100%;
+      box-shadow:0 0 18px color-mix(in srgb,var(--primary) 55%,transparent);
+      transition:width .28s ease;
+      animation:csShimmer 1.1s linear infinite, csBarGlow 1.4s ease-in-out infinite;
+    }
+    #csTopProgress.cs-done #csTopProgressBar { width:100% !important; }
+    .cs-btn-loading {
+      pointer-events:none !important;
+      opacity:.78;
+    }
+    .cs-btn-loading .cs-btn-spinner {
+      width:.9rem;height:.9rem;border-radius:50%;
+      border:2px solid currentColor;border-right-color:transparent;
+      display:inline-block;vertical-align:-.12em;
+      animation:csSpin .7s linear infinite;
+    }
 
     /* ── Page entrance ── */
     .admin-page { animation: csPageIn .38s ease both; }
@@ -490,6 +519,42 @@
       background-size:200% 100%;
       animation:csShimmer 1.5s ease-in-out infinite;
       border-radius:var(--radius-md);
+    }
+    .cs-skeleton-line { height:.82rem; margin:.38rem 0; }
+    .cs-skeleton-title { height:1.1rem; width:65%; margin:.2rem 0 .75rem; }
+    .cs-skeleton-avatar { width:44px;height:44px;border-radius:50%;flex-shrink:0; }
+    .cs-skeleton-thumb { width:100%;aspect-ratio:4/3;border-radius:var(--radius-md); }
+    .cs-skeleton-card {
+      background:#fff;border:1.5px solid var(--gray-100);
+      border-radius:var(--radius-lg);padding:1rem;box-shadow:var(--shadow-sm);
+    }
+    .cs-img-loading {
+      opacity:.45;
+      filter:blur(8px) saturate(.9);
+      transform:scale(1.01);
+      transition:opacity .35s ease,filter .35s ease,transform .35s ease;
+      background:linear-gradient(90deg,var(--gray-100),var(--gray-50),var(--gray-100));
+      background-size:200% 100%;
+      animation:csShimmer 1.5s ease-in-out infinite;
+    }
+    .cs-img-loaded {
+      opacity:1;
+      filter:none;
+      transform:none;
+      animation:none;
+    }
+    @@media (prefers-reduced-motion: reduce) {
+      #csTopProgressBar,
+      .cs-btn-loading .cs-btn-spinner,
+      .cs-skeleton,
+      .cs-img-loading,
+      .status-Pending {
+        animation:none !important;
+      }
+      .admin-page,
+      .customer-wrap {
+        animation:none !important;
+      }
     }
 
     /* ── Sidebar enhancements ── */
@@ -862,6 +927,7 @@
   @stack('styles')
 </head>
 <body>
+<div id="csTopProgress" aria-hidden="true"><div id="csTopProgressBar"></div></div>
 
 {{-- ═══ Facebook/Messenger in-app browser – full modal warning ═══ --}}
 <div id="fbIabOverlay" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px;">
@@ -2036,6 +2102,122 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ── Toast ──
+// Smart loading feedback for navigation, fetch calls, forms, and images
+(function() {
+  var progress = document.getElementById('csTopProgress');
+  var bar = document.getElementById('csTopProgressBar');
+  var activeLoads = 0;
+  var hideTimer = null;
+  var pct = 0;
+
+  function setProgress(next) {
+    if (!bar) return;
+    pct = Math.max(pct, Math.min(next, 96));
+    bar.style.width = pct + '%';
+  }
+
+  window.csLoadingStart = function() {
+    if (!progress || !bar) return;
+    activeLoads += 1;
+    clearTimeout(hideTimer);
+    progress.classList.remove('cs-done');
+    progress.classList.add('cs-loading');
+    if (pct <= 0 || pct >= 100) {
+      pct = 8;
+      bar.style.width = pct + '%';
+    }
+    setProgress(pct + 14);
+  };
+
+  window.csLoadingDone = function(force) {
+    if (!progress || !bar) return;
+    activeLoads = force ? 0 : Math.max(0, activeLoads - 1);
+    if (activeLoads > 0) return;
+    progress.classList.add('cs-done');
+    bar.style.width = '100%';
+    hideTimer = setTimeout(function() {
+      progress.classList.remove('cs-loading', 'cs-done');
+      bar.style.width = '0';
+      pct = 0;
+    }, 320);
+  };
+
+  function shouldTrackLink(a, event) {
+    if (!a || !a.href || a.target === '_blank' || a.hasAttribute('download')) return false;
+    if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0)) return false;
+    if (a.dataset.csNoLoading === 'true') return false;
+    var url;
+    try { url = new URL(a.href, window.location.href); } catch(e) { return false; }
+    if (url.origin !== window.location.origin) return false;
+    if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) return false;
+    var href = a.getAttribute('href') || '';
+    if (href === '#' || href.indexOf('javascript:') === 0) return false;
+    return true;
+  }
+
+  document.addEventListener('click', function(event) {
+    var a = event.target.closest ? event.target.closest('a') : null;
+    if (shouldTrackLink(a, event)) window.csLoadingStart();
+  }, true);
+
+  document.addEventListener('submit', function(event) {
+    var form = event.target;
+    if (!form || form.dataset.csNoLoading === 'true') return;
+    if (form.hasAttribute('data-cs-confirm')) return;
+    setTimeout(function() {
+      if (event.defaultPrevented) return;
+      window.csLoadingStart();
+      var submitter = event.submitter || form.querySelector('button[type="submit"],input[type="submit"],button:not([type])');
+      window.csSetButtonLoading(submitter);
+    }, 0);
+  });
+
+  window.addEventListener('pageshow', function() { window.csLoadingDone(true); });
+  window.addEventListener('beforeunload', function() { window.csLoadingStart(); });
+
+  if (window.fetch) {
+    var nativeFetch = window.fetch.bind(window);
+    window.fetch = function() {
+      var started = false;
+      var timer = setTimeout(function() {
+        started = true;
+        window.csLoadingStart();
+      }, 140);
+      return nativeFetch.apply(null, arguments).finally(function() {
+        clearTimeout(timer);
+        if (started) window.csLoadingDone();
+      });
+    };
+  }
+
+  window.csSetButtonLoading = function(button, label) {
+    if (!button || button.dataset.csLoading === 'true' || button.disabled) return;
+    var tag = (button.tagName || '').toLowerCase();
+    if (tag !== 'button' && !(tag === 'input' && /submit|button/i.test(button.type || ''))) return;
+    button.dataset.csLoading = 'true';
+    button.dataset.csOriginalHtml = tag === 'input' ? button.value : button.innerHTML;
+    button.disabled = true;
+    button.classList.add('cs-btn-loading');
+    var text = label || button.getAttribute('data-loading-text') || 'Processing...';
+    if (tag === 'input') {
+      button.value = text;
+    } else {
+      button.innerHTML = '<span class="cs-btn-spinner me-2"></span><span>' + text + '</span>';
+    }
+  };
+
+  window.csResetButtonLoading = function(button) {
+    if (!button || button.dataset.csLoading !== 'true') return;
+    var tag = (button.tagName || '').toLowerCase();
+    button.disabled = false;
+    button.classList.remove('cs-btn-loading');
+    if (tag === 'input') button.value = button.dataset.csOriginalHtml || button.value;
+    else button.innerHTML = button.dataset.csOriginalHtml || button.innerHTML;
+    delete button.dataset.csLoading;
+    delete button.dataset.csOriginalHtml;
+  };
+})();
+
 function showToast(message,type='success',duration=3500) {
   const icons={success:'bi-check-circle-fill',error:'bi-exclamation-circle-fill',warning:'bi-exclamation-triangle-fill',info:'bi-info-circle-fill'};
   const c=document.getElementById('csToastContainer');
@@ -2163,6 +2345,18 @@ document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.admin-page img, .customer-wrap img').forEach(function(img) {
     if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
     if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
+    if (!img.complete) {
+      img.classList.add('cs-img-loading');
+      img.addEventListener('load', function() {
+        img.classList.remove('cs-img-loading');
+        img.classList.add('cs-img-loaded');
+      }, { once: true });
+      img.addEventListener('error', function() {
+        img.classList.remove('cs-img-loading');
+      }, { once: true });
+    } else {
+      img.classList.add('cs-img-loaded');
+    }
   });
 
   // Count-up on .cs-stat-num
