@@ -116,6 +116,19 @@
   $dtiDoc  = collect($docs)->firstWhere('document_type','dti')
           ?? collect($docs)->firstWhere('document_type','business_permit');
   $idDoc   = collect($docs)->firstWhere('document_type','valid_id');
+  $docExists = function ($path) {
+    if (!$path) return false;
+    if (preg_match('/^https?:\/\//i', $path)) return true;
+    $clean = ltrim(parse_url($path, PHP_URL_PATH) ?: $path, '/');
+    return file_exists(public_path($clean)) || file_exists(storage_path('app/public/' . preg_replace('/^storage\//', '', $clean)));
+  };
+  $missingDoc = function ($path, $label) {
+    $name = basename(parse_url($path ?: '', PHP_URL_PATH) ?: '');
+    return '<div style="display:flex;align-items:center;gap:.65rem;background:#fff7ed;border:1.5px dashed #fdba74;color:#9a3412;border-radius:var(--radius-md);padding:.7rem .8rem;max-width:280px">' .
+      '<i class="bi bi-file-earmark-x" style="font-size:1.15rem;flex-shrink:0"></i>' .
+      '<div style="min-width:0"><div style="font-size:.8rem;font-weight:800">' . e($label) . ' file missing</div>' .
+      '<div style="font-size:.72rem;color:#b45309;word-break:break-word">' . e($name ?: 'No file path saved') . '</div></div></div>';
+  };
   $statusColors = [
     'pending'   => ['bg'=>'#FFF3E0','color'=>'#E65100','label'=>'Pending Review'],
     'approved'  => ['bg'=>'#E8F5E9','color'=>'#2E7D32','label'=>'Approved'],
@@ -235,7 +248,9 @@
       @if($idDoc)
       <div class="col-md-4">
         <div style="font-size:.75rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Government ID</div>
-        @if(str_ends_with(strtolower($idDoc->file_path), '.pdf'))
+        @if(!$docExists($idDoc->file_path))
+          {!! $missingDoc($idDoc->file_path, 'Government ID') !!}
+        @elseif(str_ends_with(strtolower($idDoc->file_path), '.pdf'))
           <a href="{{ $idDoc->file_path }}" target="_blank"
              style="display:inline-flex;align-items:center;gap:.4rem;background:var(--gray-100);color:var(--gray-700);padding:.5rem .875rem;border-radius:var(--radius-md);font-size:.8rem;font-weight:600">
             <i class="bi bi-file-pdf" style="color:#C62828"></i> View PDF
@@ -243,7 +258,9 @@
         @else
           <img src="{{ $idDoc->file_path }}" alt="Valid ID"
                style="max-height:100px;border-radius:var(--radius-md);cursor:pointer;border:1.5px solid var(--gray-200)"
-               onclick="openDocViewer('{{ $idDoc->file_path }}','Government ID')">
+               onclick="openDocViewer('{{ $idDoc->file_path }}','Government ID')"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div style="display:none">{!! $missingDoc($idDoc->file_path, 'Government ID') !!}</div>
         @endif
       </div>
       @endif
@@ -268,7 +285,9 @@
         </div>
 
         @if($dtiDoc->file_path)
-          @if(str_ends_with(strtolower($dtiDoc->file_path), '.pdf'))
+          @if(!$docExists($dtiDoc->file_path))
+            {!! $missingDoc($dtiDoc->file_path, 'DTI / Business Permit') !!}
+          @elseif(str_ends_with(strtolower($dtiDoc->file_path), '.pdf'))
             <a href="{{ $dtiDoc->file_path }}" target="_blank"
                style="display:inline-flex;align-items:center;gap:.4rem;background:var(--gray-100);color:var(--gray-700);padding:.5rem .875rem;border-radius:var(--radius-md);font-size:.8rem;font-weight:600">
               <i class="bi bi-file-pdf" style="color:#C62828"></i> View PDF
@@ -276,7 +295,9 @@
           @else
             <img src="{{ $dtiDoc->file_path }}" alt="DTI"
                  style="max-height:100px;border-radius:var(--radius-md);cursor:pointer;border:1.5px solid var(--gray-200)"
-                 onclick="openDocViewer('{{ $dtiDoc->file_path }}','DTI Certificate')">
+                 onclick="openDocViewer('{{ $dtiDoc->file_path }}','DTI Certificate')"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div style="display:none">{!! $missingDoc($dtiDoc->file_path, 'DTI / Business Permit') !!}</div>
           @endif
         @endif
 
@@ -351,7 +372,9 @@
       @if($upgradeDoc)
       <div style="margin-bottom:1rem">
         <div style="font-size:.75rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Submitted Document</div>
-        @if(str_ends_with(strtolower($upgradeDoc->file_path), '.pdf'))
+        @if(!$docExists($upgradeDoc->file_path))
+          {!! $missingDoc($upgradeDoc->file_path, 'Upgrade document') !!}
+        @elseif(str_ends_with(strtolower($upgradeDoc->file_path), '.pdf'))
           <a href="{{ $upgradeDoc->file_path }}" target="_blank"
              style="display:inline-flex;align-items:center;gap:.4rem;background:#DBEAFE;color:#1D4ED8;padding:.5rem .875rem;border-radius:var(--radius-md);font-size:.8rem;font-weight:600">
             <i class="bi bi-file-pdf" style="color:#C62828"></i> View PDF Document
@@ -359,7 +382,9 @@
         @else
           <img src="{{ $upgradeDoc->file_path }}" alt="Business Permit"
                style="max-height:120px;border-radius:var(--radius-md);cursor:pointer;border:1.5px solid #BFDBFE"
-               onclick="openDocViewer('{{ $upgradeDoc->file_path }}','Business Permit / DTI Certificate')">
+               onclick="openDocViewer('{{ $upgradeDoc->file_path }}','Business Permit / DTI Certificate')"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div style="display:none">{!! $missingDoc($upgradeDoc->file_path, 'Upgrade document') !!}</div>
         @endif
       </div>
       @endif
