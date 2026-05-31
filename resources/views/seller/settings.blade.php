@@ -31,6 +31,27 @@
   font-size: .78rem; color: var(--gray-500); margin: .2rem 0 0;
 }
 .setting-card-body { padding: 1.5rem; }
+#spane-profile .setting-card,
+#spane-capacity .setting-card,
+#spane-appearance .setting-card,
+#spane-password .setting-card,
+#spane-delivery > .row,
+#spane-upgrade {
+  width: 100%;
+  max-width: none !important;
+}
+#spane-profile,
+#spane-capacity,
+#spane-delivery,
+#spane-appearance,
+#spane-password,
+#spane-upgrade {
+  width: 100%;
+}
+#spane-appearance input[name="shop_bg_image"],
+#spane-appearance input[type="range"] {
+  max-width: 100% !important;
+}
 .formula-box {
   background: #0f172a; border-radius: 10px; padding: 1.25rem 1.5rem;
   font-family: 'Courier New', monospace; color: #e2e8f0;
