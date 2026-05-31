@@ -42,8 +42,9 @@
       --shadow-md:0 4px 12px rgba(0,0,0,.08);
     }
     *, *::before, *::after { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body { font-family:'DM Sans',system-ui,sans-serif; background:var(--cream); color:var(--gray-900); margin:0; -webkit-font-smoothing:antialiased; }
+    html { scroll-behavior: smooth; width:100%; overflow-x:hidden; }
+    body { font-family:'DM Sans',system-ui,sans-serif; background:var(--cream); color:var(--gray-900); margin:0; -webkit-font-smoothing:antialiased; width:100%; overflow-x:hidden; }
+    img, svg, video, canvas { max-width:100%; height:auto; }
     a { text-decoration:none; color:inherit; }
 
     /* ── NAV ── */
@@ -151,6 +152,31 @@
       .nav-links { display:none; }
       .nav-mobile-menu { display:flex; }
       .section { padding:2.5rem 0; }
+    }
+    @media (max-width:575px) {
+      .platform-nav { padding:.65rem 0; }
+      .nav-brand { min-width:0; flex:1; font-size:clamp(1rem, 5vw, 1.2rem); }
+      .nav-brand i { flex-shrink:0; }
+      .platform-nav .container > div:first-child { gap:.6rem; }
+      .platform-nav .container > div:first-child > div:last-child { gap:.45rem !important; flex-shrink:0; }
+      .btn-nav-primary, .btn-nav-outline { padding:.45rem .7rem; font-size:.78rem; }
+      .nav-link-item { font-size:.82rem; }
+      .hero { padding:2.25rem 0 2rem; }
+      .hero-actions > a,
+      .btn-hero-primary,
+      .btn-hero-secondary { width:100%; justify-content:center; padding:.8rem 1rem; }
+      .hero-stats { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:.75rem; }
+      .hero-stat-num { font-size:1.35rem; }
+      .hero-stat-lbl { font-size:.72rem; }
+      .search-bar { padding:1rem; }
+      .product-img { height:160px; }
+      .shop-cover { height:120px; }
+    }
+    @media (max-width:380px) {
+      .hero-stats { grid-template-columns:1fr; }
+      .product-img { height:135px; }
+      .product-body { padding:.8rem; }
+      .btn-nav-primary { display:none; }
     }
     @media (min-width:769px) {
       .nav-mobile-menu { display:none; }

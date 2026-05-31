@@ -44,7 +44,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: {{ $chocPanel2 }}; }
+    html, body { width: 100%; height: 100%; min-width: 0; overflow: hidden; background: {{ $chocPanel2 }}; }
 
     /* ─── CSS Variables ─────────────────────────────────────────── */
     :root {
@@ -732,6 +732,16 @@
       .btn-row     { flex-direction:column; align-items:flex-start; }
       .center-badge{ display:none; }
     }
+    @media (max-height: 430px) and (orientation: landscape) {
+      #mobile-warning, #mobile-splash { overflow-y:auto; }
+      .mw-card { max-height:calc(100dvh - 24px); overflow-y:auto; padding:20px 18px; }
+      .ms-logo-section { padding:18px 0 12px; }
+      .ms-logo-stage { width:118px; height:118px; }
+      .ms-content { padding:0 22px 24px; }
+      .ms-features { margin-bottom:16px; }
+      .left-panel { padding:22px 28px; }
+      .right-panel { flex-basis:100%; }
+    }
     @media (min-width:701px) and (max-width:1024px) {
       .left-panel  { width:56%; }
       .right-panel { width:44%; }
@@ -932,8 +942,8 @@
 (function () {
   var AUTO_MS = 14000;
 
-  var isMobile = window.innerWidth <= 1024 ||
-    /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent);
+  var isMobile = window.innerWidth <= 700 ||
+    (window.innerWidth <= 767 && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent));
 
   function goToCatalog() {
     window.location.href = '{{ route("catalog") }}';

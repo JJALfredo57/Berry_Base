@@ -658,14 +658,68 @@
     ═══════════════════════════════════════ */
 
     /* Prevent horizontal scroll on all screens */
-    body { overflow-x:hidden; max-width:100vw; }
+    html, body { width:100%; max-width:100%; overflow-x:hidden; }
+    body { min-width:0; }
+    #adminMain, #sellerMain, .admin-page, .customer-wrap, main, section, .card, .modal-content {
+      min-width:0;
+      max-width:100%;
+    }
 
     /* Make all images and videos responsive by default */
-    img, video, iframe { max-width:100%; height:auto; }
+    img, picture, video, canvas, svg, iframe { max-width:100%; height:auto; }
+    iframe { display:block; border:0; }
+    img { object-fit:contain; }
 
     /* Table horizontal scroll wrapper */
-    .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-    .table-wrap .table { min-width:500px; }
+    .table-wrap,
+    .table-responsive,
+    .cs-responsive-table {
+      width:100%;
+      max-width:100%;
+      overflow-x:auto;
+      overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:thin;
+    }
+    .table-wrap .table,
+    .table-responsive .table,
+    .cs-responsive-table .table {
+      min-width:min(620px, max-content);
+      margin-bottom:0;
+    }
+    .table th,
+    .table td {
+      max-width:min(48vw, 320px);
+      overflow-wrap:anywhere;
+    }
+
+    /* Common overflow guards for dynamic content */
+    :where(.admin-page,.customer-wrap) :where(.row, [class*="col-"], .d-flex, .input-group, .btn-group, form, fieldset) {
+      min-width:0;
+    }
+    :where(.admin-page,.customer-wrap) :where(p, li, td, th, span, div, a, label, small) {
+      overflow-wrap:anywhere;
+    }
+    :where(.admin-page,.customer-wrap) :where(pre, code, .text-monospace) {
+      max-width:100%;
+      overflow-x:auto;
+      white-space:pre-wrap;
+    }
+    :where(.admin-page,.customer-wrap) [style*="min-width"] {
+      max-width:100%;
+    }
+    :where(.admin-page,.customer-wrap) [style*="width:"] {
+      max-width:100%;
+    }
+    .dropdown-menu {
+      max-width:calc(100vw - 1rem);
+      overflow-wrap:anywhere;
+    }
+    .list-group-item,
+    .alert {
+      min-width:0;
+      overflow-wrap:anywhere;
+    }
 
     /* Flex filter/search bars: wrap on small screens */
     .cs-filter-bar {
@@ -678,7 +732,10 @@
 
     @@media(max-width:575px) {
       /* Inputs & selects: never force a min-width that causes overflow */
-      .form-control, .form-select { min-width:0 !important; }
+      .form-control, .form-select, textarea, input, select {
+        min-width:0 !important;
+        max-width:100% !important;
+      }
 
       /* Cards: reduce padding on tiny screens */
       .card-body { padding:.875rem !important; }
@@ -694,6 +751,13 @@
 
       /* Buttons in button groups: wrap */
       .btn-group-wrap { display:flex; flex-wrap:wrap; gap:.4rem; }
+      .btn-toolbar, .btn-group {
+        flex-wrap:wrap;
+        max-width:100%;
+      }
+      .btn-group > .btn {
+        flex:0 1 auto;
+      }
 
       /* Dialog box: full-width on small phones */
       #csDlgBox { padding:1.25rem !important; border-radius:1rem !important; }
@@ -718,6 +782,18 @@
       /* Stack flex rows on mobile */
       .mobile-stack { flex-direction:column !important; align-items:stretch !important; }
       .mobile-stack > * { width:100% !important; min-width:0 !important; max-width:100% !important; }
+      :where(.admin-page,.customer-wrap) > .d-flex,
+      :where(.admin-page,.customer-wrap) .card-header.d-flex,
+      :where(.admin-page,.customer-wrap) .card-body > .d-flex,
+      :where(.admin-page,.customer-wrap) form.d-flex {
+        flex-wrap:wrap !important;
+      }
+      :where(.admin-page,.customer-wrap) .justify-content-between {
+        gap:.65rem;
+      }
+      :where(.admin-page,.customer-wrap) .ms-auto {
+        margin-left:0 !important;
+      }
 
       /* Full-width selects and inputs in forms on mobile */
       select.form-select, input.form-control { width:100%; }
@@ -726,6 +802,22 @@
       .filter-row { flex-wrap:wrap !important; }
       .filter-row .form-control,
       .filter-row .form-select { min-width:0 !important; flex:1 1 140px !important; }
+      .cs-filter-pill {
+        flex:1 1 auto;
+        justify-content:center;
+        min-height:38px;
+      }
+      .table th,
+      .table td {
+        max-width:72vw;
+        padding:.65rem .75rem;
+      }
+      .cs-responsive-table {
+        margin-left:-.25rem;
+        margin-right:-.25rem;
+        width:calc(100% + .5rem);
+        max-width:calc(100% + .5rem);
+      }
     }
 
     @@media(max-width:399px) {
@@ -734,6 +826,7 @@
       .card { border-radius:var(--radius-md) !important; }
       .modal-dialog { margin:.25rem !important; max-width:calc(100vw - .5rem) !important; }
       .btn { font-size:.78rem !important; padding:.3rem .65rem !important; }
+      .cs-filter-pill { width:100%; }
       .btn-sm { font-size:.72rem !important; padding:.22rem .5rem !important; }
     }
   </style>
@@ -2009,6 +2102,19 @@ function csCountUp(el, target, duration) {
 
 // ── Intersection observer: trigger stagger + count-up on first view ──
 document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('table.table').forEach(function(table) {
+    if (table.closest('.table-responsive, .table-wrap, .cs-responsive-table')) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'cs-responsive-table';
+    table.parentNode.insertBefore(wrap, table);
+    wrap.appendChild(table);
+  });
+
+  document.querySelectorAll('.admin-page img, .customer-wrap img').forEach(function(img) {
+    if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
+    if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
+  });
+
   // Count-up on .cs-stat-num
   const iObs = new IntersectionObserver(entries => {
     entries.forEach(entry => {
@@ -2053,8 +2159,9 @@ document.addEventListener('DOMContentLoaded', function() {
   position:fixed;
   bottom:104px;
   right:24px;
-  width:320px;
-  height:420px;
+  width:min(320px, calc(100vw - 24px));
+  height:min(420px, calc(100vh - 140px));
+  max-height:calc(100dvh - 140px);
   background:white;
   border-radius:16px;
   box-shadow:0 8px 40px rgba(0,0,0,.18);
@@ -2065,6 +2172,27 @@ document.addEventListener('DOMContentLoaded', function() {
   animation: chatPopIn .3s cubic-bezier(.34,1.56,.64,1);
 }
 #miniChat.closing { animation: chatPopOut .25s ease forwards; }
+
+@@media(max-width:575px) {
+  #miniChat {
+    right:12px;
+    bottom:82px;
+    width:calc(100vw - 24px);
+    height:min(420px, calc(100dvh - 104px));
+    border-radius:14px;
+  }
+}
+
+@@media(max-height:430px) and (orientation:landscape) {
+  #miniChat {
+    top:10px;
+    bottom:10px;
+    right:10px;
+    height:auto;
+    max-height:none;
+    width:min(360px, calc(100vw - 20px));
+  }
+}
 
 #miniChatHeader {
   background:linear-gradient(135deg,#e91e63,#c2185b);
@@ -2770,6 +2898,36 @@ function formatMcTime(dateStr) {
   background:white;
   clip-path:polygon(0 0,100% 0,100% 100%);
   border-radius:0 0 3px 0;
+}
+
+@@media(max-width:575px) {
+  #cakeMsgBubble,
+  #cakeMsgPing1,
+  #cakeMsgPing2 {
+    width:56px;
+    height:56px;
+    right:16px;
+    bottom:16px;
+  }
+  #cakeMsgTooltip {
+    right:84px;
+    bottom:30px;
+    max-width:calc(100vw - 112px);
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+}
+
+@@media(max-height:430px) and (orientation:landscape) {
+  #cakeMsgBubble,
+  #cakeMsgPing1,
+  #cakeMsgPing2 {
+    right:14px;
+    bottom:14px;
+    width:52px;
+    height:52px;
+  }
+  #cakeMsgTooltip { display:none !important; }
 }
 </style>
 

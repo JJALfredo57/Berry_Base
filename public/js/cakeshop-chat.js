@@ -18,8 +18,8 @@
 
     var div = document.createElement('div');
     div.id = 'miniChat';
-    div.style.cssText = 'display:none;position:fixed;bottom:100px;right:24px;width:320px;' +
-      'max-height:480px;background:#fff;border-radius:1.2rem;box-shadow:0 8px 40px rgba(0,0,0,.18);' +
+    div.style.cssText = 'display:none;position:fixed;bottom:100px;right:24px;width:min(320px, calc(100vw - 24px));' +
+      'height:min(420px, calc(100dvh - 132px));max-height:480px;background:#fff;border-radius:1.2rem;box-shadow:0 8px 40px rgba(0,0,0,.18);' +
       'z-index:9990;flex-direction:column;overflow:hidden;';
     div.innerHTML =
       '<div id="mcHeader" style="padding:12px 16px;background:var(--primary);color:#fff;display:flex;align-items:center;gap:8px">' +
@@ -27,9 +27,9 @@
         '<span id="mcTitle" style="flex:1;font-weight:700;font-size:.9rem">Messages</span>' +
         '<button onclick="closeMiniChat()" style="background:none;border:none;color:#fff;cursor:pointer;font-size:1rem"><i class="bi bi-x-lg"></i></button>' +
       '</div>' +
-      '<div id="mcList" style="flex:1;overflow-y:auto;max-height:300px;padding:8px 0"></div>' +
+      '<div id="mcList" style="flex:1;overflow-y:auto;min-height:0;padding:8px 0"></div>' +
       '<div id="mcThread" style="display:none;flex-direction:column;flex:1;overflow:hidden">' +
-        '<div id="mcMsgs" style="flex:1;overflow-y:auto;max-height:250px;padding:8px 12px;display:flex;flex-direction:column;gap:6px"></div>' +
+        '<div id="mcMsgs" style="flex:1;overflow-y:auto;min-height:0;padding:8px 12px;display:flex;flex-direction:column;gap:6px"></div>' +
         '<div style="padding:8px;border-top:1px solid #f3f4f6;display:flex;gap:6px">' +
           '<input id="mcInput" type="text" placeholder="Type a message..." style="flex:1;border:1px solid #e5e7eb;border-radius:.5rem;padding:6px 10px;font-size:.82rem">' +
           '<button onclick="mcSend()" style="background:var(--primary);border:none;color:#fff;border-radius:.5rem;padding:6px 12px;cursor:pointer"><i class="bi bi-send"></i></button>' +
@@ -50,7 +50,7 @@
     var btn = document.createElement('button');
     btn.id = 'mcBubbleBtn';
     btn.title = 'Messages';
-    btn.style.cssText = 'position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;' +
+    btn.style.cssText = 'position:fixed;bottom:clamp(14px, 4vw, 24px);right:clamp(14px, 4vw, 24px);width:56px;height:56px;border-radius:50%;' +
       'background:var(--primary);border:none;color:#fff;font-size:1.4rem;cursor:pointer;z-index:9989;' +
       'box-shadow:0 4px 20px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;';
     btn.innerHTML = '<i class="bi bi-chat-dots-fill"></i>';

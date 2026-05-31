@@ -47,8 +47,10 @@ Route::get('/shop/{slug?}',   [\App\Http\Controllers\PlatformController::class, 
 
 Route::get('/', function () {
     // If no admin exists yet, go to setup wizard
-    if (!\Illuminate\Support\Facades\DB::table('users')->whereIn('role',['admin','superadmin'])->exists())
+    if (!\Illuminate\Support\Facades\Schema::hasTable('users')
+        || !\Illuminate\Support\Facades\DB::table('users')->whereIn('role',['admin','superadmin'])->exists()) {
         return redirect()->route('setup');
+    }
     // Show the welcome/splash page
     return view('welcome');
 })->name('platform.home');
