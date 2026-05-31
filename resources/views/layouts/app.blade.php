@@ -528,6 +528,82 @@
       background:#fff;border:1.5px solid var(--gray-100);
       border-radius:var(--radius-lg);padding:1rem;box-shadow:var(--shadow-sm);
     }
+    .cs-loading-surface {
+      position:relative;
+      min-height:92px;
+    }
+    .cs-loading-surface::after {
+      content:'';
+      position:absolute;
+      inset:0;
+      z-index:24;
+      border-radius:inherit;
+      pointer-events:none;
+      background:linear-gradient(180deg,rgba(255,255,255,.74),rgba(255,255,255,.9));
+      backdrop-filter:blur(2px);
+      -webkit-backdrop-filter:blur(2px);
+      opacity:0;
+      transition:opacity .16s ease;
+    }
+    .cs-loading-surface.cs-surface-loading::after { opacity:1; }
+    .cs-loading-panel {
+      position:absolute;
+      z-index:25;
+      left:50%;
+      top:50%;
+      width:min(420px,calc(100% - 28px));
+      transform:translate(-50%,-50%) scale(.98);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .16s ease,transform .16s ease;
+    }
+    .cs-surface-loading > .cs-loading-panel {
+      opacity:1;
+      transform:translate(-50%,-50%) scale(1);
+    }
+    .cs-loading-panel-inner {
+      background:rgba(255,255,255,.96);
+      border:1.5px solid var(--gray-100);
+      border-radius:var(--radius-lg);
+      box-shadow:0 20px 50px rgba(15,23,42,.14);
+      padding:1rem;
+    }
+    .cs-loading-head {
+      display:flex;
+      align-items:center;
+      gap:.75rem;
+      margin-bottom:.8rem;
+    }
+    .cs-loading-orbit {
+      width:34px;
+      height:34px;
+      border-radius:50%;
+      border:3px solid color-mix(in srgb,var(--primary) 22%,#fff);
+      border-top-color:var(--primary);
+      box-shadow:0 0 0 5px color-mix(in srgb,var(--primary) 8%,transparent);
+      animation:csSpin .75s linear infinite;
+      flex-shrink:0;
+    }
+    .cs-loading-title {
+      font-size:.86rem;
+      font-weight:800;
+      color:var(--gray-800);
+      line-height:1.2;
+    }
+    .cs-loading-sub {
+      font-size:.74rem;
+      color:var(--gray-500);
+      margin-top:.12rem;
+    }
+    .cs-loading-lines {
+      display:grid;
+      gap:.45rem;
+    }
+    .cs-loading-lines .cs-skeleton-line { margin:0; }
+    .cs-page-busy .admin-page,
+    .cs-page-busy .customer-wrap {
+      cursor:progress;
+    }
     .cs-img-loading {
       opacity:.45;
       filter:blur(8px) saturate(.9);
@@ -547,6 +623,7 @@
       #csTopProgressBar,
       .cs-btn-loading .cs-btn-spinner,
       .cs-skeleton,
+      .cs-loading-orbit,
       .cs-img-loading,
       .status-Pending {
         animation:none !important;
@@ -2043,10 +2120,25 @@ document.addEventListener('click', function(e) {
     onConfirm: function() {
       el.removeAttribute('data-cs-confirm');
       if (el.tagName==='A' && el.href && el.href!==window.location.href+'#') {
+        if (typeof window.csLoadingStart === 'function') window.csLoadingStart();
+        if (typeof window.csBeginSmartLoading === 'function') {
+          window.csBeginSmartLoading(document.querySelector('.admin-page') || document.querySelector('.customer-wrap'), {
+            title:'Opening page',
+            sub:'Getting the next screen ready...'
+          }, 120);
+        }
         el.target==='_blank' ? window.open(el.href) : (window.location.href=el.href);
       } else if (el.tagName==='FORM') {
+        if (typeof window.csLoadingStart === 'function') window.csLoadingStart();
+        if (typeof window.csBeginSmartLoading === 'function') {
+          window.csBeginSmartLoading(el.closest('.card,.admin-page,.customer-wrap') || document.querySelector('.admin-page') || document.querySelector('.customer-wrap'), {
+            title:'Saving changes',
+            sub:'Please wait while we process this request...'
+          }, 120);
+        }
         el.submit();
       } else {
+        if (typeof window.csSetButtonLoading === 'function') window.csSetButtonLoading(el);
         el.click();
         setTimeout(function(){ el.setAttribute('data-cs-confirm',msg); }, 200);
       }
@@ -2068,7 +2160,19 @@ document.addEventListener('submit', function(e) {
     iconColor: 'var(--primary)',
     okLabel: form.getAttribute('data-cs-ok')     || 'Confirm',
     okColor: 'var(--primary)',
-    onConfirm: function() { form.removeAttribute('data-cs-confirm'); form.submit(); }
+    onConfirm: function() {
+      form.removeAttribute('data-cs-confirm');
+      if (typeof window.csLoadingStart === 'function') window.csLoadingStart();
+      if (typeof window.csBeginSmartLoading === 'function') {
+        window.csBeginSmartLoading(form.closest('.card,.admin-page,.customer-wrap') || document.querySelector('.admin-page') || document.querySelector('.customer-wrap'), {
+          title:'Saving changes',
+          sub:'Please wait while we process this request...'
+        }, 120);
+      }
+      var submitter = form.querySelector('button[type="submit"],input[type="submit"],button:not([type])');
+      if (typeof window.csSetButtonLoading === 'function') window.csSetButtonLoading(submitter);
+      form.submit();
+    }
   });
 }, true);
 
@@ -2109,6 +2213,91 @@ document.addEventListener('DOMContentLoaded', function() {
   var activeLoads = 0;
   var hideTimer = null;
   var pct = 0;
+  var surfaceTimer = null;
+  var activeSurface = null;
+
+  function pageSurface() {
+    return document.querySelector('.admin-page') || document.querySelector('.customer-wrap') || document.querySelector('main') || document.body;
+  }
+
+  function loadingMarkup(title, sub) {
+    return '' +
+      '<div class="cs-loading-panel" aria-hidden="true">' +
+        '<div class="cs-loading-panel-inner">' +
+          '<div class="cs-loading-head">' +
+            '<span class="cs-loading-orbit"></span>' +
+            '<div><div class="cs-loading-title">' + title + '</div><div class="cs-loading-sub">' + sub + '</div></div>' +
+          '</div>' +
+          '<div class="cs-loading-lines">' +
+            '<div class="cs-skeleton cs-skeleton-line" style="width:88%"></div>' +
+            '<div class="cs-skeleton cs-skeleton-line" style="width:68%"></div>' +
+            '<div class="cs-skeleton cs-skeleton-line" style="width:78%"></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function ensurePanel(surface) {
+    if (!surface || surface === document.body) return null;
+    if (!surface.classList.contains('cs-loading-surface')) surface.classList.add('cs-loading-surface');
+    var panel = surface.querySelector(':scope > .cs-loading-panel');
+    if (!panel) {
+      var wrap = document.createElement('div');
+      wrap.innerHTML = loadingMarkup('Loading content', 'Preparing a smooth view...');
+      panel = wrap.firstElementChild;
+      surface.appendChild(panel);
+    }
+    return panel;
+  }
+
+  window.csShowSmartLoading = function(surface, opts) {
+    opts = opts || {};
+    surface = surface || pageSurface();
+    if (!surface || surface === document.body) return;
+    clearTimeout(surfaceTimer);
+    activeSurface = surface;
+    var panel = ensurePanel(surface);
+    if (panel) {
+      var title = panel.querySelector('.cs-loading-title');
+      var sub = panel.querySelector('.cs-loading-sub');
+      if (title) title.textContent = opts.title || 'Loading content';
+      if (sub) sub.textContent = opts.sub || 'Preparing a smooth view...';
+    }
+    document.body.classList.add('cs-page-busy');
+    surface.classList.add('cs-surface-loading');
+  };
+
+  window.csHideSmartLoading = function() {
+    clearTimeout(surfaceTimer);
+    if (activeSurface) activeSurface.classList.remove('cs-surface-loading');
+    document.body.classList.remove('cs-page-busy');
+    activeSurface = null;
+  };
+
+  window.csBeginSmartLoading = function(surface, opts, delay) {
+    clearTimeout(surfaceTimer);
+    surfaceTimer = setTimeout(function() {
+      window.csShowSmartLoading(surface, opts);
+    }, typeof delay === 'number' ? delay : 120);
+  };
+
+  window.csRenderSkeleton = function(target, type, count) {
+    var el = typeof target === 'string' ? document.querySelector(target) : target;
+    if (!el) return;
+    type = type || 'list';
+    count = Math.max(1, Math.min(parseInt(count || 3, 10), 8));
+    var html = '';
+    for (var i = 0; i < count; i++) {
+      if (type === 'card') {
+        html += '<div class="cs-skeleton-card mb-3"><div class="cs-skeleton cs-skeleton-thumb mb-3"></div><div class="cs-skeleton cs-skeleton-title"></div><div class="cs-skeleton cs-skeleton-line" style="width:92%"></div><div class="cs-skeleton cs-skeleton-line" style="width:64%"></div></div>';
+      } else if (type === 'table') {
+        html += '<tr><td colspan="12"><div class="cs-skeleton cs-skeleton-line" style="width:96%"></div><div class="cs-skeleton cs-skeleton-line" style="width:72%"></div></td></tr>';
+      } else {
+        html += '<div class="d-flex align-items-center gap-3 mb-3"><div class="cs-skeleton cs-skeleton-avatar"></div><div class="flex-grow-1"><div class="cs-skeleton cs-skeleton-title"></div><div class="cs-skeleton cs-skeleton-line" style="width:92%"></div><div class="cs-skeleton cs-skeleton-line" style="width:58%"></div></div></div>';
+      }
+    }
+    el.innerHTML = html;
+  };
 
   function setProgress(next) {
     if (!bar) return;
@@ -2157,7 +2346,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.addEventListener('click', function(event) {
     var a = event.target.closest ? event.target.closest('a') : null;
-    if (shouldTrackLink(a, event)) window.csLoadingStart();
+    if (shouldTrackLink(a, event)) {
+      window.csLoadingStart();
+      window.csBeginSmartLoading(pageSurface(), {
+        title:'Opening page',
+        sub:'Getting the next screen ready...'
+      }, 180);
+    }
   }, true);
 
   document.addEventListener('submit', function(event) {
@@ -2169,10 +2364,14 @@ document.addEventListener('DOMContentLoaded', function() {
       window.csLoadingStart();
       var submitter = event.submitter || form.querySelector('button[type="submit"],input[type="submit"],button:not([type])');
       window.csSetButtonLoading(submitter);
+      window.csBeginSmartLoading(form.closest('.card,.cs-loading-surface,.admin-page,.customer-wrap') || pageSurface(), {
+        title:'Saving changes',
+        sub:'Please wait while we process this request...'
+      }, 220);
     }, 0);
   });
 
-  window.addEventListener('pageshow', function() { window.csLoadingDone(true); });
+  window.addEventListener('pageshow', function() { window.csLoadingDone(true); window.csHideSmartLoading(); });
   window.addEventListener('beforeunload', function() { window.csLoadingStart(); });
 
   if (window.fetch) {
@@ -2334,6 +2533,19 @@ function csCountUp(el, target, duration) {
 
 // ── Intersection observer: trigger stagger + count-up on first view ──
 document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('form:not([data-cs-no-loading])').forEach(function(form) {
+    var btn = form.querySelector('button[type="submit"],input[type="submit"],button:not([type])');
+    if (!btn || btn.hasAttribute('data-loading-text')) return;
+    var label = (btn.tagName || '').toLowerCase() === 'input' ? (btn.value || '') : (btn.textContent || '');
+    label = label.replace(/\s+/g, ' ').trim().toLowerCase();
+    var next = 'Processing...';
+    if (/send|message|reply|otp|email|sms/.test(label)) next = 'Sending...';
+    else if (/save|update|restore|approve|reject|archive|delete|submit|apply|confirm|mark|resend|cancel/.test(label)) next = 'Saving...';
+    else if (/pay|gcash|deposit|checkout|order|place/.test(label)) next = 'Preparing payment...';
+    else if (/login|verify|sign in/.test(label)) next = 'Verifying...';
+    btn.setAttribute('data-loading-text', next);
+  });
+
   document.querySelectorAll('table.table').forEach(function(table) {
     if (table.closest('.table-responsive, .table-wrap, .cs-responsive-table')) return;
     var wrap = document.createElement('div');
