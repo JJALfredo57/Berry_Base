@@ -18,7 +18,7 @@
 
     var div = document.createElement('div');
     div.id = 'miniChat';
-    div.style.cssText = 'display:none;position:fixed;bottom:100px;right:24px;width:min(320px, calc(100vw - 24px));' +
+    div.style.cssText = 'display:none;position:fixed;bottom:100px;right:24px;width:min(320px, calc(100vw - 48px));' +
       'height:min(420px, calc(100dvh - 132px));max-height:480px;background:#fff;border-radius:1.2rem;box-shadow:0 8px 40px rgba(0,0,0,.18);' +
       'z-index:9990;flex-direction:column;overflow:hidden;';
     div.innerHTML =

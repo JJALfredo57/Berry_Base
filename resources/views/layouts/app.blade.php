@@ -634,20 +634,24 @@
     #sellerMain.expanded { margin-left:var(--sidebar-coll); }
     #sellerTopbar {
       position:sticky;top:0;z-index:1030;height:var(--topbar-h);
+      margin-left:var(--sidebar-w);
       background:rgba(255,255,255,.94);backdrop-filter:blur(16px);
       border-bottom:1px solid rgba(0,0,0,.06);
       display:flex;align-items:center;padding:0 20px;gap:12px;
+      transition:margin-left .25s cubic-bezier(.4,0,.2,1);
     }
+    #sellerSidebar.collapsed ~ #sellerTopbar { margin-left:var(--sidebar-coll); }
     #sellerSidebar.collapsed .sb-label,
     #sellerSidebar.collapsed .sb-link-text,
     #sellerSidebar.collapsed .sb-badge,
     #sellerSidebar.collapsed .sb-brand-text,
     #sellerSidebar.collapsed .sb-brand-sub,
     #sellerSidebar.collapsed .sb-user-info { opacity:0;pointer-events:none; }
-    #sellerOverlay { display:none;position:fixed;inset:0;z-index:1039;background:rgba(0,0,0,.4); }
+    #sellerOverlay { display:none;position:fixed;inset:0;z-index:1039;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px); }
     @@media(max-width:767px) {
       #sellerSidebar { transform:translateX(-100%);width:var(--sidebar-w) !important; }
       #sellerSidebar.mobile-open { transform:translateX(0); }
+      #sellerTopbar { margin-left:0 !important; }
       #sellerMain { margin-left:0 !important; }
       #sellerOverlay.active { display:block; }
     }
@@ -669,6 +673,8 @@
     img, picture, video, canvas, svg, iframe { max-width:100%; height:auto; }
     iframe { display:block; border:0; }
     img { object-fit:contain; }
+    input, select, textarea, button { max-width:100%; }
+    textarea { resize:vertical; }
 
     /* Table horizontal scroll wrapper */
     .table-wrap,
@@ -715,6 +721,18 @@
       max-width:calc(100vw - 1rem);
       overflow-wrap:anywhere;
     }
+    .modal-body,
+    .modal-header,
+    .modal-footer,
+    .card-header,
+    .card-body {
+      min-width:0;
+      overflow-wrap:anywhere;
+    }
+    .modal-body {
+      max-height:calc(100dvh - 8rem);
+      overflow-y:auto;
+    }
     .list-group-item,
     .alert {
       min-width:0;
@@ -735,6 +753,9 @@
       .form-control, .form-select, textarea, input, select {
         min-width:0 !important;
         max-width:100% !important;
+      }
+      .form-control, .form-select, textarea, input, select {
+        font-size:16px !important;
       }
 
       /* Cards: reduce padding on tiny screens */
@@ -757,6 +778,10 @@
       }
       .btn-group > .btn {
         flex:0 1 auto;
+      }
+      .pagination,
+      .cs-pagination {
+        justify-content:center;
       }
 
       /* Dialog box: full-width on small phones */
@@ -790,6 +815,10 @@
       }
       :where(.admin-page,.customer-wrap) .justify-content-between {
         gap:.65rem;
+      }
+      :where(.admin-page,.customer-wrap) .card-header.justify-content-between,
+      :where(.admin-page,.customer-wrap) .card-body.justify-content-between {
+        align-items:flex-start !important;
       }
       :where(.admin-page,.customer-wrap) .ms-auto {
         margin-left:0 !important;
@@ -1150,7 +1179,9 @@
   </div>
 </div>
 
-<div id="adminMain">
+<div id="sellerOverlay" onclick="closeSidebar()"></div>
+
+<div id="sellerMain">
   <div class="admin-page">@yield('content')</div>
 </div>
 
@@ -1781,9 +1812,9 @@ function toggleSidebar() {
   }
 }
 function closeSidebar() {
-  var sb = document.getElementById('adminSidebar');
-  var ov = document.getElementById('sbOverlay');
-  if (sb) sb.classList.remove('mobile-open','collapsed');
+  var sb = document.getElementById('adminSidebar') || document.getElementById('sellerSidebar');
+  var ov = document.getElementById('sbOverlay') || document.getElementById('sellerOverlay');
+  if (sb) sb.classList.remove('mobile-open');
   if (ov) ov.classList.remove('active');
 }
 @if($isAdmin)
@@ -1806,6 +1837,25 @@ function closeSidebar() {
 @endif
 
 // ── Custom Dialog System ─────────────────────────────────────────
+@if($isSeller)
+(function() {
+  var sb = document.getElementById('sellerSidebar');
+  var mn = document.getElementById('sellerMain');
+  if (!sb || !mn) return;
+  function applyState() {
+    if (window.innerWidth < 768) {
+      sb.classList.remove('collapsed'); mn.classList.remove('expanded');
+    } else {
+      var stored; try { stored = localStorage.getItem('cakeshop_sb'); } catch(e) { stored = null; }
+      var col = stored === 'collapsed';
+      sb.classList.toggle('collapsed', col); mn.classList.toggle('expanded', col);
+    }
+  }
+  applyState();
+  window.addEventListener('resize', applyState);
+})();
+@endif
+
 var _csDlgOkCb = null, _csDlgCancelCb = null;
 
 function _csDlgOpen() {
