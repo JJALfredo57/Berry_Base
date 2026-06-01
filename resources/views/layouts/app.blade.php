@@ -3798,12 +3798,23 @@ function pgFilter(param, val) {
 <script>
 /* ── Image upload size preview ─────────────────────────────────────────── */
 (function () {
-  var MAX_PX = 1200, QUALITY = 0.80;
+  var MAX_PX = 1400, QUALITY = 0.78, MIN_COMPRESS_BYTES = 160 * 1024;
 
   function fmtSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  function isCompressibleImage(file) {
+    if (!file || !file.type || !file.type.startsWith('image/')) return false;
+    if (/gif|svg|heic|heif/i.test(file.type)) return false;
+    return /\.(jpe?g|png|webp)$/i.test(file.name || '');
+  }
+
+  function inputLooksImagey(input) {
+    var accept = (input.getAttribute('accept') || '').toLowerCase();
+    return accept.includes('image') || accept.includes('.jpg') || accept.includes('.jpeg') || accept.includes('.png') || accept.includes('.webp');
   }
 
   function getOrCreatePreview(input) {
@@ -3858,14 +3869,112 @@ function pgFilter(param, val) {
     reader.readAsDataURL(file);
   }
 
+  function compressImageFile(file) {
+    return new Promise(function(resolve) {
+      if (!isCompressibleImage(file) || file.size < MIN_COMPRESS_BYTES) {
+        resolve({ file:file, originalSize:file.size, compressedSize:file.size, skipped:true });
+        return;
+      }
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var w = img.naturalWidth || img.width;
+        var h = img.naturalHeight || img.height;
+        var scale = Math.min(MAX_PX / w, MAX_PX / h, 1);
+        var outW = Math.round(w * scale);
+        var outH = Math.round(h * scale);
+        var canvas = document.createElement('canvas');
+        canvas.width = outW;
+        canvas.height = outH;
+        canvas.getContext('2d').drawImage(img, 0, 0, outW, outH);
+        canvas.toBlob(function(blob) {
+          if (!blob || (blob.size >= file.size && scale === 1)) {
+            resolve({ file:file, originalSize:file.size, compressedSize:file.size, width:w, height:h, newWidth:w, newHeight:h });
+            return;
+          }
+          var safeName = (file.name || 'upload').replace(/\.[^.]+$/, '') + '.jpg';
+          resolve({
+            file:new File([blob], safeName, { type:'image/jpeg', lastModified:Date.now() }),
+            originalSize:file.size,
+            compressedSize:blob.size,
+            width:w,
+            height:h,
+            newWidth:outW,
+            newHeight:outH
+          });
+        }, 'image/jpeg', QUALITY);
+      };
+      img.onerror = function() {
+        URL.revokeObjectURL(url);
+        resolve({ file:file, originalSize:file.size, compressedSize:file.size, skipped:true });
+      };
+      img.src = url;
+    });
+  }
+
+  function renderSummary(preview, results) {
+    if (!results || !results.length) {
+      preview.style.display = 'none';
+      return;
+    }
+    var original = results.reduce(function(sum, item) { return sum + item.originalSize; }, 0);
+    var savedAs = results.reduce(function(sum, item) { return sum + item.compressedSize; }, 0);
+    var saved = original > savedAs ? Math.round((1 - savedAs / original) * 100) : 0;
+    var color = saved >= 50 ? '#059669' : saved >= 20 ? '#d97706' : '#6b7280';
+    var label = results.length > 1 ? results.length + ' images' : 'Original';
+    preview.innerHTML =
+      '<span style="color:#6b7280">' + label + ': <strong>' + fmtSize(original) + '</strong></span>' +
+      '&nbsp;&nbsp;->&nbsp;&nbsp;' +
+      '<span style="color:' + color + '">Saved as: <strong>~' + fmtSize(savedAs) + '</strong>' +
+      (saved > 0 ? ' <span style="background:' + color + ';color:#fff;border-radius:4px;padding:1px 5px;font-size:.68rem">-' + saved + '%</span>' : '') +
+      '</span>';
+    preview.style.display = 'block';
+  }
+
+  async function compressInputFiles(input, event) {
+    if (!input || input.dataset.csCompressing === '1' || input.dataset.csCompressedChange === '1') return;
+    if (input.dataset.csNoImageCompress === 'true') return;
+    if (!input.files || !input.files.length || !inputLooksImagey(input)) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    input.dataset.csCompressing = '1';
+
+    var preview = getOrCreatePreview(input);
+    preview.innerHTML = '<span style="color:#6b7280"><span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>Optimizing image' + (input.files.length > 1 ? 's' : '') + '...</span>';
+    preview.style.display = 'block';
+
+    try {
+      var originalFiles = Array.from(input.files);
+      var results = [];
+      var dt = new DataTransfer();
+      for (var i = 0; i < originalFiles.length; i++) {
+        var file = originalFiles[i];
+        if (isCompressibleImage(file)) {
+          var result = await compressImageFile(file);
+          results.push(result);
+          dt.items.add(result.file);
+        } else {
+          results.push({ file:file, originalSize:file.size, compressedSize:file.size, skipped:true });
+          dt.items.add(file);
+        }
+      }
+      input.files = dt.files;
+      renderSummary(preview, results);
+    } catch (err) {
+      preview.innerHTML = '<span style="color:#d97706">Image optimization skipped. Original file will be used.</span>';
+    } finally {
+      input.dataset.csCompressing = '0';
+      input.dataset.csCompressedChange = '1';
+      input.dispatchEvent(new Event('change', { bubbles:true }));
+      setTimeout(function() { delete input.dataset.csCompressedChange; }, 0);
+    }
+  }
+
   function attachToInput(input) {
     if (input.dataset.sizePreviewAttached) return;
     input.dataset.sizePreviewAttached = '1';
-    input.addEventListener('change', function () {
-      var preview = getOrCreatePreview(input);
-      if (!this.files || !this.files[0]) { preview.style.display = 'none'; return; }
-      compressAndShow(input, this.files[0], preview);
-    });
   }
 
   function attachAll() {
@@ -3873,9 +3982,15 @@ function pgFilter(param, val) {
   }
 
   document.addEventListener('DOMContentLoaded', attachAll);
+  document.addEventListener('change', function(event) {
+    var input = event.target;
+    if (!input || input.type !== 'file') return;
+    compressInputFiles(input, event);
+  }, true);
   // Also catch dynamically added inputs (e.g. inside modals)
   var obs = new MutationObserver(attachAll);
   obs.observe(document.body, { childList: true, subtree: true });
+  window.csCompressImageFile = compressImageFile;
 })();
 </script>
 </body>
