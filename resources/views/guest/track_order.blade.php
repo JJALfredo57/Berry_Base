@@ -1065,6 +1065,7 @@ function openGuestImgPv(src) {
 
 // ── Messaging ────────────────────────────────────────────────────────────
 let rendered = [];
+let guestMsgSending = false;
 
 function renderMessages(msgs) {
   const thread = document.getElementById('chatBox');
@@ -1119,11 +1120,13 @@ function handleMsgEnter(e) {
 }
 
 async function sendGuestMsg() {
+  if (guestMsgSending) return;
   const input   = document.getElementById('msgInput');
   const text    = input ? input.innerText.trim() : '';
   const hasImgs = gPicked.filter(x => !x.compressing && x.file).length > 0;
   if (!text && !hasImgs) return;
 
+  guestMsgSending = true;
   const btn = document.getElementById('msgSendBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px"></span>'; }
 
@@ -1142,39 +1145,17 @@ async function sendGuestMsg() {
     }
     const d = await r.json();
     if (d.ok) {
-      const now      = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
-      const previews = gPicked.filter(x => x.preview).map(x => x.preview);
-      let imgHtml = '';
-      if (previews.length) {
-        imgHtml = '<div class="bbl-imgs-g">' +
-          previews.map(src => `<img src="${src}" class="${previews.length===1?'solo':''}" onclick="openGuestImgPv('${src}')">`).join('') +
-          '</div>';
-      }
-      const chatBox = document.getElementById('chatBox');
-      const emEl    = document.getElementById('msgEmpty');
-      if (emEl) emEl.style.display = 'none';
-      const row = document.createElement('div');
-      row.className = 'msg-row-g mine';
-      row.innerHTML = `
-        <div class="msg-av-g mine">${GUEST_NAME.charAt(0).toUpperCase() || 'Y'}</div>
-        <div class="msg-grp-g mine">
-          <div class="sndr-lbl-g mine">${escapeHtml(GUEST_NAME)}</div>
-          <div class="bbl-g mine">
-            ${text?`<div style="white-space:pre-wrap">${escapeHtml(text)}</div>`:''}
-            ${imgHtml}
-          </div>
-          <div class="bbl-time-g mine">${now} <span style="opacity:.65">✓</span></div>
-        </div>`;
-      chatBox.appendChild(row);
-      chatBox.scrollTop = chatBox.scrollHeight;
+      if (d.message) renderMessages([d.message]);
+      else await pollMessages();
       if (input) input.innerHTML = '';
-      clearGPicker(false); // keep blob URLs alive so optimistic bubble images stay clickable
+      clearGPicker();
     } else {
       cakeToast(d.error || 'Failed to send.', 'error');
     }
   } catch(e) {
     cakeToast('Network error. Please try again.', 'error');
   } finally {
+    guestMsgSending = false;
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send-fill"></i>'; }
   }
 }

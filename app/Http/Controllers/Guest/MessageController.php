@@ -70,7 +70,7 @@ class MessageController extends Controller
         if (!$message && !$imgPath)
             return response()->json(['ok' => false, 'error' => 'Message cannot be empty.'], 422);
 
-        DB::table('messages')->insert([
+        $messageId = DB::table('messages')->insertGetId([
             'order_id'    => $order->id,
             'sender_role' => 'customer',
             'sender_id'   => null,
@@ -90,6 +90,19 @@ class MessageController extends Controller
             'created_at'       => now(),
         ]);
 
-        return response()->json(['ok' => true]);
+        $saved = DB::table('messages')->where('id', $messageId)->first();
+
+        return response()->json([
+            'ok' => true,
+            'message' => [
+                'id'          => $saved->id,
+                'role'        => $saved->sender_role,
+                'message'     => $saved->message,
+                'image_path'  => $saved->image_path,
+                'created_at'  => \Carbon\Carbon::parse($saved->created_at)->format('M d, g:i A'),
+                'is_admin'    => false,
+                'name'        => $order->guest_name ?? 'You',
+            ],
+        ]);
     }
 }
