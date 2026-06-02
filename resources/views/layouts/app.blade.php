@@ -2809,6 +2809,7 @@ var mcViewState      = 'list';
 var mcActiveCustomer = null;
 var mcPollTimer      = null;
 var mcSelectedImages = [];
+var mcBadgePollTimer = null;
 
 // ── Open / Close ──────────────────────────────────────────────────────
 window.toggleMiniChat = function toggleMiniChat() { mcOpen ? closeMiniChat() : openMiniChat(); };
@@ -2817,6 +2818,7 @@ function openMiniChat() {
   const chat = document.getElementById('miniChat');
   chat.style.display = 'flex';
   chat.classList.remove('closing');
+  setCakeBubbleVisible(false);
   mcOpen = true;
   loadMcMessages();
   startMcPoll();
@@ -2826,7 +2828,21 @@ function closeMiniChat() {
   const chat = document.getElementById('miniChat');
   chat.classList.add('closing');
   stopMcPoll();
-  setTimeout(() => { chat.style.display = 'none'; mcOpen = false; }, 240);
+  setTimeout(() => {
+    chat.style.display = 'none';
+    mcOpen = false;
+    setCakeBubbleVisible(true);
+    refreshBubbleUnread();
+  }, 240);
+}
+
+function setCakeBubbleVisible(show) {
+  ['cakeMsgBubble', 'cakeMsgPing1', 'cakeMsgPing2', 'cakeMsgTooltip'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('cake-msg-hidden', !show);
+    if (!show && id === 'cakeMsgTooltip') el.style.display = 'none';
+  });
 }
 
 // ── Polling ───────────────────────────────────────────────────────────
@@ -2846,12 +2862,21 @@ function stopMcPoll() {
   if (mcPollTimer) { clearInterval(mcPollTimer); mcPollTimer = null; }
 }
 
+function startBubbleBadgePoll() {
+  if (mcBadgePollTimer) return;
+  refreshBubbleUnread();
+  mcBadgePollTimer = setInterval(() => {
+    if (!mcOpen) refreshBubbleUnread();
+  }, 15000);
+}
+
 // ── Silent refresh for list view (just update unread dots) ────────────
 async function silentRefreshList() {
   try {
     const res  = await fetch(MC_DATA_URL + '?limit=40');
     const data = await res.json();
     if (!data.messages) return;
+    if (typeof data.unread !== 'undefined') setBubbleBadgeCount(data.unread);
     if (mcViewState !== 'list') return;
     const container = document.getElementById('miniChatMessages');
     container.innerHTML = '';
@@ -2868,6 +2893,7 @@ async function silentRefreshConversation() {
     const res  = await fetch(MC_DATA_URL + '?limit=40');
     const data = await res.json();
     if (!data.messages) return;
+    if (typeof data.unread !== 'undefined') setBubbleBadgeCount(data.unread);
 
     // Re-filter messages for this customer
     const name = mcActiveCustomer.name;
@@ -2903,6 +2929,7 @@ async function loadMcMessages() {
     const res  = await fetch(MC_DATA_URL + '?limit=40');
     const data = await res.json();
     container.innerHTML = '';
+    if (typeof data.unread !== 'undefined') setBubbleBadgeCount(data.unread);
 
     if (!data.messages || data.messages.length === 0) {
       container.innerHTML = '<div style="text-align:center;padding:30px 16px;color:#bbb"><i class="bi bi-chat-dots" style="font-size:2rem;display:block;margin-bottom:8px"></i><div style="font-size:.8rem">No messages yet</div></div>';
@@ -3041,8 +3068,7 @@ async function openCustomerChat(customerName, orderId, customerData, userId) {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': MC_CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
       });
-      // Clear unread badge from the bubble icon
-      updateBubbleBadge(-1); // -1 = recalculate
+      refreshBubbleUnread();
     } catch(e) {}
   }
 }
@@ -3067,18 +3093,47 @@ function setMcInput(show) {
 
 // ── Update the floating bubble unread badge ───────────────────────────
 function updateBubbleBadge(delta) {
-  const badge = document.querySelector('#cakeMsgBubble > div');
+  const badge = document.getElementById('cakeMsgBadge');
   if (!badge) return;
-  if (delta === -1) { badge.style.display = 'none'; return; }
+  if (delta === -1) { refreshBubbleUnread(); return; }
   const cur = parseInt(badge.textContent) || 0;
-  const next = Math.max(0, cur + delta);
-  if (next === 0) badge.style.display = 'none';
-  else { badge.textContent = next > 9 ? '9+' : next; badge.style.display = 'flex'; }
+  setBubbleBadgeCount(Math.max(0, cur + delta));
+}
+
+function setBubbleBadgeCount(count) {
+  const badge = document.getElementById('cakeMsgBadge');
+  const tooltip = document.getElementById('cakeMsgTooltip');
+  const next = Math.max(0, parseInt(count, 10) || 0);
+  if (badge) {
+    badge.textContent = next > 9 ? '9+' : next;
+    badge.style.display = next > 0 ? 'flex' : 'none';
+  }
+  if (tooltip) {
+    tooltip.innerHTML = next > 0
+      ? '<i class="bi bi-chat-dots-fill me-1" style="color:#e91e63"></i>' + next + ' unread message' + (next > 1 ? 's' : '')
+      : '<i class="bi bi-chat-dots me-1" style="color:#e91e63"></i>Messages';
+  }
+}
+
+async function refreshBubbleUnread() {
+  try {
+    const res = await fetch(MC_DATA_URL + '?limit=1');
+    const data = await res.json();
+    if (typeof data.unread !== 'undefined') setBubbleBadgeCount(data.unread);
+  } catch(e) {}
 }
 
 // ── Render timeline ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', startBubbleBadgePoll);
+
 function renderMcTimeline(container, messages, appendOnly = false) {
   let lastOrderId = null;
+  const timeline = [...messages].sort((a, b) => {
+    const at = new Date(a.created_at || 0).getTime();
+    const bt = new Date(b.created_at || 0).getTime();
+    if (at !== bt) return at - bt;
+    return (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0);
+  });
 
   // Setup IntersectionObserver for visibility-based mark-as-read
   const markUrl = MC_MARK_URL.replace(/\/mark-order-read.*/, '/mark-read-msg');
@@ -3096,7 +3151,7 @@ function renderMcTimeline(container, messages, appendOnly = false) {
     });
   }, { threshold: 0.6 });
 
-  messages.forEach(msg => {
+  timeline.forEach(msg => {
     const isMe = (MC_ROLE === 'admin'    && msg.sender_role === 'admin')   ||
                  (MC_ROLE === 'seller'   && msg.sender_role === 'seller')  ||
                  (MC_ROLE === 'customer' && msg.sender_role === 'customer');
@@ -3315,7 +3370,7 @@ function formatMcTime(dateStr) {
   padding:0;
   background:none;
   animation: cakeBubbleFloat 3.5s ease-in-out infinite;
-  transition:filter .2s;
+  transition:filter .2s, opacity .22s ease, transform .22s ease;
 }
 #cakeMsgBubble:hover { filter:brightness(1.1); }
 #cakeMsgBubble:hover { animation: cakeBubbleWiggle .5s ease-in-out forwards; }
@@ -3329,6 +3384,11 @@ function formatMcTime(dateStr) {
 }
 #cakeMsgPing1 { background:rgba(233,30,99,.25); animation: cakeBubblePing1 2.2s ease-out infinite; }
 #cakeMsgPing2 { background:rgba(233,30,99,.15); animation: cakeBubblePing2 2.2s ease-out infinite .45s; }
+.cake-msg-hidden {
+  opacity:0 !important;
+  transform:scale(.72) translateY(14px) !important;
+  pointer-events:none !important;
+}
 #cakeMsgTooltip {
   position:fixed;
   bottom:44px;
@@ -3458,11 +3518,9 @@ function formatMcTime(dateStr) {
     <!-- Chat bubble tail -->
     <path d="M18 50 Q14 56 10 58 Q16 54 22 50Z" fill="#fff8e1"/>
   </svg>
-  @if($unreadCount > 0)
-  <div style="position:absolute;top:-2px;right:-2px;width:22px;height:22px;background:#ff3b30;border-radius:50%;border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;font-family:system-ui;box-shadow:0 2px 8px rgba(255,59,48,.5)">
+  <div id="cakeMsgBadge" style="position:absolute;top:-2px;right:-2px;width:22px;height:22px;background:#ff3b30;border-radius:50%;border:2.5px solid white;display:{{ $unreadCount > 0 ? 'flex' : 'none' }};align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;font-family:system-ui;box-shadow:0 2px 8px rgba(255,59,48,.5)">
     {{ $unreadCount > 9 ? '9+' : $unreadCount }}
   </div>
-  @endif
 </a>
 @endif
 

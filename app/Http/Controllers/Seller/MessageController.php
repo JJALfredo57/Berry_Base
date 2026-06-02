@@ -127,7 +127,12 @@ class MessageController extends Controller
                 'p.name as product_name')
             ->orderByDesc('m.created_at')
             ->limit($limit)->get();
-        $unread = $messages->where('sender_role','customer')->where('is_read', false)->count();
+        $unread = DB::table('messages as m')
+            ->join('orders as o', 'o.id', '=', 'm.order_id')
+            ->where('o.shop_id', $shop->id)
+            ->where('m.sender_role', 'customer')
+            ->where('m.is_read', false)
+            ->count();
         return response()->json(['messages'=>$messages,'unread'=>$unread]);
     }
 
