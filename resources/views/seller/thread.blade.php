@@ -35,9 +35,9 @@
 /* ── Compose ── */
 .compose-wrap{padding:10px 14px 12px;border-top:1px solid #e9ecef;background:#fff}
 .compose-row{display:flex;gap:8px;align-items:flex-end}
-.compose-box{flex:1;border:1.5px solid #e9ecef;border-radius:14px;padding:9px 12px;font-size:.9rem;resize:none;outline:none;max-height:120px;overflow-y:auto;line-height:1.4;color:#333;transition:border-color .2s}
+.compose-box{flex:1;border:1.5px solid #e9ecef;border-radius:14px;padding:9px 12px;font-size:.9rem;resize:none;outline:none;max-height:120px;min-height:40px;overflow-y:auto;line-height:1.4;color:#333;transition:border-color .2s;white-space:pre-wrap;word-break:break-word}
 .compose-box:focus{border-color:var(--primary)}
-.compose-box::placeholder{color:#adb5bd}
+.compose-box:empty::before{content:attr(data-placeholder);color:#adb5bd;pointer-events:none}
 .attach-btn{width:38px;height:38px;border-radius:50%;border:1.5px solid #e9ecef;background:#fff;color:#6c757d;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .15s;flex-shrink:0}
 .attach-btn:hover,.attach-btn.active{border-color:var(--primary);color:var(--primary);background:#fce7f3}
 .send-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.95rem;transition:opacity .15s;flex-shrink:0}
@@ -87,7 +87,7 @@
           <div class="msg-group {{ $isMine ? 'mine' : '' }}">
             <div class="sender-lbl {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'You' : ($order->fullname ?? 'Customer') }}</div>
             <div class="bubble {{ $isMine ? 'mine' : 'theirs' }}">
-              @if($m->message)<div style="white-space:pre-wrap">{{ $m->message }}</div>@endif
+              @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
               @if(count($imgs))
               <div class="bubble-imgs">
                 @foreach($imgs as $src)
@@ -156,7 +156,10 @@ msgInput.addEventListener('input', () => {
 });
 
 function handleEnter(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('threadForm').dispatchEvent(new Event('submit')); }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    document.getElementById('threadForm').dispatchEvent(new Event('submit'));
+  }
 }
 
 // ── Mark messages as read ─────────────────────────────────────────────────

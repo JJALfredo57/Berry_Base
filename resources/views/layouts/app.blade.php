@@ -2686,6 +2686,7 @@ document.addEventListener('DOMContentLoaded', function() {
   font-size:.82rem;
   line-height:1.4;
   word-break:break-word;
+  white-space:pre-wrap;
 }
 .mc-msg-wrap.me .mc-bubble {
   background:#e91e63;
@@ -2722,6 +2723,11 @@ document.addEventListener('DOMContentLoaded', function() {
   outline:none;
   transition:border-color .2s;
   font-family:inherit;
+  line-height:1.35;
+  max-height:92px;
+  min-height:36px;
+  resize:none;
+  overflow-y:auto;
 }
 #mcInput:focus { border-color:#e91e63; }
 #mcSendBtn {
@@ -2780,8 +2786,9 @@ document.addEventListener('DOMContentLoaded', function() {
       <i class="bi bi-paperclip" style="font-size:.85rem"></i>
       <input type="file" id="mcImageInput" accept="image/*" multiple hidden onchange="mcImageSelected(this)">
     </label>
-    <input type="text" id="mcInput" placeholder="Aa" maxlength="500"
-           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();mcSend()}">
+    <textarea id="mcInput" placeholder="Aa" maxlength="500" rows="1"
+              oninput="autoGrowMcInput(this)"
+              onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();mcSend()}"></textarea>
     <button id="mcSendBtn" onclick="mcSend()">
       <i class="bi bi-send-fill" style="font-size:.8rem"></i>
     </button>
@@ -3091,6 +3098,12 @@ function setMcInput(show) {
   if (!show && preBar) { preBar.style.display = 'none'; mcClearImage(); }
 }
 
+function autoGrowMcInput(input) {
+  if (!input) return;
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 92) + 'px';
+}
+
 // ── Update the floating bubble unread badge ───────────────────────────
 function updateBubbleBadge(delta) {
   const badge = document.getElementById('cakeMsgBadge');
@@ -3265,6 +3278,7 @@ async function mcSend() {
   if (!text && images.length === 0) return;
 
   input.value = '';
+  autoGrowMcInput(input);
   mcClearImage();
 
   // Optimistic UI

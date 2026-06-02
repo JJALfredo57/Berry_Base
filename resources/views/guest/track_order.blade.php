@@ -59,7 +59,7 @@
     /* compose */
     .g-compose-wrap{padding:10px 14px 12px;border-top:1px solid #e9ecef;background:#fff}
     .g-compose-row{display:flex;gap:8px;align-items:flex-end}
-    .g-compose-box{flex:1;border:1.5px solid #e9ecef;border-radius:14px;padding:9px 12px;font-size:.9rem;outline:none;max-height:120px;overflow-y:auto;line-height:1.4;color:#333;transition:border-color .2s;min-height:40px}
+    .g-compose-box{flex:1;border:1.5px solid #e9ecef;border-radius:14px;padding:9px 12px;font-size:.9rem;outline:none;max-height:120px;overflow-y:auto;line-height:1.4;color:#333;transition:border-color .2s;min-height:40px;white-space:pre-wrap;word-break:break-word}
     .g-compose-box:focus{border-color:var(--primary)}
     .g-compose-box:empty:before{content:attr(data-placeholder);color:#adb5bd;pointer-events:none}
     .g-attach-btn{width:38px;height:38px;border-radius:50%;border:1.5px solid #e9ecef;background:#fff;color:#6c757d;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .15s;flex-shrink:0}
@@ -1116,7 +1116,10 @@ async function pollMessages() {
 }
 
 function handleMsgEnter(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGuestMsg(); }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    sendGuestMsg();
+  }
 }
 
 async function sendGuestMsg() {

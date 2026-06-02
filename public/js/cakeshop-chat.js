@@ -31,15 +31,21 @@
       '<div id="mcThread" style="display:none;flex-direction:column;flex:1;overflow:hidden">' +
         '<div id="mcMsgs" style="flex:1;overflow-y:auto;min-height:0;padding:8px 12px;display:flex;flex-direction:column;gap:6px"></div>' +
         '<div style="padding:8px;border-top:1px solid #f3f4f6;display:flex;gap:6px">' +
-          '<input id="mcInput" type="text" placeholder="Type a message..." style="flex:1;border:1px solid #e5e7eb;border-radius:.5rem;padding:6px 10px;font-size:.82rem">' +
+          '<textarea id="mcInput" rows="1" placeholder="Type a message..." style="flex:1;border:1px solid #e5e7eb;border-radius:.5rem;padding:6px 10px;font-size:.82rem;line-height:1.35;resize:none;max-height:96px;overflow-y:auto;font-family:inherit"></textarea>' +
           '<button onclick="mcSend()" style="background:var(--primary);border:none;color:#fff;border-radius:.5rem;padding:6px 12px;cursor:pointer"><i class="bi bi-send"></i></button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(div);
 
     // Enter key to send
+    div.querySelector('#mcInput').addEventListener('input', function(e) {
+      autoGrowInput(e.target);
+    });
     div.querySelector('#mcInput').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') mcSend();
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        mcSend();
+      }
     });
   }
 
@@ -140,7 +146,7 @@
           bubble.style.cssText = 'max-width:80%;padding:6px 10px;border-radius:' +
             (isAdmin ? '12px 0 12px 12px' : '0 12px 12px 12px') +
             ';background:' + (isAdmin ? 'var(--primary)' : '#f3f4f6') +
-            ';color:' + (isAdmin ? '#fff' : '#111') + ';font-size:.8rem;word-break:break-word;';
+            ';color:' + (isAdmin ? '#fff' : '#111') + ';font-size:.8rem;word-break:break-word;white-space:pre-wrap;';
           if (m.message) bubble.textContent = m.message;
           row.appendChild(bubble);
           if (msgs) { msgs.appendChild(row); msgs.scrollTop = msgs.scrollHeight; }
@@ -163,6 +169,7 @@
     var msg = input.value.trim();
     if (!msg) return;
     input.value = '';
+    autoGrowInput(input);
     var fd = new FormData();
     fd.append('_token', cfg.csrf);
     fd.append('message', msg);
@@ -175,6 +182,12 @@
   function escHtml(s) {
     if (!s) return '';
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function autoGrowInput(input) {
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 96) + 'px';
   }
 
   // Init on DOM ready

@@ -27,7 +27,7 @@
                  data-sender="{{ $m->sender_role }}"
                  data-read="{{ $m->is_read }}">
               <div style="max-width:75%;background:{{ $isAdmin ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isAdmin ? '#fff' : '#333' }};border-radius:{{ $isAdmin ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }};padding:.6rem 1rem;font-size:.9rem">
-                @if($m->message)<div>{{ $m->message }}</div>@endif
+                @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
                 @if(count($imgs))
                 <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:{{ $m->message ? '.4rem' : '0' }}">
                   @foreach($imgs as $imgSrc)
@@ -57,7 +57,7 @@
             <form action="{{ route('admin.messages.send', $orderId) }}" method="POST" enctype="multipart/form-data" id="threadForm">
               @csrf
               <div class="d-flex gap-2">
-                <input type="text" class="form-control" name="message" id="threadMsgInput" placeholder="Reply…" autocomplete="off">
+                <textarea class="form-control" name="message" id="threadMsgInput" placeholder="Reply…" autocomplete="off" rows="1" maxlength="1000" style="resize:none;max-height:120px;line-height:1.4;overflow-y:auto"></textarea>
                 <label class="btn btn-outline-secondary mb-0" id="threadImgBtn" title="Attach images">
                   <i class="bi bi-paperclip"></i>
                   <input type="file" name="images[]" id="threadImgFile" accept="image/*" multiple hidden onchange="previewThreadImgs(this)">
@@ -76,6 +76,22 @@
 <script>
 const cb = document.getElementById('chatBox');
 if (cb) cb.scrollTop = cb.scrollHeight;
+
+const threadMsgInput = document.getElementById('threadMsgInput');
+if (threadMsgInput) {
+  const growThreadInput = () => {
+    threadMsgInput.style.height = 'auto';
+    threadMsgInput.style.height = Math.min(threadMsgInput.scrollHeight, 120) + 'px';
+  };
+  threadMsgInput.addEventListener('input', growThreadInput);
+  threadMsgInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      document.getElementById('threadForm').requestSubmit();
+    }
+  });
+  growThreadInput();
+}
 
 // Mark unread messages as read via IntersectionObserver
 (function() {
