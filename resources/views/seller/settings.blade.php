@@ -554,8 +554,12 @@
 
           {{-- Image --}}
           <div id="sbg-image" style="display:{{ $curShopBg==='image' ? 'block' : 'none' }};margin-bottom:1rem">
-
-            <input type="file" class="form-control" name="shop_bg_image" accept=".jpg,.jpeg,.png,.webp" style="font-size:.8rem;max-width:340px">
+            @if(!empty($shopSettings->bg_image_path))
+              <img src="{{ $shopSettings->bg_image_path }}" alt="Current shop background"
+                   style="display:block;width:100%;max-width:340px;height:96px;object-fit:cover;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);margin-bottom:.6rem">
+            @endif
+            <input type="file" class="form-control" name="shop_bg_image" accept=".jpg,.jpeg,.png,.webp"
+                   onchange="previewShopBgImage(this)" style="font-size:.8rem;max-width:340px">
             <div class="form-text">JPG, PNG or WebP · Max 5 MB. Leave blank to keep current image.</div>
             <div style="margin-top:.65rem">
               <label class="form-label fw-semibold" style="font-size:.8rem">Image Opacity: <span id="sbgOpacityVal">{{ number_format(($shopSettings->bg_image_opacity ?? 1.0) * 100) }}%</span></label>
@@ -681,7 +685,26 @@ function updateShopBgPreview() {
     preview.style.background = `linear-gradient(135deg,${s} 0%,${e} 100%)`;
   } else if (type === 'color') {
     preview.style.background = document.getElementById('sbgColorPicker')?.value || '#f9f9f9';
+  } else if (type === 'image') {
+    const current = @json($shopSettings->bg_image_path ?? '');
+    if (current) preview.style.background = `url('${current}') center/cover no-repeat`;
   }
+}
+function previewShopBgImage(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Background image must not exceed 5MB.');
+    input.value = '';
+    return;
+  }
+  const preview = document.getElementById('sbgPreview');
+  if (!preview) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    preview.style.background = `url('${e.target.result}') center/cover no-repeat`;
+  };
+  reader.readAsDataURL(file);
 }
 
 // Restore active tab from URL ?tab= param or old('_section')

@@ -37,6 +37,24 @@
     *,*::before,*::after{box-sizing:border-box}
     html,body{overflow-x:hidden}
     body{font-family:'DM Sans',system-ui,sans-serif;{{ $bodyBg }}color:var(--gray-900);margin:0;-webkit-font-smoothing:antialiased;font-size:16px}
+    body.has-shop-bg-image::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      background:var(--shop-bg-image) center/cover no-repeat;
+      opacity:var(--shop-bg-opacity);
+    }
+    body.has-shop-bg-image::after{
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      background:rgba(255,255,255,.18);
+    }
+    body.has-shop-bg-image > *{position:relative;z-index:1}
     img{max-width:100%}
     a{text-decoration:none;color:inherit}
 
@@ -151,12 +169,7 @@
     }
   </style>
 </head>
-<body>
-
-{{-- Shop background image overlay --}}
-@if($sbgType === 'image' && !empty($sbgImg))
-<div aria-hidden="true" style="position:fixed;inset:0;z-index:-1;pointer-events:none;background:url('{{ $sbgImg }}') center/cover no-repeat;opacity:{{ $sbgOpacity }};"></div>
-@endif
+<body @if($sbgType === 'image' && !empty($sbgImg)) class="has-shop-bg-image" style="--shop-bg-image:url('{{ $sbgImg }}');--shop-bg-opacity:{{ $sbgOpacity }};" @endif>
 
 {{-- ── NAVBAR ── --}}
 <nav class="top-nav">

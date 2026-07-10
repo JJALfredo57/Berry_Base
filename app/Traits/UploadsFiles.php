@@ -22,10 +22,12 @@ trait UploadsFiles
             $fn   = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
             $path = $folder . '/' . $fn;
 
-            if ($imagePayload !== null) {
-                $disk->put($path, $imagePayload);
-            } else {
-                $disk->putFileAs($folder, $file, $fn);
+            $stored = $imagePayload !== null
+                ? $disk->put($path, $imagePayload)
+                : $disk->putFileAs($folder, $file, $fn);
+
+            if (!$stored) {
+                throw new \RuntimeException("Unable to store uploaded file on the [{$diskName}] disk.");
             }
 
             return $disk->url($path);

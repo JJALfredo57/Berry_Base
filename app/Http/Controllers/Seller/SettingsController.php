@@ -221,7 +221,13 @@ class SettingsController extends Controller
             ];
 
             if ($request->hasFile('shop_bg_image') && $request->file('shop_bg_image')->isValid()) {
-                $data['bg_image_path'] = $this->uploadFile($request->file('shop_bg_image'), 'uploads/shops');
+                $uploadedPath = $this->uploadFile($request->file('shop_bg_image'), 'uploads/shops');
+                if (!$uploadedPath) {
+                    return back()
+                        ->withInput()
+                        ->with('err', 'Background image upload failed. Please check the upload storage settings or try a smaller JPG/PNG/WebP image.');
+                }
+                $data['bg_image_path'] = $uploadedPath;
             }
 
             $this->upsertSettings($shop->id, $data);
