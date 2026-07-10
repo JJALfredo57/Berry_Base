@@ -75,4 +75,61 @@ Artisan::command('backup:run {--force : Run even when automation is disabled or 
     }
 })->purpose('Run the smart platform backup job');
 
+Artisan::command('cleanup:customer-data {--force : Actually delete customer accounts and customer activity data}', function () {
+    $tables = [
+        'order_addons',
+        'order_tracking',
+        'order_reviews',
+        'custom_orders',
+        'kitchen_tickets',
+        'messages',
+        'notifications',
+        'customer_feedback',
+        'product_daily_orders',
+        'user_addresses',
+        'password_resets',
+        'sessions',
+        'activity_logs',
+        'orders',
+    ];
+
+    $counts = [];
+    foreach ($tables as $table) {
+        if (\Illuminate\Support\Facades\Schema::hasTable($table)) {
+            $counts[$table] = DB::table($table)->count();
+        }
+    }
+
+    $customerCount = \Illuminate\Support\Facades\Schema::hasTable('users')
+        ? DB::table('users')->where('role', 'customer')->count()
+        : 0;
+
+    $this->table(['Data', 'Rows'], [
+        ...collect($counts)->map(fn ($count, $table) => [$table, $count])->values()->all(),
+        ['users(role=customer)', $customerCount],
+    ]);
+
+    if (!$this->option('force')) {
+        $this->warn('Dry run only. Re-run with --force to delete these rows.');
+        return 0;
+    }
+
+    DB::transaction(function () use ($tables) {
+        foreach ($tables as $table) {
+            if (\Illuminate\Support\Facades\Schema::hasTable($table)) {
+                DB::table($table)->delete();
+            }
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('users')) {
+            DB::table('users')->where('role', 'customer')->delete();
+        }
+    });
+
+    $this->info('Customer accounts and customer activity data have been deleted.');
+    $this->warn('Website settings, sellers, shops, products, riders, delivery zones, and platform settings were not deleted.');
+
+    return 0;
+})->purpose('Delete customer accounts and customer activity data without deleting website setup data');
+
 Schedule::command('backup:run')->hourly();
