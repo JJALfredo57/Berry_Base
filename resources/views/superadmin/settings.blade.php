@@ -245,7 +245,7 @@
                   @if(!empty($platform->platform_bg_image))
                   <img src="{{ $platform->platform_bg_image }}" style="display:block;width:100%;height:110px;object-fit:cover;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);margin-bottom:.5rem">
                   @endif
-                  <input type="file" class="form-control" name="platform_bg_image" accept=".jpg,.jpeg,.png,.webp" style="font-size:.8rem">
+                  <input type="file" class="form-control" name="platform_bg_image" id="platformBgImageInput" accept=".jpg,.jpeg,.png,.webp" style="font-size:.8rem" onchange="previewPlatformBgImage(this)">
                   <div class="form-text">JPG, PNG or WebP · Max 5 MB. Leave blank to keep current image.</div>
                   <div style="margin-top:.65rem">
                     <label class="form-label fw-semibold" style="font-size:.8rem">Image Opacity: <span id="pbgOpacityVal">{{ number_format(($platform->platform_bg_opacity ?? 1.0) * 100) }}%</span></label>
@@ -565,28 +565,6 @@
   <div class="mt-3" id="logPager"></div>
   @push('scripts')
   <script>
-  function switchPBgType(type) {
-    ['color','gradient','image'].forEach(t => {
-      document.getElementById('pbg-'+t).style.display = t === type ? (t==='gradient'?'flex':'block') : 'none';
-    });
-    updatePbgGradPreview();
-  }
-  function updatePbgGradPreview() {
-    const s = document.getElementById('pbgGradStart')?.value || '#fff7fb';
-    const e = document.getElementById('pbgGradEnd')?.value   || '#ffe3f1';
-    const p = document.getElementById('pbgPreview');
-    if (p) p.style.background = `linear-gradient(135deg,${s} 0%,${e} 100%)`;
-  }
-  // Keep color preview in sync on solid
-  document.addEventListener('DOMContentLoaded', () => {
-    const cp = document.getElementById('pbgColorPicker');
-    if (cp) cp.addEventListener('input', () => {
-      const p = document.getElementById('pbgPreview');
-      if (p) p.style.background = cp.value;
-    });
-  });
-  </script>
-  <script>
   document.addEventListener('DOMContentLoaded', () => {
     const rows = [...document.querySelectorAll('.log-row')];
     const perPage = 20;
@@ -859,6 +837,59 @@
 </div>
 
 <script>
+function platformBgCurrentType() {
+  return document.querySelector('input[name="platform_bg_type"]:checked')?.value || 'color';
+}
+
+function switchPBgType(type) {
+  ['color','gradient','image'].forEach(t => {
+    const pane = document.getElementById('pbg-' + t);
+    if (pane) pane.style.display = t === type ? (t === 'gradient' ? 'flex' : 'block') : 'none';
+  });
+  updatePlatformBgPreview(type);
+}
+
+function updatePlatformBgPreview(type) {
+  const selected = type || platformBgCurrentType();
+  const preview = document.getElementById('pbgPreview');
+  if (!preview) return;
+
+  if (selected === 'gradient') {
+    const start = document.getElementById('pbgGradStart')?.value || '#fff7fb';
+    const end = document.getElementById('pbgGradEnd')?.value || '#ffe3f1';
+    preview.style.background = `linear-gradient(135deg, ${start} 0%, ${end} 100%)`;
+    return;
+  }
+
+  if (selected === 'image') {
+    const input = document.getElementById('platformBgImageInput');
+    if (input && input.files && input.files[0]) {
+      preview.style.background = `url("${URL.createObjectURL(input.files[0])}") center/cover no-repeat`;
+    }
+    return;
+  }
+
+  preview.style.background = document.getElementById('pbgColorPicker')?.value || '#FFF8F8';
+}
+
+function updatePbgGradPreview() {
+  updatePlatformBgPreview('gradient');
+}
+
+function previewPlatformBgImage(input) {
+  const imageOption = document.querySelector('input[name="platform_bg_type"][value="image"]');
+  if (imageOption) imageOption.checked = true;
+  switchPBgType('image');
+  updatePlatformBgPreview('image');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const colorPicker = document.getElementById('pbgColorPicker');
+  if (colorPicker) {
+    colorPicker.addEventListener('input', () => updatePlatformBgPreview('color'));
+  }
+});
+
 function pmToggleMode(mode) {
   const labelTest = document.getElementById('labelTest');
   const labelLive = document.getElementById('labelLive');

@@ -45,7 +45,10 @@ class PlatformSettingsController extends Controller
             'platform_bg_image'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
-        $bgType    = $request->input('platform_bg_type', 'color');
+        $bgType = $request->input('platform_bg_type', 'color');
+        if (!in_array($bgType, ['color', 'gradient', 'image'], true)) {
+            $bgType = 'color';
+        }
         $bgOpacity = max(0.1, min(1.0, (float) $request->input('platform_bg_opacity', 1.0)));
 
         $updates = [
@@ -63,13 +66,31 @@ class PlatformSettingsController extends Controller
         ];
 
         if ($request->hasFile('platform_logo') && $request->file('platform_logo')->isValid()) {
-            $updates['platform_logo'] = $this->uploadFile($request->file('platform_logo'), 'uploads/platform');
+            $logoPath = $this->uploadFile($request->file('platform_logo'), 'uploads/platform');
+            if (!$logoPath) {
+                return back()
+                    ->withInput()
+                    ->with('err', 'Platform logo upload failed. Please check the upload storage settings or try a smaller JPG/PNG image.');
+            }
+            $updates['platform_logo'] = $logoPath;
         }
         if ($request->hasFile('platform_bg_image') && $request->file('platform_bg_image')->isValid()) {
-            $updates['platform_bg_image'] = $this->uploadFile($request->file('platform_bg_image'), 'uploads/platform');
+            $bgImagePath = $this->uploadFile($request->file('platform_bg_image'), 'uploads/platform');
+            if (!$bgImagePath) {
+                return back()
+                    ->withInput()
+                    ->with('err', 'Dashboard background image upload failed. Please check the upload storage settings or try a smaller JPG/PNG/WebP image.');
+            }
+            $updates['platform_bg_image'] = $bgImagePath;
         }
 
         $existing = DB::table('platform_settings')->first();
+        if ($bgType === 'image' && empty($updates['platform_bg_image']) && empty($existing?->platform_bg_image)) {
+            return back()
+                ->withInput()
+                ->with('err', 'Please upload a dashboard background image before switching the background type to Image.');
+        }
+
         if ($existing) {
             DB::table('platform_settings')->where('id', $existing->id)->update($updates);
         } else {

@@ -676,6 +676,16 @@
     @if($isAdmin || $isSeller)
     body { background:{{ ($settings['bg_type'] ?? 'gradient') === 'image' && !empty($settings['bg_image_path']) ? 'transparent' : '#f0f2f8' }}; }
 
+    .cs-dashboard-bg-layer {
+      position:fixed;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      background-position:center;
+      background-size:cover;
+      background-repeat:no-repeat;
+    }
+
     #adminSidebar {
       position:fixed; top:0; left:0;
       width:var(--sidebar-w); height:100vh;
@@ -715,7 +725,7 @@
     .sb-user-name { font-size:.79rem;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis; }
     .sb-user-role { font-size:.63rem;color:rgba(255,255,255,.35); }
 
-    #adminMain { margin-left:var(--sidebar-w);transition:margin-left .25s cubic-bezier(.4,0,.2,1);min-height:100vh;display:flex;flex-direction:column; }
+    #adminMain { margin-left:var(--sidebar-w);transition:margin-left .25s cubic-bezier(.4,0,.2,1);min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1; }
     #adminMain.expanded { margin-left:var(--sidebar-coll); }
 
     #adminTopbar { position:sticky;top:0;z-index:1030;height:var(--topbar-h);background:rgba(255,255,255,.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(0,0,0,.06);display:flex;align-items:center;padding:0 20px;gap:12px; }
@@ -772,6 +782,7 @@
       margin-left:var(--sidebar-w);
       transition:margin-left .25s cubic-bezier(.4,0,.2,1);
       min-height:100vh;display:flex;flex-direction:column;
+      position:relative;z-index:1;
     }
     #sellerMain.expanded { margin-left:var(--sidebar-coll); }
     #sellerTopbar {
@@ -810,6 +821,7 @@
       min-width:0;
       max-width:100%;
     }
+    #adminMain, #sellerMain, .customer-wrap { position:relative; z-index:1; }
 
     /* Make all images and videos responsive by default */
     img, picture, video, canvas, svg, iframe { max-width:100%; height:auto; }
@@ -1053,9 +1065,8 @@
 
 {{-- ═══ PLATFORM BG IMAGE OVERLAY (superadmin-controlled) ═══ --}}
 @if($pbgType === 'image' && !empty($pbgImage))
-<div aria-hidden="true" style="
-  position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:url('{{ $pbgImage }}') center/cover no-repeat;
+<div class="cs-dashboard-bg-layer" aria-hidden="true" style="
+  background-image:url('{{ $pbgImage }}');
   opacity:{{ $pbgOpacity }};
 "></div>
 @endif
