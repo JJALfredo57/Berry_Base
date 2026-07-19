@@ -2,39 +2,60 @@
 namespace App\Traits;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 trait UploadsFiles
 {
     protected function uploadFile(UploadedFile $file, string $folder): ?string
     {
-        try {
-            $ext      = strtolower($file->getClientOriginalExtension());
-            $diskName = config('filesystems.upload_disk', 'public');
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-            $disk     = Storage::disk($diskName);
-
-            $imagePayload = $this->compressedImagePayload($file);
-            if ($imagePayload !== null) {
-                $ext = 'jpg';
-            }
-
-            $fn   = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-            $path = $folder . '/' . $fn;
-
-            $stored = $imagePayload !== null
-                ? $disk->put($path, $imagePayload)
-                : $disk->putFileAs($folder, $file, $fn);
-
-            if (!$stored) {
-                throw new \RuntimeException("Unable to store uploaded file on the [{$diskName}] disk.");
-            }
-
-            return $disk->url($path);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('uploadFile failed: ' . $e->getMessage());
-            return null;
+        $ext = strtolower($file->getClientOriginalExtension());
+        $imagePayload = $this->compressedImagePayload($file);
+        if ($imagePayload !== null) {
+            $ext = 'jpg';
         }
+
+        $fn = date('YmdHis') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
+        $path = $folder . '/' . $fn;
+        $primaryDisk = config('filesystems.upload_disk', 'public');
+        $disks = array_values(array_unique(array_filter([$primaryDisk, 'public'])));
+
+        foreach ($disks as $diskName) {
+            try {
+                /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+                $disk = Storage::disk($diskName);
+
+                if ($diskName === 'public') {
+                    $disk->makeDirectory($folder);
+                }
+
+                $options = $diskName === 'public' ? ['visibility' => 'public'] : [];
+                $stored = $imagePayload !== null
+                    ? $disk->put($path, $imagePayload, $options)
+                    : $disk->putFileAs($folder, $file, $fn, $options);
+
+                if (!$stored) {
+                    throw new \RuntimeException("Unable to store uploaded file on the [{$diskName}] disk.");
+                }
+
+                return $disk->url($path);
+            } catch (\Throwable $e) {
+                Log::warning('uploadFile disk failed', [
+                    'disk' => $diskName,
+                    'folder' => $folder,
+                    'file' => $file->getClientOriginalName(),
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::error('uploadFile failed on all configured disks', [
+            'disks' => $disks,
+            'folder' => $folder,
+            'file' => $file->getClientOriginalName(),
+        ]);
+
+        return null;
     }
 
     private function compressedImagePayload(UploadedFile $file): ?string
