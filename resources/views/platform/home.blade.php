@@ -19,6 +19,22 @@
   $pBg    = $adj($rawPrimary,  0.90);
   $pRgb   = $toRgb($rawPrimary);
   $pBgRgb = $toRgb($pBg);
+  $platformBgType = $platform->platform_bg_type ?? 'color';
+  $platformBgColor = $platform->platform_bg_color ?? $pBg;
+  $platformBgGradStart = $platform->platform_bg_gradient_start ?? $pBg;
+  $platformBgGradEnd = $platform->platform_bg_gradient_end ?? $pLight;
+  $platformBgImage = $platform->platform_bg_image ?? '';
+  $platformBgOpacity = (float)($platform->platform_bg_opacity ?? 1.0);
+  $platformBodyBgCss = $platformBgType === 'gradient'
+      ? "background:linear-gradient(135deg, {$platformBgGradStart} 0%, {$platformBgGradEnd} 100%);"
+      : "background:{$platformBgColor};";
+  $platformHeroBgCss = $platformBgType === 'gradient'
+      ? "background:linear-gradient(135deg, {$platformBgGradStart} 0%, {$platformBgGradEnd} 100%);"
+      : "background:{$platformBgColor};";
+  if ($platformBgType === 'image' && $platformBgImage) {
+      $platformBodyBgCss = "background:{$platformBgColor};";
+      $platformHeroBgCss = "background:transparent;";
+  }
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -43,7 +59,9 @@
     }
     *, *::before, *::after { box-sizing: border-box; }
     html { scroll-behavior: smooth; width:100%; overflow-x:hidden; }
-    body { font-family:'DM Sans',system-ui,sans-serif; background:var(--cream); color:var(--gray-900); margin:0; -webkit-font-smoothing:antialiased; width:100%; overflow-x:hidden; }
+    body { font-family:'DM Sans',system-ui,sans-serif; {!! $platformBodyBgCss !!} color:var(--gray-900); margin:0; -webkit-font-smoothing:antialiased; width:100%; overflow-x:hidden; }
+    .platform-bg-layer { position:fixed; inset:0; z-index:0; pointer-events:none; background-position:center; background-size:cover; background-repeat:no-repeat; }
+    body.has-platform-bg-image > *:not(.platform-bg-layer) { position:relative; z-index:1; }
     img, svg, video, canvas { max-width:100%; height:auto; }
     a { text-decoration:none; color:inherit; }
 
@@ -66,7 +84,7 @@
 
     /* ── HERO ── */
     .hero {
-      background:linear-gradient(135deg, {{ $pBg }} 0%, {{ $pMid }} 40%, {{ $pLight }} 100%);
+      {!! $platformHeroBgCss !!}
       padding:5rem 0 4rem; position:relative; overflow:hidden;
     }
     .hero::before {
@@ -97,7 +115,7 @@
 
     /* ── SECTIONS ── */
     .section { padding:4rem 0; }
-    .section-alt { background:#fff; }
+    .section-alt { background:rgba(255,255,255,.94); }
     .section-title { font-family:'Playfair Display',serif; font-size:clamp(1.6rem,3.5vw,2.2rem); font-weight:700; color:var(--gray-900); margin:0 0 .5rem; }
     .section-sub { font-size:.95rem; color:var(--gray-500); margin:0 0 2.5rem; }
 
@@ -183,7 +201,10 @@
     }
   </style>
 </head>
-<body>
+<body @if($platformBgType === 'image' && $platformBgImage) class="has-platform-bg-image" @endif>
+@if($platformBgType === 'image' && $platformBgImage)
+<div class="platform-bg-layer" aria-hidden="true" style="background-image:url('{{ $platformBgImage }}');opacity:{{ $platformBgOpacity }};"></div>
+@endif
 
 {{-- NAV --}}
 <nav class="platform-nav" id="mainNav">

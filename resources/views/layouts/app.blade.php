@@ -286,6 +286,16 @@
     .btn-lg { padding: .7rem 1.6rem; font-size: .975rem; border-radius: var(--radius-md); }
     .btn-sm { padding: .3rem .75rem; font-size: .82rem; border-radius: var(--radius-sm); }
 
+    .cs-dashboard-bg-layer {
+      position:fixed;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      background-position:center;
+      background-size:cover;
+      background-repeat:no-repeat;
+    }
+
     /* ── Color utilities ── */
     .text-primary { color: var(--primary) !important; }
     .bg-primary   { background: var(--primary) !important; }
@@ -754,7 +764,7 @@
 
     /* ═══════════ CUSTOMER LAYOUT ═══════════ */
     @if(!$isAdmin && !$isSeller)
-    body { {!! $bgCss ?? '' !!} }
+    body { {!! $bodyBgCss ?? '' !!} }
     .navbar-glass { background:rgba(255,255,255,.9);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid rgba(0,0,0,.07); }
     .nav-link { color:#444 !important;font-weight:500;padding:.5rem .85rem !important;border-radius:.6rem;transition:.15s; }
     .nav-link:hover,.nav-link.active { background:var(--primary-light);color:var(--primary) !important; }

@@ -1,3 +1,34 @@
+@php
+  $rawPrimary = $platform->platform_primary_color ?? '#E53935';
+  if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $rawPrimary)) $rawPrimary = '#E53935';
+  $adj = function(string $hex, float $f): string {
+      $hex = ltrim($hex,'#');
+      $r=hexdec(substr($hex,0,2)); $g=hexdec(substr($hex,2,2)); $b=hexdec(substr($hex,4,2));
+      if ($f>=0){$r=(int)min(255,$r+(255-$r)*$f);$g=(int)min(255,$g+(255-$g)*$f);$b=(int)min(255,$b+(255-$b)*$f);}
+      else{$f=1+$f;$r=(int)max(0,$r*$f);$g=(int)max(0,$g*$f);$b=(int)max(0,$b*$f);}
+      return sprintf('#%02x%02x%02x',$r,$g,$b);
+  };
+  $toRgb = function(string $hex): string {
+      $hex=ltrim($hex,'#'); return hexdec(substr($hex,0,2)).','.hexdec(substr($hex,2,2)).','.hexdec(substr($hex,4,2));
+  };
+  $pDark = $adj($rawPrimary, -0.30);
+  $pLight = $adj($rawPrimary, 0.65);
+  $pBg = $adj($rawPrimary, 0.90);
+  $pRgb = $toRgb($rawPrimary);
+  $pBgRgb = $toRgb($pBg);
+  $platformBgType = $platform->platform_bg_type ?? 'color';
+  $platformBgColor = $platform->platform_bg_color ?? $pBg;
+  $platformBgGradStart = $platform->platform_bg_gradient_start ?? $pBg;
+  $platformBgGradEnd = $platform->platform_bg_gradient_end ?? $pLight;
+  $platformBgImage = $platform->platform_bg_image ?? '';
+  $platformBgOpacity = (float)($platform->platform_bg_opacity ?? 1.0);
+  $platformBodyBgCss = $platformBgType === 'gradient'
+      ? "background:linear-gradient(135deg, {$platformBgGradStart} 0%, {$platformBgGradEnd} 100%);"
+      : "background:{$platformBgColor};";
+  if ($platformBgType === 'image' && $platformBgImage) {
+      $platformBodyBgCss = "background:{$platformBgColor};";
+  }
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,16 +39,18 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
-    :root{--primary:#E53935;--primary-dark:#B71C1C;--primary-light:#FFCDD2;--primary-bg:#FFF8F8;--cream:#FFF8F8;--gray-50:#FAFAFA;--gray-100:#F5F5F5;--gray-200:#EEEEEE;--gray-300:#E0E0E0;--gray-400:#BDBDBD;--gray-500:#9E9E9E;--gray-600:#757575;--gray-700:#616161;--gray-800:#424242;--gray-900:#212121;--radius-md:10px;--radius-lg:16px;--shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 12px rgba(0,0,0,.08)}
+    :root{--primary:{{ $rawPrimary }};--primary-dark:{{ $pDark }};--primary-light:{{ $pLight }};--primary-bg:{{ $pBg }};--cream:{{ $pBg }};--primary-rgb:{{ $pRgb }};--gray-50:#FAFAFA;--gray-100:#F5F5F5;--gray-200:#EEEEEE;--gray-300:#E0E0E0;--gray-400:#BDBDBD;--gray-500:#9E9E9E;--gray-600:#757575;--gray-700:#616161;--gray-800:#424242;--gray-900:#212121;--radius-md:10px;--radius-lg:16px;--shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 12px rgba(0,0,0,.08)}
     *,*::before,*::after{box-sizing:border-box}
     html,body{width:100%;max-width:100%;overflow-x:hidden}
-    body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:var(--gray-900);margin:0;-webkit-font-smoothing:antialiased}
+    body{font-family:'DM Sans',system-ui,sans-serif;{!! $platformBodyBgCss !!}color:var(--gray-900);margin:0;-webkit-font-smoothing:antialiased}
+    .platform-bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none;background-position:center;background-size:cover;background-repeat:no-repeat}
+    body.has-platform-bg-image > *:not(.platform-bg-layer){position:relative;z-index:1}
     img,svg,video,canvas{max-width:100%;height:auto}
     a{text-decoration:none;color:inherit}
-    .platform-nav{position:sticky;top:0;z-index:100;background:rgba(255,248,248,.92);backdrop-filter:blur(12px);border-bottom:1px solid rgba(229,57,53,.1);padding:.875rem 0}
+    .platform-nav{position:sticky;top:0;z-index:100;background:rgba({{ $pBgRgb }},.92);backdrop-filter:blur(12px);border-bottom:1px solid rgba(var(--primary-rgb),.1);padding:.875rem 0}
     .nav-brand{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:var(--primary)}
     .shop-card{background:#fff;border-radius:var(--radius-lg);overflow:hidden;border:1.5px solid var(--gray-100);transition:all .22s;cursor:pointer;height:100%}
-    .shop-card:hover{border-color:var(--primary-light);box-shadow:0 8px 32px rgba(229,57,53,.12);transform:translateY(-4px)}
+    .shop-card:hover{border-color:var(--primary-light);box-shadow:0 8px 32px rgba(var(--primary-rgb),.12);transform:translateY(-4px)}
     .shop-cover{width:100%;height:140px;object-fit:cover;background:linear-gradient(135deg,var(--primary-light),#FF8A80)}
     .shop-logo-wrap{margin:-28px 0 0 1rem;position:relative;z-index:1}
     .shop-logo{width:56px;height:56px;border-radius:14px;object-fit:cover;border:3px solid #fff;box-shadow:var(--shadow-sm);background:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-size:1.2rem;color:#fff;font-weight:700}
@@ -46,7 +79,10 @@
     }
   </style>
 </head>
-<body>
+<body @if($platformBgType === 'image' && $platformBgImage) class="has-platform-bg-image" @endif>
+@if($platformBgType === 'image' && $platformBgImage)
+<div class="platform-bg-layer" aria-hidden="true" style="background-image:url('{{ $platformBgImage }}');opacity:{{ $platformBgOpacity }};"></div>
+@endif
 
 {{-- NAV --}}
 <nav class="platform-nav">
@@ -65,7 +101,7 @@
 </nav>
 
 {{-- PAGE HEADER --}}
-<div style="background:#fff;border-bottom:1px solid var(--gray-100);padding:1.75rem 0">
+<div style="background:rgba(255,255,255,.94);border-bottom:1px solid var(--gray-100);padding:1.75rem 0">
   <div class="container">
     <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem">Browse Cake Shops</h1>
     <p style="font-size:.875rem;color:var(--gray-500);margin:0">{{ $shops->total() }} shop{{ $shops->total() != 1 ? 's' : '' }} found</p>
@@ -76,7 +112,7 @@
 
   {{-- FILTERS --}}
   <form method="GET" action="{{ route('platform.shops') }}" id="filterForm">
-    <div style="background:#fff;border-radius:var(--radius-lg);padding:1.25rem;box-shadow:var(--shadow-sm);border:1.5px solid var(--gray-100);margin-bottom:2rem">
+    <div style="background:rgba(255,255,255,.96);border-radius:var(--radius-lg);padding:1.25rem;box-shadow:var(--shadow-sm);border:1.5px solid var(--gray-100);margin-bottom:2rem">
       <div class="row g-2 align-items-end">
         <div class="col-12 col-md-5">
           <label style="font-size:.8rem;font-weight:600;color:var(--gray-700);display:block;margin-bottom:.3rem">Search Shops</label>
