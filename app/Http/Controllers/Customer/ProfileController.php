@@ -44,6 +44,7 @@ class ProfileController extends Controller
             ->first();
         if ($exists) return back()->with('error', 'Email or phone already in use by another account.');
 
+        $existingUser = DB::table('users')->where('id', $uid)->first();
         $data = compact('fullname','email','phone');
 
         if ($request->hasFile('profile_photo')) {
@@ -52,6 +53,10 @@ class ProfileController extends Controller
         }
 
         DB::table('users')->where('id', $uid)->update($data);
+
+        if (isset($data['profile_photo'])) {
+            $this->deleteReplacedUploadedFile($existingUser->profile_photo ?? null, $data['profile_photo']);
+        }
 
         $s = session('user');
         $s['fullname'] = $fullname;

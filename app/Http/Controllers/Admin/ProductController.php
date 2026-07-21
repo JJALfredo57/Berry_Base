@@ -116,6 +116,8 @@ class ProductController extends Controller
     public function update(Request $request, string $id)
     {
         $user           = session('user');
+        $product        = DB::table('products')->where('id', $id)->first();
+        if (!$product) return redirect()->route('admin.products.index')->with('err', 'Product not found.');
         $name           = trim($request->input('name', ''));
         $desc           = trim($request->input('description', ''));
         $price          = (float)$request->input('price', 0);
@@ -146,6 +148,9 @@ class ProductController extends Controller
         }
 
         DB::table('products')->where('id', $id)->update($data);
+        if (!empty($data['image_path'] ?? null) && !empty($product->image_path)) {
+            $this->deleteReplacedUploadedFile($product->image_path, $data['image_path']);
+        }
         CakeshopHelper::logActivity($user['id'], $user['role'], 'Edit Product', $name);
         return redirect()->route('admin.products.index')->with('msg', 'Product updated.');
     }
@@ -219,7 +224,8 @@ class ProductController extends Controller
     public function destroy(string $id)
     {
         $user = session('user');
-        $name = DB::table('products')->where('id', $id)->value('name');
+        $product = DB::table('products')->where('id', $id)->first();
+        $name = $product->name ?? null;
 
         // Check if product has existing orders before deleting
         $orderCount = DB::table('orders')->where('product_id', $id)->count();
@@ -229,6 +235,7 @@ class ProductController extends Controller
         }
 
         DB::table('products')->where('id', $id)->delete();
+        $this->deleteUploadedFile($product->image_path ?? null);
         CakeshopHelper::logActivity($user['id'], $user['role'], 'Delete Product', $name ?? 'ID:'.$id);
         return redirect()->route('admin.products.index')->with('msg', 'Product deleted.');
     }

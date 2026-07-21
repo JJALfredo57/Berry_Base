@@ -187,6 +187,9 @@ class ProductController extends Controller
         }
 
         DB::table('products')->where('id', $id)->update($updates);
+        if (!empty($updates['image_path'] ?? null) && !empty($product->image_path)) {
+            $this->deleteReplacedUploadedFile($product->image_path, $updates['image_path']);
+        }
         return back()->with('msg', "Product updated successfully.");
     }
 

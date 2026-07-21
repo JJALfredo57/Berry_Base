@@ -119,6 +119,9 @@ class SettingsController extends Controller
             'updated_at'        => now(),
         ]);
 
+        $this->deleteReplacedUploadedFile($settings['logo_path'] ?? null, $logo);
+        $this->deleteReplacedUploadedFile($settings['bg_image_path'] ?? null, $bgImg);
+
         CakeshopHelper::logActivity($user['id'], $user['role'], 'Update Site Settings', 'Updated branding/theme');
         return redirect()->route('admin.settings.index', ['tab' => 'site'])->with('msg', 'Settings saved successfully!');
     }
@@ -173,6 +176,7 @@ class SettingsController extends Controller
             ->first();
         if ($exists) return redirect()->route('admin.settings.index', ['tab' => 'account'])->with('err', 'Email or phone already in use.');
 
+        $adminUser = DB::table('users')->where('id', $user['id'])->first();
         $data = compact('fullname','email','phone');
 
         // Profile photo upload for admin
@@ -182,6 +186,10 @@ class SettingsController extends Controller
         }
 
         DB::table('users')->where('id', $user['id'])->update($data);
+
+        if (isset($data['profile_photo'])) {
+            $this->deleteReplacedUploadedFile($adminUser->profile_photo ?? null, $data['profile_photo']);
+        }
 
         $s = session('user');
         $s['fullname'] = $fullname;

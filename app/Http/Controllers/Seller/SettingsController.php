@@ -79,6 +79,9 @@ class SettingsController extends Controller
         }
 
         DB::table('shops')->where('id', $shop->id)->update($updates);
+        $this->deleteReplacedUploadedFile($shop->shop_logo ?? null, $updates['shop_logo'] ?? null);
+        $this->deleteReplacedUploadedFile($shop->shop_cover ?? null, $updates['shop_cover'] ?? null);
+
         return redirect()->to(route('seller.settings').'?tab=profile')->with('msg', 'Shop profile updated successfully.');
     }
 
@@ -230,7 +233,12 @@ class SettingsController extends Controller
                 $data['bg_image_path'] = $uploadedPath;
             }
 
+            $existingSettings = DB::table('site_settings')->where('shop_id', $shop->id)->first();
             $this->upsertSettings($shop->id, $data);
+            if (!empty($data['bg_image_path'] ?? null)) {
+                $this->deleteReplacedUploadedFile($existingSettings->bg_image_path ?? null, $data['bg_image_path']);
+            }
+
             return redirect()->to(route('seller.settings').'?tab=appearance')->with('msg', 'Shop page appearance saved!');
 
         } catch (\Illuminate\Validation\ValidationException $e) {

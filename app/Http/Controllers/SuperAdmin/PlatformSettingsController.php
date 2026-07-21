@@ -98,6 +98,13 @@ class PlatformSettingsController extends Controller
             DB::table('platform_settings')->insert($updates);
         }
 
+        if (!empty($updates['platform_logo'] ?? null) && !empty($existing?->platform_logo)) {
+            $this->deleteReplacedUploadedFile($existing->platform_logo, $updates['platform_logo']);
+        }
+        if (!empty($updates['platform_bg_image'] ?? null) && !empty($existing?->platform_bg_image)) {
+            $this->deleteReplacedUploadedFile($existing->platform_bg_image, $updates['platform_bg_image']);
+        }
+
         return redirect()->route('superadmin.settings', ['tab' => 'platform'])->with('msg', 'Platform settings updated successfully.');
     }
 
