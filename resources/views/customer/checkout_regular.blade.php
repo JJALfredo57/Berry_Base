@@ -21,7 +21,7 @@ document.body.style.paddingRight = '';
   <div class="row g-4">
     {{-- LEFT: Form --}}
     <div class="col-lg-8">
-      <form action="{{ route('customer.checkout.place') }}" method="POST" id="checkoutForm">
+      <form action="{{ route('customer.checkout.place') }}" method="POST" id="checkoutForm" data-prevent-double-submit>
         @csrf
 
         {{-- Product Summary --}}

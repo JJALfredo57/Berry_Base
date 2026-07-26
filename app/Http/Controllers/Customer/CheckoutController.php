@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class CheckoutController extends Controller
@@ -88,6 +89,13 @@ class CheckoutController extends Controller
         $a    = sin($dLat / 2) ** 2
               + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
         return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
+    private function submissionKey(Request $request, string $scope): ?string
+    {
+        $token = trim((string) $request->input('_submit_token', ''));
+        if ($token === '') return null;
+        return 'submit:' . $scope . ':' . $request->session()->getId() . ':' . sha1($token);
     }
 
     public function placeOrder(Request $request)
@@ -227,6 +235,16 @@ class CheckoutController extends Controller
         $needsDeposit  = ($payment === 'COD');
         $depositAmount = $needsDeposit ? round($total * 0.5, 2) : null;
 
+        $submitKey = $this->submissionKey($request, 'customer_checkout_place');
+        if ($submitKey && !Cache::add($submitKey . ':lock', true, now()->addMinutes(10))) {
+            $existing = Cache::get($submitKey . ':result');
+            if (!empty($existing['route'])) {
+                return redirect()->route($existing['route'], $existing['params'] ?? [])
+                    ->with('warn', $existing['message'] ?? 'Order already placed.');
+            }
+            return back()->with('error', 'This order is already being processed. Please wait.');
+        }
+
         DB::table('orders')->insert([
             'id'               => $oid,
             'shop_id'          => $product->shop_id ?? null,
@@ -300,10 +318,24 @@ class CheckoutController extends Controller
 
         if ($payment === 'GCash') {
             $request->session()->put('last_order_id', $oid);
+            if ($submitKey) {
+                Cache::put($submitKey . ':result', [
+                    'route' => 'customer.pay_gcash',
+                    'params' => ['id' => $oid],
+                    'message' => "Order #{$oid} was already placed.",
+                ], now()->addMinutes(10));
+            }
             return redirect()->route('customer.pay_gcash', ['id' => $oid]);
         }
 
         // COD / Pickup — require deposit before seller sees the order
+        if ($submitKey) {
+            Cache::put($submitKey . ':result', [
+                'route' => 'customer.pay_deposit',
+                'params' => [$oid],
+                'message' => "Order #{$oid} was already placed.",
+            ], now()->addMinutes(10));
+        }
         return redirect()->route('customer.pay_deposit', $oid);
     }
 }

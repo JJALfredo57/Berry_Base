@@ -22,7 +22,7 @@
 
       <div class="row g-4">
         <div class="col-lg-8">
-          <form action="{{ route('guest.custom_order.store') }}" method="POST" id="customOrderForm" enctype="multipart/form-data">
+          <form action="{{ route('guest.custom_order.store') }}" method="POST" id="customOrderForm" enctype="multipart/form-data" data-prevent-double-submit>
             @csrf
             <input type="hidden" name="shop_slug" value="{{ $targetShop->shop_slug ?? '' }}">
 
@@ -1006,7 +1006,7 @@ function confirmCustomOrder(btn) {
   }
   var total = document.getElementById('totalDisplay').textContent;
   cakeConfirm({ title:'Confirm Custom Order?', message:'Estimated Total: '+total+'\n\nNote: This is a base estimate only. The final price will be confirmed by our baker after reviewing your design reference.', icon:'bi-cake2', okLabel:'Place Order',
-    onConfirm:() => { btn.disabled=true; btn.innerHTML='<span class="spinner-border spinner-border-sm me-2"></span>Placing Order…'; document.getElementById('customOrderForm').submit(); }
+    onConfirm:() => { csSubmitOnce(document.getElementById('customOrderForm'), btn, '<span class="spinner-border spinner-border-sm me-2"></span>Placing Order...'); }
   });
   return false;
 }

@@ -24,7 +24,7 @@
 
       <div class="row g-4">
         <div class="col-lg-8">
-          <form action="{{ route('customer.custom_order.store') }}" method="POST" id="customOrderForm" enctype="multipart/form-data">
+          <form action="{{ route('customer.custom_order.store') }}" method="POST" id="customOrderForm" enctype="multipart/form-data" data-prevent-double-submit>
             @csrf
             <input type="hidden" name="shop_slug" value="{{ $targetShop->shop_slug ?? '' }}">
 
@@ -779,7 +779,7 @@ function confirmCustomOrder(btn) {
     onConfirm: () => {
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Placing Order…';
-      document.getElementById('customOrderForm').submit();
+      csSubmitOnce(document.getElementById('customOrderForm'), btn, '<span class="spinner-border spinner-border-sm me-2"></span>Placing Order...');
     }
   });
   return false;

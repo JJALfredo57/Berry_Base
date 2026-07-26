@@ -6,11 +6,20 @@ use App\Helpers\CakeshopHelper;
 use App\Support\BecCastilloAddons;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class CustomOrderController extends Controller
 {
     use UploadsFiles;
+
+    private function submissionKey(Request $request, string $scope): ?string
+    {
+        $token = trim((string) $request->input('_submit_token', ''));
+        if ($token === '') return null;
+        return 'submit:' . $scope . ':' . $request->session()->getId() . ':' . sha1($token);
+    }
+
     private function loadOptions(?string $shopId = null): array
     {
         $base = DB::table('custom_order_options')->where('is_active', true);
@@ -269,6 +278,16 @@ class CustomOrderController extends Controller
         }
 
         $oid = CakeshopHelper::generateId('orders');
+        $submitKey = $this->submissionKey($request, 'customer_custom_order_store');
+        if ($submitKey && !Cache::add($submitKey . ':lock', true, now()->addMinutes(10))) {
+            $existing = Cache::get($submitKey . ':result');
+            if (!empty($existing['route'])) {
+                return redirect()->route($existing['route'], $existing['params'] ?? [])
+                    ->with('msg', $existing['message'] ?? 'Custom order already submitted.');
+            }
+            return back()->with('error', 'This custom order is already being processed. Please wait.')->withInput();
+        }
+
         DB::table('orders')->insert([
             'id'               => $oid,
             'shop_id'          => $shopId,
@@ -372,6 +391,14 @@ class CustomOrderController extends Controller
         }
 
         CakeshopHelper::logActivity($uid, 'customer', 'Custom Order', "Order #{$oid} - {$cakeName}");
+
+        if ($submitKey) {
+            Cache::put($submitKey . ':result', [
+                'route' => 'customer.orders',
+                'params' => [],
+                'message' => "Custom Order #{$oid} was already submitted.",
+            ], now()->addMinutes(10));
+        }
 
         return redirect()->route('customer.orders')
             ->with('msg', "🎂 Custom Order #{$oid} submitted! We'll review it and get back to you soon.");

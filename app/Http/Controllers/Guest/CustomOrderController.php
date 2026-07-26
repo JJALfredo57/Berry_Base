@@ -7,6 +7,7 @@ use App\Helpers\SmsHelper;
 use App\Support\BecCastilloAddons;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class CustomOrderController extends Controller
@@ -21,6 +22,13 @@ class CustomOrderController extends Controller
             for ($i = 0; $i < 8; $i++) $code .= $chars[random_int(0, strlen($chars)-1)];
         } while (DB::table('orders')->where('track_code', $code)->exists());
         return $code;
+    }
+
+    private function submissionKey(Request $request, string $scope): ?string
+    {
+        $token = trim((string) $request->input('_submit_token', ''));
+        if ($token === '') return null;
+        return 'submit:' . $scope . ':' . $request->session()->getId() . ':' . sha1($token);
     }
 
     private function loadOptions(?string $shopId = null): array
@@ -257,6 +265,16 @@ class CustomOrderController extends Controller
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $request->session()->get('co_guest_pre_track') ?: $this->generateTrackCode();
 
+        $submitKey = $this->submissionKey($request, 'guest_custom_order_store');
+        if ($submitKey && !Cache::add($submitKey . ':lock', true, now()->addMinutes(10))) {
+            $existing = Cache::get($submitKey . ':result');
+            if (!empty($existing['track_code'])) {
+                return redirect()->route('track.order', $existing['track_code'])
+                    ->with('msg', $existing['message'] ?? 'Custom order already submitted.');
+            }
+            return back()->with('error', 'This custom order is already being processed. Please wait.')->withInput();
+        }
+
         DB::table('orders')->insert([
             'id'=>$oid,'shop_id'=>$shopId,
             'guest_name'=>$guestName,'guest_phone'=>$phone,'track_code'=>$trackCode,
@@ -335,6 +353,13 @@ class CustomOrderController extends Controller
             . "Use this code to track your order on our website.\n\n"
             . "For concerns, contact us through our shop page."
         );
+
+        if ($submitKey) {
+            Cache::put($submitKey . ':result', [
+                'track_code' => $trackCode,
+                'message' => 'Custom order already submitted.',
+            ], now()->addMinutes(10));
+        }
 
         return redirect()->route('track.order',$trackCode)
             ->with('msg','Custom order submitted! We\'ll review it and contact you. 🎂');

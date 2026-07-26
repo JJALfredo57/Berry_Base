@@ -1,5 +1,66 @@
 /* CakeShop Main JS */
 
+// Prevent accidental double-submits on forms that create or mutate records.
+// Add data-prevent-double-submit to a form, or call csSubmitOnce(form, button).
+(function() {
+  function randomToken() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return String(Date.now()) + '-' + Math.random().toString(36).slice(2);
+  }
+
+  function ensureSubmitToken(form) {
+    if (!form || form.querySelector('input[name="_submit_token"]')) return;
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = '_submit_token';
+    input.value = randomToken();
+    form.appendChild(input);
+  }
+
+  function lockForm(form, button, label) {
+    if (!form || form.dataset.csSubmitting === '1') return false;
+    ensureSubmitToken(form);
+    form.dataset.csSubmitting = '1';
+
+    var buttons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
+    buttons.forEach(function(btn) {
+      btn.disabled = true;
+      btn.dataset.csOriginalText = btn.innerHTML || btn.value || '';
+      if (btn.tagName === 'BUTTON') {
+        btn.innerHTML = label || btn.dataset.loadingText || '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+      } else {
+        btn.value = label || btn.dataset.loadingText || 'Processing...';
+      }
+    });
+
+    if (button && !Array.prototype.includes.call(buttons, button)) {
+      button.disabled = true;
+    }
+    return true;
+  }
+
+  window.csPrepareSubmitToken = ensureSubmitToken;
+  window.csLockForm = lockForm;
+  window.csSubmitOnce = function(form, button, label) {
+    if (!lockForm(form, button, label)) return false;
+    HTMLFormElement.prototype.submit.call(form);
+    return true;
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('form[data-prevent-double-submit]').forEach(ensureSubmitToken);
+  });
+
+  document.addEventListener('submit', function(event) {
+    var form = event.target;
+    if (!form || !form.matches || !form.matches('form[data-prevent-double-submit]')) return;
+    if (!lockForm(form, form.querySelector('button[type="submit"], input[type="submit"]'))) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+})();
+
 // ── Toast ───────────────────────────────────────────────────────────────
 function cakeToast(msg, type) {
   type = type || 'success';

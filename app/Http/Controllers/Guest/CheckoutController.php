@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class CheckoutController extends Controller
@@ -17,6 +18,13 @@ class CheckoutController extends Controller
             for ($i = 0; $i < 8; $i++) $code .= $chars[random_int(0, strlen($chars)-1)];
         } while (DB::table('orders')->where('track_code', $code)->exists());
         return $code;
+    }
+
+    private function submissionKey(Request $request, string $scope): ?string
+    {
+        $token = trim((string) $request->input('_submit_token', ''));
+        if ($token === '') return null;
+        return 'submit:' . $scope . ':' . $request->session()->getId() . ':' . sha1($token);
     }
 
     public function show(Request $request)
@@ -242,6 +250,16 @@ class CheckoutController extends Controller
         $needsDeposit  = ($payment !== 'GCash');
         $depositAmount = $needsDeposit ? round($total * 0.5, 2) : null;
 
+        $submitKey = $this->submissionKey($request, 'guest_checkout_place');
+        if ($submitKey && !Cache::add($submitKey . ':lock', true, now()->addMinutes(10))) {
+            $existing = Cache::get($submitKey . ':result');
+            if (!empty($existing['track_code'])) {
+                return redirect()->route('track.order', $existing['track_code'])
+                    ->with('msg', $existing['message'] ?? 'Order already placed.');
+            }
+            return back()->with('error', 'This order is already being processed. Please wait.')->withInput();
+        }
+
         DB::table('orders')->insert([
             'id'                  => $oid,
             'shop_id'             => $product->shop_id ?? null,
@@ -335,6 +353,13 @@ class CheckoutController extends Controller
         $successMsg = $needsDeposit
             ? 'Order placed! 🎂 Please pay your 50% deposit below to confirm your order.'
             : 'Order placed! We\'ll contact you soon to confirm. 🎂';
+
+        if ($submitKey) {
+            Cache::put($submitKey . ':result', [
+                'track_code' => $trackCode,
+                'message' => $successMsg,
+            ], now()->addMinutes(10));
+        }
 
         return redirect()->route('track.order', $trackCode)->with('msg', $successMsg);
     }

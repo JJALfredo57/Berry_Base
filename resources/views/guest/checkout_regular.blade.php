@@ -22,7 +22,7 @@ document.body.style.paddingRight = '';
       <div class="row g-4">
         {{-- LEFT: Form --}}
         <div class="col-lg-8 col-xl-9">
-          <form action="{{ route('guest.checkout.place') }}" method="POST" id="checkoutForm">
+          <form action="{{ route('guest.checkout.place') }}" method="POST" id="checkoutForm" data-prevent-double-submit>
             @csrf
 
             {{-- Product Summary --}}
@@ -340,7 +340,7 @@ document.body.style.paddingRight = '';
             </div>
 
             <button type="submit" class="btn btn-primary w-100 py-3 fw-semibold fs-5" id="placeOrderBtn"
-                    onclick="if(!cvValidateAll()) return false; const btn=this; const form=this.form; cakeConfirm({title:'Confirm Your Order',message:'Make sure all details are correct before placing.',icon:'bi-bag-check',iconBg:'#dbeafe',iconColor:'#2563eb',okLabel:'Place Order',okColor:'#2563eb',onConfirm:function(){ disablePlaceOrder(btn); form.submit(); }}); return false;">
+                    onclick="if(!cvValidateAll()) return false; const btn=this; const form=this.form; cakeConfirm({title:'Confirm Your Order',message:'Make sure all details are correct before placing.',icon:'bi-bag-check',iconBg:'#dbeafe',iconColor:'#2563eb',okLabel:'Place Order',okColor:'#2563eb',onConfirm:function(){ if(disablePlaceOrder(btn) === false) return; csSubmitOnce(form, btn, '<span class=&quot;spinner-border spinner-border-sm me-2&quot;></span>Placing Order...'); }}); return false;">
               <i class="bi bi-bag-check me-2"></i>Place Order
             </button>
           </form>
