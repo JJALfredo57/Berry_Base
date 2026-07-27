@@ -485,11 +485,11 @@
           @endif
         </div>
         <div class="col-md-3">
-          <label class="form-label fw-semibold">Sender ID <span class="text-muted fw-normal">(optional)</span></label>
+          <label class="form-label fw-semibold">Sender ID <span class="text-danger">*</span></label>
           <input type="text" class="form-control" name="philsms_sender"
                  value="{{ $platform->philsms_sender ?? '' }}"
-                 placeholder="e.g. CakeShop" maxlength="20">
-          <div class="form-text">Optional only. Branded sender names need telco approval through UniSMS.</div>
+                 placeholder="Active UniSMS sender ID" maxlength="20" required>
+          <div class="form-text text-danger">Required by UniSMS. Use only an active/approved Sender ID from your UniSMS dashboard.</div>
         </div>
         <div class="col-md-3">
           <div style="background:var(--gray-50);border-radius:var(--radius-md);padding:.875rem 1rem;font-size:.82rem;color:var(--gray-600);margin-top:1.75rem">

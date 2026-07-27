@@ -163,7 +163,12 @@ class PlatformSettingsController extends Controller
         $token  = trim($request->input('philsms_token', ''));
         $sender = trim($request->input('philsms_sender', ''));
 
-        $updates = ['updated_at' => now(), 'philsms_sender' => $sender ?: null];
+        if ($sender === '') {
+            return redirect()->route('superadmin.settings', ['tab' => 'sms'])
+                ->with('error', 'Sender ID is required. Enter an active/approved UniSMS Sender ID.');
+        }
+
+        $updates = ['updated_at' => now(), 'philsms_sender' => $sender];
         if (!empty($token)) $updates['philsms_token'] = $token;
 
         $existing = DB::table('platform_settings')->first();
