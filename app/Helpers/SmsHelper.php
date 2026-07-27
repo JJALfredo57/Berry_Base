@@ -80,6 +80,11 @@ class SmsHelper
                 'body'      => $data ?? $response,
             ]);
 
+            if (($httpCode < 200 || $httpCode >= 300) && !empty($senderId) && self::isInactiveSenderError($data)) {
+                Log::warning('UniSMS sender inactive. Retrying without sender ID.', ['to' => $cleanPhone, 'sender_id' => $senderId]);
+                return self::sendWithProvider($apiKey, '', $cleanPhone, $message);
+            }
+
             if ($httpCode < 200 || $httpCode >= 300) {
                 $apiMsg = self::extractApiError($data);
                 Log::warning('UniSMS rejected request.', ['http_code' => $httpCode, 'to' => $cleanPhone, 'api_error' => $apiMsg]);
@@ -102,6 +107,48 @@ class SmsHelper
             Log::error('UniSMS unexpected error.', ['message' => $e->getMessage(), 'to' => $cleanPhone]);
             return ['ok' => false, 'error' => 'An unexpected error occurred while sending SMS. Please try again.'];
         }
+    }
+
+    private static function sendWithProvider(string $apiKey, string $senderId, string $cleanPhone, string $message): array
+    {
+        $ch = curl_init();
+        $payload = ['recipient' => '+' . $cleanPhone, 'content' => self::clean($message)];
+        if (!empty($senderId)) $payload['sender_id'] = $senderId;
+
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => 'https://unismsapi.com/api/sms',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($payload),
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Authorization: Basic ' . base64_encode($apiKey . ':'),
+            ],
+            CURLOPT_TIMEOUT => 15,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
+        $data     = json_decode($response, true);
+        curl_close($ch);
+
+        Log::info('UniSMS fallback response.', [
+            'http_code' => $httpCode,
+            'to'        => $cleanPhone,
+            'sender_id' => $senderId,
+            'body'      => $data ?? $response,
+        ]);
+
+        if ($curlErr) {
+            return ['ok' => false, 'error' => 'Network error while contacting SMS gateway. Please try again.'];
+        }
+        if ($httpCode < 200 || $httpCode >= 300) {
+            $apiMsg = self::extractApiError($data);
+            return ['ok' => false, 'error' => 'SMS gateway rejected the request' . ($apiMsg ? ': ' . $apiMsg : '.') . ' Please check the SMS settings.'];
+        }
+        return ['ok' => true, 'error' => null];
     }
 
     /** Backward-compatible boolean wrapper. */
@@ -223,6 +270,12 @@ class SmsHelper
         if (isset($data['error']))   return is_string($data['error'])   ? $data['error']   : json_encode($data['error']);
         if (isset($data['errors']))  return is_string($data['errors'])  ? $data['errors']  : json_encode($data['errors']);
         return '';
+    }
+
+    private static function isInactiveSenderError(?array $data): bool
+    {
+        $message = strtolower(self::extractApiError($data));
+        return str_contains($message, 'sender_id') && str_contains($message, 'inactive');
     }
 
     private static function clean(string $text): string
