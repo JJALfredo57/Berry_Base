@@ -242,9 +242,6 @@
 
                 {{-- Image --}}
                 <div id="pbg-image" style="display:{{ $curBgType==='image' ? 'block' : 'none' }};margin-bottom:.75rem">
-                  @if(!empty($platform->platform_bg_image))
-                  <img src="{{ $platform->platform_bg_image }}" style="display:block;width:100%;height:110px;object-fit:cover;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);margin-bottom:.5rem">
-                  @endif
                   <input type="file" class="form-control" name="platform_bg_image" id="platformBgImageInput" accept=".jpg,.jpeg,.png,.webp" style="font-size:.8rem" onchange="previewPlatformBgImage(this)">
                   <div class="form-text">JPG, PNG or WebP · Max 5 MB. Leave blank to keep current image.</div>
                   <div style="margin-top:.65rem">
@@ -252,17 +249,18 @@
                     <input type="range" name="platform_bg_opacity" min="0.1" max="1" step="0.05"
                            value="{{ $platform->platform_bg_opacity ?? 1.0 }}"
                            style="width:100%;accent-color:var(--primary)"
-                           oninput="document.getElementById('pbgOpacityVal').textContent=Math.round(this.value*100)+'%'">
+                           oninput="updatePbgOpacityPreview(this.value)">
                   </div>
                 </div>
 
                 {{-- Live Preview --}}
-                <div id="pbgPreview" style="height:160px;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);transition:background .2s;
+                <div id="pbgPreview" data-current-image="{{ $platform->platform_bg_image ?? '' }}" style="height:160px;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);transition:background .2s;position:relative;overflow:hidden;
                   @if($curBgType==='gradient') background:linear-gradient(135deg,{{ $platform->platform_bg_gradient_start ?? '#fff7fb' }} 0%,{{ $platform->platform_bg_gradient_end ?? '#ffe3f1' }} 100%)
-                  @elseif($curBgType==='image' && !empty($platform->platform_bg_image)) background:url('{{ $platform->platform_bg_image }}') center/cover no-repeat
                   @else background:{{ $platform->platform_bg_color ?? '#FFF8F8' }}
                   @endif
-                "></div>
+                ">
+                  <div id="pbgPreviewImage" style="position:absolute;inset:0;opacity:{{ $platform->platform_bg_opacity ?? 1.0 }};transition:opacity .2s;background:{{ ($curBgType==='image' && !empty($platform->platform_bg_image)) ? "url('".$platform->platform_bg_image."') center/cover no-repeat" : 'transparent' }}"></div>
+                </div>
                 <div class="form-text mt-1">Live preview of the dashboard background.</div>
               </div>
             </div>
@@ -852,28 +850,39 @@ function switchPBgType(type) {
 function updatePlatformBgPreview(type) {
   const selected = type || platformBgCurrentType();
   const preview = document.getElementById('pbgPreview');
+  const imageLayer = document.getElementById('pbgPreviewImage');
   if (!preview) return;
 
   if (selected === 'gradient') {
     const start = document.getElementById('pbgGradStart')?.value || '#fff7fb';
     const end = document.getElementById('pbgGradEnd')?.value || '#ffe3f1';
     preview.style.background = `linear-gradient(135deg, ${start} 0%, ${end} 100%)`;
+    if (imageLayer) imageLayer.style.background = 'transparent';
     return;
   }
 
   if (selected === 'image') {
     const input = document.getElementById('platformBgImageInput');
     if (input && input.files && input.files[0]) {
-      preview.style.background = `url("${URL.createObjectURL(input.files[0])}") center/cover no-repeat`;
+      if (imageLayer) imageLayer.style.background = `url("${URL.createObjectURL(input.files[0])}") center/cover no-repeat`;
+    } else if (preview.dataset.currentImage && imageLayer) {
+      imageLayer.style.background = `url("${preview.dataset.currentImage}") center/cover no-repeat`;
     }
     return;
   }
 
   preview.style.background = document.getElementById('pbgColorPicker')?.value || '#FFF8F8';
+  if (imageLayer) imageLayer.style.background = 'transparent';
 }
 
 function updatePbgGradPreview() {
   updatePlatformBgPreview('gradient');
+}
+
+function updatePbgOpacityPreview(value) {
+  document.getElementById('pbgOpacityVal').textContent = Math.round(value * 100) + '%';
+  const imageLayer = document.getElementById('pbgPreviewImage');
+  if (imageLayer) imageLayer.style.opacity = value;
 }
 
 function previewPlatformBgImage(input) {
