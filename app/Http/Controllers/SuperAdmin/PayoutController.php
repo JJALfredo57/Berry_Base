@@ -77,16 +77,16 @@ class PayoutController extends Controller
             'updated_at' => now(),
         ];
 
-        $existing = DB::table('platform_settings')->first();
+        $existing = DB::table('platform_settings')->orderBy('id')->first();
         if ($existing) {
-            DB::table('platform_settings')->where('id', $existing->id)->update($updates);
+            DB::table('platform_settings')->update($updates);
         } else {
             $updates['platform_name'] = 'Cake Shop Platform';
             $updates['created_at'] = now();
             DB::table('platform_settings')->insert($updates);
         }
 
-        return redirect()->route('superadmin.payouts')->with('msg', 'Payout settings saved.');
+        return redirect()->route('superadmin.payouts')->with('msg', 'Payout settings saved. Mode: '.ucfirst($validated['payout_mode']).'.');
     }
 
     public function verifySeller(Request $request, string $shopId)

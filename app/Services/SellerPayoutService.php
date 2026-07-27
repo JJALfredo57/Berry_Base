@@ -9,7 +9,7 @@ class SellerPayoutService
 {
     public function settings(): object
     {
-        return DB::table('platform_settings')->first() ?? (object) [
+        return DB::table('platform_settings')->orderBy('id')->first() ?? (object) [
             'payout_mode' => 'manual',
             'payout_hold_days' => 3,
             'payout_minimum_amount' => 500,
