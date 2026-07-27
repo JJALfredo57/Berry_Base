@@ -979,24 +979,11 @@
     setTimeout(enterMobile, AUTO_MS);
   }
 
-  /* \u2500\u2500 Dismiss warning, then show welcome \u2500\u2500 */
-  function dismissWarning() {
-    var modal = document.getElementById('mobile-warning');
-    modal.style.transition = 'opacity 0.4s ease';
-    modal.style.opacity = '0';
-    modal.style.pointerEvents = 'none';
-    setTimeout(function () {
-      modal.style.display = 'none';
-      showMobileSplash();
-    }, 420);
-  }
-
   /* \u2500\u2500 Init \u2500\u2500 */
   if (isMobile) {
-    /* show warning */
     var w = document.getElementById('mobile-warning');
-    w.style.display = 'flex';
-    document.getElementById('mw-continue-btn').addEventListener('click', dismissWarning);
+    if (w) w.style.display = 'none';
+    showMobileSplash();
   } else {
     document.getElementById('openBtn').addEventListener('click', enterDesktop);
     setTimeout(enterDesktop, AUTO_MS);

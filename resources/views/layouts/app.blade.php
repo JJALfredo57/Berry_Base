@@ -1029,25 +1029,24 @@
 <div id="csTopProgress" aria-hidden="true"><div id="csTopProgressBar"></div></div>
 
 {{-- ═══ Facebook/Messenger in-app browser – full modal warning ═══ --}}
-<div id="fbIabOverlay" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#fff;border-radius:18px;padding:28px 22px;max-width:360px;width:100%;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.35);">
+<div id="fbIabOverlay" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(24,24,27,.58);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:18px;">
+  <div style="background:#fff;border-radius:16px;padding:22px;max-width:380px;width:100%;box-shadow:0 24px 64px rgba(15,23,42,.28);border:1px solid rgba(var(--primary-rgb),.16);">
     <div style="font-size:52px;margin-bottom:8px;">🗺️</div>
-    <h5 style="color:#dc2626;font-weight:800;font-size:17px;margin:0 0 8px;">Map Won't Work Here!</h5>
+    <h5 style="color:var(--gray-900);font-weight:800;font-size:18px;margin:0 0 8px;">Open in browser</h5>
     <p style="color:#374151;font-size:14px;margin:0 0 14px;line-height:1.5;">
-      The <strong>Facebook / Messenger browser</strong> does not support GPS and maps.<br><br>
-      Please open in <strong>Chrome</strong> for the full ordering experience.
+      Messenger's browser can block GPS and maps. Open Berry Base in Chrome for location and delivery features.
     </p>
-    <div style="background:#fef9c3;border:1px solid #fde047;border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:13px;color:#713f12;text-align:left;line-height:1.6;">
+    <div style="background:var(--primary-bg,#fff7ed);border:1px solid rgba(var(--primary-rgb),.18);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:var(--gray-700);text-align:left;line-height:1.6;">
       <strong>How to open in Chrome:</strong><br>
       1. Tap the <strong>⋮</strong> or <strong>···</strong> button at the top-right<br>
       2. Select <strong>"Open in Chrome"</strong><br>
       &nbsp;&nbsp;&nbsp;or <strong>"Open in external browser"</strong>
     </div>
-    <a id="fbOpenChromeBtn" href="#" style="display:block;background:#1a73e8;color:#fff;padding:13px;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none;margin-bottom:10px;">
+    <a id="fbOpenChromeBtn" href="#" style="display:flex;align-items:center;justify-content:center;gap:.45rem;background:var(--primary);color:#fff;padding:12px;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;margin-bottom:10px;">
       🌐 Open in Chrome
     </a>
-    <button onclick="document.getElementById('fbIabOverlay').style.display='none'" style="background:none;border:1px solid #d1d5db;color:#6b7280;padding:10px;border-radius:10px;font-size:13px;cursor:pointer;width:100%;">
-      Close (GPS/map won't work)
+    <button onclick="document.getElementById('fbIabOverlay').style.display='none'" style="background:#fff;border:1px solid var(--gray-200);color:var(--gray-600);padding:10px;border-radius:10px;font-size:13px;cursor:pointer;width:100%;">
+      Continue here
     </button>
   </div>
 </div>
