@@ -1024,6 +1024,17 @@
     }
   </style>
   @stack('styles')
+  <style>
+    .cs-checkout-stepper{display:flex;gap:.5rem;margin:0 0 1rem;overflow:auto;padding:.25rem .1rem .65rem}
+    .cs-checkout-step{display:flex;align-items:center;gap:.45rem;white-space:nowrap;border:1.5px solid var(--gray-200);background:rgba(255,255,255,.72);border-radius:999px;padding:.45rem .75rem;font-size:.78rem;font-weight:700;color:var(--gray-500);transition:.2s}
+    .cs-checkout-step .dot{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--gray-100);font-size:.72rem}
+    .cs-checkout-step.active{border-color:var(--primary);color:var(--primary);background:var(--primary-bg,#fff7ed)}
+    .cs-checkout-step.done{border-color:#bbf7d0;color:#166534;background:#f0fdf4}
+    .cs-wizard-panel{animation:csWizardIn .22s ease both}
+    .cs-wizard-panel.cs-hidden{display:none!important}
+    .cs-wizard-nav{display:flex;justify-content:space-between;gap:.75rem;margin:1rem 0 1.25rem}
+    @keyframes csWizardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  </style>
 </head>
 <body>
 <div id="csTopProgress" aria-hidden="true"><div id="csTopProgressBar"></div></div>
@@ -4092,6 +4103,71 @@ function pgFilter(param, val) {
   obs.observe(document.body, { childList: true, subtree: true });
   window.csCompressImageFile = compressImageFile;
 })();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var form = document.getElementById('checkoutForm') || document.getElementById('customOrderForm');
+  if (!form || form.dataset.wizardReady === '1') return;
+  var directCards = Array.from(form.children).filter(function (el) {
+    return el.classList && el.classList.contains('card') && el.classList.contains('mb-3');
+  });
+  if (directCards.length < 3) return;
+  function titleOf(card) { return (card.querySelector('h6')?.textContent || '').replace(/\s+/g, ' ').trim(); }
+  var cards = directCards;
+  if (form.id === 'checkoutForm') {
+    cards = ['Cake Message','Fulfillment','Payment Method','Your Information'].map(function (name) {
+      return directCards.find(function (card) { return titleOf(card).includes(name); });
+    }).filter(Boolean);
+    cards.forEach(function (card) { form.appendChild(card); });
+  }
+  if (cards.length < 2) return;
+  form.dataset.wizardReady = '1';
+  var current = 0;
+  cards.forEach(function (card) { card.classList.add('cs-wizard-panel'); });
+  var stepper = document.createElement('div');
+  stepper.className = 'cs-checkout-stepper';
+  stepper.innerHTML = cards.map(function (card, i) {
+    return '<div class="cs-checkout-step" data-step="'+i+'"><span class="dot">'+(i+1)+'</span><span>'+titleOf(card)+'</span></div>';
+  }).join('');
+  form.insertBefore(stepper, cards[0]);
+  var nav = document.createElement('div');
+  nav.className = 'cs-wizard-nav';
+  nav.innerHTML = '<button type="button" class="btn btn-outline-secondary" data-wiz-back><i class="bi bi-arrow-left me-1"></i>Back</button><button type="button" class="btn btn-primary" data-wiz-next>Next <i class="bi bi-arrow-right ms-1"></i></button>';
+  form.insertBefore(nav, cards[cards.length - 1].nextSibling);
+  function currentValid() {
+    var fields = Array.from(cards[current].querySelectorAll('input,select,textarea')).filter(function (el) {
+      return !el.disabled && el.type !== 'hidden' && el.offsetParent !== null;
+    });
+    for (var i = 0; i < fields.length; i++) {
+      if (!fields[i].checkValidity()) { fields[i].reportValidity(); return false; }
+    }
+    return true;
+  }
+  function showStep(i, scroll) {
+    current = Math.max(0, Math.min(i, cards.length - 1));
+    cards.forEach(function (card, idx) { card.classList.toggle('cs-hidden', idx !== current); });
+    stepper.querySelectorAll('.cs-checkout-step').forEach(function (el, idx) {
+      el.classList.toggle('active', idx === current);
+      el.classList.toggle('done', idx < current);
+    });
+    nav.querySelector('[data-wiz-back]').style.visibility = current === 0 ? 'hidden' : 'visible';
+    nav.querySelector('[data-wiz-next]').innerHTML = current === cards.length - 1 ? 'Review Order <i class="bi bi-check2 ms-1"></i>' : 'Next <i class="bi bi-arrow-right ms-1"></i>';
+    if (scroll !== false) cards[current].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  nav.querySelector('[data-wiz-back]').addEventListener('click', function () { showStep(current - 1); });
+  nav.querySelector('[data-wiz-next]').addEventListener('click', function () {
+    if (!currentValid()) return;
+    if (current < cards.length - 1) showStep(current + 1);
+    else window.scrollTo({ top: form.getBoundingClientRect().bottom + window.scrollY - 120, behavior: 'smooth' });
+  });
+  stepper.addEventListener('click', function (e) {
+    var target = e.target.closest('.cs-checkout-step');
+    if (!target) return;
+    var next = parseInt(target.dataset.step, 10);
+    if (next <= current || currentValid()) showStep(next);
+  });
+  showStep(0, false);
+});
 </script>
 </body>
 </html>
