@@ -4159,7 +4159,7 @@ document.addEventListener('DOMContentLoaded', function () {
   form.insertBefore(nav, cards[cards.length - 1].nextSibling);
   function currentValid() {
     var fields = Array.from(cards[current].querySelectorAll('input,select,textarea')).filter(function (el) {
-      return !el.disabled && el.type !== 'hidden' && el.offsetParent !== null;
+      return !el.disabled && el.type !== 'hidden' && !el.closest('.cs-hidden') && el.offsetParent !== null;
     });
     for (var i = 0; i < fields.length; i++) {
       if (!fields[i].checkValidity()) { fields[i].reportValidity(); return false; }
@@ -4168,7 +4168,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   function silentCardValid(card) {
     var fields = Array.from(card.querySelectorAll('input,select,textarea')).filter(function (el) {
-      return !el.disabled && el.type !== 'hidden' && el.offsetParent !== null;
+      return !el.disabled && el.type !== 'hidden' && !el.closest('.cs-hidden') && el.offsetParent !== null;
     });
     return fields.every(function (el) { return el.checkValidity(); });
   }

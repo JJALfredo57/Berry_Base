@@ -710,7 +710,7 @@ async function autoSelectBarangayFromCoords(lat, lng) {
     const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl2.signal });
     const data = await res.json();
     if (!data || !data.address) {
-      clearDetectedDeliveryZone('Delivery is not available at this pinned location.');
+      clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
       return;
     }
 
@@ -765,10 +765,10 @@ async function autoSelectBarangayFromCoords(lat, lng) {
       }
       cakeToast('📍 Delivery zone detected: ' + sel.options[bestIdx].value, 'success');
     } else {
-      clearDetectedDeliveryZone('Delivery is not available at this pinned location.');
+      clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
     }
   } catch (e) {
-    clearDetectedDeliveryZone('We could not verify delivery availability. Please move the pin and try again.');
+    clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
   }
 }
 
@@ -828,8 +828,9 @@ function updateFee() {
 function disablePlaceOrder(btn) {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   if (isDelivery) {
-    const zone = document.getElementById('zoneSelect')?.value;
-    if (!zone) {
+    const lat = document.getElementById('lat')?.value;
+    const lng = document.getElementById('lng')?.value;
+    if (!lat || !lng) {
       alert('Please pin your delivery location on the map first.');
       return false;
     }
@@ -1214,7 +1215,6 @@ function cvValidateAll() {
   // Delivery location
   if (isDelivery) {
     const zoneEl = document.getElementById('zoneSelect');
-    if (zoneEl && !zoneEl.value) { cvValidateZone(); ok = false; firstErr = firstErr || zoneEl; }
     if (!cvValidateMap()) { ok = false; firstErr = firstErr || document.getElementById('map'); }
   }
 

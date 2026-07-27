@@ -718,7 +718,7 @@ async function autoSelectBarangayFromCoords(lat, lng) {
     var res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
     var data = await res.json();
     if (!data || !data.address) {
-      clearDetectedDeliveryZone('Delivery is not available at this pinned location.');
+      clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
       return;
     }
     var a = data.address;
@@ -735,11 +735,10 @@ async function autoSelectBarangayFromCoords(lat, lng) {
       }
     }
     if (!matched) {
-      clearDetectedDeliveryZone('Delivery is not available at this pinned location.');
-      cakeToast('⚠️ Delivery is not available at this pinned location.','warn');
+      clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
     }
   } catch(e) {
-    clearDetectedDeliveryZone('We could not verify delivery availability. Please move the pin and try again.');
+    clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
   }
 }
 
@@ -957,7 +956,6 @@ function cvValidateAllCustom() {
   // ── 4. Delivery location ───────────────────────────────────────────────
   if (isDelivery) {
     var zoneEl = document.getElementById('zoneSelect');
-    if (zoneEl && !zoneEl.value) { cvValidateZone(); ok = false; firstErr = firstErr || document.getElementById('map'); }
     if (!cvValidateMap()) { ok = false; firstErr = firstErr || document.getElementById('map'); }
   }
 
@@ -1001,8 +999,8 @@ function cvValidateAllCustom() {
 function confirmCustomOrder(btn) {
   var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   if (isDelivery) {
-    var zone = document.getElementById('zoneSelect')?.value;
-    if (!zone) { cakeToast('Please pin your delivery location on the map first.','error'); return false; }
+    var lat = document.getElementById('lat')?.value, lng = document.getElementById('lng')?.value;
+    if (!lat || !lng) { cakeToast('Please pin your delivery location on the map first.','error'); return false; }
   }
   var total = document.getElementById('totalDisplay').textContent;
   cakeConfirm({ title:'Confirm Custom Order?', message:'Estimated Total: '+total+'\n\nNote: This is a base estimate only. The final price will be confirmed by our baker after reviewing your design reference.', icon:'bi-cake2', okLabel:'Place Order',
