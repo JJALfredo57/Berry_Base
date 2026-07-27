@@ -4,6 +4,7 @@ namespace App\Services;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class SellerPayoutService
 {
@@ -36,16 +37,22 @@ class SellerPayoutService
     {
         $settings = $this->settings();
         $holdDays = max(0, (int) ($settings->payout_hold_days ?? 3));
+        $hasDeliveredAt = Schema::hasColumn('orders', 'delivered_at');
+        $hasSettledAt = Schema::hasColumn('orders', 'settled_at');
 
         $orders = DB::table('orders as o')
             ->join('shops as s', 's.id', '=', 'o.shop_id')
             ->whereNotNull('o.shop_id')
             ->whereIn('o.payment_status', ['Paid', 'Partial Payment'])
             ->whereNotIn('o.status', ['Cancelled'])
-            ->where(function ($q) {
-                $q->where('o.status', 'Delivered')
-                    ->orWhereNotNull('o.delivered_at')
-                    ->orWhereNotNull('o.settled_at');
+            ->where(function ($q) use ($hasDeliveredAt, $hasSettledAt) {
+                $q->where('o.status', 'Delivered');
+                if ($hasDeliveredAt) {
+                    $q->orWhereNotNull('o.delivered_at');
+                }
+                if ($hasSettledAt) {
+                    $q->orWhereNotNull('o.settled_at');
+                }
             })
             ->whereNotExists(function ($q) {
                 $q->select(DB::raw(1))
@@ -71,7 +78,10 @@ class SellerPayoutService
             $commission = round($commissionBase * $rate / 100, 2);
             $net = max(0, round($gross - $commission, 2));
 
-            $deliveredAt = $order->delivered_at ?? $order->settled_at ?? $order->updated_at ?? now();
+            $deliveredAt = ($hasDeliveredAt ? ($order->delivered_at ?? null) : null)
+                ?? ($hasSettledAt ? ($order->settled_at ?? null) : null)
+                ?? $order->updated_at
+                ?? now();
             $releaseAt = Carbon::parse($deliveredAt)->addDays($holdDays);
             $status = $releaseAt->isFuture() ? 'clearing' : 'available';
 
@@ -241,6 +251,7 @@ class SellerPayoutService
             ->where('l.status', 'available')
             ->where('s.payout_details_verified', 1)
             ->where('s.payout_paused', 0)
+            ->select('l.shop_id')
             ->groupBy('l.shop_id')
             ->havingRaw('SUM(l.seller_net_amount) >= ?', [$minimum])
             ->count();
