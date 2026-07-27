@@ -77,7 +77,7 @@ class PayoutController extends Controller
             'updated_at' => now(),
         ];
 
-        $existing = DB::table('platform_settings')->orderBy('id')->first();
+        $existing = DB::table('platform_settings')->orderByDesc('updated_at')->orderBy('id')->first();
         if ($existing) {
             DB::table('platform_settings')->update($updates);
         } else {
@@ -86,7 +86,9 @@ class PayoutController extends Controller
             DB::table('platform_settings')->insert($updates);
         }
 
-        return redirect()->route('superadmin.payouts')->with('msg', 'Payout settings saved. Mode: '.ucfirst($validated['payout_mode']).'.');
+        $saved = $this->payouts->settings();
+        return redirect()->route('superadmin.payouts')
+            ->with('msg', 'Payout settings saved. Current mode: '.ucfirst($saved->payout_mode).'. Automatic is '.($saved->payout_auto_paused ? 'paused' : 'active').'.');
     }
 
     public function verifySeller(Request $request, string $shopId)
@@ -150,7 +152,11 @@ class PayoutController extends Controller
     {
         $count = $this->payouts->runAutomaticPreparation();
         if ($count === 0) {
-            return back()->with('err', 'No automatic payouts prepared. Automatic mode may be paused, sellers may be unverified, or balances may be below minimum.');
+            $blockers = $this->payouts->automaticPreparationBlockers();
+            $message = $blockers
+                ? 'No automatic payouts prepared: '.implode(' ', $blockers)
+                : 'No automatic payouts prepared. No seller currently meets the payout rules.';
+            return back()->with('err', $message);
         }
         return back()->with('msg', "{$count} automatic payout batch(es) prepared for processing.");
     }

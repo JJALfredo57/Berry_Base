@@ -9,7 +9,7 @@ class SellerPayoutService
 {
     public function settings(): object
     {
-        return DB::table('platform_settings')->orderBy('id')->first() ?? (object) [
+        $defaults = (object) [
             'payout_mode' => 'manual',
             'payout_hold_days' => 3,
             'payout_minimum_amount' => 500,
@@ -17,6 +17,19 @@ class SellerPayoutService
             'payout_first_approval_required' => true,
             'payout_auto_paused' => true,
         ];
+
+        $settings = DB::table('platform_settings')->orderByDesc('updated_at')->orderBy('id')->first();
+        if (!$settings) return $defaults;
+
+        $mode = strtolower(trim((string) ($settings->payout_mode ?? $defaults->payout_mode)));
+        $settings->payout_mode = in_array($mode, ['manual', 'automatic'], true) ? $mode : 'manual';
+        $settings->payout_hold_days = (int) ($settings->payout_hold_days ?? $defaults->payout_hold_days);
+        $settings->payout_minimum_amount = (float) ($settings->payout_minimum_amount ?? $defaults->payout_minimum_amount);
+        $settings->payout_schedule = (string) ($settings->payout_schedule ?? $defaults->payout_schedule);
+        $settings->payout_first_approval_required = (bool) ($settings->payout_first_approval_required ?? $defaults->payout_first_approval_required);
+        $settings->payout_auto_paused = (bool) ($settings->payout_auto_paused ?? $defaults->payout_auto_paused);
+
+        return $settings;
     }
 
     public function syncDeliveredPaidOrders(): int
@@ -202,6 +215,41 @@ class SellerPayoutService
         }
 
         return $count;
+    }
+
+    public function automaticPreparationBlockers(): array
+    {
+        $settings = $this->settings();
+        $this->syncDeliveredPaidOrders();
+
+        $blockers = [];
+        if (($settings->payout_mode ?? 'manual') !== 'automatic') {
+            $blockers[] = 'Payout mode is currently Manual.';
+        }
+        if (!empty($settings->payout_auto_paused)) {
+            $blockers[] = 'Automatic payouts are paused globally.';
+        }
+
+        $availableLedgers = DB::table('seller_payout_ledgers')->where('status', 'available')->count();
+        if ($availableLedgers === 0) {
+            $blockers[] = 'No available ledgers yet. Orders must be paid, delivered, and past the hold period.';
+        }
+
+        $minimum = (float) ($settings->payout_minimum_amount ?? 0);
+        $eligibleShops = DB::table('seller_payout_ledgers as l')
+            ->join('shops as s', 's.id', '=', 'l.shop_id')
+            ->where('l.status', 'available')
+            ->where('s.payout_details_verified', 1)
+            ->where('s.payout_paused', 0)
+            ->groupBy('l.shop_id')
+            ->havingRaw('SUM(l.seller_net_amount) >= ?', [$minimum])
+            ->count();
+
+        if ($availableLedgers > 0 && $eligibleShops === 0) {
+            $blockers[] = 'Available balances exist, but no seller is verified, unpaused, and above the minimum payout amount.';
+        }
+
+        return $blockers;
     }
 
     private function collectedAmount(object $order): float

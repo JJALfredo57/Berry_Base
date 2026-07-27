@@ -2,6 +2,10 @@
 @section('page_title','Seller Payouts')
 
 @section('content')
+@php
+  $currentPayoutMode = strtolower(trim((string)($settings->payout_mode ?? 'manual')));
+  if (!in_array($currentPayoutMode, ['manual', 'automatic'], true)) $currentPayoutMode = 'manual';
+@endphp
 <div class="cs-page-header">
   <div>
     <h4 class="cs-page-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary)"></i>Seller Payouts</h4>
@@ -62,8 +66,8 @@
           <div class="mb-3">
             <label class="form-label fw-semibold">Payout Mode</label>
             <select name="payout_mode" class="form-select" required>
-              <option value="manual" @selected(($settings->payout_mode ?? 'manual') === 'manual')>Manual - admin reviews and marks paid</option>
-              <option value="automatic" @selected(($settings->payout_mode ?? 'manual') === 'automatic')>Automatic - system prepares eligible payouts</option>
+              <option value="manual" @selected($currentPayoutMode === 'manual')>Manual - admin reviews and marks paid</option>
+              <option value="automatic" @selected($currentPayoutMode === 'automatic')>Automatic - system prepares eligible payouts</option>
             </select>
             <div class="form-text">Use Manual while validating seller details. Switch to Automatic when operations are ready.</div>
           </div>
@@ -105,7 +109,7 @@
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-shop me-2" style="color:var(--primary)"></i>Seller Balances</span>
-        <span class="badge text-bg-light">Mode: {{ ucfirst($settings->payout_mode ?? 'manual') }}</span>
+        <span class="badge text-bg-light">Mode: {{ ucfirst($currentPayoutMode) }} / {{ !empty($settings->payout_auto_paused) ? 'Paused' : 'Active' }}</span>
       </div>
       <div class="table-responsive">
         <table class="table align-middle mb-0">
