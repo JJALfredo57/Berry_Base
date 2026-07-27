@@ -1062,13 +1062,18 @@ function sendCoGuestOtp() {
   fd.append('_token', '{{ csrf_token() }}');
   fd.append('phone', phone);
   fd.append('shop_slug', '{{ $targetShop->shop_slug ?? '' }}');
-  fetch('{{ route("guest.custom_order.send_otp") }}', {method:'POST', body:fd})
+  fetch('{{ route("guest.custom_order.send_otp") }}', {
+    method:'POST',
+    body:fd,
+    headers: { 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest' }
+  })
     .then(r=>r.json())
     .then(data => {
       if (!data.ok) { cakeToast(data.error||'Failed to send OTP.','error'); btn.innerHTML='<i class="bi bi-phone me-1"></i>Send OTP'; btn.disabled=false; return; }
       document.getElementById('coOtpSection').style.display='block';
       document.querySelector('[name="otp_code"]').required=true;
       otpSent = true;
+      document.getElementById('customOrderForm')?.dispatchEvent(new Event('change', { bubbles:true }));
       var badge = document.getElementById('otpStatusBadge');
       if (badge) { badge.style.background='#dcfce7'; badge.style.color='#166534'; badge.innerHTML='<i class="bi bi-check-circle-fill me-1"></i>OTP sent — enter code below'; }
       cakeToast('✅ OTP sent! Check your SMS.','success');

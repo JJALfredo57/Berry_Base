@@ -844,8 +844,14 @@ function disablePlaceOrder(btn) {
 // ── Guest OTP ───────────────────────────────────────────────────────────
 var otpSent = false;
 function sendGuestOtp() {
-  const phone = document.getElementById('guestPhone').value.trim();
+  const phoneEl = document.getElementById('guestPhone');
+  const phone = phoneEl.value.trim();
   if (!phone) { cakeToast('Please enter your phone number first.','error'); return; }
+  cvValidate(phoneEl);
+  if (phoneEl.classList.contains('cv-invalid')) {
+    cakeToast('Please enter a valid phone number.','error');
+    return;
+  }
 
   const btn = document.getElementById('sendOtpBtn');
   btn.disabled = true;
@@ -855,7 +861,11 @@ function sendGuestOtp() {
   fd.append('_token', '{{ csrf_token() }}');
   fd.append('phone', phone);
 
-  fetch('{{ route("guest.checkout.send_otp") }}', { method:'POST', body:fd })
+  fetch('{{ route("guest.checkout.send_otp") }}', {
+    method:'POST',
+    body:fd,
+    headers: { 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest' }
+  })
     .then(r => r.text())
     .then(text => {
       let data;
@@ -873,8 +883,10 @@ function sendGuestOtp() {
         return;
       }
       document.getElementById('otpSection').style.display = 'block';
-      document.querySelector('[name="otp_code"]').required = true;
+      const otpInput = document.querySelector('[name="otp_code"]');
+      if (otpInput) otpInput.required = true;
       otpSent = true;
+      document.getElementById('checkoutForm')?.dispatchEvent(new Event('change', { bubbles:true }));
       cakeToast('✅ OTP sent! Check your SMS.', 'success');
       btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Resend';
       btn.disabled = false;
