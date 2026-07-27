@@ -229,6 +229,9 @@ Route::get('/admin/forgot-password/back',        [ForgotPasswordController::clas
 Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(function () {
     // Dashboard
     Route::get('/dashboard', [\App\Http\Controllers\Seller\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/payouts',   [\App\Http\Controllers\Seller\PayoutController::class, 'index'])->name('payouts');
+    Route::post('/payouts/details', [\App\Http\Controllers\Seller\PayoutController::class, 'saveDetails'])->name('payouts.details');
+    Route::post('/payouts/request', [\App\Http\Controllers\Seller\PayoutController::class, 'requestManual'])->name('payouts.request');
 
     // Products
     Route::get('/products',                  [\App\Http\Controllers\Seller\ProductController::class, 'index'])->name('products');
@@ -339,6 +342,12 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/sellers/{id}/reject-upgrade',       [\App\Http\Controllers\SuperAdmin\SellerController::class, 'rejectUpgrade'])->name('sellers.reject_upgrade');
     Route::get('/platform-dashboard',          [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/commission-analytics',        [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'commissions'])->name('commissions');
+    Route::get('/payouts',                     [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'index'])->name('payouts');
+    Route::post('/payouts/settings',           [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'saveSettings'])->name('payouts.settings');
+    Route::post('/payouts/run-automatic',      [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'runAutomatic'])->name('payouts.run_automatic');
+    Route::post('/payouts/seller/{id}/verify', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'verifySeller'])->name('payouts.verify_seller');
+    Route::post('/payouts/seller/{id}/create', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'createManual'])->name('payouts.create_manual');
+    Route::post('/payouts/{id}/paid',          [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markPaid'])->name('payouts.mark_paid');
     Route::get('/feedback',                    [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'index'])->name('feedback');
     Route::post('/feedback/{id}',              [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'update'])->name('feedback.update');
     Route::get('/platform-settings',           [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'index'])->name('settings');

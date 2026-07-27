@@ -1118,6 +1118,11 @@
       @if($pendingApps > 0)<span class="sb-badge">{{ $pendingApps }}</span>@endif
     </a>
 
+    <div class="sb-label">Finance</div>
+    <a href="{{ route('superadmin.payouts') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.payouts') ? 'active' : '' }}">
+      <i class="bi bi-wallet2"></i><span class="sb-link-text">Seller Payouts</span>
+    </a>
+
     <div class="sb-label">Customers</div>
     <a href="{{ route('superadmin.feedback') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.feedback') ? 'active' : '' }}">
       <i class="bi bi-chat-square-heart"></i><span class="sb-link-text">Feedback</span>
@@ -1264,6 +1269,9 @@
     </a>
     <a href="{{ route('seller.kitchen') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.kitchen') ? 'active' : '' }}">
       <i class="bi bi-fire"></i><span class="sb-link-text">Kitchen</span>
+    </a>
+    <a href="{{ route('seller.payouts') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.payouts') ? 'active' : '' }}">
+      <i class="bi bi-wallet2"></i><span class="sb-link-text">Payouts</span>
     </a>
     <a href="{{ route('seller.messages') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.messages') ? 'active' : '' }}">
       <i class="bi bi-chat-dots"></i><span class="sb-link-text">Messages</span>

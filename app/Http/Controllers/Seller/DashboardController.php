@@ -43,6 +43,7 @@ class DashboardController extends Controller
         $commissionRate    = $commissionEnabled ? (float)($shop->commission_rate ?? 0) : 0;
         $commission        = round($stats['revenue'] * $commissionRate / 100, 2);
         $netRevenue        = $stats['revenue'] - $commission;
+        $payoutSummary     = app(\App\Services\SellerPayoutService::class)->summaryForShop((string)$shopId);
 
         // Recent orders
         try {
@@ -76,7 +77,7 @@ class DashboardController extends Controller
 
         return view('seller.dashboard', compact(
             'shop','stats','commission','netRevenue',
-            'recentOrders','pendingCustom','unreadMsg'
+            'payoutSummary','recentOrders','pendingCustom','unreadMsg'
         ));
     }
 }

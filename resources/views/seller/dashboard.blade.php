@@ -44,15 +44,16 @@
     ['bi-bag-check',  'Total Orders',  number_format($stats['total']),     '#424242', '#f5f5f5', route('seller.orders')],
     ['bi-cash-stack', 'Revenue',       '₱'.number_format($stats['revenue'],2), '#2E7D32','#e8f5e9','#'],
     ['bi-wallet2',    'Net Earnings',  '₱'.number_format($netRevenue,2),  'var(--primary)', 'var(--primary-bg)', '#'],
+    ['bi-bank',       'Available Payout', '&#8369;'.number_format($payoutSummary['available'] ?? 0,2), '#166534', '#ecfdf5', route('seller.payouts')],
   ] as [$icon, $label, $val, $color, $bg, $link])
-  <div class="col-6 col-md-4 col-xl-2">
+  <div class="col-6 col-md-4 col-xl">
     <a href="{{ $link }}" style="text-decoration:none;display:block;height:100%">
       <div class="cs-stat-card h-100">
         <div class="cs-stat-icon" style="background:{{ $bg }}">
           <i class="bi {{ $icon }}" style="color:{{ $color }}"></i>
         </div>
         <div class="cs-stat-body">
-          <div class="cs-stat-num" style="color:{{ $color }};font-size:clamp(1.1rem,2.5vw,1.4rem)">{{ $val }}</div>
+          <div class="cs-stat-num" style="color:{{ $color }};font-size:clamp(1rem,2.2vw,1.35rem)">{!! $val !!}</div>
           <div class="cs-stat-label">{{ $label }}</div>
         </div>
       </div>
@@ -60,6 +61,18 @@
   </div>
   @endforeach
 </div>
+
+@if(($payoutSummary['clearing'] ?? 0) > 0 || ($payoutSummary['processing'] ?? 0) > 0)
+<div class="alert alert-info d-flex align-items-start gap-2 mb-4 cs-fade-up" style="border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af">
+  <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+  <div class="small">
+    <strong>Payout reminder:</strong>
+    &#8369;{{ number_format($payoutSummary['clearing'] ?? 0, 2) }} is still clearing, and
+    &#8369;{{ number_format($payoutSummary['processing'] ?? 0, 2) }} is already requested or processing.
+    Open Payouts to review details before sending a request.
+  </div>
+</div>
+@endif
 
 <div class="row g-4">
 
