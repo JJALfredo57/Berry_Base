@@ -7,8 +7,8 @@
   $requestBlockReason = null;
   if (!empty($shop->payout_paused)) {
     $requestBlockReason = 'Payouts are paused for your shop. Please contact admin.';
-  } elseif (empty($shop->payout_method) || empty($shop->payout_institution) || empty($shop->payout_account_name) || empty($shop->payout_account_number)) {
-    $requestBlockReason = 'Complete your payout details first before requesting a payout.';
+  } elseif (empty($shop->payout_account_name) || empty($shop->payout_account_number)) {
+    $requestBlockReason = 'Complete your GCash payout details first before requesting a payout.';
   } elseif (empty($shop->payout_details_verified)) {
     $requestBlockReason = 'Your payout details need admin verification before payout request.';
   } elseif (($summary['available'] ?? 0) <= 0) {
@@ -88,23 +88,16 @@
           @csrf
           <div class="mb-3">
             <label class="form-label">Receive via</label>
-            <select name="payout_method" class="form-select" required>
-              @foreach(['bank'=>'Bank account','gcash'=>'GCash','maya'=>'Maya','paymongo_wallet'=>'PayMongo Wallet'] as $key => $label)
-                <option value="{{ $key }}" @selected(($shop->payout_method ?? '') === $key)>{{ $label }}</option>
-              @endforeach
-            </select>
+            <input class="form-control" value="GCash" readonly>
+            <div class="form-text">Seller payouts are currently released to GCash only.</div>
           </div>
           <div class="mb-3">
-            <label class="form-label">Bank / E-wallet Provider</label>
-            <input class="form-control" name="payout_institution" value="{{ $shop->payout_institution }}" placeholder="Example: BDO, BPI, GCash" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Account Name</label>
+            <label class="form-label">GCash Account Name</label>
             <input class="form-control" name="payout_account_name" value="{{ $shop->payout_account_name }}" placeholder="Exact registered name" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Account / Wallet Number</label>
-            <input class="form-control" name="payout_account_number" value="{{ $shop->payout_account_number }}" placeholder="Account number or mobile wallet number" required>
+            <label class="form-label">GCash Mobile Number</label>
+            <input class="form-control" name="payout_account_number" value="{{ $shop->payout_account_number }}" placeholder="09XXXXXXXXX" required>
           </div>
           <button class="btn btn-primary w-100" type="submit" data-loading-text="Saving..."><i class="bi bi-save me-1"></i>Save Details</button>
         </form>

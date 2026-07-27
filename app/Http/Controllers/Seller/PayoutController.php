@@ -44,20 +44,16 @@ class PayoutController extends Controller
         if (!$shop) return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
 
         $validated = $request->validate([
-            'payout_method' => 'required|in:bank,gcash,maya,paymongo_wallet',
-            'payout_institution' => 'required|string|min:2|max:120',
             'payout_account_name' => 'required|string|min:3|max:150',
             'payout_account_number' => 'required|string|min:5|max:80',
         ], [
-            'payout_method.required' => 'Choose where you want to receive payouts.',
-            'payout_institution.required' => 'Enter the bank or e-wallet provider name.',
-            'payout_account_name.required' => 'Enter the account name exactly as registered.',
-            'payout_account_number.required' => 'Enter the account or wallet number.',
+            'payout_account_name.required' => 'Enter the GCash account name exactly as registered.',
+            'payout_account_number.required' => 'Enter the GCash mobile number.',
         ]);
 
         DB::table('shops')->where('id', $shop->id)->update([
-            'payout_method' => $validated['payout_method'],
-            'payout_institution' => trim($validated['payout_institution']),
+            'payout_method' => 'gcash',
+            'payout_institution' => 'GCash',
             'payout_account_name' => trim($validated['payout_account_name']),
             'payout_account_number' => trim($validated['payout_account_number']),
             'payout_details_verified' => false,

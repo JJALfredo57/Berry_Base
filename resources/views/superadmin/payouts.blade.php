@@ -129,8 +129,8 @@
                 $payoutBlockReason = null;
                 if (!empty($shop->payout_paused)) {
                   $payoutBlockReason = 'Payout is paused for this seller. Enable payouts for this shop first.';
-                } elseif (empty($shop->payout_method) || empty($shop->payout_institution) || empty($shop->payout_account_name) || empty($shop->payout_account_number)) {
-                  $payoutBlockReason = 'Seller payout details are incomplete. Ask the seller to add bank/e-wallet details first.';
+                } elseif (empty($shop->payout_method) || empty($shop->payout_account_name) || empty($shop->payout_account_number)) {
+                  $payoutBlockReason = 'Seller GCash payout details are incomplete. Ask the seller to add GCash details first.';
                 } elseif (empty($shop->payout_details_verified)) {
                   $payoutBlockReason = 'Seller payout details need admin verification before creating a payout.';
                 } elseif ($shop->available_balance <= 0) {
@@ -146,7 +146,7 @@
                 </td>
                 <td class="small">
                   @if($shop->payout_method)
-                    <div>{{ strtoupper(str_replace('_',' ', $shop->payout_method)) }} - {{ $shop->payout_institution }}</div>
+                    <div>GCash</div>
                     <div class="text-muted">{{ $shop->payout_account_name }} / {{ $shop->payout_account_number }}</div>
                     <span class="badge {{ $shop->payout_details_verified ? 'text-bg-success' : 'text-bg-warning' }}">{{ $shop->payout_details_verified ? 'Verified' : 'Needs verification' }}</span>
                   @else

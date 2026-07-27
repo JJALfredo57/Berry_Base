@@ -17,6 +17,16 @@
   .best-seller-grid{ grid-template-columns:1fr; }
   .catalog-img-wrap{ height:200px !important; }
 }
+.filter-fab{display:none}
+.filter-overlay{display:none}
+.filter-panel{transition:transform .25s ease, box-shadow .25s ease}
+@media(max-width:768px){
+  .filter-fab{display:inline-flex;position:fixed;right:14px;bottom:82px;z-index:1041;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.2)}
+  .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1040}
+  .filter-overlay.show{display:block}
+  .filter-panel{position:fixed;top:0;right:0;bottom:0;width:min(88vw,360px);z-index:1042;overflow:auto;border-radius:0!important;transform:translateX(105%);margin:0!important}
+  .filter-panel.show{transform:translateX(0);box-shadow:-18px 0 40px rgba(15,23,42,.2)}
+}
 .catalog-item{ transition: all .3s ease; }
 @media (hover: hover) {
   .catalog-card:hover {
@@ -81,16 +91,25 @@
   </div>
   @endif
 
-<div class="card border-0 shadow-sm mb-4" style="border-radius:1.25rem;background:linear-gradient(135deg,#fff7fb,#fff)">
+<button type="button" class="btn btn-primary filter-fab" onclick="toggleCatalogFilters(true)">
+  <i class="bi bi-funnel me-1"></i>Filters
+</button>
+<div id="catalogFilterOverlay" class="filter-overlay" onclick="toggleCatalogFilters(false)"></div>
+<div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel" style="border-radius:1.25rem;background:#fff">
   <div class="card-body p-3 p-md-4">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div>
         <h5 class="fw-bold mb-1" style="color:var(--primary)"><i class="bi bi-funnel me-2"></i>Smart Product Filters</h5>
         <p class="text-muted small mb-0">Search by cake name, flavor, seller, category, rating, or covered barangay</p>
       </div>
-      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetCatalogFilters()">
-        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
-      </button>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetCatalogFilters()">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm d-md-none" onclick="toggleCatalogFilters(false)">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
     </div>
     <div class="row g-2">
       <div class="col-lg-4">
@@ -99,36 +118,36 @@
           oninput="filterCatalog()">
       </div>
       <div class="col-sm-6 col-lg-2">
-        <select id="catalogClassFilter" class="form-select form-select-lg" onchange="filterCatalog()">
-          <option value="">All categories</option>
+        <input id="catalogClassFilter" list="catalogClassOptions" class="form-control form-control-lg" placeholder="All categories" oninput="filterCatalog()">
+        <datalist id="catalogClassOptions">
           @foreach($products->pluck('classification')->filter()->unique()->sort()->values() as $classificationOption)
-          <option value="{{ strtolower($classificationOption) }}">{{ $classificationOption }}</option>
+          <option value="{{ $classificationOption }}"></option>
           @endforeach
-        </select>
+        </datalist>
       </div>
       <div class="col-sm-6 col-lg-2">
-        <select id="catalogRatingFilter" class="form-select form-select-lg" onchange="filterCatalog()">
-          <option value="">Any rating</option>
-          <option value="4">4 stars & up</option>
-          <option value="3">3 stars & up</option>
-          <option value="1">With reviews</option>
-        </select>
+        <input id="catalogRatingFilter" list="catalogRatingOptions" class="form-control form-control-lg" placeholder="Any rating" oninput="filterCatalog()">
+        <datalist id="catalogRatingOptions">
+          <option value="4 stars & up"></option>
+          <option value="3 stars & up"></option>
+          <option value="With reviews"></option>
+        </datalist>
       </div>
       <div class="col-sm-6 col-lg-2">
-        <select id="catalogSellerFilter" class="form-select form-select-lg" onchange="filterCatalog()">
-          <option value="">All sellers</option>
+        <input id="catalogSellerFilter" list="catalogSellerOptions" class="form-control form-control-lg" placeholder="All sellers" oninput="filterCatalog()">
+        <datalist id="catalogSellerOptions">
           @foreach($products->pluck('shop_name')->filter()->unique()->sort()->values() as $shopName)
-          <option value="{{ strtolower($shopName) }}">{{ $shopName }}</option>
+          <option value="{{ $shopName }}"></option>
           @endforeach
-        </select>
+        </datalist>
       </div>
       <div class="col-sm-6 col-lg-2">
-        <select id="catalogBarangayFilter" class="form-select form-select-lg" onchange="filterCatalog()">
-          <option value="">All barangays</option>
+        <input id="catalogBarangayFilter" list="catalogBarangayOptions" class="form-control form-control-lg" placeholder="All barangays" oninput="filterCatalog()">
+        <datalist id="catalogBarangayOptions">
           @foreach(($barangayOptions ?? collect()) as $barangay)
-          <option value="{{ strtolower(trim($barangay)) }}">{{ $barangay }}</option>
+          <option value="{{ $barangay }}"></option>
           @endforeach
-        </select>
+        </datalist>
       </div>
     </div>
     <div class="small text-muted mt-2" id="catalogFilterSummary">Showing {{ $products->count() }} cake options</div>
@@ -657,7 +676,8 @@ document.addEventListener('hidden.bs.modal', forceCleanModals);
 function filterCatalog(){
   const q = (document.getElementById('catalogSearch')?.value || '').toLowerCase().trim();
   const classification = (document.getElementById('catalogClassFilter')?.value || '').toLowerCase();
-  const rating = parseFloat(document.getElementById('catalogRatingFilter')?.value || '0');
+  const ratingText = (document.getElementById('catalogRatingFilter')?.value || '').toLowerCase();
+  const rating = ratingText.includes('4') ? 4 : (ratingText.includes('3') ? 3 : (ratingText.includes('review') ? 1 : 0));
   const seller = (document.getElementById('catalogSellerFilter')?.value || '').toLowerCase();
   const barangay = (document.getElementById('catalogBarangayFilter')?.value || '').toLowerCase();
   let visibleCount = 0;
@@ -671,9 +691,9 @@ function filterCatalog(){
     const reviewed = (el.getAttribute('data-reviewed') || '0') === '1';
 
     const matchesSearch = !q || haystack.includes(q);
-    const matchesClass = !classification || elClass === classification;
-    const matchesSeller = !seller || elSeller === seller;
-    const matchesBarangay = !barangay || elBarangays.includes('|' + barangay + '|');
+    const matchesClass = !classification || elClass.includes(classification);
+    const matchesSeller = !seller || elSeller.includes(seller);
+    const matchesBarangay = !barangay || elBarangays.includes(barangay);
     const matchesRating = !rating || (rating === 1 ? reviewed : elRating >= rating);
     const matches = matchesSearch && matchesClass && matchesSeller && matchesBarangay && matchesRating;
 
@@ -686,8 +706,7 @@ function filterCatalog(){
 
   const summary = document.getElementById('catalogFilterSummary');
   if (summary) {
-    const barangayLabel = document.getElementById('catalogBarangayFilter')?.selectedOptions?.[0]?.text || '';
-    const suffix = barangay ? ' for ' + barangayLabel : '';
+    const suffix = barangay ? ' for ' + document.getElementById('catalogBarangayFilter').value : '';
     summary.textContent = 'Showing ' + visibleCount + ' of ' + document.querySelectorAll('.catalog-item').length + ' cake options' + suffix;
   }
 }
@@ -698,6 +717,12 @@ function resetCatalogFilters() {
     if (el) el.value = '';
   });
   filterCatalog();
+}
+
+function toggleCatalogFilters(open) {
+  document.getElementById('catalogFilterPanel')?.classList.toggle('show', open);
+  document.getElementById('catalogFilterOverlay')?.classList.toggle('show', open);
+  document.body.style.overflow = open ? 'hidden' : '';
 }
 </script>
 

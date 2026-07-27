@@ -138,7 +138,6 @@ class SellerPayoutService
         if (!$shop || !empty($shop->payout_paused)) return null;
         if (
             empty($shop->payout_method) ||
-            empty($shop->payout_institution) ||
             empty($shop->payout_account_name) ||
             empty($shop->payout_account_number) ||
             empty($shop->payout_details_verified)
@@ -168,7 +167,7 @@ class SellerPayoutService
                 'commission_amount' => $commission,
                 'net_amount' => $net,
                 'payout_method' => $shop->payout_method,
-                'payout_institution' => $shop->payout_institution,
+                'payout_institution' => $shop->payout_institution ?: 'GCash',
                 'payout_account_name' => $shop->payout_account_name,
                 'payout_account_number' => $shop->payout_account_number,
                 'admin_note' => $note,
