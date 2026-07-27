@@ -110,11 +110,13 @@ class SmsHelper
         return self::sendWithResult($phone, $message, $isOtpCall)['ok'];
     }
 
-    public static function sendOtp(string $phone, string $otp, string $siteName = 'Cake Shop', string $recipientName = '', string $shopName = '', string $trackCode = '', string $trackUrl = ''): bool
+    public static function sendOtpWithResult(string $phone, string $otp, string $siteName = 'Cake Shop', string $recipientName = '', string $shopName = '', string $trackCode = '', string $trackUrl = ''): array
     {
+        $devMode = false;
         try {
             $p = DB::table('platform_settings')->first();
             if (!empty($p->dev_mode)) {
+                $devMode = true;
                 $cleanPhone = preg_replace('/\D/', '', $phone);
                 if (str_starts_with($cleanPhone, '0'))   $cleanPhone = '63' . substr($cleanPhone, 1);
                 if (!str_starts_with($cleanPhone, '63')) $cleanPhone = '63' . $cleanPhone;
@@ -131,7 +133,16 @@ class SmsHelper
         $trackLine = $trackCode ? "\nTrack: {$trackCode}" : '';
         $message   = "{$header}\nCode: {$otp}\nValid 10 mins. Do not share.{$trackLine}";
 
-        return self::send($phone, $message, true);
+        if ($devMode) {
+            return ['ok' => true, 'error' => null];
+        }
+
+        return self::sendWithResult($phone, $message, true);
+    }
+
+    public static function sendOtp(string $phone, string $otp, string $siteName = 'Cake Shop', string $recipientName = '', string $shopName = '', string $trackCode = '', string $trackUrl = ''): bool
+    {
+        return self::sendOtpWithResult($phone, $otp, $siteName, $recipientName, $shopName, $trackCode, $trackUrl)['ok'];
     }
 
     public static function header(string $siteName, string $shopName = ''): string

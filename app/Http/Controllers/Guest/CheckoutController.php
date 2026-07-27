@@ -108,11 +108,11 @@ class CheckoutController extends Controller
                 $shopName = SmsHelper::getShopName($shopId);
             }
 
-            $sent = SmsHelper::sendOtp($phone, $otp, $siteName, '', $shopName, $preTrackCode, $preTrackUrl);
-            if (!$sent) {
+            $smsResult = SmsHelper::sendOtpWithResult($phone, $otp, $siteName, '', $shopName, $preTrackCode, $preTrackUrl);
+            if (!$smsResult['ok']) {
                 return response()->json([
                     'ok' => false,
-                    'error' => 'OTP was not sent. Please check SMS settings or try again.',
+                    'error' => $smsResult['error'] ?? 'OTP was not sent. Please check SMS settings or try again.',
                 ], 422);
             }
 
