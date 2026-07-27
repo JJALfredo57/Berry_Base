@@ -113,6 +113,15 @@ class SellerPayoutService
     {
         $shop = DB::table('shops')->where('id', $shopId)->first();
         if (!$shop || !empty($shop->payout_paused)) return null;
+        if (
+            empty($shop->payout_method) ||
+            empty($shop->payout_institution) ||
+            empty($shop->payout_account_name) ||
+            empty($shop->payout_account_number) ||
+            empty($shop->payout_details_verified)
+        ) {
+            return null;
+        }
 
         $ledgers = $this->availableLedgersForShop($shopId);
         if ($ledgers->isEmpty()) return null;

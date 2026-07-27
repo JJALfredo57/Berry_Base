@@ -120,6 +120,21 @@
           </thead>
           <tbody>
             @forelse($shops as $shop)
+              @php
+                $minimumPayout = (float)($settings->payout_minimum_amount ?? 0);
+                $payoutBlockReason = null;
+                if (!empty($shop->payout_paused)) {
+                  $payoutBlockReason = 'Payout is paused for this seller. Enable payouts for this shop first.';
+                } elseif (empty($shop->payout_method) || empty($shop->payout_institution) || empty($shop->payout_account_name) || empty($shop->payout_account_number)) {
+                  $payoutBlockReason = 'Seller payout details are incomplete. Ask the seller to add bank/e-wallet details first.';
+                } elseif (empty($shop->payout_details_verified)) {
+                  $payoutBlockReason = 'Seller payout details need admin verification before creating a payout.';
+                } elseif ($shop->available_balance <= 0) {
+                  $payoutBlockReason = 'No available balance yet. Orders must be paid, delivered, and past the hold period.';
+                } elseif ($shop->available_balance < $minimumPayout) {
+                  $payoutBlockReason = 'Available balance is below the minimum payout amount of ₱'.number_format($minimumPayout, 2).'.';
+                }
+              @endphp
               <tr>
                 <td>
                   <div class="fw-semibold">{{ $shop->shop_name }}</div>
@@ -144,10 +159,16 @@
                         <button class="btn btn-outline-success btn-sm" type="submit">Verify</button>
                       </form>
                     @endif
-                    <form action="{{ route('superadmin.payouts.create_manual', $shop->id) }}" method="POST" data-prevent-double-submit>
-                      @csrf
-                      <button class="btn btn-primary btn-sm" type="submit" @disabled($shop->available_balance <= 0)>Create Payout</button>
-                    </form>
+                    @if($payoutBlockReason)
+                      <button class="btn btn-outline-secondary btn-sm" type="button" onclick="alert(@js($payoutBlockReason))">
+                        Create Payout
+                      </button>
+                    @else
+                      <form action="{{ route('superadmin.payouts.create_manual', $shop->id) }}" method="POST" data-prevent-double-submit>
+                        @csrf
+                        <button class="btn btn-primary btn-sm" type="submit" data-loading-text="Creating...">Create Payout</button>
+                      </form>
+                    @endif
                   </div>
                 </td>
               </tr>

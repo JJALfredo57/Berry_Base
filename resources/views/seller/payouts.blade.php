@@ -2,17 +2,38 @@
 @section('page_title','Payouts')
 
 @section('content')
+@php
+  $minimumPayout = (float)($settings->payout_minimum_amount ?? 0);
+  $requestBlockReason = null;
+  if (!empty($shop->payout_paused)) {
+    $requestBlockReason = 'Payouts are paused for your shop. Please contact admin.';
+  } elseif (empty($shop->payout_method) || empty($shop->payout_institution) || empty($shop->payout_account_name) || empty($shop->payout_account_number)) {
+    $requestBlockReason = 'Complete your payout details first before requesting a payout.';
+  } elseif (empty($shop->payout_details_verified)) {
+    $requestBlockReason = 'Your payout details need admin verification before payout request.';
+  } elseif (($summary['available'] ?? 0) <= 0) {
+    $requestBlockReason = 'No available balance yet. Earnings become available after paid orders are delivered and cleared.';
+  } elseif (($summary['available'] ?? 0) < $minimumPayout) {
+    $requestBlockReason = 'Your available balance is below the minimum payout amount of ₱'.number_format($minimumPayout, 2).'.';
+  }
+@endphp
 <div class="cs-page-header">
   <div>
     <h4 class="cs-page-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary)"></i>Payouts</h4>
     <p class="cs-page-sub">Track your earnings and keep your payout details accurate.</p>
   </div>
-  <form action="{{ route('seller.payouts.request') }}" method="POST" data-prevent-double-submit>
-    @csrf
-    <button class="btn btn-primary btn-sm" type="submit" data-loading-text="Submitting...">
+  @if($requestBlockReason)
+    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="alert(@js($requestBlockReason))">
       <i class="bi bi-cash-coin me-1"></i>Request Payout
     </button>
-  </form>
+  @else
+    <form action="{{ route('seller.payouts.request') }}" method="POST" data-prevent-double-submit>
+      @csrf
+      <button class="btn btn-primary btn-sm" type="submit" data-loading-text="Submitting...">
+        <i class="bi bi-cash-coin me-1"></i>Request Payout
+      </button>
+    </form>
+  @endif
 </div>
 
 @if(session('msg'))
