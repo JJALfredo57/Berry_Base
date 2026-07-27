@@ -766,7 +766,6 @@ async function autoSelectBarangayFromCoords(lat, lng) {
       cakeToast('📍 Delivery zone detected: ' + sel.options[bestIdx].value, 'success');
     } else {
       clearDetectedDeliveryZone('Delivery is not available at this pinned location.');
-      cakeToast('⚠️ Could not detect your area — try moving the pin or tap Find My Location.', 'warn');
     }
   } catch (e) {
     clearDetectedDeliveryZone('We could not verify delivery availability. Please move the pin and try again.');

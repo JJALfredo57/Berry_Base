@@ -1026,8 +1026,9 @@
   @stack('styles')
   <style>
     .cs-checkout-stepper{display:flex;gap:.5rem;margin:0 0 1rem;overflow:auto;padding:.25rem .1rem .65rem}
-    .cs-checkout-step{display:flex;align-items:center;gap:.45rem;white-space:nowrap;border:1.5px solid var(--gray-200);background:rgba(255,255,255,.72);border-radius:999px;padding:.45rem .75rem;font-size:.78rem;font-weight:700;color:var(--gray-500);transition:.2s}
+    .cs-checkout-step{display:flex;align-items:center;gap:.45rem;white-space:nowrap;border:1.5px solid var(--gray-200);background:rgba(255,255,255,.72);border-radius:999px;padding:.45rem .75rem;font-size:.78rem;font-weight:700;color:var(--gray-500);transition:.2s;pointer-events:none}
     .cs-checkout-step .dot{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--gray-100);font-size:.72rem}
+    .cs-checkout-step:not(:last-child)::after{content:"\F285";font-family:"bootstrap-icons";margin-left:.35rem;color:var(--gray-400);font-size:.75rem}
     .cs-checkout-step.active{border-color:var(--primary);color:var(--primary);background:var(--primary-bg,#fff7ed)}
     .cs-checkout-step.done{border-color:#bbf7d0;color:#166534;background:#f0fdf4}
     .cs-wizard-panel{animation:csWizardIn .22s ease both}
@@ -4113,6 +4114,22 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   if (directCards.length < 3) return;
   function titleOf(card) { return (card.querySelector('h6')?.textContent || '').replace(/\s+/g, ' ').trim(); }
+  function enhancePaymentCard(card) {
+    if (!card || !titleOf(card).includes('Payment Method')) return;
+    var body = card.querySelector('.card-body') || card;
+    var existing = document.getElementById('paymentTransparencyBox');
+    if (existing) {
+      body.appendChild(existing);
+      existing.classList.add('mt-3');
+      return;
+    }
+    if (body.querySelector('.pm-transparency-preview')) return;
+    var box = document.createElement('div');
+    box.className = 'pm-transparency-preview mt-3 p-3 rounded-3';
+    box.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0';
+    box.innerHTML = '<div class="small fw-semibold mb-1" style="color:#0f172a"><i class="bi bi-shield-check me-1"></i>PayMongo transparency preview</div><div class="small text-muted">GCash payments are processed through PayMongo. Test mode will not charge real money; live mode will charge customers normally.</div>';
+    body.appendChild(box);
+  }
   var cards = directCards;
   if (form.id === 'checkoutForm') {
     cards = ['Cake Message','Fulfillment','Payment Method','Your Information'].map(function (name) {
@@ -4121,8 +4138,14 @@ document.addEventListener('DOMContentLoaded', function () {
     cards.forEach(function (card) { form.appendChild(card); });
   }
   if (cards.length < 2) return;
+  cards.forEach(enhancePaymentCard);
   form.dataset.wizardReady = '1';
   var current = 0;
+  var submitButtons = Array.from(form.querySelectorAll('button[type="submit"], input[type="submit"]'));
+  submitButtons.forEach(function (btn) {
+    btn.dataset.csOriginalDisplay = btn.style.display || '';
+    btn.style.display = 'none';
+  });
   cards.forEach(function (card) { card.classList.add('cs-wizard-panel'); });
   var stepper = document.createElement('div');
   stepper.className = 'cs-checkout-stepper';
@@ -4143,6 +4166,23 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     return true;
   }
+  function silentCardValid(card) {
+    var fields = Array.from(card.querySelectorAll('input,select,textarea')).filter(function (el) {
+      return !el.disabled && el.type !== 'hidden' && el.offsetParent !== null;
+    });
+    return fields.every(function (el) { return el.checkValidity(); });
+  }
+  function otpReady() {
+    var otp = form.querySelector('#fieldOtp');
+    if (!otp) return true;
+    return /^\d{6}$/.test((otp.value || '').trim());
+  }
+  function updateSubmitVisibility() {
+    var ready = current === cards.length - 1 && silentCardValid(cards[current]) && otpReady();
+    submitButtons.forEach(function (btn) {
+      btn.style.display = ready ? btn.dataset.csOriginalDisplay : 'none';
+    });
+  }
   function showStep(i, scroll) {
     current = Math.max(0, Math.min(i, cards.length - 1));
     cards.forEach(function (card, idx) { card.classList.toggle('cs-hidden', idx !== current); });
@@ -4152,6 +4192,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     nav.querySelector('[data-wiz-back]').style.visibility = current === 0 ? 'hidden' : 'visible';
     nav.querySelector('[data-wiz-next]').innerHTML = current === cards.length - 1 ? 'Review Order <i class="bi bi-check2 ms-1"></i>' : 'Next <i class="bi bi-arrow-right ms-1"></i>';
+    updateSubmitVisibility();
     if (scroll !== false) cards[current].scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   nav.querySelector('[data-wiz-back]').addEventListener('click', function () { showStep(current - 1); });
@@ -4160,12 +4201,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (current < cards.length - 1) showStep(current + 1);
     else window.scrollTo({ top: form.getBoundingClientRect().bottom + window.scrollY - 120, behavior: 'smooth' });
   });
-  stepper.addEventListener('click', function (e) {
-    var target = e.target.closest('.cs-checkout-step');
-    if (!target) return;
-    var next = parseInt(target.dataset.step, 10);
-    if (next <= current || currentValid()) showStep(next);
-  });
+  form.addEventListener('input', updateSubmitVisibility);
+  form.addEventListener('change', updateSubmitVisibility);
   showStep(0, false);
 });
 </script>
