@@ -54,6 +54,18 @@ class PayoutController extends Controller
                     ->where('shop_id', $shop->id)
                     ->whereIn('status', ['requested', 'processing'])
                     ->sum('seller_net_amount');
+                $shop->clearing_balance = (float) DB::table('seller_payout_ledgers')
+                    ->where('shop_id', $shop->id)
+                    ->whereIn('status', ['pending', 'clearing'])
+                    ->sum('seller_net_amount');
+                $nextClearing = DB::table('seller_payout_ledgers')
+                    ->where('shop_id', $shop->id)
+                    ->whereIn('status', ['pending', 'clearing'])
+                    ->whereNotNull('release_at')
+                    ->orderBy('release_at')
+                    ->first();
+                $shop->next_release_at = $nextClearing->release_at ?? null;
+                $shop->next_release_amount = $nextClearing ? (float) $nextClearing->seller_net_amount : 0;
                 return $shop;
             });
 

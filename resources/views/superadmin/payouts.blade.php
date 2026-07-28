@@ -114,6 +114,7 @@
             <tr>
               <th>Seller</th>
               <th>Payout Details</th>
+              <th>Clearing / Next Release</th>
               <th class="text-end">Available</th>
               <th class="text-end">Processing</th>
               <th></th>
@@ -150,6 +151,18 @@
                     <span class="text-muted">No payout details yet</span>
                   @endif
                 </td>
+                <td class="small">
+                  <div class="fw-semibold">₱{{ number_format($shop->clearing_balance ?? 0, 2) }}</div>
+                  @if(!empty($shop->next_release_at))
+                    @php $shopNextRelease = \Carbon\Carbon::parse($shop->next_release_at); @endphp
+                    <div class="text-muted">Next: {{ $shopNextRelease->format('M d, Y h:i A') }}</div>
+                    <div class="fw-semibold" style="color:var(--primary)">
+                      <span data-countdown-until="{{ $shopNextRelease->toIso8601String() }}">Calculating...</span>
+                    </div>
+                  @else
+                    <span class="text-muted">No clearing balance</span>
+                  @endif
+                </td>
                 <td class="text-end fw-semibold">₱{{ number_format($shop->available_balance, 2) }}</td>
                 <td class="text-end">₱{{ number_format($shop->processing_balance, 2) }}</td>
                 <td class="text-end">
@@ -174,7 +187,7 @@
                 </td>
               </tr>
             @empty
-              <tr><td colspan="5" class="text-center text-muted py-4">No seller balances yet.</td></tr>
+              <tr><td colspan="6" class="text-center text-muted py-4">No seller balances yet.</td></tr>
             @endforelse
           </tbody>
         </table>
@@ -282,6 +295,46 @@ document.addEventListener('DOMContentLoaded', function() {
   const mode = document.getElementById('payoutModeSelect');
   const automaticSettings = document.querySelectorAll('.payout-auto-setting');
   const automaticNotice = document.getElementById('automaticPayoutNoticeModal');
+
+  function formatCountdown(ms) {
+    if (ms <= 0) return null;
+    const totalSeconds = Math.floor(ms / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return (days ? days + 'd ' : '') +
+      String(hours).padStart(2, '0') + 'h ' +
+      String(minutes).padStart(2, '0') + 'm ' +
+      String(seconds).padStart(2, '0') + 's';
+  }
+
+  let countdownTimer = null;
+  function updateCountdowns() {
+    let active = 0;
+    document.querySelectorAll('[data-countdown-until]').forEach(el => {
+      if (el.dataset.countdownDone === '1') return;
+      const target = Date.parse(el.dataset.countdownUntil || '');
+      if (!target) return;
+      const text = formatCountdown(target - Date.now());
+      if (!text) {
+        el.textContent = 'Ready after refresh';
+        el.dataset.countdownDone = '1';
+        return;
+      }
+      el.textContent = text;
+      active++;
+    });
+    if (active === 0 && countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+  }
+
+  updateCountdowns();
+  if (document.querySelector('[data-countdown-until]:not([data-countdown-done="1"])')) {
+    countdownTimer = setInterval(updateCountdowns, 1000);
+  }
 
   function syncPayoutModeFields() {
     const isAutomatic = mode && mode.value === 'automatic';

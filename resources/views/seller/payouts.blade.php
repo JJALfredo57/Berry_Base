@@ -73,6 +73,56 @@
   @endforeach
 </div>
 
+@php
+  $nextReleaseAt = $nextClearingLedger?->release_at ? \Carbon\Carbon::parse($nextClearingLedger->release_at) : null;
+  $remainingToMinimum = max(0, $minimumPayout - (float)($summary['available'] ?? 0));
+@endphp
+<div class="card mb-4">
+  <div class="card-header"><i class="bi bi-calendar2-check me-2" style="color:var(--primary)"></i>Payout Availability</div>
+  <div class="card-body">
+    <div class="row g-3 align-items-stretch">
+      <div class="col-md-4">
+        <div class="h-100 p-3 rounded-3" style="background:var(--primary-bg)">
+          <div class="text-muted small fw-semibold">Hold Period</div>
+          <div class="fw-bold" style="color:var(--primary)">{{ (int)($payoutSettings->payout_hold_days ?? 0) }} day{{ (int)($payoutSettings->payout_hold_days ?? 0) === 1 ? '' : 's' }}</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="h-100 p-3 rounded-3" style="background:#ecfdf5">
+          <div class="text-muted small fw-semibold">Minimum Request</div>
+          <div class="fw-bold" style="color:#166534">₱{{ number_format($minimumPayout, 2) }}</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="h-100 p-3 rounded-3" style="background:#fffbeb">
+          <div class="text-muted small fw-semibold">Still Needed</div>
+          <div class="fw-bold" style="color:#92400e">₱{{ number_format($remainingToMinimum, 2) }}</div>
+        </div>
+      </div>
+    </div>
+
+    @if($nextReleaseAt)
+      <div class="mt-3 p-3 rounded-3 d-flex align-items-start gap-3" style="background:#f8fafc;border:1px solid #e5e7eb">
+        <i class="bi bi-hourglass-split fs-4" style="color:var(--primary)"></i>
+        <div>
+          <div class="fw-semibold">Next clearing release</div>
+          <div class="small text-muted">
+            ₱{{ number_format((float)$nextClearingLedger->seller_net_amount, 2) }} becomes available on
+            <strong>{{ $nextReleaseAt->format('M d, Y h:i A') }}</strong>.
+          </div>
+          <div class="mt-1 fw-bold" style="color:var(--primary)">
+            <span data-countdown-until="{{ $nextReleaseAt->toIso8601String() }}">Calculating...</span>
+          </div>
+        </div>
+      </div>
+    @elseif(($summary['available'] ?? 0) >= $minimumPayout && !$requestBlockReason)
+      <div class="alert alert-success mt-3 mb-0"><i class="bi bi-check-circle me-1"></i>Your available balance is ready for payout request.</div>
+    @else
+      <div class="alert alert-light border mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>No clearing countdown right now. New paid and delivered orders will show their release time here.</div>
+    @endif
+  </div>
+</div>
+
 <div class="row g-4">
   <div class="col-lg-4">
     <div class="card">
@@ -186,6 +236,46 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  function formatCountdown(ms) {
+    if (ms <= 0) return null;
+    const totalSeconds = Math.floor(ms / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return (days ? days + 'd ' : '') +
+      String(hours).padStart(2, '0') + 'h ' +
+      String(minutes).padStart(2, '0') + 'm ' +
+      String(seconds).padStart(2, '0') + 's';
+  }
+
+  let countdownTimer = null;
+  function updateCountdowns() {
+    let active = 0;
+    document.querySelectorAll('[data-countdown-until]').forEach(el => {
+      if (el.dataset.countdownDone === '1') return;
+      const target = Date.parse(el.dataset.countdownUntil || '');
+      if (!target) return;
+      const text = formatCountdown(target - Date.now());
+      if (!text) {
+        el.textContent = 'Ready after refresh';
+        el.dataset.countdownDone = '1';
+        return;
+      }
+      el.textContent = text;
+      active++;
+    });
+    if (active === 0 && countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+  }
+
+  updateCountdowns();
+  if (document.querySelector('[data-countdown-until]:not([data-countdown-done="1"])')) {
+    countdownTimer = setInterval(updateCountdowns, 1000);
+  }
+
   document.querySelectorAll('.payout-receipt-viewer-btn').forEach(button => {
     button.addEventListener('click', function() {
       const url = button.dataset.receiptUrl;

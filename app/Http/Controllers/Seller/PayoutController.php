@@ -34,8 +34,14 @@ class PayoutController extends Controller
             ->orderByDesc('created_at')
             ->limit(20)
             ->get();
+        $nextClearingLedger = DB::table('seller_payout_ledgers')
+            ->where('shop_id', $shop->id)
+            ->whereIn('status', ['pending', 'clearing'])
+            ->whereNotNull('release_at')
+            ->orderBy('release_at')
+            ->first();
 
-        return view('seller.payouts', compact('shop', 'payoutSettings', 'summary', 'ledgers', 'payouts'));
+        return view('seller.payouts', compact('shop', 'payoutSettings', 'summary', 'ledgers', 'payouts', 'nextClearingLedger'));
     }
 
     public function saveDetails(Request $request)
