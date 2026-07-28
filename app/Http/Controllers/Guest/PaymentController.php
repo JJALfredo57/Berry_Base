@@ -624,6 +624,9 @@ class PaymentController extends Controller
             return redirect()->route('track.order', $trackCode)->with('error', 'Payment cancelled. You can try again.');
 
         if ($order->payment_status === 'Paid') {
+            $order->receipt_paid_amount = $this->latestPaymentTransactionAmount($order->id, 'remaining_gcash')
+                ?? $this->latestPaymentTransactionAmount($order->id, 'full_gcash')
+                ?? (float) $order->total_price;
             $receiptAddons = DB::table('order_addons')->where('order_id', $order->id)->get();
             $vatSettings   = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
             return view('guest.payment_receipt', ['success'=>true,'trackCode'=>$trackCode,'receipt'=>$order,'receiptAddons'=>$receiptAddons,'vatSettings'=>$vatSettings,'pmReference'=>null]);
@@ -719,6 +722,7 @@ class PaymentController extends Controller
                 ->where('o.id', $order->id)
                 ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"), 'p.image_path as product_image')
                 ->first();
+            $order->receipt_paid_amount = $paidAmount;
 
             $receiptAddons = DB::table('order_addons')->where('order_id', $order->id)->get();
             $vatSettings   = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
@@ -899,6 +903,22 @@ class PaymentController extends Controller
     private function getPaymongoCheckoutMethods(): array
     {
         return ['gcash'];
+    }
+
+    private function latestPaymentTransactionAmount(string $orderId, string $type): ?float
+    {
+        try {
+            $amount = DB::table('payment_transactions')
+                ->where('order_id', $orderId)
+                ->where('type', $type)
+                ->orderByDesc('paid_at')
+                ->orderByDesc('id')
+                ->value('amount');
+
+            return $amount !== null ? (float) $amount : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     private function formatPaymongoCheckoutPhone(?string $phone): string
