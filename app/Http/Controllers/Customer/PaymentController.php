@@ -90,11 +90,12 @@ class PaymentController extends Controller
                         ],
                     ],
                     'payment_method_types' => $this->getPaymongoCheckoutMethods(),
+                    'pass_on_fees' => true,
                     'success_url' => $successUrl,
                     'cancel_url'  => $cancelUrl,
                     'description' => 'CakeShop Order #' . $orderId,
                     'reference_number' => 'ORDER-' . $orderId,
-                    'send_email_receipt' => true,
+                    'send_email_receipt' => false,
                     'show_description'   => true,
                     'show_line_items'    => true,
                 ],
@@ -102,7 +103,7 @@ class PaymentController extends Controller
         ];
 
         // --- Call PayMongo API ---
-        $ch = curl_init('https://api.paymongo.com/v1/checkout_sessions');
+        $ch = curl_init('https://api.paymongo.com/v2/checkout_sessions');
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST           => true,
@@ -212,18 +213,19 @@ class PaymentController extends Controller
                         'quantity' => 1,
                     ]],
                     'payment_method_types' => $this->getPaymongoCheckoutMethods(),
+                    'pass_on_fees'         => true,
                     'success_url'          => $successUrl,
                     'cancel_url'           => $cancelUrl,
                     'description'          => 'Deposit for Order #' . $id . ' (' . $order->payment_method . ')',
                     'reference_number'     => 'DEP-' . $id,
-                    'send_email_receipt'   => true,
+                    'send_email_receipt'   => false,
                     'show_description'     => true,
                     'show_line_items'      => true,
                 ],
             ],
         ];
 
-        $ch = curl_init('https://api.paymongo.com/v1/checkout_sessions');
+        $ch = curl_init('https://api.paymongo.com/v2/checkout_sessions');
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST           => true,

@@ -396,7 +396,7 @@ document.body.style.paddingRight = '';
                 Final price includes the delivery fee if applicable.
               </div>
               <div class="mt-2 p-2 rounded small" id="summaryPaymentFeeNote" style="background:#fff7ed;color:#9a3412;font-size:clamp(.7rem,1.4vw,.75rem);display:none">
-                <i class="bi bi-receipt-cutoff me-1"></i>Estimated processor fee preview: around 3% when paying online.
+                <i class="bi bi-receipt-cutoff me-1"></i>PayMongo will add the exact online processing fee before payment confirmation.
               </div>
             </div>
           </div>
@@ -1282,20 +1282,18 @@ function updatePaymentTransparency(currentTotal) {
   if (!titleEl || !textEl || !breakdownEl) return;
 
   if (method === 'GCash') {
-    const estimatedFee = total * 0.03;
-    const estimatedNet = total - estimatedFee;
-    titleEl.innerHTML = '<i class="bi bi-shield-check me-1"></i>PayMongo transparency preview';
+    titleEl.innerHTML = '<i class="bi bi-shield-check me-1"></i>PayMongo processing fee';
     titleEl.style.color = '#166534';
-    textEl.textContent = 'To keep the payment transparent, we are showing the estimated 3% processor deduction before you continue.';
-    breakdownEl.innerHTML = 'Customer pays <strong>PHP ' + total.toFixed(2) + '</strong> &bull; Estimated processor fee <strong>~ PHP ' + estimatedFee.toFixed(2) + '</strong> &bull; Estimated net after fee <strong>~ PHP ' + estimatedNet.toFixed(2) + '</strong>';
+    textEl.textContent = 'Online payments include a PayMongo processing fee. PayMongo will show the exact fee before you confirm payment.';
+    breakdownEl.innerHTML = 'Order amount <strong>PHP ' + total.toFixed(2) + '</strong> &bull; Processing fee is added on the secure PayMongo payment page.';
     if (summaryNote) summaryNote.style.display = 'block';
   } else {
     const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
     titleEl.innerHTML = '<i class="bi bi-info-circle me-1"></i>' + (isDelivery ? 'Cash on Delivery selected' : 'Cash on Pickup selected');
     titleEl.style.color = '#0f172a';
     textEl.textContent = isDelivery
-      ? 'No online processor fee preview is needed for Cash on Delivery.'
-      : 'No online processor fee preview is needed for Cash on Pickup.';
+      ? 'GCash down payment is required first. The remaining balance will be paid in cash on delivery.'
+      : 'GCash down payment is required first. The remaining balance will be paid in cash on pickup.';
     breakdownEl.textContent = '';
     if (summaryNote) summaryNote.style.display = 'none';
   }

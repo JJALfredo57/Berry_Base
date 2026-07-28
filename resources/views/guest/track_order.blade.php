@@ -432,7 +432,7 @@
                 </form>
               </div>
               <div style="margin-top:.75rem;font-size:.68rem;color:#9ca3af;text-align:center">
-                <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;·&nbsp; GCash only &nbsp;·&nbsp; Your phone number is pre-filled
+                <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;·&nbsp; GCash only &nbsp;·&nbsp; Processing fee shown before payment
               </div>
             </div>
           </div>
@@ -490,7 +490,7 @@
                 </div>
               </form>
               <div style="margin-top:.6rem;font-size:.68rem;color:#9ca3af;text-align:center">
-                <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;·&nbsp; GCash only
+                <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;·&nbsp; GCash only &nbsp;·&nbsp; Processing fee shown before payment
               </div>
             </div>
           </div>
@@ -659,7 +659,7 @@
             </form>
           </div>
           <div style="margin-top:.75rem;font-size:.68rem;color:#9ca3af;text-align:center">
-            <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;·&nbsp; GCash only &nbsp;·&nbsp; Phone pre-filled
+            <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;·&nbsp; GCash only &nbsp;·&nbsp; Processing fee shown before payment
           </div>
         </div>
       </div>
