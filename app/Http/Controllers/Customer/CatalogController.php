@@ -50,16 +50,11 @@ class CatalogController extends Controller
             }
         } catch (\Exception $e) {}
 
-        // Load reviews per product (with reviewer name and image)
+        // Load only a small preview per product; fetch more on demand from the public reviews endpoint.
         $productReviews = [];
         try {
-            $reviews = DB::table('order_reviews as r')
-                ->join('orders as o', 'o.id', '=', 'r.order_id')
-                ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
-                ->select('r.*', 'o.product_id', 'u.fullname', 'u.profile_photo', 'o.guest_name')
-                ->orderByDesc('r.id')
-                ->get();
-            foreach ($reviews as $rv) {
+            $previewReviews = $this->reviewPreviewRowsForProducts($products->pluck('id')->toArray(), 3);
+            foreach ($previewReviews as $rv) {
                 $productReviews[$rv->product_id][] = $rv;
             }
         } catch (\Exception $e) {}
@@ -96,6 +91,35 @@ class CatalogController extends Controller
         } catch (\Exception $e) {}
 
         return view('customer.catalog', compact('products','productSizes','productRatings','productReviews','productReviewCounts','shopSettings','capacityMap'));
+    }
+
+    private function reviewPreviewRowsForProducts(array $productIds, int $limitPerProduct)
+    {
+        if (empty($productIds)) {
+            return collect();
+        }
+
+        return DB::query()
+            ->fromSub(function ($query) use ($productIds) {
+                $query->from('order_reviews as r')
+                    ->join('orders as o', 'o.id', '=', 'r.order_id')
+                    ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+                    ->whereIn('o.product_id', $productIds)
+                    ->select(
+                        'o.product_id',
+                        'r.rating',
+                        'r.review',
+                        'r.image_path',
+                        'r.created_at',
+                        DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as fullname"),
+                        'u.profile_photo',
+                        DB::raw('ROW_NUMBER() OVER (PARTITION BY o.product_id ORDER BY r.created_at DESC, r.id DESC) as review_rank')
+                    );
+            }, 'ranked_reviews')
+            ->where('review_rank', '<=', $limitPerProduct)
+            ->orderBy('product_id')
+            ->orderBy('review_rank')
+            ->get();
     }
 
     public function order(Request $request)

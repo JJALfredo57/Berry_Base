@@ -402,7 +402,7 @@
                 </div>
 
                 @if(count($reviews) > 0)
-                  <div>
+                  <div id="reviewList{{ $p->id }}">
                     @foreach($reviews as $rv)
                     <div class="d-flex gap-3 mb-3 pb-3" style="border-bottom:1px solid #f0f0f0">
                       <div style="flex-shrink:0">
@@ -436,6 +436,19 @@
                     </div>
                     @endforeach
                   </div>
+                  @if($reviewCount > count($reviews))
+                    <div class="text-center">
+                      <button type="button"
+                              class="btn btn-outline-primary btn-sm px-3"
+                              id="loadReviewsBtn{{ $p->id }}"
+                              data-product-id="{{ $p->id }}"
+                              data-offset="{{ count($reviews) }}"
+                              data-limit="5"
+                              onclick="loadMoreReviews(this)">
+                        <i class="bi bi-chat-dots me-1"></i>Load More Reviews
+                      </button>
+                    </div>
+                  @endif
                 @else
                   <div class="text-center py-4 text-muted">
                     <i class="bi bi-chat-square-text" style="font-size:2rem;opacity:.3"></i>
@@ -514,6 +527,83 @@ function startLongPress(e, img) {
 }
 function cancelLongPress() {
   if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  }[ch]));
+}
+
+function reviewStars(rating) {
+  let html = '';
+  const score = parseInt(rating || 0, 10);
+  for (let i = 1; i <= 5; i++) {
+    html += '<i class="bi bi-star' + (i <= score ? '-fill' : '') + '" style="color:#fbbf24;font-size:.78rem"></i>';
+  }
+  return html;
+}
+
+function reviewAvatar(review) {
+  if (review.profile_photo) {
+    return '<img src="' + escapeHtml(review.profile_photo) + '" style="width:38px;height:38px;border-radius:50%;object-fit:cover">';
+  }
+  return '<div style="width:38px;height:38px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:clamp(.8rem,1.7vw,.9rem)">' +
+    escapeHtml(review.initial || 'C') +
+    '</div>';
+}
+
+function reviewCardHtml(review) {
+  const text = review.review
+    ? '<p class="small mb-1 text-muted" style="line-height:1.55">' + escapeHtml(review.review) + '</p>'
+    : '';
+  const photo = review.image_path
+    ? '<img src="' + escapeHtml(review.image_path) + '" alt="Review photo" style="width:80px;height:80px;object-fit:cover;border-radius:.5rem;cursor:pointer;border:2px solid #fce7f3" onclick="catLbOpen(\\'' + escapeHtml(review.image_path) + '\\')">'
+    : '';
+
+  return '<div class="d-flex gap-3 mb-3 pb-3" style="border-bottom:1px solid #f0f0f0">' +
+    '<div style="flex-shrink:0">' + reviewAvatar(review) + '</div>' +
+    '<div class="flex-grow-1">' +
+      '<div class="d-flex align-items-center justify-content-between flex-wrap gap-1">' +
+        '<span class="fw-semibold small">' + escapeHtml(review.fullname || 'Customer') + '</span>' +
+        '<span class="text-muted" style="font-size:clamp(.68rem,1.3vw,.72rem)">' + escapeHtml(review.created_at || '') + '</span>' +
+      '</div>' +
+      '<div class="d-flex gap-1 my-1">' + reviewStars(review.rating) + '</div>' +
+      text + photo +
+    '</div>' +
+  '</div>';
+}
+
+async function loadMoreReviews(button) {
+  const productId = button?.dataset?.productId;
+  const list = document.getElementById('reviewList' + productId);
+  if (!productId || !list || button.disabled) return;
+
+  const offset = parseInt(button.dataset.offset || '0', 10);
+  const limit = parseInt(button.dataset.limit || '5', 10);
+  const originalHtml = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading';
+
+  try {
+    const res = await fetch('/catalog/products/' + encodeURIComponent(productId) + '/reviews?offset=' + offset + '&limit=' + limit, {
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.message || 'Unable to load reviews.');
+
+    list.insertAdjacentHTML('beforeend', (data.reviews || []).map(reviewCardHtml).join(''));
+    button.dataset.offset = String(data.next_offset || offset + (data.reviews || []).length);
+    if (!data.has_more) button.closest('.text-center')?.remove();
+  } catch (e) {
+    button.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Try Again';
+    button.disabled = false;
+    return;
+  }
+
+  button.disabled = false;
+  button.innerHTML = originalHtml;
 }
 
 </script>

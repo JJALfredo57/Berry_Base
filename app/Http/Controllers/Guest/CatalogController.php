@@ -100,21 +100,10 @@ class CatalogController extends Controller
                 foreach ($reviews as $r) $reviewsMap[$r->product_id] = $r;
             } catch (\Exception $e) {}
 
-            // Load individual reviews with reviewer name + photo + comment
+            // Load only a small preview per product; fetch more on demand from reviews().
             try {
-                $indivReviews = DB::table('order_reviews as r')
-                    ->join('orders as o', 'o.id', '=', 'r.order_id')
-                    ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
-                    ->whereIn('o.product_id', $productIds)
-                    ->select(
-                        'o.product_id',
-                        'r.rating', 'r.review', 'r.image_path', 'r.created_at',
-                        DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as fullname"),
-                        'u.profile_photo'
-                    )
-                    ->orderByDesc('r.created_at')
-                    ->get();
-                foreach ($indivReviews as $rv) {
+                $previewReviews = $this->reviewPreviewRowsForProducts($productIds, 3);
+                foreach ($previewReviews as $rv) {
                     $productReviews[$rv->product_id][] = $rv;
                 }
             } catch (\Exception $e) {}
@@ -150,6 +139,90 @@ class CatalogController extends Controller
         return view('guest.catalog', compact(
             'products','bestSellers','sizesMap','reviewsMap','productReviews','addonCategories','addonsByCategory','capacityMap','barangayOptions'
         ));
+    }
+
+    public function reviews(Request $request, string $productId)
+    {
+        $offset = max(0, (int) $request->query('offset', 0));
+        $limit = min(8, max(1, (int) $request->query('limit', 5)));
+
+        $product = DB::table('products')
+            ->where('id', $productId)
+            ->where('is_available', true)
+            ->whereNull('archived_at')
+            ->first();
+
+        if (!$product) {
+            return response()->json(['ok' => false, 'message' => 'Product not found.'], 404);
+        }
+
+        $rows = $this->reviewRowsForProduct($productId, $limit + 1, $offset)->get();
+        $hasMore = $rows->count() > $limit;
+        $reviews = $rows->take($limit)->map(fn ($review) => [
+            'rating' => (int) $review->rating,
+            'review' => (string) ($review->review ?? ''),
+            'image_path' => $review->image_path,
+            'created_at' => \Carbon\Carbon::parse($review->created_at)->diffForHumans(),
+            'fullname' => $review->fullname,
+            'initial' => strtoupper(substr((string) $review->fullname, 0, 1)) ?: 'C',
+            'profile_photo' => $review->profile_photo,
+        ])->values();
+
+        return response()->json([
+            'ok' => true,
+            'reviews' => $reviews,
+            'next_offset' => $offset + $reviews->count(),
+            'has_more' => $hasMore,
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    private function reviewRowsForProduct(string $productId, int $limit, int $offset = 0)
+    {
+        return DB::table('order_reviews as r')
+            ->join('orders as o', 'o.id', '=', 'r.order_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+            ->where('o.product_id', $productId)
+            ->select(
+                'o.product_id',
+                'r.rating',
+                'r.review',
+                'r.image_path',
+                'r.created_at',
+                DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as fullname"),
+                'u.profile_photo'
+            )
+            ->orderByDesc('r.created_at')
+            ->offset($offset)
+            ->limit($limit);
+    }
+
+    private function reviewPreviewRowsForProducts(array $productIds, int $limitPerProduct)
+    {
+        if (empty($productIds)) {
+            return collect();
+        }
+
+        return DB::query()
+            ->fromSub(function ($query) use ($productIds) {
+                $query->from('order_reviews as r')
+                    ->join('orders as o', 'o.id', '=', 'r.order_id')
+                    ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+                    ->whereIn('o.product_id', $productIds)
+                    ->select(
+                        'o.product_id',
+                        'r.rating',
+                        'r.review',
+                        'r.image_path',
+                        'r.created_at',
+                        DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as fullname"),
+                        'u.profile_photo',
+                        DB::raw('ROW_NUMBER() OVER (PARTITION BY o.product_id ORDER BY r.created_at DESC, r.id DESC) as review_rank')
+                    );
+            }, 'ranked_reviews')
+            ->where('review_rank', '<=', $limitPerProduct)
+            ->orderBy('product_id')
+            ->orderBy('review_rank')
+            ->get();
     }
 
     public function checkAvailability(Request $request)

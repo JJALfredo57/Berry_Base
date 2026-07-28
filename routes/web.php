@@ -57,6 +57,7 @@ Route::get('/', function () {
 
 // ── Public Catalog (no login needed) ─────────────────────────────────────
 Route::get('/catalog',          [GuestCatalog::class, 'index'])->name('catalog');
+Route::get('/catalog/products/{productId}/reviews', [GuestCatalog::class, 'reviews'])->name('catalog.reviews');
 Route::post('/catalog/select',  [GuestCatalog::class, 'selectProduct'])->name('catalog.select');
 Route::get('/feedback',         [GuestFeedback::class, 'create'])->name('guest.feedback');
 Route::post('/feedback',        [GuestFeedback::class, 'store'])->name('guest.feedback.store');
