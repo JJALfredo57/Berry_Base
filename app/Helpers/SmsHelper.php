@@ -43,15 +43,11 @@ class SmsHelper
             Log::warning('UniSMS: API key not configured.', ['to' => $cleanPhone]);
             return ['ok' => false, 'error' => 'SMS service is not configured. Please contact the platform administrator.'];
         }
-        if (empty($senderId)) {
-            Log::warning('UniSMS: Sender ID not configured.', ['to' => $cleanPhone]);
-            return ['ok' => false, 'error' => 'SMS Sender ID is required by UniSMS. Please add an active Sender ID in Super Admin SMS settings.'];
-        }
 
         try {
             $ch = curl_init();
             $payload = ['recipient' => '+' . $cleanPhone, 'content' => self::clean($message)];
-            $payload['sender_id'] = $senderId;
+            if (!empty($senderId)) $payload['sender_id'] = $senderId;
 
             curl_setopt_array($ch, [
                 CURLOPT_URL            => 'https://unismsapi.com/api/sms',
