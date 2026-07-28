@@ -504,6 +504,28 @@
         <i class="bi bi-save me-1"></i> Save UniSMS Settings
       </button>
     </form>
+    <div style="border-top:1.5px solid var(--gray-100);padding:1.5rem;background:#fbfdff">
+      <form action="{{ route('superadmin.settings.unisms_test') }}" method="POST" data-prevent-double-submit>
+        @csrf
+        <div class="row g-3 align-items-end">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Test SMS Number</label>
+            <input type="tel" class="form-control" name="test_phone" placeholder="09XXXXXXXXX" inputmode="tel" required>
+            <div class="form-text">Send a live test message using the saved UniSMS API key and optional Sender ID.</div>
+          </div>
+          <div class="col-md-3">
+            <button type="submit" class="btn btn-outline-primary w-100" style="padding:.65rem 1rem;font-weight:600">
+              <i class="bi bi-send me-1"></i> Send Test SMS
+            </button>
+          </div>
+          <div class="col-md-3">
+            <div style="font-size:.76rem;color:var(--gray-600);background:#fff;border:1px solid var(--gray-100);border-radius:var(--radius-md);padding:.75rem">
+              If this fails, the exact UniSMS gateway error will appear at the top of this page.
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
   </div>
 
   {{-- ── ACTIVITY LOGS TAB ───────────────────────────────────────── --}}

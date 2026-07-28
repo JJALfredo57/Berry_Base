@@ -354,6 +354,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/platform-settings',                     [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'update'])->name('settings.update');
     Route::post('/platform-settings/paymongo',  [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'savePaymongo'])->name('settings.paymongo');
     Route::post('/platform-settings/unisms',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveUnisms'])->name('settings.unisms');
+    Route::post('/platform-settings/unisms/test', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'testUnisms'])->name('settings.unisms_test');
     Route::post('/platform-settings/dev-mode',  [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveDevMode'])->name('settings.dev_mode');
     Route::post('/platform-settings/backup',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'createBackup'])->name('settings.backup');
     Route::post('/platform-settings/full-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'createFullBackup'])->name('settings.full_backup');

@@ -3,6 +3,7 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Helpers\SmsHelper;
 use App\Services\BackupService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -176,6 +177,29 @@ class PlatformSettingsController extends Controller
         }
 
         return redirect()->route('superadmin.settings', ['tab' => 'sms'])->with('msg', 'UniSMS settings saved!');
+    }
+
+    public function testUnisms(Request $request)
+    {
+        $phone = trim($request->input('test_phone', ''));
+        $digits = preg_replace('/\D/', '', $phone);
+        if (strlen($digits) === 10 && str_starts_with($digits, '9')) $digits = '0' . $digits;
+        if (!(strlen($digits) === 11 && str_starts_with($digits, '09')) && !(strlen($digits) === 12 && str_starts_with($digits, '63'))) {
+            return redirect()->route('superadmin.settings', ['tab' => 'sms'])
+                ->with('err', 'Enter a valid Philippine mobile number for SMS test.');
+        }
+
+        $siteName = config('app.name', 'Cake Shop');
+        $message = "[{$siteName}]\nUniSMS test message sent at " . now()->format('M d, Y h:i A') . ". If you received this, SMS settings are working.";
+        $result = SmsHelper::sendWithResult($phone, $message);
+
+        if (!$result['ok']) {
+            return redirect()->route('superadmin.settings', ['tab' => 'sms'])
+                ->with('err', $result['error'] ?? 'Test SMS failed. Please check UniSMS settings.');
+        }
+
+        return redirect()->route('superadmin.settings', ['tab' => 'sms'])
+            ->with('msg', 'Test SMS sent successfully to ' . $phone . '.');
     }
 
     public function createBackup()
