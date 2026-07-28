@@ -183,6 +183,18 @@ class TrackingController extends Controller
         $vatSettings = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
         $receipt->deposit_paid_at = $receipt->deposit_paid_at ?: ($receipt->paid_at ?: $receipt->updated_at);
         $receipt->paid_at = $receipt->paid_at ?: ($receipt->deposit_paid_at ?: $receipt->updated_at);
+        $receipt->receipt_paid_amount = null;
+
+        try {
+            if (Schema::hasTable('payment_transactions') && Schema::hasColumn('payment_transactions', 'amount')) {
+                $receipt->receipt_paid_amount = DB::table('payment_transactions')
+                    ->where('track_code', strtoupper($trackCode))
+                    ->when($transactionId, fn ($q) => $q->where('id', $transactionId))
+                    ->orderByDesc('paid_at')
+                    ->orderByDesc('id')
+                    ->value('amount');
+            }
+        } catch (\Throwable $e) {}
 
         if (($receipt->payment_status ?? '') === 'Paid') {
             return view('guest.payment_receipt', [

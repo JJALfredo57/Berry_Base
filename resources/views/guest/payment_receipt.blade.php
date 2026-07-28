@@ -35,7 +35,11 @@
   $vatOn    = $s && $s->vat_enabled;
   $vatRate  = $vatOn ? ($s->vat_rate ?? 12) : 0;
   $shopName = $s->site_title ?? config('app.name','Cake Shop');
-  $subtotal = (float) $receipt->total_price;
+  $orderTotal = (float) $receipt->total_price;
+  $receiptPaidAmount = isset($receipt->receipt_paid_amount)
+    ? (float) $receipt->receipt_paid_amount
+    : $orderTotal;
+  $subtotal = $receiptPaidAmount;
   $vatAmt   = $vatOn ? round($subtotal - ($subtotal / (1 + $vatRate/100)), 2) : 0;
   $vatExcl  = $vatOn ? round($subtotal - $vatAmt, 2) : 0;
 @endphp
@@ -168,9 +172,16 @@
     <div style="font-size:.75rem;color:#9ca3af;text-align:right;margin-top:4px">Non-VAT Registered</div>
     @endif
 
+    @if(abs($orderTotal - $receiptPaidAmount) > 0.009)
+    <div class="receipt-row mt-2">
+      <span class="lbl">Full Order Total</span>
+      <span class="val">₱{{ number_format($orderTotal,2) }}</span>
+    </div>
+    @endif
+
     <div class="total-row border-top mt-2 pt-3">
       <span class="total-lbl">Total Paid</span>
-      <span class="total-amt">₱{{ number_format($receipt->total_price,2) }}</span>
+      <span class="total-amt">₱{{ number_format($receiptPaidAmount,2) }}</span>
     </div>
 
     @if(!empty($pmReference))
