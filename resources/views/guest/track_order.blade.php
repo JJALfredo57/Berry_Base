@@ -997,7 +997,7 @@
 </div>
 
 @php
-  $receiptCount = ($recentReceipts ?? collect())->count();
+  $receiptCount = $receiptCount ?? ($recentReceipts ?? collect())->count();
   $canRateFromBubble = in_array($order->status, ['Delivered', 'Picked Up']);
 @endphp
 
@@ -1081,6 +1081,16 @@
 <script>
 const TRACK_CODE = '{{ $order->track_code }}';
 const GUEST_NAME = '{{ addslashes($order->guest_name ?? "You") }}';
+const TRACK_STATUS_URL = '{{ route('track.status', ['trackCode' => $order->track_code]) }}';
+const TRACK_INITIAL_SNAPSHOT = {
+  status: @json($order->status),
+  payment_status: @json($order->payment_status),
+  deposit_status: @json($order->deposit_status),
+  tracking_count: {{ (int) ($tracking->count() ?? 0) }},
+  receipt_count: {{ (int) ($receiptCount ?? ($recentReceipts ?? collect())->count()) }},
+  updated_at: @json((string) ($order->updated_at ?? '')),
+  latest_tracking_at: @json((string) optional(($tracking ?? collect())->last())->created_at),
+};
 
 function mountTrackFloatingUi() {
   ['trackActionBackdrop', 'receiptDrawer', 'trackFab', 'messagePanel', 'ratePanel'].forEach(id => {
@@ -1500,6 +1510,64 @@ setupDepositAmountForms();
 // Initial load + poll every 8 seconds
 pollMessages();
 setInterval(pollMessages, 8000);
+
+let trackSnapshot = { ...TRACK_INITIAL_SNAPSHOT };
+let trackStatusTimer = null;
+let trackReloading = false;
+
+function trackStatusChanged(next) {
+  return ['status','payment_status','deposit_status','tracking_count','receipt_count','updated_at','latest_tracking_at']
+    .some(key => String(trackSnapshot[key] ?? '') !== String(next[key] ?? ''));
+}
+
+function scheduleTrackStatusPoll(delay) {
+  if (trackStatusTimer) clearTimeout(trackStatusTimer);
+  if (!delay || trackReloading) return;
+  trackStatusTimer = setTimeout(pollTrackStatus, delay);
+}
+
+async function pollTrackStatus() {
+  if (document.hidden) {
+    scheduleTrackStatusPoll(30000);
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+
+  try {
+    const res = await fetch(TRACK_STATUS_URL, {
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    if (!res.ok) throw new Error('status ' + res.status);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message || 'Unable to check status.');
+
+    if (trackStatusChanged(data)) {
+      trackReloading = true;
+      cakeToast('Order status updated. Refreshing...', 'success');
+      setTimeout(() => window.location.reload(), 900);
+      return;
+    }
+
+    trackSnapshot = { ...trackSnapshot, ...data };
+    scheduleTrackStatusPoll(data.interval_ms || 25000);
+  } catch (e) {
+    scheduleTrackStatusPoll(45000);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && !trackReloading) pollTrackStatus();
+});
+
+if (!['Delivered', 'Picked Up', 'Cancelled'].includes(trackSnapshot.status)) {
+  scheduleTrackStatusPoll(['Preparing', 'Out for Delivery', 'Pickup'].includes(trackSnapshot.status) ? 10000 : 25000);
+}
 
 // Auto-highlight stars on load
 setRating(5);

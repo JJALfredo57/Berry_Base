@@ -40,12 +40,14 @@ class TrackingController extends Controller
             : ['Pending','Confirmed','Preparing','Out for Delivery','Delivered'];
         $currentStep = array_search($order->status, $statusSteps);
         if ($currentStep === false) $currentStep = 0;
-        $recentReceipts = $this->receiptQueryForPhone($order->guest_phone ?? '')
+        $receiptQuery = $this->receiptQueryForPhone($order->guest_phone ?? '');
+        $receiptCount = (clone $receiptQuery)->count();
+        $recentReceipts = $receiptQuery
             ->limit(5)
             ->get();
 
         return view('guest.track_order', compact(
-            'order','tracking','addons','customOrder','statusSteps','currentStep','recentReceipts'
+            'order','tracking','addons','customOrder','statusSteps','currentStep','recentReceipts','receiptCount'
         ));
     }
 
@@ -78,6 +80,43 @@ class TrackingController extends Controller
             'receipts' => $receipts->paginate(10)->withQueryString(),
             'search' => $search,
         ]);
+    }
+
+    public function status(string $trackCode)
+    {
+        $order = DB::table('orders')
+            ->where('track_code', strtoupper($trackCode))
+            ->select('id','status','payment_status','deposit_status','updated_at')
+            ->first();
+
+        if (!$order) {
+            return response()->json(['ok' => false, 'message' => 'Order not found.'], 404);
+        }
+
+        $trackingCount = DB::table('order_tracking')->where('order_id', $order->id)->count();
+        $latestTrackingAt = DB::table('order_tracking')->where('order_id', $order->id)->max('created_at');
+        $receiptCount = 0;
+
+        try {
+            $phone = DB::table('orders')->where('id', $order->id)->value('guest_phone');
+            $receiptCount = $this->receiptQueryForPhone($phone)->count();
+        } catch (\Throwable $e) {}
+
+        $final = in_array($order->status, ['Delivered', 'Picked Up', 'Cancelled'], true);
+        $active = in_array($order->status, ['Preparing', 'Out for Delivery', 'Pickup'], true);
+
+        return response()->json([
+            'ok' => true,
+            'status' => $order->status,
+            'payment_status' => $order->payment_status,
+            'deposit_status' => $order->deposit_status,
+            'tracking_count' => $trackingCount,
+            'receipt_count' => $receiptCount,
+            'updated_at' => (string) ($order->updated_at ?? ''),
+            'latest_tracking_at' => (string) ($latestTrackingAt ?? ''),
+            'final' => $final,
+            'interval_ms' => $final ? 0 : ($active ? 10000 : 25000),
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
     public function receipt(string $trackCode, ?int $transactionId = null)
