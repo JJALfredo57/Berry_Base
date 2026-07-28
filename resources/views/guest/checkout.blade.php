@@ -24,6 +24,7 @@ document.body.style.paddingRight = '';
         <div class="col-lg-8 col-xl-9">
           <form action="{{ route('guest.checkout.place') }}" method="POST" id="checkoutForm">
             @csrf
+            <input type="hidden" name="selected_size" value="{{ $checkout['selected_size'] ?? '' }}">
 
             {{-- Product Summary --}}
             <div class="card mb-3" style="border:1.5px solid color-mix(in srgb,var(--primary) 15%,transparent);border-radius:1rem;overflow:hidden">

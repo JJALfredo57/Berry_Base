@@ -177,7 +177,7 @@ class CheckoutController extends Controller
         $sdate         = trim($request->input('schedule_date','')) ?: null;
         $stime         = trim($request->input('schedule_time','')) ?: null;
         $payment       = $request->input('payment_method','COD');
-        $selectedSize  = trim($request->input('selected_size',''));
+        $selectedSize  = trim($request->input('selected_size', $checkout['selected_size'] ?? ''));
 
         if (!$sdate) return back()->with('error','Please select your preferred date.')->withInput();
         if (!$stime) return back()->with('error','Please select a preferred time slot.')->withInput();
