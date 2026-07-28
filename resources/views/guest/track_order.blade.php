@@ -67,8 +67,8 @@
     .g-send-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.95rem;transition:opacity .15s;flex-shrink:0}
     .g-send-btn:disabled{opacity:.45;cursor:not-allowed}
     .track-action-panel{display:none}
-    .track-action-panel.is-open{display:block;animation:trackPanelIn .22s ease}
-    @keyframes trackPanelIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .track-action-panel.is-open{display:block;position:fixed;left:50%;top:50%;width:min(720px,calc(100vw - 28px));max-height:min(82vh,720px);overflow:auto;z-index:1062;transform:translate(-50%,-50%);animation:trackPanelIn .2s ease}
+    @keyframes trackPanelIn{from{opacity:0;transform:translate(-50%,-46%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
     .track-fab-wrap{position:fixed;right:18px;bottom:22px;z-index:1050;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
     .track-fab-menu{display:flex;flex-direction:column;align-items:flex-end;gap:9px;pointer-events:none}
     .track-fab-wrap.is-open .track-fab-menu{pointer-events:auto}
@@ -84,16 +84,16 @@
     .track-count-badge{position:absolute;right:-3px;top:-3px;background:#16a34a;color:#fff;border-radius:999px;min-width:18px;height:18px;padding:0 5px;font-size:.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
     .receipt-drawer-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.32);z-index:1060;opacity:0;pointer-events:none;transition:opacity .2s ease}
     .receipt-drawer-backdrop.is-open{opacity:1;pointer-events:auto}
-    .receipt-drawer{position:fixed;right:0;top:0;height:100vh;width:min(420px,100%);background:#fff;z-index:1061;box-shadow:-20px 0 45px rgba(15,23,42,.18);transform:translateX(105%);transition:transform .24s ease;display:flex;flex-direction:column}
-    .receipt-drawer.is-open{transform:translateX(0)}
+    .receipt-drawer{position:fixed;left:50%;top:50%;width:min(460px,calc(100vw - 28px));max-height:min(82vh,720px);background:#fff;z-index:1061;border-radius:16px;box-shadow:0 24px 60px rgba(15,23,42,.24);transform:translate(-50%,-46%) scale(.96);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;display:flex;flex-direction:column;overflow:hidden}
+    .receipt-drawer.is-open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
     .receipt-drawer-body{overflow:auto;padding:14px}
     @media (max-width:640px){
       .track-fab-wrap{right:14px;bottom:16px}
       .track-fab-label{max-width:130px;opacity:1}
       .track-fab-item{height:44px}
-      .receipt-drawer{top:auto;bottom:0;height:min(78vh,620px);border-radius:18px 18px 0 0;transform:translateY(105%)}
-      .receipt-drawer.is-open{transform:translateY(0)}
+      .receipt-drawer{width:calc(100vw - 18px);max-height:82vh;border-radius:16px}
     }
+    body.track-modal-open{overflow:hidden}
   </style>
 
   {{-- Header --}}
@@ -541,7 +541,7 @@
     </div>
   </div>
 
-  @if(($recentReceipts ?? collect())->count() > 0)
+  @if(false && ($recentReceipts ?? collect())->count() > 0)
   <div class="card mb-3 d-none">
     <div class="card-body p-4">
       <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
@@ -998,6 +998,8 @@
   $canRateFromBubble = in_array($order->status, ['Delivered', 'Picked Up']);
 @endphp
 
+<div class="receipt-drawer-backdrop" id="trackActionBackdrop" onclick="closeAllTrackPopups()"></div>
+
 <div class="track-fab-wrap" id="trackFab">
   <div class="track-fab-menu">
     @if($receiptCount > 0)
@@ -1026,7 +1028,6 @@
 </div>
 
 @if($receiptCount > 0)
-<div class="receipt-drawer-backdrop" id="receiptDrawerBackdrop" onclick="closeReceiptDrawer()"></div>
 <aside class="receipt-drawer" id="receiptDrawer" aria-hidden="true">
   <div class="p-3 d-flex align-items-center justify-content-between gap-2" style="border-bottom:1px solid #e5e7eb">
     <div>
@@ -1087,8 +1088,9 @@ function openTrackPanel(id) {
   const panel = document.getElementById(id);
   if (!panel) return;
   panel.classList.add('is-open');
+  document.getElementById('trackActionBackdrop')?.classList.add('is-open');
+  document.body.classList.add('track-modal-open');
   toggleTrackFab(false);
-  setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40);
   if (id === 'messagePanel') {
     setTimeout(() => document.getElementById('msgInput')?.focus(), 320);
   }
@@ -1096,25 +1098,40 @@ function openTrackPanel(id) {
 
 function closeTrackPanel(id) {
   document.getElementById(id)?.classList.remove('is-open');
+  if (!document.querySelector('.track-action-panel.is-open') && !document.getElementById('receiptDrawer')?.classList.contains('is-open')) {
+    document.body.classList.remove('track-modal-open');
+    document.getElementById('trackActionBackdrop')?.classList.remove('is-open');
+  }
 }
 
 function openReceiptDrawer() {
   document.getElementById('receiptDrawer')?.classList.add('is-open');
-  document.getElementById('receiptDrawerBackdrop')?.classList.add('is-open');
+  document.getElementById('trackActionBackdrop')?.classList.add('is-open');
   document.getElementById('receiptDrawer')?.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('track-modal-open');
   toggleTrackFab(false);
 }
 
 function closeReceiptDrawer() {
   document.getElementById('receiptDrawer')?.classList.remove('is-open');
-  document.getElementById('receiptDrawerBackdrop')?.classList.remove('is-open');
   document.getElementById('receiptDrawer')?.setAttribute('aria-hidden', 'true');
+  if (!document.querySelector('.track-action-panel.is-open')) {
+    document.body.classList.remove('track-modal-open');
+    document.getElementById('trackActionBackdrop')?.classList.remove('is-open');
+  }
+}
+
+function closeAllTrackPopups() {
+  document.querySelectorAll('.track-action-panel.is-open').forEach(panel => panel.classList.remove('is-open'));
+  closeReceiptDrawer();
+  document.getElementById('trackActionBackdrop')?.classList.remove('is-open');
+  document.body.classList.remove('track-modal-open');
 }
 
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
     toggleTrackFab(false);
-    closeReceiptDrawer();
+    closeAllTrackPopups();
   }
 });
 
