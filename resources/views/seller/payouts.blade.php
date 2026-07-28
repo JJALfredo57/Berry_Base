@@ -110,14 +110,25 @@
       <div class="card-header"><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Payout Requests</div>
       <div class="table-responsive">
         <table class="table align-middle mb-0">
-          <thead><tr><th>ID</th><th>Status</th><th class="text-end">Net</th><th>Reference</th><th>Date</th></tr></thead>
+          <thead><tr><th>ID</th><th>Status</th><th class="text-end">Net</th><th>Receipt Proof</th><th>Date</th></tr></thead>
           <tbody>
           @forelse($payouts as $p)
             <tr>
               <td>#{{ $p->id }}</td>
               <td><span class="badge text-bg-{{ $p->status === 'paid' ? 'success' : 'warning' }}">{{ ucfirst(str_replace('_',' ', $p->status)) }}</span></td>
               <td class="text-end fw-semibold">₱{{ number_format($p->net_amount, 2) }}</td>
-              <td>{{ $p->reference_number ?: 'Pending admin transfer' }}</td>
+              <td>
+                @if(!empty($p->payout_receipt_path ?? null))
+                  <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-title="Payout Receipt #{{ $p->id }}">
+                    <i class="bi bi-image me-1"></i>View Receipt
+                  </button>
+                  @if($p->reference_number)
+                    <div class="small text-muted mt-1">Ref: {{ $p->reference_number }}</div>
+                  @endif
+                @else
+                  <span class="text-muted">Pending admin transfer</span>
+                @endif
+              </td>
               <td class="small text-muted">{{ $p->created_at }}</td>
             </tr>
           @empty
@@ -152,4 +163,43 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="payoutReceiptViewerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold" id="payoutReceiptViewerTitle"><i class="bi bi-receipt me-1" style="color:var(--primary)"></i>Payout Receipt</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center" style="background:#0f172a">
+        <img id="payoutReceiptViewerImage" src="" alt="Payout receipt" style="max-width:100%;max-height:75vh;object-fit:contain;border-radius:8px">
+      </div>
+      <div class="modal-footer">
+        <a href="#" class="btn btn-outline-primary btn-sm" id="payoutReceiptViewerDownload" download>
+          <i class="bi bi-download me-1"></i>Download
+        </a>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.payout-receipt-viewer-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const url = button.dataset.receiptUrl;
+      if (!url) return;
+      document.getElementById('payoutReceiptViewerTitle').textContent = button.dataset.receiptTitle || 'Payout Receipt';
+      document.getElementById('payoutReceiptViewerImage').src = url;
+      document.getElementById('payoutReceiptViewerDownload').href = url;
+      if (window.bootstrap) {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('payoutReceiptViewerModal')).show();
+      } else {
+        window.open(url, '_blank', 'noopener');
+      }
+    });
+  });
+});
+</script>
 @endsection

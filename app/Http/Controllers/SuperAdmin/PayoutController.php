@@ -3,11 +3,15 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Services\SellerPayoutService;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class PayoutController extends Controller
 {
+    use UploadsFiles;
+
     public function __construct(private SellerPayoutService $payouts)
     {
     }
@@ -23,6 +27,10 @@ class PayoutController extends Controller
                     $payoutSettings->{$key} = $value;
                 }
             }
+        }
+        if (($payoutSettings->payout_mode ?? 'manual') === 'automatic') {
+            $payoutSettings->payout_mode = 'manual';
+            $payoutSettings->payout_auto_paused = false;
         }
         $summary = [
             'clearing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['pending', 'clearing'])->sum('seller_net_amount'),
@@ -73,6 +81,12 @@ class PayoutController extends Controller
             'payout_mode.required' => 'Choose Manual or Automatic payout mode.',
             'payout_minimum_amount.min' => 'Minimum payout amount cannot be negative.',
         ]);
+
+        if ($validated['payout_mode'] === 'automatic') {
+            return back()
+                ->withInput()
+                ->with('err', 'Automatic payouts are not available yet. We are preparing this feature for a future website update, but manual payouts will remain the active and supported payout method for now.');
+        }
 
         $updates = [
             'payout_mode' => $validated['payout_mode'],
@@ -133,25 +147,37 @@ class PayoutController extends Controller
     public function markPaid(Request $request, int $payoutId)
     {
         $validated = $request->validate([
-            'reference_number' => 'required|string|min:3|max:120',
+            'payout_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'reference_number' => 'nullable|string|min:3|max:120',
             'admin_note' => 'nullable|string|max:500',
         ], [
-            'reference_number.required' => 'Enter the GCash/bank reference number before marking payout as paid.',
+            'payout_receipt.required' => 'Upload the GCash receipt screenshot before marking payout as paid.',
+            'payout_receipt.image' => 'The payout receipt must be a valid image file.',
         ]);
 
         $payout = DB::table('seller_payouts')->where('id', $payoutId)->first();
         if (!$payout) return back()->with('err', 'Payout not found.');
         if ($payout->status === 'paid') return back()->with('msg', 'This payout was already marked as paid.');
 
-        DB::transaction(function () use ($payout, $validated) {
-            DB::table('seller_payouts')->where('id', $payout->id)->update([
+        $receiptPath = $this->uploadFile($request->file('payout_receipt'), 'uploads/payout_receipts');
+        if (!$receiptPath) {
+            return back()->with('err', 'Receipt upload failed. Please try again with a smaller JPG/PNG/WebP image.');
+        }
+
+        DB::transaction(function () use ($payout, $validated, $receiptPath) {
+            $updates = [
                 'status' => 'paid',
-                'reference_number' => $validated['reference_number'],
+                'reference_number' => $validated['reference_number'] ?? $payout->reference_number,
                 'admin_note' => $validated['admin_note'] ?? $payout->admin_note,
                 'processed_at' => $payout->processed_at ?? now(),
                 'paid_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('seller_payouts', 'payout_receipt_path')) {
+                $updates['payout_receipt_path'] = $receiptPath;
+            }
+
+            DB::table('seller_payouts')->where('id', $payout->id)->update($updates);
             DB::table('seller_payout_ledgers')->where('payout_id', $payout->id)->update([
                 'status' => 'paid',
                 'updated_at' => now(),
@@ -163,14 +189,6 @@ class PayoutController extends Controller
 
     public function runAutomatic()
     {
-        $count = $this->payouts->runAutomaticPreparation();
-        if ($count === 0) {
-            $blockers = $this->payouts->automaticPreparationBlockers();
-            $message = $blockers
-                ? 'No automatic payouts prepared: '.implode(' ', $blockers)
-                : 'No automatic payouts prepared. No seller currently meets the payout rules.';
-            return back()->with('err', $message);
-        }
-        return back()->with('msg', "{$count} automatic payout batch(es) prepared for processing.");
+        return back()->with('err', 'Automatic payouts are not available yet. Manual payouts remain active while business verification and payout provider access are being prepared.');
     }
 }

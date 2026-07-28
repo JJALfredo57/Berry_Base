@@ -11,12 +11,9 @@
     <h4 class="cs-page-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary)"></i>Seller Payouts</h4>
     <p class="cs-page-sub">Control how seller earnings are released after orders are delivered and cleared.</p>
   </div>
-  <form action="{{ route('superadmin.payouts.run_automatic') }}" method="POST" data-prevent-double-submit>
-    @csrf
-    <button class="btn btn-outline-primary btn-sm" type="submit" data-loading-text="Preparing...">
-      <i class="bi bi-play-circle me-1"></i>Run Automatic Check
-    </button>
-  </form>
+  <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#automaticPayoutNoticeModal">
+    <i class="bi bi-lock me-1"></i>Automatic Coming Soon
+  </button>
 </div>
 
 @if(session('msg'))
@@ -67,9 +64,9 @@
             <label class="form-label fw-semibold">Payout Mode</label>
             <select name="payout_mode" class="form-select" required id="payoutModeSelect">
               <option value="manual" @selected($currentPayoutMode === 'manual')>Manual - admin reviews and marks paid</option>
-              <option value="automatic" @selected($currentPayoutMode === 'automatic')>Automatic - system prepares eligible payouts</option>
+              <option value="automatic" @selected($currentPayoutMode === 'automatic')>Automatic - coming soon</option>
             </select>
-            <div class="form-text">Use Manual while validating seller details. Switch to Automatic when operations are ready.</div>
+            <div class="form-text">Manual mode is active while automatic payouts are being prepared for a future update.</div>
           </div>
           <div class="row g-2">
             <div class="col-6">
@@ -197,7 +194,7 @@
           <th>Mode</th>
           <th>Status</th>
           <th class="text-end">Net</th>
-          <th>Reference</th>
+          <th>Receipt Proof</th>
           <th></th>
         </tr>
       </thead>
@@ -209,16 +206,28 @@
             <td>{{ ucfirst($p->mode) }}</td>
             <td><span class="badge text-bg-{{ $p->status === 'paid' ? 'success' : ($p->status === 'failed' ? 'danger' : 'warning') }}">{{ ucfirst(str_replace('_',' ', $p->status)) }}</span></td>
             <td class="text-end fw-semibold">₱{{ number_format($p->net_amount, 2) }}</td>
-            <td class="small">{{ $p->reference_number ?: 'Pending' }}</td>
+            <td class="small">
+              @if(!empty($p->payout_receipt_path ?? null))
+                <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-title="Payout Receipt #{{ $p->id }}">
+                  <i class="bi bi-image me-1"></i>View Receipt
+                </button>
+              @else
+                <span class="text-muted">Pending receipt</span>
+              @endif
+            </td>
             <td class="text-end">
               @if($p->status !== 'paid')
-                <form action="{{ route('superadmin.payouts.mark_paid', $p->id) }}" method="POST" class="d-flex gap-2 justify-content-end" data-prevent-double-submit>
+                <form action="{{ route('superadmin.payouts.mark_paid', $p->id) }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2 justify-content-end flex-wrap" data-prevent-double-submit>
                   @csrf
-                  <input name="reference_number" class="form-control form-control-sm" placeholder="Reference no." required style="max-width:160px">
+                  <input type="file" name="payout_receipt" class="form-control form-control-sm" accept="image/*" required style="max-width:220px">
+                  <input name="reference_number" class="form-control form-control-sm" placeholder="Reference no. (optional)" style="max-width:180px">
                   <button class="btn btn-success btn-sm" type="submit">Mark Paid</button>
                 </form>
               @else
-                <span class="text-muted small">{{ $p->paid_at }}</span>
+                <div class="text-muted small">{{ $p->paid_at }}</div>
+                @if($p->reference_number)
+                  <div class="small text-muted">Ref: {{ $p->reference_number }}</div>
+                @endif
               @endif
             </td>
           </tr>
@@ -230,10 +239,49 @@
   </div>
 </div>
 
+<div class="modal fade" id="automaticPayoutNoticeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold"><i class="bi bi-shield-exclamation me-1" style="color:var(--primary)"></i>Automatic payouts are not available yet</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2">Automatic seller payouts require additional business verification and payout/disbursement capability before money can be transferred safely.</p>
+        <p class="mb-0 text-muted small">For now, manual payout remains the active method. The system is prepared to adopt automatic payouts in a future website update once the required business documents and provider access are ready.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Use Manual Mode</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="payoutReceiptViewerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold" id="payoutReceiptViewerTitle"><i class="bi bi-receipt me-1" style="color:var(--primary)"></i>Payout Receipt</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center" style="background:#0f172a">
+        <img id="payoutReceiptViewerImage" src="" alt="Payout receipt" style="max-width:100%;max-height:75vh;object-fit:contain;border-radius:8px">
+      </div>
+      <div class="modal-footer">
+        <a href="#" class="btn btn-outline-primary btn-sm" id="payoutReceiptViewerDownload" download>
+          <i class="bi bi-download me-1"></i>Download
+        </a>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const mode = document.getElementById('payoutModeSelect');
   const automaticSettings = document.querySelectorAll('.payout-auto-setting');
+  const automaticNotice = document.getElementById('automaticPayoutNoticeModal');
 
   function syncPayoutModeFields() {
     const isAutomatic = mode && mode.value === 'automatic';
@@ -246,9 +294,36 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   if (mode) {
-    mode.addEventListener('change', syncPayoutModeFields);
+    mode.addEventListener('change', function() {
+      if (mode.value === 'automatic') {
+        mode.value = 'manual';
+        syncPayoutModeFields();
+        if (automaticNotice && window.bootstrap) {
+          bootstrap.Modal.getOrCreateInstance(automaticNotice).show();
+        } else {
+          alert('Automatic payouts are not available yet. Manual payout remains the active method while the required business verification and payout provider access are prepared.');
+        }
+        return;
+      }
+      syncPayoutModeFields();
+    });
     syncPayoutModeFields();
   }
+
+  document.querySelectorAll('.payout-receipt-viewer-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const url = button.dataset.receiptUrl;
+      if (!url) return;
+      document.getElementById('payoutReceiptViewerTitle').textContent = button.dataset.receiptTitle || 'Payout Receipt';
+      document.getElementById('payoutReceiptViewerImage').src = url;
+      document.getElementById('payoutReceiptViewerDownload').href = url;
+      if (window.bootstrap) {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('payoutReceiptViewerModal')).show();
+      } else {
+        window.open(url, '_blank', 'noopener');
+      }
+    });
+  });
 });
 </script>
 @endsection
