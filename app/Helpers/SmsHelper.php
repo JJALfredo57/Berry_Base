@@ -191,18 +191,24 @@ class SmsHelper
 
     public static function paymentLine(object $order): string
     {
+        $total = (float) ($order->total_price ?? 0);
+        $deposit = (float) ($order->deposit_amount ?? 0);
+        $depositPaid = in_array($order->payment_status ?? '', ['Partial Payment', 'Paid'], true)
+            || ($order->deposit_status ?? '') === 'paid';
+        $remaining = max(0, $total - ($depositPaid ? $deposit : 0));
+
+        if (($order->payment_status ?? '') === 'Paid') {
+            return 'Paid - no cash collection';
+        }
+        if ($depositPaid && $deposit > 0) {
+            return 'Collect remaining PHP ' . number_format($remaining, 2)
+                . ' (deposit paid PHP ' . number_format($deposit, 2) . ')';
+        }
         if (in_array($order->payment_method, ['COD', 'COP'])) {
             return CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null)
-                . ' - PHP ' . number_format($order->total_price, 2);
+                . ' - collect PHP ' . number_format($total, 2);
         }
-        if ($order->payment_status === 'Paid') {
-            return 'GCash - Paid';
-        }
-        if ($order->payment_status === 'Partial Payment') {
-            $rem = $order->total_price - ($order->deposit_amount ?? 0);
-            return 'Balance PHP ' . number_format($rem, 2) . ' (deposit paid)';
-        }
-        return 'GCash - PHP ' . number_format($order->total_price, 2);
+        return 'GCash - PHP ' . number_format($total, 2);
     }
 
     public static function getShopName(int|string|null $shopId): string

@@ -207,31 +207,37 @@
 </div>
 
 {{-- Payment --}}
-@if($order->payment_method === 'COD')
+@php
+  $totalAmount = (float) ($order->total_price ?? 0);
+  $depositAmount = (float) ($order->deposit_amount ?? 0);
+  $depositPaid = in_array($order->payment_status ?? '', ['Partial Payment', 'Paid'], true) || ($order->deposit_status ?? '') === 'paid';
+  $remainingAmount = max(0, $totalAmount - ($depositPaid ? $depositAmount : 0));
+  $cashMethod = in_array($order->payment_method, ['COD', 'COP'], true);
+@endphp
+@if($order->payment_status === 'Paid')
+<div class="pay-banner pay-ok">
+  <div class="pay-icon">✅</div>
+  <div class="pay-body">
+    <div class="pay-label">Payment Settled</div>
+    <div class="pay-amount">₱0.00</div>
+    <div class="pay-note">No collection needed</div>
+  </div>
+</div>
+@elseif($depositPaid && $depositAmount > 0)
+<div class="pay-banner pay-cod">
+  <div class="pay-icon">💵</div>
+  <div class="pay-body">
+    <div class="pay-label">Collect Remaining Balance</div>
+    <div class="pay-amount">₱{{ number_format($remainingAmount,2) }}</div>
+    <div class="pay-note">Deposit of ₱{{ number_format($depositAmount,2) }} already paid</div>
+  </div>
+</div>
+@elseif($cashMethod)
 <div class="pay-banner pay-cod">
   <div class="pay-icon">💵</div>
   <div class="pay-body">
     <div class="pay-label">Collect Cash from Customer</div>
-    <div class="pay-amount">₱{{ number_format($order->total_price,2) }}</div>
-  </div>
-</div>
-@elseif($order->payment_status === 'Paid')
-<div class="pay-banner pay-ok">
-  <div class="pay-icon">✅</div>
-  <div class="pay-body">
-    <div class="pay-label">GCash — Fully Paid</div>
-    <div class="pay-amount">₱{{ number_format($order->total_price,2) }}</div>
-    <div class="pay-note">No collection needed</div>
-  </div>
-</div>
-@elseif($order->payment_status === 'Partial Payment')
-  @php $rem = $order->total_price - ($order->deposit_amount ?? 0); @endphp
-<div class="pay-banner pay-gcash">
-  <div class="pay-icon">📱</div>
-  <div class="pay-body">
-    <div class="pay-label">Collect Remaining Balance</div>
-    <div class="pay-amount">₱{{ number_format($rem,2) }}</div>
-    <div class="pay-note">Deposit of ₱{{ number_format($order->deposit_amount,2) }} already paid</div>
+    <div class="pay-amount">₱{{ number_format($totalAmount,2) }}</div>
   </div>
 </div>
 @else
@@ -239,7 +245,7 @@
   <div class="pay-icon">📱</div>
   <div class="pay-body">
     <div class="pay-label">GCash — Not Yet Paid</div>
-    <div class="pay-amount">₱{{ number_format($order->total_price,2) }}</div>
+    <div class="pay-amount">₱{{ number_format($totalAmount,2) }}</div>
     <div class="pay-note">Customer needs to pay via GCash</div>
   </div>
 </div>
