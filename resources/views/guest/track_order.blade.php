@@ -1200,6 +1200,12 @@ async function downloadDeliveryProof() {
   const viewer = document.getElementById('deliveryProofViewer');
   const src = viewer?.dataset?.proofSrc || document.getElementById('deliveryProofImage')?.src;
   if (!src) return;
+  const preferredName = 'delivery-proof-' + TRACK_CODE + '.jpg';
+
+  if (window.BerryBaseDownloads && typeof window.BerryBaseDownloads.download === 'function') {
+    window.BerryBaseDownloads.download(src, preferredName);
+    return;
+  }
 
   const button = document.getElementById('deliveryProofDownload');
   const originalHtml = button?.innerHTML;
@@ -1224,7 +1230,7 @@ async function downloadDeliveryProof() {
   } catch (e) {
     const link = document.createElement('a');
     link.href = src;
-    link.download = 'delivery-proof-' + TRACK_CODE + '.jpg';
+    link.download = preferredName;
     document.body.appendChild(link);
     link.click();
     link.remove();
