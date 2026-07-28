@@ -337,6 +337,50 @@
 const ORDER_ID = '{{ $order->id }}', TOKEN = '{{ $order->rider_token }}';
 let selectedIssue = null, _rcCb = null;
 
+function formatPeso(amount) {
+  return '₱' + Number(amount || 0).toLocaleString('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function updatePaymentBanner(data) {
+  const banner = document.querySelector('.pay-banner');
+  if (!banner || !data || !data.ok) return;
+
+  banner.classList.remove('pay-ok', 'pay-cod', 'pay-gcash');
+  banner.classList.add(data.banner_class || 'pay-gcash');
+
+  const icon = banner.querySelector('.pay-icon');
+  const label = banner.querySelector('.pay-label');
+  const amount = banner.querySelector('.pay-amount');
+  let note = banner.querySelector('.pay-note');
+  if (!note) {
+    note = document.createElement('div');
+    note.className = 'pay-note';
+    banner.querySelector('.pay-body')?.appendChild(note);
+  }
+
+  if (icon) icon.textContent = data.icon || '';
+  if (label) label.textContent = data.label || '';
+  if (amount) amount.textContent = formatPeso(data.amount);
+  if (note) note.textContent = data.note || '';
+}
+
+async function refreshPaymentStatus() {
+  try {
+    const res = await fetch('/rider/' + ORDER_ID + '/' + TOKEN + '/payment-status', {
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    if (!res.ok) return;
+    updatePaymentBanner(await res.json());
+  } catch (e) {}
+}
+
+refreshPaymentStatus();
+setInterval(refreshPaymentStatus, 5000);
+
 function rcOpen({ icon, iconBg, title, message, okLabel, okColor, onConfirm }) {
   document.getElementById('rcIcon').style.background = iconBg || '#dcfce7';
   document.getElementById('rcIcon').textContent = icon || '✅';

@@ -152,6 +152,70 @@ class RiderController extends Controller
         return view('rider.delivery', compact('order','addons','settings'));
     }
 
+    public function paymentStatus(string $orderId, string $token)
+    {
+        $order = DB::table('orders')
+            ->where('id', $orderId)
+            ->where('rider_token', $token)
+            ->first();
+
+        if (!$order) {
+            return response()->json(['ok' => false, 'error' => 'Invalid delivery link.'], 404);
+        }
+
+        $totalAmount = (float) ($order->total_price ?? 0);
+        $depositAmount = (float) ($order->deposit_amount ?? 0);
+        $isPaid = ($order->payment_status ?? '') === 'Paid';
+        $depositPaid = in_array($order->payment_status ?? '', ['Partial Payment', 'Paid'], true)
+            || ($order->deposit_status ?? '') === 'paid';
+        $cashMethod = in_array($order->payment_method, ['COD', 'COP'], true);
+        $remainingAmount = $isPaid ? 0 : max(0, $totalAmount - ($depositPaid ? $depositAmount : 0));
+
+        if ($isPaid) {
+            $state = [
+                'banner_class' => 'pay-ok',
+                'icon' => '✅',
+                'label' => 'Payment Settled',
+                'amount' => 0,
+                'note' => 'No collection needed',
+            ];
+        } elseif ($depositPaid && $depositAmount > 0) {
+            $state = [
+                'banner_class' => $cashMethod ? 'pay-cod' : 'pay-gcash',
+                'icon' => $cashMethod ? '💵' : '📱',
+                'label' => $cashMethod ? 'Collect Remaining Balance' : 'GCash Remaining Balance Pending',
+                'amount' => $remainingAmount,
+                'note' => 'Deposit of ₱' . number_format($depositAmount, 2) . ' already paid',
+            ];
+        } elseif ($cashMethod) {
+            $state = [
+                'banner_class' => 'pay-cod',
+                'icon' => '💵',
+                'label' => 'Collect Cash from Customer',
+                'amount' => $totalAmount,
+                'note' => '',
+            ];
+        } else {
+            $state = [
+                'banner_class' => 'pay-gcash',
+                'icon' => '📱',
+                'label' => 'GCash — Not Yet Paid',
+                'amount' => $totalAmount,
+                'note' => 'Customer needs to pay via GCash',
+            ];
+        }
+
+        return response()->json([
+            'ok' => true,
+            'payment_status' => $order->payment_status,
+            'deposit_status' => $order->deposit_status,
+            'paid_at' => $order->paid_at,
+            'remaining_amount' => $remainingAmount,
+            'total_amount' => $totalAmount,
+            'deposit_amount' => $depositAmount,
+        ] + $state)->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
     /** Rider marks as delivered */
     public function markDelivered(Request $request, string $orderId, string $token)
     {

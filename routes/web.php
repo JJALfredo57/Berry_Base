@@ -137,6 +137,7 @@ Route::post('/rider/access', [\App\Http\Controllers\RiderController::class, 'acc
 
 // ── Rider Delivery Page (no login) ────────────────────────────────────────
 Route::get('/rider/{orderId}/{token}',           [\App\Http\Controllers\RiderController::class, 'show'])->name('rider.show');
+Route::get('/rider/{orderId}/{token}/payment-status', [\App\Http\Controllers\RiderController::class, 'paymentStatus'])->name('rider.payment_status');
 Route::post('/rider/{orderId}/{token}/delivered', [\App\Http\Controllers\RiderController::class, 'markDelivered'])->name('rider.delivered');
 Route::post('/rider/{orderId}/{token}/issue',     [\App\Http\Controllers\RiderController::class, 'reportIssue'])->name('rider.issue');
 
