@@ -4157,6 +4157,14 @@ document.addEventListener('DOMContentLoaded', function () {
   nav.className = 'cs-wizard-nav';
   nav.innerHTML = '<button type="button" class="btn btn-outline-secondary" data-wiz-back><i class="bi bi-arrow-left me-1"></i>Back</button><button type="button" class="btn btn-primary" data-wiz-next>Next <i class="bi bi-arrow-right ms-1"></i></button>';
   form.insertBefore(nav, cards[cards.length - 1].nextSibling);
+  var nextBtn = nav.querySelector('[data-wiz-next]');
+  var navSubmitBtn = null;
+  if (form.id === 'checkoutForm' && submitButtons.length) {
+    navSubmitBtn = submitButtons[0];
+    navSubmitBtn.classList.remove('w-100', 'fs-5');
+    navSubmitBtn.classList.add('px-4');
+    nav.appendChild(navSubmitBtn);
+  }
   function currentValid() {
     var fields = Array.from(cards[current].querySelectorAll('input,select,textarea')).filter(function (el) {
       return !el.disabled && el.type !== 'hidden' && !el.closest('.cs-hidden') && el.offsetParent !== null;
@@ -4182,6 +4190,10 @@ document.addEventListener('DOMContentLoaded', function () {
     submitButtons.forEach(function (btn) {
       btn.style.display = ready ? btn.dataset.csOriginalDisplay : 'none';
     });
+    if (navSubmitBtn) {
+      navSubmitBtn.style.display = ready ? 'inline-flex' : 'none';
+      nextBtn.style.display = current === cards.length - 1 ? 'none' : '';
+    }
   }
   function showStep(i, scroll) {
     current = Math.max(0, Math.min(i, cards.length - 1));
@@ -4191,12 +4203,12 @@ document.addEventListener('DOMContentLoaded', function () {
       el.classList.toggle('done', idx < current);
     });
     nav.querySelector('[data-wiz-back]').style.visibility = current === 0 ? 'hidden' : 'visible';
-    nav.querySelector('[data-wiz-next]').innerHTML = current === cards.length - 1 ? 'Review Order <i class="bi bi-check2 ms-1"></i>' : 'Next <i class="bi bi-arrow-right ms-1"></i>';
+    nextBtn.innerHTML = navSubmitBtn ? 'Next <i class="bi bi-arrow-right ms-1"></i>' : (current === cards.length - 1 ? 'Review Order <i class="bi bi-check2 ms-1"></i>' : 'Next <i class="bi bi-arrow-right ms-1"></i>');
     updateSubmitVisibility();
     if (scroll !== false) cards[current].scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   nav.querySelector('[data-wiz-back]').addEventListener('click', function () { showStep(current - 1); });
-  nav.querySelector('[data-wiz-next]').addEventListener('click', function () {
+  nextBtn.addEventListener('click', function () {
     if (!currentValid()) return;
     if (current < cards.length - 1) showStep(current + 1);
     else window.scrollTo({ top: form.getBoundingClientRect().bottom + window.scrollY - 120, behavior: 'smooth' });
