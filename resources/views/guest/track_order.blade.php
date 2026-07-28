@@ -66,6 +66,34 @@
     .g-attach-btn:hover,.g-attach-btn.active{border-color:var(--primary);color:var(--primary);background:#fce7f3}
     .g-send-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.95rem;transition:opacity .15s;flex-shrink:0}
     .g-send-btn:disabled{opacity:.45;cursor:not-allowed}
+    .track-action-panel{display:none}
+    .track-action-panel.is-open{display:block;animation:trackPanelIn .22s ease}
+    @keyframes trackPanelIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .track-fab-wrap{position:fixed;right:18px;bottom:22px;z-index:1050;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+    .track-fab-menu{display:flex;flex-direction:column;align-items:flex-end;gap:9px;pointer-events:none}
+    .track-fab-wrap.is-open .track-fab-menu{pointer-events:auto}
+    .track-fab-item{border:0;background:#fff;color:#111827;border-radius:999px;box-shadow:0 12px 30px rgba(15,23,42,.16);height:46px;min-width:46px;padding:0 14px 0 13px;display:flex;align-items:center;gap:9px;opacity:0;transform:translateY(12px) scale(.92);transition:opacity .18s ease,transform .18s ease,box-shadow .18s ease}
+    .track-fab-wrap.is-open .track-fab-item{opacity:1;transform:translateY(0) scale(1)}
+    .track-fab-item:nth-child(1){transition-delay:.04s}.track-fab-item:nth-child(2){transition-delay:.08s}.track-fab-item:nth-child(3){transition-delay:.12s}
+    .track-fab-item:hover{box-shadow:0 16px 34px rgba(15,23,42,.22);transform:translateY(-2px) scale(1.02)}
+    .track-fab-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff0f6;color:var(--primary);flex-shrink:0}
+    .track-fab-label{font-size:.78rem;font-weight:800;white-space:nowrap;max-width:0;opacity:0;overflow:hidden;transition:max-width .2s ease,opacity .16s ease}
+    .track-fab-wrap.is-open .track-fab-item:hover .track-fab-label,.track-fab-wrap.is-open .track-fab-item:focus .track-fab-label{max-width:160px;opacity:1}
+    .track-fab-main{width:58px;height:58px;border-radius:50%;border:0;background:var(--primary);color:#fff;box-shadow:0 18px 34px rgba(219,39,119,.32);display:flex;align-items:center;justify-content:center;font-size:1.3rem;transition:transform .18s ease}
+    .track-fab-wrap.is-open .track-fab-main{transform:rotate(45deg)}
+    .track-count-badge{position:absolute;right:-3px;top:-3px;background:#16a34a;color:#fff;border-radius:999px;min-width:18px;height:18px;padding:0 5px;font-size:.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+    .receipt-drawer-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.32);z-index:1060;opacity:0;pointer-events:none;transition:opacity .2s ease}
+    .receipt-drawer-backdrop.is-open{opacity:1;pointer-events:auto}
+    .receipt-drawer{position:fixed;right:0;top:0;height:100vh;width:min(420px,100%);background:#fff;z-index:1061;box-shadow:-20px 0 45px rgba(15,23,42,.18);transform:translateX(105%);transition:transform .24s ease;display:flex;flex-direction:column}
+    .receipt-drawer.is-open{transform:translateX(0)}
+    .receipt-drawer-body{overflow:auto;padding:14px}
+    @media (max-width:640px){
+      .track-fab-wrap{right:14px;bottom:16px}
+      .track-fab-label{max-width:130px;opacity:1}
+      .track-fab-item{height:44px}
+      .receipt-drawer{top:auto;bottom:0;height:min(78vh,620px);border-radius:18px 18px 0 0;transform:translateY(105%)}
+      .receipt-drawer.is-open{transform:translateY(0)}
+    }
   </style>
 
   {{-- Header --}}
@@ -514,7 +542,7 @@
   </div>
 
   @if(($recentReceipts ?? collect())->count() > 0)
-  <div class="card mb-3">
+  <div class="card mb-3 d-none">
     <div class="card-body p-4">
       <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
         <div>
@@ -860,9 +888,12 @@
   {{-- ── REVIEW SECTION (Delivered or Picked Up) ────────────────────────── --}}
   @if(in_array($order->status, ['Delivered', 'Picked Up']))
   @php $existingReview = \Illuminate\Support\Facades\DB::table('order_reviews')->where('order_id', $order->id)->first(); @endphp
-  <div class="card mb-4">
+  <div class="card mb-4 track-action-panel" id="ratePanel">
     <div class="card-body p-4">
-      <h6 class="fw-bold mb-3"><i class="bi bi-star-fill me-2" style="color:#f59e0b"></i>Rate Your Cake</h6>
+      <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <h6 class="fw-bold mb-0"><i class="bi bi-star-fill me-2" style="color:#f59e0b"></i>Rate Your Cake</h6>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeTrackPanel('ratePanel')" title="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
       @if(session('msg'))
         <div class="alert alert-success border-0 py-2">{{ session('msg') }}</div>
       @endif
@@ -919,11 +950,12 @@
   @endif
 
   {{-- ── CHAT SECTION ────────────────────────────────────────────────────── --}}
-  <div class="card mb-4" style="border-radius:14px;overflow:hidden">
+  <div class="card mb-4 track-action-panel" id="messagePanel" style="border-radius:14px;overflow:hidden">
     <div style="background:#fff;padding:14px 16px 10px;border-bottom:1px solid #f0f0f0">
       <div style="display:flex;align-items:center;gap:10px">
         <i class="bi bi-chat-dots" style="color:var(--primary);font-size:1.1rem"></i>
-        <span class="fw-bold" style="font-size:.95rem">Message the Seller</span>
+        <span class="fw-bold" style="font-size:.95rem;flex:1">Message the Seller</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeTrackPanel('messagePanel')" title="Close"><i class="bi bi-x-lg"></i></button>
       </div>
       <div style="font-size:.78rem;color:#9ca3af;margin-top:4px;padding-left:2px">
         Have questions about your order? Feel free to message us — we're happy to help!
@@ -961,9 +993,130 @@
 
 </div>
 
+@php
+  $receiptCount = ($recentReceipts ?? collect())->count();
+  $canRateFromBubble = in_array($order->status, ['Delivered', 'Picked Up']);
+@endphp
+
+<div class="track-fab-wrap" id="trackFab">
+  <div class="track-fab-menu">
+    @if($receiptCount > 0)
+      <button type="button" class="track-fab-item" onclick="openReceiptDrawer()" title="Recent Receipts">
+        <span class="track-fab-icon"><i class="bi bi-receipt-cutoff"></i></span>
+        <span class="track-fab-label">Recent Receipts</span>
+      </button>
+    @endif
+    <button type="button" class="track-fab-item" onclick="openTrackPanel('messagePanel')" title="Message Seller">
+      <span class="track-fab-icon"><i class="bi bi-chat-dots"></i></span>
+      <span class="track-fab-label">Message Seller</span>
+    </button>
+    @if($canRateFromBubble)
+      <button type="button" class="track-fab-item" onclick="openTrackPanel('ratePanel')" title="Rate Your Cake">
+        <span class="track-fab-icon"><i class="bi bi-star-fill"></i></span>
+        <span class="track-fab-label">Rate Your Cake</span>
+      </button>
+    @endif
+  </div>
+  <button type="button" class="track-fab-main" onclick="toggleTrackFab()" aria-label="Open order actions">
+    <i class="bi bi-plus-lg"></i>
+    @if($receiptCount > 0)
+      <span class="track-count-badge">{{ $receiptCount }}</span>
+    @endif
+  </button>
+</div>
+
+@if($receiptCount > 0)
+<div class="receipt-drawer-backdrop" id="receiptDrawerBackdrop" onclick="closeReceiptDrawer()"></div>
+<aside class="receipt-drawer" id="receiptDrawer" aria-hidden="true">
+  <div class="p-3 d-flex align-items-center justify-content-between gap-2" style="border-bottom:1px solid #e5e7eb">
+    <div>
+      <div class="fw-bold"><i class="bi bi-receipt-cutoff me-2" style="color:var(--primary)"></i>Recent Receipts</div>
+      <div class="small text-muted">Latest payments for this phone number.</div>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeReceiptDrawer()" title="Close">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+  <div class="receipt-drawer-body">
+    <a href="{{ route('guest.receipts', $order->track_code) }}" class="btn btn-outline-primary btn-sm w-100 mb-3">
+      <i class="bi bi-list-ul me-1"></i>View All Receipts
+    </a>
+    <div class="d-flex flex-column gap-2">
+      @foreach($recentReceipts as $r)
+        @php
+          $isLedger = isset($r->receipt_id);
+          $paidAmount = $isLedger
+            ? (float)$r->amount
+            : ($r->payment_status === 'Paid' ? (float)$r->total_price : (float)$r->deposit_amount);
+          $paidDate = $r->paid_at ?? $r->deposit_paid_at ?? $r->created_at;
+          $typeLabel = $isLedger ? \App\Helpers\PaymentTransactionHelper::typeLabel($r->type) : $r->payment_status;
+          $orderId = $isLedger ? $r->order_id : $r->id;
+          $viewUrl = $isLedger ? route('guest.receipt_transaction', [$r->track_code, $r->receipt_id]) : route('guest.receipt', $r->track_code);
+        @endphp
+        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e5e7eb">
+          <div class="d-flex justify-content-between gap-2">
+            <div>
+              <div class="fw-bold">Order #{{ $orderId }}</div>
+              <div class="small text-muted">{{ $typeLabel }}</div>
+            </div>
+            <div class="fw-bold" style="color:#16a34a">PHP {{ number_format($paidAmount, 2) }}</div>
+          </div>
+          <div class="small text-muted mt-1">{{ $r->product_name }} • {{ \Carbon\Carbon::parse($paidDate)->format('M d, Y') }}</div>
+          <a href="{{ $viewUrl }}" class="btn btn-primary btn-sm w-100 mt-2">
+            <i class="bi bi-eye me-1"></i>View Receipt
+          </a>
+        </div>
+      @endforeach
+    </div>
+  </div>
+</aside>
+@endif
+
 <script>
 const TRACK_CODE = '{{ $order->track_code }}';
 const GUEST_NAME = '{{ addslashes($order->guest_name ?? "You") }}';
+
+function toggleTrackFab(force) {
+  const fab = document.getElementById('trackFab');
+  if (!fab) return;
+  const open = typeof force === 'boolean' ? force : !fab.classList.contains('is-open');
+  fab.classList.toggle('is-open', open);
+}
+
+function openTrackPanel(id) {
+  const panel = document.getElementById(id);
+  if (!panel) return;
+  panel.classList.add('is-open');
+  toggleTrackFab(false);
+  setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40);
+  if (id === 'messagePanel') {
+    setTimeout(() => document.getElementById('msgInput')?.focus(), 320);
+  }
+}
+
+function closeTrackPanel(id) {
+  document.getElementById(id)?.classList.remove('is-open');
+}
+
+function openReceiptDrawer() {
+  document.getElementById('receiptDrawer')?.classList.add('is-open');
+  document.getElementById('receiptDrawerBackdrop')?.classList.add('is-open');
+  document.getElementById('receiptDrawer')?.setAttribute('aria-hidden', 'false');
+  toggleTrackFab(false);
+}
+
+function closeReceiptDrawer() {
+  document.getElementById('receiptDrawer')?.classList.remove('is-open');
+  document.getElementById('receiptDrawerBackdrop')?.classList.remove('is-open');
+  document.getElementById('receiptDrawer')?.setAttribute('aria-hidden', 'true');
+}
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    toggleTrackFab(false);
+    closeReceiptDrawer();
+  }
+});
 
 // ── Star Rating ──────────────────────────────────────────────────────────
 let selectedRating = 5;
