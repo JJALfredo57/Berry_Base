@@ -3,9 +3,10 @@
 @php
   $paidAt = $transaction->paid_at ?? $transaction->created_at;
   $serviceFee = isset($transaction->payment_service_fee) ? (float) $transaction->payment_service_fee : 0;
+  $receiptTotal = (float) $transaction->amount;
   $customerPaidAmount = isset($transaction->customer_paid_amount) && (float) $transaction->customer_paid_amount > 0
     ? (float) $transaction->customer_paid_amount
-    : ((float) $transaction->amount + $serviceFee);
+    : ($receiptTotal + $serviceFee);
 @endphp
 <div class="container py-4" style="max-width:860px">
   <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3 no-print">
@@ -26,8 +27,8 @@
           <div class="text-muted">Receipt #{{ $transaction->id }} • Order #{{ $transaction->order_id }}</div>
         </div>
         <div class="text-md-end">
-          <div class="small text-muted">Amount Paid</div>
-          <div class="fw-bold" style="font-size:2rem;color:#16a34a">PHP {{ number_format($customerPaidAmount, 2) }}</div>
+          <div class="small text-muted">Receipt Total</div>
+          <div class="fw-bold" style="font-size:2rem;color:#16a34a">PHP {{ number_format($receiptTotal, 2) }}</div>
           <span class="badge bg-success">Paid</span>
         </div>
       </div>
@@ -94,12 +95,8 @@
 
       <div class="p-3 rounded-3" style="background:#fff7ed;border:1px solid #fed7aa">
         <div class="d-flex justify-content-between gap-3 flex-wrap">
-          <span>Order Amount</span>
-          <strong>PHP {{ number_format((float) $transaction->order_total, 2) }}</strong>
-        </div>
-        <div class="d-flex justify-content-between gap-3 flex-wrap mt-2">
-          <span>This Receipt Covers</span>
-          <strong>PHP {{ number_format((float) $transaction->amount, 2) }}</strong>
+          <span>Amount Paid for This Receipt</span>
+          <strong>PHP {{ number_format($receiptTotal, 2) }}</strong>
         </div>
         @if($serviceFee > 0)
           <div class="d-flex justify-content-between gap-3 flex-wrap mt-2">
@@ -111,6 +108,10 @@
             <strong>PHP {{ number_format($customerPaidAmount, 2) }}</strong>
           </div>
         @endif
+        <div class="d-flex justify-content-between gap-3 flex-wrap mt-2 pt-2" style="border-top:1px dashed #fed7aa">
+          <span>Full Order Total</span>
+          <strong>PHP {{ number_format((float) $transaction->order_total, 2) }}</strong>
+        </div>
         <div class="d-flex justify-content-between gap-3 flex-wrap mt-2">
           <span>Remaining Balance After This Payment</span>
           <strong>PHP {{ number_format((float) $transaction->remaining_balance, 2) }}</strong>
