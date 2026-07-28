@@ -82,48 +82,50 @@ class TrackingController extends Controller
 
     public function receipt(string $trackCode, ?int $transactionId = null)
     {
-        if (Schema::hasTable('payment_transactions')) {
-            $transactionQuery = DB::table('payment_transactions as pt')
-                ->join('orders as o', 'o.id', '=', 'pt.order_id')
-                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
-                ->where('pt.track_code', strtoupper($trackCode));
+        try {
+            if ($this->hasPaymentTransactions()) {
+                $transactionQuery = DB::table('payment_transactions as pt')
+                    ->join('orders as o', 'o.id', '=', 'pt.order_id')
+                    ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+                    ->where('pt.track_code', strtoupper($trackCode));
 
-            if ($transactionId) {
-                $transactionQuery->where('pt.id', $transactionId);
+                if ($transactionId) {
+                    $transactionQuery->where('pt.id', $transactionId);
+                }
+
+                $transaction = $transactionQuery
+                    ->select(
+                        'pt.*',
+                        'o.guest_name',
+                        'o.guest_phone',
+                        'o.fulfillment_type',
+                        'o.schedule_date',
+                        'o.schedule_time',
+                        'o.address',
+                        'o.quantity',
+                        'o.selected_size',
+                        'o.custom_note',
+                        DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"),
+                        'p.image_path as product_image'
+                    )
+                    ->orderByDesc('pt.paid_at')
+                    ->orderByDesc('pt.id')
+                    ->first();
+
+                if ($transaction) {
+                    $transaction->type_label = PaymentTransactionHelper::typeLabel($transaction->type);
+                    $receiptAddons = DB::table('order_addons')->where('order_id', $transaction->order_id)->get();
+                    $vatSettings = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
+
+                    return view('guest.payment_transaction_receipt', [
+                        'trackCode' => $trackCode,
+                        'transaction' => $transaction,
+                        'receiptAddons' => $receiptAddons,
+                        'vatSettings' => $vatSettings,
+                    ]);
+                }
             }
-
-            $transaction = $transactionQuery
-                ->select(
-                    'pt.*',
-                    'o.guest_name',
-                    'o.guest_phone',
-                    'o.fulfillment_type',
-                    'o.schedule_date',
-                    'o.schedule_time',
-                    'o.address',
-                    'o.quantity',
-                    'o.selected_size',
-                    'o.custom_note',
-                    DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"),
-                    'p.image_path as product_image'
-                )
-                ->orderByDesc('pt.paid_at')
-                ->orderByDesc('pt.id')
-                ->first();
-
-            if ($transaction) {
-                $transaction->type_label = PaymentTransactionHelper::typeLabel($transaction->type);
-                $receiptAddons = DB::table('order_addons')->where('order_id', $transaction->order_id)->get();
-                $vatSettings = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
-
-                return view('guest.payment_transaction_receipt', [
-                    'trackCode' => $trackCode,
-                    'transaction' => $transaction,
-                    'receiptAddons' => $receiptAddons,
-                    'vatSettings' => $vatSettings,
-                ]);
-            }
-        }
+        } catch (\Throwable $e) {}
 
         $receipt = DB::table('orders as o')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
@@ -166,27 +168,29 @@ class TrackingController extends Controller
     {
         $variants = $this->phoneVariants($phone);
 
-        if (Schema::hasTable('payment_transactions')) {
-            return DB::table('payment_transactions as pt')
-                ->join('orders as o', 'o.id', '=', 'pt.order_id')
-                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
-                ->whereIn('pt.guest_phone', $variants)
-                ->select(
-                    'pt.id as receipt_id',
-                    'pt.order_id',
-                    'pt.track_code',
-                    'pt.type',
-                    'pt.method',
-                    'pt.amount',
-                    'pt.order_total',
-                    'pt.remaining_balance',
-                    'pt.payment_status',
-                    'pt.paid_at',
-                    'pt.created_at',
-                    DB::raw("COALESCE(p.name, 'Custom Cake') as product_name")
-                )
-                ->orderByDesc('pt.paid_at')
-                ->orderByDesc('pt.id');
+        if ($this->hasPaymentTransactions()) {
+            try {
+                return DB::table('payment_transactions as pt')
+                    ->join('orders as o', 'o.id', '=', 'pt.order_id')
+                    ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+                    ->whereIn('pt.guest_phone', $variants)
+                    ->select(
+                        'pt.id as receipt_id',
+                        'pt.order_id',
+                        'pt.track_code',
+                        'pt.type',
+                        'pt.method',
+                        'pt.amount',
+                        'pt.order_total',
+                        'pt.remaining_balance',
+                        'pt.payment_status',
+                        'pt.paid_at',
+                        'pt.created_at',
+                        DB::raw("COALESCE(p.name, 'Custom Cake') as product_name")
+                    )
+                    ->orderByDesc('pt.paid_at')
+                    ->orderByDesc('pt.id');
+            } catch (\Throwable $e) {}
         }
 
         return DB::table('orders as o')
@@ -210,6 +214,25 @@ class TrackingController extends Controller
                 DB::raw("COALESCE(p.name, 'Custom Cake') as product_name")
             )
             ->orderByRaw('COALESCE(o.paid_at, o.deposit_paid_at, o.updated_at, o.created_at) DESC');
+    }
+
+    private function hasPaymentTransactions(): bool
+    {
+        try {
+            return Schema::hasTable('payment_transactions')
+                && Schema::hasColumns('payment_transactions', [
+                    'order_id',
+                    'track_code',
+                    'guest_phone',
+                    'type',
+                    'amount',
+                    'order_total',
+                    'remaining_balance',
+                    'paid_at',
+                ]);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     private function phoneVariants(?string $phone): array

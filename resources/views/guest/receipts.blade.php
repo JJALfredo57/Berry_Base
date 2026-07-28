@@ -34,7 +34,9 @@
           $paidDate = $r->paid_at ?? $r->deposit_paid_at ?? $r->created_at;
           $typeLabel = $isLedger ? \App\Helpers\PaymentTransactionHelper::typeLabel($r->type) : $r->payment_status;
           $orderId = $isLedger ? $r->order_id : $r->id;
-          $viewUrl = $isLedger ? route('guest.receipt_transaction', [$r->track_code, $r->receipt_id]) : route('guest.receipt', $r->track_code);
+          $viewUrl = $isLedger
+            ? route('guest.receipt_transaction', ['trackCode' => $r->track_code, 'transactionId' => $r->receipt_id])
+            : route('guest.receipt', ['trackCode' => $r->track_code]);
         @endphp
         <div class="p-3 d-flex align-items-center justify-content-between gap-3 flex-wrap" style="border-bottom:1px solid #eef2f7">
           <div style="min-width:220px">

@@ -79,9 +79,10 @@
     .track-fab-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff0f6;color:var(--primary);flex-shrink:0}
     .track-fab-label{font-size:.78rem;font-weight:800;white-space:nowrap;max-width:0;opacity:0;overflow:hidden;transition:max-width .2s ease,opacity .16s ease}
     .track-fab-wrap.is-open .track-fab-item:hover .track-fab-label,.track-fab-wrap.is-open .track-fab-item:focus .track-fab-label{max-width:160px;opacity:1}
-    .track-fab-main{width:58px;height:58px;border-radius:50%;border:0;background:var(--primary);color:#fff;box-shadow:0 18px 34px rgba(219,39,119,.32);display:flex;align-items:center;justify-content:center;font-size:1.3rem;transition:transform .18s ease}
+    .track-fab-main{width:58px;height:58px;border-radius:50%;border:0;background:var(--primary);color:#fff;box-shadow:0 18px 34px rgba(219,39,119,.32);display:flex;align-items:center;justify-content:center;font-size:1.3rem;transition:transform .18s ease;position:relative;overflow:visible}
     .track-fab-wrap.is-open .track-fab-main{transform:rotate(45deg)}
-    .track-count-badge{position:absolute;right:-3px;top:-3px;background:#16a34a;color:#fff;border-radius:999px;min-width:18px;height:18px;padding:0 5px;font-size:.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+    .track-count-badge{position:absolute;right:-3px;top:-3px;background:#16a34a;color:#fff;border-radius:999px;min-width:18px;height:18px;padding:0 5px;font-size:.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff;line-height:1;pointer-events:none;transform:none!important}
+    .track-fab-wrap.is-open .track-count-badge{display:none}
     .receipt-drawer-backdrop{position:fixed!important;inset:0!important;background:rgba(15,23,42,.32);z-index:1060;opacity:0;pointer-events:none;transition:opacity .2s ease;overscroll-behavior:none}
     .receipt-drawer-backdrop.is-open{opacity:1;pointer-events:auto}
     .receipt-drawer{position:fixed!important;left:50%!important;top:50%!important;width:min(460px,calc(100vw - 28px));max-height:min(82vh,720px);background:#fff;z-index:1061;border-radius:16px;box-shadow:0 24px 60px rgba(15,23,42,.24);transform:translate(-50%,-46%) scale(.96);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;display:flex;flex-direction:column;overflow:hidden;overscroll-behavior:contain}
@@ -563,7 +564,9 @@
             $paidDate = $r->paid_at ?? $r->deposit_paid_at ?? $r->created_at;
             $typeLabel = $isLedger ? \App\Helpers\PaymentTransactionHelper::typeLabel($r->type) : $r->payment_status;
             $orderId = $isLedger ? $r->order_id : $r->id;
-            $viewUrl = $isLedger ? route('guest.receipt_transaction', [$r->track_code, $r->receipt_id]) : route('guest.receipt', $r->track_code);
+            $viewUrl = $isLedger
+              ? route('guest.receipt_transaction', ['trackCode' => $r->track_code, 'transactionId' => $r->receipt_id])
+              : route('guest.receipt', ['trackCode' => $r->track_code]);
           @endphp
           <div class="p-3 rounded-3 d-flex align-items-center justify-content-between gap-3 flex-wrap" style="background:#f8fafc;border:1px solid #e5e7eb">
             <div style="min-width:180px">
@@ -1052,7 +1055,9 @@
           $paidDate = $r->paid_at ?? $r->deposit_paid_at ?? $r->created_at;
           $typeLabel = $isLedger ? \App\Helpers\PaymentTransactionHelper::typeLabel($r->type) : $r->payment_status;
           $orderId = $isLedger ? $r->order_id : $r->id;
-          $viewUrl = $isLedger ? route('guest.receipt_transaction', [$r->track_code, $r->receipt_id]) : route('guest.receipt', $r->track_code);
+          $viewUrl = $isLedger
+            ? route('guest.receipt_transaction', ['trackCode' => $r->track_code, 'transactionId' => $r->receipt_id])
+            : route('guest.receipt', ['trackCode' => $r->track_code]);
         @endphp
         <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e5e7eb">
           <div class="d-flex justify-content-between gap-2">
