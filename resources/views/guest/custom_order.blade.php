@@ -690,10 +690,10 @@ function initMap() {
 
 function useMyLocation() {
   var btn = document.getElementById('useMyLocationBtn');
-  if (!navigator.geolocation) { cakeToast('Your browser does not support GPS location.','error'); return; }
+  if (!window.berryBaseHasLocationSupport?.()) { cakeToast('Your browser does not support GPS location.','error'); return; }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Getting location…';
-  navigator.geolocation.getCurrentPosition(
+  window.berryBaseGetCurrentPosition(
     async pos => {
       var lat = pos.coords.latitude, lng = pos.coords.longitude;
       map.setView([lat, lng], 16);

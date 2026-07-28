@@ -579,11 +579,11 @@ function setMarkerAt(latlng, triggerPin = true) {
 }
 
 function detectMyLocation() {
-  if (!navigator.geolocation) { alert('Geolocation is not supported by your browser.'); return; }
+  if (!window.berryBaseHasLocationSupport?.()) { alert('Geolocation is not supported by your browser.'); return; }
   const btn = document.getElementById('detectBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Detecting…';
-  navigator.geolocation.getCurrentPosition(
+  window.berryBaseGetCurrentPosition(
     pos => {
       btn.disabled = false;
       btn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Detect My Location';

@@ -664,7 +664,7 @@ async function onBarangayChange(barangayName) {
 function useMyLocation() {
   if (!map) initMap();
 
-  if (!navigator.geolocation) {
+  if (!window.berryBaseHasLocationSupport?.()) {
     cakeToast('GPS is not supported by your browser. Click the map to pin manually.', 'error');
     return;
   }
@@ -675,7 +675,7 @@ function useMyLocation() {
   if (overlayBtn) { overlayBtn.disabled = true; overlayBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Locating…'; }
   if (floatBtn)   { floatBtn.disabled = true; floatBtn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:.9rem;height:.9rem;border-width:2px"></span>'; }
 
-  navigator.geolocation.getCurrentPosition(
+  window.berryBaseGetCurrentPosition(
     async (pos) => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;

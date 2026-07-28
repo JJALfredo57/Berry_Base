@@ -4244,6 +4244,46 @@ document.addEventListener('DOMContentLoaded', function () {
   form.addEventListener('change', updateSubmitVisibility);
   showStep(0, false);
 });
+
+window.berryBaseHasLocationSupport = function () {
+  return !!(window.Capacitor?.Plugins?.Geolocation || navigator.geolocation);
+};
+
+window.berryBaseGetCurrentPosition = async function (success, fail, options) {
+  var fallback = function () {
+    if (!navigator.geolocation) {
+      if (fail) fail({ code: 2, message: 'GPS is not supported on this device.' });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(success, fail, options);
+  };
+
+  var geolocation = window.Capacitor?.Plugins?.Geolocation;
+  if (!geolocation) return fallback();
+
+  try {
+    var current = await geolocation.checkPermissions();
+    if (['granted', 'limited'].indexOf(current.location) === -1) {
+      var requested = await geolocation.requestPermissions({ permissions: ['location'] });
+      if (['granted', 'limited'].indexOf(requested.location) === -1) {
+        if (fail) fail({ code: 1, message: 'Location permission denied.' });
+        return;
+      }
+    }
+
+    var pos = await geolocation.getCurrentPosition({
+      enableHighAccuracy: options?.enableHighAccuracy ?? true,
+      timeout: options?.timeout ?? 10000,
+      maximumAge: options?.maximumAge ?? 30000
+    });
+    if (success) success(pos);
+  } catch (e) {
+    if (fail) fail({
+      code: String(e?.message || '').toLowerCase().indexOf('denied') !== -1 ? 1 : 2,
+      message: e?.message || 'Could not get location.'
+    });
+  }
+};
 </script>
 </body>
 </html>
