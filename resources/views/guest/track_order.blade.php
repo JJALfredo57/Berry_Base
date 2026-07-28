@@ -67,9 +67,9 @@
     .g-send-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.95rem;transition:opacity .15s;flex-shrink:0}
     .g-send-btn:disabled{opacity:.45;cursor:not-allowed}
     .track-action-panel{display:none}
-    .track-action-panel.is-open{display:block;position:fixed;left:50%;top:50%;width:min(720px,calc(100vw - 28px));max-height:min(82vh,720px);overflow:auto;z-index:1062;transform:translate(-50%,-50%);animation:trackPanelIn .2s ease}
+    .track-action-panel.is-open{display:block;position:fixed!important;left:50%!important;top:50%!important;width:min(720px,calc(100vw - 28px));max-height:min(82vh,720px);overflow:auto;z-index:1062;transform:translate(-50%,-50%);animation:trackPanelIn .2s ease;overscroll-behavior:contain}
     @keyframes trackPanelIn{from{opacity:0;transform:translate(-50%,-46%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
-    .track-fab-wrap{position:fixed;right:18px;bottom:22px;z-index:1050;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+    .track-fab-wrap{position:fixed!important;right:18px!important;bottom:22px!important;z-index:1050;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
     .track-fab-menu{display:flex;flex-direction:column;align-items:flex-end;gap:9px;pointer-events:none}
     .track-fab-wrap.is-open .track-fab-menu{pointer-events:auto}
     .track-fab-item{border:0;background:#fff;color:#111827;border-radius:999px;box-shadow:0 12px 30px rgba(15,23,42,.16);height:46px;min-width:46px;padding:0 14px 0 13px;display:flex;align-items:center;gap:9px;opacity:0;transform:translateY(12px) scale(.92);transition:opacity .18s ease,transform .18s ease,box-shadow .18s ease}
@@ -82,9 +82,9 @@
     .track-fab-main{width:58px;height:58px;border-radius:50%;border:0;background:var(--primary);color:#fff;box-shadow:0 18px 34px rgba(219,39,119,.32);display:flex;align-items:center;justify-content:center;font-size:1.3rem;transition:transform .18s ease}
     .track-fab-wrap.is-open .track-fab-main{transform:rotate(45deg)}
     .track-count-badge{position:absolute;right:-3px;top:-3px;background:#16a34a;color:#fff;border-radius:999px;min-width:18px;height:18px;padding:0 5px;font-size:.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
-    .receipt-drawer-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.32);z-index:1060;opacity:0;pointer-events:none;transition:opacity .2s ease}
+    .receipt-drawer-backdrop{position:fixed!important;inset:0!important;background:rgba(15,23,42,.32);z-index:1060;opacity:0;pointer-events:none;transition:opacity .2s ease;overscroll-behavior:none}
     .receipt-drawer-backdrop.is-open{opacity:1;pointer-events:auto}
-    .receipt-drawer{position:fixed;left:50%;top:50%;width:min(460px,calc(100vw - 28px));max-height:min(82vh,720px);background:#fff;z-index:1061;border-radius:16px;box-shadow:0 24px 60px rgba(15,23,42,.24);transform:translate(-50%,-46%) scale(.96);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;display:flex;flex-direction:column;overflow:hidden}
+    .receipt-drawer{position:fixed!important;left:50%!important;top:50%!important;width:min(460px,calc(100vw - 28px));max-height:min(82vh,720px);background:#fff;z-index:1061;border-radius:16px;box-shadow:0 24px 60px rgba(15,23,42,.24);transform:translate(-50%,-46%) scale(.96);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;display:flex;flex-direction:column;overflow:hidden;overscroll-behavior:contain}
     .receipt-drawer.is-open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
     .receipt-drawer-body{overflow:auto;padding:14px}
     @media (max-width:640px){
@@ -93,7 +93,7 @@
       .track-fab-item{height:44px}
       .receipt-drawer{width:calc(100vw - 18px);max-height:82vh;border-radius:16px}
     }
-    body.track-modal-open{overflow:hidden}
+    html.track-modal-open,body.track-modal-open{overflow:hidden!important;height:100%!important}
   </style>
 
   {{-- Header --}}
@@ -1077,6 +1077,21 @@
 const TRACK_CODE = '{{ $order->track_code }}';
 const GUEST_NAME = '{{ addslashes($order->guest_name ?? "You") }}';
 
+function mountTrackFloatingUi() {
+  ['trackActionBackdrop', 'receiptDrawer', 'trackFab', 'messagePanel', 'ratePanel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentElement !== document.body) document.body.appendChild(el);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', mountTrackFloatingUi);
+mountTrackFloatingUi();
+
+function setTrackModalLock(locked) {
+  document.documentElement.classList.toggle('track-modal-open', locked);
+  document.body.classList.toggle('track-modal-open', locked);
+}
+
 function toggleTrackFab(force) {
   const fab = document.getElementById('trackFab');
   if (!fab) return;
@@ -1087,9 +1102,10 @@ function toggleTrackFab(force) {
 function openTrackPanel(id) {
   const panel = document.getElementById(id);
   if (!panel) return;
+  mountTrackFloatingUi();
   panel.classList.add('is-open');
   document.getElementById('trackActionBackdrop')?.classList.add('is-open');
-  document.body.classList.add('track-modal-open');
+  setTrackModalLock(true);
   toggleTrackFab(false);
   if (id === 'messagePanel') {
     setTimeout(() => document.getElementById('msgInput')?.focus(), 320);
@@ -1099,16 +1115,17 @@ function openTrackPanel(id) {
 function closeTrackPanel(id) {
   document.getElementById(id)?.classList.remove('is-open');
   if (!document.querySelector('.track-action-panel.is-open') && !document.getElementById('receiptDrawer')?.classList.contains('is-open')) {
-    document.body.classList.remove('track-modal-open');
+    setTrackModalLock(false);
     document.getElementById('trackActionBackdrop')?.classList.remove('is-open');
   }
 }
 
 function openReceiptDrawer() {
+  mountTrackFloatingUi();
   document.getElementById('receiptDrawer')?.classList.add('is-open');
   document.getElementById('trackActionBackdrop')?.classList.add('is-open');
   document.getElementById('receiptDrawer')?.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('track-modal-open');
+  setTrackModalLock(true);
   toggleTrackFab(false);
 }
 
@@ -1116,7 +1133,7 @@ function closeReceiptDrawer() {
   document.getElementById('receiptDrawer')?.classList.remove('is-open');
   document.getElementById('receiptDrawer')?.setAttribute('aria-hidden', 'true');
   if (!document.querySelector('.track-action-panel.is-open')) {
-    document.body.classList.remove('track-modal-open');
+    setTrackModalLock(false);
     document.getElementById('trackActionBackdrop')?.classList.remove('is-open');
   }
 }
@@ -1125,7 +1142,7 @@ function closeAllTrackPopups() {
   document.querySelectorAll('.track-action-panel.is-open').forEach(panel => panel.classList.remove('is-open'));
   closeReceiptDrawer();
   document.getElementById('trackActionBackdrop')?.classList.remove('is-open');
-  document.body.classList.remove('track-modal-open');
+  setTrackModalLock(false);
 }
 
 document.addEventListener('keydown', event => {
