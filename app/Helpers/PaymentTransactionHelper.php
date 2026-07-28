@@ -14,24 +14,32 @@ class PaymentTransactionHelper
         $remaining = str_starts_with($type, 'downpayment')
             ? max(0, $total - $amount)
             : 0;
+        $serviceFee = self::serviceFeeFor($method, $amount);
+        $customerPaidAmount = $amount + $serviceFee;
 
-        DB::table('payment_transactions')->updateOrInsert(
-            ['order_id' => $order->id, 'type' => $type],
-            [
-                'track_code'         => strtoupper((string) ($order->track_code ?? '')),
-                'guest_phone'        => $order->guest_phone ?? null,
-                'method'             => $method,
-                'amount'             => $amount,
-                'order_total'        => $total,
-                'remaining_balance'  => $remaining,
-                'payment_status'     => 'paid',
-                'provider'           => $method === 'GCash' ? 'PayMongo' : 'Cash',
-                'provider_reference' => $providerReference,
-                'paid_at'            => now(),
-                'created_at'         => now(),
-                'updated_at'         => now(),
-            ]
-        );
+        $values = [
+            'track_code'         => strtoupper((string) ($order->track_code ?? '')),
+            'guest_phone'        => $order->guest_phone ?? null,
+            'method'             => $method,
+            'amount'             => $amount,
+            'order_total'        => $total,
+            'remaining_balance'  => $remaining,
+            'payment_status'     => 'paid',
+            'provider'           => $method === 'GCash' ? 'PayMongo' : 'Cash',
+            'provider_reference' => $providerReference,
+            'paid_at'            => now(),
+            'created_at'         => now(),
+            'updated_at'         => now(),
+        ];
+
+        if (Schema::hasColumn('payment_transactions', 'payment_service_fee')) {
+            $values['payment_service_fee'] = $serviceFee;
+        }
+        if (Schema::hasColumn('payment_transactions', 'customer_paid_amount')) {
+            $values['customer_paid_amount'] = $customerPaidAmount;
+        }
+
+        DB::table('payment_transactions')->updateOrInsert(['order_id' => $order->id, 'type' => $type], $values);
     }
 
     public static function recordFinalCashIfNeeded(object $order, string $finalStatus): void
@@ -65,5 +73,10 @@ class PaymentTransactionHelper
             'full_cash_delivery' => 'Cash on Delivery Payment',
             default => 'Payment Receipt',
         };
+    }
+
+    public static function serviceFeeFor(string $method, float $amount): float
+    {
+        return $method === 'GCash' ? round(max(0, $amount) * 0.03, 2) : 0;
     }
 }

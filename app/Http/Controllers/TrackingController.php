@@ -220,6 +220,8 @@ class TrackingController extends Controller
                         'pt.type',
                         'pt.method',
                         'pt.amount',
+                        'pt.payment_service_fee',
+                        'pt.customer_paid_amount',
                         'pt.order_total',
                         'pt.remaining_balance',
                         'pt.payment_status',
@@ -267,6 +269,8 @@ class TrackingController extends Controller
                     'amount',
                     'order_total',
                     'remaining_balance',
+                    'payment_service_fee',
+                    'customer_paid_amount',
                     'paid_at',
                 ]);
         } catch (\Throwable $e) {

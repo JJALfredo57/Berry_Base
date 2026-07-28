@@ -2,6 +2,10 @@
 @section('content')
 @php
   $paidAt = $transaction->paid_at ?? $transaction->created_at;
+  $serviceFee = isset($transaction->payment_service_fee) ? (float) $transaction->payment_service_fee : 0;
+  $customerPaidAmount = isset($transaction->customer_paid_amount) && (float) $transaction->customer_paid_amount > 0
+    ? (float) $transaction->customer_paid_amount
+    : ((float) $transaction->amount + $serviceFee);
 @endphp
 <div class="container py-4" style="max-width:860px">
   <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3 no-print">
@@ -23,7 +27,7 @@
         </div>
         <div class="text-md-end">
           <div class="small text-muted">Amount Paid</div>
-          <div class="fw-bold" style="font-size:2rem;color:#16a34a">PHP {{ number_format((float) $transaction->amount, 2) }}</div>
+          <div class="fw-bold" style="font-size:2rem;color:#16a34a">PHP {{ number_format($customerPaidAmount, 2) }}</div>
           <span class="badge bg-success">Paid</span>
         </div>
       </div>
@@ -90,13 +94,23 @@
 
       <div class="p-3 rounded-3" style="background:#fff7ed;border:1px solid #fed7aa">
         <div class="d-flex justify-content-between gap-3 flex-wrap">
-          <span>Order Total</span>
+          <span>Order Amount</span>
           <strong>PHP {{ number_format((float) $transaction->order_total, 2) }}</strong>
         </div>
         <div class="d-flex justify-content-between gap-3 flex-wrap mt-2">
-          <span>This Receipt Paid</span>
+          <span>This Receipt Covers</span>
           <strong>PHP {{ number_format((float) $transaction->amount, 2) }}</strong>
         </div>
+        @if($serviceFee > 0)
+          <div class="d-flex justify-content-between gap-3 flex-wrap mt-2">
+            <span>PayMongo Service Fee</span>
+            <strong>PHP {{ number_format($serviceFee, 2) }}</strong>
+          </div>
+          <div class="d-flex justify-content-between gap-3 flex-wrap mt-2 pt-2" style="border-top:1px dashed #fed7aa">
+            <span>Total Paid by Customer</span>
+            <strong>PHP {{ number_format($customerPaidAmount, 2) }}</strong>
+          </div>
+        @endif
         <div class="d-flex justify-content-between gap-3 flex-wrap mt-2">
           <span>Remaining Balance After This Payment</span>
           <strong>PHP {{ number_format((float) $transaction->remaining_balance, 2) }}</strong>
@@ -104,7 +118,7 @@
       </div>
 
       <div class="small text-muted mt-3">
-        Keep this receipt for payment verification. Downpayment and remaining cash payments are recorded separately.
+        Keep this receipt for payment verification. PayMongo service fee is shown separately when GCash is used.
       </div>
     </div>
   </div>

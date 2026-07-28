@@ -18,6 +18,8 @@ return new class extends Migration
                 $t->string('type', 40)->index();
                 $t->string('method', 30)->index();
                 $t->decimal('amount', 10, 2);
+                $t->decimal('payment_service_fee', 10, 2)->default(0);
+                $t->decimal('customer_paid_amount', 10, 2)->default(0);
                 $t->decimal('order_total', 10, 2)->default(0);
                 $t->decimal('remaining_balance', 10, 2)->default(0);
                 $t->string('payment_status', 30)->default('paid');

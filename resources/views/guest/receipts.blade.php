@@ -29,7 +29,7 @@
         @php
           $isLedger = isset($r->receipt_id);
           $paidAmount = $isLedger
-            ? (float) $r->amount
+            ? ((isset($r->customer_paid_amount) && (float) $r->customer_paid_amount > 0) ? (float) $r->customer_paid_amount : (float) $r->amount)
             : ($r->payment_status === 'Paid' ? (float) $r->total_price : (float) $r->deposit_amount);
           $paidDate = $r->paid_at ?? $r->deposit_paid_at ?? $r->created_at;
           $typeLabel = $isLedger ? \App\Helpers\PaymentTransactionHelper::typeLabel($r->type) : $r->payment_status;
