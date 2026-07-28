@@ -77,9 +77,9 @@ class PayoutController extends Controller
             'updated_at' => now(),
         ];
 
-        $existing = DB::table('platform_settings')->orderByDesc('updated_at')->orderBy('id')->first();
+        $existing = DB::table('platform_settings')->orderBy('id')->first();
         if ($existing) {
-            DB::table('platform_settings')->update($updates);
+            DB::table('platform_settings')->where('id', $existing->id)->update($updates);
         } else {
             $updates['platform_name'] = 'Cake Shop Platform';
             $updates['created_at'] = now();

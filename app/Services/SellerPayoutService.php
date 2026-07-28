@@ -19,7 +19,7 @@ class SellerPayoutService
             'payout_auto_paused' => true,
         ];
 
-        $settings = DB::table('platform_settings')->orderByDesc('updated_at')->orderBy('id')->first();
+        $settings = DB::table('platform_settings')->orderBy('id')->first();
         if (!$settings) return $defaults;
 
         $mode = strtolower(trim((string) ($settings->payout_mode ?? $defaults->payout_mode)));
