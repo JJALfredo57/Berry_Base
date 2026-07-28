@@ -190,7 +190,8 @@ class PlatformSettingsController extends Controller
         }
 
         $siteName = config('app.name', 'Cake Shop');
-        $message = "[{$siteName}]\nUniSMS test message sent at " . now()->format('M d, Y h:i A') . ". If you received this, SMS settings are working.";
+        $code = (string) random_int(100000, 999999);
+        $message = "[{$siteName}]\nCode: {$code}\nValid 10 mins. Test only.";
         $result = SmsHelper::sendWithResult($phone, $message);
 
         if (!$result['ok']) {
