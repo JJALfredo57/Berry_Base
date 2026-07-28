@@ -2115,8 +2115,8 @@ function _csDlgBuild(opts) {
 }
 
 // Public API — keep same cakeConfirm signature for backward compat
-function cakeConfirm({title='Are you sure?',message='',icon='bi-question-circle',iconBg='#fff0f6',iconColor='var(--primary)',okLabel='Confirm',okColor='var(--primary)',onConfirm,onCancel}) {
-  _csDlgBuild({title,message,icon,iconBg,iconColor,okLabel,okColor,onConfirm,onCancel,showCancel:true});
+function cakeConfirm({title='Are you sure?',message='',icon='bi-question-circle',iconBg='#fff0f6',iconColor='var(--primary)',okLabel='Confirm',okColor='var(--primary)',cancelLabel='Cancel',onConfirm,onCancel}) {
+  _csDlgBuild({title,message,icon,iconBg,iconColor,okLabel,okColor,cancelLabel,onConfirm,onCancel,showCancel:true});
 }
 function confirmDelete(msg,cb) { cakeConfirm({title:'Delete?',message:msg,icon:'bi-trash',iconBg:'#fff1f2',iconColor:'#ef4444',okLabel:'Delete',okColor:'#ef4444',onConfirm:cb}); }
 function confirmAction(title,msg,cb) { cakeConfirm({title,message:msg,onConfirm:cb}); }
@@ -4216,7 +4216,28 @@ document.addEventListener('DOMContentLoaded', function () {
   nav.querySelector('[data-wiz-back]').addEventListener('click', function () { showStep(current - 1); });
   nextBtn.addEventListener('click', function () {
     if (!currentValid()) return;
-    if (current < cards.length - 1) showStep(current + 1);
+    if (current < cards.length - 1) {
+      var leavingPayment = form.id === 'checkoutForm' && titleOf(cards[current]).includes('Payment Method');
+      var cashSelected = form.querySelector('[name="payment_method"]:checked')?.value !== 'GCash';
+      if (leavingPayment && cashSelected && form.dataset.cashDpNoticeShown !== '1') {
+        cakeConfirm({
+          title: 'GCash Down Payment Required',
+          message: 'Cash on Pickup / Cash on Delivery applies to the remaining balance only. Since cakes are made-to-order, a GCash down payment is required first to secure your order and prevent fake orders or no-shows. You will pay the remaining balance in cash during pickup or delivery.',
+          icon: 'bi-info-circle',
+          iconBg: '#fef3c7',
+          iconColor: '#d97706',
+          okLabel: 'OK, Continue',
+          okColor: 'var(--primary)',
+          cancelLabel: 'Back',
+          onConfirm: function () {
+            form.dataset.cashDpNoticeShown = '1';
+            showStep(current + 1);
+          }
+        });
+        return;
+      }
+      showStep(current + 1);
+    }
     else window.scrollTo({ top: form.getBoundingClientRect().bottom + window.scrollY - 120, behavior: 'smooth' });
   });
   form.addEventListener('input', updateSubmitVisibility);

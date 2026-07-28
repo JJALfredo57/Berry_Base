@@ -311,7 +311,7 @@ document.body.style.paddingRight = '';
                     <label class="form-check-label fw-semibold" for="cod">
                       <i class="bi bi-cash-coin me-1"></i><span id="codLabelText">Cash on Pickup (COP)</span>
                     </label>
-                    <div class="text-muted" id="codHelpText" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay cash when you pick up your order.</div>
+                    <div class="text-muted" id="codHelpText" style="font-size:clamp(.68rem,1.3vw,.72rem)">GCash down payment first, remaining cash on pickup.</div>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="payment_method" value="GCash" id="gcash" onchange="updatePaymentTransparency()">
@@ -1307,7 +1307,7 @@ function updateCashPaymentCopy() {
   const codHelp  = document.getElementById('codHelpText');
   const codInput = document.getElementById('cod');
   if (codLabel) codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
-  if (codHelp)  codHelp.textContent  = isDelivery ? 'Pay cash when your order arrives.' : 'Pay cash when you pick up your order.';
+  if (codHelp)  codHelp.textContent  = isDelivery ? 'GCash down payment first, remaining cash on delivery.' : 'GCash down payment first, remaining cash on pickup.';
   if (codInput) codInput.value       = isDelivery ? 'COD' : 'COP';
 }
 
