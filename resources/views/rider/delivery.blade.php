@@ -368,18 +368,45 @@ function updatePaymentBanner(data) {
 }
 
 async function refreshPaymentStatus() {
+  if (paymentPollInFlight || paymentPollStopped || document.hidden) return;
+  paymentPollInFlight = true;
   try {
     const res = await fetch('/rider/' + ORDER_ID + '/' + TOKEN + '/payment-status', {
       headers: { 'Accept': 'application/json' },
       cache: 'no-store'
     });
     if (!res.ok) return;
-    updatePaymentBanner(await res.json());
-  } catch (e) {}
+    const data = await res.json();
+    updatePaymentBanner(data);
+    if (data.payment_status === 'Paid') stopPaymentPolling();
+  } catch (e) {
+  } finally {
+    paymentPollInFlight = false;
+  }
 }
 
+let paymentPollTimer = null;
+let paymentPollInFlight = false;
+let paymentPollStopped = false;
+
+function startPaymentPolling() {
+  if (paymentPollTimer || paymentPollStopped) return;
+  refreshPaymentStatus();
+  paymentPollTimer = setInterval(refreshPaymentStatus, 10000);
+}
+
+function stopPaymentPolling() {
+  paymentPollStopped = true;
+  if (paymentPollTimer) clearInterval(paymentPollTimer);
+  paymentPollTimer = null;
+}
+
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && !paymentPollStopped) refreshPaymentStatus();
+});
+
 refreshPaymentStatus();
-setInterval(refreshPaymentStatus, 5000);
+startPaymentPolling();
 
 function rcOpen({ icon, iconBg, title, message, okLabel, okColor, onConfirm }) {
   document.getElementById('rcIcon').style.background = iconBg || '#dcfce7';
