@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Helpers\PaymentTransactionHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -357,6 +358,13 @@ class PaymentController extends Controller
             'payment_status'  => $isFullPayment ? 'Paid' : 'Partial Payment',
             'paid_at'         => $isFullPayment ? now() : null,
         ]);
+        PaymentTransactionHelper::record(
+            $order,
+            $isFullPayment ? 'full_gcash' : 'downpayment_gcash',
+            'GCash',
+            (float) $order->deposit_amount,
+            $pmReference
+        );
 
         try {
             DB::table('order_tracking')->insert([
@@ -641,10 +649,22 @@ class PaymentController extends Controller
                          ?? ($res['data']['attributes']['reference_number'] ?? null);
 
         if ($sessionStatus === 'completed' || $paymentStatus === 'succeeded') {
+            $depositPaid = ($order->deposit_status ?? '') === 'paid';
+            $paidAmount = $depositPaid
+                ? max(0, (float) $order->total_price - (float) $order->deposit_amount)
+                : (float) $order->total_price;
+
             DB::table('orders')->where('id', $order->id)->update([
                 'payment_status' => 'Paid',
                 'paid_at'        => now(),
             ]);
+            PaymentTransactionHelper::record(
+                $order,
+                $depositPaid ? 'remaining_gcash' : 'full_gcash',
+                'GCash',
+                $paidAmount,
+                $pmReference
+            );
 
             // ── AUTO CONFIRM + SEND TO KITCHEN (remaining balance paid) ─
             if (in_array($order->status, ['Pending', 'Pending Review'])) {
@@ -778,6 +798,7 @@ class PaymentController extends Controller
                 'payment_status' => 'Paid',
                 'paid_at'        => now(),
             ]);
+            PaymentTransactionHelper::record($order, 'full_gcash', 'GCash', (float) $order->total_price, $pmReference);
 
             // ── AUTO CONFIRM + SEND TO KITCHEN ─────────────────────────
             // Only auto-confirm if order is still Pending/Pending Review
@@ -1008,9 +1029,12 @@ class PaymentController extends Controller
 
         $sessionStatus = $res['data']['attributes']['status'] ?? '';
         $paymentStatus = $res['data']['attributes']['payment_intent']['attributes']['status'] ?? '';
+        $pmReference   = $res['data']['attributes']['payments'][0]['attributes']['reference_number']
+                         ?? ($res['data']['attributes']['reference_number'] ?? null);
 
         if ($sessionStatus === 'completed' || $paymentStatus === 'succeeded') {
             $isFullPayment = abs((float)$order->deposit_amount - (float)$co->admin_price) < 0.01;
+            $order->total_price = $co->admin_price;
 
             DB::table('orders')->where('id', $order->id)->update([
                 'deposit_status'  => 'paid',
@@ -1019,6 +1043,13 @@ class PaymentController extends Controller
                 'status'          => 'Confirmed',
                 'total_price'     => $co->admin_price,
             ]);
+            PaymentTransactionHelper::record(
+                $order,
+                $isFullPayment ? 'full_gcash' : 'downpayment_gcash',
+                'GCash',
+                (float) $order->deposit_amount,
+                $pmReference
+            );
 
             DB::table('order_tracking')->insert([
                 'order_id'   => $order->id,

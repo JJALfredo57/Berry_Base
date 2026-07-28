@@ -528,19 +528,25 @@
       <div class="d-flex flex-column gap-2">
         @foreach($recentReceipts as $r)
           @php
-            $paidAmount = $r->payment_status === 'Paid' ? (float)$r->total_price : (float)$r->deposit_amount;
+            $isLedger = isset($r->receipt_id);
+            $paidAmount = $isLedger
+              ? (float)$r->amount
+              : ($r->payment_status === 'Paid' ? (float)$r->total_price : (float)$r->deposit_amount);
             $paidDate = $r->paid_at ?? $r->deposit_paid_at ?? $r->created_at;
+            $typeLabel = $isLedger ? \App\Helpers\PaymentTransactionHelper::typeLabel($r->type) : $r->payment_status;
+            $orderId = $isLedger ? $r->order_id : $r->id;
+            $viewUrl = $isLedger ? route('guest.receipt_transaction', [$r->track_code, $r->receipt_id]) : route('guest.receipt', $r->track_code);
           @endphp
           <div class="p-3 rounded-3 d-flex align-items-center justify-content-between gap-3 flex-wrap" style="background:#f8fafc;border:1px solid #e5e7eb">
             <div style="min-width:180px">
-              <div class="fw-bold" style="color:#111827">Order #{{ $r->id }}</div>
-              <div class="small text-muted">{{ $r->product_name }} &bull; {{ \Carbon\Carbon::parse($paidDate)->format('M d, Y') }}</div>
+              <div class="fw-bold" style="color:#111827">Order #{{ $orderId }}</div>
+              <div class="small text-muted">{{ $typeLabel }} &bull; {{ \Carbon\Carbon::parse($paidDate)->format('M d, Y') }}</div>
             </div>
             <div class="text-sm-end">
               <div class="fw-bold" style="color:#16a34a">₱{{ number_format($paidAmount, 2) }}</div>
-              <div class="small text-muted">{{ $r->payment_status }}</div>
+              <div class="small text-muted">{{ $r->product_name }}</div>
             </div>
-            <a href="{{ route('guest.receipt', $r->track_code) }}" class="btn btn-primary btn-sm">
+            <a href="{{ $viewUrl }}" class="btn btn-primary btn-sm">
               <i class="bi bi-eye me-1"></i>View Receipt
             </a>
           </div>

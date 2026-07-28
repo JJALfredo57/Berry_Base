@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -123,6 +124,9 @@ class OrderController extends Controller
             }
         }
         DB::table('orders')->where('id', $id)->update($upd);
+        if ($newStatus === 'Picked Up') {
+            PaymentTransactionHelper::recordFinalCashIfNeeded($order, $newStatus);
+        }
 
         DB::table('order_tracking')->insert([
             'order_id'   => $id,

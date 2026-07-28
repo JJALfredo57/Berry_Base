@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -219,14 +220,17 @@ class OrderController extends Controller
         if (in_array($status, $finalStatuses)) {
             $upd['delivered_at']     = now()->format('Y-m-d H:i:s');
             $upd['review_requested'] = 1;
-            // COD → auto Paid on final status
-            if ($order->payment_method === 'COD' && $order->payment_status !== 'Paid') {
+            // Cash orders are settled when the final handoff is confirmed.
+            if (in_array(strtoupper((string) $order->payment_method), ['COD', 'COP'], true) && $order->payment_status !== 'Paid') {
                 $upd['payment_status'] = 'Paid';
                 $upd['paid_at']        = now()->format('Y-m-d H:i:s');
             }
         }
 
         DB::table('orders')->where('id', $id)->update($upd);
+        if (in_array($status, $finalStatuses, true)) {
+            PaymentTransactionHelper::recordFinalCashIfNeeded($order, $status);
+        }
 
         DB::table('order_tracking')->insert([
             'order_id'   => $id,

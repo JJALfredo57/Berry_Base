@@ -2,8 +2,10 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\CakeshopHelper;
+use App\Helpers\PaymentTransactionHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class TrackingController extends Controller
 {
@@ -55,11 +57,20 @@ class TrackingController extends Controller
         $search = trim($request->query('search', ''));
         $receipts = $this->receiptQueryForPhone($order->guest_phone ?? '');
         if ($search !== '') {
-            $receipts->where(function ($q) use ($search) {
-                $q->where('o.id', 'like', '%' . $search . '%')
-                    ->orWhere('o.track_code', 'like', '%' . strtoupper($search) . '%')
-                    ->orWhere('p.name', 'like', '%' . $search . '%');
-            });
+            if (Schema::hasTable('payment_transactions')) {
+                $receipts->where(function ($q) use ($search) {
+                    $q->where('o.id', 'like', '%' . $search . '%')
+                        ->orWhere('pt.track_code', 'like', '%' . strtoupper($search) . '%')
+                        ->orWhere('pt.type', 'like', '%' . strtolower($search) . '%')
+                        ->orWhere('p.name', 'like', '%' . $search . '%');
+                });
+            } else {
+                $receipts->where(function ($q) use ($search) {
+                    $q->where('o.id', 'like', '%' . $search . '%')
+                        ->orWhere('o.track_code', 'like', '%' . strtoupper($search) . '%')
+                        ->orWhere('p.name', 'like', '%' . $search . '%');
+                });
+            }
         }
 
         return view('guest.receipts', [
@@ -69,8 +80,51 @@ class TrackingController extends Controller
         ]);
     }
 
-    public function receipt(string $trackCode)
+    public function receipt(string $trackCode, ?int $transactionId = null)
     {
+        if (Schema::hasTable('payment_transactions')) {
+            $transactionQuery = DB::table('payment_transactions as pt')
+                ->join('orders as o', 'o.id', '=', 'pt.order_id')
+                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+                ->where('pt.track_code', strtoupper($trackCode));
+
+            if ($transactionId) {
+                $transactionQuery->where('pt.id', $transactionId);
+            }
+
+            $transaction = $transactionQuery
+                ->select(
+                    'pt.*',
+                    'o.guest_name',
+                    'o.guest_phone',
+                    'o.fulfillment_type',
+                    'o.schedule_date',
+                    'o.schedule_time',
+                    'o.address',
+                    'o.quantity',
+                    'o.selected_size',
+                    'o.custom_note',
+                    DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"),
+                    'p.image_path as product_image'
+                )
+                ->orderByDesc('pt.paid_at')
+                ->orderByDesc('pt.id')
+                ->first();
+
+            if ($transaction) {
+                $transaction->type_label = PaymentTransactionHelper::typeLabel($transaction->type);
+                $receiptAddons = DB::table('order_addons')->where('order_id', $transaction->order_id)->get();
+                $vatSettings = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
+
+                return view('guest.payment_transaction_receipt', [
+                    'trackCode' => $trackCode,
+                    'transaction' => $transaction,
+                    'receiptAddons' => $receiptAddons,
+                    'vatSettings' => $vatSettings,
+                ]);
+            }
+        }
+
         $receipt = DB::table('orders as o')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.track_code', strtoupper($trackCode))
@@ -111,6 +165,29 @@ class TrackingController extends Controller
     private function receiptQueryForPhone(?string $phone)
     {
         $variants = $this->phoneVariants($phone);
+
+        if (Schema::hasTable('payment_transactions')) {
+            return DB::table('payment_transactions as pt')
+                ->join('orders as o', 'o.id', '=', 'pt.order_id')
+                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+                ->whereIn('pt.guest_phone', $variants)
+                ->select(
+                    'pt.id as receipt_id',
+                    'pt.order_id',
+                    'pt.track_code',
+                    'pt.type',
+                    'pt.method',
+                    'pt.amount',
+                    'pt.order_total',
+                    'pt.remaining_balance',
+                    'pt.payment_status',
+                    'pt.paid_at',
+                    'pt.created_at',
+                    DB::raw("COALESCE(p.name, 'Custom Cake') as product_name")
+                )
+                ->orderByDesc('pt.paid_at')
+                ->orderByDesc('pt.id');
+        }
 
         return DB::table('orders as o')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')

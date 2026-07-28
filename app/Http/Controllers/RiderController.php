@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\SmsHelper;
 use App\Helpers\CakeshopHelper;
+use App\Helpers\PaymentTransactionHelper;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -182,6 +183,7 @@ class RiderController extends Controller
             }
 
             DB::table('orders')->where('id',$orderId)->update($upd);
+            PaymentTransactionHelper::recordFinalCashIfNeeded($order, 'Delivered');
 
             $trackingNotes = 'Marked as delivered by rider.';
             if ($photoPath)   $trackingNotes .= ' Proof of delivery photo uploaded.';
