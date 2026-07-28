@@ -1034,9 +1034,9 @@
       <i class="bi bi-arrow-left"></i>
     </button>
     <div class="proof-viewer-title">Proof of Delivery</div>
-    <a href="#" class="proof-icon-btn" id="deliveryProofDownload" download title="Download">
+    <button type="button" class="proof-icon-btn" id="deliveryProofDownload" onclick="downloadDeliveryProof()" title="Download">
       <i class="bi bi-download"></i>
-    </a>
+    </button>
   </div>
   <div class="proof-stage" id="deliveryProofStage">
     <img src="" alt="Proof of delivery" id="deliveryProofImage">
@@ -1165,11 +1165,10 @@ function renderDeliveryProofScale() {
 function openDeliveryProof(src) {
   const viewer = document.getElementById('deliveryProofViewer');
   const img = document.getElementById('deliveryProofImage');
-  const download = document.getElementById('deliveryProofDownload');
   if (!viewer || !img || !src) return;
   deliveryProofScale = 1;
   img.src = src;
-  if (download) download.href = src;
+  viewer.dataset.proofSrc = src;
   renderDeliveryProofScale();
   viewer.classList.add('is-open');
   viewer.setAttribute('aria-hidden', 'false');
@@ -1195,6 +1194,46 @@ function zoomDeliveryProof(delta) {
 function resetDeliveryProofZoom() {
   deliveryProofScale = 1;
   renderDeliveryProofScale();
+}
+
+async function downloadDeliveryProof() {
+  const viewer = document.getElementById('deliveryProofViewer');
+  const src = viewer?.dataset?.proofSrc || document.getElementById('deliveryProofImage')?.src;
+  if (!src) return;
+
+  const button = document.getElementById('deliveryProofDownload');
+  const originalHtml = button?.innerHTML;
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+  }
+
+  try {
+    const response = await fetch(src, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Download failed');
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    link.href = objectUrl;
+    link.download = 'delivery-proof-' + TRACK_CODE + '.' + ext;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch (e) {
+    const link = document.createElement('a');
+    link.href = src;
+    link.download = 'delivery-proof-' + TRACK_CODE + '.jpg';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.innerHTML = originalHtml;
+    }
+  }
 }
 
 function deliveryProofPointerDistance(a, b) {
