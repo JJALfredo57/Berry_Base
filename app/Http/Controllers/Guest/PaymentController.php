@@ -14,9 +14,9 @@ class PaymentController extends Controller
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
 
         $order = DB::table('orders as o')
-            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.track_code', strtoupper($trackCode))
-            ->select('o.*', 'p.name as product_name')
+            ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"))
             ->first();
 
         if (!$order) abort(404);
@@ -140,26 +140,42 @@ class PaymentController extends Controller
         if ($order->payment_status === 'Paid')
             return back()->with('error', 'This order is already fully paid.');
 
-        $depositAmount = (float) $request->input('deposit_amount', 0);
-        $minDeposit    = round((float)$order->total_price * 0.5, 2);
-        $maxDeposit    = (float)$order->total_price;
+        $payableTotal = (float) $order->total_price;
+        try {
+            $customOrder = DB::table('custom_orders')->where('order_id', $order->id)->first();
+            if ($customOrder && $customOrder->review_status === 'approved'
+                && $customOrder->price_confirmed === 'accepted'
+                && (float) $customOrder->admin_price > 0) {
+                $payableTotal = (float) $customOrder->admin_price;
+            }
+        } catch (\Throwable $e) {}
+
+        $depositAmount = round((float) $request->input('deposit_amount', 0), 2);
+        $minDeposit    = round($payableTotal * 0.5, 2);
+        $maxDeposit    = round($payableTotal, 2);
+
+        if ($maxDeposit <= 0) {
+            return back()->with('error', 'Invalid order total. Please contact the shop.');
+        }
+        if ($depositAmount < 100) {
+            return back()->with('error', 'Minimum GCash payment is PHP 100.00.');
+        }
 
         // Validate: must be at least 50% and at most 100%
         if ($depositAmount < $minDeposit) {
             return back()->with('error', 'Minimum deposit is 50% of total (₱' . number_format($minDeposit, 2) . ').');
         }
         if ($depositAmount > $maxDeposit) {
-            $depositAmount = $maxDeposit;
+            return back()->with('error', 'Payment cannot exceed the order total (PHP ' . number_format($maxDeposit, 2) . ').');
         }
 
-        // Round to 2 decimal places
-        $depositAmount = round($depositAmount, 2);
         $isFullPayment = abs($depositAmount - $maxDeposit) < 0.01;
 
         // All payment methods (COP, COD, GCash) pay the deposit through PayMongo.
         DB::table('orders')->where('id', $order->id)->update([
             'deposit_required' => 1,
             'deposit_amount'   => $depositAmount,
+            'total_price'       => $payableTotal,
             'deposit_status'   => 'pending',
         ]);
 
@@ -183,9 +199,9 @@ class PaymentController extends Controller
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
 
         $order = DB::table('orders as o')
-            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.track_code', strtoupper($trackCode))
-            ->select('o.*', 'p.name as product_name')
+            ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"))
             ->first();
 
         if (!$order) abort(404);
@@ -484,9 +500,9 @@ class PaymentController extends Controller
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
 
         $order = DB::table('orders as o')
-            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.track_code', strtoupper($trackCode))
-            ->select('o.*', 'p.name as product_name')
+            ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"))
             ->first();
 
         if (!$order) abort(404);
@@ -586,9 +602,9 @@ class PaymentController extends Controller
         $status = $request->input('status', '');
 
         $order = DB::table('orders as o')
-            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.track_code', strtoupper($trackCode))
-            ->select('o.*', 'p.name as product_name', 'p.image_path as product_image')
+            ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"), 'p.image_path as product_image')
             ->first();
 
         if (!$order) abort(404);
@@ -676,9 +692,9 @@ class PaymentController extends Controller
             ]);
 
             $order = DB::table('orders as o')
-                ->join('products as p', 'p.id', '=', 'o.product_id')
+                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
                 ->where('o.id', $order->id)
-                ->select('o.*', 'p.name as product_name', 'p.image_path as product_image')
+                ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"), 'p.image_path as product_image')
                 ->first();
 
             $receiptAddons = DB::table('order_addons')->where('order_id', $order->id)->get();
@@ -702,9 +718,9 @@ class PaymentController extends Controller
         $status = $request->input('status', '');
 
         $order = DB::table('orders as o')
-            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.track_code', strtoupper($trackCode))
-            ->select('o.*', 'p.name as product_name', 'p.image_path as product_image')
+            ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"), 'p.image_path as product_image')
             ->first();
 
         if (!$order) abort(404);
@@ -834,9 +850,9 @@ class PaymentController extends Controller
 
             // Refresh order
             $order = DB::table('orders as o')
-                ->join('products as p', 'p.id', '=', 'o.product_id')
+                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
                 ->where('o.id', $order->id)
-                ->select('o.*', 'p.name as product_name', 'p.image_path as product_image')
+                ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"), 'p.image_path as product_image')
                 ->first();
 
             $receiptAddons = DB::table('order_addons')->where('order_id', $order->id)->get();

@@ -2178,8 +2178,14 @@ document.addEventListener('click', function(e) {
         }
         el.submit();
       } else {
-        if (typeof window.csSetButtonLoading === 'function') window.csSetButtonLoading(el);
-        el.click();
+        var isSubmitButton = el.form && (el.matches('button[type="submit"],input[type="submit"]') || (el.tagName === 'BUTTON' && !el.getAttribute('type')));
+        if (isSubmitButton) {
+          if (el.form.requestSubmit) el.form.requestSubmit(el);
+          else el.form.submit();
+        } else {
+          if (typeof window.csSetButtonLoading === 'function') window.csSetButtonLoading(el);
+          el.click();
+        }
         setTimeout(function(){ el.setAttribute('data-cs-confirm',msg); }, 200);
       }
     }

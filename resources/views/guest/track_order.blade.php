@@ -356,7 +356,7 @@
 
         {{-- ─── GCash Deposit Card — one-click payment ──────────────── --}}
         @if($order->payment_method === 'GCash' && $order->payment_status === 'Unpaid' && in_array($order->status, ['Pending','Pending Review']) && $order->deposit_status !== 'paid' && !$customOrder)
-        @php $minDeposit = round($order->total_price * 0.5, 2); @endphp
+        @php $minDeposit = max(100, round($order->total_price * 0.5, 2)); @endphp
         <div class="col-12 mt-3">
           <div style="border-radius:1rem;overflow:hidden;border:1.5px solid #d1fae5">
             <div style="background:linear-gradient(90deg,#059669,#0284c7);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.6rem">
@@ -440,7 +440,7 @@
 
         {{-- Already initiated → resume payment (editable amount) --}}
         @elseif($order->deposit_required && $order->deposit_status === 'pending')
-        @php $pendingMin = round((float)$order->total_price * 0.5, 2); @endphp
+        @php $pendingMin = max(100, round((float)$order->total_price * 0.5, 2)); @endphp
         <div class="col-12 mt-3">
           <div style="border-radius:1rem;overflow:hidden;border:1.5px solid #fed7aa">
             <div style="background:linear-gradient(90deg,#d97706,#ea580c);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.6rem">
@@ -587,7 +587,7 @@
           && in_array($order->status, ['Pending','Pending Review','Confirmed']))
       @php
         $coTotal = (float)$customOrder->admin_price;
-        $minDep  = round($coTotal * 0.5, 2);
+        $minDep  = max(100, round($coTotal * 0.5, 2));
       @endphp
       @if($order->payment_method === 'GCash')
       <div class="mt-3" style="border-radius:1rem;overflow:hidden;border:1.5px solid #d1fae5">
@@ -705,7 +705,7 @@
       @if($customOrder->review_status === 'approved'
           && $customOrder->admin_price > 0
           && $customOrder->price_confirmed === 'pending')
-      @php $acceptTotal = (float)$customOrder->admin_price; $acceptMin = round($acceptTotal * 0.5, 2); @endphp
+      @php $acceptTotal = (float)$customOrder->admin_price; $acceptMin = max(100, round($acceptTotal * 0.5, 2)); @endphp
       <div class="mt-3" style="border-radius:1rem;overflow:hidden;border:1.5px solid #fbbf24">
         <div style="background:linear-gradient(90deg,#d97706,#92400e);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.6rem">
           <i class="bi bi-tag-fill" style="color:#fff;font-size:1rem"></i>
