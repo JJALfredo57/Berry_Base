@@ -17,6 +17,13 @@ class PayoutController extends Controller
         $this->payouts->syncDeliveredPaidOrders();
 
         $settings = $this->payouts->settings();
+        if (session()->has('payout_settings_saved')) {
+            foreach ((array) session('payout_settings_saved') as $key => $value) {
+                if (str_starts_with($key, 'payout_')) {
+                    $settings->{$key} = $value;
+                }
+            }
+        }
         $summary = [
             'clearing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['pending', 'clearing'])->sum('seller_net_amount'),
             'available' => (float) DB::table('seller_payout_ledgers')->where('status', 'available')->sum('seller_net_amount'),
@@ -80,14 +87,16 @@ class PayoutController extends Controller
         $existing = DB::table('platform_settings')->orderBy('id')->first();
         if ($existing) {
             DB::table('platform_settings')->where('id', $existing->id)->update($updates);
+            DB::table('platform_settings')->where('id', '<>', $existing->id)->update($updates);
         } else {
             $updates['platform_name'] = 'Cake Shop Platform';
             $updates['created_at'] = now();
             DB::table('platform_settings')->insert($updates);
         }
 
-        $saved = $this->payouts->settings();
+        $saved = (object) array_merge((array) $this->payouts->settings(), $updates);
         return redirect()->route('superadmin.payouts')
+            ->with('payout_settings_saved', $updates)
             ->with('msg', 'Payout settings saved. Current mode: '.ucfirst($saved->payout_mode).'. Automatic is '.($saved->payout_auto_paused ? 'paused' : 'active').'.');
     }
 
