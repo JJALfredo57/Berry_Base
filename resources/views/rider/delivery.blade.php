@@ -1,35 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  @php
+    if (!isset($settings)) { $settings = \App\Helpers\CakeshopHelper::getSettings(); }
+    $platformBrand = null;
+    try { $platformBrand = \Illuminate\Support\Facades\DB::table('platform_settings')->first(); } catch (\Throwable $e) {}
+
+    $rawPrimary = $platformBrand->platform_primary_color ?? '#7B3A0F';
+    if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $rawPrimary)) $rawPrimary = '#7B3A0F';
+
+    $hexAdjust = function(string $hex, float $factor): string {
+        $hex = ltrim($hex, '#');
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+        if ($factor >= 0) {
+            $r = (int) min(255, $r + (255 - $r) * $factor);
+            $g = (int) min(255, $g + (255 - $g) * $factor);
+            $b = (int) min(255, $b + (255 - $b) * $factor);
+        } else {
+            $f = 1 + $factor;
+            $r = (int) max(0, $r * $f);
+            $g = (int) max(0, $g * $f);
+            $b = (int) max(0, $b * $f);
+        }
+        return sprintf('#%02x%02x%02x', $r, $g, $b);
+    };
+
+    $primaryDark = $hexAdjust($rawPrimary, -0.30);
+    $primaryBg = $hexAdjust($rawPrimary, 0.90);
+    $primaryLight = $hexAdjust($rawPrimary, 0.65);
+
+    $pbgType = $platformBrand->platform_bg_type ?? 'color';
+    $pbgColor = $platformBrand->platform_bg_color ?? '#FFF8F8';
+    $pbgGradStart = $platformBrand->platform_bg_gradient_start ?? '#fff7fb';
+    $pbgGradEnd = $platformBrand->platform_bg_gradient_end ?? '#ffe3f1';
+    $pbgImage = $platformBrand->platform_bg_image ?? '';
+    $pbgOpacity = (float) ($platformBrand->platform_bg_opacity ?? 1.0);
+    $bodyBgCss = $pbgType === 'gradient'
+        ? "background: linear-gradient(135deg, {$pbgGradStart} 0%, {$pbgGradEnd} 100%);"
+        : "background: {$pbgColor};";
+  @endphp
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#e91e63">
+  <meta name="theme-color" content="{{ $rawPrimary }}">
   <title>Delivery #{{ $order->id }}</title>
   @if(!empty($settings['logo_path']))
     <link rel="icon" type="image/png" href="{{ $settings['logo_path'] }}">
   @endif
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
+    :root {
+      --primary: {{ $rawPrimary }};
+      --primary-dark: {{ $primaryDark }};
+      --primary-bg: {{ $primaryBg }};
+      --primary-light: {{ $primaryLight }};
+    }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html { font-size: clamp(16px, 4vw, 22px); }
-    body { width: 100%; min-height: 100vh; background: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 1rem; color: #111; }
+    body { width: 100%; min-height: 100vh; {{ $bodyBgCss }} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 1rem; color: #111; position: relative; }
+    @if($pbgType === 'image' && $pbgImage)
+    body::before { content: ""; position: fixed; inset: 0; background: url('{{ $pbgImage }}') center/cover no-repeat; opacity: {{ $pbgOpacity }}; pointer-events: none; z-index: -1; }
+    @endif
 
     /* ── Header ─────────────── */
     .hdr {
-      background: linear-gradient(135deg, #e91e63, #c2185b);
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
       color: #fff;
       padding: clamp(12px, 3vw, 20px) clamp(14px, 4vw, 22px);
       display: flex;
       align-items: center;
       gap: clamp(8px, 2vw, 14px);
+      box-shadow: 0 4px 18px rgba(0,0,0,.10);
     }
+    .back-btn { width: clamp(36px, 9vw, 46px); height: clamp(36px, 9vw, 46px); border: 1px solid rgba(255,255,255,.34); border-radius: 12px; background: rgba(255,255,255,.16); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; font-size: clamp(18px, 4.5vw, 22px); }
+    .back-btn:active { transform: scale(.98); background: rgba(255,255,255,.24); }
     .hdr-logo { width: clamp(28px, 7vw, 40px); height: clamp(28px, 7vw, 40px); border-radius: 6px; object-fit: cover; flex-shrink: 0; }
     .hdr-text { flex: 1; min-width: 0; }
     .hdr-shop { font-size: clamp(11px, 3vw, 15px); opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .hdr-order { font-size: clamp(16px, 4.5vw, 22px); font-weight: 700; }
 
     /* ── Section ─────────────── */
-    .section { background: #fff; margin: clamp(8px, 2vw, 12px) 0; padding: 0; }
+    .section { background: rgba(255,255,255,.96); margin: clamp(8px, 2vw, 12px) 0; padding: 0; border-top: 1px solid rgba(0,0,0,.04); border-bottom: 1px solid rgba(0,0,0,.04); }
     .section-title { font-size: clamp(11px, 2.8vw, 14px); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #9ca3af; padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 20px) clamp(4px, 1vw, 8px); }
     .row { display: flex; align-items: flex-start; gap: clamp(10px, 2.5vw, 16px); padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 20px); border-top: 1px solid #f3f4f6; }
     .row-icon { width: clamp(38px, 9vw, 50px); height: clamp(38px, 9vw, 50px); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: clamp(18px, 4.5vw, 24px); }
@@ -37,7 +89,7 @@
     .row-label { font-size: clamp(11px, 2.8vw, 14px); color: #9ca3af; margin-bottom: 3px; }
     .row-value { font-size: clamp(14px, 3.8vw, 19px); font-weight: 600; word-break: break-word; overflow-wrap: anywhere; }
     .row-sub { font-size: clamp(12px, 3vw, 15px); color: #6b7280; margin-top: 4px; }
-    .row-link { font-size: clamp(13px, 3.2vw, 16px); font-weight: 600; color: #2563eb; text-decoration: none; display: inline-block; margin-top: 5px; }
+    .row-link { font-size: clamp(13px, 3.2vw, 16px); font-weight: 600; color: var(--primary); text-decoration: none; display: inline-block; margin-top: 5px; }
 
     /* ── Payment Banner ──────── */
     .pay-banner { margin: clamp(8px, 2vw, 12px) 0; padding: clamp(14px, 3.5vw, 18px) clamp(14px, 4vw, 20px); display: flex; align-items: center; gap: clamp(10px, 3vw, 16px); }
@@ -52,12 +104,12 @@
 
     /* ── Photo upload ────────── */
     .photo-section { padding: clamp(10px, 2.5vw, 14px) clamp(14px, 4vw, 20px); border-top: 1px solid #f3f4f6; }
-    .photo-label { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: clamp(14px, 3.5vw, 18px); background: #f9fafb; border: 2px dashed #d1d5db; border-radius: 12px; font-size: clamp(14px, 3.5vw, 18px); font-weight: 600; color: #6b7280; cursor: pointer; }
-    .photo-label:active { background: #f3f4f6; }
+    .photo-label { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: clamp(14px, 3.5vw, 18px); background: var(--primary-bg); border: 2px dashed var(--primary-light); border-radius: 12px; font-size: clamp(14px, 3.5vw, 18px); font-weight: 600; color: var(--primary-dark); cursor: pointer; }
+    .photo-label:active { background: var(--primary-light); }
     .photo-label i { font-size: clamp(18px, 5vw, 24px); }
     .photo-preview { width: 100%; border-radius: 10px; margin-top: 10px; display: none; object-fit: cover; max-height: clamp(180px, 45vw, 260px); }
     .note-input { width: 100%; padding: clamp(12px, 3vw, 16px); border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: clamp(14px, 3.5vw, 18px); font-family: inherit; resize: none; margin-top: 10px; }
-    .note-input:focus { outline: none; border-color: #e91e63; }
+    .note-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent); }
 
     /* ── Action buttons ──────── */
     .actions { padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 20px); display: flex; flex-direction: column; gap: clamp(8px, 2.5vw, 12px); }
@@ -116,6 +168,9 @@
 
 {{-- Header --}}
 <div class="hdr">
+  <button type="button" class="back-btn" onclick="goBack()" aria-label="Back">
+    <i class="bi bi-arrow-left"></i>
+  </button>
   @if(!empty($settings['logo_path']))
     <img src="{{ $settings['logo_path'] }}" class="hdr-logo" onerror="this.style.display='none'">
   @endif
@@ -145,7 +200,7 @@
   <div class="section-title">Customer</div>
 
   <div class="row">
-    <div class="row-icon" style="background:#fce7f3">👤</div>
+    <div class="row-icon" style="background:var(--primary-bg);color:var(--primary-dark)">👤</div>
     <div class="row-body">
       <div class="row-label">Name</div>
       <div class="row-value">{{ $order->guest_name ?? 'Customer' }}</div>
@@ -186,7 +241,7 @@
   <div class="section-title">Order Details</div>
 
   <div class="row">
-    <div class="row-icon" style="background:#fce7f3">🎂</div>
+    <div class="row-icon" style="background:var(--primary-bg);color:var(--primary-dark)">🎂</div>
     <div class="row-body">
       <div class="row-label">Product</div>
       <div class="row-value">{{ $order->product_name }}</div>
@@ -336,6 +391,14 @@
 <script>
 const ORDER_ID = '{{ $order->id }}', TOKEN = '{{ $order->rider_token }}';
 let selectedIssue = null, _rcCb = null;
+
+function goBack() {
+  if (window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+  window.location.href = '{{ route('rider.login') }}';
+}
 
 function formatPeso(amount) {
   return '₱' + Number(amount || 0).toLocaleString('en-PH', {
