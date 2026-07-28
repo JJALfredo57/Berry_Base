@@ -88,13 +88,29 @@
     .receipt-drawer{position:fixed!important;left:50%!important;top:50%!important;width:min(460px,calc(100vw - 28px));max-height:min(82vh,720px);background:#fff;z-index:1061;border-radius:16px;box-shadow:0 24px 60px rgba(15,23,42,.24);transform:translate(-50%,-46%) scale(.96);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;display:flex;flex-direction:column;overflow:hidden;overscroll-behavior:contain}
     .receipt-drawer.is-open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
     .receipt-drawer-body{overflow:auto;padding:14px}
+    .proof-view-btn{border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;border-radius:999px;padding:6px 12px;font-size:.76rem;font-weight:800;display:inline-flex;align-items:center;gap:6px;margin-top:8px;text-decoration:none}
+    .proof-view-btn:hover{background:#dcfce7;color:#14532d}
+    .proof-viewer{position:fixed;inset:0;background:#05070bcc;z-index:1090;display:none;flex-direction:column;overflow:hidden;touch-action:none}
+    .proof-viewer.is-open{display:flex}
+    .proof-viewer-bar{height:56px;padding:8px max(12px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;gap:10px;color:#fff;background:linear-gradient(180deg,rgba(0,0,0,.54),rgba(0,0,0,0));flex-shrink:0}
+    .proof-viewer-title{min-width:0;font-size:.9rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .proof-icon-btn{width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;backdrop-filter:blur(10px)}
+    .proof-icon-btn:active{transform:scale(.96)}
+    .proof-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px;overflow:hidden}
+    .proof-stage img{max-width:100%;max-height:100%;object-fit:contain;transform:scale(var(--proof-scale,1));transition:transform .15s ease;will-change:transform;user-select:none;-webkit-user-drag:none}
+    .proof-tools{height:64px;padding:8px max(12px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(0deg,rgba(0,0,0,.58),rgba(0,0,0,0));flex-shrink:0}
+    .proof-zoom-pill{min-width:72px;text-align:center;color:#fff;font-size:.8rem;font-weight:800}
     @media (max-width:640px){
       .track-fab-wrap{right:14px;bottom:16px}
       .track-fab-label{max-width:130px;opacity:1}
       .track-fab-item{height:44px}
       .receipt-drawer{width:calc(100vw - 18px);max-height:82vh;border-radius:16px}
+      .proof-viewer-bar{height:52px}
+      .proof-tools{height:60px}
+      .proof-icon-btn{width:38px;height:38px}
     }
     html.track-modal-open,body.track-modal-open{overflow:hidden!important;height:100%!important}
+    html.proof-viewer-open,body.proof-viewer-open{overflow:hidden!important;height:100%!important}
   </style>
 
   {{-- Header --}}
@@ -868,12 +884,23 @@
   <div class="card mb-4">
     <div class="card-body p-4">
       <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Order Timeline</h6>
+      @php
+        $deliveryProofUrl = trim((string) ($order->delivery_photo ?? ''));
+        if ($deliveryProofUrl !== '' && !str_starts_with($deliveryProofUrl, 'http') && !str_starts_with($deliveryProofUrl, '/')) {
+            $deliveryProofUrl = asset($deliveryProofUrl);
+        }
+      @endphp
       @foreach($tracking->sortByDesc('created_at') as $t)
       <div class="d-flex gap-3 mb-3">
         <div style="width:10px;height:10px;border-radius:50%;background:var(--primary);margin-top:5px;flex-shrink:0"></div>
         <div>
           <div class="fw-semibold small">{{ $t->status }}</div>
           @if($t->notes)<div class="text-muted small">{{ $t->notes }}</div>@endif
+          @if($t->status === 'Delivered' && $deliveryProofUrl !== '')
+            <button type="button" class="proof-view-btn" onclick="openDeliveryProof(@js($deliveryProofUrl))">
+              <i class="bi bi-image"></i>View Proof
+            </button>
+          @endif
           <div class="text-muted" style="font-size:clamp(.68rem,1.3vw,.72rem)">{{ \Carbon\Carbon::parse($t->created_at)->format('M d, Y g:i A') }}</div>
         </div>
       </div>
@@ -1001,6 +1028,33 @@
   $canRateFromBubble = in_array($order->status, ['Delivered', 'Picked Up']);
 @endphp
 
+<div class="proof-viewer" id="deliveryProofViewer" aria-hidden="true">
+  <div class="proof-viewer-bar">
+    <button type="button" class="proof-icon-btn" onclick="closeDeliveryProof()" title="Back">
+      <i class="bi bi-arrow-left"></i>
+    </button>
+    <div class="proof-viewer-title">Proof of Delivery</div>
+    <a href="#" class="proof-icon-btn" id="deliveryProofDownload" download title="Download">
+      <i class="bi bi-download"></i>
+    </a>
+  </div>
+  <div class="proof-stage" id="deliveryProofStage">
+    <img src="" alt="Proof of delivery" id="deliveryProofImage">
+  </div>
+  <div class="proof-tools">
+    <button type="button" class="proof-icon-btn" onclick="zoomDeliveryProof(-0.25)" title="Zoom out">
+      <i class="bi bi-zoom-out"></i>
+    </button>
+    <div class="proof-zoom-pill" id="deliveryProofZoom">100%</div>
+    <button type="button" class="proof-icon-btn" onclick="zoomDeliveryProof(0.25)" title="Zoom in">
+      <i class="bi bi-zoom-in"></i>
+    </button>
+    <button type="button" class="proof-icon-btn" onclick="resetDeliveryProofZoom()" title="Reset zoom">
+      <i class="bi bi-arrows-angle-contract"></i>
+    </button>
+  </div>
+</div>
+
 <div class="receipt-drawer-backdrop" id="trackActionBackdrop" onclick="closeAllTrackPopups()"></div>
 
 <div class="track-fab-wrap" id="trackFab">
@@ -1091,9 +1145,64 @@ const TRACK_INITIAL_SNAPSHOT = {
   updated_at: @json((string) ($order->updated_at ?? '')),
   latest_tracking_at: @json((string) optional(($tracking ?? collect())->last())->created_at),
 };
+let deliveryProofScale = 1;
+let deliveryProofStartDistance = 0;
+let deliveryProofStartScale = 1;
+const deliveryProofPointers = new Map();
+
+function setDeliveryProofLock(locked) {
+  document.documentElement.classList.toggle('proof-viewer-open', locked);
+  document.body.classList.toggle('proof-viewer-open', locked);
+}
+
+function renderDeliveryProofScale() {
+  const img = document.getElementById('deliveryProofImage');
+  const zoom = document.getElementById('deliveryProofZoom');
+  if (img) img.style.setProperty('--proof-scale', deliveryProofScale.toFixed(2));
+  if (zoom) zoom.textContent = Math.round(deliveryProofScale * 100) + '%';
+}
+
+function openDeliveryProof(src) {
+  const viewer = document.getElementById('deliveryProofViewer');
+  const img = document.getElementById('deliveryProofImage');
+  const download = document.getElementById('deliveryProofDownload');
+  if (!viewer || !img || !src) return;
+  deliveryProofScale = 1;
+  img.src = src;
+  if (download) download.href = src;
+  renderDeliveryProofScale();
+  viewer.classList.add('is-open');
+  viewer.setAttribute('aria-hidden', 'false');
+  setDeliveryProofLock(true);
+}
+
+function closeDeliveryProof() {
+  const viewer = document.getElementById('deliveryProofViewer');
+  const img = document.getElementById('deliveryProofImage');
+  if (!viewer) return;
+  viewer.classList.remove('is-open');
+  viewer.setAttribute('aria-hidden', 'true');
+  deliveryProofPointers.clear();
+  setDeliveryProofLock(false);
+  if (img) img.src = '';
+}
+
+function zoomDeliveryProof(delta) {
+  deliveryProofScale = Math.min(4, Math.max(1, deliveryProofScale + delta));
+  renderDeliveryProofScale();
+}
+
+function resetDeliveryProofZoom() {
+  deliveryProofScale = 1;
+  renderDeliveryProofScale();
+}
+
+function deliveryProofPointerDistance(a, b) {
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
 
 function mountTrackFloatingUi() {
-  ['trackActionBackdrop', 'receiptDrawer', 'trackFab', 'messagePanel', 'ratePanel'].forEach(id => {
+  ['trackActionBackdrop', 'receiptDrawer', 'trackFab', 'messagePanel', 'ratePanel', 'deliveryProofViewer'].forEach(id => {
     const el = document.getElementById(id);
     if (el && el.parentElement !== document.body) document.body.appendChild(el);
   });
@@ -1101,6 +1210,46 @@ function mountTrackFloatingUi() {
 
 document.addEventListener('DOMContentLoaded', mountTrackFloatingUi);
 mountTrackFloatingUi();
+
+function setupDeliveryProofGestures() {
+  const stage = document.getElementById('deliveryProofStage');
+  if (!stage || stage.dataset.ready === '1') return;
+  stage.dataset.ready = '1';
+
+  stage.addEventListener('wheel', event => {
+    if (!document.getElementById('deliveryProofViewer')?.classList.contains('is-open')) return;
+    event.preventDefault();
+    zoomDeliveryProof(event.deltaY < 0 ? 0.2 : -0.2);
+  }, { passive: false });
+
+  stage.addEventListener('pointerdown', event => {
+    deliveryProofPointers.set(event.pointerId, event);
+    stage.setPointerCapture?.(event.pointerId);
+    if (deliveryProofPointers.size === 2) {
+      const points = [...deliveryProofPointers.values()];
+      deliveryProofStartDistance = deliveryProofPointerDistance(points[0], points[1]);
+      deliveryProofStartScale = deliveryProofScale;
+    }
+  });
+
+  stage.addEventListener('pointermove', event => {
+    if (!deliveryProofPointers.has(event.pointerId)) return;
+    deliveryProofPointers.set(event.pointerId, event);
+    if (deliveryProofPointers.size === 2 && deliveryProofStartDistance > 0) {
+      const points = [...deliveryProofPointers.values()];
+      const nextDistance = deliveryProofPointerDistance(points[0], points[1]);
+      deliveryProofScale = Math.min(4, Math.max(1, deliveryProofStartScale * (nextDistance / deliveryProofStartDistance)));
+      renderDeliveryProofScale();
+    }
+  });
+
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => {
+    stage.addEventListener(type, event => deliveryProofPointers.delete(event.pointerId));
+  });
+}
+
+document.addEventListener('DOMContentLoaded', setupDeliveryProofGestures);
+setupDeliveryProofGestures();
 
 function setTrackModalLock(locked) {
   document.documentElement.classList.toggle('track-modal-open', locked);
@@ -1155,6 +1304,7 @@ function closeReceiptDrawer() {
 
 function closeAllTrackPopups() {
   document.querySelectorAll('.track-action-panel.is-open').forEach(panel => panel.classList.remove('is-open'));
+  closeDeliveryProof();
   closeReceiptDrawer();
   document.getElementById('trackActionBackdrop')?.classList.remove('is-open');
   setTrackModalLock(false);
@@ -1162,6 +1312,10 @@ function closeAllTrackPopups() {
 
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
+    if (document.getElementById('deliveryProofViewer')?.classList.contains('is-open')) {
+      closeDeliveryProof();
+      return;
+    }
     toggleTrackFab(false);
     closeAllTrackPopups();
   }
