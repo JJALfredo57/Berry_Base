@@ -39,6 +39,7 @@ class SellerPayoutService
         $holdDays = max(0, (int) ($settings->payout_hold_days ?? 3));
         $hasDeliveredAt = Schema::hasColumn('orders', 'delivered_at');
         $hasSettledAt = Schema::hasColumn('orders', 'settled_at');
+        $this->recalculateClearingReleaseDates($holdDays, $hasDeliveredAt, $hasSettledAt);
 
         $orders = DB::table('orders as o')
             ->join('shops as s', 's.id', '=', 'o.shop_id')
@@ -109,6 +110,45 @@ class SellerPayoutService
             ->update(['status' => 'available', 'updated_at' => now()]);
 
         return $created;
+    }
+
+    private function recalculateClearingReleaseDates(int $holdDays, bool $hasDeliveredAt, bool $hasSettledAt): void
+    {
+        $query = DB::table('seller_payout_ledgers as l')
+            ->join('orders as o', 'o.id', '=', 'l.order_id')
+            ->whereIn('l.status', ['pending', 'clearing'])
+            ->select(
+                'l.id',
+                'l.release_at',
+                'o.updated_at'
+            );
+
+        if ($hasDeliveredAt) {
+            $query->addSelect('o.delivered_at');
+        }
+        if ($hasSettledAt) {
+            $query->addSelect('o.settled_at');
+        }
+
+        $ledgers = $query->limit(500)->get();
+        foreach ($ledgers as $ledger) {
+            $baseAt = ($hasDeliveredAt ? ($ledger->delivered_at ?? null) : null)
+                ?? ($hasSettledAt ? ($ledger->settled_at ?? null) : null)
+                ?? $ledger->updated_at
+                ?? now();
+            $releaseAt = Carbon::parse($baseAt)->addDays($holdDays);
+            $status = $releaseAt->isFuture() ? 'clearing' : 'available';
+            $currentReleaseAt = $ledger->release_at ? Carbon::parse($ledger->release_at) : null;
+            if ($currentReleaseAt && $currentReleaseAt->equalTo($releaseAt) && ($ledger->status ?? null) === $status) {
+                continue;
+            }
+
+            DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update([
+                'release_at' => $releaseAt,
+                'status' => $status,
+                'updated_at' => now(),
+            ]);
+        }
     }
 
     public function summaryForShop(string $shopId): array

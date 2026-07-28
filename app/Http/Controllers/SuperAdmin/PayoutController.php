@@ -41,7 +41,7 @@ class PayoutController extends Controller
 
         $shops = DB::table('shops as s')
             ->leftJoin('users as u', 'u.id', '=', 's.seller_id')
-            ->whereIn('s.status', ['approved', 'suspended'])
+            ->where('s.status', 'approved')
             ->select('s.*', 'u.fullname as seller_name')
             ->orderBy('s.shop_name')
             ->get()
