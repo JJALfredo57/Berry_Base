@@ -513,6 +513,43 @@
     </div>
   </div>
 
+  @if(($recentReceipts ?? collect())->count() > 0)
+  <div class="card mb-3">
+    <div class="card-body p-4">
+      <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
+        <div>
+          <h6 class="fw-bold mb-1"><i class="bi bi-receipt-cutoff me-2" style="color:var(--primary)"></i>Recent Receipts</h6>
+          <div class="small text-muted">Summary only. Full receipt opens per tracking code.</div>
+        </div>
+        <a href="{{ route('guest.receipts', $order->track_code) }}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-list-ul me-1"></i>View All
+        </a>
+      </div>
+      <div class="d-flex flex-column gap-2">
+        @foreach($recentReceipts as $r)
+          @php
+            $paidAmount = $r->payment_status === 'Paid' ? (float)$r->total_price : (float)$r->deposit_amount;
+            $paidDate = $r->paid_at ?? $r->deposit_paid_at ?? $r->created_at;
+          @endphp
+          <div class="p-3 rounded-3 d-flex align-items-center justify-content-between gap-3 flex-wrap" style="background:#f8fafc;border:1px solid #e5e7eb">
+            <div style="min-width:180px">
+              <div class="fw-bold" style="color:#111827">Order #{{ $r->id }}</div>
+              <div class="small text-muted">{{ $r->product_name }} &bull; {{ \Carbon\Carbon::parse($paidDate)->format('M d, Y') }}</div>
+            </div>
+            <div class="text-sm-end">
+              <div class="fw-bold" style="color:#16a34a">₱{{ number_format($paidAmount, 2) }}</div>
+              <div class="small text-muted">{{ $r->payment_status }}</div>
+            </div>
+            <a href="{{ route('guest.receipt', $r->track_code) }}" class="btn btn-primary btn-sm">
+              <i class="bi bi-eye me-1"></i>View Receipt
+            </a>
+          </div>
+        @endforeach
+      </div>
+    </div>
+  </div>
+  @endif
+
   @if($canRequestCancel && !$hasPendingCancel && !$cancelApproved)
   <div class="card mb-3">
     <div class="card-body p-4">

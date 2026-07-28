@@ -38,10 +38,118 @@ class TrackingController extends Controller
             : ['Pending','Confirmed','Preparing','Out for Delivery','Delivered'];
         $currentStep = array_search($order->status, $statusSteps);
         if ($currentStep === false) $currentStep = 0;
+        $recentReceipts = $this->receiptQueryForPhone($order->guest_phone ?? '')
+            ->limit(5)
+            ->get();
 
         return view('guest.track_order', compact(
-            'order','tracking','addons','customOrder','statusSteps','currentStep'
+            'order','tracking','addons','customOrder','statusSteps','currentStep','recentReceipts'
         ));
+    }
+
+    public function receipts(Request $request, string $trackCode)
+    {
+        $order = DB::table('orders')->where('track_code', strtoupper($trackCode))->first();
+        if (!$order) abort(404, 'Order not found.');
+
+        $search = trim($request->query('search', ''));
+        $receipts = $this->receiptQueryForPhone($order->guest_phone ?? '');
+        if ($search !== '') {
+            $receipts->where(function ($q) use ($search) {
+                $q->where('o.id', 'like', '%' . $search . '%')
+                    ->orWhere('o.track_code', 'like', '%' . strtoupper($search) . '%')
+                    ->orWhere('p.name', 'like', '%' . $search . '%');
+            });
+        }
+
+        return view('guest.receipts', [
+            'order' => $order,
+            'receipts' => $receipts->paginate(10)->withQueryString(),
+            'search' => $search,
+        ]);
+    }
+
+    public function receipt(string $trackCode)
+    {
+        $receipt = DB::table('orders as o')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->where('o.track_code', strtoupper($trackCode))
+            ->where(function ($q) {
+                $q->where('o.payment_status', 'Paid')
+                    ->orWhere('o.payment_status', 'Partial Payment')
+                    ->orWhere('o.deposit_status', 'paid');
+            })
+            ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"), 'p.image_path as product_image')
+            ->first();
+
+        if (!$receipt) abort(404, 'Receipt not found.');
+
+        $receiptAddons = DB::table('order_addons')->where('order_id', $receipt->id)->get();
+        $vatSettings = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
+        $receipt->deposit_paid_at = $receipt->deposit_paid_at ?: ($receipt->paid_at ?: $receipt->updated_at);
+        $receipt->paid_at = $receipt->paid_at ?: ($receipt->deposit_paid_at ?: $receipt->updated_at);
+
+        if (($receipt->payment_status ?? '') === 'Paid') {
+            return view('guest.payment_receipt', [
+                'success' => true,
+                'trackCode' => $trackCode,
+                'receipt' => $receipt,
+                'receiptAddons' => $receiptAddons,
+                'vatSettings' => $vatSettings,
+                'pmReference' => null,
+            ]);
+        }
+
+        return view('guest.deposit_receipt', [
+            'trackCode' => $trackCode,
+            'receipt' => $receipt,
+            'vatSettings' => $vatSettings,
+            'pmReference' => null,
+        ]);
+    }
+
+    private function receiptQueryForPhone(?string $phone)
+    {
+        $variants = $this->phoneVariants($phone);
+
+        return DB::table('orders as o')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->whereIn('o.guest_phone', $variants)
+            ->where(function ($q) {
+                $q->where('o.payment_status', 'Paid')
+                    ->orWhere('o.payment_status', 'Partial Payment')
+                    ->orWhere('o.deposit_status', 'paid');
+            })
+            ->select(
+                'o.id',
+                'o.track_code',
+                'o.created_at',
+                'o.paid_at',
+                'o.deposit_paid_at',
+                'o.payment_status',
+                'o.deposit_status',
+                'o.total_price',
+                'o.deposit_amount',
+                DB::raw("COALESCE(p.name, 'Custom Cake') as product_name")
+            )
+            ->orderByRaw('COALESCE(o.paid_at, o.deposit_paid_at, o.updated_at, o.created_at) DESC');
+    }
+
+    private function phoneVariants(?string $phone): array
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+        if (strlen($digits) === 10 && str_starts_with($digits, '9')) $digits = '63' . $digits;
+        if (strlen($digits) === 11 && str_starts_with($digits, '0')) $digits = '63' . substr($digits, 1);
+        if (!str_starts_with($digits, '63') && strlen($digits) >= 10) $digits = '63' . substr($digits, -10);
+
+        $local = strlen($digits) === 12 && str_starts_with($digits, '63') ? '0' . substr($digits, 2) : $digits;
+        return array_values(array_unique(array_filter([
+            $phone,
+            $digits,
+            '+' . $digits,
+            $local,
+            preg_replace('/\D/', '', (string) $phone),
+        ])));
     }
 
     public function requestCancel(Request $request, string $trackCode)

@@ -102,6 +102,8 @@ Route::post('/custom-order/{id}/cancel-price', [GuestCustomOrder::class, 'cancel
 
 // ── Order Tracking (SMS link) ─────────────────────────────────────────────
 Route::get('/track/{trackCode}', [TrackingController::class, 'show'])->name('track.order');
+Route::get('/track/{trackCode}/receipts', [TrackingController::class, 'receipts'])->name('guest.receipts');
+Route::get('/track/{trackCode}/receipt', [TrackingController::class, 'receipt'])->name('guest.receipt');
 
 // ── Guest Messaging (on tracking page) ───────────────────────────────────
 Route::get('/track/{trackCode}/messages',  [GuestMessage::class, 'poll'])->name('guest.messages.poll');
