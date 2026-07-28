@@ -558,7 +558,7 @@ function reviewCardHtml(review) {
     ? '<p class="small mb-1 text-muted" style="line-height:1.55">' + escapeHtml(review.review) + '</p>'
     : '';
   const photo = review.image_path
-    ? '<img src="' + escapeHtml(review.image_path) + '" alt="Review photo" style="width:80px;height:80px;object-fit:cover;border-radius:.5rem;cursor:pointer;border:2px solid #fce7f3" onclick="catLbOpen(\\'' + escapeHtml(review.image_path) + '\\')">'
+    ? '<img src="' + escapeHtml(review.image_path) + '" data-review-image="' + escapeHtml(review.image_path) + '" alt="Review photo" style="width:80px;height:80px;object-fit:cover;border-radius:.5rem;cursor:pointer;border:2px solid #fce7f3">'
     : '';
 
   return '<div class="d-flex gap-3 mb-3 pb-3" style="border-bottom:1px solid #f0f0f0">' +
@@ -605,6 +605,11 @@ async function loadMoreReviews(button) {
   button.disabled = false;
   button.innerHTML = originalHtml;
 }
+
+document.addEventListener('click', function(e) {
+  const img = e.target.closest('[data-review-image]');
+  if (img) catLbOpen(img.dataset.reviewImage || img.src);
+});
 
 </script>
 
