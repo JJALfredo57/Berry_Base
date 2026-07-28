@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-  $minimumPayout = (float)($settings->payout_minimum_amount ?? 0);
+  $minimumPayout = (float)($payoutSettings->payout_minimum_amount ?? 0);
   $requestBlockReason = null;
   if (!empty($shop->payout_paused)) {
     $requestBlockReason = 'Payouts are paused for your shop. Please contact admin.';

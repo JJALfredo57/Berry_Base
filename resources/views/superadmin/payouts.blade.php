@@ -3,7 +3,7 @@
 
 @section('content')
 @php
-  $currentPayoutMode = strtolower(trim((string)($settings->payout_mode ?? 'manual')));
+  $currentPayoutMode = strtolower(trim((string)($payoutSettings->payout_mode ?? 'manual')));
   if (!in_array($currentPayoutMode, ['manual', 'automatic'], true)) $currentPayoutMode = 'manual';
 @endphp
 <div class="cs-page-header">
@@ -74,27 +74,27 @@
           <div class="row g-2">
             <div class="col-6">
               <label class="form-label">Hold Days</label>
-              <input type="number" min="0" max="30" class="form-control" name="payout_hold_days" value="{{ (int)($settings->payout_hold_days ?? 3) }}" required>
+              <input type="number" min="0" max="30" class="form-control" name="payout_hold_days" value="{{ (int)($payoutSettings->payout_hold_days ?? 3) }}" required>
             </div>
             <div class="col-6">
               <label class="form-label">Minimum</label>
-              <input type="number" min="0" step="0.01" class="form-control" name="payout_minimum_amount" value="{{ number_format((float)($settings->payout_minimum_amount ?? 500), 2, '.', '') }}" required>
+              <input type="number" min="0" step="0.01" class="form-control" name="payout_minimum_amount" value="{{ number_format((float)($payoutSettings->payout_minimum_amount ?? 500), 2, '.', '') }}" required>
             </div>
           </div>
           <div class="mt-3">
             <label class="form-label">Schedule</label>
             <select name="payout_schedule" class="form-select" required>
               @foreach(['daily'=>'Daily','weekly'=>'Weekly','twice_monthly'=>'Twice a month','monthly'=>'Monthly'] as $key => $label)
-                <option value="{{ $key }}" @selected(($settings->payout_schedule ?? 'weekly') === $key)>{{ $label }}</option>
+                <option value="{{ $key }}" @selected(($payoutSettings->payout_schedule ?? 'weekly') === $key)>{{ $label }}</option>
               @endforeach
             </select>
           </div>
           <div class="form-check form-switch mt-3">
-            <input class="form-check-input" type="checkbox" name="payout_first_approval_required" value="1" @checked(!empty($settings->payout_first_approval_required))>
+            <input class="form-check-input" type="checkbox" name="payout_first_approval_required" value="1" @checked(!empty($payoutSettings->payout_first_approval_required))>
             <label class="form-check-label">Require admin approval for first seller payout</label>
           </div>
           <div class="form-check form-switch mt-2">
-            <input class="form-check-input" type="checkbox" name="payout_auto_paused" value="1" @checked(!empty($settings->payout_auto_paused))>
+            <input class="form-check-input" type="checkbox" name="payout_auto_paused" value="1" @checked(!empty($payoutSettings->payout_auto_paused))>
             <label class="form-check-label">Pause automatic payouts globally</label>
           </div>
           <button class="btn btn-primary w-100 mt-4" type="submit" data-loading-text="Saving...">
@@ -109,7 +109,7 @@
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-shop me-2" style="color:var(--primary)"></i>Seller Balances</span>
-        <span class="badge text-bg-light">Mode: {{ ucfirst($currentPayoutMode) }} / {{ !empty($settings->payout_auto_paused) ? 'Paused' : 'Active' }}</span>
+        <span class="badge text-bg-light">Mode: {{ ucfirst($currentPayoutMode) }} / {{ !empty($payoutSettings->payout_auto_paused) ? 'Paused' : 'Active' }}</span>
       </div>
       <div class="table-responsive">
         <table class="table align-middle mb-0">
@@ -125,7 +125,7 @@
           <tbody>
             @forelse($shops as $shop)
               @php
-                $minimumPayout = (float)($settings->payout_minimum_amount ?? 0);
+                $minimumPayout = (float)($payoutSettings->payout_minimum_amount ?? 0);
                 $payoutBlockReason = null;
                 if (!empty($shop->payout_paused)) {
                   $payoutBlockReason = 'Payout is paused for this seller. Enable payouts for this shop first.';

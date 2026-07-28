@@ -16,11 +16,11 @@ class PayoutController extends Controller
     {
         $this->payouts->syncDeliveredPaidOrders();
 
-        $settings = $this->payouts->settings();
+        $payoutSettings = $this->payouts->settings();
         if (session()->has('payout_settings_saved')) {
             foreach ((array) session('payout_settings_saved') as $key => $value) {
                 if (str_starts_with($key, 'payout_')) {
-                    $settings->{$key} = $value;
+                    $payoutSettings->{$key} = $value;
                 }
             }
         }
@@ -57,7 +57,7 @@ class PayoutController extends Controller
             ->limit(50)
             ->get();
 
-        return view('superadmin.payouts', compact('settings', 'summary', 'shops', 'payouts'));
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'shops', 'payouts'));
     }
 
     public function saveSettings(Request $request)

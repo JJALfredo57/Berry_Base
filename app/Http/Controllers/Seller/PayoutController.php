@@ -22,7 +22,7 @@ class PayoutController extends Controller
         $shop = $this->shop();
         if (!$shop) return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
 
-        $settings = $this->payouts->settings();
+        $payoutSettings = $this->payouts->settings();
         $summary = $this->payouts->summaryForShop($shop->id);
         $ledgers = DB::table('seller_payout_ledgers')
             ->where('shop_id', $shop->id)
@@ -35,7 +35,7 @@ class PayoutController extends Controller
             ->limit(20)
             ->get();
 
-        return view('seller.payouts', compact('shop', 'settings', 'summary', 'ledgers', 'payouts'));
+        return view('seller.payouts', compact('shop', 'payoutSettings', 'summary', 'ledgers', 'payouts'));
     }
 
     public function saveDetails(Request $request)
