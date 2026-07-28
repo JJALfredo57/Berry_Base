@@ -65,7 +65,7 @@
           @csrf
           <div class="mb-3">
             <label class="form-label fw-semibold">Payout Mode</label>
-            <select name="payout_mode" class="form-select" required>
+            <select name="payout_mode" class="form-select" required id="payoutModeSelect">
               <option value="manual" @selected($currentPayoutMode === 'manual')>Manual - admin reviews and marks paid</option>
               <option value="automatic" @selected($currentPayoutMode === 'automatic')>Automatic - system prepares eligible payouts</option>
             </select>
@@ -81,7 +81,7 @@
               <input type="number" min="0" step="0.01" class="form-control" name="payout_minimum_amount" value="{{ number_format((float)($payoutSettings->payout_minimum_amount ?? 500), 2, '.', '') }}" required>
             </div>
           </div>
-          <div class="mt-3">
+          <div class="mt-3 payout-auto-setting">
             <label class="form-label">Schedule</label>
             <select name="payout_schedule" class="form-select" required>
               @foreach(['daily'=>'Daily','weekly'=>'Weekly','twice_monthly'=>'Twice a month','monthly'=>'Monthly'] as $key => $label)
@@ -89,11 +89,11 @@
               @endforeach
             </select>
           </div>
-          <div class="form-check form-switch mt-3">
+          <div class="form-check form-switch mt-3 payout-auto-setting">
             <input class="form-check-input" type="checkbox" name="payout_first_approval_required" value="1" @checked(!empty($payoutSettings->payout_first_approval_required))>
             <label class="form-check-label">Require admin approval for first seller payout</label>
           </div>
-          <div class="form-check form-switch mt-2">
+          <div class="form-check form-switch mt-2 payout-auto-setting">
             <input class="form-check-input" type="checkbox" name="payout_auto_paused" value="1" @checked(!empty($payoutSettings->payout_auto_paused))>
             <label class="form-check-label">Pause automatic payouts globally</label>
           </div>
@@ -229,4 +229,26 @@
     </table>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const mode = document.getElementById('payoutModeSelect');
+  const automaticSettings = document.querySelectorAll('.payout-auto-setting');
+
+  function syncPayoutModeFields() {
+    const isAutomatic = mode && mode.value === 'automatic';
+    automaticSettings.forEach(section => {
+      section.style.display = isAutomatic ? '' : 'none';
+      section.querySelectorAll('input, select, textarea').forEach(field => {
+        field.disabled = !isAutomatic;
+      });
+    });
+  }
+
+  if (mode) {
+    mode.addEventListener('change', syncPayoutModeFields);
+    syncPayoutModeFields();
+  }
+});
+</script>
 @endsection

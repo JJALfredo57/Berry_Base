@@ -66,7 +66,7 @@ class PayoutController extends Controller
             'payout_mode' => 'required|in:manual,automatic',
             'payout_hold_days' => 'required|integer|min:0|max:30',
             'payout_minimum_amount' => 'required|numeric|min:0|max:999999',
-            'payout_schedule' => 'required|in:daily,weekly,twice_monthly,monthly',
+            'payout_schedule' => 'nullable|in:daily,weekly,twice_monthly,monthly',
             'payout_first_approval_required' => 'nullable|boolean',
             'payout_auto_paused' => 'nullable|boolean',
         ], [
@@ -78,9 +78,13 @@ class PayoutController extends Controller
             'payout_mode' => $validated['payout_mode'],
             'payout_hold_days' => (int) $validated['payout_hold_days'],
             'payout_minimum_amount' => round((float) $validated['payout_minimum_amount'], 2),
-            'payout_schedule' => $validated['payout_schedule'],
-            'payout_first_approval_required' => $request->boolean('payout_first_approval_required'),
-            'payout_auto_paused' => $request->boolean('payout_auto_paused'),
+            'payout_schedule' => $validated['payout_schedule'] ?? 'weekly',
+            'payout_first_approval_required' => $validated['payout_mode'] === 'automatic'
+                ? $request->boolean('payout_first_approval_required')
+                : false,
+            'payout_auto_paused' => $validated['payout_mode'] === 'automatic'
+                ? $request->boolean('payout_auto_paused')
+                : false,
             'updated_at' => now(),
         ];
 
