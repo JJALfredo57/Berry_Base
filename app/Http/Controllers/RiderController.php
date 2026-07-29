@@ -224,6 +224,23 @@ class RiderController extends Controller
             return response()->json(['ok'=>false,'error'=>'Invalid or already updated.']);
 
         try {
+            $totalAmount = (float) ($order->total_price ?? 0);
+            $depositAmount = (float) ($order->deposit_amount ?? 0);
+            $depositPaid = in_array($order->payment_status ?? '', ['Partial Payment', 'Paid'], true)
+                || ($order->deposit_status ?? '') === 'paid';
+            $remainingAmount = max(0, $totalAmount - ($depositPaid ? $depositAmount : 0));
+
+            if (($order->payment_method ?? '') === 'GCash'
+                && ($order->payment_status ?? '') !== 'Paid'
+                && $remainingAmount > 0.009) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'GCash payment is not fully paid yet. Ask the customer to complete the remaining balance before marking this order as delivered.',
+                    'payment_blocked' => true,
+                    'remaining_amount' => $remainingAmount,
+                ], 422);
+            }
+
             // Handle photo upload
             $photoPath = null;
             if ($request->hasFile('photo') && $request->file('photo')->isValid()) {

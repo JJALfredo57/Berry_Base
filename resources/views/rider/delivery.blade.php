@@ -279,12 +279,12 @@
   </div>
 </div>
 @elseif($depositPaid && $depositAmount > 0)
-<div class="pay-banner pay-cod">
-  <div class="pay-icon">💵</div>
+<div class="pay-banner {{ $cashMethod ? 'pay-cod' : 'pay-gcash' }}">
+  <div class="pay-icon">{{ $cashMethod ? 'Cash' : 'GCash' }}</div>
   <div class="pay-body">
-    <div class="pay-label">Collect Remaining Balance</div>
-    <div class="pay-amount">₱{{ number_format($remainingAmount,2) }}</div>
-    <div class="pay-note">Deposit of ₱{{ number_format($depositAmount,2) }} already paid</div>
+    <div class="pay-label">{{ $cashMethod ? 'Collect Remaining Balance' : 'GCash Remaining Balance Pending' }}</div>
+    <div class="pay-amount">&#8369;{{ number_format($remainingAmount,2) }}</div>
+    <div class="pay-note">{{ $cashMethod ? 'Deposit of PHP '.number_format($depositAmount,2).' already paid' : 'Customer must complete GCash payment before delivery can be marked delivered.' }}</div>
   </div>
 </div>
 @elseif($cashMethod)
@@ -407,6 +407,9 @@ function formatPeso(amount) {
   });
 }
 
+let latestPaymentStatus = @json($order->payment_status ?? 'Unpaid');
+let latestPaymentMethod = @json($order->payment_method ?? '');
+let latestRemainingAmount = {{ $order->payment_status === 'Paid' ? 0 : $remainingAmount }};
 function updatePaymentBanner(data) {
   const banner = document.querySelector('.pay-banner');
   if (!banner || !data || !data.ok) return;
@@ -428,6 +431,9 @@ function updatePaymentBanner(data) {
   if (label) label.textContent = data.label || '';
   if (amount) amount.textContent = formatPeso(data.amount);
   if (note) note.textContent = data.note || '';
+
+  latestPaymentStatus = data.payment_status || latestPaymentStatus;
+  latestRemainingAmount = Number(data.remaining_amount || 0);
 }
 
 async function refreshPaymentStatus() {
@@ -515,6 +521,19 @@ function hide() {
   document.querySelectorAll('.section,.pay-banner,.pay-cod,.pay-ok,.pay-gcash').forEach(el => el.style.display = 'none');
 }
 function confirmDeliver() {
+  if (latestPaymentMethod === 'GCash'
+      && latestPaymentStatus !== 'Paid'
+      && latestRemainingAmount > 0.009) {
+    rcOpen({
+      icon: '!',
+      iconBg: '#fef3c7',
+      title: 'GCash Payment Pending',
+      message: 'This order still has a remaining GCash balance of ' + formatPeso(latestRemainingAmount) + '. Ask the customer to complete payment first, then try again.',
+      okLabel: 'Got it',
+      okColor: '#d97706'
+    });
+    return;
+  }
   rcOpen({
     icon: '✅',
     iconBg: '#dcfce7',
@@ -555,7 +574,23 @@ async function doFetch(url, fields, btn, originalHtml, onSuccess) {
     const res = await fetch(url, { method:'POST', body:fd });
     const data = await res.json();
     if (data.ok) { onSuccess(); }
-    else { alert(data.error || 'Error. Please try again.'); btn.disabled = false; btn.innerHTML = originalHtml; }
+    else {
+      if (data.payment_blocked) {
+        latestRemainingAmount = Number(data.remaining_amount || latestRemainingAmount || 0);
+        rcOpen({
+          icon: '!',
+          iconBg: '#fef3c7',
+          title: 'GCash Payment Pending',
+          message: data.error || 'Customer must complete GCash payment first.',
+          okLabel: 'Got it',
+          okColor: '#d97706'
+        });
+      } else {
+        alert(data.error || 'Error. Please try again.');
+      }
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
   } catch(e) { alert('Network error. Please try again.'); btn.disabled = false; btn.innerHTML = originalHtml; }
 }
 </script>
