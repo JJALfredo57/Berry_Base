@@ -123,6 +123,50 @@ class MessageController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    public function threadOrderData(string $orderId)
+    {
+        $shop  = $this->getShop();
+        $order = DB::table('orders as o')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+            ->where('o.id', $orderId)
+            ->where('o.shop_id', $shop->id)
+            ->select(
+                'o.id',
+                'o.status',
+                'o.track_code',
+                'o.fulfillment_type',
+                'o.schedule_date',
+                'o.schedule_time',
+                'o.payment_method',
+                'o.payment_status',
+                'o.total_price',
+                'o.delivery_address',
+                DB::raw('COALESCE(o.guest_phone, u.phone) as phone')
+            )
+            ->first();
+
+        if (!$order) return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+
+        $schedule = $order->schedule_date
+            ? \Carbon\Carbon::parse($order->schedule_date)->format('M d, Y') . ($order->schedule_time ? ' ' . $order->schedule_time : '')
+            : 'Not set';
+
+        return response()->json([
+            'ok' => true,
+            'order' => [
+                'status'           => $order->status === 'Pickup' ? 'Ready for Pickup' : $order->status,
+                'track_code'       => $order->track_code ?: $order->id,
+                'schedule'         => $schedule,
+                'fulfillment_type' => $order->fulfillment_type ?? 'Pickup',
+                'payment_method'   => $order->payment_method ?? 'Not set',
+                'payment_status'   => $order->payment_status ?? 'Unpaid',
+                'phone'            => $order->phone ?? 'Not provided',
+                'total_price'      => number_format((float)($order->total_price ?? 0), 2),
+                'delivery_address' => $order->delivery_address ?? 'Not provided',
+            ],
+        ]);
+    }
+
     public function popupData(Request $request)
     {
         $shop  = $this->getShop();

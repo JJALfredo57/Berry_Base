@@ -278,6 +278,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     // Messages
     Route::get('/messages',                              [\App\Http\Controllers\Seller\MessageController::class, 'index'])->name('messages');
     Route::get('/messages/thread/{orderId}',             [\App\Http\Controllers\Seller\MessageController::class, 'thread'])->name('messages.thread');
+    Route::get('/messages/thread/{orderId}/order-data',  [\App\Http\Controllers\Seller\MessageController::class, 'threadOrderData'])->name('messages.thread_order_data');
     Route::post('/messages/thread/{orderId}/send',       [\App\Http\Controllers\Seller\MessageController::class, 'send'])->name('messages.send');
     Route::get('/messages/popup-data',                   [\App\Http\Controllers\Seller\MessageController::class, 'popupData'])->name('messages.popup_data');
     Route::post('/messages/popup-send',                  [\App\Http\Controllers\Seller\MessageController::class, 'popupSend'])->name('messages.popup_send');

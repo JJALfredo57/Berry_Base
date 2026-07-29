@@ -43,6 +43,7 @@
 .send-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.95rem;transition:opacity .15s;flex-shrink:0}
 .send-btn:disabled{opacity:.45;cursor:not-allowed}
 .status-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:#e9ecef;color:#555}
+.thread-page{width:100%;max-width:1320px;margin:0 auto;padding:0 clamp(4px,1.5vw,18px)}
 .thread-shell{display:grid;grid-template-columns:1fr;gap:14px}
 .thread-topline{display:flex;align-items:center;gap:14px;min-width:0;flex:1}
 .order-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;font-size:.7rem;font-weight:700}
@@ -54,7 +55,7 @@
 .order-product-title{font-size:1rem;font-weight:800;color:#111827;line-height:1.25;margin:0}
 .order-subtitle{font-size:.78rem;color:#6b7280;margin-top:2px}
 .order-total{font-size:1.08rem;font-weight:800;color:var(--primary);white-space:nowrap;text-align:right}
-.detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.detail-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 .detail-item{background:#f8fafc;border:1px solid #eef2f7;border-radius:10px;padding:8px 10px;min-width:0}
 .detail-label{font-size:.64rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 .detail-value{font-size:.78rem;font-weight:700;color:#1f2937;line-height:1.35;word-break:break-word}
@@ -67,6 +68,7 @@
 .addon-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .addon-pill{font-size:.72rem;font-weight:700;color:#475569;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:4px 8px}
 @media (max-width: 767.98px){
+  .thread-page{padding:0}
   .thread-header{align-items:flex-start;padding:12px;gap:10px;flex-wrap:wrap}
   .thread-topline{width:100%}
   .thread-avatar{width:38px;height:38px}
@@ -89,8 +91,7 @@
 }
 </style>
 
-<div class="row justify-content-center">
-  <div class="col-lg-9 col-xl-8">
+<div class="thread-page">
     @php
       $productTitle = $order->product_name ?? ($customOrder->cake_name ?? 'Custom Cake');
       $cakeImage = $order->product_image_path ?? null;
@@ -118,13 +119,13 @@
           <div class="fw-bold text-truncate" style="font-size:.95rem">{{ $order->fullname }}</div>
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="text-muted small text-truncate" style="max-width:100%">{{ $productTitle }}</span>
-            <span class="status-badge">{{ $displayStatus }}</span>
+            <span class="status-badge" data-order-field="status">{{ $displayStatus }}</span>
           </div>
         </div>
       </div>
       <div class="text-muted text-end thread-order-meta" style="font-size:.75rem">
         <div>Order</div>
-        <div class="fw-semibold text-break">#{{ $order->track_code ?? $order->id }}</div>
+        <div class="fw-semibold text-break">#<span data-order-field="track_code">{{ $order->track_code ?? $order->id }}</span></div>
       </div>
     </div>
 
@@ -147,31 +148,35 @@
                 @if($customOrder && ($customOrder->flavor ?? null)) &bull; {{ $customOrder->flavor }} @endif
               </div>
             </div>
-            <div class="order-total">&#8369;{{ number_format((float)($order->total_price ?? 0), 2) }}</div>
+            <div class="order-total">&#8369;<span data-order-field="total_price_raw">{{ number_format((float)($order->total_price ?? 0), 2) }}</span></div>
           </div>
 
-          <div class="detail-grid">
+          <div class="detail-grid" id="orderLiveDetails">
             <div class="detail-item">
               <div class="detail-label">Schedule</div>
-              <div class="detail-value">{{ $schedule }}</div>
+              <div class="detail-value" data-order-field="schedule">{{ $schedule }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Fulfillment</div>
-              <div class="detail-value">{{ $fulfillment }}</div>
+              <div class="detail-value" data-order-field="fulfillment_type">{{ $fulfillment }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Payment</div>
-              <div class="detail-value">{{ $paymentMethod }}</div>
-              <div class="detail-value muted">{{ $paymentStatus }}</div>
+              <div class="detail-value" data-order-field="payment_method">{{ $paymentMethod }}</div>
+              <div class="detail-value muted" data-order-field="payment_status">{{ $paymentStatus }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Total</div>
+              <div class="detail-value" data-order-field="total_price">&#8369;{{ number_format((float)($order->total_price ?? 0), 2) }}</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Contact</div>
-              <div class="detail-value">{{ $order->phone ?? 'Not provided' }}</div>
+              <div class="detail-value" data-order-field="phone">{{ $order->phone ?? 'Not provided' }}</div>
             </div>
             @if($isDelivery)
             <div class="detail-item" style="grid-column:1/-1">
               <div class="detail-label">Delivery Address</div>
-              <div class="detail-value">{{ $order->delivery_address ?? 'Not provided' }}</div>
+              <div class="detail-value" data-order-field="delivery_address">{{ $order->delivery_address ?? 'Not provided' }}</div>
             </div>
             @endif
           </div>
@@ -285,7 +290,6 @@
       </div>
 
     </div>
-  </div>
 </div>
 @endsection
 
@@ -294,7 +298,38 @@
 const cb      = document.getElementById('chatBox');
 const csrf    = '{{ csrf_token() }}';
 const sendUrl = '{{ route("seller.messages.send", $orderId) }}';
+const orderDataUrl = '{{ route("seller.messages.thread_order_data", $orderId) }}';
 if (cb) cb.scrollTop = cb.scrollHeight;
+
+function setOrderField(name, value) {
+  document.querySelectorAll(`[data-order-field="${name}"]`).forEach(el => {
+    const next = String(value ?? '');
+    if (el.textContent !== next) el.textContent = next;
+  });
+}
+
+async function refreshOrderDetails() {
+  try {
+    const res = await fetch(orderDataUrl, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.ok || !data.order) return;
+    const o = data.order;
+    setOrderField('status', o.status);
+    setOrderField('track_code', o.track_code);
+    setOrderField('schedule', o.schedule);
+    setOrderField('fulfillment_type', o.fulfillment_type);
+    setOrderField('payment_method', o.payment_method);
+    setOrderField('payment_status', o.payment_status);
+    setOrderField('phone', o.phone);
+    setOrderField('total_price', String.fromCharCode(8369) + o.total_price);
+    setOrderField('total_price_raw', o.total_price);
+    setOrderField('delivery_address', o.delivery_address);
+  } catch (e) {}
+}
+
+refreshOrderDetails();
+setInterval(refreshOrderDetails, 8000);
 
 // ── Auto-grow compose box ─────────────────────────────────────────────────
 const msgInput = document.getElementById('msgInput');
