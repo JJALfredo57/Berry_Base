@@ -734,15 +734,18 @@
     #sellerSidebar.collapsed .sb-badge {
       opacity:1;
       position:absolute;
-      right:7px;
-      top:7px;
-      width:8px;
-      min-width:8px;
-      height:8px;
-      padding:0;
-      overflow:hidden;
-      color:transparent;
+      right:5px;
+      top:5px;
+      min-width:17px;
+      height:17px;
+      padding:0 4px;
+      font-size:.54rem;
+      line-height:17px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
       border:1.5px solid rgba(255,255,255,.85);
+      box-shadow:0 2px 8px rgba(0,0,0,.2);
     }
 
     .sb-user { border-top:1px solid rgba(255,255,255,.06);padding:12px;display:flex;align-items:center;gap:10px;flex-shrink:0;overflow:hidden;white-space:nowrap; }
@@ -1326,22 +1329,18 @@
     </a>
     <a href="{{ route('seller.orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.orders') ? 'active' : '' }}">
       <i class="bi bi-bag-check"></i><span class="sb-link-text">Orders</span>
-      @if($sbCount('orders') > 0)
-        <span class="sb-badge warn" title="{{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending">{{ $sbCountLabel($sbCount('orders')) }}</span>
-      @endif
+      <span class="sb-badge warn" data-seller-badge="orders" title="{{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending" style="{{ $sbCount('orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('orders')) }}</span>
     </a>
     <a href="{{ route('seller.kitchen') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.kitchen') ? 'active' : '' }}">
       <i class="bi bi-fire"></i><span class="sb-link-text">Kitchen</span>
-      @if($sbCount('kitchen') > 0)
-        <span class="sb-badge info" title="{{ $sbCount('kitchen_pending') }} pending, {{ $sbCount('kitchen_preparing') }} preparing">{{ $sbCountLabel($sbCount('kitchen')) }}</span>
-      @endif
+      <span class="sb-badge info" data-seller-badge="kitchen" title="{{ $sbCount('kitchen_pending') }} pending, {{ $sbCount('kitchen_preparing') }} preparing" style="{{ $sbCount('kitchen') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('kitchen')) }}</span>
     </a>
     <a href="{{ route('seller.payouts') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.payouts') ? 'active' : '' }}">
       <i class="bi bi-wallet2"></i><span class="sb-link-text">Payouts</span>
     </a>
     <a href="{{ route('seller.messages') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.messages') ? 'active' : '' }}">
       <i class="bi bi-chat-dots"></i><span class="sb-link-text">Messages</span>
-      @if($sbCount('messages') > 0)<span class="sb-badge" title="Unread customer messages">{{ $sbCountLabel($sbCount('messages')) }}</span>@endif
+      <span class="sb-badge" data-seller-badge="messages" title="Unread customer messages" style="{{ $sbCount('messages') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('messages')) }}</span>
     </a>
 
     <div class="sb-label">Catalog</div>
@@ -1351,7 +1350,7 @@
     @if($sellerShop?->tier === 'verified')
     <a href="{{ route('seller.custom_orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.custom_orders') ? 'active' : '' }}">
       <i class="bi bi-palette"></i><span class="sb-link-text">Custom Orders</span>
-      @if($sbCount('custom_orders') > 0)<span class="sb-badge warn" title="Custom orders awaiting review">{{ $sbCountLabel($sbCount('custom_orders')) }}</span>@endif
+      <span class="sb-badge warn" data-seller-badge="custom_orders" title="Custom orders awaiting review" style="{{ $sbCount('custom_orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('custom_orders')) }}</span>
     </a>
     @endif
     <a href="{{ route('seller.addons') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.addons') ? 'active' : '' }}">
@@ -1375,11 +1374,11 @@
     </a>
     <a href="{{ route('seller.reviews') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.reviews') ? 'active' : '' }}">
       <i class="bi bi-star"></i><span class="sb-link-text">Reviews</span>
-      @if($sbCount('reviews') > 0)<span class="sb-badge success" title="New reviews awaiting review">{{ $sbCountLabel($sbCount('reviews')) }}</span>@endif
+      <span class="sb-badge success" data-seller-badge="reviews" title="New reviews awaiting review" style="{{ $sbCount('reviews') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('reviews')) }}</span>
     </a>
     <a href="{{ route('seller.feedback') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.feedback') ? 'active' : '' }}">
       <i class="bi bi-chat-square-heart"></i><span class="sb-link-text">Platform Feedback</span>
-      @if($sbCount('feedback') > 0)<span class="sb-badge info" title="Open platform feedback">{{ $sbCountLabel($sbCount('feedback')) }}</span>@endif
+      <span class="sb-badge info" data-seller-badge="feedback" title="Open platform feedback" style="{{ $sbCount('feedback') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('feedback')) }}</span>
     </a>
     <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="sb-link" style="margin-top:4px;background:none;border:none;width:100%;text-align:left;padding:0;cursor:pointer">
       <i class="bi bi-box-arrow-right" style="color:#ef4444"></i>
@@ -2946,6 +2945,7 @@ var MC_CSRF      = '{{ $csrfToken }}';
 var MC_ROLE      = '{{ session("user")["role"] ?? "" }}';
 var MC_USER_ID   = '{{ session("user")["id"] ?? "" }}';
 var MC_THREAD_URL_TEMPLATE = '{{ $threadUrlTpl }}';
+var SELLER_SIDEBAR_COUNTS_URL = '{{ $isSeller ? route("seller.sidebar_counts") : "" }}';
 @php
   $_mcRole = session('user')['role'] ?? '';
   $markOrderReadUrl = $_mcRole === 'admin'
@@ -2962,6 +2962,40 @@ var mcActiveCustomer = null;
 var mcPollTimer      = null;
 var mcSelectedImages = [];
 var mcBadgePollTimer = null;
+
+function sellerBadgeLabel(count) {
+  const next = Math.max(0, parseInt(count, 10) || 0);
+  return next > 99 ? '99+' : String(next);
+}
+
+function setSellerSidebarBadge(key, count, title) {
+  const badge = document.querySelector('[data-seller-badge="' + key + '"]');
+  if (!badge) return;
+  const next = Math.max(0, parseInt(count, 10) || 0);
+  badge.textContent = sellerBadgeLabel(next);
+  badge.style.display = next > 0 ? '' : 'none';
+  if (title) badge.title = title;
+}
+
+function applySellerSidebarCounts(counts) {
+  if (!counts || MC_ROLE !== 'seller') return;
+  setSellerSidebarBadge('orders', counts.orders, (counts.pickup_ready || 0) + ' ready for pickup, ' + (counts.pending_orders || 0) + ' pending');
+  setSellerSidebarBadge('kitchen', counts.kitchen, (counts.kitchen_pending || 0) + ' pending, ' + (counts.kitchen_preparing || 0) + ' preparing');
+  setSellerSidebarBadge('messages', counts.messages, 'Unread customer messages');
+  setSellerSidebarBadge('custom_orders', counts.custom_orders, 'Custom orders awaiting review');
+  setSellerSidebarBadge('reviews', counts.reviews, 'New reviews awaiting review');
+  setSellerSidebarBadge('feedback', counts.feedback, 'Open platform feedback');
+  if (typeof counts.messages !== 'undefined') setBubbleBadgeCount(counts.messages, true);
+}
+
+async function refreshSellerSidebarBadges() {
+  if (MC_ROLE !== 'seller' || !SELLER_SIDEBAR_COUNTS_URL) return;
+  try {
+    const res = await fetch(SELLER_SIDEBAR_COUNTS_URL, { headers: { 'Accept': 'application/json' } });
+    const data = await res.json();
+    if (data.ok && data.counts) applySellerSidebarCounts(data.counts);
+  } catch(e) {}
+}
 
 // ── Open / Close ──────────────────────────────────────────────────────
 window.toggleMiniChat = function toggleMiniChat() { mcOpen ? closeMiniChat() : openMiniChat(); };
@@ -3016,9 +3050,13 @@ function stopMcPoll() {
 
 function startBubbleBadgePoll() {
   if (mcBadgePollTimer) return;
+  refreshSellerSidebarBadges();
   refreshBubbleUnread();
   mcBadgePollTimer = setInterval(() => {
-    if (!mcOpen) refreshBubbleUnread();
+    if (!mcOpen) {
+      refreshBubbleUnread();
+      refreshSellerSidebarBadges();
+    }
   }, 15000);
 }
 
@@ -3221,6 +3259,7 @@ async function openCustomerChat(customerName, orderId, customerData, userId) {
         headers: { 'X-CSRF-TOKEN': MC_CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
       });
       refreshBubbleUnread();
+      refreshSellerSidebarBadges();
     } catch(e) {}
   }
 }
@@ -3258,7 +3297,7 @@ function updateBubbleBadge(delta) {
   setBubbleBadgeCount(Math.max(0, cur + delta));
 }
 
-function setBubbleBadgeCount(count) {
+function setBubbleBadgeCount(count, skipSidebarSync = false) {
   const badge = document.getElementById('cakeMsgBadge');
   const tooltip = document.getElementById('cakeMsgTooltip');
   const bubble = document.getElementById('cakeMsgBubble');
@@ -3275,6 +3314,9 @@ function setBubbleBadgeCount(count) {
     tooltip.innerHTML = next > 0
       ? '<i class="bi bi-chat-dots-fill me-1" style="color:#e91e63"></i>' + next + ' unread message' + (next > 1 ? 's' : '')
       : '<i class="bi bi-chat-dots me-1" style="color:#e91e63"></i>Messages';
+  }
+  if (!skipSidebarSync && MC_ROLE === 'seller') {
+    setSellerSidebarBadge('messages', next, 'Unread customer messages');
   }
 }
 
@@ -3320,7 +3362,10 @@ function renderMcTimeline(container, messages, appendOnly = false) {
       fetch(markUrl + '/' + el.dataset.msgId, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': MC_CSRF, 'Content-Type': 'application/json' }
-      }).then(() => updateBubbleBadge(-1)).catch(() => {});
+      }).then(() => {
+        updateBubbleBadge(-1);
+        refreshSellerSidebarBadges();
+      }).catch(() => {});
     });
   }, { threshold: 0.6 });
 

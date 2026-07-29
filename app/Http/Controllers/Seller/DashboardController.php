@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -79,5 +80,94 @@ class DashboardController extends Controller
             'shop','stats','commission','netRevenue',
             'payoutSummary','recentOrders','pendingCustom','unreadMsg'
         ));
+    }
+
+    public function sidebarCounts()
+    {
+        $shop = $this->getShop();
+        if (!$shop || $shop->status !== 'approved') {
+            return response()->json(['ok' => false, 'counts' => []], 403);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'counts' => $this->countsForShop((string) $shop->id),
+        ]);
+    }
+
+    private function countsForShop(string $shopId): array
+    {
+        $counts = [
+            'orders' => 0,
+            'kitchen' => 0,
+            'messages' => 0,
+            'custom_orders' => 0,
+            'reviews' => 0,
+            'feedback' => 0,
+            'pickup_ready' => 0,
+            'pending_orders' => 0,
+            'kitchen_pending' => 0,
+            'kitchen_preparing' => 0,
+        ];
+
+        try {
+            $counts['pending_orders'] = (int) DB::table('orders')
+                ->where('shop_id', $shopId)
+                ->whereIn('status', ['Pending', 'Pending Review'])
+                ->count();
+            $counts['pickup_ready'] = (int) DB::table('orders')
+                ->where('shop_id', $shopId)
+                ->where('status', 'Pickup')
+                ->count();
+            $counts['orders'] = $counts['pending_orders'] + $counts['pickup_ready'];
+
+            $counts['messages'] = (int) DB::table('messages as m')
+                ->join('orders as o', 'o.id', '=', 'm.order_id')
+                ->where('o.shop_id', $shopId)
+                ->where('m.sender_role', 'customer')
+                ->where('m.is_read', false)
+                ->count();
+
+            if (Schema::hasTable('kitchen_tickets')) {
+                $counts['kitchen_pending'] = (int) DB::table('kitchen_tickets as kt')
+                    ->join('orders as o', 'o.id', '=', 'kt.order_id')
+                    ->where('o.shop_id', $shopId)
+                    ->where('kt.status', 'pending')
+                    ->count();
+                $counts['kitchen_preparing'] = (int) DB::table('kitchen_tickets as kt')
+                    ->join('orders as o', 'o.id', '=', 'kt.order_id')
+                    ->where('o.shop_id', $shopId)
+                    ->where('kt.status', 'in_progress')
+                    ->count();
+                $counts['kitchen'] = $counts['kitchen_pending'] + $counts['kitchen_preparing'];
+            }
+
+            if (Schema::hasTable('custom_orders')) {
+                $counts['custom_orders'] = (int) DB::table('custom_orders')
+                    ->where('shop_id', $shopId)
+                    ->where('review_status', 'pending')
+                    ->count();
+            }
+
+            if (Schema::hasTable('order_reviews')) {
+                $counts['reviews'] = (int) DB::table('order_reviews')
+                    ->where('shop_id', $shopId)
+                    ->where('review_status', 'pending')
+                    ->count();
+            }
+
+            if (Schema::hasTable('customer_feedback')) {
+                $feedbackQuery = DB::table('customer_feedback')->where('status', 'open');
+                if (Schema::hasColumn('customer_feedback', 'shop_id')) {
+                    $feedbackQuery->where('shop_id', $shopId);
+                }
+                if (Schema::hasColumn('customer_feedback', 'source_role')) {
+                    $feedbackQuery->where('source_role', 'seller');
+                }
+                $counts['feedback'] = (int) $feedbackQuery->count();
+            }
+        } catch (\Throwable $e) {}
+
+        return $counts;
     }
 }

@@ -368,7 +368,12 @@ function handleEnter(e) {
       const row = entry.target;
       if (row.dataset.read === '1' || row.dataset.sender === 'seller') return;
       row.dataset.read = '1'; obs.unobserve(row);
-      fetch(markUrl + '/' + row.dataset.msgId, { method:'POST', headers:{'X-CSRF-TOKEN':csrf,'Content-Type':'application/json'} }).catch(()=>{});
+      fetch(markUrl + '/' + row.dataset.msgId, { method:'POST', headers:{'X-CSRF-TOKEN':csrf,'Content-Type':'application/json'} })
+        .then(() => {
+          if (typeof refreshBubbleUnread === 'function') refreshBubbleUnread();
+          if (typeof refreshSellerSidebarBadges === 'function') refreshSellerSidebarBadges();
+        })
+        .catch(()=>{});
     });
   }, { threshold: 0.5 });
   document.querySelectorAll('[data-msg-id]').forEach(el => obs.observe(el));
