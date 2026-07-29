@@ -422,7 +422,7 @@
 
             <button type="submit" class="btn btn-primary w-100 py-3 fw-semibold fs-5"
                     onclick="if(!cvValidateAllCustom()) return false; return confirmCustomOrder(this)">
-              <i class="bi bi-palette me-2"></i>Place Custom Order
+              <i class="bi bi-clipboard-check me-2"></i>Review Order
             </button>
           </form>
         </div>
@@ -1004,8 +1004,8 @@ function confirmCustomOrder(btn) {
     if (!lat || !lng) { cakeToast('Please pin your delivery location on the map first.','error'); return false; }
   }
   var total = document.getElementById('totalDisplay').textContent;
-  cakeConfirm({ title:'Confirm Custom Order?', message:'Estimated Total: '+total+'\n\nNote: This is a base estimate only. The final price will be confirmed by our baker after reviewing your design reference.', icon:'bi-cake2', okLabel:'Place Order',
-    onConfirm:() => { csSubmitOnce(document.getElementById('customOrderForm'), btn, '<span class="spinner-border spinner-border-sm me-2"></span>Placing Order...'); }
+  cakeConfirm({ title:'Review Custom Order', message:'Estimated Total: '+total+'\n\nNote: This is a base estimate only. The final price will be confirmed by our baker after reviewing your design reference.', icon:'bi-clipboard-check', okLabel:'Submit Custom Order',
+    onConfirm:() => { csSubmitOnce(document.getElementById('customOrderForm'), btn, '<span class="spinner-border spinner-border-sm me-2"></span>Submitting Order...'); }
   });
   return false;
 }
@@ -1086,31 +1086,65 @@ function sendCoGuestOtp() {
 
 function renderCoDevOtpHint(dev) {
   var wrap = document.getElementById('coDevOtpHint');
-  if (!wrap || !dev) return;
-  var esc = function(v) {
-    return String(v || '').replace(/[&<>"']/g, function(ch) {
-      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]);
-    });
-  };
+  if (!wrap) return;
+  var esc = function(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
   wrap.innerHTML =
-    '<div class="mt-3 p-3 rounded-3" style="background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12">' +
-      '<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">' +
-        '<div class="fw-bold small"><i class="bi bi-code-slash me-1"></i>Developer OTP Preview</div>' +
-        '<span class="small text-muted">' + esc(dev.time) + '</span>' +
+    '<div style="margin-top:1rem;border-radius:14px;overflow:hidden;border:1.5px solid #fde68a;box-shadow:0 4px 18px rgba(245,158,11,.12)">' +
+      '<div style="background:linear-gradient(90deg,#78350f,#92400e);padding:.55rem 1rem;display:flex;align-items:center;justify-content:space-between">' +
+        '<span style="font-size:.7rem;font-weight:700;color:#fef3c7;letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:.4rem">' +
+          '<i class="bi bi-bug-fill" style="font-size:.75rem"></i> Developer Mode &mdash; SMS Preview' +
+        '</span>' +
+        '<span style="font-size:.65rem;color:rgba(254,243,199,.65)">' + esc(dev.time) + '</span>' +
       '</div>' +
-      '<div class="d-flex align-items-center gap-3 flex-wrap">' +
-        '<button type="button" class="btn btn-sm btn-warning fw-bold" onclick="copyCoDevOtp()" id="coDevOtpCode" data-otp="' + esc(dev.otp) + '">' + esc(dev.otp) + '</button>' +
-        '<div class="small" style="line-height:1.45">' + esc(dev.message) + '<br><span class="text-muted">+' + esc(dev.phone) + '</span></div>' +
+      '<div style="background:linear-gradient(135deg,#fffbeb,#fefce8);padding:.85rem 1rem">' +
+        '<div style="font-size:.72rem;color:#b45309;margin-bottom:.65rem;font-style:italic">This is what the customer receives when SMS is working:</div>' +
+        '<div style="background:#fff;border-radius:12px;padding:.75rem .9rem;border:1px solid #fde68a;margin-bottom:.85rem">' +
+          '<div style="font-size:.64rem;font-weight:700;color:#92400e;letter-spacing:.05em;margin-bottom:.3rem;text-transform:uppercase"><i class="bi bi-phone-fill" style="font-size:.7rem"></i> SMS from UniSMS</div>' +
+          '<div style="font-size:.8rem;color:#1c1917;line-height:1.6;font-family:monospace;word-break:break-word">' + esc(dev.message) + '</div>' +
+          '<div style="font-size:.62rem;color:#a8a29e;text-align:right;margin-top:.35rem">' + esc(dev.time) + ' &nbsp;&middot;&nbsp; Delivered</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:.6rem .9rem">' +
+          '<div>' +
+            '<div style="font-size:.62rem;color:#c2410c;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">OTP Code</div>' +
+            '<div id="coDevOtpCode" style="font-size:1.7rem;font-weight:800;letter-spacing:.22em;color:#ea580c;font-family:monospace;line-height:1;cursor:pointer" onclick="copyCoDevOtp()" title="Click to copy">' + esc(dev.otp) + '</div>' +
+          '</div>' +
+          '<button type="button" onclick="copyCoDevOtp()" style="flex-shrink:0;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;border-radius:8px;padding:.45rem .9rem;font-size:.75rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:.35rem">' +
+            '<i class="bi bi-copy" id="coDevCopyIcon"></i><span id="coDevCopyLabel">Copy OTP</span>' +
+          '</button>' +
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:.3rem 1.2rem;margin-top:.65rem;font-size:.72rem;color:#92400e">' +
+          '<span><i class="bi bi-telephone-fill" style="font-size:.65rem;margin-right:.25rem"></i>+' + esc(dev.phone) + '</span>' +
+        '</div>' +
       '</div>' +
     '</div>';
 }
 
 function copyCoDevOtp() {
   var el = document.getElementById('coDevOtpCode');
+  var label = document.getElementById('coDevCopyLabel');
+  var icon  = document.getElementById('coDevCopyIcon');
   if (!el) return;
-  var otp = el.getAttribute('data-otp') || el.textContent.trim();
-  if (navigator.clipboard) navigator.clipboard.writeText(otp);
-  cakeToast('OTP copied.','success');
+  var done = function() {
+    if (label) label.textContent = 'Copied!';
+    if (icon) icon.className = 'bi bi-check-lg';
+    setTimeout(function(){
+      if (label) label.textContent = 'Copy OTP';
+      if (icon) icon.className = 'bi bi-copy';
+    }, 2000);
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(el.textContent.trim()).then(done).catch(function(){
+      var r = document.createRange(); r.selectNodeContents(el);
+      window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+      document.execCommand('copy'); window.getSelection().removeAllRanges();
+      done();
+    });
+    return;
+  }
+  var r = document.createRange(); r.selectNodeContents(el);
+  window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  document.execCommand('copy'); window.getSelection().removeAllRanges();
+  done();
 }
 </script>
 @endpush
