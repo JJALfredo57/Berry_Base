@@ -330,9 +330,14 @@
             <div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Total Amount</div>
             <div class="fw-bold" style="color:var(--primary);font-size:clamp(.9rem,2.2vw,1.1rem)">₱{{ number_format($order->total_price, 2) }}</div>
             @if($order->deposit_required && $order->deposit_status === 'paid')
+            @php $remainingBalance = max(0, (float)$order->total_price - (float)$order->deposit_amount); @endphp
             <div class="mt-1" style="font-size:clamp(.7rem,1.4vw,.75rem)">
               <span style="color:#16a34a"><i class="bi bi-check-circle-fill me-1"></i>Deposit paid: ₱{{ number_format($order->deposit_amount, 2) }}</span>
+              @if($order->payment_status === 'Paid' || $remainingBalance <= 0)
+              <span class="ms-2" style="color:#166534">Fully paid</span>
+              @else
               <span class="ms-2" style="color:#9a3412">Remaining: <strong>₱{{ number_format($order->total_price - $order->deposit_amount, 2) }}</strong></span>
+              @endif
             </div>
             @elseif($order->deposit_required && $order->deposit_status === 'pending')
             <div class="mt-1" style="font-size:clamp(.7rem,1.4vw,.75rem);color:#9a3412">
@@ -544,12 +549,17 @@
 
         {{-- Deposit Paid Badge --}}
         @if($order->deposit_status === 'paid')
+        @php $remainingBalance = max(0, (float)$order->total_price - (float)$order->deposit_amount); @endphp
         <div class="col-12 mt-2">
           <div class="p-2 rounded-2 text-center" style="background:#f0fdf4;border:1px solid #bbf7d0">
             <i class="bi bi-check-circle-fill me-1" style="color:#16a34a"></i>
             <span style="color:#166534;font-size:.83rem;font-weight:600">
               Deposit of ₱{{ number_format($order->deposit_amount, 2) }} paid ✓
+              @if($order->payment_status === 'Paid' || $remainingBalance <= 0)
+              � Fully paid, no remaining balance
+              @else
               — Remaining balance: ₱{{ number_format($order->total_price - $order->deposit_amount, 2) }}
+              @endif
             </span>
           </div>
         </div>

@@ -140,10 +140,15 @@
             </span>
           </div>
           @if(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'paid')
+          @php $remainingBalance = max(0, (float)$o->total_price - (float)$o->deposit_amount); @endphp
           <div class="col-12">
             <i class="bi bi-cash-stack me-1" style="color:#16a34a"></i>
             <span style="color:#16a34a;font-weight:600">Deposit paid: ₱{{ number_format($o->deposit_amount,2) }}</span>
+            @if($o->payment_status === 'Paid' || $remainingBalance <= 0)
+            <span class="ms-2" style="color:#16a34a;font-weight:600">Fully paid</span>
+            @else
             <span class="ms-2" style="color:#d97706;font-weight:600">Balance due on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}: ₱{{ number_format($o->total_price - $o->deposit_amount,2) }}</span>
+            @endif
           </div>
           @elseif(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'pending')
           <div class="col-12">
@@ -670,12 +675,17 @@
       @elseif($o->status !== 'Cancelled')
       {{-- Deposit paid — show balance reminder --}}
       @if(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'paid')
+          @php $remainingBalance = max(0, (float)$o->total_price - (float)$o->deposit_amount); @endphp
       <div class="px-3 pt-3">
         <div class="d-flex align-items-center gap-3 p-3 rounded-3" style="background:#E8F5E9;border:1.5px solid #A5D6A7">
           <i class="bi bi-check-circle-fill" style="font-size:1.4rem;color:#2E7D32;flex-shrink:0"></i>
           <div class="small">
             <div class="fw-bold" style="color:#2E7D32">Deposit Paid — ₱{{ number_format($o->deposit_amount,2) }}</div>
+            @if($o->payment_status === 'Paid' || $remainingBalance <= 0)
+            <div style="color:#388E3C">This order is fully paid. No remaining balance is due.</div>
+            @else
             <div style="color:#388E3C">Remaining balance of <strong>₱{{ number_format($o->total_price - $o->deposit_amount,2) }}</strong> is due upon {{ $o->fulfillment_type === 'Delivery' ? 'delivery (Cash on Delivery)' : 'pickup (Cash on Pickup)' }}.</div>
+            @endif
           </div>
         </div>
       </div>
