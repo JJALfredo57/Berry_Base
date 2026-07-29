@@ -86,7 +86,7 @@ class TrackingController extends Controller
     {
         $order = DB::table('orders')
             ->where('track_code', strtoupper($trackCode))
-            ->select('id','status','payment_status','deposit_status','updated_at')
+            ->select('id','status','payment_status','deposit_status','total_price','deposit_amount','paid_at','deposit_paid_at','updated_at')
             ->first();
 
         if (!$order) {
@@ -110,6 +110,10 @@ class TrackingController extends Controller
             'status' => $order->status,
             'payment_status' => $order->payment_status,
             'deposit_status' => $order->deposit_status,
+            'total_price' => (string) round((float) ($order->total_price ?? 0), 2),
+            'deposit_amount' => (string) round((float) ($order->deposit_amount ?? 0), 2),
+            'paid_at' => (string) ($order->paid_at ?? ''),
+            'deposit_paid_at' => (string) ($order->deposit_paid_at ?? ''),
             'tracking_count' => $trackingCount,
             'receipt_count' => $receiptCount,
             'updated_at' => (string) ($order->updated_at ?? ''),

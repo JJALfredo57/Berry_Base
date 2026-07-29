@@ -29,6 +29,44 @@
       display: block;
       animation: depositShake .32s ease;
     }
+    .track-payment-summary {
+      background:#fff0f5;
+      border:1px solid #fde2ef;
+    }
+    .track-payment-note {
+      display:flex;
+      align-items:flex-start;
+      gap:.45rem;
+      margin-top:.45rem;
+      font-size:clamp(.72rem,1.5vw,.8rem);
+      line-height:1.35;
+      font-weight:700;
+    }
+    .track-payment-note i {
+      flex:0 0 auto;
+      margin-top:.05rem;
+    }
+    .track-payment-note.success { color:#166534; }
+    .track-payment-note.warning { color:#9a3412; }
+    .track-paid-banner {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:.5rem;
+      padding:.75rem .9rem;
+      border-radius:.65rem;
+      background:#f0fdf4;
+      border:1px solid #bbf7d0;
+      color:#166534;
+      font-size:clamp(.78rem,1.6vw,.86rem);
+      font-weight:800;
+      line-height:1.35;
+      text-align:center;
+    }
+    .track-paid-banner i {
+      color:#16a34a;
+      flex:0 0 auto;
+    }
     /* ── Chat bubbles ── */
     .chat-box-g{min-height:200px;max-height:380px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:6px;background:#f8f9fa}
     .msg-row-g{display:flex;gap:8px;align-items:flex-end}
@@ -108,6 +146,12 @@
       .proof-viewer-bar{height:52px}
       .proof-tools{height:60px}
       .proof-icon-btn{width:38px;height:38px}
+      .track-payment-note,
+      .track-paid-banner {
+        align-items:flex-start;
+        justify-content:flex-start;
+        text-align:left;
+      }
     }
     html.track-modal-open,body.track-modal-open{overflow:hidden!important;height:100%!important}
     html.proof-viewer-open,body.proof-viewer-open{overflow:hidden!important;height:100%!important}
@@ -143,6 +187,16 @@
     $sc = $statusColors[$order->status] ?? $statusColors['Pending'];
     $statusLabels = ['Pickup' => 'Ready for Pickup'];
     $statusDisplay = $statusLabels[$order->status] ?? $order->status;
+
+    $paymentTotalAmount = max(0, (float) ($order->total_price ?? 0));
+    $paymentDepositAmount = max(0, (float) ($order->deposit_amount ?? 0));
+    $paymentDepositPaid = ($order->deposit_status ?? null) === 'paid' || in_array(($order->payment_status ?? ''), ['Partial Payment', 'Paid'], true);
+    $paymentPaidAmount = ($order->payment_status ?? '') === 'Paid'
+      ? $paymentTotalAmount
+      : ($paymentDepositPaid ? min($paymentTotalAmount, $paymentDepositAmount) : 0);
+    $paymentRemainingBalance = max(0, round($paymentTotalAmount - $paymentPaidAmount, 2));
+    $paymentFullyPaid = ($order->payment_status ?? '') === 'Paid' || $paymentRemainingBalance <= 0.009;
+    $paymentDueLabel = $isPickup ? 'pickup' : 'delivery';
   @endphp
 
   <div class="text-center mb-4">
@@ -326,22 +380,25 @@
           </div>
         </div>
         <div class="col-12">
-          <div class="p-2 rounded-2" style="background:#fff0f5">
+          <div class="p-2 rounded-2 track-payment-summary">
             <div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Total Amount</div>
-            <div class="fw-bold" style="color:var(--primary);font-size:clamp(.9rem,2.2vw,1.1rem)">₱{{ number_format($order->total_price, 2) }}</div>
-            @if($order->deposit_required && $order->deposit_status === 'paid')
-            @php $remainingBalance = max(0, (float)$order->total_price - (float)$order->deposit_amount); @endphp
-            <div class="mt-1" style="font-size:clamp(.7rem,1.4vw,.75rem)">
-              <span style="color:#16a34a"><i class="bi bi-check-circle-fill me-1"></i>Deposit paid: ₱{{ number_format($order->deposit_amount, 2) }}</span>
-              @if($order->payment_status === 'Paid' || $remainingBalance <= 0)
-              <span class="ms-2" style="color:#166534">Fully paid</span>
+            <div class="fw-bold" style="color:var(--primary);font-size:clamp(.9rem,2.2vw,1.1rem)">&#8369;{{ number_format($paymentTotalAmount, 2) }}</div>
+            @if($paymentDepositPaid)
+              @if($paymentFullyPaid)
+              <div class="track-payment-note success">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>Payment complete. No remaining balance is due.</span>
+              </div>
               @else
-              <span class="ms-2" style="color:#9a3412">Remaining: <strong>₱{{ number_format($order->total_price - $order->deposit_amount, 2) }}</strong></span>
+              <div class="track-payment-note warning">
+                <i class="bi bi-clock-history"></i>
+                <span>Deposit paid: &#8369;{{ number_format($paymentPaidAmount, 2) }}. Remaining balance: <strong>&#8369;{{ number_format($paymentRemainingBalance, 2) }}</strong> due on {{ $paymentDueLabel }}.</span>
+              </div>
               @endif
-            </div>
             @elseif($order->deposit_required && $order->deposit_status === 'pending')
-            <div class="mt-1" style="font-size:clamp(.7rem,1.4vw,.75rem);color:#9a3412">
-              <i class="bi bi-clock me-1"></i>Deposit of ₱{{ number_format($order->deposit_amount, 2) }} pending
+            <div class="track-payment-note warning">
+              <i class="bi bi-clock"></i>
+              <span>Deposit of &#8369;{{ number_format($paymentDepositAmount, 2) }} pending.</span>
             </div>
             @endif
           </div>
@@ -548,17 +605,15 @@
         @endif
 
         {{-- Deposit Paid Badge --}}
-        @if($order->deposit_status === 'paid')
-        @php $remainingBalance = max(0, (float)$order->total_price - (float)$order->deposit_amount); @endphp
+        @if($paymentDepositPaid)
         <div class="col-12 mt-2">
-          <div class="p-2 rounded-2 text-center" style="background:#f0fdf4;border:1px solid #bbf7d0">
-            <i class="bi bi-check-circle-fill me-1" style="color:#16a34a"></i>
-            <span style="color:#166534;font-size:.83rem;font-weight:600">
-              Deposit of ₱{{ number_format($order->deposit_amount, 2) }} paid ✓
-              @if($order->payment_status === 'Paid' || $remainingBalance <= 0)
-              � Fully paid, no remaining balance
+          <div class="track-paid-banner">
+            <i class="bi bi-check-circle-fill"></i>
+            <span>
+              @if($paymentFullyPaid)
+                Fully paid. No remaining balance.
               @else
-              — Remaining balance: ₱{{ number_format($order->total_price - $order->deposit_amount, 2) }}
+                Deposit of &#8369;{{ number_format($paymentPaidAmount, 2) }} paid. Remaining balance: &#8369;{{ number_format($paymentRemainingBalance, 2) }}.
               @endif
             </span>
           </div>
@@ -1146,6 +1201,10 @@ const TRACK_INITIAL_SNAPSHOT = {
   status: @json($order->status),
   payment_status: @json($order->payment_status),
   deposit_status: @json($order->deposit_status),
+  total_price: @json((string) round($paymentTotalAmount, 2)),
+  deposit_amount: @json((string) round($paymentDepositAmount, 2)),
+  paid_at: @json((string) ($order->paid_at ?? '')),
+  deposit_paid_at: @json((string) ($order->deposit_paid_at ?? '')),
   tracking_count: {{ (int) ($tracking->count() ?? 0) }},
   receipt_count: {{ (int) ($receiptCount ?? ($recentReceipts ?? collect())->count()) }},
   updated_at: @json((string) ($order->updated_at ?? '')),
@@ -1722,7 +1781,7 @@ let trackStatusTimer = null;
 let trackReloading = false;
 
 function trackStatusChanged(next) {
-  return ['status','payment_status','deposit_status','tracking_count','receipt_count','updated_at','latest_tracking_at']
+  return ['status','payment_status','deposit_status','total_price','deposit_amount','paid_at','deposit_paid_at','tracking_count','receipt_count','updated_at','latest_tracking_at']
     .some(key => String(trackSnapshot[key] ?? '') !== String(next[key] ?? ''));
 }
 
