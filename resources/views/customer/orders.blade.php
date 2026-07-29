@@ -5,6 +5,7 @@
   if (!isset($orderAddons))      $orderAddons = [];
   if (!isset($orderReviews))     $orderReviews = [];
   if (!isset($tracking))         $tracking = [];
+  $autoReviewPrompted = false;
 @endphp
 <div class="container-fluid py-4">
   <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
@@ -59,8 +60,88 @@
       display: block;
       animation: depositShake .32s ease;
     }
+    .customer-review-backdrop {
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.34);
+      z-index:1060;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease;
+    }
+    .customer-review-backdrop.is-open {
+      opacity:1;
+      pointer-events:auto;
+    }
+    .customer-review-card {
+      border-top:1px solid #fde68a;
+    }
+    .customer-review-card.is-floating {
+      position:fixed;
+      left:50%;
+      top:50%;
+      width:min(520px,calc(100vw - 24px));
+      max-height:min(84vh,720px);
+      overflow:auto;
+      transform:translate(-50%,-50%);
+      z-index:1061;
+      border:0!important;
+      border-radius:18px;
+      background:#fff;
+      box-shadow:0 24px 70px rgba(15,23,42,.24);
+      padding:clamp(16px,4vw,24px)!important;
+    }
+    .customer-review-title {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .customer-review-kicker {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fffbeb;
+      color:#92400e;
+      font-size:.72rem;
+      font-weight:800;
+      margin-bottom:8px;
+    }
+    .customer-review-copy {
+      color:#6b7280;
+      font-size:.82rem;
+      line-height:1.45;
+      margin:4px 0 0;
+    }
+    .customer-review-actions {
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+    html.track-modal-open,body.track-modal-open {
+      overflow:hidden!important;
+      height:100%!important;
+    }
+    @media (max-width:640px) {
+      .customer-review-card.is-floating {
+        top:auto;
+        bottom:0;
+        width:100%;
+        max-height:86vh;
+        border-radius:18px 18px 0 0;
+        transform:translateX(-50%);
+      }
+      .customer-review-actions {
+        grid-template-columns:1fr;
+      }
+    }
   </style>
 
+  <div class="customer-review-backdrop" id="customerReviewBackdrop" onclick="dismissCustomerReviewPrompt()"></div>
   <div id="custOrdersList">
 @forelse($orders as $o)
   @php
@@ -79,6 +160,10 @@
       $coRefImgs = is_array($dec) ? array_values(array_filter($dec)) : [$co->reference_images];
     }
     $orderThumb = $isCustom ? ($coRefImgs[0] ?? null) : ($o->image_path ?? null);
+    $hasReview = isset($orderReviews[$o->id]);
+    $canReviewThisOrder = in_array($o->status, ['Delivered', 'Picked Up']) && !$hasReview;
+    $shouldAutoPromptReview = $canReviewThisOrder && !$autoReviewPrompted;
+    if ($shouldAutoPromptReview) $autoReviewPrompted = true;
   @endphp
 
   <div class="cust-order-item" data-status="{{ $displayStatus }}" data-search="{{ strtolower($o->product_name . ' ' . $o->id) }}">
@@ -752,17 +837,25 @@
       @endif
 
       {{-- ⭐ Review Section (only for Delivered orders) --}}
-      @if($o->status === 'Delivered')
-      @php
-        $hasReview = isset($orderReviews[$o->id]);
-      @endphp
+      @if(in_array($o->status, ['Delivered', 'Picked Up']))
       @if(!$hasReview)
-      <div class="px-3 py-3 border-top" style="background:#fffbeb">
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <i class="bi bi-star-fill text-warning"></i>
-          <span class="small fw-semibold">Rate this order</span>
+      <div class="px-3 py-3 customer-review-card"
+           id="customerReviewCard{{ $o->id }}"
+           data-auto-review="{{ $shouldAutoPromptReview ? '1' : '0' }}"
+           data-order-id="{{ $o->id }}"
+           style="background:#fffbeb">
+        <div class="customer-review-title">
+          <div>
+            <div class="customer-review-kicker"><i class="bi bi-stars"></i> Order completed</div>
+            <div class="fw-bold">Rate this order</div>
+            <p class="customer-review-copy">Share how the cake and service went so the shop can keep improving.</p>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0 d-none customer-review-close"
+                  onclick="dismissCustomerReviewPrompt()" title="Close">
+            <i class="bi bi-x-lg"></i>
+          </button>
         </div>
-        <form action="{{ route('customer.orders.review', $o->id) }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ route('customer.orders.review', $o->id) }}" method="POST" enctype="multipart/form-data" onsubmit="rememberCustomerReviewPrompt({{ $o->id }})">
           @csrf
           <div class="d-flex gap-1 mb-2" id="stars_{{ $o->id }}">
             @for($s=1;$s<=5;$s++)
@@ -805,9 +898,12 @@
             <img id="reviewPreview{{ $o->id }}" src="" alt=""
                  style="display:none;width:70px;height:70px;object-fit:cover;border-radius:.5rem;margin-top:6px;border:2px solid #fce7f3">
           </div>
-          <button type="submit" class="btn btn-warning btn-sm">
-            <i class="bi bi-star me-1"></i>Submit Review
-          </button>
+          <div class="customer-review-actions">
+            <button type="submit" class="btn btn-warning btn-sm">
+              <i class="bi bi-star me-1"></i>Submit Review
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm d-none customer-review-later" onclick="dismissCustomerReviewPrompt()">Maybe later</button>
+          </div>
         </form>
       </div>
       @else
@@ -933,6 +1029,52 @@
 </div>
 @push('scripts')
 <script>
+let activeCustomerReviewCard = null;
+
+function customerReviewPromptKey(orderId) {
+  return 'berrybase-customer-rating-prompt-' + orderId;
+}
+
+function rememberCustomerReviewPrompt(orderId) {
+  try { sessionStorage.setItem(customerReviewPromptKey(orderId), 'done'); } catch (e) {}
+}
+
+function openCustomerReviewPrompt(card) {
+  if (!card) return;
+  activeCustomerReviewCard = card;
+  card.classList.add('is-floating');
+  card.querySelectorAll('.customer-review-close,.customer-review-later').forEach(el => el.classList.remove('d-none'));
+  document.getElementById('customerReviewBackdrop')?.classList.add('is-open');
+  document.documentElement.classList.add('track-modal-open');
+  document.body.classList.add('track-modal-open');
+}
+
+function dismissCustomerReviewPrompt() {
+  if (activeCustomerReviewCard) {
+    rememberCustomerReviewPrompt(activeCustomerReviewCard.dataset.orderId);
+    activeCustomerReviewCard.classList.remove('is-floating');
+    activeCustomerReviewCard.querySelectorAll('.customer-review-close,.customer-review-later').forEach(el => el.classList.add('d-none'));
+    activeCustomerReviewCard = null;
+  }
+  document.getElementById('customerReviewBackdrop')?.classList.remove('is-open');
+  document.documentElement.classList.remove('track-modal-open');
+  document.body.classList.remove('track-modal-open');
+}
+
+function maybeOpenCustomerReviewPrompt() {
+  if (activeCustomerReviewCard) return;
+  const card = document.querySelector('.customer-review-card[data-auto-review="1"]');
+  if (!card) return;
+  try {
+    if (sessionStorage.getItem(customerReviewPromptKey(card.dataset.orderId))) return;
+  } catch (e) {}
+  window.setTimeout(() => openCustomerReviewPrompt(card), 650);
+}
+
+document.addEventListener('DOMContentLoaded', maybeOpenCustomerReviewPrompt);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') dismissCustomerReviewPrompt();
+});
 // ── Custom Order Follow-up ─────────────────────────────────────────────
 function buildFollowUpMsg(orderId, cakeName, coId) {
   return 'Hi! I'm following up on my rejected Custom Cake Order #' + orderId + ' — "' + cakeName + '" (Custom Order #' + coId + '). '

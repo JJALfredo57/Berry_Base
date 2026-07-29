@@ -48,6 +48,53 @@
     }
     .track-payment-note.success { color:#166534; }
     .track-payment-note.warning { color:#9a3412; }
+    .track-review-prompt {
+      border:0;
+      border-radius:18px;
+      box-shadow:0 24px 70px rgba(15,23,42,.22);
+      overflow:hidden;
+    }
+    .track-review-prompt .card-body {
+      padding:clamp(18px,4vw,26px)!important;
+    }
+    .track-review-head {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:16px;
+    }
+    .track-review-kicker {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fffbeb;
+      color:#92400e;
+      font-size:.72rem;
+      font-weight:800;
+      margin-bottom:8px;
+    }
+    .track-review-title {
+      font-size:clamp(1rem,3vw,1.25rem);
+      font-weight:900;
+      color:#111827;
+      margin:0;
+      line-height:1.2;
+    }
+    .track-review-copy {
+      color:#6b7280;
+      font-size:clamp(.78rem,1.8vw,.9rem);
+      line-height:1.45;
+      margin:.35rem 0 0;
+    }
+    .track-review-actions {
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+    }
     .track-paid-banner {
       display:flex;
       align-items:center;
@@ -151,6 +198,14 @@
         align-items:flex-start;
         justify-content:flex-start;
         text-align:left;
+      }
+      .track-action-panel.is-open {
+        width:calc(100vw - 18px);
+        max-height:86vh;
+        border-radius:16px;
+      }
+      .track-review-actions {
+        grid-template-columns:1fr;
       }
     }
     html.track-modal-open,body.track-modal-open{overflow:hidden!important;height:100%!important}
@@ -1004,13 +1059,22 @@
   </div>
 
   {{-- ── REVIEW SECTION (Delivered or Picked Up) ────────────────────────── --}}
+  @php
+    $existingReview = in_array($order->status, ['Delivered', 'Picked Up'])
+      ? \Illuminate\Support\Facades\DB::table('order_reviews')->where('order_id', $order->id)->first()
+      : null;
+    $shouldPromptReview = in_array($order->status, ['Delivered', 'Picked Up']) && !$existingReview;
+  @endphp
   @if(in_array($order->status, ['Delivered', 'Picked Up']))
-  @php $existingReview = \Illuminate\Support\Facades\DB::table('order_reviews')->where('order_id', $order->id)->first(); @endphp
-  <div class="card mb-4 track-action-panel" id="ratePanel">
+  <div class="card mb-4 track-action-panel track-review-prompt" id="ratePanel" data-review-auto="{{ $shouldPromptReview ? '1' : '0' }}">
     <div class="card-body p-4">
-      <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
-        <h6 class="fw-bold mb-0"><i class="bi bi-star-fill me-2" style="color:#f59e0b"></i>Rate Your Cake</h6>
-        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeTrackPanel('ratePanel')" title="Close"><i class="bi bi-x-lg"></i></button>
+      <div class="track-review-head">
+        <div>
+          <div class="track-review-kicker"><i class="bi bi-stars"></i> Order completed</div>
+          <h6 class="track-review-title">Rate your cake experience</h6>
+          <p class="track-review-copy">Your feedback helps the shop improve the cake, service, and delivery experience.</p>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" onclick="dismissAutoRatingPrompt()" title="Close"><i class="bi bi-x-lg"></i></button>
       </div>
       @if(session('msg'))
         <div class="alert alert-success border-0 py-2">{{ session('msg') }}</div>
@@ -1026,7 +1090,7 @@
           @endif
         </div>
       @else
-        <form action="{{ route('guest.review.store', $order->track_code) }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ route('guest.review.store', $order->track_code) }}" method="POST" enctype="multipart/form-data" onsubmit="rememberRatingPromptReviewed()">
           @csrf
           <div class="mb-3 text-center">
             <div class="fw-semibold small mb-2">How was your cake?</div>
@@ -1057,9 +1121,12 @@
             <textarea class="form-control" name="review" rows="3"
                       placeholder="Tell us about your experience... (optional)"></textarea>
           </div>
-          <button type="submit" class="btn w-100" style="background:var(--primary);color:#fff">
-            <i class="bi bi-send me-1"></i>Submit Review
-          </button>
+          <div class="track-review-actions">
+            <button type="submit" class="btn" style="background:var(--primary);color:#fff">
+              <i class="bi bi-send me-1"></i>Submit Review
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="dismissAutoRatingPrompt()">Maybe later</button>
+          </div>
         </form>
       @endif
     </div>
@@ -1346,6 +1413,33 @@ function mountTrackFloatingUi() {
 
 document.addEventListener('DOMContentLoaded', mountTrackFloatingUi);
 mountTrackFloatingUi();
+
+const ratingPromptStorageKey = 'berrybase-rating-prompt-{{ $order->id }}';
+
+function rememberRatingPromptReviewed() {
+  try { sessionStorage.setItem(ratingPromptStorageKey, 'done'); } catch (e) {}
+}
+
+function dismissAutoRatingPrompt() {
+  rememberRatingPromptReviewed();
+  closeTrackPanel('ratePanel');
+}
+
+function maybeOpenRatingPrompt() {
+  const panel = document.getElementById('ratePanel');
+  if (!panel || panel.dataset.reviewAuto !== '1') return;
+  try {
+    if (sessionStorage.getItem(ratingPromptStorageKey)) return;
+  } catch (e) {}
+
+  window.setTimeout(() => {
+    if (document.querySelector('.track-action-panel.is-open') || document.getElementById('receiptDrawer')?.classList.contains('is-open')) return;
+    openTrackPanel('ratePanel');
+  }, 650);
+}
+
+document.addEventListener('DOMContentLoaded', maybeOpenRatingPrompt);
+maybeOpenRatingPrompt();
 
 function setupDeliveryProofGestures() {
   const stage = document.getElementById('deliveryProofStage');
