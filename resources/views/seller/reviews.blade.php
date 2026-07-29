@@ -16,9 +16,24 @@
 .rev-note{background:#fafafa;border-left:3px solid #e9d5ff;border-radius:0 8px 8px 0;padding:.5rem .75rem;font-size:.78rem;color:#6b7280;margin-top:.5rem}
 .rev-photo{width:72px;height:72px;object-fit:cover;border-radius:10px;border:2px solid #f3f4f6;cursor:pointer;transition:transform .15s}
 .rev-photo:hover{transform:scale(1.05)}
+.seller-wide-page{width:100%;max-width:1320px;margin:0 auto;padding:0 clamp(4px,1.5vw,18px)}
+.reviews-summary{background:#fff;border-radius:18px;padding:1.5rem 1.75rem;border:1.5px solid var(--gray-100);margin-bottom:1.5rem;display:grid;grid-template-columns:minmax(120px,180px) minmax(280px,1fr) minmax(220px,320px);gap:1.4rem;align-items:center}
+.review-type-stats{display:grid;grid-template-columns:1fr;gap:.5rem}
+.review-list-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}
+.review-list-grid .rev-card{margin-bottom:0}
+@media (max-width: 991.98px){
+  .seller-wide-page{padding:0}
+  .reviews-summary{grid-template-columns:1fr;gap:1rem;padding:1.15rem}
+  .review-type-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .review-list-grid{grid-template-columns:1fr}
+}
+@media (max-width: 520px){
+  .review-type-stats{grid-template-columns:1fr}
+  .rev-card{padding:1rem}
+}
 </style>
 
-<div style="max-width:820px;margin:0 auto">
+<div class="seller-wide-page">
 
   {{-- ── Header ───────────────────────────────────────── --}}
   <div style="margin-bottom:1.5rem">
@@ -29,7 +44,7 @@
   @if(session('msg'))<div class="alert alert-success border-0 py-2 mb-3"><i class="bi bi-check-circle-fill me-2"></i>{{ session('msg') }}</div>@endif
 
   {{-- ── Rating Summary ─────────────────────────────────── --}}
-  <div style="background:#fff;border-radius:18px;padding:1.5rem 1.75rem;border:1.5px solid var(--gray-100);margin-bottom:1.5rem;display:flex;align-items:center;gap:2rem;flex-wrap:wrap">
+  <div class="reviews-summary">
     <div style="text-align:center;min-width:90px">
       <div style="font-size:3.2rem;font-weight:900;color:var(--primary);line-height:1">
         {{ $totalReviews > 0 ? number_format($avgRating, 1) : '—' }}
@@ -54,7 +69,7 @@
         </div>
       @endforeach
     </div>
-    <div style="display:flex;flex-direction:column;gap:.5rem;min-width:140px">
+    <div class="review-type-stats">
       <div style="background:#fdf4ff;border-radius:12px;padding:.65rem 1rem;text-align:center">
         <div style="font-size:1.5rem;font-weight:800;color:#7e22ce">{{ $customCount }}</div>
         <div style="font-size:.72rem;color:#7e22ce;font-weight:600">Custom Order Reviews</div>
@@ -88,6 +103,7 @@
   </div>
 
   {{-- ── Review List ──────────────────────────────────── --}}
+  <div class="review-list-grid">
   @forelse($reviews as $rev)
   @php
     $isCustom   = (bool) $rev->is_custom;
@@ -193,7 +209,7 @@
     </div>
   </div>
   @empty
-  <div style="text-align:center;padding:5rem 1rem;background:#fff;border-radius:18px;border:1.5px solid var(--gray-100)">
+  <div style="grid-column:1/-1;text-align:center;padding:5rem 1rem;background:#fff;border-radius:18px;border:1.5px solid var(--gray-100)">
     <i class="bi bi-star" style="font-size:2.8rem;color:var(--gray-200);display:block;margin-bottom:1rem"></i>
     <h3 style="font-size:1rem;font-weight:700;margin:0 0 .4rem">
       @if($filter === 'custom') No custom order reviews yet
@@ -206,6 +222,7 @@
     </p>
   </div>
   @endforelse
+  </div>
 
   {{-- ── Pagination ──────────────────────────────────── --}}
   @if($reviews->hasPages())

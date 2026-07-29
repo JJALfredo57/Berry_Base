@@ -1,7 +1,17 @@
 @extends('layouts.app')
 @section('page_title', 'Platform Feedback')
 @section('content')
-<div style="max-width:1040px;margin:0 auto">
+<style>
+.seller-wide-page{width:100%;max-width:1320px;margin:0 auto;padding:0 clamp(4px,1.5vw,18px)}
+.feedback-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(340px,.85fr);gap:1rem}
+.feedback-card{border:1.5px solid var(--gray-100);border-radius:14px}
+.recent-feedback-list{display:grid;grid-template-columns:1fr;gap:.5rem}
+@media (max-width: 991.98px){
+  .seller-wide-page{padding:0}
+  .feedback-layout{grid-template-columns:1fr}
+}
+</style>
+<div class="seller-wide-page">
   <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-4">
     <div>
       <h1 style="font-size:1.45rem;font-weight:800;margin:0 0 .25rem">Platform Feedback</h1>
@@ -19,9 +29,9 @@
     <div class="alert alert-danger border-0"><i class="bi bi-exclamation-circle-fill me-2"></i>Please check the highlighted fields.</div>
   @endif
 
-  <div class="row g-4">
-    <div class="col-lg-7">
-      <div class="card h-100" style="border:1.5px solid var(--gray-100);border-radius:14px">
+  <div class="feedback-layout">
+    <div>
+      <div class="card h-100 feedback-card">
         <div class="card-header d-flex align-items-center gap-2">
           <i class="bi bi-send-check" style="color:var(--primary)"></i>
           <span class="fw-bold">Send Feedback</span>
@@ -90,13 +100,14 @@
       </div>
     </div>
 
-    <div class="col-lg-5">
-      <div class="card h-100" style="border:1.5px solid var(--gray-100);border-radius:14px">
+    <div>
+      <div class="card h-100 feedback-card">
         <div class="card-header d-flex align-items-center gap-2">
           <i class="bi bi-clock-history" style="color:var(--primary)"></i>
           <span class="fw-bold">Recent Submissions</span>
         </div>
         <div class="card-body">
+          <div class="recent-feedback-list">
           @forelse($recentFeedback as $item)
             <div class="p-3 mb-2" style="border:1.5px solid var(--gray-100);border-radius:10px;background:#fff">
               <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
@@ -117,6 +128,7 @@
               <div class="cs-empty-sub">Your submitted seller feedback will appear here.</div>
             </div>
           @endforelse
+          </div>
         </div>
       </div>
     </div>
