@@ -43,25 +43,174 @@
 .send-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.95rem;transition:opacity .15s;flex-shrink:0}
 .send-btn:disabled{opacity:.45;cursor:not-allowed}
 .status-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:#e9ecef;color:#555}
+.thread-shell{display:grid;grid-template-columns:1fr;gap:14px}
+.thread-topline{display:flex;align-items:center;gap:14px;min-width:0;flex:1}
+.order-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;font-size:.7rem;font-weight:700}
+.order-context{background:#fff;border:1px solid #e9ecef;border-radius:14px;padding:14px;margin-bottom:16px}
+.order-context-grid{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:start}
+.order-photo{width:120px;aspect-ratio:1;border-radius:12px;object-fit:cover;border:1.5px solid #eef2f7;background:#f8fafc;cursor:zoom-in;display:block}
+.order-photo-placeholder{width:120px;aspect-ratio:1;border-radius:12px;border:1.5px solid #eef2f7;background:#fff7ed;color:#c2410c;display:flex;align-items:center;justify-content:center;font-size:1.7rem}
+.order-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.order-product-title{font-size:1rem;font-weight:800;color:#111827;line-height:1.25;margin:0}
+.order-subtitle{font-size:.78rem;color:#6b7280;margin-top:2px}
+.order-total{font-size:1.08rem;font-weight:800;color:var(--primary);white-space:nowrap;text-align:right}
+.detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.detail-item{background:#f8fafc;border:1px solid #eef2f7;border-radius:10px;padding:8px 10px;min-width:0}
+.detail-label{font-size:.64rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.detail-value{font-size:.78rem;font-weight:700;color:#1f2937;line-height:1.35;word-break:break-word}
+.detail-value.muted{font-weight:600;color:#64748b}
+.order-notes{margin-top:10px;display:grid;grid-template-columns:1fr;gap:8px}
+.note-panel{border-radius:10px;padding:9px 11px;font-size:.78rem;line-height:1.45}
+.note-panel.warning{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
+.note-panel.privacy{background:#f8fafc;color:#475569;border:1px solid #e2e8f0;display:flex;gap:9px;align-items:flex-start}
+.note-panel.custom{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+.addon-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.addon-pill{font-size:.72rem;font-weight:700;color:#475569;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:4px 8px}
+@media (max-width: 767.98px){
+  .thread-header{align-items:flex-start;padding:12px;gap:10px;flex-wrap:wrap}
+  .thread-topline{width:100%}
+  .thread-avatar{width:38px;height:38px}
+  .thread-order-meta{width:100%;text-align:left!important;padding-left:48px}
+  .order-context{padding:12px}
+  .order-context-grid{grid-template-columns:76px 1fr;gap:10px}
+  .order-photo,.order-photo-placeholder{width:76px;border-radius:10px}
+  .order-title-row{display:block}
+  .order-total{text-align:left;margin-top:6px;font-size:.95rem}
+  .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .detail-item{padding:7px 8px}
+  .chat-box{height:calc(100vh - 430px);min-height:360px;padding:14px 10px}
+  .msg-group{max-width:84%}
+}
+@media (max-width: 420px){
+  .detail-grid{grid-template-columns:1fr}
+  .thread-order-meta{padding-left:0}
+  .order-context-grid{grid-template-columns:1fr}
+  .order-photo,.order-photo-placeholder{width:100%;max-height:190px}
+}
 </style>
 
 <div class="row justify-content-center">
-  <div class="col-lg-7 col-xl-6">
+  <div class="col-lg-9 col-xl-8">
+    @php
+      $productTitle = $order->product_name ?? ($customOrder->cake_name ?? 'Custom Cake');
+      $cakeImage = $order->product_image_path ?? null;
+      if (!$cakeImage && $customOrder) {
+          $refs = json_decode($customOrder->reference_images ?? '[]', true);
+          $cakeImage = is_array($refs) ? ($refs[0] ?? null) : null;
+      }
+      $displayStatus = $order->status === 'Pickup' ? 'Ready for Pickup' : $order->status;
+      $schedule = $order->schedule_date
+          ? \Carbon\Carbon::parse($order->schedule_date)->format('M d, Y') . ($order->schedule_time ? ' ' . $order->schedule_time : '')
+          : 'Not set';
+      $fulfillment = $order->fulfillment_type ?? 'Pickup';
+      $paymentStatus = $order->payment_status ?? 'Unpaid';
+      $paymentMethod = $order->payment_method ?? 'Not set';
+      $isDelivery = strtolower((string) $fulfillment) === 'delivery';
+      $privacyDetails = 'Customer information is shown only for fulfilling this order. Do not share contact details, address, cake photos, notes, or payment information outside BerryBase operations.';
+    @endphp
 
     {{-- Header --}}
     <div class="thread-header">
       <a href="{{ route('seller.messages') }}" class="btn btn-sm btn-light" style="border-radius:10px"><i class="bi bi-arrow-left"></i></a>
-      <div class="thread-avatar">{{ strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}</div>
-      <div class="flex-grow-1 min-width-0">
-        <div class="fw-bold" style="font-size:.95rem">{{ $order->fullname }}</div>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-          <span class="text-muted small">{{ $order->product_name }}</span>
-          <span class="status-badge">{{ $order->status }}</span>
+      <div class="thread-topline">
+        <div class="thread-avatar">{{ strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}</div>
+        <div class="flex-grow-1 min-width-0">
+          <div class="fw-bold text-truncate" style="font-size:.95rem">{{ $order->fullname }}</div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="text-muted small text-truncate" style="max-width:100%">{{ $productTitle }}</span>
+            <span class="status-badge">{{ $displayStatus }}</span>
+          </div>
         </div>
       </div>
-      <div class="text-muted text-end" style="font-size:.75rem">
+      <div class="text-muted text-end thread-order-meta" style="font-size:.75rem">
         <div>Order</div>
-        <div class="fw-semibold">#{{ $order->id }}</div>
+        <div class="fw-semibold text-break">#{{ $order->track_code ?? $order->id }}</div>
+      </div>
+    </div>
+
+    {{-- Order context --}}
+    <div class="order-context">
+      <div class="order-context-grid">
+        @if($cakeImage)
+          <img src="{{ $cakeImage }}" alt="{{ $productTitle }}" class="order-photo" onclick="openLightbox(this)" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'order-photo-placeholder',innerHTML:'<i class=&quot;bi bi-image&quot;></i>'}))">
+        @else
+          <div class="order-photo-placeholder"><i class="bi bi-image"></i></div>
+        @endif
+
+        <div class="min-width-0">
+          <div class="order-title-row">
+            <div class="min-width-0">
+              <h2 class="order-product-title">{{ $productTitle }}</h2>
+              <div class="order-subtitle">
+                {{ $order->quantity ?? 1 }} item(s)
+                @if($order->selected_size) &bull; {{ $order->selected_size }} @endif
+                @if($customOrder && ($customOrder->flavor ?? null)) &bull; {{ $customOrder->flavor }} @endif
+              </div>
+            </div>
+            <div class="order-total">&#8369;{{ number_format((float)($order->total_price ?? 0), 2) }}</div>
+          </div>
+
+          <div class="detail-grid">
+            <div class="detail-item">
+              <div class="detail-label">Schedule</div>
+              <div class="detail-value">{{ $schedule }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Fulfillment</div>
+              <div class="detail-value">{{ $fulfillment }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Payment</div>
+              <div class="detail-value">{{ $paymentMethod }}</div>
+              <div class="detail-value muted">{{ $paymentStatus }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Contact</div>
+              <div class="detail-value">{{ $order->phone ?? 'Not provided' }}</div>
+            </div>
+            @if($isDelivery)
+            <div class="detail-item" style="grid-column:1/-1">
+              <div class="detail-label">Delivery Address</div>
+              <div class="detail-value">{{ $order->delivery_address ?? 'Not provided' }}</div>
+            </div>
+            @endif
+          </div>
+
+          @if($orderAddons->count())
+          <div class="addon-list">
+            @foreach($orderAddons as $addon)
+              <span class="addon-pill">
+                <i class="bi bi-plus-circle me-1"></i>{{ $addon->addon_name ?? 'Add-on' }}
+                @if((float)($addon->addon_price ?? 0) > 0)
+                  · &#8369;{{ number_format((float)$addon->addon_price, 2) }}
+                @endif
+              </span>
+            @endforeach
+          </div>
+          @endif
+
+          <div class="order-notes">
+            @if($order->special_notes || $order->custom_note || ($customOrder && (($customOrder->custom_note ?? null) || ($customOrder->description ?? null) || ($customOrder->dedication ?? null))))
+              <div class="note-panel warning">
+                <strong>Customer notes:</strong>
+                {{ $order->special_notes ?? $order->custom_note ?? $customOrder->custom_note ?? $customOrder->description ?? $customOrder->dedication }}
+              </div>
+            @endif
+            @if($customOrder && (($customOrder->size ?? null) || ($customOrder->layers ?? null) || ($customOrder->design_complexity ?? null) || ($customOrder->time_slot ?? null)))
+              <div class="note-panel custom">
+                <strong>Custom details:</strong>
+                @if($customOrder->size ?? null) Size {{ $customOrder->size }}. @endif
+                @if($customOrder->layers ?? null) Layers {{ $customOrder->layers }}. @endif
+                @if($customOrder->design_complexity ?? null) Design {{ $customOrder->design_complexity }}. @endif
+                @if($customOrder->time_slot ?? null) Preferred time {{ $customOrder->time_slot }}. @endif
+              </div>
+            @endif
+            <div class="note-panel privacy">
+              <i class="bi bi-shield-lock-fill" style="color:var(--primary);font-size:1rem;line-height:1.4"></i>
+              <div><strong>Data Privacy Reminder:</strong> {{ $privacyDetails }}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

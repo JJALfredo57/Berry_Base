@@ -41,16 +41,25 @@ class MessageController extends Controller
         $shop  = $this->getShop();
         $order = DB::table('orders as o')
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
-            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.id', $orderId)
             ->where('o.shop_id', $shop->id)
-            ->select('o.*', 'p.name as product_name', 'p.image_path',
-                DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
+            ->select('o.*', 'p.name as product_name', 'p.image_path as product_image_path',
+                DB::raw("COALESCE(o.guest_name, o.fullname, u.fullname, 'Customer') as fullname"),
                 DB::raw("COALESCE(u.username, 'Guest') as username"),
                 DB::raw('COALESCE(o.guest_phone, u.phone) as phone'))
             ->first();
 
         if (!$order) return redirect()->route('seller.messages');
+
+        $orderAddons = DB::table('order_addons')
+            ->where('order_id', $orderId)
+            ->orderBy('id')
+            ->get();
+
+        $customOrder = DB::table('custom_orders')
+            ->where('order_id', $orderId)
+            ->first();
 
         DB::table('messages')
             ->where('order_id', $orderId)
@@ -59,7 +68,7 @@ class MessageController extends Controller
             ->update(['is_read' => true]);
 
         $messages = DB::table('messages')->where('order_id', $orderId)->orderBy('created_at')->get();
-        return view('seller.thread', compact('order','messages','orderId','shop'));
+        return view('seller.thread', compact('order','messages','orderId','shop','orderAddons','customOrder'));
     }
 
     public function send(Request $request, string $orderId)
