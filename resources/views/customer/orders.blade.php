@@ -72,9 +72,10 @@
     $wasRejected = $o->cancel_status === 'rejected';
     $co          = $customOrderData[$o->id] ?? null;  // custom order record if exists
     $isCustom    = !is_null($co);
+    $displayStatus = (($o->payment_status ?? '') === 'Paid' && ($o->status ?? '') === 'Awaiting Deposit') ? 'Confirmed' : $o->status;
   @endphp
 
-  <div class="cust-order-item" data-status="{{ $o->status }}" data-search="{{ strtolower($o->product_name . ' ' . $o->id) }}">
+  <div class="cust-order-item" data-status="{{ $displayStatus }}" data-search="{{ strtolower($o->product_name . ' ' . $o->id) }}">
   <div class="card mb-3">
     <div class="card-body p-0">
 
@@ -90,7 +91,7 @@
           </div>
         </div>
         <div class="text-end mt-2 mt-sm-0">
-          <span class="status-badge status-{{ str_replace(' ','-',$o->status) }}">{{ $o->status }}</span>
+          <span class="status-badge status-{{ str_replace(' ','-',$displayStatus) }}">{{ $displayStatus }}</span>
           <div class="fw-bold mt-1">₱{{ number_format($o->total_price,2) }}</div>
         </div>
       </div>
@@ -235,7 +236,13 @@
             @if($co->price_confirmed === 'pending')
               <span class="badge" style="background:#fff3cd;color:#856404;font-size:.7rem">⏳ Awaiting your confirmation</span>
             @elseif($co->price_confirmed === 'accepted')
-              <span class="badge bg-success" style="font-size:.7rem">✅ You accepted</span>
+              @if(($o->payment_status ?? '') === 'Paid')
+                <span class="badge bg-success" style="font-size:.7rem"><i class="bi bi-shield-check me-1"></i>Fully paid</span>
+              @elseif(($o->deposit_status ?? '') === 'paid')
+                <span class="badge bg-success" style="font-size:.7rem"><i class="bi bi-check2-circle me-1"></i>Deposit paid</span>
+              @else
+                <span class="badge bg-primary" style="font-size:.7rem"><i class="bi bi-clock-history me-1"></i>Awaiting deposit</span>
+              @endif
             @endif
           @endif
         </div>
@@ -632,7 +639,7 @@
       </div>
       @endif{{-- end custom order banner --}}
       @php $steps = ['Pending','Confirmed','Preparing','Out for Delivery','Delivered']; @endphp
-      @if($o->status === 'Awaiting Deposit')
+      @if($o->status === 'Awaiting Deposit' && ($o->payment_status ?? '') !== 'Paid' && ($o->deposit_status ?? '') !== 'paid')
       <div class="px-3 py-3">
         <div style="border-radius:.85rem;overflow:hidden;border:1.5px solid #fed7aa">
           <div style="background:linear-gradient(90deg,#d97706,#ea580c);padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem">

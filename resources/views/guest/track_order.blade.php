@@ -197,6 +197,10 @@
     $paymentRemainingBalance = max(0, round($paymentTotalAmount - $paymentPaidAmount, 2));
     $paymentFullyPaid = ($order->payment_status ?? '') === 'Paid' || $paymentRemainingBalance <= 0.009;
     $paymentDueLabel = $isPickup ? 'pickup' : 'delivery';
+    if ($paymentFullyPaid && ($order->status ?? '') === 'Awaiting Deposit') {
+      $sc = $statusColors['Confirmed'];
+      $statusDisplay = 'Confirmed';
+    }
   @endphp
 
   <div class="text-center mb-4">
@@ -714,9 +718,19 @@
         {{ $cos['label'] }}
       </span>
       @if($customOrder->price_confirmed === 'accepted' && $customOrder->admin_price > 0)
-      <span class="badge mb-3 px-3 py-2 ms-1" style="background:#dbeafe;color:#1e40af">
-        <i class="bi bi-check2-circle me-1"></i>Price Accepted — Awaiting Deposit
-      </span>
+        @if($paymentFullyPaid)
+        <span class="badge mb-3 px-3 py-2 ms-1" style="background:#d1fae5;color:#065f46">
+          <i class="bi bi-shield-check me-1"></i>Price Accepted - Fully Paid
+        </span>
+        @elseif($paymentDepositPaid)
+        <span class="badge mb-3 px-3 py-2 ms-1" style="background:#dcfce7;color:#166534">
+          <i class="bi bi-check2-circle me-1"></i>Price Accepted - Deposit Paid
+        </span>
+        @else
+        <span class="badge mb-3 px-3 py-2 ms-1" style="background:#dbeafe;color:#1e40af">
+          <i class="bi bi-clock-history me-1"></i>Price Accepted - Awaiting Deposit
+        </span>
+        @endif
       @elseif($customOrder->price_confirmed === 'cancelled')
       <span class="badge mb-3 px-3 py-2 ms-1" style="background:#fee2e2;color:#991b1b">
         <i class="bi bi-x-circle me-1"></i>Price Declined
