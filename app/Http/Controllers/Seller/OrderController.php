@@ -125,7 +125,8 @@ class OrderController extends Controller
         }
         DB::table('orders')->where('id', $id)->update($upd);
         if ($newStatus === 'Picked Up') {
-            PaymentTransactionHelper::recordFinalCashIfNeeded($order, $newStatus);
+            $freshOrder = DB::table('orders')->where('id', $id)->first();
+            PaymentTransactionHelper::recordFinalCashIfNeeded($freshOrder ?? $order, $newStatus);
         }
 
         DB::table('order_tracking')->insert([

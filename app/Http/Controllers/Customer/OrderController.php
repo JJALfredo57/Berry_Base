@@ -132,22 +132,18 @@ class OrderController extends Controller
         DB::table('orders')->where('id', $co->order_id)->update([
             'deposit_required' => 1,
             'deposit_amount'   => $depositAmount,
-            'deposit_status'   => $order->payment_method === 'GCash' ? 'pending' : 'paid',
-            'deposit_paid_at'  => $order->payment_method === 'GCash' ? null : now(),
-            'payment_status'   => $order->payment_method === 'GCash'
-                ? 'Unpaid'
-                : ($isFullPayment ? 'Paid' : 'Partial Payment'),
-            'paid_at'          => $order->payment_method !== 'GCash' && $isFullPayment ? now() : null,
-            'status'           => $order->payment_method === 'GCash' ? $order->status : 'Confirmed',
+            'deposit_status'   => 'pending',
+            'deposit_paid_at'  => null,
+            'payment_status'   => 'Unpaid',
+            'paid_at'          => null,
+            'status'           => $order->status,
             'total_price'      => $totalPrice,
         ]);
 
         DB::table('order_tracking')->insert([
             'order_id'   => $co->order_id,
-            'status'     => $order->payment_method === 'GCash' ? $order->status : 'Confirmed',
-            'notes'      => $order->payment_method === 'GCash'
-                ? 'Customer accepted the final price of PHP ' . number_format($totalPrice, 2) . '. A 50% GCash deposit was prepared automatically.'
-                : CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null) . ' deposit of PHP ' . number_format($depositAmount, 2) . ' acknowledged automatically after price acceptance. Order confirmed.',
+            'status'     => $order->status,
+            'notes'      => 'Customer accepted the final price of PHP ' . number_format($totalPrice, 2) . '. A 50% PayMongo deposit was prepared before confirmation.',
             'created_at' => now(),
         ]);
 
@@ -170,23 +166,7 @@ class OrderController extends Controller
         ]);
 
         CakeshopHelper::logActivity($uid, 'customer', 'Accept Custom Price', "Custom Order #{$coId}");
-        if ($order->payment_method === 'GCash') {
-            return redirect()->route('customer.custom_orders.pay_deposit', $coId);
-        }
-
-        try {
-            $freshOrder = DB::table('orders')->where('id', $co->order_id)->first();
-            $this->sendCustomToKitchen($co, $freshOrder ?? $order);
-        } catch (\Exception $e) {
-            DB::table('order_tracking')->insert([
-                'order_id'   => $co->order_id,
-                'status'     => 'Confirmed',
-                'notes'      => 'Order confirmed, but kitchen ticket could not be generated automatically. Please notify the shop.',
-                'created_at' => now(),
-            ]);
-        }
-
-        return back()->with('msg', 'Price accepted. Your order is now confirmed and sent to the kitchen.');
+        return redirect()->route('customer.custom_orders.pay_deposit', $coId);
     }
 
     /** Customer sets deposit amount for custom order (min 50%) */
@@ -234,8 +214,8 @@ class OrderController extends Controller
             return redirect()->route('customer.custom_orders.pay_deposit', $coId);
         }
 
-        // COD — acknowledge and auto-confirm
-        return $this->acknowledgeCustomCod($coId, $co, $order, $depositAmount, $isFullPayment, $uid);
+        // All custom deposit payments are collected through PayMongo before confirmation.
+        return redirect()->route('customer.custom_orders.pay_deposit', $coId);
     }
 
     /** COD custom order — acknowledge deposit and auto-confirm */

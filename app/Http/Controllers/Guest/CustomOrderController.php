@@ -129,6 +129,25 @@ class CustomOrderController extends Controller
         $trackLine = $preTrackCode ? "\nTrack: {$preTrackCode}" : '';
         $message   = "{$header}\nCode: {$otp}\nValid 10 mins. Do not share.{$trackLine}";
 
+        try {
+            $platform = DB::table('platform_settings')->first();
+            if (!empty($platform->dev_mode)) {
+                $clean = preg_replace('/\D/', '', $phone);
+                if (str_starts_with($clean, '0')) $clean = '63' . substr($clean, 1);
+                if (!str_starts_with($clean, '63')) $clean = '63' . $clean;
+
+                return response()->json([
+                    'ok' => true,
+                    'dev' => [
+                        'otp'     => $otp,
+                        'phone'   => $clean,
+                        'time'    => now()->format('h:i A'),
+                        'message' => "{$siteName}: Your OTP verification code is {$otp}. Valid for 10 minutes. Do not share this code.",
+                    ],
+                ]);
+            }
+        } catch (\Throwable $e) {}
+
         $result = SmsHelper::sendWithResult($phone, $message, true);
 
         if (!$result['ok']) {
@@ -401,22 +420,18 @@ class CustomOrderController extends Controller
         DB::table('orders')->where('id', $co->order_id)->update([
             'deposit_required' => 1,
             'deposit_amount'   => $depositAmount,
-            'deposit_status'   => $order->payment_method === 'GCash' ? 'pending' : 'paid',
-            'deposit_paid_at'  => $order->payment_method === 'GCash' ? null : now(),
-            'payment_status'   => $order->payment_method === 'GCash'
-                ? 'Unpaid'
-                : ($isFullPayment ? 'Paid' : 'Partial Payment'),
-            'paid_at'          => $order->payment_method !== 'GCash' && $isFullPayment ? now() : null,
-            'status'           => $order->payment_method === 'GCash' ? $order->status : 'Confirmed',
+            'deposit_status'   => 'pending',
+            'deposit_paid_at'  => null,
+            'payment_status'   => 'Unpaid',
+            'paid_at'          => null,
+            'status'           => $order->status,
             'total_price'      => $totalPrice,
         ]);
 
         DB::table('order_tracking')->insert([
             'order_id'   => $co->order_id,
-            'status'     => $order->payment_method === 'GCash' ? $order->status : 'Confirmed',
-            'notes'      => $order->payment_method === 'GCash'
-                ? 'Guest accepted the final price of PHP ' . number_format($totalPrice, 2) . '. A 50% GCash deposit was prepared automatically.'
-                : CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null) . ' deposit of PHP ' . number_format($depositAmount, 2) . ' acknowledged automatically after price acceptance. Order confirmed.',
+            'status'     => $order->status,
+            'notes'      => 'Guest accepted the final price of PHP ' . number_format($totalPrice, 2) . '. A 50% PayMongo deposit was prepared before confirmation.',
             'created_at' => now(),
         ]);
 
@@ -439,14 +454,7 @@ class CustomOrderController extends Controller
         ]);
 
         $order = DB::table('orders')->where('id', $co->order_id)->first();
-        if ($order->payment_method === 'GCash') {
-            return redirect()->route('guest.pay_deposit', $order->track_code);
-        }
-
-        $freshOrder = DB::table('orders')->where('id', $co->order_id)->first();
-        $this->sendGuestCustomToKitchen($co, $freshOrder ?? $order);
-
-        return redirect()->route('track.order', $order->track_code ?? '')->with('msg', 'Price accepted. Your order is now confirmed and sent to the kitchen.');
+        return redirect()->route('guest.pay_deposit', $order->track_code);
     }
 
     private function sendGuestCustomToKitchen(object $co, object $order): void

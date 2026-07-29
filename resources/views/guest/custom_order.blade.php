@@ -413,6 +413,7 @@
                              oninput="cvValidateOtp(this)" onkeypress="cvBlockChar(event,'otp')">
                     </div>
                     <div class="cv-msg" id="msgOtp"></div>
+                    <div id="coDevOtpHint"></div>
                     <div class="form-text mt-1"><i class="bi bi-clock me-1"></i>Valid for 10 minutes.</div>
                   </div>
                 </div>
@@ -1075,11 +1076,41 @@ function sendCoGuestOtp() {
       otpSent = true;
       document.getElementById('customOrderForm')?.dispatchEvent(new Event('change', { bubbles:true }));
       var badge = document.getElementById('otpStatusBadge');
+      if (data.dev) renderCoDevOtpHint(data.dev);
       if (badge) { badge.style.background='#dcfce7'; badge.style.color='#166534'; badge.innerHTML='<i class="bi bi-check-circle-fill me-1"></i>OTP sent — enter code below'; }
-      cakeToast('✅ OTP sent! Check your SMS.','success');
+      cakeToast(data.dev ? 'Developer mode: OTP is shown below.' : 'OTP sent! Check your SMS.','success');
       btn.innerHTML='<i class="bi bi-arrow-repeat me-1"></i>Resend'; btn.disabled=false;
     })
     .catch(()=>{ btn.innerHTML='<i class="bi bi-phone me-1"></i>Send OTP'; btn.disabled=false; cakeToast('Failed to send OTP. Try again.','error'); });
+}
+
+function renderCoDevOtpHint(dev) {
+  var wrap = document.getElementById('coDevOtpHint');
+  if (!wrap || !dev) return;
+  var esc = function(v) {
+    return String(v || '').replace(/[&<>"']/g, function(ch) {
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]);
+    });
+  };
+  wrap.innerHTML =
+    '<div class="mt-3 p-3 rounded-3" style="background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12">' +
+      '<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">' +
+        '<div class="fw-bold small"><i class="bi bi-code-slash me-1"></i>Developer OTP Preview</div>' +
+        '<span class="small text-muted">' + esc(dev.time) + '</span>' +
+      '</div>' +
+      '<div class="d-flex align-items-center gap-3 flex-wrap">' +
+        '<button type="button" class="btn btn-sm btn-warning fw-bold" onclick="copyCoDevOtp()" id="coDevOtpCode" data-otp="' + esc(dev.otp) + '">' + esc(dev.otp) + '</button>' +
+        '<div class="small" style="line-height:1.45">' + esc(dev.message) + '<br><span class="text-muted">+' + esc(dev.phone) + '</span></div>' +
+      '</div>' +
+    '</div>';
+}
+
+function copyCoDevOtp() {
+  var el = document.getElementById('coDevOtpCode');
+  if (!el) return;
+  var otp = el.getAttribute('data-otp') || el.textContent.trim();
+  if (navigator.clipboard) navigator.clipboard.writeText(otp);
+  cakeToast('OTP copied.','success');
 }
 </script>
 @endpush
