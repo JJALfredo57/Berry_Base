@@ -120,7 +120,12 @@ class OrderController extends Controller
         if ($order->payment_status === 'Paid') return back()->with('err', 'This order is already fully paid.');
 
         $totalPrice    = max((float) $co->admin_price, (float) $order->total_price);
-        $depositAmount = round($totalPrice * 0.5, 2);
+        $minDeposit    = round($totalPrice * 0.5, 2);
+        $requested     = (float) request()->input('deposit_amount', $minDeposit);
+        if ($requested < $minDeposit) {
+            return back()->with('err', 'Minimum deposit is 50%: PHP ' . number_format($minDeposit, 2) . '.');
+        }
+        $depositAmount = round(min($requested, $totalPrice), 2);
         $isFullPayment = abs($depositAmount - $totalPrice) < 0.01;
 
         // Mark price as accepted — but DO NOT confirm yet, wait for deposit payment

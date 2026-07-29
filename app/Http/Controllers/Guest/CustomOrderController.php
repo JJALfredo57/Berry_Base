@@ -401,15 +401,11 @@ class CustomOrderController extends Controller
         $totalPrice = max((float) $co->admin_price, (float) $order->total_price);
         $minDeposit = round($totalPrice * 0.5, 2);
 
-        if ($order->payment_method === 'GCash') {
-            $requested = (float) request()->input('deposit_amount', $minDeposit);
-            if ($requested < $minDeposit) {
-                return back()->with('err', 'Minimum deposit is 50%: ₱' . number_format($minDeposit, 2) . '.');
-            }
-            $depositAmount = round(min($requested, $totalPrice), 2);
-        } else {
-            $depositAmount = $minDeposit;
+        $requested = (float) request()->input('deposit_amount', $minDeposit);
+        if ($requested < $minDeposit) {
+            return back()->with('err', 'Minimum deposit is 50%: PHP ' . number_format($minDeposit, 2) . '.');
         }
+        $depositAmount = round(min($requested, $totalPrice), 2);
         $isFullPayment = abs($depositAmount - $totalPrice) < 0.01;
 
         DB::table('custom_orders')->where('id', $coId)->update([

@@ -813,7 +813,6 @@
                 data-max="{{ $acceptTotal }}"
                 data-btn-label="Accept &amp; Pay via GCash">
             @csrf
-            @if($order->payment_method === 'GCash')
             <label class="form-label fw-semibold small mb-1" style="color:#374151">
               Amount to pay now <span style="color:#9ca3af;font-weight:400">(min 50%)</span>
             </label>
@@ -833,9 +832,6 @@
             <div style="font-size:.7rem;color:#6b7280;margin-top:.25rem;margin-bottom:.75rem">
               ₱{{ number_format($acceptMin, 2) }} min · ₱{{ number_format($acceptTotal, 2) }} max · remainder due later
             </div>
-            @else
-            <input type="hidden" name="deposit_amount" value="{{ $acceptMin }}">
-            @endif
             <button type="submit" class="btn btn-success w-100 fw-bold py-2 mb-2"
                     data-cs-confirm="Accept ₱{{ number_format($customOrder->admin_price,2) }} as final price?"
                     data-cs-title="Accept Final Price"
@@ -1643,6 +1639,7 @@ function setupDepositAmountForms() {
       error.classList.remove('show');
       void error.offsetWidth;
       error.classList.add('show');
+      if (typeof cakeToast === 'function') cakeToast(message, 'error');
       if (navigator.vibrate) navigator.vibrate(120);
     };
 

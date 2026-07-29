@@ -350,10 +350,30 @@
             The baker has set a final price of <strong style="color:var(--primary)">₱{{ number_format($co->admin_price,2) }}</strong>
             for your custom cake. Please accept or cancel.
           </div>
+          @php $acceptTotal = (float)$co->admin_price; $acceptMin = max(100, round($acceptTotal * 0.5, 2)); @endphp
           <div class="d-flex gap-2 flex-wrap">
-            <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST" class="d-inline">
+            <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST"
+                  class="deposit-amount-form flex-grow-1"
+                  data-min="{{ $acceptMin }}"
+                  data-max="{{ $acceptTotal }}"
+                  data-btn-label="Accept Price">
               @csrf
-              <button type="submit" class="btn btn-success btn-sm"
+              <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now <span class="text-muted fw-normal">(min 50%)</span></label>
+              <div class="input-group input-group-sm mb-1">
+                <span class="input-group-text fw-bold" style="color:#d97706;background:#fffbeb;border-color:#fde68a">â‚±</span>
+                <input type="text"
+                       name="deposit_amount"
+                       class="form-control deposit-amount-input"
+                       value="{{ number_format($acceptMin, 2, '.', '') }}"
+                       inputmode="decimal"
+                       autocomplete="off"
+                       data-min="{{ $acceptMin }}"
+                       data-max="{{ $acceptTotal }}"
+                       style="font-weight:800;color:#111827;border-color:#fde68a">
+              </div>
+              <div class="deposit-error">Minimum payment is 50%: â‚±{{ number_format($acceptMin, 2) }}.</div>
+              <div class="small text-muted mb-2">â‚±{{ number_format($acceptMin, 2) }} min Â· â‚±{{ number_format($acceptTotal, 2) }} max Â· remainder due later</div>
+              <button type="submit" class="btn btn-success btn-sm w-100"
                       data-cs-confirm="Accept ₱{{ number_format($co->admin_price,2) }} as the final price?"
                       data-cs-title="Accept Final Price"
                       data-cs-ok="Accept Price"
@@ -467,10 +487,30 @@
                   The baker set a final price of <strong style="color:var(--primary)">₱{{ number_format($co->admin_price,2) }}</strong>.
                   Accept to proceed or cancel the order.
                 </div>
+                @php $acceptTotal = (float)$co->admin_price; $acceptMin = max(100, round($acceptTotal * 0.5, 2)); @endphp
                 <div class="d-flex gap-2 flex-wrap">
-                  <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST" class="d-inline">
+                  <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST"
+                        class="deposit-amount-form flex-grow-1"
+                        data-min="{{ $acceptMin }}"
+                        data-max="{{ $acceptTotal }}"
+                        data-btn-label="Accept Price">
                     @csrf
-                    <button type="submit" class="btn btn-success btn-sm"
+                    <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now <span class="text-muted fw-normal">(min 50%)</span></label>
+                    <div class="input-group input-group-sm mb-1">
+                      <span class="input-group-text fw-bold" style="color:#d97706;background:#fffbeb;border-color:#fde68a">â‚±</span>
+                      <input type="text"
+                             name="deposit_amount"
+                             class="form-control deposit-amount-input"
+                             value="{{ number_format($acceptMin, 2, '.', '') }}"
+                             inputmode="decimal"
+                             autocomplete="off"
+                             data-min="{{ $acceptMin }}"
+                             data-max="{{ $acceptTotal }}"
+                             style="font-weight:800;color:#111827;border-color:#fde68a">
+                    </div>
+                    <div class="deposit-error">Minimum payment is 50%: â‚±{{ number_format($acceptMin, 2) }}.</div>
+                    <div class="small text-muted mb-2">â‚±{{ number_format($acceptMin, 2) }} min Â· â‚±{{ number_format($acceptTotal, 2) }} max Â· remainder due later</div>
+                    <button type="submit" class="btn btn-success btn-sm w-100"
                             data-cs-confirm="Accept ₱{{ number_format($co->admin_price,2) }} as final price?"
                             data-cs-title="Accept Final Price"
                             data-cs-ok="Accept Price"
@@ -923,16 +963,23 @@ function setupDepositAmountForms() {
 
     if (!input || !error) return;
 
+    const btnLabel = form.dataset.btnLabel || 'Pay Deposit via GCash';
     const setButtonCopy = () => {
       const amount = parseFloat(input.value || '0');
       if (button) {
-        button.innerHTML = '<i class="bi bi-phone-fill me-1"></i>Pay Deposit via GCash';
+        button.innerHTML = '<i class="bi bi-phone-fill me-1"></i>' + btnLabel;
         button.dataset.csConfirm = 'Pay deposit of ₱' + (amount || min).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' via GCash?\\n\\nYou will be redirected to PayMongo.';
         button.dataset.csTitle = 'Pay Deposit';
         button.dataset.csOk = 'Pay Now';
         button.dataset.csIcon = 'bi-phone-fill';
         button.dataset.csIconBg = '#d1fae5';
         button.dataset.csIconColor = '#059669';
+        if (btnLabel === 'Accept Price') {
+          button.dataset.csConfirm = 'Accept final price and pay PHP ' + (amount || min).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' via PayMongo?';
+          button.dataset.csTitle = 'Accept Final Price';
+          button.dataset.csOk = 'Accept Price';
+          button.dataset.csIcon = 'bi-check-circle';
+        }
       }
     };
 
@@ -942,6 +989,7 @@ function setupDepositAmountForms() {
       error.classList.remove('show');
       void error.offsetWidth;
       error.classList.add('show');
+      if (typeof cakeToast === 'function') cakeToast(message, 'error');
       if (navigator.vibrate) navigator.vibrate(120);
     };
 
