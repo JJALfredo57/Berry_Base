@@ -727,7 +727,23 @@
     .sb-link-text { overflow:hidden;text-overflow:ellipsis;transition:opacity .2s; }
     #adminSidebar.collapsed .sb-link-text { opacity:0; }
     .sb-badge { margin-left:auto;flex-shrink:0;background:#ef4444;color:#fff;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:99px;min-width:18px;text-align:center;transition:opacity .2s; }
+    .sb-badge.warn { background:#f59e0b;color:#fff; }
+    .sb-badge.info { background:#3b82f6;color:#fff; }
+    .sb-badge.success { background:#16a34a;color:#fff; }
     #adminSidebar.collapsed .sb-badge { opacity:0; }
+    #sellerSidebar.collapsed .sb-badge {
+      opacity:1;
+      position:absolute;
+      right:7px;
+      top:7px;
+      width:8px;
+      min-width:8px;
+      height:8px;
+      padding:0;
+      overflow:hidden;
+      color:transparent;
+      border:1.5px solid rgba(255,255,255,.85);
+    }
 
     .sb-user { border-top:1px solid rgba(255,255,255,.06);padding:12px;display:flex;align-items:center;gap:10px;flex-shrink:0;overflow:hidden;white-space:nowrap; }
     .sb-user-info { overflow:hidden;transition:opacity .2s; }
@@ -1273,6 +1289,20 @@
     $sellerShop = \Illuminate\Support\Facades\DB::table('shops')
       ->where('seller_id', $uid)->first();
   } catch(\Exception $e) {}
+  $sellerSidebarCounts = array_merge([
+    'orders' => 0,
+    'kitchen' => 0,
+    'messages' => 0,
+    'custom_orders' => 0,
+    'reviews' => 0,
+    'feedback' => 0,
+    'pickup_ready' => 0,
+    'pending_orders' => 0,
+    'kitchen_pending' => 0,
+    'kitchen_preparing' => 0,
+  ], $sellerSidebarCounts ?? []);
+  $sbCount = fn($key) => (int) ($sellerSidebarCounts[$key] ?? 0);
+  $sbCountLabel = fn($count) => $count > 99 ? '99+' : (string) $count;
 @endphp
 <div id="sellerSidebar">
   <div class="sb-brand">
@@ -1296,19 +1326,22 @@
     </a>
     <a href="{{ route('seller.orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.orders') ? 'active' : '' }}">
       <i class="bi bi-bag-check"></i><span class="sb-link-text">Orders</span>
-      @php try { $selPend = (int)\Illuminate\Support\Facades\DB::table('orders')->where('shop_id',$sellerShop?->id)->where('status','Pending')->count(); } catch(\Exception $e){ $selPend=0; } @endphp
-      @if($selPend > 0)<span class="sb-badge">{{ $selPend }}</span>@endif
+      @if($sbCount('orders') > 0)
+        <span class="sb-badge warn" title="{{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending">{{ $sbCountLabel($sbCount('orders')) }}</span>
+      @endif
     </a>
     <a href="{{ route('seller.kitchen') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.kitchen') ? 'active' : '' }}">
       <i class="bi bi-fire"></i><span class="sb-link-text">Kitchen</span>
+      @if($sbCount('kitchen') > 0)
+        <span class="sb-badge info" title="{{ $sbCount('kitchen_pending') }} pending, {{ $sbCount('kitchen_preparing') }} preparing">{{ $sbCountLabel($sbCount('kitchen')) }}</span>
+      @endif
     </a>
     <a href="{{ route('seller.payouts') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.payouts') ? 'active' : '' }}">
       <i class="bi bi-wallet2"></i><span class="sb-link-text">Payouts</span>
     </a>
     <a href="{{ route('seller.messages') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.messages') ? 'active' : '' }}">
       <i class="bi bi-chat-dots"></i><span class="sb-link-text">Messages</span>
-      @php try { $selMsg = (int)\Illuminate\Support\Facades\DB::table('messages as m')->join('orders as o','o.id','=','m.order_id')->where('o.shop_id',$sellerShop?->id)->where('m.sender_role','customer')->where('m.is_read', false)->count(); } catch(\Exception $e){ $selMsg=0; } @endphp
-      @if($selMsg > 0)<span class="sb-badge">{{ $selMsg > 9 ? '9+' : $selMsg }}</span>@endif
+      @if($sbCount('messages') > 0)<span class="sb-badge" title="Unread customer messages">{{ $sbCountLabel($sbCount('messages')) }}</span>@endif
     </a>
 
     <div class="sb-label">Catalog</div>
@@ -1318,8 +1351,7 @@
     @if($sellerShop?->tier === 'verified')
     <a href="{{ route('seller.custom_orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.custom_orders') ? 'active' : '' }}">
       <i class="bi bi-palette"></i><span class="sb-link-text">Custom Orders</span>
-      @php try { $selCust = (int)\Illuminate\Support\Facades\DB::table('custom_orders')->where('shop_id',$sellerShop?->id)->where('review_status','pending')->count(); } catch(\Exception $e){ $selCust=0; } @endphp
-      @if($selCust > 0)<span class="sb-badge">{{ $selCust }}</span>@endif
+      @if($sbCount('custom_orders') > 0)<span class="sb-badge warn" title="Custom orders awaiting review">{{ $sbCountLabel($sbCount('custom_orders')) }}</span>@endif
     </a>
     @endif
     <a href="{{ route('seller.addons') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.addons') ? 'active' : '' }}">
@@ -1343,9 +1375,11 @@
     </a>
     <a href="{{ route('seller.reviews') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.reviews') ? 'active' : '' }}">
       <i class="bi bi-star"></i><span class="sb-link-text">Reviews</span>
+      @if($sbCount('reviews') > 0)<span class="sb-badge success" title="New reviews awaiting review">{{ $sbCountLabel($sbCount('reviews')) }}</span>@endif
     </a>
     <a href="{{ route('seller.feedback') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.feedback') ? 'active' : '' }}">
       <i class="bi bi-chat-square-heart"></i><span class="sb-link-text">Platform Feedback</span>
+      @if($sbCount('feedback') > 0)<span class="sb-badge info" title="Open platform feedback">{{ $sbCountLabel($sbCount('feedback')) }}</span>@endif
     </a>
     <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="sb-link" style="margin-top:4px;background:none;border:none;width:100%;text-align:left;padding:0;cursor:pointer">
       <i class="bi bi-box-arrow-right" style="color:#ef4444"></i>
@@ -3227,10 +3261,15 @@ function updateBubbleBadge(delta) {
 function setBubbleBadgeCount(count) {
   const badge = document.getElementById('cakeMsgBadge');
   const tooltip = document.getElementById('cakeMsgTooltip');
+  const bubble = document.getElementById('cakeMsgBubble');
   const next = Math.max(0, parseInt(count, 10) || 0);
   if (badge) {
     badge.textContent = next > 9 ? '9+' : next;
     badge.style.display = next > 0 ? 'flex' : 'none';
+  }
+  if (bubble) {
+    bubble.classList.toggle('has-unread', next > 0);
+    bubble.setAttribute('aria-label', next > 0 ? next + ' unread messages' : 'Open messages');
   }
   if (tooltip) {
     tooltip.innerHTML = next > 0
@@ -3503,7 +3542,7 @@ function formatMcTime(dateStr) {
 @if($isSeller)
 @php
   $msgRoute    = route('seller.messages');
-  $unreadCount = $unreadMessages ?? 0;
+  $unreadCount = max((int)($unreadMessages ?? 0), (int)($sellerSidebarCounts['messages'] ?? 0));
 @endphp
 <style>
 @@keyframes cakeBubbleFloat { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-10px) rotate(2deg)} }
@@ -3613,7 +3652,7 @@ function formatMcTime(dateStr) {
   @endif
 </div>
 
-<a href="#" id="cakeMsgBubble" onclick="event.preventDefault();if(typeof toggleMiniChat==='function')toggleMiniChat()"
+<a href="#" id="cakeMsgBubble" class="{{ $unreadCount > 0 ? 'has-unread' : '' }}" aria-label="{{ $unreadCount > 0 ? $unreadCount . ' unread messages' : 'Open messages' }}" onclick="event.preventDefault();if(typeof toggleMiniChat==='function')toggleMiniChat()"
    onmouseenter="document.getElementById('cakeMsgTooltip').style.display='block'"
    onmouseleave="document.getElementById('cakeMsgTooltip').style.display='none'">
   <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -1,6 +1,31 @@
 @extends('layouts.app')
 @section('page_title','Orders')
 @section('content')
+<style>
+  .seller-order-item.action-needed {
+    border-color:#f9a8d4!important;
+    box-shadow:0 12px 34px rgba(219,39,119,.12);
+  }
+  .seller-action-pill {
+    display:inline-flex;
+    align-items:center;
+    gap:.35rem;
+    background:#fdf2f8;
+    color:#be185d;
+    border:1px solid #fbcfe8;
+    font-size:.68rem;
+    font-weight:800;
+    padding:.2rem .55rem;
+    border-radius:99px;
+    white-space:nowrap;
+  }
+  @media (max-width:575px) {
+    .seller-action-pill {
+      white-space:normal;
+      line-height:1.2;
+    }
+  }
+</style>
 <div>
   <div style="margin-bottom:2rem">
     <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem">Orders</h1>
@@ -50,6 +75,7 @@
   @php
     $custom = $customData[$o->id] ?? null;
     $addons = $orderAddons[$o->id] ?? [];
+    $needsPickupAction = ($o->status ?? '') === 'Pickup';
     $sc = match($o->status) {
       'Awaiting Deposit'         => 'background:#FCE4EC;color:#880E4F',
       'Pending','Pending Review' => 'background:#FFF3E0;color:#E65100',
@@ -63,7 +89,7 @@
     };
   @endphp
 
-  <div class="seller-order-item"
+  <div class="seller-order-item {{ $needsPickupAction ? 'action-needed' : '' }}"
        data-search="{{ strtolower(trim(($o->track_code ?? '') . ' ' . ($o->order_customer_name ?? 'customer') . ' ' . ($o->product_name ?? ($custom->cake_name ?? 'custom cake')) . ' ' . ($o->payment_status ?? '') . ' ' . ($o->payment_method ?? '') . ' ' . ($o->status ?? ''))) }}"
        data-status="{{ strtolower($o->status ?? '') }}"
        data-fulfillment="{{ strtolower($o->fulfillment_type ?? 'pickup') }}"
@@ -78,7 +104,7 @@
       }
       $thumb = $custom ? ($customRefs[0] ?? null) : ($o->product_image_path ?? null);
     @endphp
-    <div style="padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;background:{{ in_array($o->status,['Pending','Pending Review']) ? '#FFFBF5' : '#fff' }}">
+    <div style="padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;background:{{ $needsPickupAction ? '#fff7fb' : (in_array($o->status,['Pending','Pending Review']) ? '#FFFBF5' : '#fff') }}">
       {{-- Thumbnail --}}
       @if($thumb)
         <div data-lightbox-gallery="order-thumb-{{ $o->id }}" style="display:flex">
@@ -101,6 +127,9 @@
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.25rem">
           <span style="font-size:.875rem;font-weight:700;color:var(--gray-900);font-family:monospace">{{ strtoupper($o->track_code) }}</span>
           <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $o->status === 'Pickup' ? 'Ready for Pickup' : $o->status }}</span>
+          @if($needsPickupAction)
+            <span class="seller-action-pill"><i class="bi bi-exclamation-circle-fill"></i>Action needed: mark as picked up</span>
+          @endif
           @if($custom)
             <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Custom</span>
           @endif

@@ -45,7 +45,16 @@ class OrderController extends Controller
                     ->orWhereRaw("o.status ilike ?", ["%$search%"])
                 ))
                 ->when($status && $status !== 'All', fn($q) => $q->where('o.status', $status))
-                ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")
+                ->orderByRaw("
+                    CASE
+                        WHEN o.status = 'Pickup' THEN 0
+                        WHEN o.status IN ('Pending','Pending Review') THEN 1
+                        WHEN o.status IN ('Confirmed','Preparing','Out for Delivery') THEN 2
+                        WHEN o.status IN ('Delivered','Picked Up','Cancelled') THEN 4
+                        ELSE 3
+                    END
+                ")
+                ->orderByRaw("CASE WHEN o.status = 'Pickup' THEN o.id ELSE 2147483647 END ASC")
                 ->orderByDesc('o.id')
                 ->paginate(10)
                 ->withQueryString();
