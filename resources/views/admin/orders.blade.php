@@ -4,6 +4,7 @@
   if (!isset($pendingCancelCount)) $pendingCancelCount = 0;
   if (!isset($orderAddons))      $orderAddons = [];
   if (!isset($orderReviews))     $orderReviews = [];
+  if (!isset($customOrderData))  $customOrderData = [];
 @endphp
 <div>
   <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
@@ -64,6 +65,13 @@
     @forelse($orders as $o)
     @php
       $isCancelPending = $o->cancel_requested && $o->cancel_status === 'pending';
+      $customOrder = $customOrderData[$o->id] ?? null;
+      $customRefs = [];
+      if ($customOrder && !empty($customOrder->reference_images)) {
+        $decodedRefs = json_decode($customOrder->reference_images, true);
+        $customRefs = is_array($decodedRefs) ? array_values(array_filter($decodedRefs)) : [];
+      }
+      $orderThumb = $customOrder ? ($customRefs[0] ?? null) : ($o->image_path ?? null);
     @endphp
     <div class="col-12 order-item"
          data-status="{{ $o->status }}"
@@ -100,8 +108,25 @@
           {{-- Order Header --}}
           <div class="d-flex flex-wrap align-items-center justify-content-between p-3 border-bottom">
             <div class="d-flex align-items-center gap-3">
-              <img src="{{ $o->image_path }}" style="width:52px;height:52px;object-fit:cover;border-radius:.7rem"
-                   onerror="this.src='https://placehold.co/52x52/fce4ec/e91e63?text=🎂'">
+              @if($orderThumb)
+              <div data-lightbox-gallery="admin-order-{{ $o->id }}" style="display:flex">
+                @if($customOrder && count($customRefs) > 0)
+                  @foreach($customRefs as $idx => $refImg)
+                    <img src="{{ $refImg }}" data-src="{{ $refImg }}" class="chat-img" onclick="openLightbox(this)"
+                         style="width:52px;height:52px;object-fit:cover;border-radius:.7rem;cursor:zoom-in;{{ $idx === 0 ? '' : 'display:none' }}"
+                         onerror="this.style.display='none'">
+                  @endforeach
+                @else
+                  <img src="{{ $orderThumb }}" data-src="{{ $orderThumb }}" class="chat-img" onclick="openLightbox(this)"
+                       style="width:52px;height:52px;object-fit:cover;border-radius:.7rem;cursor:zoom-in"
+                       onerror="this.src='https://placehold.co/52x52/fce4ec/e91e63?text=Cake'">
+                @endif
+              </div>
+              @else
+              <div style="width:52px;height:52px;border-radius:.7rem;background:#fdf2f8;display:flex;align-items:center;justify-content:center;color:#be185d">
+                <i class="bi bi-stars"></i>
+              </div>
+              @endif
               <div>
                 <div class="fw-bold">{{ $o->product_name }}
                   <span class="text-muted fw-normal small">×{{ $o->quantity }}</span>
@@ -449,9 +474,16 @@
               <div class="card-body p-3">
                 <h6 class="fw-bold mb-3 small text-muted text-uppercase">📦 Order Details</h6>
                 <div class="d-flex align-items-center gap-3 mb-3">
-                  <img src="{{ $o->image_path }}" style="width:60px;height:60px;object-fit:cover;border-radius:.7rem"
-                       onerror="this.src='https://placehold.co/60x60/fce4ec/e91e63?text=🎂'">
-                  <div>
+                  @if($orderThumb)
+                  <img src="{{ $orderThumb }}" data-src="{{ $orderThumb }}" class="chat-img" onclick="openLightbox(this)"
+                       style="width:60px;height:60px;object-fit:cover;border-radius:.7rem;cursor:zoom-in"
+                       onerror="this.src='https://placehold.co/60x60/fce4ec/e91e63?text=Cake'">
+                  @else
+                  <div style="width:60px;height:60px;border-radius:.7rem;background:#fdf2f8;display:flex;align-items:center;justify-content:center;color:#be185d;flex-shrink:0">
+                    <i class="bi bi-stars"></i>
+                  </div>
+                  @endif
+              <div>
                     <div class="fw-bold">{{ $o->product_name }}</div>
                     <div class="text-muted small">Qty: {{ $o->quantity }} &bull; ₱{{ number_format($o->total_price,2) }}</div>
                   </div>
@@ -500,7 +532,7 @@
                     <div class="fw-semibold">{{ $o->custom_note }}</div>
                   </div>
                   @endif
-                  <div class="col-sm-6">
+              <div class="col-sm-6">
                     <div class="text-muted">Order Date</div>
                     <div class="fw-semibold">{{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y g:i A') }}</div>
                   </div>

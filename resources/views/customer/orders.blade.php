@@ -73,6 +73,12 @@
     $co          = $customOrderData[$o->id] ?? null;  // custom order record if exists
     $isCustom    = !is_null($co);
     $displayStatus = (($o->payment_status ?? '') === 'Paid' && ($o->status ?? '') === 'Awaiting Deposit') ? 'Confirmed' : $o->status;
+    $coRefImgs = [];
+    if ($co && !empty($co->reference_images)) {
+      $dec = json_decode($co->reference_images, true);
+      $coRefImgs = is_array($dec) ? array_values(array_filter($dec)) : [$co->reference_images];
+    }
+    $orderThumb = $isCustom ? ($coRefImgs[0] ?? null) : ($o->image_path ?? null);
   @endphp
 
   <div class="cust-order-item" data-status="{{ $displayStatus }}" data-search="{{ strtolower($o->product_name . ' ' . $o->id) }}">
@@ -82,10 +88,26 @@
       {{-- Header --}}
       <div class="d-flex flex-wrap align-items-center justify-content-between p-3 border-bottom">
         <div class="d-flex align-items-center gap-3">
-          <img src="{{ $o->image_path }}" alt="{{ $o->product_name }}"
-               style="width:56px;height:56px;object-fit:cover;border-radius:.7rem"
-               onerror="this.src='https://placehold.co/56x56/fce4ec/e91e63?text=🎂'">
-          <div>
+          @if($orderThumb)
+          <div data-lightbox-gallery="customer-order-{{ $o->id }}" style="display:flex">
+            @if($isCustom && count($coRefImgs) > 0)
+              @foreach($coRefImgs as $idx => $refImg)
+                <img src="{{ $refImg }}" data-src="{{ $refImg }}" class="chat-img" alt="{{ $o->product_name }}" onclick="openLightbox(this)"
+                     style="width:56px;height:56px;object-fit:cover;border-radius:.7rem;cursor:zoom-in;{{ $idx === 0 ? '' : 'display:none' }}"
+                     onerror="this.style.display='none'">
+              @endforeach
+            @else
+              <img src="{{ $orderThumb }}" data-src="{{ $orderThumb }}" class="chat-img" alt="{{ $o->product_name }}" onclick="openLightbox(this)"
+                   style="width:56px;height:56px;object-fit:cover;border-radius:.7rem;cursor:zoom-in"
+                   onerror="this.src='https://placehold.co/56x56/fce4ec/e91e63?text=Cake'">
+            @endif
+          </div>
+          @else
+          <div style="width:56px;height:56px;border-radius:.7rem;background:#fdf2f8;display:flex;align-items:center;justify-content:center;color:#be185d">
+            <i class="bi bi-stars"></i>
+          </div>
+          @endif
+              <div>
             <div class="fw-bold">{{ $o->product_name }}</div>
             <div class="text-muted small">Order #{{ $o->id }} &bull; {{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y') }}</div>
           </div>
@@ -133,7 +155,7 @@
             <i class="bi bi-tags me-1"></i>{{ \App\Helpers\CakeshopHelper::discountBadgeText($o->discount_type, $o->discount_value) ?? 'Product Discount' }}
           </div>
           @endif
-          <div class="col-6 col-md-3">
+              <div class="col-6 col-md-3">
             <i class="bi bi-credit-card me-1"></i>{{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}
             <span class="badge rounded-pill ms-1"
                   style="font-size:.7rem;background:{{ $o->payment_status==='Paid'?'#d4edda':($o->payment_status==='Partial Payment'?'#fff3cd':'#fff3cd') }};color:{{ $o->payment_status==='Paid'?'#155724':'#856404' }}">
@@ -184,11 +206,6 @@
       @if(isset($customOrderData[$o->id]))
       @php
         $co = $customOrderData[$o->id];
-        $coRefImgs = [];
-        if ($co->reference_images) {
-          $dec = json_decode($co->reference_images, true);
-          $coRefImgs = is_array($dec) ? $dec : [$co->reference_images];
-        }
         $coStatusMap = [
           'pending'  => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split','label'=>'Awaiting Admin Review'],
           'approved' => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'bi-check-circle','label'=>'Approved'],
@@ -208,7 +225,7 @@
 
         {{-- Reference images --}}
         @if(count($coRefImgs) > 0)
-        <div class="d-flex gap-2 flex-wrap mb-2">
+        <div class="d-flex gap-2 flex-wrap mb-2" data-lightbox-gallery="customer-custom-refs-{{ $o->id }}">
           @foreach($coRefImgs as $rImg)
           <img src="{{ $rImg }}"
                class="chat-img" data-src="{{ $rImg }}"
@@ -697,7 +714,7 @@
         </div>
       </div>
       @endif
-      <div class="px-3 py-3">
+              <div class="px-3 py-3">
         <p class="small fw-semibold text-muted mb-2"><i class="bi bi-geo-alt me-1"></i>Order Tracking</p>
         <div class="d-flex align-items-start overflow-auto pb-1">
           @php
@@ -860,9 +877,16 @@
         <div class="modal-body">
           {{-- Order Summary --}}
           <div class="d-flex align-items-center gap-3 p-3 rounded mb-3" style="background:#f8f9fa">
-            <img src="{{ $o->image_path }}" style="width:48px;height:48px;object-fit:cover;border-radius:.6rem"
-                 onerror="this.src='https://placehold.co/48x48/fce4ec/e91e63?text=🎂'">
-            <div>
+            @if($orderThumb)
+            <img src="{{ $orderThumb }}" data-src="{{ $orderThumb }}" class="chat-img" onclick="openLightbox(this)"
+                 style="width:48px;height:48px;object-fit:cover;border-radius:.6rem;cursor:zoom-in"
+                 onerror="this.src='https://placehold.co/48x48/fce4ec/e91e63?text=Cake'">
+            @else
+            <div style="width:48px;height:48px;border-radius:.6rem;background:#fdf2f8;display:flex;align-items:center;justify-content:center;color:#be185d;flex-shrink:0">
+              <i class="bi bi-stars"></i>
+            </div>
+            @endif
+              <div>
               <div class="fw-semibold small">{{ $o->product_name }}</div>
               <div class="text-muted small">Order #{{ $o->id }} &bull; ₱{{ number_format($o->total_price,2) }} &bull; Qty: {{ $o->quantity }}</div>
               <div class="text-muted small">{{ $o->fulfillment_type }} &bull; {{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}</div>

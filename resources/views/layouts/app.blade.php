@@ -3765,7 +3765,7 @@ var LB_ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 
 function openLightbox(imgEl) {
   // Collect all .chat-img images visible in the page / bubble
-  const scope = imgEl.closest('#chatBox') || imgEl.closest('#miniChatMessages') || document;
+  const scope = imgEl.closest('[data-lightbox-gallery]') || imgEl.closest('#chatBox') || imgEl.closest('#miniChatMessages') || document;
   const imgs = [...scope.querySelectorAll('.chat-img[data-src]')];
   lbImages  = imgs.map(i => i.dataset.src || i.src);
   lbIndex   = imgs.indexOf(imgEl);

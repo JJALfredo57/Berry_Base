@@ -305,18 +305,31 @@
       <h6 class="fw-bold mb-3"><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Order Details</h6>
       <div class="d-flex align-items-center gap-3 mb-3">
         @php
+            $refImgs = [];
             $thumbSrc = $order->image_path ?? '/images/default-cake.svg';
             if ($customOrder && !empty($customOrder->reference_images)) {
-                $refImgs = is_array($customOrder->reference_images)
+                $decodedRefs = is_array($customOrder->reference_images)
                     ? $customOrder->reference_images
                     : json_decode($customOrder->reference_images, true);
+                $refImgs = is_array($decodedRefs) ? array_values(array_filter($decodedRefs)) : [];
                 if (!empty($refImgs[0])) $thumbSrc = $refImgs[0];
             }
         @endphp
-        <img src="{{ $thumbSrc }}"
-             style="width:64px;height:64px;object-fit:cover;border-radius:.7rem;cursor:zoom-in"
-             onclick="openLightbox(this)"
-             onerror="this.src='https://placehold.co/64x64/fce4ec/e91e63?text=🎂'">
+        <div data-lightbox-gallery="guest-track-order-{{ $order->id }}" style="display:flex">
+          @if($customOrder && count($refImgs) > 0)
+            @foreach($refImgs as $idx => $refImg)
+              <img src="{{ $refImg }}" data-src="{{ $refImg }}" class="chat-img"
+                   style="width:64px;height:64px;object-fit:cover;border-radius:.7rem;cursor:zoom-in;{{ $idx === 0 ? '' : 'display:none' }}"
+                   onclick="openLightbox(this)"
+                   onerror="this.style.display='none'">
+            @endforeach
+          @else
+            <img src="{{ $thumbSrc }}" data-src="{{ $thumbSrc }}" class="chat-img"
+                 style="width:64px;height:64px;object-fit:cover;border-radius:.7rem;cursor:zoom-in"
+                 onclick="openLightbox(this)"
+                 onerror="this.src='https://placehold.co/64x64/fce4ec/e91e63?text=Cake'">
+          @endif
+        </div>
         <div>
           <div class="fw-bold">{{ $order->product_name }}</div>
           <div class="text-muted small">Qty: {{ $order->quantity }}
@@ -373,7 +386,7 @@
           </div>
         </div>
         @endif
-        <div class="col-sm-6">
+              <div class="col-sm-6">
           <div class="p-2 rounded-2" style="background:#f8f9fa">
             <div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Payment</div>
             <div class="fw-semibold">{{ \App\Helpers\CakeshopHelper::displayPaymentMethod($order->payment_method, $order->fulfillment_type) }}
@@ -446,7 +459,7 @@
               Deposit of ₱{{ number_format($order->deposit_amount, 2) }} already paid ✓
             </div>
             @endif
-            <div class="text-muted text-center mt-1" style="font-size:clamp(.7rem,1.4vw,.75rem)">
+              <div class="text-muted text-center mt-1" style="font-size:clamp(.7rem,1.4vw,.75rem)">
               <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo
             </div>
           </div>
@@ -976,7 +989,7 @@
               <i class="bi bi-image"></i>View Proof
             </button>
           @endif
-          <div class="text-muted" style="font-size:clamp(.68rem,1.3vw,.72rem)">{{ \Carbon\Carbon::parse($t->created_at)->format('M d, Y g:i A') }}</div>
+              <div class="text-muted" style="font-size:clamp(.68rem,1.3vw,.72rem)">{{ \Carbon\Carbon::parse($t->created_at)->format('M d, Y g:i A') }}</div>
         </div>
       </div>
       @endforeach
@@ -1040,8 +1053,7 @@
             <input type="hidden" name="rider_rating" id="riderRatingInput" value="">
           </div>
           @endif
-
-          <div class="mb-3">
+              <div class="mb-3">
             <textarea class="form-control" name="review" rows="3"
                       placeholder="Tell us about your experience... (optional)"></textarea>
           </div>

@@ -42,18 +42,21 @@ class OrderController extends Controller
         $orderIds = collect($orders->items())->pluck('id')->toArray();
         $orderAddons = [];
         $orderReviews = [];
+        $customOrderData = [];
         if ($orderIds) {
             try {
                 $addonRows = DB::table('order_addons')->whereIn('order_id', $orderIds)->get();
                 foreach ($addonRows as $a) $orderAddons[$a->order_id][] = $a;
                 $reviewRows = DB::table('order_reviews')->whereIn('order_id', $orderIds)->get();
                 foreach ($reviewRows as $r) $orderReviews[$r->order_id] = $r;
+                $customRows = DB::table('custom_orders')->whereIn('order_id', $orderIds)->get();
+                foreach ($customRows as $c) $customOrderData[$c->order_id] = $c;
             } catch (\Exception $e) {}
         }
 
         $pendingCancelCount = DB::table('orders')->where('cancel_status', 'pending')->count();
 
-        return view('admin.orders', compact('orders','pendingCancelCount','orderAddons','orderReviews','search','status'));
+        return view('admin.orders', compact('orders','pendingCancelCount','orderAddons','orderReviews','customOrderData','search','status'));
     }
 
     /** Admin confirms order — only allowed after deposit is paid */

@@ -94,11 +94,12 @@
 <div class="thread-page">
     @php
       $productTitle = $order->product_name ?? ($customOrder->cake_name ?? 'Custom Cake');
-      $cakeImage = $order->product_image_path ?? null;
-      if (!$cakeImage && $customOrder) {
-          $refs = json_decode($customOrder->reference_images ?? '[]', true);
-          $cakeImage = is_array($refs) ? ($refs[0] ?? null) : null;
+      $customRefs = [];
+      if ($customOrder) {
+          $decodedRefs = json_decode($customOrder->reference_images ?? '[]', true);
+          $customRefs = is_array($decodedRefs) ? array_values(array_filter($decodedRefs)) : [];
       }
+      $cakeImage = $customOrder ? ($customRefs[0] ?? null) : ($order->product_image_path ?? null);
       $displayStatus = $order->status === 'Pickup' ? 'Ready for Pickup' : $order->status;
       $schedule = $order->schedule_date
           ? \Carbon\Carbon::parse($order->schedule_date)->format('M d, Y') . ($order->schedule_time ? ' ' . $order->schedule_time : '')
@@ -133,7 +134,19 @@
     <div class="order-context">
       <div class="order-context-grid">
         @if($cakeImage)
-          <img src="{{ $cakeImage }}" alt="{{ $productTitle }}" class="order-photo" onclick="openLightbox(this)" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'order-photo-placeholder',innerHTML:'<i class=&quot;bi bi-image&quot;></i>'}))">
+          <div data-lightbox-gallery="thread-order-{{ $order->id }}" style="display:flex;flex-direction:column;gap:8px;min-width:0">
+            <img src="{{ $cakeImage }}" data-src="{{ $cakeImage }}" alt="{{ $productTitle }}" class="order-photo chat-img" onclick="openLightbox(this)" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'order-photo-placeholder',innerHTML:'<i class=&quot;bi bi-image&quot;></i>'}))">
+            @if(count($customRefs) > 1)
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                @foreach($customRefs as $idx => $refImg)
+                  @if($idx > 0)
+                    <img src="{{ $refImg }}" data-src="{{ $refImg }}" class="chat-img" onclick="openLightbox(this)" alt="Reference photo"
+                         style="width:44px;height:44px;border-radius:8px;object-fit:cover;cursor:zoom-in;border:1.5px solid #eef2f7">
+                  @endif
+                @endforeach
+              </div>
+            @endif
+          </div>
         @else
           <div class="order-photo-placeholder"><i class="bi bi-image"></i></div>
         @endif

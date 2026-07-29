@@ -71,17 +71,27 @@
 
     {{-- Order Header --}}
     @php
-      $thumb = $o->product_image_path ?? null;
-      if (!$thumb && $custom) {
-          $refs  = json_decode($custom->reference_images ?? '[]', true);
-          $thumb = is_array($refs) ? ($refs[0] ?? null) : null;
+      $customRefs = [];
+      if ($custom) {
+          $decodedRefs = json_decode($custom->reference_images ?? '[]', true);
+          $customRefs = is_array($decodedRefs) ? array_values(array_filter($decodedRefs)) : [];
       }
+      $thumb = $custom ? ($customRefs[0] ?? null) : ($o->product_image_path ?? null);
     @endphp
     <div style="padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;background:{{ in_array($o->status,['Pending','Pending Review']) ? '#FFFBF5' : '#fff' }}">
       {{-- Thumbnail --}}
       @if($thumb)
-        <img src="{{ $thumb }}" onclick="openLightbox(this)"
+        <div data-lightbox-gallery="order-thumb-{{ $o->id }}" style="display:flex">
+        @if($custom && count($customRefs) > 0)
+          @foreach($customRefs as $idx => $refImg)
+            <img src="{{ $refImg }}" data-src="{{ $refImg }}" class="chat-img" onclick="openLightbox(this)"
+                 style="width:58px;height:58px;border-radius:10px;object-fit:cover;flex-shrink:0;cursor:zoom-in;border:1.5px solid var(--gray-100);{{ $idx === 0 ? '' : 'display:none' }}">
+          @endforeach
+        @else
+        <img src="{{ $thumb }}" data-src="{{ $thumb }}" class="chat-img" onclick="openLightbox(this)"
              style="width:58px;height:58px;border-radius:10px;object-fit:cover;flex-shrink:0;cursor:zoom-in;border:1.5px solid var(--gray-100)">
+        @endif
+        </div>
       @else
         <div style="width:58px;height:58px;border-radius:10px;background:#fdf2f8;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1.5px solid var(--gray-100)">
           <i class="bi bi-{{ $custom ? 'stars' : 'bag' }}" style="font-size:1.4rem;color:#be185d"></i>
@@ -118,10 +128,10 @@
     <div id="order-detail-{{ $o->id }}" style="display:none">
       @php
         $allRefs = [];
-        if ($o->product_image_path) $allRefs[] = $o->product_image_path;
         if ($custom) {
-          $refs2 = json_decode($custom->reference_images ?? '[]', true);
-          if (is_array($refs2)) $allRefs = array_merge($allRefs, $refs2);
+          $allRefs = $customRefs;
+        } elseif ($o->product_image_path) {
+          $allRefs[] = $o->product_image_path;
         }
       @endphp
 
@@ -129,9 +139,9 @@
       @if(count($allRefs) || $o->delivery_photo || $o->issue_photo || ($custom && ($custom->progress_image ?? null)))
       <div style="margin-bottom:1rem">
         <div style="font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Photos</div>
-        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap" data-lightbox-gallery="order-detail-{{ $o->id }}">
           @foreach($allRefs as $img)
-            <img src="{{ $img }}" onclick="openLightbox(this)"
+            <img src="{{ $img }}" data-src="{{ $img }}" class="chat-img" onclick="openLightbox(this)"
                  style="width:90px;height:90px;border-radius:10px;object-fit:cover;cursor:zoom-in;border:1.5px solid var(--gray-100)">
           @endforeach
           @if($o->delivery_photo)
