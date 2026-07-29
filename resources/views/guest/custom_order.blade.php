@@ -342,14 +342,14 @@
                 <h6 class="fw-bold mb-3"><i class="bi bi-credit-card me-2" style="color:var(--primary)"></i>Payment Method</h6>
                 <div class="d-flex gap-3 flex-wrap">
                   <div class="form-check">
-                    <input class="form-check-input" type="radio" name="payment_method" value="COD" id="cod" checked>
+                    <input class="form-check-input" type="radio" name="payment_method" value="COD" id="cod" checked onchange="updateCustomPaymentTransparency()">
                     <label class="form-check-label fw-semibold" for="cod">
                       <i class="bi bi-cash-coin me-1"></i><span id="codLabelText">Cash on Pickup (COP)</span>
                     </label>
                     <div class="text-muted" id="codHelpText" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay cash when you pick up your order.</div>
                   </div>
                   <div class="form-check">
-                    <input class="form-check-input" type="radio" name="payment_method" value="GCash" id="gcash">
+                    <input class="form-check-input" type="radio" name="payment_method" value="GCash" id="gcash" onchange="updateCustomPaymentTransparency()">
                     <label class="form-check-label fw-semibold" for="gcash">
                       <i class="bi bi-phone me-1"></i>GCash
                       @php $pmMode = \App\Helpers\CakeshopHelper::getPaymongoMode(); @endphp
@@ -361,6 +361,13 @@
                     </label>
                     <div class="text-muted" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay online via GCash — you'll receive a payment link once your order is out for delivery or ready for pickup.</div>
                   </div>
+                </div>
+                <div id="paymentTransparencyBox" class="mt-3 p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0">
+                  <div class="small fw-semibold mb-1" id="paymentTransparencyTitle" style="color:#0f172a">
+                    <i class="bi bi-info-circle me-1"></i>Cash on Pickup selected
+                  </div>
+                  <div class="small text-muted mb-1" id="paymentTransparencyText">GCash down payment is required first. The remaining balance will be paid in cash on pickup.</div>
+                  <div class="small" id="paymentTransparencyBreakdown" style="color:#475569"></div>
                 </div>
               </div>
             </div>
@@ -633,6 +640,29 @@ function updateCashPaymentCopy() {
       ? 'Pay cash when your order arrives.'
       : 'Pay cash when you pick up your order.';
   }
+  updateCustomPaymentTransparency();
+}
+
+function updateCustomPaymentTransparency() {
+  var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+  var method = document.querySelector('[name=payment_method]:checked')?.value || 'COD';
+  var titleEl = document.getElementById('paymentTransparencyTitle');
+  var textEl = document.getElementById('paymentTransparencyText');
+  var breakdownEl = document.getElementById('paymentTransparencyBreakdown');
+  if (!titleEl || !textEl || !breakdownEl) return;
+
+  if (method === 'GCash') {
+    titleEl.innerHTML = '<i class="bi bi-shield-check me-1"></i>Online Payment via PayMongo selected';
+    textEl.textContent = 'Your custom cake deposit will be processed through PayMongo. Test mode will not charge real money; live mode will charge customers normally.';
+    breakdownEl.textContent = 'After the baker confirms the final price, PayMongo will collect the required down payment before the order is confirmed.';
+    return;
+  }
+
+  titleEl.innerHTML = '<i class="bi bi-info-circle me-1"></i>' + (isDelivery ? 'Cash on Delivery selected' : 'Cash on Pickup selected');
+  textEl.textContent = isDelivery
+    ? 'GCash down payment is required first. The remaining balance will be paid in cash on delivery.'
+    : 'GCash down payment is required first. The remaining balance will be paid in cash on pickup.';
+  breakdownEl.textContent = 'For custom cakes, cash payment applies only to the remaining balance after the PayMongo down payment.';
 }
 
 // ── Map ───────────────────────────────────────────────────────────────

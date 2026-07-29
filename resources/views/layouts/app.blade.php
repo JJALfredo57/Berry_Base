@@ -4313,7 +4313,7 @@ document.addEventListener('DOMContentLoaded', function () {
   nextBtn.addEventListener('click', function () {
     if (!currentValid()) return;
     if (current < cards.length - 1) {
-      var leavingPayment = form.id === 'checkoutForm' && titleOf(cards[current]).includes('Payment Method');
+      var leavingPayment = (form.id === 'checkoutForm' || form.id === 'customOrderForm') && titleOf(cards[current]).includes('Payment Method');
       var cashSelected = form.querySelector('[name="payment_method"]:checked')?.value !== 'GCash';
       if (leavingPayment && cashSelected && form.dataset.cashDpNoticeShown !== '1') {
         cakeConfirm({
