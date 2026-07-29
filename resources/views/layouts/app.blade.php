@@ -788,6 +788,7 @@
       transition:width .25s cubic-bezier(.4,0,.2,1);
     }
     #sellerSidebar.collapsed { width:var(--sidebar-coll); }
+    html.seller-sb-collapsed-pre #sellerSidebar { width:var(--sidebar-coll); }
     #sellerMain {
       margin-left:var(--sidebar-w);
       transition:margin-left .25s cubic-bezier(.4,0,.2,1);
@@ -795,6 +796,7 @@
       position:relative;z-index:1;
     }
     #sellerMain.expanded { margin-left:var(--sidebar-coll); }
+    html.seller-sb-collapsed-pre #sellerMain { margin-left:var(--sidebar-coll); }
     #sellerTopbar {
       position:sticky;top:0;z-index:1030;height:var(--topbar-h);
       margin-left:var(--sidebar-w);
@@ -804,12 +806,19 @@
       transition:margin-left .25s cubic-bezier(.4,0,.2,1);
     }
     #sellerSidebar.collapsed ~ #sellerTopbar { margin-left:var(--sidebar-coll); }
+    html.seller-sb-collapsed-pre #sellerTopbar { margin-left:var(--sidebar-coll); }
     #sellerSidebar.collapsed .sb-label,
     #sellerSidebar.collapsed .sb-link-text,
     #sellerSidebar.collapsed .sb-badge,
     #sellerSidebar.collapsed .sb-brand-text,
     #sellerSidebar.collapsed .sb-brand-sub,
     #sellerSidebar.collapsed .sb-user-info { opacity:0;pointer-events:none; }
+    html.seller-sb-collapsed-pre #sellerSidebar .sb-label,
+    html.seller-sb-collapsed-pre #sellerSidebar .sb-link-text,
+    html.seller-sb-collapsed-pre #sellerSidebar .sb-badge,
+    html.seller-sb-collapsed-pre #sellerSidebar .sb-brand-text,
+    html.seller-sb-collapsed-pre #sellerSidebar .sb-brand-sub,
+    html.seller-sb-collapsed-pre #sellerSidebar .sb-user-info { opacity:0;pointer-events:none; }
     #sellerOverlay { display:none;position:fixed;inset:0;z-index:1039;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px); }
     @@media(max-width:767px) {
       #sellerSidebar { transform:translateX(-100%);width:var(--sidebar-w) !important; }
@@ -817,6 +826,7 @@
       #sellerTopbar { margin-left:0 !important; }
       #sellerMain { margin-left:0 !important; }
       #sellerOverlay.active { display:block; }
+      html.seller-sb-collapsed-pre #sellerSidebar { width:var(--sidebar-w) !important; }
     }
     @endif
 
@@ -1023,6 +1033,17 @@
       .btn-sm { font-size:.72rem !important; padding:.22rem .5rem !important; }
     }
   </style>
+  @if($isSeller)
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem('cakeshop_sb') === 'collapsed' && window.innerWidth >= 768) {
+          document.documentElement.classList.add('seller-sb-collapsed-pre');
+        }
+      } catch (e) {}
+    })();
+  </script>
+  @endif
   @stack('styles')
   <style>
     .cs-checkout-stepper{display:flex;gap:.5rem;margin:0 0 1rem;overflow:auto;padding:.25rem .1rem .65rem}
@@ -1991,6 +2012,7 @@ function toggleSidebar() {
   } else {
     var col = sb.classList.toggle('collapsed');
     if (mn) mn.classList.toggle('expanded', col);
+    if (sb.id === 'sellerSidebar') document.documentElement.classList.toggle('seller-sb-collapsed-pre', col);
     try { localStorage.setItem('cakeshop_sb', col ? 'collapsed' : 'expanded'); } catch(e) {}
   }
 }
@@ -2028,13 +2050,22 @@ function closeSidebar() {
   function applyState() {
     if (window.innerWidth < 768) {
       sb.classList.remove('collapsed'); mn.classList.remove('expanded');
+      document.documentElement.classList.remove('seller-sb-collapsed-pre');
     } else {
       var stored; try { stored = localStorage.getItem('cakeshop_sb'); } catch(e) { stored = null; }
       var col = stored === 'collapsed';
       sb.classList.toggle('collapsed', col); mn.classList.toggle('expanded', col);
+      document.documentElement.classList.toggle('seller-sb-collapsed-pre', col);
     }
   }
   applyState();
+  sb.addEventListener('click', function(e) {
+    var nav = e.target.closest('a.sb-link, button.sb-link');
+    if (!nav || window.innerWidth < 768) return;
+    var col = sb.classList.contains('collapsed') || document.documentElement.classList.contains('seller-sb-collapsed-pre');
+    document.documentElement.classList.toggle('seller-sb-collapsed-pre', col);
+    try { localStorage.setItem('cakeshop_sb', col ? 'collapsed' : 'expanded'); } catch(err) {}
+  }, true);
   window.addEventListener('resize', applyState);
 })();
 @endif
@@ -2801,6 +2832,19 @@ document.addEventListener('DOMContentLoaded', function() {
   transition:background .2s;
 }
 #mcSendBtn:hover { background:#c2185b; }
+.mc-fullscreen-reminder {
+  margin:0;
+  padding:8px 12px;
+  background:#fff7fb;
+  border-bottom:1px solid #f5d7e5;
+  color:#8a3b5a;
+  font-size:.72rem;
+  line-height:1.4;
+  display:flex;
+  gap:7px;
+  align-items:flex-start;
+}
+.mc-fullscreen-reminder i { color:#e91e63;line-height:1.35;flex-shrink:0; }
 </style>
 
 <div id="miniChat">
@@ -2826,6 +2870,13 @@ document.addEventListener('DOMContentLoaded', function() {
       </button>
     </div>
   </div>
+
+  @if($isSeller)
+  <div class="mc-fullscreen-reminder">
+    <i class="bi bi-info-circle-fill"></i>
+    <div>For exact product replies, open the full screen thread to confirm the correct cake/order.</div>
+  </div>
+  @endif
 
   {{-- Messages area --}}
   <div id="miniChatMessages">
