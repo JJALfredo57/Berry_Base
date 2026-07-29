@@ -54,7 +54,7 @@ class OrderController extends Controller
                         ELSE 3
                     END
                 ")
-                ->orderByRaw("CASE WHEN o.status = 'Pickup' THEN o.id ELSE 2147483647 END ASC")
+                ->orderByRaw("CASE WHEN o.status = 'Pickup' THEN o.created_at ELSE NULL END ASC")
                 ->orderByDesc('o.id')
                 ->paginate(10)
                 ->withQueryString();
