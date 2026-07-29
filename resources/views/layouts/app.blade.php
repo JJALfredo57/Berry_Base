@@ -4334,6 +4334,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       showStep(current + 1);
     }
+    else if (form.id === 'customOrderForm' && typeof window.cvValidateAllCustom === 'function' && typeof window.confirmCustomOrder === 'function') {
+      if (!window.cvValidateAllCustom()) return;
+      window.confirmCustomOrder(nextBtn);
+    }
     else window.scrollTo({ top: form.getBoundingClientRect().bottom + window.scrollY - 120, behavior: 'smooth' });
   });
   form.addEventListener('input', updateSubmitVisibility);

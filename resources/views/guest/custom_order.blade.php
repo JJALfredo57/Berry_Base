@@ -419,11 +419,6 @@
                 </div>
               </div>
             </div>
-
-            <button type="submit" class="btn btn-primary w-100 py-3 fw-semibold fs-5"
-                    onclick="if(!cvValidateAllCustom()) return false; return confirmCustomOrder(this)">
-              <i class="bi bi-clipboard-check me-2"></i>Review Order
-            </button>
           </form>
         </div>
 
