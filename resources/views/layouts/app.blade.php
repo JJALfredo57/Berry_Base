@@ -2651,6 +2651,9 @@ document.addEventListener('DOMContentLoaded', function() {
   $popupSendUrl = $isAdmin ? route('admin.messages.popup_send') : route('seller.messages.popup_send');
   $csrfToken    = csrf_token();
   $fullMsgUrl   = $isAdmin ? route('admin.messages.index') : route('seller.messages');
+  $threadUrlTpl = $isAdmin
+      ? route('admin.messages.thread', ['order_id' => '__ORDER_ID__'])
+      : route('seller.messages.thread', ['orderId' => '__ORDER_ID__']);
 @endphp
 <style>
 @@keyframes chatPopIn { from{opacity:0;transform:scale(.85) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
@@ -2717,6 +2720,8 @@ document.addEventListener('DOMContentLoaded', function() {
 #miniChatMessages::-webkit-scrollbar-thumb { background:#e0e0e0; border-radius:2px; }
 
 .mc-msg-wrap { display:flex; flex-direction:column; animation: msgSlideIn .2s ease; }
+.mc-msg-wrap[data-order-id] { cursor:pointer; }
+.mc-msg-wrap[data-order-id]:hover .mc-bubble { box-shadow:0 2px 10px rgba(233,30,99,.18); }
 .mc-msg-wrap.me { align-items:flex-end; }
 .mc-msg-wrap.them { align-items:flex-start; }
 .mc-order-tag {
@@ -2725,6 +2730,14 @@ document.addEventListener('DOMContentLoaded', function() {
   margin-bottom:2px;
   padding:0 4px;
 }
+.mc-order-tag[data-order-id] {
+  cursor:pointer;
+  border-radius:999px;
+  align-self:center;
+  padding:3px 9px;
+  transition:background .15s,color .15s;
+}
+.mc-order-tag[data-order-id]:hover { background:#fff0f5;color:#e91e63; }
 .mc-bubble {
   max-width:220px;
   padding:8px 12px;
@@ -2847,6 +2860,7 @@ var MC_SEND_URL  = '{{ $popupSendUrl }}';
 var MC_CSRF      = '{{ $csrfToken }}';
 var MC_ROLE      = '{{ session("user")["role"] ?? "" }}';
 var MC_USER_ID   = '{{ session("user")["id"] ?? "" }}';
+var MC_THREAD_URL_TEMPLATE = '{{ $threadUrlTpl }}';
 @php
   $_mcRole = session('user')['role'] ?? '';
   $markOrderReadUrl = $_mcRole === 'admin'
@@ -3183,6 +3197,16 @@ async function refreshBubbleUnread() {
 }
 
 // ── Render timeline ───────────────────────────────────────────────────
+function mcThreadUrl(orderId) {
+  if (!orderId || !MC_THREAD_URL_TEMPLATE) return '';
+  return MC_THREAD_URL_TEMPLATE.replace('__ORDER_ID__', encodeURIComponent(orderId));
+}
+
+function openMcFullThread(orderId) {
+  const url = mcThreadUrl(orderId);
+  if (url) window.location.href = url;
+}
+
 document.addEventListener('DOMContentLoaded', startBubbleBadgePoll);
 
 function renderMcTimeline(container, messages, appendOnly = false) {
@@ -3217,8 +3241,14 @@ function renderMcTimeline(container, messages, appendOnly = false) {
 
     if (msg.order_id !== lastOrderId) {
       const tag = document.createElement('div');
+      tag.className = 'mc-order-tag';
       tag.style = 'text-align:center;font-size:.65rem;color:#bbb;margin:6px 0 2px';
       tag.textContent = msg.order_id ? '📦 ' + (msg.product_name || 'Order #' + msg.order_id) : '💬 General Inquiry';
+      if (msg.order_id) {
+        tag.dataset.orderId = msg.order_id;
+        tag.title = 'Open full order conversation';
+        tag.onclick = () => openMcFullThread(msg.order_id);
+      }
       container.appendChild(tag);
       lastOrderId = msg.order_id;
       if (msg.order_id) mcLatestOrderId = msg.order_id;
@@ -3227,6 +3257,11 @@ function renderMcTimeline(container, messages, appendOnly = false) {
     const wrap = document.createElement('div');
     wrap.className = 'mc-msg-wrap ' + (isMe ? 'me' : 'them');
     if (msg.id) wrap.dataset.msgId = msg.id;
+    if (msg.order_id) {
+      wrap.dataset.orderId = msg.order_id;
+      wrap.title = 'Open full order conversation';
+      wrap.onclick = () => openMcFullThread(msg.order_id);
+    }
     // For visibility-based mark-as-read (only track messages from the other role)
     if (!isMe && !msg.is_read && msg.id) {
       wrap.dataset.msgId = msg.id;
@@ -3253,7 +3288,7 @@ function renderMcTimeline(container, messages, appendOnly = false) {
         const sz = imgPaths.length > 1 ? '80px' : '180px';
         const imgH = imgPaths.length > 1 ? sz : 'auto';
         img.style = 'width:' + sz + ';height:' + imgH + ';max-width:100%;border-radius:8px;cursor:zoom-in;object-fit:cover;display:block';
-        img.onclick = () => openLightbox(img);
+        img.onclick = (event) => { event.stopPropagation(); openLightbox(img); };
         imgGrid.appendChild(img);
       });
       bubble.appendChild(imgGrid);
@@ -3331,6 +3366,11 @@ async function mcSend() {
   const container = document.getElementById('miniChatMessages');
   const wrap   = document.createElement('div');
   wrap.className = 'mc-msg-wrap me';
+  if (mcLatestOrderId) {
+    wrap.dataset.orderId = mcLatestOrderId;
+    wrap.title = 'Open full order conversation';
+    wrap.onclick = () => openMcFullThread(mcLatestOrderId);
+  }
   const bubble = document.createElement('div');
   bubble.className = 'mc-bubble';
 
@@ -3366,7 +3406,12 @@ async function mcSend() {
 
     const res  = await fetch(MC_SEND_URL, { method: 'POST', body: fd });
     const data = await res.json();
-    if (data.order_id) mcLatestOrderId = data.order_id;
+    if (data.order_id) {
+      mcLatestOrderId = data.order_id;
+      wrap.dataset.orderId = data.order_id;
+      wrap.title = 'Open full order conversation';
+      wrap.onclick = () => openMcFullThread(data.order_id);
+    }
     time.textContent = formatMcTime(data.created_at || new Date().toISOString());
     // Tag optimistic bubble with real msg ID so silentRefresh won't duplicate it
     if (data.id) {
@@ -3381,7 +3426,7 @@ async function mcSend() {
       catch { paths = [data.image_path]; }
       const imgs = bubble.querySelectorAll('img');
       imgs.forEach((img, i) => {
-        if (paths[i]) { img.src = paths[i]; img.dataset.src = paths[i]; img.style.opacity = '1'; img.onclick = () => openLightbox(img); }
+        if (paths[i]) { img.src = paths[i]; img.dataset.src = paths[i]; img.style.opacity = '1'; img.onclick = (event) => { event.stopPropagation(); openLightbox(img); }; }
       });
     }
   } catch(e) {
