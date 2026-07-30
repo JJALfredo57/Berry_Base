@@ -37,6 +37,37 @@ class CheckoutController extends Controller
         return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
+    private function coverageRadiusMeters(?string $shopId): int
+    {
+        $settings = $shopId
+            ? DB::table('site_settings')->where('shop_id', $shopId)->first()
+            : DB::table('site_settings')->whereNull('shop_id')->first();
+        if (!$settings) $settings = DB::table('site_settings')->first();
+        return max(1000, (int)($settings->delivery_coverage_radius ?? 5000));
+    }
+
+    private function nearestCoverageZone(float $lat, float $lng, ?string $shopId): ?object
+    {
+        $zonesQuery = DB::table('delivery_zones')
+            ->where('is_active', true)
+            ->whereNotNull('lat')
+            ->whereNotNull('lng');
+        if ($shopId) $zonesQuery->where('shop_id', $shopId);
+        else $zonesQuery->whereNull('shop_id');
+
+        $radius = $this->coverageRadiusMeters($shopId);
+        $nearest = null;
+        foreach ($zonesQuery->get() as $zone) {
+            $distance = $this->haversine($lat, $lng, (float)$zone->lat, (float)$zone->lng);
+            if ($distance <= $radius && (!$nearest || $distance < $nearest->distance_m)) {
+                $zone->distance_m = $distance;
+                $nearest = $zone;
+            }
+        }
+
+        return $nearest;
+    }
+
     public function show(Request $request)
     {
         $checkout = $request->session()->get('guest_checkout');
@@ -201,10 +232,19 @@ class CheckoutController extends Controller
         if (!$sdate) return back()->with('error','Please select your preferred date.')->withInput();
         if (!$stime) return back()->with('error','Please select a preferred time slot.')->withInput();
 
-        if ($fulfillment === 'Delivery' && !$zone)
-            return back()->with('error','Please select your barangay.')->withInput();
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null))
             return back()->with('error','Please pin your location on the map.')->withInput();
+
+        if ($fulfillment === 'Delivery' && !$zone && $lat !== null && $lng !== null) {
+            $nearestZone = $this->nearestCoverageZone($lat, $lng, $product->shop_id ?? null);
+            if ($nearestZone) {
+                $zone = $nearestZone->barangay;
+                $request->merge(['delivery_zone' => $zone]);
+            }
+        }
+
+        if ($fulfillment === 'Delivery' && !$zone)
+            return back()->with('error','Please pin a location inside this shop delivery coverage area or choose pickup.')->withInput();
 
         if ($fulfillment === 'Delivery' && $zone) {
             try {
@@ -227,18 +267,13 @@ class CheckoutController extends Controller
                     ->whereNotNull('lng');
                 if (!empty($product->shop_id)) $pinnedZonesQuery->where('shop_id', $product->shop_id);
                 else $pinnedZonesQuery->whereNull('shop_id');
-                $pinnedZones = $pinnedZonesQuery->get();
-                if ($pinnedZones->isNotEmpty()) {
-                    $inCoverage = false;
-                    foreach ($pinnedZones as $z) {
-                        if ($this->haversine($lat, $lng, (float)$z->lat, (float)$z->lng) <= 3000) {
-                            $inCoverage = true;
-                            break;
-                        }
-                    }
-                    if (!$inCoverage) {
+                if ($pinnedZonesQuery->exists()) {
+                    $nearestZone = $this->nearestCoverageZone($lat, $lng, $product->shop_id ?? null);
+                    if (!$nearestZone) {
                         return back()->with('error', 'Sorry, your delivery address is outside this shop delivery coverage area. Please move the pin or choose pickup.')->withInput();
                     }
+                    $zone = $nearestZone->barangay ?? $zone;
+                    $zoneRow = $nearestZone;
                 }
 
                 $settings = !empty($product->shop_id)

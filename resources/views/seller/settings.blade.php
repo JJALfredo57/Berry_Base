@@ -412,6 +412,17 @@
                 </div>
                 <div class="form-text">Customers inside this distance pay ₱0 delivery fee. Beyond it, only the excess distance is charged.</div>
               </div>
+              <div class="mb-4">
+                <label class="form-label fw-semibold">
+                  <span class="legend-dot" style="background:#ec4899"></span>Coverage Detection Radius (km)
+                </label>
+                <div class="input-group">
+                  <input type="number" step="0.5" min="1" max="25" class="form-control" name="delivery_coverage_km"
+                         value="{{ old('delivery_coverage_km', number_format((float)($shopSettings->delivery_coverage_radius ?? 5000) / 1000, 1, '.', '')) }}">
+                  <span class="input-group-text">km per pin</span>
+                </div>
+                <div class="form-text">How far a customer pin can be from one saved coverage pin before checkout marks it out of coverage.</div>
+              </div>
               <div class="alert border-0 py-2 small mb-4" style="background:#f0f9ff;color:#075985;border-left:4px solid #38bdf8!important">
                 <i class="bi bi-link-45deg me-1"></i>
                 Delivery Zones control where you deliver. Delivery Fee controls how much customers pay inside those zones.

@@ -381,9 +381,10 @@ const SHOP_META = {
   baseFee:   {{ (float)($shopSettings->base_fee   ?? 30) }},
   feePerKm:  {{ (float)($shopSettings->fee_per_km ?? 15) }},
   freeRadius: {{ (int)($shopSettings->free_delivery_radius ?? 0) }},
+  coverageRadius: {{ (int)($shopSettings->delivery_coverage_radius ?? 5000) }},
 };
 const COVERAGE_ZONES   = @json($deliveryZones->values());
-const COVERAGE_RADIUS  = 3000; // metres per coverage pin
+const COVERAGE_RADIUS  = Math.max(1000, SHOP_META.coverageRadius || 5000);
 const BASE_PRICE       = {{ $pricing['final_unit_price'] * $checkout['quantity'] }};
 const HAS_PRODUCT_DISCOUNT = {{ !empty($pricing['has_discount']) ? 'true' : 'false' }};
 let deliveryFee = 0;

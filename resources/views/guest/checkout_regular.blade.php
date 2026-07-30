@@ -483,7 +483,9 @@ const SHOP_META = {
   baseFee: {{ (float)($shopSettings->base_fee ?? 30) }},
   feePerKm: {{ (float)($shopSettings->fee_per_km ?? 15) }},
   freeRadius: {{ (int)($shopSettings->free_delivery_radius ?? 0) }},
+  coverageRadius: {{ (int)($shopSettings->delivery_coverage_radius ?? 5000) }},
 };
+const COVERAGE_RADIUS = Math.max(1000, SHOP_META.coverageRadius || 5000);
 let deliveryFee   = 0;
 let map, marker;
 
@@ -510,6 +512,44 @@ function deliveryFeeBreakdown(lat, lng) {
   const freeKm = Math.max(0, (SHOP_META.freeRadius || 0) / 1000);
   const chargeKm = Math.max(0, km - freeKm);
   return { dist, km, freeKm, chargeKm, fee: calcDistanceFee(dist) };
+}
+
+function findNearestZoneOption(lat, lng) {
+  const sel = document.getElementById('zoneSelect');
+  if (!sel) return null;
+
+  let nearest = null;
+  for (let i = 0; i < sel.options.length; i++) {
+    const opt = sel.options[i];
+    const zLat = parseFloat(opt.dataset.lat || '');
+    const zLng = parseFloat(opt.dataset.lng || '');
+    if (!opt.value || !Number.isFinite(zLat) || !Number.isFinite(zLng)) continue;
+
+    const distance = haversine(lat, lng, zLat, zLng);
+    if (distance <= COVERAGE_RADIUS && (!nearest || distance < nearest.distance)) {
+      nearest = { index: i, option: opt, distance };
+    }
+  }
+  return nearest;
+}
+
+function selectDetectedZone(index, sourceText = '') {
+  const sel = document.getElementById('zoneSelect');
+  if (!sel || index < 0) return;
+
+  sel.selectedIndex = index;
+  updateFee();
+  cvValidateZone();
+
+  const detectedOpt = sel.options[index];
+  const zoneBadgeEl = document.getElementById('zoneBadge');
+  if (zoneBadgeEl && detectedOpt) {
+    const col = detectedOpt.dataset.color || '#888';
+    const lbl = detectedOpt.dataset.label || '';
+    zoneBadgeEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;background:${col}22;color:${col};border:1.5px solid ${col}66;border-radius:20px;padding:2px 10px;font-size:.7rem;font-weight:700"><i class="bi bi-circle-fill" style="font-size:.38rem"></i>${lbl}</span>`;
+  }
+
+  cakeToast('Delivery zone detected: ' + detectedOpt.value + sourceText, 'success');
 }
 
 // ── Addon Total ────────────────────────────────────────────────
@@ -760,7 +800,9 @@ async function autoSelectBarangayFromCoords(lat, lng) {
     const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl2.signal });
     const data = await res.json();
     if (!data || !data.address) {
-      clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
+      const nearest = findNearestZoneOption(lat, lng);
+      if (nearest) selectDetectedZone(nearest.index, ' (nearest coverage)');
+      else clearDetectedDeliveryZone('Delivery is not available at this pinned location. Please move the pin or choose pickup.');
       return;
     }
 
@@ -815,10 +857,14 @@ async function autoSelectBarangayFromCoords(lat, lng) {
       }
       cakeToast('📍 Delivery zone detected: ' + sel.options[bestIdx].value, 'success');
     } else {
-      clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
+      const nearest = findNearestZoneOption(lat, lng);
+      if (nearest) selectDetectedZone(nearest.index, ' (nearest coverage)');
+      else clearDetectedDeliveryZone('Delivery is not available at this pinned location. Please move the pin or choose pickup.');
     }
   } catch (e) {
-    clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
+    const nearest = findNearestZoneOption(lat, lng);
+    if (nearest) selectDetectedZone(nearest.index, ' (nearest coverage)');
+    else clearDetectedDeliveryZone('Delivery is not available at this pinned location. Please move the pin or choose pickup.');
   }
 }
 

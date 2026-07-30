@@ -240,7 +240,9 @@
                       @php $group = $grouped[$typeKey] ?? collect(); @endphp
                       @foreach($group as $z)
                       <option value="{{ $z->barangay }}"
-                              data-fee="{{ $z->fee }}"
+                              data-fee="{{ $z->delivery_fee ?? $z->fee ?? 0 }}"
+                              data-lat="{{ $z->lat ?? '' }}"
+                              data-lng="{{ $z->lng ?? '' }}"
                               data-type="{{ $z->zone_type }}"
                               data-eta="{{ $z->estimated_time ?? '30-45 mins' }}"
                               data-label="{{ $zoneTypeLabels[$z->zone_type] ?? $z->zone_type }}"
@@ -516,6 +518,44 @@ var LAYER_PRICES = {
 var BASE_CUSTOM = 1200;
 var deliveryFee = 0;
 var map, marker;
+var COVERAGE_RADIUS = Math.max(1000, {{ (int)($shopSettings->delivery_coverage_radius ?? 5000) }});
+
+function haversine(lat1, lon1, lat2, lon2) {
+  var R = 6371000;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLon = (lon2 - lon1) * Math.PI / 180;
+  var a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function findNearestZoneOption(lat, lng) {
+  var sel = document.getElementById('zoneSelect');
+  if (!sel) return null;
+
+  var nearest = null;
+  for (var i = 0; i < sel.options.length; i++) {
+    var opt = sel.options[i];
+    var zLat = parseFloat(opt.dataset.lat || '');
+    var zLng = parseFloat(opt.dataset.lng || '');
+    if (!opt.value || !Number.isFinite(zLat) || !Number.isFinite(zLng)) continue;
+
+    var distance = haversine(lat, lng, zLat, zLng);
+    if (distance <= COVERAGE_RADIUS && (!nearest || distance < nearest.distance)) {
+      nearest = { index: i, option: opt, distance: distance };
+    }
+  }
+  return nearest;
+}
+
+function selectDetectedZone(index, sourceText) {
+  var sel = document.getElementById('zoneSelect');
+  if (!sel || index < 0) return;
+
+  sel.selectedIndex = index;
+  updateFee();
+  updateZoneBadge(sel.options[index]);
+  cakeToast('Delivery zone detected: ' + sel.options[index].value + (sourceText || ''), 'success');
+}
 
 function updatePriceSummary() {
   var qty       = parseInt(document.querySelector('[name=quantity]')?.value || 1);
@@ -744,7 +784,9 @@ async function autoSelectBarangayFromCoords(lat, lng) {
     var res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
     var data = await res.json();
     if (!data || !data.address) {
-      clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
+      var nearest = findNearestZoneOption(lat, lng);
+      if (nearest) selectDetectedZone(nearest.index, ' (nearest coverage)');
+      else clearDetectedDeliveryZone('Delivery is not available at this pinned location. Please move the pin or choose pickup.');
       return;
     }
     var a = data.address;
@@ -761,10 +803,14 @@ async function autoSelectBarangayFromCoords(lat, lng) {
       }
     }
     if (!matched) {
-      clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
+      var nearest = findNearestZoneOption(lat, lng);
+      if (nearest) selectDetectedZone(nearest.index, ' (nearest coverage)');
+      else clearDetectedDeliveryZone('Delivery is not available at this pinned location. Please move the pin or choose pickup.');
     }
   } catch(e) {
-    clearDetectedDeliveryZone('Location pinned. Delivery zone will be confirmed by admin if not detected automatically.');
+    var nearest = findNearestZoneOption(lat, lng);
+    if (nearest) selectDetectedZone(nearest.index, ' (nearest coverage)');
+    else clearDetectedDeliveryZone('Delivery is not available at this pinned location. Please move the pin or choose pickup.');
   }
 }
 

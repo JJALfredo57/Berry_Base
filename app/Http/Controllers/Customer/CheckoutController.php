@@ -91,6 +91,34 @@ class CheckoutController extends Controller
         return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
+    private function coverageRadiusMeters(?string $shopId): int
+    {
+        $settings = $shopId ? DB::table('site_settings')->where('shop_id', $shopId)->first() : null;
+        return max(1000, (int)($settings->delivery_coverage_radius ?? 5000));
+    }
+
+    private function nearestCoverageZone(float $lat, float $lng, ?string $shopId): ?object
+    {
+        $zones = DB::table('delivery_zones')
+            ->where('shop_id', $shopId)
+            ->where('is_active', true)
+            ->whereNotNull('lat')
+            ->whereNotNull('lng')
+            ->get();
+
+        $radius = $this->coverageRadiusMeters($shopId);
+        $nearest = null;
+        foreach ($zones as $zone) {
+            $distance = $this->haversine($lat, $lng, (float)$zone->lat, (float)$zone->lng);
+            if ($distance <= $radius && (!$nearest || $distance < $nearest->distance_m)) {
+                $zone->distance_m = $distance;
+                $nearest = $zone;
+            }
+        }
+
+        return $nearest;
+    }
+
     private function submissionKey(Request $request, string $scope): ?string
     {
         $token = trim((string) $request->input('_submit_token', ''));
@@ -141,23 +169,19 @@ class CheckoutController extends Controller
 
         if ($fulfillment === 'Delivery' && $lat !== null && $lng !== null) {
             // ── Coverage validation ────────────────────────────
-            $shopZones = DB::table('delivery_zones')
+            $hasPinnedZones = DB::table('delivery_zones')
                 ->where('shop_id', $product->shop_id)
                 ->where('is_active', true)
-                ->whereNotNull('lat')->whereNotNull('lng')
-                ->get();
+                ->whereNotNull('lat')
+                ->whereNotNull('lng')
+                ->exists();
 
-            if ($shopZones->isNotEmpty()) {
-                $inCoverage = false;
-                foreach ($shopZones as $z) {
-                    if ($this->haversine($lat, $lng, (float)$z->lat, (float)$z->lng) <= 3000) {
-                        $inCoverage = true;
-                        break;
-                    }
-                }
-                if (!$inCoverage) {
+            if ($hasPinnedZones) {
+                $nearestZone = $this->nearestCoverageZone($lat, $lng, $product->shop_id ?? null);
+                if (!$nearestZone) {
                     return back()->with('error', 'Sorry, your delivery address is outside our delivery coverage area. Please contact the shop for assistance.');
                 }
+                $zone = $nearestZone->barangay ?? $zone;
             }
 
             // ── Recalculate fee server-side (prevent tampering) ─

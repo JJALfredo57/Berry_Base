@@ -31,6 +31,47 @@ class CustomOrderController extends Controller
         return 'submit:' . $scope . ':' . $request->session()->getId() . ':' . sha1($token);
     }
 
+    private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $R    = 6371000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a    = sin($dLat / 2) ** 2
+              + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+        return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
+    private function coverageRadiusMeters(?string $shopId): int
+    {
+        $settings = $shopId
+            ? DB::table('site_settings')->where('shop_id', $shopId)->first()
+            : DB::table('site_settings')->whereNull('shop_id')->first();
+        if (!$settings) $settings = DB::table('site_settings')->first();
+        return max(1000, (int)($settings->delivery_coverage_radius ?? 5000));
+    }
+
+    private function nearestCoverageZone(float $lat, float $lng, ?string $shopId): ?object
+    {
+        $zonesQuery = DB::table('delivery_zones')
+            ->where('is_active', true)
+            ->whereNotNull('lat')
+            ->whereNotNull('lng');
+        if ($shopId) $zonesQuery->where('shop_id', $shopId);
+        else $zonesQuery->whereNull('shop_id');
+
+        $radius = $this->coverageRadiusMeters($shopId);
+        $nearest = null;
+        foreach ($zonesQuery->get() as $zone) {
+            $distance = $this->haversine($lat, $lng, (float)$zone->lat, (float)$zone->lng);
+            if ($distance <= $radius && (!$nearest || $distance < $nearest->distance_m)) {
+                $zone->distance_m = $distance;
+                $nearest = $zone;
+            }
+        }
+
+        return $nearest;
+    }
+
     private function loadOptions(?string $shopId = null): array
     {
         $base = DB::table('custom_order_options')->where('is_active', true);
@@ -95,7 +136,7 @@ class CustomOrderController extends Controller
         $shopLng = $shopSettings->shop_lng ?? 120.4716710;
 
         return view('guest.custom_order', array_merge($options, compact(
-            'addonCategories','addonsByCategory','deliveryZones','defaultAddr','shopLat','shopLng','targetShop'
+            'addonCategories','addonsByCategory','deliveryZones','defaultAddr','shopLat','shopLng','targetShop','shopSettings'
         )));
     }
 
@@ -234,6 +275,15 @@ class CustomOrderController extends Controller
 
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null))
             return back()->with('error','Please pin your location.')->withInput();
+
+        if ($fulfillment === 'Delivery' && !$zone && $lat !== null && $lng !== null) {
+            $nearestZone = $this->nearestCoverageZone($lat, $lng, $shopId);
+            if ($nearestZone) {
+                $zone = $nearestZone->barangay;
+                $request->merge(['delivery_zone' => $zone]);
+            }
+        }
+
         if ($fulfillment === 'Delivery' && !$zone)
             return back()->with('error','Delivery is not available at the pinned location. Please move the pin or choose pickup.')->withInput();
 
@@ -246,7 +296,21 @@ class CustomOrderController extends Controller
                 if (!$zr) {
                     return back()->with('error','This shop does not deliver to the pinned location. Please move the pin or choose pickup.')->withInput();
                 }
-                $deliveryFee = (float)$zr->fee;
+                $pinnedZonesQuery = DB::table('delivery_zones')
+                    ->where('is_active', true)
+                    ->whereNotNull('lat')
+                    ->whereNotNull('lng');
+                if ($shopId) $pinnedZonesQuery->where('shop_id', $shopId);
+                else $pinnedZonesQuery->whereNull('shop_id');
+                if ($pinnedZonesQuery->exists() && $lat !== null && $lng !== null) {
+                    $nearestZone = $this->nearestCoverageZone($lat, $lng, $shopId);
+                    if (!$nearestZone) {
+                        return back()->with('error','This shop does not deliver to the pinned location. Please move the pin or choose pickup.')->withInput();
+                    }
+                    $zone = $nearestZone->barangay ?? $zone;
+                    $zr = $nearestZone;
+                }
+                $deliveryFee = (float)($zr->delivery_fee ?? $zr->fee ?? 0);
             } catch (\Exception $e) {
                 return back()->with('error','We could not verify delivery availability. Please try again.')->withInput();
             }

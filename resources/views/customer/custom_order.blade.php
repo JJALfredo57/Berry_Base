@@ -443,9 +443,10 @@ const SHOP_META = {
   maintenanceKm: {{ (float)($shopSettings->maintenance_per_km  ?? 5) }},
   fuelKm:        {{ (float)($shopSettings->fuel_per_km         ?? 8) }},
   freeRadius:    {{ (int)($shopSettings->free_delivery_radius   ?? 0) }},
+  coverageRadius: {{ (int)($shopSettings->delivery_coverage_radius ?? 5000) }},
 };
 const COVERAGE_ZONES  = @json($deliveryZones->values());
-const COVERAGE_RADIUS = 3000;
+const COVERAGE_RADIUS = Math.max(1000, SHOP_META.coverageRadius || 5000);
 let deliveryFee = 0;
 let map, marker, routeLine;
 

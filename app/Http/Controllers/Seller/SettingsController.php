@@ -127,10 +127,12 @@ class SettingsController extends Controller
     {
         $shop = $this->getShop();
         $freeRadiusMeters = (int) round(max(0, (float) $request->input('free_delivery_km', 0)) * 1000);
+        $coverageRadiusMeters = (int) round(max(1, min(25, (float) $request->input('delivery_coverage_km', 5))) * 1000);
         $this->upsertSettings($shop->id, [
-            'base_fee'             => max(0, (float) $request->input('base_fee', 30)),
-            'fee_per_km'           => max(0, (float) $request->input('fee_per_km', 15)),
-            'free_delivery_radius' => $freeRadiusMeters,
+            'base_fee'                 => max(0, (float) $request->input('base_fee', 30)),
+            'fee_per_km'               => max(0, (float) $request->input('fee_per_km', 15)),
+            'free_delivery_radius'     => $freeRadiusMeters,
+            'delivery_coverage_radius' => $coverageRadiusMeters,
         ]);
         return redirect()->to(route('seller.settings').'?tab=delivery')->with('msg', 'Delivery fee settings saved.');
     }
