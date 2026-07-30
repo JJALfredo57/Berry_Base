@@ -15,8 +15,10 @@
     $sbgGradS  = $shopSettings->gradient_start ?? '#fff7fb';
     $sbgGradE  = $shopSettings->gradient_end   ?? '#ffe3f1';
     $sbgImg    = $hasShopCover ? $shop->shop_cover : ($shopSettings->bg_image_path ?? '');
-    $sbgOpacity= $hasShopCover ? 0.16 : (float)($shopSettings->bg_image_opacity ?? 1.0);
-    if ($sbgType === 'gradient') {
+    $sbgOpacity= $hasShopCover ? 1.0 : (float)($shopSettings->bg_image_opacity ?? 1.0);
+    if ($hasShopCover) {
+        $bodyBg = "background:transparent;";
+    } elseif ($sbgType === 'gradient') {
         $bodyBg = "background:linear-gradient(135deg,{$sbgGradS} 0%,{$sbgGradE} 100%);";
     } elseif ($sbgType === 'image' && $sbgImg) {
         $bodyBg = "background:{$sbgColor};";
