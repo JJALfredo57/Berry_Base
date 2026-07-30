@@ -387,6 +387,23 @@
     .cs-toast-error   .cs-toast-icon { color:#ef4444; }
     .cs-toast-warning .cs-toast-icon { color:#f59e0b; }
     .cs-toast-info    .cs-toast-icon { color:#3b82f6; }
+    @@keyframes csOfflineSlideIn { from { opacity:0; transform:translate(-50%, 18px) scale(.96); } to { opacity:1; transform:translate(-50%, 0) scale(1); } }
+    @@keyframes csOfflineIconPulse { 0%,100% { transform:scale(1); box-shadow:0 0 0 0 rgba(245,158,11,.28); } 50% { transform:scale(1.05); box-shadow:0 0 0 10px rgba(245,158,11,0); } }
+    #csOfflineNotice { position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom, 0px));width:min(520px, calc(100vw - 24px));z-index:10620;display:none;align-items:center;gap:12px;padding:12px 14px;border:1px solid rgba(255,255,255,.72);border-radius:18px;background:linear-gradient(135deg, rgba(255,255,255,.98), var(--primary-bg,#fff7fb));box-shadow:0 22px 60px rgba(15,23,42,.22);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:#111827;transform:translateX(-50%); }
+    #csOfflineNotice.is-visible { display:flex;animation:csOfflineSlideIn .24s ease both; }
+    #csOfflineNotice.is-online .cs-offline-icon { background:#dcfce7;color:#15803d;animation:none; }
+    .cs-offline-icon { width:42px;height:42px;border-radius:13px;background:#fffbeb;color:#b45309;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:1.16rem;animation:csOfflineIconPulse 1.6s ease-in-out infinite; }
+    .cs-offline-body { min-width:0;flex:1; }
+    .cs-offline-title { font-size:.9rem;font-weight:900;line-height:1.2;color:#111827; }
+    .cs-offline-copy { margin-top:2px;font-size:.76rem;line-height:1.35;color:#6b7280; }
+    .cs-offline-actions { display:flex;align-items:center;gap:8px;flex:0 0 auto; }
+    .cs-offline-retry { border:0;border-radius:999px;background:var(--primary,#e91e63);color:#fff;min-height:34px;padding:0 12px;font-size:.75rem;font-weight:800;display:inline-flex;align-items:center;gap:6px; }
+    .cs-offline-retry:active { transform:scale(.97); }
+    .cs-offline-close { border:0;background:transparent;color:#9ca3af;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center; }
+    .cs-offline-close:hover { background:rgba(15,23,42,.06);color:#4b5563; }
+    @@media (min-width:768px) { #csOfflineNotice { top:18px;bottom:auto;width:min(560px, calc(100vw - 48px)); } }
+    @@media (max-width:520px) { #csOfflineNotice { align-items:flex-start;border-radius:18px 18px 0 0;bottom:0;width:100%;padding:14px max(14px, env(safe-area-inset-left)) calc(14px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-right)); } .cs-offline-actions { flex-direction:column;align-items:flex-end; } .cs-offline-retry { min-height:32px;padding:0 10px; } }
+    @@media (prefers-reduced-motion: reduce) { #csOfflineNotice.is-visible,.cs-offline-icon { animation:none!important; } }
     .modal-backdrop { display:none !important; opacity:0 !important; pointer-events:none !important; }
 
     /* ═══════════════════════════════════════════════
@@ -1937,6 +1954,17 @@ document.addEventListener('DOMContentLoaded', function () {
 {{-- ══ END of admin/customer layout split — scripts below load for EVERYONE ══ --}}
 
 {{-- ── Toast container ── --}}
+<div id="csOfflineNotice" role="status" aria-live="polite" aria-hidden="true">
+  <div class="cs-offline-icon"><i id="csOfflineIcon" class="bi bi-wifi-off"></i></div>
+  <div class="cs-offline-body">
+    <div class="cs-offline-title" id="csOfflineTitle">No internet connection</div>
+    <div class="cs-offline-copy" id="csOfflineCopy">Your progress stays on this screen. Reconnect, then continue without refreshing.</div>
+  </div>
+  <div class="cs-offline-actions">
+    <button type="button" class="cs-offline-retry" onclick="csOfflineRetry()"><i class="bi bi-arrow-clockwise"></i>Retry</button>
+    <button type="button" class="cs-offline-close" onclick="csOfflineDismiss()" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+  </div>
+</div>
 <div id="csToastContainer"></div>
 
 {{-- ── Custom Dialog (pure CSS/JS, no Bootstrap modal dependency) ── --}}
@@ -2032,6 +2060,116 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ asset('js/cakeshop.js') }}"></script>
 <script>
+// Connectivity guard: warn offline, preserve forms, never auto-refresh.
+(function() {
+  var offlineDismissed = false;
+  var onlineHideTimer = null;
+
+  function hasDraftWork() {
+    return Array.prototype.some.call(document.querySelectorAll('input, textarea, select'), function(el) {
+      if (!el || el.disabled || el.type === 'hidden' || el.type === 'password' || el.type === 'file') return false;
+      if (el.type === 'checkbox' || el.type === 'radio') return !!el.checked;
+      return String(el.value || '').trim().length > 0;
+    });
+  }
+
+  function setNotice(state) {
+    var box = document.getElementById('csOfflineNotice');
+    var icon = document.getElementById('csOfflineIcon');
+    var title = document.getElementById('csOfflineTitle');
+    var copy = document.getElementById('csOfflineCopy');
+    if (!box || !icon || !title || !copy) return;
+
+    clearTimeout(onlineHideTimer);
+    box.classList.add('is-visible');
+    box.classList.toggle('is-online', state === 'online');
+    box.setAttribute('aria-hidden', 'false');
+
+    if (state === 'online') {
+      icon.className = 'bi bi-wifi';
+      title.textContent = 'Back online';
+      copy.textContent = 'You can continue from where you left off. This page was not refreshed.';
+      onlineHideTimer = setTimeout(function() {
+        box.classList.remove('is-visible', 'is-online');
+        box.setAttribute('aria-hidden', 'true');
+      }, 3600);
+      return;
+    }
+
+    icon.className = 'bi bi-wifi-off';
+    title.textContent = 'No internet connection';
+    copy.textContent = hasDraftWork()
+      ? 'Your progress is still here. Reconnect, then continue without refreshing.'
+      : 'Reconnect to continue. We will not refresh this page automatically.';
+  }
+
+  window.csOfflineDismiss = function() {
+    offlineDismissed = true;
+    var box = document.getElementById('csOfflineNotice');
+    if (box) {
+      box.classList.remove('is-visible');
+      box.setAttribute('aria-hidden', 'true');
+    }
+  };
+
+  window.csOfflineRetry = function() {
+    offlineDismissed = false;
+    if (navigator.onLine) setNotice('online');
+    else {
+      setNotice('offline');
+      if (typeof showToast === 'function') showToast('Still offline. Your current work is preserved.', 'warning', 3200);
+    }
+  };
+
+  function handleOffline() {
+    offlineDismissed = false;
+    setNotice('offline');
+  }
+
+  function handleOnline() {
+    offlineDismissed = false;
+    setNotice('online');
+  }
+
+  document.addEventListener('submit', function(event) {
+    if (navigator.onLine) return;
+    var form = event.target;
+    if (form && form.dataset && form.dataset.csAllowOffline === 'true') return;
+    event.preventDefault();
+    event.stopPropagation();
+    handleOffline();
+    var submitter = event.submitter || (form ? form.querySelector('button[type="submit"],input[type="submit"],button:not([type])') : null);
+    if (typeof window.csResetButtonLoading === 'function') window.csResetButtonLoading(submitter);
+    if (typeof showToast === 'function') showToast('No internet. Reconnect first, then submit again.', 'warning', 3800);
+  }, true);
+
+  document.addEventListener('click', function(event) {
+    if (navigator.onLine) return;
+    var action = event.target.closest ? event.target.closest('a[data-requires-online],button[data-requires-online]') : null;
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    handleOffline();
+  }, true);
+
+  if (window.fetch) {
+    var connectivityFetch = window.fetch.bind(window);
+    window.fetch = function() {
+      if (!navigator.onLine) {
+        handleOffline();
+        if (typeof showToast === 'function') showToast('No internet. Reconnect first, then try again.', 'warning', 3200);
+        return Promise.reject(new TypeError('Offline'));
+      }
+      return connectivityFetch.apply(null, arguments);
+    };
+  }
+
+  window.addEventListener('offline', handleOffline);
+  window.addEventListener('online', handleOnline);
+  document.addEventListener('DOMContentLoaded', function() {
+    if (!navigator.onLine && !offlineDismissed) setNotice('offline');
+  });
+})();
 // ── Sidebar ──
 // ── Sidebar (always defined as stubs, real impl for admin) ──
 function toggleSidebar() {
