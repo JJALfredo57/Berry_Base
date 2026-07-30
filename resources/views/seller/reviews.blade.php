@@ -227,7 +227,7 @@
   {{-- ── Pagination ──────────────────────────────────── --}}
   @if($reviews->hasPages())
   <div style="margin-top:1rem">
-    {{ $reviews->links() }}
+    {{ $reviews->links('vendor.pagination.custom') }}
   </div>
   @endif
 

@@ -468,7 +468,7 @@
 {{-- Pagination --}}
 @if($customOrders->hasPages())
 <div class="d-flex justify-content-center mt-4">
-  {{ $customOrders->appends(request()->query())->links() }}
+  {{ $customOrders->appends(request()->query())->links('vendor.pagination.custom') }}
 </div>
 @endif
 
