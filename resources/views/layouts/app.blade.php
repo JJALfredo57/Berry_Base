@@ -56,7 +56,12 @@
                   $rawPrimary = $tc;
               }
               $ss = \Illuminate\Support\Facades\DB::table('site_settings')->where('shop_id', $sellerShopRow->id)->first();
-              if ($ss) {
+              if (!empty($sellerShopRow->shop_cover)) {
+                  $bodyBgCss = "background: #fff7fb;";
+                  $pbgType = 'image';
+                  $pbgImage = $sellerShopRow->shop_cover;
+                  $pbgOpacity = 0.18;
+              } elseif ($ss) {
                   $sBgType  = $ss->bg_type  ?? 'color';
                   $sBgColor = $ss->bg_color ?? '#f9f9f9';
                   if ($sBgType === 'gradient') {

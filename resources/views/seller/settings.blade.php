@@ -80,6 +80,12 @@
 .sim-row.sim-total .val { font-size: 1.1rem; color: var(--primary); }
 .sim-free { text-align: center; padding: 1rem; color: #15803d; font-weight: 700; font-size: .95rem; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; }
 .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .35rem; }
+.shop-cover-picker { position:relative;min-height:150px;border-radius:var(--radius-lg);border:1.5px solid var(--gray-200);overflow:hidden;background:linear-gradient(135deg,var(--primary-bg),#fff); }
+.shop-cover-picker img { width:100%;height:100%;min-height:150px;object-fit:cover;display:block; }
+.shop-cover-picker.empty { display:flex;align-items:center;justify-content:center;padding:1.25rem; }
+.shop-cover-overlay { position:absolute;inset:0;display:flex;align-items:flex-end;padding:1rem;background:linear-gradient(to bottom,rgba(0,0,0,.04),rgba(0,0,0,.46));color:#fff;pointer-events:none; }
+.shop-cover-upload { margin-top:.75rem; }
+@media(max-width:575.98px){.shop-cover-picker,.shop-cover-picker img{min-height:118px}.shop-cover-overlay{padding:.8rem}}
 </style>
 
 <div>
@@ -249,14 +255,28 @@
               <div class="form-text">JPG or PNG · Max 3 MB</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label fw-semibold">Cover Photo <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label>
-              @if($shop->shop_cover)
-                <img src="{{ $shop->shop_cover }}" style="display:block;width:100%;height:60px;border-radius:var(--radius-sm);object-fit:cover;margin-bottom:.5rem;border:1.5px solid var(--gray-200)">
-              @endif
-              <input type="file" class="form-control" name="shop_cover" accept=".jpg,.jpeg,.png"
+              <label class="form-label fw-semibold">Shop Background / Cover Image <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label>
+              <div class="shop-cover-picker {{ empty($shop->shop_cover) ? 'empty' : '' }}" id="shopCoverPicker">
+                @if($shop->shop_cover)
+                  <img id="coverPreview" src="{{ $shop->shop_cover }}" alt="Current shop cover">
+                @else
+                  <img id="coverPreview" alt="Shop cover preview" style="display:none">
+                  <div id="coverEmptyState" style="text-align:center;color:var(--gray-500)">
+                    <i class="bi bi-image" style="font-size:1.7rem;color:var(--primary)"></i>
+                    <div style="font-size:.86rem;font-weight:700;color:var(--gray-800);margin-top:.35rem">Add a branded shop background</div>
+                    <div style="font-size:.74rem">Best-selling cakes, counter display, or clean packaging shot</div>
+                  </div>
+                @endif
+                <div class="shop-cover-overlay">
+                  <div>
+                    <div style="font-size:.82rem;font-weight:800">Used on your shop, checkout, and seller pages</div>
+                    <div style="font-size:.7rem;opacity:.86">Choose a clean photo without heavy text.</div>
+                  </div>
+                </div>
+              </div>
+              <input type="file" class="form-control shop-cover-upload" name="shop_cover" accept=".jpg,.jpeg,.png"
                      onchange="previewFile(this,'coverPreview')" style="font-size:.8rem">
-              <img id="coverPreview" style="display:none;max-height:60px;width:100%;margin-top:.4rem;border-radius:var(--radius-sm);object-fit:cover">
-              <div class="form-text">JPG or PNG · Max 5 MB</div>
+              <div class="form-text">JPG or PNG · Max 5 MB. Wide photos look best.</div>
             </div>
             <div class="col-12">
               <label class="form-label fw-semibold">Shop Theme Color <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label>
@@ -724,7 +744,16 @@ function previewFile(input, id) {
   const img = document.getElementById(id);
   if (!input.files[0]) return;
   const r = new FileReader();
-  r.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
+  r.onload = e => {
+    img.src = e.target.result;
+    img.style.display = 'block';
+    if (id === 'coverPreview') {
+      const picker = document.getElementById('shopCoverPicker');
+      const empty = document.getElementById('coverEmptyState');
+      if (picker) picker.classList.remove('empty');
+      if (empty) empty.style.display = 'none';
+    }
+  };
   r.readAsDataURL(input.files[0]);
 }
 

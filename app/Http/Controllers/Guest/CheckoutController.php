@@ -54,7 +54,16 @@ class CheckoutController extends Controller
         } catch (\Exception $e) {}
 
         $defaultAddr = null;
-        $shopSettings = \Illuminate\Support\Facades\DB::table('site_settings')->first();
+        $shop = null;
+        try {
+            if (!empty($product->shop_id)) {
+                $shop = DB::table('shops')->where('id', $product->shop_id)->first();
+            }
+        } catch (\Exception $e) {}
+
+        $shopSettings = $shop
+            ? \Illuminate\Support\Facades\DB::table('site_settings')->where('shop_id', $shop->id)->first()
+            : \Illuminate\Support\Facades\DB::table('site_settings')->first();
         $shopLat = $shopSettings->shop_lat ?? 15.8107127;
         $shopLng = $shopSettings->shop_lng ?? 120.4716710;
         $selectedSize = trim((string) ($checkout['selected_size'] ?? ''));
@@ -74,7 +83,7 @@ class CheckoutController extends Controller
                 ->get()->groupBy('category_id');
         } catch (\Exception $e) {}
 
-        return view('guest.checkout_regular', compact('product','checkout','sizes','deliveryZones','defaultAddr','shopLat','shopLng','pricing','addonCategories','addonsByCategory'));
+        return view('guest.checkout_regular', compact('product','checkout','sizes','deliveryZones','defaultAddr','shopLat','shopLng','pricing','addonCategories','addonsByCategory','shop','shopSettings'));
     }
 
     public function sendOtp(Request $request)

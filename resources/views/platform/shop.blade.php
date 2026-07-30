@@ -76,9 +76,12 @@
     .btn-custom-cake:hover{background:var(--primary);color:#fff;transform:translateY(-1px)}
 
     /* ── Cover ── */
-    .cover-wrap{height:260px;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 60%,var(--primary-bg) 100%)}
+    .cover-wrap{height:260px;position:relative;overflow:hidden;background:
+      radial-gradient(circle at 18% 24%,rgba(255,255,255,.26),transparent 28%),
+      linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 60%,var(--primary-bg) 100%)}
     .cover-wrap img{width:100%;height:100%;object-fit:cover}
-    .cover-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.45) 100%)}
+    .cover-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.02) 0%,rgba(0,0,0,.44) 100%)}
+    .cover-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.9);font-family:'Playfair Display',serif;font-size:clamp(1.7rem,6vw,3rem);font-weight:700;text-align:center;padding:1rem}
     @media(max-width:576px){.cover-wrap{height:170px}}
 
     /* ── Shop Header ── */
@@ -192,6 +195,8 @@
 <div class="cover-wrap">
   @if($shop->shop_cover)
     <img src="{{ $shop->shop_cover }}" alt="{{ $shop->shop_name }}">
+  @else
+    <div class="cover-placeholder">{{ $shop->shop_name }}</div>
   @endif
   <div class="cover-overlay"></div>
 </div>
