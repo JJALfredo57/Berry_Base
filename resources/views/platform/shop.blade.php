@@ -9,12 +9,13 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   @php
     $tc        = $shop->theme_color ?? '#E53935';
-    $sbgType   = $shopSettings->bg_type ?? 'color';
+    $hasShopCover = !empty($shop->shop_cover);
+    $sbgType   = $hasShopCover ? 'image' : ($shopSettings->bg_type ?? 'color');
     $sbgColor  = $shopSettings->bg_color ?? '#f9f9f9';
     $sbgGradS  = $shopSettings->gradient_start ?? '#fff7fb';
     $sbgGradE  = $shopSettings->gradient_end   ?? '#ffe3f1';
-    $sbgImg    = $shopSettings->bg_image_path  ?? '';
-    $sbgOpacity= (float)($shopSettings->bg_image_opacity ?? 1.0);
+    $sbgImg    = $hasShopCover ? $shop->shop_cover : ($shopSettings->bg_image_path ?? '');
+    $sbgOpacity= $hasShopCover ? 0.16 : (float)($shopSettings->bg_image_opacity ?? 1.0);
     if ($sbgType === 'gradient') {
         $bodyBg = "background:linear-gradient(135deg,{$sbgGradS} 0%,{$sbgGradE} 100%);";
     } elseif ($sbgType === 'image' && $sbgImg) {
