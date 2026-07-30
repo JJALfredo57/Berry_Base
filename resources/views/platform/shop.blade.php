@@ -53,7 +53,9 @@
       inset:0;
       z-index:0;
       pointer-events:none;
-      background:rgba(255,255,255,.18);
+      backdrop-filter:blur(7px);
+      -webkit-backdrop-filter:blur(7px);
+      background:rgba(255,255,255,.48);
     }
     body.has-shop-bg-image > *{position:relative;z-index:1}
     img{max-width:100%}
