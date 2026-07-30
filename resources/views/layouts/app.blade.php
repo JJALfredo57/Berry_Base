@@ -2064,6 +2064,7 @@ document.addEventListener('DOMContentLoaded', function () {
 (function() {
   var offlineDismissed = false;
   var onlineHideTimer = null;
+  var offlineCheckTimer = null;
 
   function hasDraftWork() {
     return Array.prototype.some.call(document.querySelectorAll('input, textarea, select'), function(el) {
@@ -2114,21 +2115,53 @@ document.addEventListener('DOMContentLoaded', function () {
 
   window.csOfflineRetry = function() {
     offlineDismissed = false;
-    if (navigator.onLine) setNotice('online');
-    else {
-      setNotice('offline');
-      if (typeof showToast === 'function') showToast('Still offline. Your current work is preserved.', 'warning', 3200);
-    }
+    checkConnectionNow(true);
   };
 
   function handleOffline() {
     offlineDismissed = false;
     setNotice('offline');
+    startOfflineChecks();
   }
 
   function handleOnline() {
     offlineDismissed = false;
+    stopOfflineChecks();
     setNotice('online');
+  }
+
+  function stopOfflineChecks() {
+    if (offlineCheckTimer) {
+      clearInterval(offlineCheckTimer);
+      offlineCheckTimer = null;
+    }
+  }
+
+  function startOfflineChecks() {
+    if (offlineCheckTimer) return;
+    offlineCheckTimer = setInterval(function() { checkConnectionNow(false); }, 4500);
+  }
+
+  function checkConnectionNow(showStillOfflineToast) {
+    if (!navigator.onLine) {
+      setNotice('offline');
+      if (showStillOfflineToast && typeof showToast === 'function') showToast('Still offline. Your current work is preserved.', 'warning', 3200);
+      return Promise.resolve(false);
+    }
+
+    return fetch(window.location.origin + '/favicon.ico?online_check=' + Date.now(), {
+      method: 'HEAD',
+      cache: 'no-store',
+      credentials: 'same-origin',
+    }).then(function() {
+      handleOnline();
+      return true;
+    }).catch(function() {
+      setNotice('offline');
+      startOfflineChecks();
+      if (showStillOfflineToast && typeof showToast === 'function') showToast('Still reconnecting. Your current work is preserved.', 'warning', 3200);
+      return false;
+    });
   }
 
   document.addEventListener('submit', function(event) {
@@ -2166,8 +2199,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
   window.addEventListener('offline', handleOffline);
   window.addEventListener('online', handleOnline);
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && document.getElementById('csOfflineNotice')?.classList.contains('is-visible')) {
+      checkConnectionNow(false);
+    }
+  });
+  window.addEventListener('focus', function() {
+    if (document.getElementById('csOfflineNotice')?.classList.contains('is-visible')) checkConnectionNow(false);
+  });
   document.addEventListener('DOMContentLoaded', function() {
-    if (!navigator.onLine && !offlineDismissed) setNotice('offline');
+    if (!navigator.onLine && !offlineDismissed) handleOffline();
   });
 })();
 // ── Sidebar ──
