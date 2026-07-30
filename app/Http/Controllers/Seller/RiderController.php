@@ -21,14 +21,35 @@ class RiderController extends Controller
         $shop   = $this->getShop();
         $riders = DB::table('riders')->where('shop_id', $shop->id)->orderBy('name')->get();
         $riderIds = $riders->pluck('id')->toArray();
-        $incidents = []; $deliveries = [];
+        $incidents = []; $deliveries = []; $riderRatings = [];
         if ($riderIds) {
             foreach (DB::table('orders')->whereIn('rider_id', $riderIds)->whereNotNull('issue_type')->select('rider_id', DB::raw('count(*) as cnt'))->groupBy('rider_id')->get() as $i)
                 $incidents[$i->rider_id] = $i->cnt;
             foreach (DB::table('orders')->whereIn('rider_id', $riderIds)->where('status', 'Delivered')->select('rider_id', DB::raw('count(*) as cnt'))->groupBy('rider_id')->get() as $d)
                 $deliveries[$d->rider_id] = $d->cnt;
+            foreach (DB::table('order_reviews as r')
+                ->join('orders as o', 'o.id', '=', 'r.order_id')
+                ->whereIn('o.rider_id', $riderIds)
+                ->whereNotNull('r.rider_rating')
+                ->select('o.rider_id', DB::raw('AVG(r.rider_rating) as avg_rating'), DB::raw('COUNT(*) as rating_count'))
+                ->groupBy('o.rider_id')
+                ->get() as $rating) {
+                $riderRatings[$rating->rider_id] = $rating;
+            }
         }
-        return view('seller.riders', compact('riders', 'incidents', 'deliveries'));
+        return view('seller.riders', compact('riders', 'incidents', 'deliveries', 'riderRatings'));
+    }
+
+    private function normalizePhone(?string $phone): ?string
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+        if (!$digits) return null;
+
+        if (strlen($digits) === 10) return '+63' . $digits;
+        if (strlen($digits) === 11 && $digits[0] === '0') return '+63' . substr($digits, 1);
+        if (strlen($digits) === 12 && str_starts_with($digits, '63')) return '+' . $digits;
+
+        return $digits;
     }
 
     public function store(Request $request)
@@ -37,9 +58,8 @@ class RiderController extends Controller
         $name  = trim($request->input('name', ''));
         $phone = trim($request->input('phone', ''));
         if (!$name) return back()->with('err', 'Rider name is required.');
-        $phone = preg_replace('/\D/', '', $phone);
-        if (strlen($phone) === 10) $phone = '+63' . $phone;
-        elseif (strlen($phone) === 11 && $phone[0] === '0') $phone = '+63' . substr($phone, 1);
+        $phone = $this->normalizePhone($phone);
+        $emergencyPhone = $this->normalizePhone($request->input('emergency_contact_phone', ''));
         DB::table('riders')->insert([
             'shop_id'                => $shop->id,
             'name'                   => $name,
@@ -48,7 +68,7 @@ class RiderController extends Controller
             'vehicle_type'           => $request->input('vehicle_type') ?: null,
             'license_plate'          => trim($request->input('license_plate', '')) ?: null,
             'emergency_contact_name'  => trim($request->input('emergency_contact_name', '')) ?: null,
-            'emergency_contact_phone' => trim($request->input('emergency_contact_phone', '')) ?: null,
+            'emergency_contact_phone' => $emergencyPhone,
             'is_active' => true,
 
             'created_at'             => now(),
@@ -62,9 +82,8 @@ class RiderController extends Controller
         $shop  = $this->getShop();
         $rider = DB::table('riders')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$rider) return back()->with('err', 'Rider not found.');
-        $phone = preg_replace('/\D/', '', $request->input('phone', ''));
-        if (strlen($phone) === 10) $phone = '+63' . $phone;
-        elseif (strlen($phone) === 11 && $phone[0] === '0') $phone = '+63' . substr($phone, 1);
+        $phone = $this->normalizePhone($request->input('phone', ''));
+        $emergencyPhone = $this->normalizePhone($request->input('emergency_contact_phone', ''));
         DB::table('riders')->where('id', $id)->update([
             'name'                   => trim($request->input('name', $rider->name)),
             'nickname'               => trim($request->input('nickname', '')) ?: null,
@@ -72,7 +91,7 @@ class RiderController extends Controller
             'vehicle_type'           => $request->input('vehicle_type') ?: null,
             'license_plate'          => trim($request->input('license_plate', '')) ?: null,
             'emergency_contact_name'  => trim($request->input('emergency_contact_name', '')) ?: null,
-            'emergency_contact_phone' => trim($request->input('emergency_contact_phone', '')) ?: null,
+            'emergency_contact_phone' => $emergencyPhone,
         ]);
         return back()->with('msg', 'Rider updated.');
     }

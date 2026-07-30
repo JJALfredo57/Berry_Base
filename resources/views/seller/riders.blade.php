@@ -15,6 +15,9 @@
 .field-msg { font-size:clamp(.7rem,1.4vw,.75rem); margin-top:4px; min-height:18px; transition:color .2s; }
 .field-msg.ok  { color:#16a34a; }
 .field-msg.err { color:#ef4444; }
+.rider-rating-value { display:flex; align-items:center; justify-content:center; gap:3px; color:#b45309; line-height:1.1; }
+.rider-rating-value i { font-size:.78rem; color:#f59e0b; }
+.rider-rating-count { color:#9ca3af; font-size:clamp(.58rem,1.2vw,.62rem); line-height:1.1; margin-top:2px; white-space:nowrap; }
 </style>
 
 <div>
@@ -86,7 +89,16 @@
             </div>
             <div class="col-4">
               <div style="background:#f9fafb;border-radius:8px;padding:8px">
-                <div class="fw-bold text-warning">{{ ($r->rating_avg ?? 0) > 0 ? number_format($r->rating_avg,1) : '—' }}</div>
+                @php($rating = $riderRatings[$r->id] ?? null)
+                @if($rating && (float) $rating->avg_rating > 0)
+                  <div class="fw-bold rider-rating-value">
+                    {{ number_format((float) $rating->avg_rating, 1) }} <i class="bi bi-star-fill"></i>
+                  </div>
+                  <div class="rider-rating-count">{{ (int) $rating->rating_count }} {{ (int) $rating->rating_count === 1 ? 'review' : 'reviews' }}</div>
+                @else
+                  <div class="fw-bold text-warning">—</div>
+                  <div class="rider-rating-count">No ratings</div>
+                @endif
                 <div class="text-muted" style="font-size:clamp(.66rem,1.3vw,.7rem)">Rating</div>
               </div>
             </div>
@@ -147,6 +159,7 @@
                 <div class="col-sm-6">
                   <label class="form-label fw-semibold small">Phone <span class="text-danger">*</span></label>
                   <input type="text" class="form-control input-validated" name="phone" value="{{ $r->phone }}" required
+                         inputmode="tel" autocomplete="tel"
                          data-rule="phone" data-label="Phone" oninput="liveValidate(this)">
                   <div class="field-msg"></div>
                 </div>
@@ -174,6 +187,7 @@
                 <div class="col-sm-6">
                   <label class="form-label fw-semibold small">Phone</label>
                   <input type="text" class="form-control input-validated" name="emergency_contact_phone" value="{{ $r->emergency_contact_phone }}"
+                         inputmode="tel" autocomplete="tel"
                          placeholder="09XXXXXXXXX" data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
                   <div class="field-msg"></div>
                 </div>
@@ -219,6 +233,7 @@
             <div class="col-sm-6">
               <label class="form-label fw-semibold small">Phone Number <span class="text-danger">*</span></label>
               <input type="text" class="form-control input-validated" name="phone" placeholder="09XXXXXXXXX" required
+                     inputmode="tel" autocomplete="tel"
                      data-rule="phone" data-label="Phone" oninput="liveValidate(this)">
               <div class="field-msg"></div>
             </div>
@@ -246,6 +261,7 @@
             <div class="col-sm-6">
               <label class="form-label fw-semibold small">Phone</label>
               <input type="text" class="form-control input-validated" name="emergency_contact_phone" placeholder="09XXXXXXXXX"
+                     inputmode="tel" autocomplete="tel"
                      data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
               <div class="field-msg"></div>
             </div>
@@ -277,8 +293,8 @@ const rules = {
     pattern: /^\+?[0-9]{7,15}$/,
     minLen:  7,
     maxLen:  15,
-    hint:    'Numbers only (e.g. 09123456789)',
-    errChar: 'Phone must contain numbers only.',
+    hint:    'Digits only, optional + at the start',
+    errChar: 'Use digits only, optional + at the start.',
   },
   plate: {
     pattern: /^[A-Za-z0-9\s\-]+$/,
@@ -289,11 +305,40 @@ const rules = {
   },
 };
 
+function sanitizePhoneValue(value) {
+  let next = String(value || '').replace(/[^\d+]/g, '');
+  next = next.replace(/\+(?!^)/g, '');
+  return next;
+}
+
+function normalizeInputValue(input) {
+  if (input.dataset?.rule !== 'phone') return;
+  const clean = sanitizePhoneValue(input.value);
+  if (input.value !== clean) input.value = clean;
+}
+
+function canAcceptChar(input, char) {
+  const ruleName = input.dataset?.rule;
+  if (char.length > 1) return true;
+
+  if (ruleName === 'phone') {
+    if (/[0-9]/.test(char)) return true;
+    return char === '+' && input.selectionStart === 0 && !input.value.includes('+');
+  }
+
+  if (ruleName === 'name') return /^[A-Za-zÀ-ÿ\s.\-']$/.test(char);
+  if (ruleName === 'plate') return /^[A-Za-z0-9\s\-]$/.test(char);
+
+  return true;
+}
+
 function liveValidate(input) {
   const rule  = rules[input.dataset.rule];
   const label = input.dataset.label || 'This field';
-  const val   = input.value.trim();
   const msg   = input.nextElementSibling; // .field-msg div
+
+  normalizeInputValue(input);
+  const val = input.value.trim();
 
   // Empty optional field — clear state
   if (!val && !input.required) {
@@ -363,8 +408,7 @@ document.addEventListener('keypress', function(e) {
   // Allow control keys
   if (char.length > 1) return;
 
-  // Test if this char would be valid in the pattern
-  if (!rule.pattern.test(char) && char !== ' ') {
+  if (!canAcceptChar(input, char)) {
     e.preventDefault();
     triggerShake(input);
     const msg = input.nextElementSibling;
@@ -379,6 +423,18 @@ document.addEventListener('paste', function(e) {
   const rule  = rules[input.dataset?.rule];
   if (!rule) return;
   const pasted = (e.clipboardData || window.clipboardData).getData('text');
+
+  if (input.dataset.rule === 'phone') {
+    e.preventDefault();
+    const clean = sanitizePhoneValue(pasted);
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    input.value = input.value.slice(0, start) + clean + input.value.slice(end);
+    normalizeInputValue(input);
+    liveValidate(input);
+    return;
+  }
+
   if (!rule.pattern.test(pasted.trim())) {
     e.preventDefault();
     triggerShake(input);
