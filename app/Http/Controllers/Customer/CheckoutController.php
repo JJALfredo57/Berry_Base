@@ -167,7 +167,9 @@ class CheckoutController extends Controller
                 $km          = $dist / 1000;
                 $baseFee     = (float)($settings->base_fee   ?? 30);
                 $feePerKm    = (float)($settings->fee_per_km ?? 15);
-                $deliveryFee = (int) ceil($baseFee + ($feePerKm * $km));
+                $freeKm      = max(0, (int)($settings->free_delivery_radius ?? 0)) / 1000;
+                $chargeKm    = max(0, $km - $freeKm);
+                $deliveryFee = $chargeKm <= 0 ? 0 : (int) ceil($baseFee + ($feePerKm * $chargeKm));
             }
         }
 

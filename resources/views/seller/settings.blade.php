@@ -400,6 +400,22 @@
                 </div>
                 <div class="form-text">Additional charge per kilometer from your shop to the customer.</div>
               </div>
+              <div class="mb-4">
+                <label class="form-label fw-semibold">
+                  <span class="legend-dot" style="background:#fbbf24"></span>Free Delivery Distance (km)
+                </label>
+                <div class="input-group">
+                  <input type="number" step="0.1" min="0" class="form-control" name="free_delivery_km" id="inp_free_km"
+                         value="{{ old('free_delivery_km', number_format((float)($shopSettings->free_delivery_radius ?? 0) / 1000, 1, '.', '')) }}"
+                         oninput="updateDeliveryCalc()">
+                  <span class="input-group-text">km free</span>
+                </div>
+                <div class="form-text">Customers inside this distance pay ₱0 delivery fee. Beyond it, only the excess distance is charged.</div>
+              </div>
+              <div class="alert border-0 py-2 small mb-4" style="background:#f0f9ff;color:#075985;border-left:4px solid #38bdf8!important">
+                <i class="bi bi-link-45deg me-1"></i>
+                Delivery Zones control where you deliver. Delivery Fee controls how much customers pay inside those zones.
+              </div>
               <div class="mt-4">
                 <button type="submit" class="btn btn-primary w-100" style="padding:.65rem;font-weight:600">
                   <i class="bi bi-check-lg me-1"></i>Save Delivery Fee Settings
@@ -435,7 +451,7 @@
               <div>
                 <div style="font-weight:700;font-size:.9rem;color:#065f46;margin-bottom:.2rem">Base Delivery Fee</div>
                 <div style="font-size:.82rem;color:#374151;line-height:1.55">
-                  A fixed charge of <strong id="fml_base" style="color:#059669">₱30.00</strong> is always added to every delivery — regardless of how far the customer is.
+                  A fixed charge of <strong id="fml_base" style="color:#059669">₱30.00</strong> is added only when the customer is outside your free delivery distance.
                 </div>
               </div>
             </div>
@@ -446,7 +462,17 @@
               <div>
                 <div style="font-weight:700;font-size:.9rem;color:#1e40af;margin-bottom:.2rem">Distance Charge</div>
                 <div style="font-size:.82rem;color:#374151;line-height:1.55">
-                  <strong id="fml_pkm" style="color:#0284c7">₱15.00</strong> is added for every kilometer from your shop to the customer's location.
+                  <strong id="fml_pkm" style="color:#0284c7">₱15.00</strong> is added per kilometer after the free delivery distance.
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:flex-start;gap:.85rem;margin-bottom:1.25rem;padding:.9rem 1rem;background:#fffbeb;border-radius:10px;border:1.5px solid #fde68a">
+              <div style="width:34px;height:34px;border-radius:50%;background:#f59e0b;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-weight:800;font-size:.88rem">3</div>
+              <div>
+                <div style="font-weight:700;font-size:.9rem;color:#92400e;margin-bottom:.2rem">Free Distance</div>
+                <div style="font-size:.82rem;color:#374151;line-height:1.55">
+                  The first <strong id="fml_free" style="color:#b45309">0.0 km</strong> can be free. Customers beyond that are charged only for the extra distance.
                 </div>
               </div>
             </div>
@@ -462,7 +488,7 @@
                   <strong id="ex_base" style="color:#374151">₱30.00</strong>
                 </div>
                 <div style="display:flex;justify-content:space-between">
-                  <span style="color:#6b7280">Distance (3 km × <span id="ex_rate">₱15.00</span>/km)</span>
+                  <span style="color:#6b7280">Chargeable distance (<span id="ex_charge_km">3.0</span> km × <span id="ex_rate">₱15.00</span>/km)</span>
                   <strong id="ex_dist" style="color:#374151">₱45.00</strong>
                 </div>
                 <div style="height:1px;background:#fde68a;margin:.2rem 0"></div>
@@ -798,11 +824,14 @@ function getDeliveryParams() {
   return {
     base : parseFloat(document.getElementById('inp_base')?.value) || 0,
     pkm  : parseFloat(document.getElementById('inp_pkm')?.value)  || 0,
+    free : parseFloat(document.getElementById('inp_free_km')?.value) || 0,
   };
 }
 
 function calcFee(km, p) {
-  return Math.ceil(p.base + (p.pkm * km));
+  const chargeKm = Math.max(0, km - p.free);
+  if (chargeKm <= 0) return 0;
+  return Math.ceil(p.base + (p.pkm * chargeKm));
 }
 
 function fmt(n) { return '₱' + n.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2}); }
@@ -813,8 +842,10 @@ function updateDeliveryCalc() {
   // Formula display
   const fmlBase = document.getElementById('fml_base');
   const fmlPkm  = document.getElementById('fml_pkm');
+  const fmlFree = document.getElementById('fml_free');
   if (fmlBase) fmlBase.textContent = fmt(p.base);
   if (fmlPkm)  fmlPkm.textContent  = fmt(p.pkm);
+  if (fmlFree) fmlFree.textContent = p.free.toFixed(1) + ' km';
 
   // Legend
   const lb = document.getElementById('legend_base');
@@ -827,10 +858,14 @@ function updateDeliveryCalc() {
   const exDist  = document.getElementById('ex_dist');
   const exTotal = document.getElementById('ex_total');
   const exRate  = document.getElementById('ex_rate');
+  const exChargeKm = document.getElementById('ex_charge_km');
+  const exKm = 3;
+  const exBillableKm = Math.max(0, exKm - p.free);
   if (exBase)  exBase.textContent  = fmt(p.base);
-  if (exDist)  exDist.textContent  = fmt(p.pkm * 3);
-  if (exTotal) exTotal.textContent = fmt(Math.ceil(p.base + p.pkm * 3));
+  if (exDist)  exDist.textContent  = fmt(p.pkm * exBillableKm);
+  if (exTotal) exTotal.textContent = fmt(calcFee(exKm, p));
   if (exRate)  exRate.textContent  = fmt(p.pkm);
+  if (exChargeKm) exChargeKm.textContent = exBillableKm.toFixed(1);
 
   runSimulator(document.getElementById('sim_slider')?.value || 3);
 }
@@ -843,9 +878,10 @@ function runSimulator(km) {
   if (inp) inp.value = km;
 
   const p       = getDeliveryParams();
-  const distAmt = p.pkm * km;
-  const rawTotal= p.base + distAmt;
-  const finalFee= Math.ceil(rawTotal);
+  const chargeKm = Math.max(0, km - p.free);
+  const distAmt = p.pkm * chargeKm;
+  const rawTotal= chargeKm > 0 ? p.base + distAmt : 0;
+  const finalFee= calcFee(km, p);
   const out     = document.getElementById('sim_output');
   if (!out) return;
 
@@ -857,6 +893,13 @@ function runSimulator(km) {
       </div>
       <div class="sim-row">
         <span class="lbl">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#fbbf24;margin-right:.4rem"></span>
+          Free Distance
+        </span>
+        <span class="val">${p.free.toFixed(1)} km</span>
+      </div>
+      <div class="sim-row">
+        <span class="lbl">
           <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;margin-right:.4rem"></span>
           Base Fee
         </span>
@@ -865,7 +908,7 @@ function runSimulator(km) {
       <div class="sim-row">
         <span class="lbl">
           <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#60a5fa;margin-right:.4rem"></span>
-          Distance (₱${p.pkm.toFixed(2)}/km × ${km.toFixed(1)} km)
+          Chargeable Distance (₱${p.pkm.toFixed(2)}/km × ${chargeKm.toFixed(1)} km)
         </span>
         <span class="val">${fmt(distAmt)}</span>
       </div>

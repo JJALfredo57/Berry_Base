@@ -380,6 +380,7 @@ const SHOP_META = {
   lng:       {{ $shopSettings->shop_lng  ?? 'null' }},
   baseFee:   {{ (float)($shopSettings->base_fee   ?? 30) }},
   feePerKm:  {{ (float)($shopSettings->fee_per_km ?? 15) }},
+  freeRadius: {{ (int)($shopSettings->free_delivery_radius ?? 0) }},
 };
 const COVERAGE_ZONES   = @json($deliveryZones->values());
 const COVERAGE_RADIUS  = 3000; // metres per coverage pin
@@ -400,7 +401,10 @@ function haversine(lat1, lon1, lat2, lon2) {
 // ── Fee + ETA calculation ─────────────────────────────
 function calcFee(dist) {
   const km = dist / 1000;
-  return Math.ceil(SHOP_META.baseFee + SHOP_META.feePerKm * km);
+  const freeKm = Math.max(0, (SHOP_META.freeRadius || 0) / 1000);
+  const chargeKm = Math.max(0, km - freeKm);
+  if (chargeKm <= 0) return 0;
+  return Math.ceil(SHOP_META.baseFee + SHOP_META.feePerKm * chargeKm);
 }
 
 function calcEtaMinutes(dist) {
@@ -487,11 +491,13 @@ function onPinSet(lat, lng) {
         ? (SHOP_META.freeRadius / 1000).toFixed(1) + ' km' : SHOP_META.freeRadius + ' m';
       bd.innerHTML = `<i class="bi bi-gift me-1" style="color:#059669"></i>Free delivery within ${freeLabel} from shop`;
     } else if (fee > 0) {
-      const basePart = (SHOP_META.feePerMeter * dist).toFixed(2);
-      const kmPart   = ((SHOP_META.maintenanceKm + SHOP_META.fuelKm) * km).toFixed(2);
+      const freeKm = Math.max(0, (SHOP_META.freeRadius || 0) / 1000);
+      const chargeKm = Math.max(0, km - freeKm);
+      const kmPart = SHOP_META.feePerKm * chargeKm;
       bd.innerHTML =
-        `<div class="d-flex justify-content-between"><span><i class="bi bi-geo-alt me-1 text-indigo"></i>₱${SHOP_META.feePerMeter}/m × ${Math.round(dist)} m</span><span class="fw-semibold">₱${basePart}</span></div>` +
-        `<div class="d-flex justify-content-between"><span><i class="bi bi-droplet me-1 text-indigo"></i>Fuel + maintenance × ${km.toFixed(2)} km</span><span class="fw-semibold">₱${kmPart}</span></div>`;
+        `<div class="d-flex justify-content-between"><span><i class="bi bi-gift me-1" style="color:#059669"></i>Free distance</span><span class="fw-semibold">${freeKm.toFixed(1)} km</span></div>` +
+        `<div class="d-flex justify-content-between"><span><i class="bi bi-truck me-1 text-indigo"></i>Base delivery fee</span><span class="fw-semibold">₱${SHOP_META.baseFee.toFixed(2)}</span></div>` +
+        `<div class="d-flex justify-content-between"><span><i class="bi bi-geo-alt me-1 text-indigo"></i>₱${SHOP_META.feePerKm.toFixed(2)}/km × ${chargeKm.toFixed(2)} km excess</span><span class="fw-semibold">₱${kmPart.toFixed(2)}</span></div>`;
     } else {
       bd.innerHTML = '';
     }

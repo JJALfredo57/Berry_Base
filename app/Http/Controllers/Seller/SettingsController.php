@@ -126,9 +126,11 @@ class SettingsController extends Controller
     public function saveDeliveryCalc(Request $request)
     {
         $shop = $this->getShop();
+        $freeRadiusMeters = (int) round(max(0, (float) $request->input('free_delivery_km', 0)) * 1000);
         $this->upsertSettings($shop->id, [
-            'base_fee'   => max(0, (float) $request->input('base_fee', 30)),
-            'fee_per_km' => max(0, (float) $request->input('fee_per_km', 15)),
+            'base_fee'             => max(0, (float) $request->input('base_fee', 30)),
+            'fee_per_km'           => max(0, (float) $request->input('fee_per_km', 15)),
+            'free_delivery_radius' => $freeRadiusMeters,
         ]);
         return redirect()->to(route('seller.settings').'?tab=delivery')->with('msg', 'Delivery fee settings saved.');
     }

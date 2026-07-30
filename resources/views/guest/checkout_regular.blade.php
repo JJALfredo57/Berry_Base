@@ -189,7 +189,9 @@ document.body.style.paddingRight = '';
                       @php $group = $grouped[$typeKey] ?? collect(); @endphp
                       @foreach($group as $z)
                       <option value="{{ $z->barangay }}"
-                              data-fee="{{ $z->fee }}"
+                              data-fee="{{ $z->delivery_fee ?? 0 }}"
+                              data-lat="{{ $z->lat ?? '' }}"
+                              data-lng="{{ $z->lng ?? '' }}"
                               data-type="{{ $z->zone_type }}"
                               data-eta="{{ $z->estimated_time ?? '30-45 mins' }}"
                               data-label="{{ $zoneTypeLabels[$z->zone_type] ?? $z->zone_type }}"
@@ -259,6 +261,7 @@ document.body.style.paddingRight = '';
                         <div class="small text-muted mt-1" style="font-size:clamp(.64rem,1.2vw,.68rem)">
                           <i class="bi bi-exclamation-circle me-1"></i>ETA is approximate travel time from our shop — not cake preparation time.
                         </div>
+                        <div id="feePreviewBreakdown" class="small text-muted mt-1" style="font-size:clamp(.64rem,1.2vw,.68rem)"></div>
                       </div>
                     </div>
                     <div id="oocNotice" style="display:none" class="alert border-0 mt-2 py-2 mb-0" style="background:#fff1f2;border-radius:.6rem">
@@ -474,8 +477,40 @@ function checkCheckoutAvailability() {
 <script>
 const BASE_PRICE  = {{ $pricing['final_unit_price'] * $checkout['quantity'] }};
 const HAS_PRODUCT_DISCOUNT = {{ !empty($pricing['has_discount']) ? 'true' : 'false' }};
+const SHOP_META = {
+  lat: {{ $shopSettings->shop_lat ?? $shopLat ?? 'null' }},
+  lng: {{ $shopSettings->shop_lng ?? $shopLng ?? 'null' }},
+  baseFee: {{ (float)($shopSettings->base_fee ?? 30) }},
+  feePerKm: {{ (float)($shopSettings->fee_per_km ?? 15) }},
+  freeRadius: {{ (int)($shopSettings->free_delivery_radius ?? 0) }},
+};
 let deliveryFee   = 0;
 let map, marker;
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function calcDistanceFee(dist) {
+  const km = dist / 1000;
+  const freeKm = Math.max(0, (SHOP_META.freeRadius || 0) / 1000);
+  const chargeKm = Math.max(0, km - freeKm);
+  if (chargeKm <= 0) return 0;
+  return Math.ceil(SHOP_META.baseFee + (SHOP_META.feePerKm * chargeKm));
+}
+
+function deliveryFeeBreakdown(lat, lng) {
+  if (!SHOP_META.lat || !SHOP_META.lng || !lat || !lng) return null;
+  const dist = haversine(lat, lng, SHOP_META.lat, SHOP_META.lng);
+  const km = dist / 1000;
+  const freeKm = Math.max(0, (SHOP_META.freeRadius || 0) / 1000);
+  const chargeKm = Math.max(0, km - freeKm);
+  return { dist, km, freeKm, chargeKm, fee: calcDistanceFee(dist) };
+}
 
 // ── Addon Total ────────────────────────────────────────────────
 function updateAddonTotal() {
@@ -791,7 +826,10 @@ function updateFee() {
   const sel      = document.getElementById('zoneSelect');
   const opt      = sel?.options[sel.selectedIndex];
   const zoneType = opt?.dataset?.type || '';
-  deliveryFee    = parseFloat(opt?.dataset?.fee || 0);
+  const lat = parseFloat(document.getElementById('lat')?.value || 0);
+  const lng = parseFloat(document.getElementById('lng')?.value || 0);
+  const quote = deliveryFeeBreakdown(lat, lng);
+  deliveryFee = quote ? quote.fee : parseFloat(opt?.dataset?.fee || 0);
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
 
   // ETA display
@@ -812,6 +850,7 @@ function updateFee() {
   // Fee preview box
   const feePreview = document.getElementById('feePreview');
   const feePreviewAmt = document.getElementById('feePreviewAmount');
+  const feePreviewBreakdown = document.getElementById('feePreviewBreakdown');
   if (feePreview && opt && opt.value) {
     feePreview.style.display = 'block';
     feePreview.style.background = deliveryFee === 0 ? '#f0fdf4' : '#eff6ff';
@@ -821,8 +860,22 @@ function updateFee() {
       feePreviewAmt.textContent = deliveryFee === 0 ? 'FREE' :
         (zoneType === 'ooc' ? '₱250+ (to be confirmed)' : '₱' + deliveryFee.toFixed(2));
     }
+    if (feePreviewBreakdown) {
+      if (quote) {
+        if (deliveryFee === 0 && quote.freeKm > 0) {
+          feePreviewBreakdown.innerHTML = `<i class="bi bi-gift me-1" style="color:#059669"></i>Free within ${quote.freeKm.toFixed(1)} km. Distance: ${quote.km.toFixed(2)} km.`;
+        } else if (deliveryFee > 0) {
+          feePreviewBreakdown.innerHTML = `Distance: ${quote.km.toFixed(2)} km · Free: ${quote.freeKm.toFixed(1)} km · Charged: ${quote.chargeKm.toFixed(2)} km excess`;
+        } else {
+          feePreviewBreakdown.innerHTML = '';
+        }
+      } else {
+        feePreviewBreakdown.innerHTML = '';
+      }
+    }
   } else if (feePreview) {
     feePreview.style.display = 'none';
+    if (feePreviewBreakdown) feePreviewBreakdown.innerHTML = '';
   }
 
   // Order summary panel
