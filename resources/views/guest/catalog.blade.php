@@ -44,7 +44,7 @@
   transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease;
 }
 .size-choice-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(233,30,99,.12)}
-.size-choice-btn.is-selected{background:var(--primary)!important;color:#fff!important}
+.size-choice-btn.is-selected{background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important;box-shadow:0 8px 20px rgba(233,30,99,.24)}
 .size-choice-btn.is-selected .text-muted{color:rgba(255,255,255,.78)!important}
 .size-choice-btn:focus{box-shadow:0 0 0 .16rem rgba(233,30,99,.18)}
 .size-view-more-btn{font-size:.78rem;font-weight:700;color:var(--primary);background:#fff;border:1px dashed var(--primary);border-radius:999px;padding:.25rem .75rem}
@@ -631,6 +631,10 @@ function forceCleanModals() {
 
 function validateSizeSelection(form) {
   const input = form.querySelector('input[name="selected_size"]');
+  const selected = form.querySelector('.size-choice-btn.is-selected');
+  if (input && !input.value && selected) {
+    input.value = selected.dataset.sizeLabel || '';
+  }
   if (!input || input.value) return true;
 
   const error = form.querySelector('[data-size-error]');
@@ -649,9 +653,13 @@ function selectModalSize(productId, basePrice, button) {
   if (input) input.value = button.dataset.sizeLabel || '';
   if (error) error.classList.add('d-none');
   if (picker) {
-    picker.querySelectorAll('.size-choice-btn').forEach(btn => btn.classList.remove('is-selected'));
+    picker.querySelectorAll('.size-choice-btn').forEach(btn => {
+      btn.classList.remove('is-selected');
+      btn.setAttribute('aria-pressed', 'false');
+    });
   }
   button.classList.add('is-selected');
+  button.setAttribute('aria-pressed', 'true');
   updateModalPrice(productId, basePrice, button);
 }
 
