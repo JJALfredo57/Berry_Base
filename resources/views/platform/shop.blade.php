@@ -135,6 +135,12 @@
     .class-badge{position:absolute;top:.6rem;left:.6rem;font-size:.72rem;font-weight:700;padding:.22rem .6rem;border-radius:99px}
     .btn-order{display:block;width:100%;background:var(--primary);color:#fff;padding:.65rem 1rem;border-radius:var(--radius-md);font-size:.9rem;font-weight:700;border:none;cursor:pointer;transition:all .18s;text-align:center;margin-top:.75rem;min-height:44px;display:flex;align-items:center;justify-content:center;gap:.35rem}
     .btn-order:hover{background:var(--primary-dark);transform:translateY(-1px);color:#fff}
+    .size-choice-btn{border-color:var(--primary)!important;font-size:.78rem;color:#111827;transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease}
+    .size-choice-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(229,57,53,.12)}
+    .size-choice-btn.is-selected{background:var(--primary)!important;color:#fff!important}
+    .size-choice-btn.is-selected .text-muted{color:rgba(255,255,255,.78)!important}
+    .size-choice-btn:focus{box-shadow:0 0 0 .16rem color-mix(in srgb,var(--primary) 22%,transparent)}
+    .size-view-more-btn{font-size:.78rem;font-weight:700;color:var(--primary);background:#fff;border:1px dashed var(--primary);border-radius:999px;padding:.25rem .75rem}
 
     /* ── Reviews ── */
     .review-card{background:#fff;border-radius:var(--radius-md);padding:1.1rem 1.25rem;border:1.5px solid var(--gray-200);margin-bottom:.75rem}
@@ -496,21 +502,6 @@
                 @endif
               </div>
 
-              {{-- Sizes --}}
-              @if($sizes->count() > 0)
-              <div class="mb-3">
-                <div class="fw-semibold small mb-2"><i class="bi bi-rulers me-1" style="color:var(--primary)"></i>Available Sizes</div>
-                <div class="d-flex flex-wrap gap-2">
-                  @foreach($sizes as $sz)
-                  <div class="px-3 py-1 rounded-pill border" style="border-color:var(--primary)!important;font-size:.78rem">
-                    <span class="fw-semibold">{{ $sz->label }}</span>
-                    <span class="text-muted ms-1">— ₱{{ number_format($sz->price,2) }}</span>
-                  </div>
-                  @endforeach
-                </div>
-              </div>
-              @endif
-
               {{-- Shop Info --}}
               <a href="{{ route('platform.shop', $shop->shop_slug) }}"
                  class="d-flex align-items-center gap-2 mb-3 p-2 rounded-2 text-decoration-none"
@@ -549,16 +540,26 @@
                 {{-- Size Selection --}}
                 @if($sizes->count() > 0)
                 <div class="mb-3">
-                  <label class="form-label fw-semibold small">Select Size <span class="text-danger">*</span></label>
-                  <select class="form-select" name="selected_size"
-                          onchange="updateModalPrice('{{ $p->id }}', {{ $p->price }}, this)" required>
-                    <option value="">-- Choose a size --</option>
+                  <div class="fw-semibold small mb-2"><i class="bi bi-rulers me-1" style="color:var(--primary)"></i>Sizes <span class="text-danger">*</span></div>
+                  <input type="hidden" name="selected_size" id="selectedSize{{ $p->id }}">
+                  <div class="d-flex flex-wrap gap-2" data-size-picker id="sizeOptions{{ $p->id }}">
                     @foreach($sizes as $sz)
-                      <option value="{{ $sz->label }}" data-price="{{ $sz->price }}">
-                        {{ $sz->label }} — ₱{{ number_format($sz->price,2) }}
-                      </option>
+                      <button type="button"
+                              class="size-choice-btn px-3 py-1 rounded-pill border bg-white {{ $loop->iteration > 4 ? 'd-none is-extra-size' : '' }}"
+                              data-size-label="{{ $sz->label }}"
+                              data-price="{{ $sz->price }}"
+                              onclick="selectModalSize(@json($p->id), {{ $p->price }}, this)">
+                        <span class="fw-semibold">{{ $sz->label }}</span>
+                        <span class="text-muted ms-1">— ₱{{ number_format($sz->price,2) }}</span>
+                      </button>
                     @endforeach
-                  </select>
+                    @if($sizes->count() > 4)
+                      <button type="button" class="size-view-more-btn" data-size-toggle onclick="toggleSizeOptions(@json($p->id), this)">
+                        View more
+                      </button>
+                    @endif
+                  </div>
+                  <div class="small text-danger mt-1 d-none" data-size-error>Please select a size.</div>
                   <div class="mt-2 p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:#fff0f5">
                     <span class="small text-muted">Total Price:</span>
                     <span class="fw-bold" style="color:var(--primary);font-size:1.05rem" id="modalPrice{{ $p->id }}">
@@ -951,6 +952,8 @@ function confirmOrder(form) {
     return false;
   }
 
+  if (!validateSizeSelection(form)) return false;
+
   if (typeof cakeConfirm === 'function') {
     cakeConfirm({
       title: 'Proceed to Checkout?',
@@ -982,9 +985,44 @@ function confirmOrder(form) {
   });
   return false;
 }
-function updateModalPrice(productId, basePrice, select) {
-  const opt   = select.options[select.selectedIndex];
-  const price = opt.dataset.price ? parseFloat(opt.dataset.price) : basePrice;
+function validateSizeSelection(form) {
+  const input = form.querySelector('input[name="selected_size"]');
+  if (!input || input.value) return true;
+
+  const error = form.querySelector('[data-size-error]');
+  const picker = form.querySelector('[data-size-picker]');
+  if (error) error.classList.remove('d-none');
+  if (picker) picker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return false;
+}
+
+function selectModalSize(productId, basePrice, button) {
+  const form = button.closest('form');
+  const picker = button.closest('[data-size-picker]');
+  const input = form ? form.querySelector('input[name="selected_size"]') : null;
+  const error = form ? form.querySelector('[data-size-error]') : null;
+
+  if (input) input.value = button.dataset.sizeLabel || '';
+  if (error) error.classList.add('d-none');
+  if (picker) {
+    picker.querySelectorAll('.size-choice-btn').forEach(btn => btn.classList.remove('is-selected'));
+  }
+  button.classList.add('is-selected');
+  updateModalPrice(productId, basePrice, button);
+}
+
+function toggleSizeOptions(productId, button) {
+  const picker = document.getElementById('sizeOptions' + productId);
+  if (!picker) return;
+
+  const expanded = picker.dataset.expanded === '1';
+  picker.querySelectorAll('.is-extra-size').forEach(btn => btn.classList.toggle('d-none', expanded));
+  picker.dataset.expanded = expanded ? '0' : '1';
+  button.textContent = expanded ? 'View more' : 'View less';
+}
+
+function updateModalPrice(productId, basePrice, priceSource) {
+  const price = priceSource && priceSource.dataset.price ? parseFloat(priceSource.dataset.price) : basePrice;
   const el    = document.getElementById('modalPrice' + productId);
   if (el) el.textContent = '₱' + price.toLocaleString('en-PH', {minimumFractionDigits:2});
 }
