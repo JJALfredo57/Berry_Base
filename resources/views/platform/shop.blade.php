@@ -546,15 +546,17 @@
                     @foreach($sizes as $sz)
                       <button type="button"
                               class="size-choice-btn px-3 py-1 rounded-pill border bg-white {{ $loop->iteration > 4 ? 'd-none is-extra-size' : '' }}"
+                              data-product-id="{{ $p->id }}"
+                              data-base-price="{{ $p->price }}"
                               data-size-label="{{ $sz->label }}"
                               data-price="{{ $sz->price }}"
-                              onclick="selectModalSize(@json($p->id), {{ $p->price }}, this)">
+                              onclick="selectModalSize(this)">
                         <span class="fw-semibold">{{ $sz->label }}</span>
                         <span class="text-muted ms-1">— ₱{{ number_format($sz->price,2) }}</span>
                       </button>
                     @endforeach
                     @if($sizes->count() > 4)
-                      <button type="button" class="size-view-more-btn" data-size-toggle onclick="toggleSizeOptions(@json($p->id), this)">
+                      <button type="button" class="size-view-more-btn" data-size-toggle data-product-id="{{ $p->id }}" onclick="toggleSizeOptions(this)">
                         View more
                       </button>
                     @endif
@@ -1000,7 +1002,9 @@ function validateSizeSelection(form) {
   return false;
 }
 
-function selectModalSize(productId, basePrice, button) {
+function selectModalSize(button) {
+  const productId = button.dataset.productId || '';
+  const basePrice = parseFloat(button.dataset.basePrice || '0');
   const form = button.closest('form');
   const picker = button.closest('[data-size-picker]');
   const input = form ? form.querySelector('input[name="selected_size"]') : null;
@@ -1019,7 +1023,8 @@ function selectModalSize(productId, basePrice, button) {
   updateModalPrice(productId, basePrice, button);
 }
 
-function toggleSizeOptions(productId, button) {
+function toggleSizeOptions(button) {
+  const productId = button.dataset.productId || '';
   const picker = document.getElementById('sizeOptions' + productId);
   if (!picker) return;
 
