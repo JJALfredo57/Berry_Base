@@ -1156,10 +1156,11 @@
     </div>
     @if(!in_array($order->status, ['Cancelled','Delivered']))
     <div class="g-compose-wrap">
+      <div id="guestUploadSummary" style="display:flex;align-items:center;flex-wrap:wrap;margin-bottom:.35rem"></div>
       <div class="g-compose-row">
         <label class="g-attach-btn" id="gAttachBtn" title="Attach images">
           <i class="bi bi-paperclip"></i>
-          <input type="file" id="gImgFilePicker" accept="image/*" multiple hidden onchange="onGuestFilePick(this)">
+          <input type="file" id="gImgFilePicker" accept="image/*" multiple hidden data-size-preview-target="guestUploadSummary" onchange="onGuestFilePick(this)">
         </label>
         <div contenteditable="true" id="msgInput" class="g-compose-box" data-placeholder="Type a message…"
              onkeydown="handleMsgEnter(event)"></div>
@@ -1684,6 +1685,9 @@ function clearGPicker(revoke = true) {
   document.getElementById('gImgPreviewBar').style.display = 'none';
   const ab = document.getElementById('gAttachBtn');
   if (ab) ab.classList.remove('active');
+  const picker = document.getElementById('gImgFilePicker');
+  const summary = picker?.dataset.sizePreviewId ? document.getElementById(picker.dataset.sizePreviewId) : null;
+  if (summary) summary.style.display = 'none';
 }
 
 function openGuestImgPv(src) {

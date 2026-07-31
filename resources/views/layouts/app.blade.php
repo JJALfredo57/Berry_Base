@@ -4351,7 +4351,12 @@ function pgFilter(param, val) {
       el = document.createElement('div');
       el.id = id;
       el.style.cssText = 'font-size:.75rem;margin-top:.3rem;color:#6b7280;display:none';
-      input.parentNode.insertBefore(el, input.nextSibling);
+      var target = input.dataset.sizePreviewTarget ? document.getElementById(input.dataset.sizePreviewTarget) : null;
+      if (target) {
+        target.appendChild(el);
+      } else {
+        input.parentNode.insertBefore(el, input.nextSibling);
+      }
     }
     return el;
   }

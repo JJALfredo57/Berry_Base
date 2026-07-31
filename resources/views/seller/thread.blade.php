@@ -288,12 +288,13 @@
       {{-- Compose --}}
       <div class="compose-wrap">
         <form id="threadForm">@csrf
+          <div id="threadUploadSummary" style="display:flex;align-items:center;flex-wrap:wrap;margin-bottom:.35rem"></div>
           <div class="compose-row">
             <div contenteditable="true" id="msgInput" class="compose-box" data-placeholder="Type a message…"
                  onkeydown="handleEnter(event)"></div>
             <label class="attach-btn" id="attachBtn" title="Attach images">
               <i class="bi bi-paperclip"></i>
-              <input type="file" id="imgFilePicker" accept="image/*" multiple hidden onchange="onFilePick(this)">
+              <input type="file" id="imgFilePicker" accept="image/*" multiple hidden data-size-preview-target="threadUploadSummary" onchange="onFilePick(this)">
             </label>
             <button type="submit" class="send-btn" id="sendBtn" title="Send">
               <i class="bi bi-send-fill"></i>
@@ -493,6 +494,9 @@ function clearImgPicker(revoke = true) {
   document.getElementById('imgCards').innerHTML = '';
   document.getElementById('imgPreviewBar').style.display = 'none';
   document.getElementById('attachBtn').classList.remove('active');
+  const picker = document.getElementById('imgFilePicker');
+  const summary = picker?.dataset.sizePreviewId ? document.getElementById(picker.dataset.sizePreviewId) : null;
+  if (summary) summary.style.display = 'none';
 }
 
 function openImgPreview(src) {

@@ -58,13 +58,14 @@
 
           <div class="border-top p-3">
             @if(session('warn'))<div class="alert alert-warning py-2 small mb-2 border-0">{{ session('warn') }}</div>@endif
+            <div id="threadUploadSummary" style="display:flex;align-items:center;flex-wrap:wrap;margin-bottom:.35rem"></div>
             <form action="{{ route('customer.messages.send', $orderId) }}" method="POST" enctype="multipart/form-data" id="threadForm">
               @csrf
               <div class="d-flex gap-2">
                 <textarea class="form-control" name="message" id="threadMsgInput" placeholder="Type a message…" autocomplete="off" rows="1" maxlength="1000" style="resize:none;max-height:120px;line-height:1.4;overflow-y:auto"></textarea>
                 <label class="btn btn-outline-secondary mb-0" id="threadImgBtn" title="Attach images">
                   <i class="bi bi-paperclip"></i>
-                  <input type="file" name="images[]" id="threadImgFile" accept="image/*" multiple hidden onchange="previewThreadImgs(this)">
+                  <input type="file" name="images[]" id="threadImgFile" accept="image/*" multiple hidden data-size-preview-target="threadUploadSummary" onchange="previewThreadImgs(this)">
                 </label>
                 <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i></button>
               </div>
@@ -134,6 +135,10 @@ function renderThreadPreview() {
   if (threadFiles.length === 0) {
     bar.style.display = 'none';
     btn.style.background = ''; btn.style.color = '';
+    const summary = document.getElementById('threadImgFile')?.dataset.sizePreviewId
+      ? document.getElementById(document.getElementById('threadImgFile').dataset.sizePreviewId)
+      : null;
+    if (summary) summary.style.display = 'none';
     return;
   }
   bar.style.display = 'block';
