@@ -963,10 +963,14 @@ updateCapacityPreview();
     <div class="setting-card-body">
       <div class="row g-3">
         @foreach([
-          ['bi-infinity',        '#059669', '#ECFDF5', 'Unlimited Products',        'No cap on how many products you can list.'],
-          ['bi-patch-check-fill','#E65100', '#FFF3E0', 'Verified Badge',             'A gold verified badge displayed on your public shop page.'],
-          ['bi-star-fill',       '#2563EB', '#EFF6FF', 'Custom Order Feature',       'Accept personalized cake orders with full design control.'],
-          ['bi-shield-check',    '#7C3AED', '#F5F3FF', 'Higher Customer Trust',      'Verified shops rank higher and convert more browsers to buyers.'],
+          ['bi-patch-check-fill','#E65100', '#FFF3E0', 'Verified Badge',             'A verified badge displayed on your public shop page.'],
+          ['bi-palette-fill',    '#2563EB', '#EFF6FF', 'Custom Cake Orders',         'Accept personalized cake requests with design notes and reference images.'],
+          ['bi-sliders',         '#7C3AED', '#F5F3FF', 'Custom Options',             'Manage flavors, sizes, layers, and delivery time choices for custom cakes.'],
+          ['bi-gift-fill',       '#DB2777', '#FDF2F8', 'Add-ons',                    'Offer candles, toppers, packaging, and other cake extras.'],
+          ['bi-infinity',        '#059669', '#ECFDF5', 'Unlimited Products',         'No cap on how many products you can list.'],
+          ['bi-graph-up-arrow',  '#0F766E', '#F0FDFA', 'Priority Visibility',        'Verified shops can be highlighted more clearly in listings and search.'],
+          ['bi-percent',         '#B45309', '#FFFBEB', 'Lower Commission Rate',      'Verified Sellers use the lower platform commission rate when enabled.'],
+          ['bi-shield-check',    '#4F46E5', '#EEF2FF', 'Higher Customer Trust',      'Customers can see that your shop documents were reviewed.'],
         ] as [$icon, $color, $bg, $title, $desc])
         <div class="col-md-6">
           <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.875rem;background:{{ $bg }};border-radius:var(--radius-md)">
@@ -1007,10 +1011,14 @@ updateCapacityPreview();
         <div style="font-size:.85rem;font-weight:700;color:#92400E;margin-bottom:.75rem"><i class="bi bi-stars me-2"></i>Benefits of Verified Seller</div>
         <div class="row g-2">
           @foreach([
-            ['bi-infinity',         'Unlimited products'],
             ['bi-patch-check-fill', 'Verified badge on your shop'],
-            ['bi-star-fill',        'Custom orders feature'],
-            ['bi-shield-check',     'Higher customer trust & visibility'],
+            ['bi-palette-fill',     'Custom cake orders'],
+            ['bi-sliders',          'Custom options for flavors, sizes, layers, and time slots'],
+            ['bi-gift-fill',        'Add-ons such as candles, toppers, and packaging'],
+            ['bi-infinity',         'Unlimited product listings'],
+            ['bi-graph-up-arrow',   'Priority visibility in shop listings'],
+            ['bi-percent',          'Lower commission rate when enabled'],
+            ['bi-shield-check',     'Higher customer trust'],
           ] as [$icon, $label])
           <div class="col-md-6">
             <div style="font-size:.8rem;color:#78350F;display:flex;align-items:center;gap:.5rem">

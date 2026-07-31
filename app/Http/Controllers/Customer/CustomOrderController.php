@@ -42,6 +42,18 @@ class CustomOrderController extends Controller
         ];
     }
 
+    private function resolveVerifiedShop(?string $slug): ?object
+    {
+        if (!$slug) return null;
+
+        $shop = DB::table('shops')
+            ->where('shop_slug', $slug)
+            ->where('status', 'approved')
+            ->first();
+
+        return $shop && ($shop->tier ?? 'basic') === 'verified' ? $shop : null;
+    }
+
     private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
         $R    = 6371000;
@@ -83,12 +95,12 @@ class CustomOrderController extends Controller
     public function show(Request $request)
     {
         $uid        = session('user')['id'];
-        $targetShop = null;
-        $shopId     = null;
-        if ($slug = $request->query('shop')) {
-            $targetShop = DB::table('shops')->where('shop_slug', $slug)->where('status', 'approved')->first();
-            if ($targetShop) $shopId = $targetShop->id;
+        $targetShop = $this->resolveVerifiedShop($request->query('shop'));
+        if (!$targetShop) {
+            return redirect()->route('platform.shops')
+                ->with('err', 'Custom cake ordering is available only for Verified Sellers. Please choose a verified shop.');
         }
+        $shopId = $targetShop->id;
 
         if ($targetShop && BecCastilloAddons::isBecCastilloShop($targetShop)) {
             BecCastilloAddons::ensureForShop($targetShop->id);
@@ -135,12 +147,12 @@ class CustomOrderController extends Controller
     public function store(Request $request)
     {
         $uid     = session('user')['id'];
-        $shopId = null;
-        $shop   = null;
-        if ($slug = $request->input('shop_slug')) {
-            $shop = DB::table('shops')->where('shop_slug', $slug)->where('status', 'approved')->first();
-            if ($shop) $shopId = $shop->id;
+        $shop = $this->resolveVerifiedShop($request->input('shop_slug'));
+        if (!$shop) {
+            return redirect()->route('platform.shops')
+                ->with('error', 'Custom cake ordering is available only for Verified Sellers. Please choose a verified shop.');
         }
+        $shopId = $shop->id;
         $options = $this->loadOptions($shopId);
 
         $cakeName   = trim($request->input('cake_name', 'Customized Cake'));

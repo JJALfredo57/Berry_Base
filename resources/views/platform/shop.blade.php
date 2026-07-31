@@ -260,6 +260,7 @@
     @php
       $viewerRole = session('user')['role'] ?? null;
     @endphp
+    @if($shop->tier === 'verified')
     <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:.85rem 0 1rem">
       @if($viewerRole === 'customer')
         <a href="{{ route('customer.custom_order') }}?shop={{ $shop->shop_slug }}" class="btn-custom-cake" onclick="return confirmCustomCake(event, this)">
@@ -275,6 +276,7 @@
         </button>
       @endif
     </div>
+    @endif
 
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchTab('products',this)">

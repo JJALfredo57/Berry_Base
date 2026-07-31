@@ -1374,13 +1374,23 @@
       <i class="bi bi-palette"></i><span class="sb-link-text">Custom Orders</span>
       <span class="sb-badge warn" data-seller-badge="custom_orders" title="Custom orders awaiting review" style="{{ $sbCount('custom_orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('custom_orders')) }}</span>
     </a>
-    @endif
     <a href="{{ route('seller.addons') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.addons') ? 'active' : '' }}">
       <i class="bi bi-gift"></i><span class="sb-link-text">Add-ons</span>
     </a>
     <a href="{{ route('seller.custom_options') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.custom_options') ? 'active' : '' }}">
       <i class="bi bi-sliders"></i><span class="sb-link-text">Custom Options</span>
     </a>
+    @else
+    <a href="{{ route('seller.settings', ['tab' => 'upgrade']) }}" class="sb-link" title="Verified Seller only">
+      <i class="bi bi-lock"></i><span class="sb-link-text">Custom Orders</span>
+    </a>
+    <a href="{{ route('seller.settings', ['tab' => 'upgrade']) }}" class="sb-link" title="Verified Seller only">
+      <i class="bi bi-lock"></i><span class="sb-link-text">Add-ons</span>
+    </a>
+    <a href="{{ route('seller.settings', ['tab' => 'upgrade']) }}" class="sb-link" title="Verified Seller only">
+      <i class="bi bi-lock"></i><span class="sb-link-text">Custom Options</span>
+    </a>
+    @endif
 
     <div class="sb-label">Delivery</div>
     <a href="{{ route('seller.zones') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.zones') ? 'active' : '' }}">

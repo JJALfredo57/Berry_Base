@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use Illuminate\Http\Request;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
 class CustomOptionController extends Controller
@@ -16,11 +17,23 @@ class CustomOptionController extends Controller
         'time_slot' => ['label' => 'Delivery Time Slots','icon' => 'bi-clock',   'has_price' => false],
     ];
 
-    private function getShopId(): ?string
+    private function getShop(): object
     {
         $uid  = session('user')['id'];
         $shop = DB::table('shops')->where('seller_id', $uid)->where('status', 'approved')->first();
-        return $shop?->id;
+        if (!$shop) abort(403);
+        if (($shop->tier ?? 'basic') !== 'verified') {
+            throw new HttpResponseException(
+                redirect()->route('seller.settings', ['tab' => 'upgrade'])
+                    ->with('err', 'Custom Options are available only for Verified Sellers. Please upgrade to access this feature.')
+            );
+        }
+        return $shop;
+    }
+
+    private function getShopId(): string
+    {
+        return (string) $this->getShop()->id;
     }
 
     public function index()

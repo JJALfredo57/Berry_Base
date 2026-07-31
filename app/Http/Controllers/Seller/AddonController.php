@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Support\BecCastilloAddons;
 use Illuminate\Http\Request;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
 class AddonController extends Controller
@@ -14,6 +15,12 @@ class AddonController extends Controller
         $uid  = session('user')['id'];
         $shop = DB::table('shops')->where('seller_id', $uid)->where('status', 'approved')->first();
         if (!$shop) abort(403);
+        if (($shop->tier ?? 'basic') !== 'verified') {
+            throw new HttpResponseException(
+                redirect()->route('seller.settings', ['tab' => 'upgrade'])
+                    ->with('err', 'Add-ons are available only for Verified Sellers. Please upgrade to access this feature.')
+            );
+        }
         return $shop;
     }
 

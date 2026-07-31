@@ -25,6 +25,42 @@
   </div>
 @endif
 
+@if(session('err'))
+  <div class="alert alert-danger d-flex align-items-center gap-2 mb-4 cs-fade-up">
+    <i class="bi bi-exclamation-circle-fill flex-shrink-0"></i><span>{{ session('err') }}</span>
+  </div>
+@endif
+
+@if($shop->tier !== 'verified')
+<div class="p-4 mb-4 rounded-3 cs-fade-up" style="background:linear-gradient(135deg,#fff7ed 0%,#fff 62%);border:1.5px solid #fed7aa">
+  <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center gap-3">
+    <div style="width:52px;height:52px;border-radius:14px;background:#fff3e0;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <i class="bi bi-patch-check-fill" style="font-size:1.55rem;color:#E65100"></i>
+    </div>
+    <div class="flex-grow-1">
+      <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+        <h5 class="m-0" style="font-size:1rem;font-weight:800;color:var(--gray-900)">Become a Verified Seller</h5>
+        <span style="background:#FFF3E0;color:#E65100;font-size:.7rem;font-weight:800;padding:.2rem .55rem;border-radius:99px">
+          <i class="bi bi-patch-check-fill me-1"></i>Verified Badge
+        </span>
+      </div>
+      <p class="m-0 mb-2" style="font-size:.84rem;color:var(--gray-600)">Unlock advanced selling tools and build more trust with customers.</p>
+      <div class="d-flex flex-wrap gap-2">
+        @foreach(['Custom Cake Orders','Custom Options','Add-ons','Unlimited Product Listings','Priority Visibility','Lower Commission Rate'] as $benefit)
+          <span style="display:inline-flex;align-items:center;gap:.35rem;background:#fff;border:1px solid #fed7aa;border-radius:99px;padding:.28rem .65rem;font-size:.75rem;color:#7c2d12;font-weight:600">
+            <i class="bi bi-check-circle-fill" style="color:#E65100"></i>{{ $benefit }}
+          </span>
+        @endforeach
+      </div>
+      <div class="mt-2" style="font-size:.76rem;color:var(--gray-500)">Submit your Business Permit, DTI Certificate, or Mayor's Permit for review.</div>
+    </div>
+    <a href="{{ route('seller.settings', ['tab' => 'upgrade']) }}" class="btn btn-sm flex-shrink-0" style="background:#E65100;color:#fff;border:none;font-weight:700">
+      <i class="bi bi-arrow-up-circle me-1"></i>Upgrade to Verified
+    </a>
+  </div>
+</div>
+@endif
+
 @if($pendingCustom > 0)
 <div class="d-flex align-items-center gap-3 p-3 mb-4 rounded-3 cs-fade-up" style="background:#fff3e0;border:1.5px solid #ffcc80">
   <div style="width:40px;height:40px;border-radius:10px;background:#E65100;display:flex;align-items:center;justify-content:center;flex-shrink:0">

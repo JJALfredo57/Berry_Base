@@ -6,6 +6,7 @@ use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -19,6 +20,12 @@ class CustomOrderController extends Controller
         $uid  = session('user')['id'];
         $shop = DB::table('shops')->where('seller_id', $uid)->where('status', 'approved')->first();
         if (!$shop) abort(403);
+        if (($shop->tier ?? 'basic') !== 'verified') {
+            throw new HttpResponseException(
+                redirect()->route('seller.settings', ['tab' => 'upgrade'])
+                    ->with('err', 'Custom Orders are available only for Verified Sellers. Please upgrade to access this feature.')
+            );
+        }
         return $shop;
     }
 
