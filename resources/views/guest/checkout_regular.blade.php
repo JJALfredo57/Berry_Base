@@ -4,17 +4,14 @@
   $originalSubtotal = $pricing['original_unit_price'] * $checkout['quantity'];
   $discountedSubtotal = $pricing['final_unit_price'] * $checkout['quantity'];
   $productDiscountTotal = $pricing['discount_amount'] * $checkout['quantity'];
-  $checkoutCover = $shop->shop_cover ?? $shopSettings->bg_image_path ?? '';
 @endphp
 @push('styles')
 <style>
 .checkout-branded-shell{position:relative;min-height:calc(100vh - var(--topbar-h,60px));padding:clamp(12px,3vw,24px)}
 .checkout-branded-shell::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(135deg,var(--primary-bg,#fff7fb),#fff)}
-.checkout-branded-shell.has-cover::before{background-image:linear-gradient(135deg,rgba(255,247,251,.9),rgba(255,255,255,.84)),var(--checkout-cover);background-position:center;background-size:cover;background-repeat:no-repeat;filter:saturate(1.02)}
-.checkout-branded-shell.has-cover::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);background:rgba(255,255,255,.2)}
 .checkout-branded-content{position:relative;z-index:1}
-.checkout-branded-content>.row>.col-lg-8 .card,.checkout-branded-content>.row>.col-xl-3 .card,.checkout-branded-content>.row>.col-lg-4 .card{background:rgba(255,255,255,.96);box-shadow:0 18px 48px rgba(15,23,42,.08);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-@media(max-width:575.98px){.checkout-branded-shell{padding:10px 0}.checkout-branded-content{padding-left:12px;padding-right:12px}.checkout-branded-shell.has-cover::after{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}}
+.checkout-branded-content>.row>.col-lg-8 .card,.checkout-branded-content>.row>.col-xl-3 .card,.checkout-branded-content>.row>.col-lg-4 .card{background:#fff;box-shadow:0 18px 48px rgba(15,23,42,.08)}
+@media(max-width:575.98px){.checkout-branded-shell{padding:10px 0}.checkout-branded-content{padding-left:12px;padding-right:12px}}
 </style>
 @endpush
 <script>
@@ -24,7 +21,7 @@ document.body.classList.remove('modal-open');
 document.body.style.overflow = '';
 document.body.style.paddingRight = '';
 </script>
-<div class="checkout-branded-shell {{ $checkoutCover ? 'has-cover' : '' }}" style="{{ $checkoutCover ? "--checkout-cover:url('{$checkoutCover}')" : '' }}">
+<div class="checkout-branded-shell">
 <div class="checkout-branded-content py-4">
       <h4 class="fw-bold mb-4 text-center"><i class="bi bi-bag-check me-2" style="color:var(--primary)"></i>Checkout</h4>
 
