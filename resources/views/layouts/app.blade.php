@@ -3965,10 +3965,13 @@ window.BERRY_PUSH_CONTEXT = {
   registerUrl: @json(route('device.register')),
   csrfToken: @json(csrf_token()),
   guestTrackCode: @json(strtoupper((string) (request()->route('trackCode') ?? session('guest_track_code', '')))),
+  pushEnabled: @json((bool) config('services.fcm.mobile_registration_enabled')),
 };
 
 (function () {
   async function registerBerryPush() {
+    if (!window.BERRY_PUSH_CONTEXT.pushEnabled) return;
+
     const capacitor = window.Capacitor;
     const push = capacitor?.Plugins?.PushNotifications;
     if (!capacitor?.isNativePlatform?.() || !push) return;

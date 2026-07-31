@@ -597,6 +597,8 @@ async function doFetch(url, fields, btn, originalHtml, onSuccess) {
 <script>
 (function () {
   async function registerRiderPush() {
+    if (!@json((bool) config('services.fcm.mobile_registration_enabled'))) return;
+
     const capacitor = window.Capacitor;
     const push = capacitor?.Plugins?.PushNotifications;
     if (!capacitor?.isNativePlatform?.() || !push) return;
