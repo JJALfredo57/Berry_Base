@@ -4291,11 +4291,45 @@ function pgFilter(param, val) {
 /* ── Image upload size preview ─────────────────────────────────────────── */
 (function () {
   var MAX_PX = 1400, QUALITY = 0.78, MIN_COMPRESS_BYTES = 160 * 1024;
+  var uploadSummaryStylesAdded = false;
 
   function fmtSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  function ensureUploadSummaryStyles() {
+    if (uploadSummaryStylesAdded || document.getElementById('csUploadSummaryStyles')) return;
+    uploadSummaryStylesAdded = true;
+    var style = document.createElement('style');
+    style.id = 'csUploadSummaryStyles';
+    style.textContent =
+      '.cs-upload-summary{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-top:.45rem;font-size:.74rem;color:#475569;line-height:1.3}' +
+      '.cs-upload-pill{display:inline-flex;align-items:center;gap:.35rem;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:.24rem .62rem;font-weight:650;white-space:nowrap}' +
+      '.cs-upload-pill i{font-size:.82rem;color:#64748b}' +
+      '.cs-upload-pill strong{font-weight:800;color:#111827}' +
+      '.cs-upload-pill.is-success{border-color:#bbf7d0;background:#f0fdf4;color:#166534}' +
+      '.cs-upload-pill.is-warning{border-color:#fde68a;background:#fffbeb;color:#92400e}' +
+      '.cs-upload-pill.is-muted{background:#f8fafc;color:#64748b}' +
+      '.cs-upload-pill.is-success i{color:#16a34a}' +
+      '.cs-upload-pill.is-warning i{color:#d97706}' +
+      '.cs-upload-save-badge{display:inline-flex;align-items:center;border-radius:999px;padding:.12rem .42rem;color:#fff;font-size:.68rem;font-weight:800}' +
+      '.cs-upload-arrow{color:#94a3b8;font-weight:800}' +
+      '@media(max-width:575px){.cs-upload-summary{gap:.35rem}.cs-upload-pill{white-space:normal;border-radius:10px}}';
+    document.head.appendChild(style);
+  }
+
+  function uploadSummaryHtml(parts) {
+    ensureUploadSummaryStyles();
+    return '<div class="cs-upload-summary">' + parts.join('') + '</div>';
+  }
+
+  function pillHtml(icon, label, value, tone) {
+    return '<span class="cs-upload-pill ' + (tone || 'is-muted') + '">' +
+      '<i class="bi ' + icon + '"></i>' +
+      '<span>' + label + (value ? ': <strong>' + value + '</strong>' : '') + '</span>' +
+      '</span>';
   }
 
   function isCompressibleImage(file) {
@@ -4413,14 +4447,15 @@ function pgFilter(param, val) {
     var original = results.reduce(function(sum, item) { return sum + item.originalSize; }, 0);
     var savedAs = results.reduce(function(sum, item) { return sum + item.compressedSize; }, 0);
     var saved = original > savedAs ? Math.round((1 - savedAs / original) * 100) : 0;
-    var color = saved >= 50 ? '#059669' : saved >= 20 ? '#d97706' : '#6b7280';
-    var label = results.length > 1 ? results.length + ' images' : 'Original';
-    preview.innerHTML =
-      '<span style="color:#6b7280">' + label + ': <strong>' + fmtSize(original) + '</strong></span>' +
-      '&nbsp;&nbsp;->&nbsp;&nbsp;' +
-      '<span style="color:' + color + '">Saved as: <strong>~' + fmtSize(savedAs) + '</strong>' +
-      (saved > 0 ? ' <span style="background:' + color + ';color:#fff;border-radius:4px;padding:1px 5px;font-size:.68rem">-' + saved + '%</span>' : '') +
-      '</span>';
+    var tone = saved >= 20 ? 'is-success' : 'is-muted';
+    var badgeColor = saved >= 50 ? '#059669' : saved >= 20 ? '#d97706' : '#64748b';
+    var label = results.length > 1 ? results.length + ' images' : '1 image';
+    preview.innerHTML = uploadSummaryHtml([
+      pillHtml('bi-images', label, fmtSize(original), 'is-muted'),
+      '<span class="cs-upload-arrow">-&gt;</span>',
+      pillHtml('bi-lightning-charge-fill', 'Optimized', '~' + fmtSize(savedAs), tone),
+      saved > 0 ? '<span class="cs-upload-save-badge" style="background:' + badgeColor + '">-' + saved + '%</span>' : ''
+    ]);
     preview.style.display = 'block';
   }
 
@@ -4434,7 +4469,9 @@ function pgFilter(param, val) {
     input.dataset.csCompressing = '1';
 
     var preview = getOrCreatePreview(input);
-    preview.innerHTML = '<span style="color:#6b7280"><span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>Optimizing image' + (input.files.length > 1 ? 's' : '') + '...</span>';
+    preview.innerHTML = uploadSummaryHtml([
+      '<span class="cs-upload-pill is-muted"><span class="spinner-border spinner-border-sm" style="width:.72rem;height:.72rem"></span><span>Optimizing image' + (input.files.length > 1 ? 's' : '') + '...</span></span>'
+    ]);
     preview.style.display = 'block';
 
     try {
@@ -4455,7 +4492,9 @@ function pgFilter(param, val) {
       input.files = dt.files;
       renderSummary(preview, results);
     } catch (err) {
-      preview.innerHTML = '<span style="color:#d97706">Image optimization skipped. Original file will be used.</span>';
+      preview.innerHTML = uploadSummaryHtml([
+        pillHtml('bi-exclamation-triangle', 'Optimization skipped', 'Original file will be used', 'is-warning')
+      ]);
     } finally {
       input.dataset.csCompressing = '0';
       input.dataset.csCompressedChange = '1';
