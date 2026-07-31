@@ -93,6 +93,10 @@
        data-search="{{ strtolower(trim(($o->track_code ?? '') . ' ' . ($o->order_customer_name ?? 'customer') . ' ' . ($o->product_name ?? ($custom->cake_name ?? 'custom cake')) . ' ' . ($o->payment_status ?? '') . ' ' . ($o->payment_method ?? '') . ' ' . ($o->status ?? ''))) }}"
        data-status="{{ strtolower($o->status ?? '') }}"
        data-fulfillment="{{ strtolower($o->fulfillment_type ?? 'pickup') }}"
+       data-order-id="{{ $o->id }}"
+       data-payment-method="{{ $o->payment_method ?? '' }}"
+       data-payment-status="{{ $o->payment_status ?? '' }}"
+       data-realtime-url="{{ route('seller.orders.realtime_status', $o->id) }}"
        style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);margin-bottom:1rem;overflow:hidden">
 
     {{-- Order Header --}}
@@ -143,7 +147,7 @@
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0">
         <div style="font-size:1rem;font-weight:700;color:var(--primary)">₱{{ number_format((float)($o->total_price ?? 0),2) }}</div>
-        <div style="font-size:.72rem;color:{{ $o->payment_status==='Paid' ? 'var(--success,#2E7D32)' : ($o->payment_status==='Partial Payment' ? '#E65100' : 'var(--gray-500)') }};font-weight:600">
+        <div data-payment-status-label="{{ $o->id }}" style="font-size:.72rem;color:{{ $o->payment_status==='Paid' ? 'var(--success,#2E7D32)' : ($o->payment_status==='Partial Payment' ? '#E65100' : 'var(--gray-500)') }};font-weight:600">
           {{ $o->payment_status ?? 'Unpaid' }}
         </div>
         <button onclick="showOrderDetail('{{ $o->id }}')"
@@ -330,7 +334,7 @@
         </form>
       </div>
       @else
-      <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fffbeb 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+      <div data-pickup-payment-wait="{{ $o->id }}" style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fffbeb 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
         <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
           <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center;flex-shrink:0">
             <i class="bi bi-clock-history"></i>
@@ -470,6 +474,52 @@ function filterSellerOrders() {
   const empty = document.getElementById('sellerOrdersEmpty');
   if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
 }
+
+(function startGcashOrderRealtime() {
+  const watchedOrders = Array.from(document.querySelectorAll('.seller-order-item'))
+    .filter(el => (el.dataset.paymentMethod || '').toLowerCase() === 'gcash')
+    .filter(el => (el.dataset.paymentStatus || '') !== 'Paid')
+    .filter(el => el.dataset.realtimeUrl);
+
+  if (!watchedOrders.length) return;
+
+  let reloading = false;
+  const pollOrder = async (el) => {
+    if (reloading) return;
+    try {
+      const res = await fetch(el.dataset.realtimeUrl, {
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        cache: 'no-store'
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.ok) return;
+
+      const currentStatus = el.dataset.status || '';
+      const currentPayment = el.dataset.paymentStatus || '';
+      const incomingStatus = (data.status || '').toLowerCase();
+      const incomingPayment = data.payment_status || '';
+
+      const label = Array.from(document.querySelectorAll('[data-payment-status-label]'))
+        .find(node => node.dataset.paymentStatusLabel === String(data.id));
+      if (label && incomingPayment && incomingPayment !== currentPayment) {
+        label.textContent = incomingPayment;
+        label.style.color = incomingPayment === 'Paid' ? 'var(--success,#2E7D32)' : (incomingPayment === 'Partial Payment' ? '#E65100' : 'var(--gray-500)');
+      }
+
+      if (incomingPayment === 'Paid' || incomingStatus !== currentStatus || data.can_confirm_pickup) {
+        reloading = true;
+        window.location.reload();
+      }
+    } catch (error) {}
+  };
+
+  watchedOrders.forEach(el => pollOrder(el));
+  const timer = window.setInterval(() => {
+    watchedOrders.forEach(el => pollOrder(el));
+  }, 6000);
+  window.addEventListener('beforeunload', () => window.clearInterval(timer));
+})();
 </script>
 @endsection
 

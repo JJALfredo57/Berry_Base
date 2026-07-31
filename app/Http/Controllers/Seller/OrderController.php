@@ -198,6 +198,47 @@ class OrderController extends Controller
         return back()->with('msg', "Order status updated to {$newStatus}.");
     }
 
+    public function realtimeStatus(string $id)
+    {
+        $shop  = $this->getShop();
+        $order = DB::table('orders')
+            ->where('id', $id)
+            ->where('shop_id', $shop->id)
+            ->select(
+                'id',
+                'status',
+                'payment_method',
+                'payment_status',
+                'deposit_status',
+                'deposit_amount',
+                'total_price',
+                'paid_at',
+                'updated_at'
+            )
+            ->first();
+
+        if (!$order) {
+            return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+        }
+
+        $isCashPickup = ($order->status ?? '') === 'Pickup'
+            && in_array(strtoupper((string) $order->payment_method), ['COP', 'COD'], true);
+
+        return response()->json([
+            'ok'                 => true,
+            'id'                 => $order->id,
+            'status'             => $order->status,
+            'display_status'     => $order->status === 'Pickup' ? 'Ready for Pickup' : $order->status,
+            'payment_method'     => $order->payment_method,
+            'payment_status'     => $order->payment_status,
+            'deposit_status'     => $order->deposit_status,
+            'can_confirm_pickup' => $order->status === 'Pickup' && ($order->payment_status === 'Paid' || $isCashPickup),
+            'remaining_balance'  => max(0, (float)($order->total_price ?? 0) - (float)($order->deposit_amount ?? 0)),
+            'paid_at'            => (string) ($order->paid_at ?? ''),
+            'updated_at'         => (string) ($order->updated_at ?? ''),
+        ]);
+    }
+
     public function assignRider(Request $request, string $id)
     {
         $shop  = $this->getShop();

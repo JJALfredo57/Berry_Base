@@ -254,6 +254,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     // Orders
     Route::get('/sidebar-counts',            [\App\Http\Controllers\Seller\DashboardController::class, 'sidebarCounts'])->name('sidebar_counts');
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
+    Route::get('/orders/{id}/realtime-status', [\App\Http\Controllers\Seller\OrderController::class, 'realtimeStatus'])->name('orders.realtime_status');
     Route::post('/orders/{id}/status',       [\App\Http\Controllers\Seller\OrderController::class, 'updateStatus'])->name('orders.status');
     Route::post('/orders/{id}/assign-rider', [\App\Http\Controllers\Seller\OrderController::class, 'assignRider'])->name('orders.assign_rider');
 
