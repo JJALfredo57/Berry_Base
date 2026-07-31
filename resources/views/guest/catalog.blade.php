@@ -256,7 +256,7 @@
           </div>
           @endif
 
-          @if($latestReview && !empty($latestReview->review))
+          @if(false && $latestReview && !empty($latestReview->review))
           <div class="mb-3 p-2 rounded-3" style="background:#fff7ed;border:1px solid #fed7aa">
             <div class="small fw-semibold" style="color:#b45309"><i class="bi bi-chat-quote me-1"></i>Latest review</div>
             <div class="small text-muted mt-1">"{{ Str::limit($latestReview->review, 70) }}"</div>
@@ -264,7 +264,7 @@
           @endif
 
           {{-- Sizes preview --}}
-          @if(count($sizes) > 0)
+          @if(false && count($sizes) > 0)
           <div class="mb-3">
             <div class="text-muted small mb-1">Available Sizes:</div>
             <div class="d-flex flex-wrap gap-1">

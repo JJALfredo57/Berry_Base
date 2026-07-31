@@ -129,7 +129,7 @@
           @endif
 
           {{-- Sizes preview --}}
-          @if(count($sizes) > 0)
+          @if(false && count($sizes) > 0)
           <div class="mb-3">
             <div class="text-muted small mb-1">Available Sizes:</div>
             <div class="d-flex flex-wrap gap-1">
