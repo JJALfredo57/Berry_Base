@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
 @php
   if (!isset($settings)) { $settings = \App\Helpers\CakeshopHelper::getSettings(); }
   if (!isset($bgCss))    { $bgCss    = \App\Helpers\CakeshopHelper::backgroundCss($settings); }
@@ -3959,6 +3960,69 @@ function formatMcTime(dateStr) {
 @endif
 
 @stack('modals')
+<script>
+window.BERRY_PUSH_CONTEXT = {
+  registerUrl: @json(route('device.register')),
+  csrfToken: @json(csrf_token()),
+  guestTrackCode: @json(strtoupper((string) (request()->route('trackCode') ?? session('guest_track_code', '')))),
+};
+
+(function () {
+  async function registerBerryPush() {
+    const capacitor = window.Capacitor;
+    const push = capacitor?.Plugins?.PushNotifications;
+    if (!capacitor?.isNativePlatform?.() || !push) return;
+
+    try {
+      let permission = await push.checkPermissions();
+      if (permission.receive !== 'granted') {
+        permission = await push.requestPermissions();
+      }
+      if (permission.receive !== 'granted') return;
+
+      await push.removeAllListeners();
+      await push.addListener('registration', function (token) {
+        const value = token?.value || token;
+        if (!value) return;
+        fetch(window.BERRY_PUSH_CONTEXT.registerUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': window.BERRY_PUSH_CONTEXT.csrfToken,
+          },
+          body: JSON.stringify({
+            device_token: value,
+            device_type: 'android',
+            platform: navigator.platform || 'Android',
+            device_name: navigator.userAgent || '',
+            guest_track_code: window.BERRY_PUSH_CONTEXT.guestTrackCode || '',
+          }),
+        }).catch(function () {});
+      });
+
+      await push.addListener('registrationError', function (error) {
+        console.warn('Push registration failed', error);
+      });
+
+      await push.addListener('pushNotificationActionPerformed', function (event) {
+        const url = event?.notification?.data?.url;
+        if (url) window.location.href = url;
+      });
+
+      await push.register();
+    } catch (error) {
+      console.warn('Push setup skipped', error);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', registerBerryPush);
+  } else {
+    registerBerryPush();
+  }
+})();
+</script>
 @stack('scripts')
 
 {{-- ── Global Image Lightbox ─────────────────────────────────────── --}}

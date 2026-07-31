@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -359,6 +360,15 @@ class PaymentController extends Controller
 
         CakeshopHelper::logActivity($uid, 'customer', 'Deposit Payment', "Deposit paid for Order #{$orderId}.");
 
+        try {
+            $pushOrder = DB::table('orders')->where('id', $orderId)->first();
+            if ($pushOrder) {
+                app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Customer deposit payment push failed: ' . $e->getMessage());
+        }
+
         return redirect()->route('customer.orders')
             ->with('msg', 'Deposit paid! Your order is now pending confirmation from the baker. The remaining balance will be collected upon ' . ($order->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup') . '.');
     }
@@ -450,6 +460,15 @@ class PaymentController extends Controller
             ]);
 
             CakeshopHelper::logActivity($uid, 'customer', 'GCash Payment', "Order #{$orderId} paid via GCash.");
+
+            try {
+                $pushOrder = DB::table('orders')->where('id', $orderId)->first();
+                if ($pushOrder) {
+                    app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Customer full payment push failed: ' . $e->getMessage());
+            }
 
             $receipt = DB::table('orders as o')
                 ->join('products as p', 'p.id', '=', 'o.product_id')

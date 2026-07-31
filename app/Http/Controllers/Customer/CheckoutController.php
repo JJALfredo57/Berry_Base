@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -339,6 +340,18 @@ class CheckoutController extends Controller
             'is_read' => false,
             'created_at'       => now(),
         ]);
+
+        try {
+            $pushOrder = DB::table('orders')->where('id', $oid)->first();
+            if ($pushOrder) {
+                app(PushNotificationService::class)->sendToOrderSeller(
+                    $pushOrder,
+                    'New Order #' . $oid,
+                    (session('user')['fullname'] ?? 'Customer') . ' placed a new order.',
+                    ['event' => 'new_order']
+                );
+            }
+        } catch (\Throwable $e) {}
 
         $request->session()->forget('checkout');
 

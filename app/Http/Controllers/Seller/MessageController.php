@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\PushNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -111,6 +112,17 @@ class MessageController extends Controller
                     'order_id' => $orderId,
                     'message' => $e->getMessage(),
                 ]);
+            }
+
+            try {
+                app(PushNotificationService::class)->sendToOrderCustomer(
+                    $order,
+                    'New Message from Seller',
+                    $text !== '' ? mb_strimwidth($text, 0, 90, '...') : 'The seller sent image attachments.',
+                    ['event' => 'message']
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Seller message push failed: ' . $e->getMessage());
             }
 
             return response()->json(['ok'=>true,'id'=>$msgId]);
@@ -229,6 +241,16 @@ class MessageController extends Controller
             'is_read' => false,
             'created_at'  => now(),
         ]);
+        try {
+            app(PushNotificationService::class)->sendToOrderCustomer(
+                $order,
+                'New Message from Seller',
+                mb_strimwidth($text, 0, 90, '...'),
+                ['event' => 'message']
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Seller popup message push failed: ' . $e->getMessage());
+        }
         return response()->json(['ok'=>true]);
     }
 }

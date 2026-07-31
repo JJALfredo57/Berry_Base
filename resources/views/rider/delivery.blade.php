@@ -594,5 +594,55 @@ async function doFetch(url, fields, btn, originalHtml, onSuccess) {
   } catch(e) { alert('Network error. Please try again.'); btn.disabled = false; btn.innerHTML = originalHtml; }
 }
 </script>
+<script>
+(function () {
+  async function registerRiderPush() {
+    const capacitor = window.Capacitor;
+    const push = capacitor?.Plugins?.PushNotifications;
+    if (!capacitor?.isNativePlatform?.() || !push) return;
+
+    try {
+      let permission = await push.checkPermissions();
+      if (permission.receive !== 'granted') {
+        permission = await push.requestPermissions();
+      }
+      if (permission.receive !== 'granted') return;
+
+      await push.removeAllListeners();
+      await push.addListener('registration', function (token) {
+        const value = token?.value || token;
+        if (!value) return;
+        fetch('{{ route('device.register') }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+          },
+          body: JSON.stringify({
+            device_token: value,
+            device_type: 'android',
+            platform: navigator.platform || 'Android',
+            device_name: navigator.userAgent || '',
+            rider_order_id: ORDER_ID,
+            rider_token: TOKEN,
+          }),
+        }).catch(function () {});
+      });
+
+      await push.addListener('pushNotificationActionPerformed', function (event) {
+        const url = event?.notification?.data?.url;
+        if (url) window.location.href = url;
+      });
+
+      await push.register();
+    } catch (error) {
+      console.warn('Rider push setup skipped', error);
+    }
+  }
+
+  registerRiderPush();
+})();
+</script>
 </body>
 </html>

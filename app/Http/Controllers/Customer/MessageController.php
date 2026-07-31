@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\PushNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -203,6 +204,17 @@ public function popupSend(Request $request)
             'created_at'       => now(),
         ]);
 
+        if ($order) {
+            try {
+                app(PushNotificationService::class)->sendToOrderSeller(
+                    $order,
+                    'New Customer Message',
+                    $text !== '' ? mb_strimwidth($text, 0, 90, '...') : 'Customer sent image attachments.',
+                    ['event' => 'message']
+                );
+            } catch (\Throwable $e) {}
+        }
+
         $product = $order ? DB::table('products')->where('id', $order->product_id)->value('name') : null;
         return response()->json([
             'id'           => $id,
@@ -256,6 +268,18 @@ public function popupSend(Request $request)
             'is_read' => false,
             'created_at'       => now(),
         ]);
+
+        try {
+            $order = DB::table('orders')->where('id', $orderId)->where('user_id', $uid)->first();
+            if ($order) {
+                app(PushNotificationService::class)->sendToOrderSeller(
+                    $order,
+                    'New Customer Message',
+                    $text !== '' ? mb_strimwidth($text, 0, 90, '...') : 'Customer sent image attachments.',
+                    ['event' => 'message']
+                );
+            }
+        } catch (\Throwable $e) {}
 
         CakeshopHelper::logActivity($uid, 'customer', 'Send Message', "Order #{$orderId}");
         return redirect()->route('customer.messages.thread', $orderId);

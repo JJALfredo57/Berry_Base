@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -415,6 +416,18 @@ class CheckoutController extends Controller
             'message'          => "{$guestName} ({$phone}) placed Order #{$oid}.",
             'is_read' => false, 'created_at' => now(),
         ]);
+
+        try {
+            $pushOrder = DB::table('orders')->where('id', $oid)->first();
+            if ($pushOrder) {
+                app(PushNotificationService::class)->sendToOrderSeller(
+                    $pushOrder,
+                    'New Order #' . $oid,
+                    "{$guestName} placed a new order.",
+                    ['event' => 'new_order']
+                );
+            }
+        } catch (\Throwable $e) {}
 
         $request->session()->forget(['guest_checkout','guest_otp','guest_otp_exp','guest_phone','guest_pre_track']);
 

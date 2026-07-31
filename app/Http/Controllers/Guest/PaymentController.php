@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -365,6 +366,14 @@ class PaymentController extends Controller
             (float) $order->deposit_amount,
             $pmReference
         );
+        try {
+            $pushOrder = DB::table('orders')->where('id', $order->id)->first();
+            if ($pushOrder) {
+                app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Guest deposit payment push failed: ' . $e->getMessage());
+        }
 
         try {
             DB::table('order_tracking')->insert([
@@ -668,6 +677,14 @@ class PaymentController extends Controller
                 $paidAmount,
                 $pmReference
             );
+            try {
+                $pushOrder = DB::table('orders')->where('id', $order->id)->first();
+                if ($pushOrder) {
+                    app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Guest remaining payment push failed: ' . $e->getMessage());
+            }
 
             // ── AUTO CONFIRM + SEND TO KITCHEN (remaining balance paid) ─
             if (in_array($order->status, ['Pending', 'Pending Review'])) {
@@ -803,6 +820,14 @@ class PaymentController extends Controller
                 'paid_at'        => now(),
             ]);
             PaymentTransactionHelper::record($order, 'full_gcash', 'GCash', (float) $order->total_price, $pmReference);
+            try {
+                $pushOrder = DB::table('orders')->where('id', $order->id)->first();
+                if ($pushOrder) {
+                    app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Guest full payment push failed: ' . $e->getMessage());
+            }
 
             // ── AUTO CONFIRM + SEND TO KITCHEN ─────────────────────────
             // Only auto-confirm if order is still Pending/Pending Review
@@ -1070,6 +1095,14 @@ class PaymentController extends Controller
                 (float) $order->deposit_amount,
                 $pmReference
             );
+            try {
+                $pushOrder = DB::table('orders')->where('id', $order->id)->first();
+                if ($pushOrder) {
+                    app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Guest custom deposit payment push failed: ' . $e->getMessage());
+            }
 
             DB::table('order_tracking')->insert([
                 'order_id'   => $order->id,

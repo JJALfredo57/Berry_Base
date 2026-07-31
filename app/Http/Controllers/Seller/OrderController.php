@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
+use App\Services\PushNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -144,6 +145,20 @@ class OrderController extends Controller
             'notes'      => $request->input('notes', ''),
             'created_at' => now(),
         ]);
+
+        try {
+            $pushOrder = DB::table('orders')->where('id', $id)->first();
+            if ($pushOrder) {
+                app(PushNotificationService::class)->sendToOrderCustomer(
+                    $pushOrder,
+                    'Order Update: ' . ($newStatus === 'Pickup' ? 'Ready for Pickup' : $newStatus),
+                    "Order #{$id} is now " . ($newStatus === 'Pickup' ? 'ready for pickup' : $newStatus) . '.',
+                    ['event' => 'order_status']
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Seller order status push failed: ' . $e->getMessage());
+        }
 
         // SMS + in-app notification — send only for actionable statuses
         try {
@@ -305,6 +320,17 @@ class OrderController extends Controller
         $smsNote = $rider->phone === null
             ? ' Warning: This rider has no phone number on record.'
             : ($riderSmsSent === false ? ' Warning: SMS to rider was not delivered. The message may have been flagged or the number is unreachable.' : ' SMS sent to rider.');
+
+        try {
+            $pushOrder = DB::table('orders')->where('id', $id)->first();
+            if ($pushOrder) {
+                $push = app(PushNotificationService::class);
+                $push->sendToOrderRider($pushOrder, 'New Delivery Assigned', "Order #{$id} is assigned to you.", ['event' => 'rider_assigned']);
+                $push->sendToOrderCustomer($pushOrder, 'Order Out for Delivery', "Order #{$id} is now out for delivery.", ['event' => 'order_status']);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Seller rider assignment push failed: ' . $e->getMessage());
+        }
 
         return back()->with('msg', "Rider assigned. Order is now Out for Delivery.{$smsNote}");
     }

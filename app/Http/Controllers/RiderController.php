@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Helpers\SmsHelper;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
+use App\Services\PushNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -298,6 +299,17 @@ class RiderController extends Controller
                 'created_at'       => now(),
             ]);
 
+            try {
+                $pushOrder = DB::table('orders')->where('id', $orderId)->first();
+                if ($pushOrder) {
+                    $push = app(PushNotificationService::class);
+                    $push->sendToOrderCustomer($pushOrder, 'Order Delivered', "Order #{$orderId} has been delivered.", ['event' => 'delivered']);
+                    $push->sendToOrderSeller($pushOrder, 'Order Delivered', "Rider {$riderName} marked Order #{$orderId} as delivered.", ['event' => 'delivered']);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Rider delivered push failed: ' . $e->getMessage());
+            }
+
             return response()->json(['ok'=>true]);
 
         } catch (\Throwable $e) {
@@ -376,6 +388,17 @@ class RiderController extends Controller
                 'is_read' => false,
                 'created_at'       => now(),
             ]);
+
+            try {
+                $pushOrder = DB::table('orders')->where('id', $orderId)->first();
+                if ($pushOrder) {
+                    $push = app(PushNotificationService::class);
+                    $push->sendToOrderCustomer($pushOrder, 'Delivery Update', "There is a delivery update for Order #{$orderId}.", ['event' => 'delivery_issue']);
+                    $push->sendToOrderSeller($pushOrder, 'Delivery Issue Reported', "Rider {$riderName} reported: {$issueLabel}.", ['event' => 'delivery_issue']);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Rider issue push failed: ' . $e->getMessage());
+            }
 
             return response()->json(['ok'=>true,'status'=>$newStatus]);
 

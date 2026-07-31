@@ -2,6 +2,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SetupController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\DeviceSessionController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
@@ -81,6 +82,9 @@ Route::get('/api/geocode/search', function (\Illuminate\Http\Request $req) {
     $url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=' . urlencode($q);
     return redirect()->away($url);
 })->name('api.geocode.search');
+
+Route::post('/device/register', [DeviceSessionController::class, 'register'])->name('device.register');
+Route::post('/device/unregister', [DeviceSessionController::class, 'unregister'])->name('device.unregister');
 
 // ── Guest Checkout ────────────────────────────────────────────────────────
 Route::get('/checkout',             [GuestCheckout::class, 'show'])->name('guest.checkout');
