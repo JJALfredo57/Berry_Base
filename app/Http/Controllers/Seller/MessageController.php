@@ -6,6 +6,7 @@ use App\Helpers\CakeshopHelper;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MessageController extends Controller
 {
@@ -73,37 +74,58 @@ class MessageController extends Controller
 
     public function send(Request $request, string $orderId)
     {
-        $shop    = $this->getShop();
-        $order   = DB::table('orders')->where('id', $orderId)->where('shop_id', $shop->id)->first();
-        if (!$order) return response()->json(['ok'=>false,'error'=>'Order not found.']);
+        try {
+            $shop    = $this->getShop();
+            $order   = DB::table('orders')->where('id', $orderId)->where('shop_id', $shop->id)->first();
+            if (!$order) return response()->json(['ok'=>false,'error'=>'Order not found.'], 404);
 
-        $text  = trim($request->input('message', ''));
-        $files = $request->file('images') ?? [];
-        if (!is_array($files)) $files = [$files];
+            $text  = trim($request->input('message', ''));
+            $files = $request->file('images') ?? [];
+            if (!is_array($files)) $files = [$files];
 
-        $paths = [];
-        foreach ($files as $file) {
-            if ($file && $file->isValid()) {
-                $url = $this->uploadFile($file, 'uploads/messages');
-                if ($url) $paths[] = $url;
+            $paths = [];
+            foreach ($files as $file) {
+                if ($file && $file->isValid()) {
+                    $url = $this->uploadFile($file, 'uploads/messages');
+                    if ($url) $paths[] = $url;
+                }
             }
+            $imgPath = count($paths) === 1 ? $paths[0] : (count($paths) > 1 ? json_encode($paths) : null);
+
+            if (!$text && !$imgPath) return response()->json(['ok' => false, 'error' => 'Cannot send empty message.'], 422);
+
+            $msgId = DB::table('messages')->insertGetId([
+                'order_id'    => $orderId,
+                'sender_role' => 'seller',
+                'sender_id'   => session('user')['id'],
+                'message'     => $text ?: null,
+                'image_path'  => $imgPath,
+                'is_read'     => false,
+                'created_at'  => now(),
+            ]);
+
+            try {
+                CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Send Message', "Order #{$orderId}");
+            } catch (\Throwable $e) {
+                Log::warning('Seller message activity log failed', [
+                    'order_id' => $orderId,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
+            return response()->json(['ok'=>true,'id'=>$msgId]);
+        } catch (\Throwable $e) {
+            Log::error('Seller message send failed', [
+                'order_id' => $orderId,
+                'message'  => $e->getMessage(),
+                'trace'    => substr($e->getTraceAsString(), 0, 3000),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'error' => 'Message could not be sent. Please try again.',
+            ], 500);
         }
-        $imgPath = count($paths) === 1 ? $paths[0] : (count($paths) > 1 ? json_encode($paths) : null);
-
-        if (!$text && !$imgPath) return response()->json(['ok' => false, 'error' => 'Cannot send empty message.']);
-
-        $msgId = DB::table('messages')->insertGetId([
-            'order_id'    => $orderId,
-            'sender_role' => 'seller',
-            'sender_id'   => session('user')['id'],
-            'message'     => $text ?: null,
-            'image_path'  => $imgPath,
-            'is_read'     => false,
-            'created_at'  => now(),
-        ]);
-
-        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Send Message', "Order #{$orderId}");
-        return response()->json(['ok'=>true,'id'=>$msgId]);
     }
 
     public function markReadMsg(Request $request, string $id)

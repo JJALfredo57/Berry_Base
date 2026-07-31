@@ -522,12 +522,16 @@ document.getElementById('threadForm').addEventListener('submit', async function 
   pickedImages.filter(x => !x.compressing && x.file).forEach(x => fd.append('images[]', x.file));
 
   try {
-    const res = await fetch(sendUrl, { method:'POST', body:fd });
+    const res = await fetch(sendUrl, {
+      method:'POST',
+      body:fd,
+      headers:{ 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest' }
+    });
     const ct  = res.headers.get('content-type') || '';
     if (!ct.includes('application/json')) {
       const raw = await res.text();
       console.error('HTTP ' + res.status, raw.substring(0, 600));
-      alert('Server error (HTTP ' + res.status + '). Check console (F12) for details.');
+      alert('Message could not be sent. Please try again.');
       return;
     }
     const json = await res.json();
