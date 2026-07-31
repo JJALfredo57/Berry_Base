@@ -8,9 +8,9 @@
 @push('styles')
 <style>
 .checkout-branded-shell{position:relative;min-height:calc(100vh - var(--topbar-h,60px));padding:clamp(12px,3vw,24px)}
-.checkout-branded-shell::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(135deg,var(--primary-bg,#fff7fb),#fff)}
+.checkout-branded-shell::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:transparent}
 .checkout-branded-content{position:relative;z-index:1}
-.checkout-branded-content>.row>.col-lg-8 .card,.checkout-branded-content>.row>.col-xl-3 .card,.checkout-branded-content>.row>.col-lg-4 .card{background:#fff;box-shadow:0 18px 48px rgba(15,23,42,.08)}
+.checkout-branded-content>.row>.col-lg-8 .card,.checkout-branded-content>.row>.col-xl-3 .card,.checkout-branded-content>.row>.col-lg-4 .card{background:rgba(255,255,255,.82);box-shadow:0 18px 48px rgba(15,23,42,.08)}
 @media(max-width:575.98px){.checkout-branded-shell{padding:10px 0}.checkout-branded-content{padding-left:12px;padding-right:12px}}
 </style>
 @endpush
