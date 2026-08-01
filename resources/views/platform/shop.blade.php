@@ -263,11 +263,11 @@
     @if($shop->tier === 'verified')
     <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:.85rem 0 1rem">
       @if($viewerRole === 'customer')
-        <a href="{{ route('customer.custom_order') }}?shop={{ $shop->shop_slug }}" class="btn-custom-cake" onclick="return confirmCustomCake(event, this)">
+        <a href="{{ route('customer.custom_order', ['shop' => $shop->shop_slug]) }}" class="btn-custom-cake" onclick="return confirmCustomCake(event, this)">
           <i class="bi bi-palette-fill"></i> Order Custom Cake
         </a>
       @elseif(!$viewerRole)
-        <a href="{{ route('guest.custom_order') }}?shop={{ $shop->shop_slug }}" class="btn-custom-cake" onclick="return confirmCustomCake(event, this)">
+        <a href="{{ route('guest.custom_order', ['shop' => $shop->shop_slug]) }}" class="btn-custom-cake" onclick="return confirmCustomCake(event, this)">
           <i class="bi bi-palette-fill"></i> Order Custom Cake
         </a>
       @else
@@ -908,6 +908,15 @@ function confirmCustomCake(event, el) {
   if (event) event.preventDefault();
   const href = el.getAttribute('href');
   const viewerRole = el.dataset.viewerRole || 'guest';
+  const fallbackMessage = href
+    ? 'Start a custom cake order for this shop?'
+    : 'Custom cake ordering is disabled while you are signed in as ' + viewerRole + '. To test this flow, sign out or use a customer account.';
+
+  if (typeof shopDialogOpen !== 'function' || !document.getElementById('shopCheckoutDialog')) {
+    if (href && window.confirm(fallbackMessage)) window.location.href = href;
+    if (!href) window.alert(fallbackMessage);
+    return false;
+  }
 
   if (!href) {
     shopDialogOpen({
@@ -937,6 +946,8 @@ function confirmCustomCake(event, el) {
   });
   return false;
 }
+
+window.confirmCustomCake = confirmCustomCake;
 
 function confirmOrder(form) {
   const canCheckout = form.querySelector('input[name="_viewer_can_checkout"]')?.value === '1';
