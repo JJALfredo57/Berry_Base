@@ -89,6 +89,7 @@ Route::get('/device/push-config-check', function () {
     return response()->json([
         'project_id' => config('services.fcm.project_id'),
         'has_credentials_json' => filled(config('services.fcm.credentials_json')),
+        'has_credentials_json_b64' => filled(config('services.fcm.credentials_json_b64')),
         'has_credentials_path' => filled(config('services.fcm.credentials_path')),
         'mobile_registration_enabled' => (bool) config('services.fcm.mobile_registration_enabled'),
         'session_lifetime' => config('session.lifetime'),
