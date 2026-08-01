@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -49,6 +50,12 @@ class CustomOrderController extends Controller
             } catch (\Exception $e) {}
         }
 
+        $customerRiskMap = [];
+        $riskService = app(CustomerRiskService::class);
+        foreach ($customOrders->items() as $order) {
+            $customerRiskMap[$order->id] = $riskService->badge($order->phone ?? null, $order->shop_id ?? null);
+        }
+
         $base          = DB::table('custom_orders');
         $pendingCount  = (clone $base)->where('review_status', 'pending')->count();
         $approvedCount = (clone $base)->where('review_status', 'approved')->count();
@@ -62,7 +69,7 @@ class CustomOrderController extends Controller
             ->whereNotIn('o.status', ['Delivered', 'Cancelled'])
             ->count();
 
-        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'pendingCount', 'approvedCount', 'approvedNoRiderCount', 'rejectedCount', 'search', 'status'));
+        return view('admin.custom_orders', compact('customOrders', 'orderAddons', 'customerRiskMap', 'pendingCount', 'approvedCount', 'approvedNoRiderCount', 'rejectedCount', 'search', 'status'));
     }
 
     public function approve(Request $request, string $id)

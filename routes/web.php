@@ -480,6 +480,8 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/orders/{id}/assign-rider',  [AdminOrder::class, 'assignRider'])->name('orders.assign_rider');
     Route::post('/orders/{id}/accept-cancel', [AdminOrder::class, 'acceptCancel'])->name('orders.accept_cancel');
     Route::post('/orders/{id}/reject-cancel', [AdminOrder::class, 'rejectCancel'])->name('orders.reject_cancel');
+    Route::post('/orders/{id}/block-phone',   [AdminOrder::class, 'blockCustomerPhone'])->name('orders.block_phone');
+    Route::post('/orders/{id}/unblock-phone', [AdminOrder::class, 'unblockCustomerPhone'])->name('orders.unblock_phone');
     Route::post('/orders/{id}/send-to-kitchen',[AdminOrder::class, 'sendToKitchen'])->name('orders.send_to_kitchen');
     Route::post('/orders/{id}/resolve-issue', [\App\Http\Controllers\Admin\RiderController::class, 'resolveIssue'])->name('orders.resolve_issue');
     Route::post('/orders/{id}/mark-settled',  [\App\Http\Controllers\Admin\RiderController::class, 'markSettled'])->name('orders.mark_settled');

@@ -230,7 +230,11 @@
         <div><span style="color:var(--gray-500)">Track Code</span><br><strong style="font-family:monospace">{{ strtoupper($o->track_code) }}</strong></div>
         <div><span style="color:var(--gray-500)">Status</span><br><strong>{{ $o->status === 'Pickup' ? 'Ready for Pickup' : $o->status }}</strong></div>
         <div><span style="color:var(--gray-500)">Customer</span><br><strong>{{ $o->order_customer_name ?? 'Customer' }}</strong></div>
-        <div><span style="color:var(--gray-500)">Phone</span><br><strong>{{ $o->order_customer_phone ?? '—' }}</strong></div>
+        <div>
+          <span style="color:var(--gray-500)">Phone</span><br>
+          <strong>{{ $o->order_customer_phone ?? '—' }}</strong>
+          @include('shared.customer_risk_badge', ['risk' => $customerRiskMap[$o->id] ?? null, 'compact' => true])
+        </div>
         <div><span style="color:var(--gray-500)">Product</span><br><strong>{{ $o->product_name ?? ($custom->cake_name ?? 'Custom Cake') }}</strong></div>
         <div><span style="color:var(--gray-500)">Qty / Size</span><br><strong>{{ $o->quantity ?? 1 }}x {{ $o->selected_size ?? ($custom->size_label ?? '—') }}</strong></div>
         <div><span style="color:var(--gray-500)">Fulfillment</span><br><strong>{{ $o->fulfillment_type ?? 'Pickup' }}</strong></div>

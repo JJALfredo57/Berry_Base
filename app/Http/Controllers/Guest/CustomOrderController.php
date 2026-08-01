@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use App\Support\BecCastilloAddons;
 use App\Traits\UploadsFiles;
@@ -232,6 +233,12 @@ class CustomOrderController extends Controller
                 ->with('error', 'Custom cake ordering is available only for Verified Sellers. Please choose a verified shop.');
         }
         $shopId = $shopRow->id;
+
+        $risk = app(CustomerRiskService::class)->evaluateOrder($phone, $shopId, 'custom');
+        if (!$risk['allowed']) {
+            return back()->with('error', $risk['message'])->withInput();
+        }
+
         $options = $this->loadOptions($shopId);
 
         $cakeName = trim($request->input('cake_name',''));

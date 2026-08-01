@@ -132,4 +132,44 @@ Artisan::command('cleanup:customer-data {--force : Actually delete customer acco
     return 0;
 })->purpose('Delete customer accounts and customer activity data without deleting website setup data');
 
+Artisan::command('orders:expire-unpaid-deposits {--hours=24 : Hours before unpaid deposit orders expire}', function () {
+    $hours = max(1, (int) $this->option('hours'));
+    $cutoff = now()->subHours($hours);
+
+    $orders = DB::table('orders')
+        ->where('status', 'Awaiting Deposit')
+        ->where(fn ($q) => $q->whereNull('deposit_status')->orWhere('deposit_status', 'pending'))
+        ->where('created_at', '<=', $cutoff)
+        ->select('id', 'track_code', 'guest_phone')
+        ->get();
+
+    if ($orders->isEmpty()) {
+        $this->info('No unpaid deposit orders to expire.');
+        return 0;
+    }
+
+    DB::transaction(function () use ($orders, $hours) {
+        foreach ($orders as $order) {
+            DB::table('orders')->where('id', $order->id)->update([
+                'status' => 'Cancelled',
+                'cancel_status' => 'accepted',
+                'cancel_reason' => "Auto-expired: deposit was not paid within {$hours} hours.",
+                'cancel_admin_note' => 'Automatically cancelled by abuse protection.',
+                'updated_at' => now(),
+            ]);
+
+            DB::table('order_tracking')->insert([
+                'order_id' => $order->id,
+                'status' => 'Cancelled',
+                'notes' => "Order auto-expired because the required deposit was not paid within {$hours} hours.",
+                'created_at' => now(),
+            ]);
+        }
+    });
+
+    $this->info('Expired ' . $orders->count() . ' unpaid deposit order(s).');
+    return 0;
+})->purpose('Cancel unpaid Awaiting Deposit orders after the configured timeout');
+
 Schedule::command('backup:run')->hourly();
+Schedule::command('orders:expire-unpaid-deposits')->hourly();

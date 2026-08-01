@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
+use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -83,9 +84,15 @@ class OrderController extends Controller
             }
         }
 
+        $customerRiskMap = [];
+        $riskService = app(CustomerRiskService::class);
+        foreach ($orders->items() as $order) {
+            $customerRiskMap[$order->id] = $riskService->badge($order->order_customer_phone ?? null, $shop->id);
+        }
+
         try {
             return response(
-                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'search', 'status'))->render()
+                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'customerRiskMap', 'search', 'status'))->render()
             );
         } catch (\Throwable $e) {
             Log::error('Seller orders VIEW render failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -217,6 +218,11 @@ class CheckoutController extends Controller
 
         $product = DB::table('products')->where('id', $pid)->first();
         if (!$product) return redirect()->route('catalog');
+
+        $risk = app(CustomerRiskService::class)->evaluateOrder($phone, $product->shop_id ?? null, 'regular');
+        if (!$risk['allowed']) {
+            return back()->with('error', $risk['message'])->withInput();
+        }
 
         $fulfillment   = $request->input('fulfillment_type','Pickup');
         $zone          = $request->input('delivery_zone','');

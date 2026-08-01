@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -127,8 +128,13 @@ class CustomOrderController extends Controller
         } catch (\Exception $e) {}
 
         $status = $tab;
+        $customerRiskMap = [];
+        $riskService = app(CustomerRiskService::class);
+        foreach ($customOrders->items() as $order) {
+            $customerRiskMap[$order->id] = $riskService->badge($order->phone ?? null, $shop->id);
+        }
 
-        return compact('customOrders', 'orderAddons', 'pendingCount', 'approvedCount', 'approvedNoRiderCount', 'rejectedCount', 'totalCount', 'search', 'tab', 'status');
+        return compact('customOrders', 'orderAddons', 'customerRiskMap', 'pendingCount', 'approvedCount', 'approvedNoRiderCount', 'rejectedCount', 'totalCount', 'search', 'tab', 'status');
     }
 
 

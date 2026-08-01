@@ -142,8 +142,35 @@
                   <i class="bi bi-phone me-1"></i>
                   @if($o->phone)
                     <a href="tel:{{ $o->phone }}" class="text-decoration-none text-muted">{{ $o->phone }}</a>
+                    @include('shared.customer_risk_badge', ['risk' => $customerRiskMap[$o->id] ?? null])
                   @else <span class="text-muted fst-italic">no phone</span> @endif
                 </div>
+                @if($o->phone && !empty($customerRiskMap[$o->id]) && (($customerRiskMap[$o->id]['level'] ?? 'low') !== 'low'))
+                <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                  @if(!empty($customerRiskMap[$o->id]['reasons']))
+                    <span class="small" style="color:#92400e">{{ implode(' | ', array_slice($customerRiskMap[$o->id]['reasons'], 0, 2)) }}</span>
+                  @endif
+                  @if(!($customerRiskMap[$o->id]['is_blocked'] ?? false))
+                    <form action="{{ route('admin.orders.block_phone', $o->id) }}" method="POST" class="d-inline">
+                      @csrf
+                      <input type="hidden" name="days" value="30">
+                      <input type="hidden" name="reason" value="Repeated cancelled or unpaid orders.">
+                      <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2"
+                              onclick="return confirm('Block this phone from placing orders for 30 days?')">
+                        <i class="bi bi-slash-circle me-1"></i>Block phone
+                      </button>
+                    </form>
+                  @else
+                    <form action="{{ route('admin.orders.unblock_phone', $o->id) }}" method="POST" class="d-inline">
+                      @csrf
+                      <button type="submit" class="btn btn-sm btn-outline-success py-0 px-2"
+                              onclick="return confirm('Unblock this phone number?')">
+                        <i class="bi bi-unlock me-1"></i>Unblock
+                      </button>
+                    </form>
+                  @endif
+                </div>
+                @endif
                 <div class="small text-muted">
                   <i class="bi bi-hash"></i>{{ $o->id }}
                   &nbsp;·&nbsp;{{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y g:i A') }}
@@ -495,7 +522,10 @@
                   </div>
                   <div class="col-sm-6">
                     <div class="text-muted">Phone / Email</div>
-                    <div class="fw-semibold">{{ $o->phone }} &bull; {{ $o->email }}</div>
+                    <div class="fw-semibold">
+                      {{ $o->phone }} @include('shared.customer_risk_badge', ['risk' => $customerRiskMap[$o->id] ?? null, 'compact' => true])
+                      &bull; {{ $o->email }}
+                    </div>
                   </div>
                   <div class="col-sm-6">
                     <div class="text-muted">Fulfillment</div>

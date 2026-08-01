@@ -4,6 +4,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
+use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -55,9 +56,55 @@ class OrderController extends Controller
             } catch (\Exception $e) {}
         }
 
+        $customerRiskMap = [];
+        $riskService = app(CustomerRiskService::class);
+        foreach ($orders->items() as $order) {
+            $customerRiskMap[$order->id] = $riskService->badge($order->phone ?? null, $order->shop_id ?? null);
+        }
+
         $pendingCancelCount = DB::table('orders')->where('cancel_status', 'pending')->count();
 
-        return view('admin.orders', compact('orders','pendingCancelCount','orderAddons','orderReviews','customOrderData','search','status'));
+        return view('admin.orders', compact('orders','pendingCancelCount','orderAddons','orderReviews','customOrderData','customerRiskMap','search','status'));
+    }
+
+    public function blockCustomerPhone(Request $request, string $id)
+    {
+        $order = DB::table('orders as o')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+            ->where('o.id', $id)
+            ->select('o.*', DB::raw('COALESCE(o.guest_phone, u.phone) as phone'))
+            ->first();
+        if (!$order || !$order->phone) return back()->with('err', 'No phone number found for this order.');
+
+        $days = min(365, max(1, (int) $request->input('days', 30)));
+        $reason = trim((string) $request->input('reason', 'Repeated cancelled or unpaid orders.'));
+        $user = session('user', []);
+
+        app(CustomerRiskService::class)->blockPhone(
+            $order->phone,
+            $reason,
+            $user['role'] ?? 'admin',
+            $user['id'] ?? null,
+            now()->addDays($days)
+        );
+
+        CakeshopHelper::logActivity($user['id'] ?? 'admin', $user['role'] ?? 'admin', 'Block Customer Phone', "{$order->phone} - {$reason}");
+        return back()->with('msg', "Phone {$order->phone} blocked for {$days} day(s).");
+    }
+
+    public function unblockCustomerPhone(string $id)
+    {
+        $order = DB::table('orders as o')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+            ->where('o.id', $id)
+            ->select('o.*', DB::raw('COALESCE(o.guest_phone, u.phone) as phone'))
+            ->first();
+        if (!$order || !$order->phone) return back()->with('err', 'No phone number found for this order.');
+
+        $user = session('user', []);
+        app(CustomerRiskService::class)->unblockPhone($order->phone);
+        CakeshopHelper::logActivity($user['id'] ?? 'admin', $user['role'] ?? 'admin', 'Unblock Customer Phone', $order->phone);
+        return back()->with('msg', "Phone {$order->phone} unblocked.");
     }
 
     /** Admin confirms order — only allowed after deposit is paid */

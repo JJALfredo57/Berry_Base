@@ -92,7 +92,10 @@
         @endif
         <div>
           <div class="fw-bold">{{ $co->fullname }}</div>
-          <div class="text-muted small">@<span>{{ $co->username }}</span> &bull; {{ $co->phone }}</div>
+          <div class="text-muted small">
+            @<span>{{ $co->username }}</span> &bull; {{ $co->phone }}
+            @include('shared.customer_risk_badge', ['risk' => $customerRiskMap[$co->id] ?? null, 'compact' => true])
+          </div>
         </div>
       </div>
       <div class="d-flex align-items-center gap-2 flex-wrap">
