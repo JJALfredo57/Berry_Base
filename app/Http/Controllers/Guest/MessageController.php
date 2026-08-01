@@ -3,7 +3,7 @@ namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\SmsHelper;
-use App\Services\PushNotificationService;
+use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -92,7 +92,7 @@ class MessageController extends Controller
         ]);
 
         try {
-            app(PushNotificationService::class)->sendToOrderSeller(
+            app(MobileNotificationService::class)->notifyOrderSeller(
                 $order,
                 'New Customer Message',
                 $message !== '' ? mb_strimwidth($message, 0, 90, '...') : 'Customer sent image attachments.',

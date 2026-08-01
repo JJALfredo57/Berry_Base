@@ -4,6 +4,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
+use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -158,7 +159,13 @@ class OrderController extends Controller
                 . "Your Tracking Code: {$order->track_code}\n"
                 . "Visit our website and use your tracking code to pay your deposit.\n\n"
                 . "Note: Do not send payment to any personal GCash number.";
-            SmsHelper::send($phone, $sms);
+            app(MobileNotificationService::class)->notifyOrderCustomer(
+                $order,
+                'Deposit Requested',
+                "Deposit of PHP " . number_format($amount, 2) . " is needed for Order #{$id}.",
+                ['event' => 'deposit_requested', 'order_id' => (string) $id],
+                $sms
+            );
         }
 
         DB::table('notifications')->insert([
@@ -268,10 +275,21 @@ class OrderController extends Controller
                     $riderPin = SmsHelper::generateRiderPin();
                     DB::table('orders')->where('id', $id)->update(['rider_pin' => $riderPin]);
 
-                    $riderSmsSent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
+                    $riderSms = SmsHelper::buildRiderSms(
                         $header, $id, $custName, $custPhone, $addr,
                         SmsHelper::paymentLine($order), $riderPin, $rider->phone, $order->rider_token ?? ''
-                    ));
+                    );
+                    $riderUrl = route('rider.show', [$id, $order->rider_token ?? ''], false);
+                    $riderNotice = app(MobileNotificationService::class)->notifyRider(
+                        (int) $rider->id,
+                        $rider->phone,
+                        'New Delivery Assigned',
+                        "Order #{$id} is assigned to you.",
+                        ['event' => 'rider_assigned', 'order_id' => (string) $id, 'url' => $riderUrl],
+                        $riderSms,
+                        $riderUrl
+                    );
+                    $riderSmsSent = (int) ($riderNotice['push_sent'] ?? 0) > 0 || (bool) ($riderNotice['sms_sent'] ?? false);
                     DB::table('orders')->where('id', $id)
                         ->update(['rider_sms_sent' => (bool) $riderSmsSent]);
                 }
@@ -293,7 +311,16 @@ class OrderController extends Controller
                 'Cancelled'        => "{$header}\nHi {$name}, your order has been cancelled.\n\nOrder No.: #{$id}{$shopLine}\nStatus: Cancelled\n\nIf you have questions or concerns, please contact us through our shop page. We hope to serve you again soon.",
                 default            => null,
             };
-            if ($guestSms) SmsHelper::send($guestPhone, $guestSms);
+            if ($guestSms) {
+                $freshOrder = DB::table('orders')->where('id', $id)->first() ?? $order;
+                app(MobileNotificationService::class)->notifyOrderCustomer(
+                    $freshOrder,
+                    'Order Update: ' . ($status === 'Pickup' ? 'Ready for Pickup' : $status),
+                    "Order #{$id} is now " . ($status === 'Pickup' ? 'ready for pickup' : $status) . '.',
+                    ['event' => 'order_status'],
+                    $guestSms
+                );
+            }
         }
 
         // ── Notify registered customer — send only for actionable statuses ─
@@ -330,7 +357,13 @@ class OrderController extends Controller
                 'Cancelled'        => "{$header}\nHi {$custName}, your order has been cancelled.\n\nOrder No.: #{$id}{$shopLine}\nStatus: Cancelled\n\nIf you have questions or concerns, please contact us through our shop page. We hope to serve you again soon.",
             ];
             $custPhone = DB::table('users')->where('id', $custId)->value('phone');
-            if ($custPhone && isset($smsCustMessages[$status])) SmsHelper::send($custPhone, $smsCustMessages[$status]);
+            app(MobileNotificationService::class)->notifyOrderCustomer(
+                DB::table('orders')->where('id', $id)->first() ?? $order,
+                'Order Update: ' . ($status === 'Pickup' ? 'Ready for Pickup' : $status),
+                $notifMessages[$status] ?? "Order #{$id} updated to {$status}.",
+                ['event' => 'order_status'],
+                $smsCustMessages[$status] ?? null
+            );
 
             if (in_array($status, $finalStatuses)) {
                 DB::table('notifications')->insert([
@@ -470,12 +503,17 @@ class OrderController extends Controller
             $header   = SmsHelper::header($siteName, $shopName);
             $shopLine = $shopName ? "\nShop: {$shopName}" : '';
             $custName = DB::table('users')->where('id', $order->user_id)->value('fullname') ?? 'Customer';
-            SmsHelper::send($custPhone,
-                "{$header}\n"
+            $sms = "{$header}\n"
                 . "Hi {$custName}! Your cancellation request has been approved.\n\n"
                 . "Order No.: #{$id}{$shopLine}\n\n"
                 . "{$adminNote}\n\n"
-                . "Thank you for your patience. We hope to serve you again soon."
+                . "Thank you for your patience. We hope to serve you again soon.";
+            app(MobileNotificationService::class)->notifyOrderCustomer(
+                $order,
+                'Cancel Request Approved',
+                "Your cancel request for Order #{$id} was approved.",
+                ['event' => 'cancel_request'],
+                $sms
             );
         }
 
@@ -518,12 +556,17 @@ class OrderController extends Controller
             $header   = SmsHelper::header($siteName, $shopName);
             $shopLine = $shopName ? "\nShop: {$shopName}" : '';
             $custName = DB::table('users')->where('id', $order->user_id)->value('fullname') ?? 'Customer';
-            SmsHelper::send($custPhone,
-                "{$header}\n"
+            $sms = "{$header}\n"
                 . "Hi {$custName}, your cancellation request was not approved.\n\n"
                 . "Order No.: #{$id}{$shopLine}\n"
                 . "Reason: {$adminNote}\n\n"
-                . "If you have further concerns, please contact us through our shop page."
+                . "If you have further concerns, please contact us through our shop page.";
+            app(MobileNotificationService::class)->notifyOrderCustomer(
+                $order,
+                'Cancel Request Rejected',
+                "Your cancel request for Order #{$id} was rejected.",
+                ['event' => 'cancel_request'],
+                $sms
             );
         }
 

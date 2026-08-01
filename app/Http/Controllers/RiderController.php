@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 use App\Helpers\SmsHelper;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
-use App\Services\PushNotificationService;
+use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -302,9 +302,9 @@ class RiderController extends Controller
             try {
                 $pushOrder = DB::table('orders')->where('id', $orderId)->first();
                 if ($pushOrder) {
-                    $push = app(PushNotificationService::class);
-                    $push->sendToOrderCustomer($pushOrder, 'Order Delivered', "Order #{$orderId} has been delivered.", ['event' => 'delivered']);
-                    $push->sendToOrderSeller($pushOrder, 'Order Delivered', "Rider {$riderName} marked Order #{$orderId} as delivered.", ['event' => 'delivered']);
+                    $mobile = app(MobileNotificationService::class);
+                    $mobile->notifyOrderCustomer($pushOrder, 'Order Delivered', "Order #{$orderId} has been delivered.", ['event' => 'delivered']);
+                    $mobile->notifyOrderSeller($pushOrder, 'Order Delivered', "Rider {$riderName} marked Order #{$orderId} as delivered.", ['event' => 'delivered']);
                 }
             } catch (\Throwable $e) {
                 Log::warning('Rider delivered push failed: ' . $e->getMessage());
@@ -364,17 +364,16 @@ class RiderController extends Controller
                 default    => 'Other Issue',
             };
 
-            // SMS to customer
+            $customerSms = null;
             $custPhone = $order->guest_phone ?? null;
             if ($custPhone) {
                 $shopName = SmsHelper::getShopName($order->shop_id ?? null);
                 $header   = SmsHelper::header($siteName, $shopName);
                 $shopLine = $shopName ? "\nShop: {$shopName}" : '';
                 $custName = $order->guest_name ?? 'Customer';
-                $msg = $issueType === 'not_home'
+                $customerSms = $issueType === 'not_home'
                     ? "{$header}\nHi {$custName}, we attempted to deliver your order but no one was available.\n\nOrder No.: #{$orderId}{$shopLine}\n\nOur team will contact you shortly to arrange a reschedule. We apologize for the inconvenience."
                     : "{$header}\nHi {$custName}, we encountered an issue with your delivery.\n\nOrder No.: #{$orderId}{$shopLine}\n\nOur team will contact you shortly to resolve this. We sincerely apologize for the inconvenience.";
-                SmsHelper::send($custPhone, $msg);
             }
 
             // No SMS to admin — visible in admin panel notifications
@@ -392,9 +391,9 @@ class RiderController extends Controller
             try {
                 $pushOrder = DB::table('orders')->where('id', $orderId)->first();
                 if ($pushOrder) {
-                    $push = app(PushNotificationService::class);
-                    $push->sendToOrderCustomer($pushOrder, 'Delivery Update', "There is a delivery update for Order #{$orderId}.", ['event' => 'delivery_issue']);
-                    $push->sendToOrderSeller($pushOrder, 'Delivery Issue Reported', "Rider {$riderName} reported: {$issueLabel}.", ['event' => 'delivery_issue']);
+                    $mobile = app(MobileNotificationService::class);
+                    $mobile->notifyOrderCustomer($pushOrder, 'Delivery Update', "There is a delivery update for Order #{$orderId}.", ['event' => 'delivery_issue'], $customerSms);
+                    $mobile->notifyOrderSeller($pushOrder, 'Delivery Issue Reported', "Rider {$riderName} reported: {$issueLabel}.", ['event' => 'delivery_issue']);
                 }
             } catch (\Throwable $e) {
                 Log::warning('Rider issue push failed: ' . $e->getMessage());

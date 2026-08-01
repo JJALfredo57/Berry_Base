@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -95,6 +96,15 @@ class KitchenController extends Controller
             }
         }
 
+        if ($new === 'in_progress' && isset($order) && $order) {
+            app(MobileNotificationService::class)->notifyOrderCustomer(
+                $order,
+                'Order Update: Preparing',
+                "Your order #{$orderId} is now being prepared.",
+                ['event' => 'kitchen_update']
+            );
+        }
+
         if ($new === 'done') {
             $order = DB::table('orders')->where('id', $orderId)->first();
             if ($order) {
@@ -120,7 +130,15 @@ class KitchenController extends Controller
                     $sms = $order->fulfillment_type === 'Pickup'
                         ? "{$siteName}: Hi {$name}! Your order #{$orderId} is ready for pickup. Your tracking code: {$order->track_code}"
                         : "{$siteName}: Hi {$name}! Your order #{$orderId} is on its way. Your tracking code: {$order->track_code}";
-                    SmsHelper::send($guestPhone, $sms);
+                    app(MobileNotificationService::class)->notifyOrderCustomer(
+                        $order,
+                        'Order Update: ' . $nextStatus,
+                        $order->fulfillment_type === 'Pickup'
+                            ? "Your order #{$orderId} is ready for pickup."
+                            : "Your order #{$orderId} is on its way.",
+                        ['event' => 'kitchen_update'],
+                        $sms
+                    );
                 }
 
                 // Notify registered customer
@@ -136,8 +154,13 @@ class KitchenController extends Controller
                         'is_read' => false,
                         'created_at'       => now(),
                     ]);
-                    $phone = DB::table('users')->where('id', $order->user_id)->value('phone');
-                    if ($phone) SmsHelper::send($phone, $msg);
+                    app(MobileNotificationService::class)->notifyOrderCustomer(
+                        $order,
+                        'Order Update: ' . $nextStatus,
+                        $msg,
+                        ['event' => 'kitchen_update'],
+                        $msg
+                    );
                 }
 
                 // ── Send SMS to Rider (Delivery orders only) ─────────────
@@ -164,10 +187,21 @@ class KitchenController extends Controller
                         DB::table('orders')->where('id', $orderId)
                             ->update(['rider_pin' => $riderPin]);
 
-                        $riderSmsSent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
+                        $riderSms = SmsHelper::buildRiderSms(
                             $header, $orderId, $custName, $custPhone, $addr,
                             SmsHelper::paymentLine($order), $riderPin, $rider->phone, $riderToken
-                        ));
+                        );
+                        $riderUrl = route('rider.show', [$orderId, $riderToken], false);
+                        $riderNotice = app(MobileNotificationService::class)->notifyRider(
+                            (int) $rider->id,
+                            $rider->phone,
+                            'Delivery Ready',
+                            "Order #{$orderId} is ready for delivery.",
+                            ['event' => 'rider_assigned', 'order_id' => (string) $orderId, 'url' => $riderUrl],
+                            $riderSms,
+                            $riderUrl
+                        );
+                        $riderSmsSent = (int) ($riderNotice['push_sent'] ?? 0) > 0 || (bool) ($riderNotice['sms_sent'] ?? false);
                         DB::table('orders')->where('id', $orderId)
                             ->update(['rider_sms_sent' => (bool) $riderSmsSent]);
                     }
@@ -219,21 +253,32 @@ class KitchenController extends Controller
         $riderPin = SmsHelper::generateRiderPin();
         DB::table('orders')->where('id', $orderId)->update(['rider_pin' => $riderPin]);
 
-        $result = SmsHelper::sendWithResult($rider->phone, SmsHelper::buildRiderSms(
+        $riderSms = SmsHelper::buildRiderSms(
             $header, $orderId, $custName, $custPhone, $addr,
             SmsHelper::paymentLine($order), $riderPin, $rider->phone, $order->rider_token ?? ''
-        ));
+        );
+        $riderUrl = route('rider.show', [$orderId, $order->rider_token ?? ''], false);
+        $result = app(MobileNotificationService::class)->notifyRider(
+            (int) $rider->id,
+            $rider->phone,
+            'Delivery Reminder',
+            "Order #{$orderId} delivery details are ready.",
+            ['event' => 'rider_resend', 'order_id' => (string) $orderId, 'url' => $riderUrl],
+            $riderSms,
+            $riderUrl
+        );
+        $ok = (int) ($result['push_sent'] ?? 0) > 0 || (bool) ($result['sms_sent'] ?? false);
 
-        DB::table('orders')->where('id', $orderId)->update(['rider_sms_sent' => $result['ok']]);
+        DB::table('orders')->where('id', $orderId)->update(['rider_sms_sent' => $ok]);
 
         $user = session('user');
-        CakeshopHelper::logActivity($user['id'], 'admin', 'Resend Rider SMS', "Order #{$orderId}: SMS " . ($result['ok'] ? 'sent' : 'failed - ' . ($result['error'] ?? '')));
+        CakeshopHelper::logActivity($user['id'], 'admin', 'Resend Rider Notification', "Order #{$orderId}: channel " . ($result['channel'] ?? 'none'));
 
-        if ($result['ok']) {
-            return back()->with('msg', 'SMS sent to rider ' . $rider->name . ' (' . $rider->phone . ') successfully.');
+        if ($ok) {
+            return back()->with('msg', 'Notification sent to rider ' . $rider->name . ' (' . $rider->phone . ') successfully.');
         }
 
-        return back()->with('err', $result['error'] ?? 'SMS could not be sent. Please try again or contact support.');
+        return back()->with('err', 'Rider notification could not be sent. Please try again or contact support.');
     }
 
     /** Assign rider then auto-mark kitchen ticket as done */

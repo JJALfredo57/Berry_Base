@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -159,14 +160,20 @@ class CustomOrderController extends Controller
             $shopName = SmsHelper::getShopName($shop->id ?? null);
             $header   = SmsHelper::header($siteName, $shopName);
             $shopLine = $shopName ? "\nShop: {$shopName}" : '';
-            SmsHelper::send($co->guest_phone,
-                "{$header}\n"
+            $sms = "{$header}\n"
                 . "Hi {$co->guest_name}! Your custom cake order has been reviewed.\n\n"
                 . "Order No.: #{$co->order_id}{$shopLine}\n"
                 . "Final Price: PHP " . number_format($price, 2) . "\n\n"
                 . "Your Tracking Code: {$co->track_code}\n"
                 . "Log in to our website and use your tracking code to view and confirm your order.\n\n"
-                . "This offer is subject to availability. Please confirm as soon as possible."
+                . "This offer is subject to availability. Please confirm as soon as possible.";
+            app(MobileNotificationService::class)->notifyGuestTrackCode(
+                $co->track_code,
+                $co->guest_phone,
+                'Custom Order Reviewed',
+                "Your custom order #{$co->order_id} has been reviewed. Final price: PHP " . number_format($price, 2) . '.',
+                ['event' => 'custom_order', 'order_id' => (string) $co->order_id],
+                $sms
             );
         }
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Approve Custom Order', "CO #{$id} — ₱{$price}");
@@ -178,7 +185,7 @@ class CustomOrderController extends Controller
         $shop   = $this->getShop();
         $reason = trim($request->input('reason', ''));
         $co     = DB::table('custom_orders as co')->join('orders as o', 'o.id', '=', 'co.order_id')
-            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.guest_phone', 'o.guest_name')->first();
+            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.guest_phone', 'o.guest_name', 'o.track_code')->first();
         if (!$co) return back()->with('err', 'Not found.');
         if (!$reason) return back()->with('err', 'Please provide a reason.');
         DB::table('custom_orders')->where('id', $id)->update(['review_status' => 'rejected', 'admin_comment' => $reason]);
@@ -188,12 +195,18 @@ class CustomOrderController extends Controller
             $shopName = SmsHelper::getShopName($shop->id ?? null);
             $header   = SmsHelper::header($siteName, $shopName);
             $shopLine = $shopName ? "\nShop: {$shopName}" : '';
-            SmsHelper::send($co->guest_phone,
-                "{$header}\n"
+            $sms = "{$header}\n"
                 . "Hi {$co->guest_name}, we're sorry but we couldn't accommodate your custom order.\n\n"
                 . "Order No.: #{$co->order_id}{$shopLine}\n"
                 . "Reason: {$reason}\n\n"
-                . "We apologize for the inconvenience. Feel free to reach out to us for alternative options."
+                . "We apologize for the inconvenience. Feel free to reach out to us for alternative options.";
+            app(MobileNotificationService::class)->notifyGuestTrackCode(
+                $co->track_code,
+                $co->guest_phone,
+                'Custom Order Rejected',
+                "Your custom order #{$co->order_id} was not approved. Reason: {$reason}",
+                ['event' => 'custom_order', 'order_id' => (string) $co->order_id],
+                $sms
             );
         }
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Reject Custom Order', "CO #{$id}");

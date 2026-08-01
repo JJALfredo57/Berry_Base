@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
-use App\Services\PushNotificationService;
+use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -146,10 +146,11 @@ class OrderController extends Controller
             'created_at' => now(),
         ]);
 
+        $mobileStatusNotice = ['push_sent' => 0];
         try {
             $pushOrder = DB::table('orders')->where('id', $id)->first();
             if ($pushOrder) {
-                app(PushNotificationService::class)->sendToOrderCustomer(
+                $mobileStatusNotice = app(MobileNotificationService::class)->notifyOrderCustomer(
                     $pushOrder,
                     'Order Update: ' . ($newStatus === 'Pickup' ? 'Ready for Pickup' : $newStatus),
                     "Order #{$id} is now " . ($newStatus === 'Pickup' ? 'ready for pickup' : $newStatus) . '.',
@@ -175,7 +176,9 @@ class OrderController extends Controller
                 'Cancelled'        => "{$header}\nHi {$custName}, your order has been cancelled.\n\nOrder No.: #{$id}{$shopLine}\nStatus: Cancelled\n\nIf you have questions or concerns, please contact us through our shop page. We hope to serve you again soon.",
             ];
             $phone = $order->guest_phone ?? DB::table('users')->where('id', $order->user_id)->value('phone');
-            if ($phone && isset($smsMsgs[$newStatus])) SmsHelper::send($phone, $smsMsgs[$newStatus]);
+            if ($phone && isset($smsMsgs[$newStatus]) && (int) ($mobileStatusNotice['push_sent'] ?? 0) <= 0) {
+                SmsHelper::send($phone, $smsMsgs[$newStatus]);
+            }
 
             // In-app notification for registered customers
             if ($order->user_id) {
@@ -305,10 +308,21 @@ class OrderController extends Controller
                 $riderPin = SmsHelper::generateRiderPin();
                 DB::table('orders')->where('id', $id)->update(['rider_pin' => $riderPin]);
 
-                $riderSmsSent = SmsHelper::send($rider->phone, SmsHelper::buildRiderSms(
+                $riderSms = SmsHelper::buildRiderSms(
                     $header, $id, $custName, $custPhone, $addr,
                     SmsHelper::paymentLine($order), $riderPin, $rider->phone, $riderToken
-                ));
+                );
+                $riderUrl = route('rider.show', [$id, $riderToken], false);
+                $riderNotice = app(MobileNotificationService::class)->notifyRider(
+                    (int) $rider->id,
+                    $rider->phone,
+                    'New Delivery Assigned',
+                    "Order #{$id} is assigned to you. Open the delivery page for details.",
+                    ['event' => 'rider_assigned', 'order_id' => (string) $id, 'url' => $riderUrl],
+                    $riderSms,
+                    $riderUrl
+                );
+                $riderSmsSent = (int) ($riderNotice['push_sent'] ?? 0) > 0 || (bool) ($riderNotice['sms_sent'] ?? false);
                 DB::table('orders')->where('id', $id)
                     ->update(['rider_sms_sent' => (bool) $riderSmsSent]);
             } catch (\Exception $e) {
@@ -324,9 +338,12 @@ class OrderController extends Controller
         try {
             $pushOrder = DB::table('orders')->where('id', $id)->first();
             if ($pushOrder) {
-                $push = app(PushNotificationService::class);
-                $push->sendToOrderRider($pushOrder, 'New Delivery Assigned', "Order #{$id} is assigned to you.", ['event' => 'rider_assigned']);
-                $push->sendToOrderCustomer($pushOrder, 'Order Out for Delivery', "Order #{$id} is now out for delivery.", ['event' => 'order_status']);
+                app(MobileNotificationService::class)->notifyOrderCustomer(
+                    $pushOrder,
+                    'Order Out for Delivery',
+                    "Order #{$id} is now out for delivery.",
+                    ['event' => 'order_status']
+                );
             }
         } catch (\Throwable $e) {
             Log::warning('Seller rider assignment push failed: ' . $e->getMessage());

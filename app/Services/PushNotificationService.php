@@ -10,87 +10,86 @@ use Illuminate\Support\Facades\Schema;
 
 class PushNotificationService
 {
-    public function sendToUser(string $role, ?string $userId, string $title, string $body, array $data = []): void
+    public function sendToUser(string $role, ?string $userId, string $title, string $body, array $data = []): int
     {
         if (!$userId) {
-            return;
+            return 0;
         }
 
         $query = $this->baseTokenQuery();
         if (!$query) {
-            return;
+            return 0;
         }
 
-        $this->sendToTokens($query->where('role', $role)->where('user_id', $userId)->pluck('device_token')->all(), $title, $body, $data + ['role' => $role]);
+        return $this->sendToTokens($query->where('role', $role)->where('user_id', $userId)->pluck('device_token')->all(), $title, $body, $data + ['role' => $role]);
     }
 
-    public function sendToGuestTrackCode(?string $trackCode, string $title, string $body, array $data = []): void
+    public function sendToGuestTrackCode(?string $trackCode, string $title, string $body, array $data = []): int
     {
         $trackCode = strtoupper(trim((string) $trackCode));
         if ($trackCode === '') {
-            return;
+            return 0;
         }
 
         $query = $this->baseTokenQuery();
         if (!$query) {
-            return;
+            return 0;
         }
 
-        $this->sendToTokens($query->where('role', 'guest_customer')->where('guest_track_code', $trackCode)->pluck('device_token')->all(), $title, $body, $data + ['role' => 'guest_customer', 'track_code' => $trackCode]);
+        return $this->sendToTokens($query->where('role', 'guest_customer')->where('guest_track_code', $trackCode)->pluck('device_token')->all(), $title, $body, $data + ['role' => 'guest_customer', 'track_code' => $trackCode]);
     }
 
-    public function sendToRider(?int $riderId, string $title, string $body, array $data = []): void
+    public function sendToRider(?int $riderId, string $title, string $body, array $data = []): int
     {
         if (!$riderId) {
-            return;
+            return 0;
         }
 
         $query = $this->baseTokenQuery();
         if (!$query) {
-            return;
+            return 0;
         }
 
-        $this->sendToTokens($query->where('role', 'rider')->where('rider_id', $riderId)->pluck('device_token')->all(), $title, $body, $data + ['role' => 'rider', 'rider_id' => (string) $riderId]);
+        return $this->sendToTokens($query->where('role', 'rider')->where('rider_id', $riderId)->pluck('device_token')->all(), $title, $body, $data + ['role' => 'rider', 'rider_id' => (string) $riderId]);
     }
 
-    public function sendToOrderCustomer(object $order, string $title, string $body, array $data = []): void
+    public function sendToOrderCustomer(object $order, string $title, string $body, array $data = []): int
     {
         $payload = $this->orderData($order, $data);
         if (!empty($order->user_id)) {
-            $this->sendToUser('customer', (string) $order->user_id, $title, $body, $payload + [
+            return $this->sendToUser('customer', (string) $order->user_id, $title, $body, $payload + [
                 'url' => route('customer.orders', [], false),
             ]);
-            return;
         }
 
-        $this->sendToGuestTrackCode($order->track_code ?? null, $title, $body, $payload + [
+        return $this->sendToGuestTrackCode($order->track_code ?? null, $title, $body, $payload + [
             'url' => route('track.order', $order->track_code ?? '', false),
         ]);
     }
 
-    public function sendToOrderSeller(object $order, string $title, string $body, array $data = []): void
+    public function sendToOrderSeller(object $order, string $title, string $body, array $data = []): int
     {
         $sellerId = null;
         if (!empty($order->shop_id)) {
             $sellerId = DB::table('shops')->where('id', $order->shop_id)->value('seller_id');
         }
 
-        $this->sendToUser('seller', $sellerId ? (string) $sellerId : null, $title, $body, $this->orderData($order, $data) + [
+        return $this->sendToUser('seller', $sellerId ? (string) $sellerId : null, $title, $body, $this->orderData($order, $data) + [
             'url' => route('seller.orders', [], false),
         ]);
     }
 
-    public function sendToOrderRider(object $order, string $title, string $body, array $data = []): void
+    public function sendToOrderRider(object $order, string $title, string $body, array $data = []): int
     {
         $url = '';
         if (!empty($order->id) && !empty($order->rider_token)) {
             $url = route('rider.show', [$order->id, $order->rider_token], false);
         }
 
-        $this->sendToRider((int) ($order->rider_id ?? 0), $title, $body, $this->orderData($order, $data) + ['url' => $url]);
+        return $this->sendToRider((int) ($order->rider_id ?? 0), $title, $body, $this->orderData($order, $data) + ['url' => $url]);
     }
 
-    public function notifyPaymentComplete(object $order): void
+    public function notifyPaymentComplete(object $order): int
     {
         $isFull = ($order->payment_status ?? '') === 'Paid';
         $amount = number_format((float) ($order->total_price ?? 0), 2);
@@ -98,15 +97,17 @@ class PushNotificationService
         $sellerBody = $isFull
             ? "Order #{$order->id} is now paid. Amount: PHP {$amount}."
             : "Order #{$order->id} has a paid deposit and is ready for confirmation.";
-        $this->sendToOrderSeller($order, $sellerTitle, $sellerBody, [
+        $sent = 0;
+        $sent += $this->sendToOrderSeller($order, $sellerTitle, $sellerBody, [
             'event' => 'payment_complete',
         ]);
-        $this->sendToOrderRider($order, $isFull ? 'Payment Complete' : 'Deposit Paid', $isFull ? "Order #{$order->id} is paid. You may continue delivery when assigned." : "Order #{$order->id} has a paid deposit.", [
+        $sent += $this->sendToOrderRider($order, $isFull ? 'Payment Complete' : 'Deposit Paid', $isFull ? "Order #{$order->id} is paid. You may continue delivery when assigned." : "Order #{$order->id} has a paid deposit.", [
             'event' => 'payment_complete',
         ]);
-        $this->sendToOrderCustomer($order, 'Payment Received', "Your payment for Order #{$order->id} was received.", [
+        $sent += $this->sendToOrderCustomer($order, 'Payment Received', "Your payment for Order #{$order->id} was received.", [
             'event' => 'payment_complete',
         ]);
+        return $sent;
     }
 
     private function baseTokenQuery(): ?\Illuminate\Database\Query\Builder
@@ -120,26 +121,30 @@ class PushNotificationService
             ->whereNull('revoked_at');
     }
 
-    private function sendToTokens(array $tokens, string $title, string $body, array $data = []): void
+    public function sendToTokens(array $tokens, string $title, string $body, array $data = []): int
     {
         $tokens = array_values(array_unique(array_filter($tokens)));
         if (!$tokens) {
-            return;
+            return 0;
         }
 
         $projectId = config('services.fcm.project_id');
         $accessToken = $this->accessToken();
         if (!$projectId || !$accessToken) {
             Log::info('Push skipped: Firebase is not configured.');
-            return;
+            return 0;
         }
 
+        $sent = 0;
         foreach ($tokens as $token) {
-            $this->sendOne($projectId, $accessToken, $token, $title, $body, $data);
+            if ($this->sendOne($projectId, $accessToken, $token, $title, $body, $data)) {
+                $sent++;
+            }
         }
+        return $sent;
     }
 
-    private function sendOne(string $projectId, string $accessToken, string $token, string $title, string $body, array $data): void
+    private function sendOne(string $projectId, string $accessToken, string $token, string $title, string $body, array $data): bool
     {
         try {
             $response = Http::withToken($accessToken)
@@ -151,7 +156,12 @@ class PushNotificationService
                         'data' => $this->stringData($data),
                         'android' => [
                             'priority' => 'HIGH',
-                            'notification' => ['channel_id' => 'berry_orders'],
+                            'notification' => [
+                                'channel_id' => 'berry_orders',
+                                'sound' => 'default',
+                                'default_sound' => true,
+                                'default_vibrate_timings' => true,
+                            ],
                         ],
                     ],
                 ]);
@@ -164,9 +174,12 @@ class PushNotificationService
 
             if (!$response->successful()) {
                 Log::warning('Push send failed', ['status' => $response->status(), 'body' => $response->body()]);
+                return false;
             }
+            return true;
         } catch (\Throwable $e) {
             Log::warning('Push send exception: ' . $e->getMessage());
+            return false;
         }
     }
 

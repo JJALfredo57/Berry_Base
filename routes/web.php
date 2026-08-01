@@ -160,6 +160,9 @@ Route::get('/track/{trackCode}/receipt', [TrackingController::class, 'receipt'])
 // ── Guest Messaging (on tracking page) ───────────────────────────────────
 Route::get('/track/{trackCode}/messages',  [GuestMessage::class, 'poll'])->name('guest.messages.poll');
 Route::post('/track/{trackCode}/messages', [GuestMessage::class, 'send'])->name('guest.messages.send');
+Route::get('/track/{trackCode}/mobile-notifications', [\App\Http\Controllers\MobileNotificationController::class, 'trackIndex'])->name('guest.mobile_notifications');
+Route::post('/track/{trackCode}/mobile-notifications/{id}/read', [\App\Http\Controllers\MobileNotificationController::class, 'trackRead'])->name('guest.mobile_notifications.read');
+Route::post('/track/{trackCode}/mobile-notifications/read-all', [\App\Http\Controllers\MobileNotificationController::class, 'trackReadAll'])->name('guest.mobile_notifications.read_all');
 
 // ── Guest Review ──────────────────────────────────────────────────────────
 Route::post('/track/{trackCode}/review', [GuestReview::class, 'store'])->name('guest.review.store');

@@ -3,7 +3,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
-use App\Services\PushNotificationService;
+use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -115,7 +115,7 @@ class MessageController extends Controller
             }
 
             try {
-                app(PushNotificationService::class)->sendToOrderCustomer(
+                app(MobileNotificationService::class)->notifyOrderCustomer(
                     $order,
                     'New Message from Seller',
                     $text !== '' ? mb_strimwidth($text, 0, 90, '...') : 'The seller sent image attachments.',
@@ -242,7 +242,7 @@ class MessageController extends Controller
             'created_at'  => now(),
         ]);
         try {
-            app(PushNotificationService::class)->sendToOrderCustomer(
+            app(MobileNotificationService::class)->notifyOrderCustomer(
                 $order,
                 'New Message from Seller',
                 mb_strimwidth($text, 0, 90, '...'),

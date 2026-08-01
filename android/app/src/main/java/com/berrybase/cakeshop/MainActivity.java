@@ -1,8 +1,12 @@
 package com.berrybase.cakeshop;
 
 import android.app.DownloadManager;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.webkit.CookieManager;
@@ -14,9 +18,14 @@ import android.widget.Toast;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private static final String APP_ORIGIN = "https://berry-base-main.laravel.cloud";
+    private static final String CUSTOM_SCHEME = "com.berrybase.cakeshop";
+    private static final String ORDERS_CHANNEL_ID = "berry_orders";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        createNotificationChannel();
 
         WebView webView = getBridge().getWebView();
         if (webView == null) return;
@@ -26,6 +35,51 @@ public class MainActivity extends BridgeActivity {
             String filename = URLUtil.guessFileName(url, contentDisposition, mimeType);
             downloadUrl(url, filename, userAgent, mimeType);
         });
+        handleIncomingIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIncomingIntent(intent);
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null || manager.getNotificationChannel(ORDERS_CHANNEL_ID) != null) return;
+
+        NotificationChannel channel = new NotificationChannel(
+            ORDERS_CHANNEL_ID,
+            "Berry Base Updates",
+            NotificationManager.IMPORTANCE_HIGH
+        );
+        channel.setDescription("Order, payment, message, and delivery updates");
+        channel.enableVibration(true);
+        channel.setShowBadge(true);
+        manager.createNotificationChannel(channel);
+    }
+
+    private void handleIncomingIntent(Intent intent) {
+        if (intent == null || intent.getData() == null) return;
+
+        Uri uri = intent.getData();
+        String target = null;
+
+        if (CUSTOM_SCHEME.equals(uri.getScheme())) {
+            String path = uri.getPath();
+            if (path == null || path.isEmpty()) path = "/";
+            String query = uri.getQuery();
+            target = APP_ORIGIN + path + (query != null && !query.isEmpty() ? "?" + query : "");
+        } else if ("https".equals(uri.getScheme()) && "berry-base-main.laravel.cloud".equals(uri.getHost())) {
+            target = uri.toString();
+        }
+
+        if (target == null) return;
+        WebView webView = getBridge().getWebView();
+        if (webView != null) webView.loadUrl(target);
     }
 
     private void downloadUrl(String url, String filename, String userAgent, String mimeType) {

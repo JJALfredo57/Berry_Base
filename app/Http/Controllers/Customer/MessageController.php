@@ -2,7 +2,7 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
-use App\Services\PushNotificationService;
+use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -206,7 +206,7 @@ public function popupSend(Request $request)
 
         if ($order) {
             try {
-                app(PushNotificationService::class)->sendToOrderSeller(
+                app(MobileNotificationService::class)->notifyOrderSeller(
                     $order,
                     'New Customer Message',
                     $text !== '' ? mb_strimwidth($text, 0, 90, '...') : 'Customer sent image attachments.',
@@ -272,7 +272,7 @@ public function popupSend(Request $request)
         try {
             $order = DB::table('orders')->where('id', $orderId)->where('user_id', $uid)->first();
             if ($order) {
-                app(PushNotificationService::class)->sendToOrderSeller(
+                app(MobileNotificationService::class)->notifyOrderSeller(
                     $order,
                     'New Customer Message',
                     $text !== '' ? mb_strimwidth($text, 0, 90, '...') : 'Customer sent image attachments.',

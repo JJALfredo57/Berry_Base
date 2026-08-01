@@ -185,8 +185,40 @@
     .proof-stage img{max-width:100%;max-height:100%;object-fit:contain;transform:scale(var(--proof-scale,1));transition:transform .15s ease;will-change:transform;user-select:none;-webkit-user-drag:none}
     .proof-tools{height:64px;padding:8px max(12px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(0deg,rgba(0,0,0,.58),rgba(0,0,0,0));flex-shrink:0}
     .proof-zoom-pill{min-width:72px;text-align:center;color:#fff;font-size:.8rem;font-weight:800}
+    .track-head{position:relative;text-align:center;margin-bottom:1.5rem}
+    .track-bell-btn{position:absolute;right:0;top:4px;width:48px;height:48px;border:0;border-radius:50%;background:#fff;color:var(--primary);box-shadow:0 12px 28px rgba(15,23,42,.14);display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+    .track-bell-btn.has-unread i{animation:trackBellRing 1.3s ease-in-out infinite;transform-origin:50% 0}
+    .track-bell-badge{position:absolute;right:-3px;top:-3px;min-width:20px;height:20px;border-radius:999px;background:#dc2626;color:#fff;font-size:.68rem;font-weight:900;display:none;align-items:center;justify-content:center;border:2px solid #fff;padding:0 5px}
+    .track-bell-btn.has-unread .track-bell-badge{display:flex}
+    @keyframes trackBellRing{0%,100%{transform:rotate(0)}12%{transform:rotate(14deg)}24%{transform:rotate(-12deg)}36%{transform:rotate(10deg)}48%{transform:rotate(-7deg)}60%{transform:rotate(4deg)}72%{transform:rotate(0)}}
+    .track-notif-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.38);z-index:1080;display:none}
+    .track-notif-backdrop.is-open{display:block}
+    .track-notif-panel{position:fixed;right:18px;top:78px;width:min(390px,calc(100vw - 28px));max-height:min(620px,calc(100vh - 100px));z-index:1081;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.24);display:none;overflow:hidden}
+    .track-notif-panel.is-open{display:flex;flex-direction:column;animation:trackNotifIn .18s ease}
+    @keyframes trackNotifIn{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+    .track-notif-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid #f1f5f9}
+    .track-notif-title{font-weight:900;color:#111827;font-size:.98rem}
+    .track-notif-actions{display:flex;gap:6px}
+    .track-notif-icon{width:34px;height:34px;border:0;border-radius:50%;background:#f8fafc;color:#111827;display:flex;align-items:center;justify-content:center}
+    .track-notif-list{overflow:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
+    .track-notif-item{border:1px solid #edf2f7;background:#fff;border-radius:12px;padding:11px;text-align:left;display:block;width:100%;transition:background .15s,border-color .15s}
+    .track-notif-item.unread{background:#fff7ed;border-color:#fed7aa}
+    .track-notif-item:hover{background:#f8fafc}
+    .track-notif-item-title{font-size:.84rem;font-weight:900;color:#111827;margin-bottom:3px}
+    .track-notif-item-msg{font-size:.76rem;color:#6b7280;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .track-notif-time{font-size:.68rem;color:#9ca3af;margin-top:6px;font-weight:700}
+    .track-notif-empty{padding:28px 16px;text-align:center;color:#6b7280;font-size:.84rem}
+    .track-notif-more{margin:2px 8px 10px;border:1px solid #e5e7eb;background:#fff;border-radius:12px;padding:.65rem;font-size:.78rem;font-weight:800;color:#111827}
+    .track-notif-detail{position:fixed;left:50%;top:50%;width:min(420px,calc(100vw - 28px));max-height:min(580px,calc(100vh - 40px));z-index:1082;background:#fff;border-radius:18px;box-shadow:0 26px 80px rgba(15,23,42,.28);padding:18px;display:none;transform:translate(-50%,-50%);overflow:auto}
+    .track-notif-detail.is-open{display:block;animation:trackPanelIn .18s ease}
+    .track-notif-detail-title{font-size:1rem;font-weight:900;color:#111827;margin-right:38px}
+    .track-notif-detail-message{white-space:pre-wrap;color:#374151;font-size:.86rem;line-height:1.55;margin-top:10px}
+    .track-notif-detail-time{color:#9ca3af;font-size:.72rem;font-weight:800;margin-top:12px}
     @media (max-width:640px){
       .track-fab-wrap{right:14px;bottom:16px}
+      .track-head{padding-top:4px}
+      .track-bell-btn{right:2px;top:2px;width:44px;height:44px}
+      .track-notif-panel{right:9px;top:70px;max-height:calc(100vh - 88px)}
       .track-fab-label{max-width:130px;opacity:1}
       .track-fab-item{height:44px}
       .receipt-drawer{width:calc(100vw - 18px);max-height:82vh;border-radius:16px}
@@ -213,10 +245,39 @@
   </style>
 
   {{-- Header --}}
-  <div class="text-center mb-4">
+  <div class="track-head">
+    <button type="button" class="track-bell-btn" id="trackBellBtn" aria-label="Notifications" onclick="openTrackNotifications()">
+      <i class="bi bi-bell-fill"></i>
+      <span class="track-bell-badge" id="trackBellBadge">0</span>
+    </button>
     <div style="font-size:3rem">🎂</div>
     <h4 class="fw-bold mb-1" style="color:var(--primary)">Order Tracking</h4>
     <div class="text-muted fw-semibold" style="font-size:1.75rem">Order #{{ $order->id }}</div>
+  </div>
+
+  <div class="track-notif-backdrop" id="trackNotifBackdrop" onclick="closeTrackNotifications()"></div>
+  <aside class="track-notif-panel" id="trackNotifPanel" aria-label="Recent notifications">
+    <div class="track-notif-head">
+      <div>
+        <div class="track-notif-title">Notifications</div>
+        <div class="small text-muted">Recent updates for this order</div>
+      </div>
+      <div class="track-notif-actions">
+        <button type="button" class="track-notif-icon" onclick="markAllTrackNotificationsRead()" title="Mark all read"><i class="bi bi-check2-all"></i></button>
+        <button type="button" class="track-notif-icon" onclick="closeTrackNotifications()" title="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+    </div>
+    <div class="track-notif-list" id="trackNotifList">
+      <div class="track-notif-empty">Loading notifications...</div>
+    </div>
+    <button type="button" class="track-notif-more" id="trackNotifMore" onclick="loadMoreTrackNotifications()" style="display:none">View more</button>
+  </aside>
+
+  <div class="track-notif-detail" id="trackNotifDetail" role="dialog" aria-modal="true" aria-label="Notification details">
+    <button type="button" class="track-notif-icon" onclick="closeTrackNotificationDetail()" style="position:absolute;right:14px;top:14px"><i class="bi bi-x-lg"></i></button>
+    <div class="track-notif-detail-title" id="trackNotifDetailTitle"></div>
+    <div class="track-notif-detail-message" id="trackNotifDetailMessage"></div>
+    <div class="track-notif-detail-time" id="trackNotifDetailTime"></div>
   </div>
 
   {{-- Status Badge --}}
@@ -1291,6 +1352,9 @@
 const TRACK_CODE = '{{ $order->track_code }}';
 const GUEST_NAME = '{{ addslashes($order->guest_name ?? "You") }}';
 const TRACK_STATUS_URL = '{{ route('track.status', ['trackCode' => $order->track_code]) }}';
+const TRACK_NOTIFICATIONS_URL = '{{ route('guest.mobile_notifications', ['trackCode' => $order->track_code]) }}';
+const TRACK_NOTIFICATION_READ_URL = '{{ route('guest.mobile_notifications.read', ['trackCode' => $order->track_code, 'id' => '__ID__']) }}';
+const TRACK_NOTIFICATION_READ_ALL_URL = '{{ route('guest.mobile_notifications.read_all', ['trackCode' => $order->track_code]) }}';
 const TRACK_INITIAL_SNAPSHOT = {
   status: @json($order->status),
   payment_status: @json($order->payment_status),
@@ -1308,6 +1372,132 @@ let deliveryProofScale = 1;
 let deliveryProofStartDistance = 0;
 let deliveryProofStartScale = 1;
 const deliveryProofPointers = new Map();
+let trackNotifications = [];
+let trackNotificationsOffset = 0;
+let trackNotificationsHasMore = false;
+let trackNotificationsLoading = false;
+
+function csrfToken() {
+  return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
+function escapeTrackText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, function (char) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+  });
+}
+
+function updateTrackBell(unread) {
+  const btn = document.getElementById('trackBellBtn');
+  const badge = document.getElementById('trackBellBadge');
+  const count = Number(unread || 0);
+  if (btn) btn.classList.toggle('has-unread', count > 0);
+  if (badge) badge.textContent = count > 9 ? '9+' : String(count);
+}
+
+function renderTrackNotifications(reset = true) {
+  const list = document.getElementById('trackNotifList');
+  const more = document.getElementById('trackNotifMore');
+  if (!list) return;
+  if (!trackNotifications.length) {
+    list.innerHTML = '<div class="track-notif-empty"><i class="bi bi-bell me-1"></i>No notifications yet.</div>';
+  } else if (reset) {
+    list.innerHTML = trackNotifications.map(function (item) {
+      return '<button type="button" class="track-notif-item ' + (!item.is_read ? 'unread' : '') + '" onclick="openTrackNotificationDetail(' + item.id + ')">'
+        + '<div class="track-notif-item-title">' + escapeTrackText(item.title) + '</div>'
+        + '<div class="track-notif-item-msg">' + escapeTrackText(item.message || '') + '</div>'
+        + '<div class="track-notif-time">' + escapeTrackText(item.created_label || item.created_at || '') + '</div>'
+        + '</button>';
+    }).join('');
+  }
+  if (more) more.style.display = trackNotificationsHasMore ? 'block' : 'none';
+}
+
+async function fetchTrackNotifications(reset = true) {
+  if (trackNotificationsLoading) return;
+  trackNotificationsLoading = true;
+  const offset = reset ? 0 : trackNotificationsOffset;
+  try {
+    const res = await fetch(TRACK_NOTIFICATIONS_URL + '?limit=10&offset=' + offset, {
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error('Notification status ' + res.status);
+    const data = await res.json();
+    if (reset) trackNotifications = data.notifications || [];
+    else trackNotifications = trackNotifications.concat(data.notifications || []);
+    trackNotificationsOffset = trackNotifications.length;
+    trackNotificationsHasMore = !!data.has_more;
+    updateTrackBell(data.unread || 0);
+    renderTrackNotifications(true);
+  } catch (e) {
+    const list = document.getElementById('trackNotifList');
+    if (list && reset) list.innerHTML = '<div class="track-notif-empty">Notifications could not load.</div>';
+  } finally {
+    trackNotificationsLoading = false;
+  }
+}
+
+function openTrackNotifications() {
+  document.getElementById('trackNotifBackdrop')?.classList.add('is-open');
+  document.getElementById('trackNotifPanel')?.classList.add('is-open');
+  fetchTrackNotifications(true);
+}
+
+function closeTrackNotifications() {
+  document.getElementById('trackNotifBackdrop')?.classList.remove('is-open');
+  document.getElementById('trackNotifPanel')?.classList.remove('is-open');
+  closeTrackNotificationDetail();
+}
+
+function loadMoreTrackNotifications() {
+  fetchTrackNotifications(false);
+}
+
+async function openTrackNotificationDetail(id) {
+  const item = trackNotifications.find(n => String(n.id) === String(id));
+  if (!item) return;
+  document.getElementById('trackNotifDetailTitle').textContent = item.title || 'Notification';
+  document.getElementById('trackNotifDetailMessage').textContent = item.message || '';
+  document.getElementById('trackNotifDetailTime').textContent = item.created_at || '';
+  document.getElementById('trackNotifDetail')?.classList.add('is-open');
+
+  if (!item.is_read) {
+    item.is_read = true;
+    renderTrackNotifications(true);
+    try {
+      await fetch(TRACK_NOTIFICATION_READ_URL.replace('__ID__', encodeURIComponent(id)), {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': csrfToken(),
+        },
+      });
+      fetchTrackNotifications(true);
+    } catch (e) {}
+  }
+}
+
+function closeTrackNotificationDetail() {
+  document.getElementById('trackNotifDetail')?.classList.remove('is-open');
+}
+
+async function markAllTrackNotificationsRead() {
+  try {
+    await fetch(TRACK_NOTIFICATION_READ_ALL_URL, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': csrfToken(),
+      },
+    });
+  } catch (e) {}
+  trackNotifications.forEach(n => n.is_read = true);
+  updateTrackBell(0);
+  renderTrackNotifications(true);
+}
 
 function setDeliveryProofLock(locked) {
   document.documentElement.classList.toggle('proof-viewer-open', locked);
@@ -1899,6 +2089,10 @@ setupDepositAmountForms();
 // Initial load + poll every 8 seconds
 pollMessages();
 setInterval(pollMessages, 8000);
+fetchTrackNotifications(true);
+setInterval(function () {
+  if (!document.hidden) fetchTrackNotifications(true);
+}, 30000);
 
 let trackSnapshot = { ...TRACK_INITIAL_SNAPSHOT };
 let trackStatusTimer = null;

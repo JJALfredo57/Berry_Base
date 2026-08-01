@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Services\MobileNotificationService;
 use App\Support\BecCastilloAddons;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -421,14 +422,26 @@ class CustomOrderController extends Controller
         ]);
         if ($shopId) {
             $sellerUser = DB::table('shops')->join('users','users.id','=','shops.seller_id')
-                ->where('shops.id', $shopId)->value('users.id');
+                ->where('shops.id', $shopId)
+                ->select('users.id', 'users.phone')
+                ->first();
             if ($sellerUser) {
                 DB::table('notifications')->insert([
-                    'receiver_role'=>'seller','receiver_user_id'=>$sellerUser,
+                    'receiver_role'=>'seller','receiver_user_id'=>$sellerUser->id,
                     'title'=>'🎨 New Custom Order from '.$guestName,
                     'message'=>$notifMsg,
                     'is_read' => false,'created_at'=>now(),
                 ]);
+                app(MobileNotificationService::class)->notifyUser(
+                    'seller',
+                    (string) $sellerUser->id,
+                    $sellerUser->phone ?? null,
+                    'New Custom Order',
+                    $notifMsg,
+                    ['event' => 'custom_order', 'order_id' => (string) $oid],
+                    null,
+                    route('seller.custom_orders', [], false)
+                );
             }
         }
 
@@ -439,15 +452,21 @@ class CustomOrderController extends Controller
         $shopNameStr = SmsHelper::getShopName($shopId);
         $header      = SmsHelper::header($siteName, $shopNameStr);
         $shopLine    = $shopNameStr ? "\nShop: {$shopNameStr}" : '';
-        SmsHelper::send($phone,
-            "{$header}\n"
+        $customerSms = "{$header}\n"
             . "Hi {$guestName}! We received your custom cake order!\n\n"
             . "Order No.: #{$oid}{$shopLine}\n"
             . "Status: Awaiting Review\n\n"
             . "Our team will review your order and get back to you with the final price.\n\n"
             . "Your Tracking Code: {$trackCode}\n"
             . "Use this code to track your order on our website.\n\n"
-            . "For concerns, contact us through our shop page."
+            . "For concerns, contact us through our shop page.";
+        app(MobileNotificationService::class)->notifyGuestTrackCode(
+            $trackCode,
+            $phone,
+            'Custom Order Received',
+            "Custom Order #{$oid} was received and is awaiting review.",
+            ['event' => 'custom_order', 'order_id' => (string) $oid],
+            $customerSms
         );
 
         if ($submitKey) {

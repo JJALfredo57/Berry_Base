@@ -4,6 +4,7 @@ namespace App\Http\Controllers\SuperAdmin;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +22,26 @@ class SellerController extends Controller
         ]);
 
         return round((float) $validated['commission_rate'], 2);
+    }
+
+    private function notifySeller(?object $seller, string $title, string $message, ?string $smsMessage = null, array $data = []): void
+    {
+        if (!$seller) {
+            return;
+        }
+
+        try {
+            app(MobileNotificationService::class)->notifyUser(
+                'seller',
+                (string) $seller->id,
+                $seller->phone ?? null,
+                $title,
+                $message,
+                $data + ['event' => 'seller_notice'],
+                $smsMessage,
+                route('seller.settings', [], false)
+            );
+        } catch (\Throwable $e) {}
     }
 
     public function index()
@@ -77,18 +98,24 @@ class SellerController extends Controller
             : ($platform->commission_rate_basic    ?? 0.00);
         DB::table('shops')->where('id',$shopId)->update(['commission_rate' => $commRate]);
 
-        // Notify seller via SMS
+        // Notify seller via mobile push, with SMS fallback.
         $seller = DB::table('users')->where('id',$shop->seller_id)->first();
         if ($seller?->phone) {
             try {
                 $siteName = config('app.name', 'Cake Shop');
                 $header   = SmsHelper::header($siteName);
-                SmsHelper::send($seller->phone,
+                $smsMessage =
                     "{$header}\n"
                     . "Congratulations! 🎉 Your application has been approved!\n\n"
                     . "Shop Name: {$shop->shop_name}\n\n"
                     . "Your shop is now live on {$siteName}. You may now log in to your seller dashboard and start listing your products.\n\n"
-                    . "Welcome to the {$siteName} community!"
+                    . "Welcome to the {$siteName} community!";
+                $this->notifySeller(
+                    $seller,
+                    'Seller Application Approved',
+                    "Your shop {$shop->shop_name} is now approved.",
+                    $smsMessage,
+                    ['event' => 'seller_approved']
                 );
             } catch (\Exception $e) {}
         }
@@ -122,12 +149,18 @@ class SellerController extends Controller
             try {
                 $siteName = config('app.name', 'Cake Shop');
                 $header   = SmsHelper::header($siteName);
-                SmsHelper::send($seller->phone,
+                $smsMessage =
                     "{$header}\n"
                     . "We're sorry, your seller application was not approved.\n\n"
                     . "Shop Name: {$shop->shop_name}\n"
                     . "Reason: {$rejectedReason}\n\n"
-                    . "You may re-apply after addressing the concern mentioned above. For questions, please contact our support team."
+                    . "You may re-apply after addressing the concern mentioned above. For questions, please contact our support team.";
+                $this->notifySeller(
+                    $seller,
+                    'Seller Application Rejected',
+                    "Your seller application for {$shop->shop_name} was not approved.",
+                    $smsMessage,
+                    ['event' => 'seller_rejected']
                 );
             } catch (\Exception $e) {}
         }
@@ -232,11 +265,17 @@ class SellerController extends Controller
             try {
                 $siteName = config('app.name', 'Cake Shop');
                 $header   = SmsHelper::header($siteName);
-                SmsHelper::send($seller->phone,
+                $smsMessage =
                     "{$header}\n"
                     . "Congratulations! Your shop has been upgraded to Verified Seller!\n\n"
                     . "Shop: {$shop->shop_name}\n\n"
-                    . "You now have access to unlimited products, custom orders, and a Verified badge. Log in to your dashboard to get started!"
+                    . "You now have access to unlimited products, custom orders, and a Verified badge. Log in to your dashboard to get started!";
+                $this->notifySeller(
+                    $seller,
+                    'Verified Seller Approved',
+                    "Your shop {$shop->shop_name} is now a Verified Seller.",
+                    $smsMessage,
+                    ['event' => 'seller_upgrade_approved']
                 );
             } catch (\Exception $e) {}
         }
@@ -272,11 +311,17 @@ class SellerController extends Controller
             try {
                 $siteName = config('app.name', 'Cake Shop');
                 $header   = SmsHelper::header($siteName);
-                SmsHelper::send($seller->phone,
+                $smsMessage =
                     "{$header}\n"
                     . "Your upgrade request for '{$shop->shop_name}' was not approved.\n\n"
                     . "Reason: {$reason}\n\n"
-                    . "You may re-submit your request after addressing the concern. Log in to your seller dashboard for more details."
+                    . "You may re-submit your request after addressing the concern. Log in to your seller dashboard for more details.";
+                $this->notifySeller(
+                    $seller,
+                    'Verified Seller Request Rejected',
+                    "Your upgrade request for {$shop->shop_name} was not approved.",
+                    $smsMessage,
+                    ['event' => 'seller_upgrade_rejected']
                 );
             } catch (\Exception $e) {}
         }

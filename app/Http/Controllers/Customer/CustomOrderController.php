@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\MobileNotificationService;
 use App\Support\BecCastilloAddons;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -413,16 +414,28 @@ class CustomOrderController extends Controller
 
         if ($shopId) {
             $sellerUser = DB::table('shops')->join('users','users.id','=','shops.seller_id')
-                ->where('shops.id', $shopId)->value('users.id');
+                ->where('shops.id', $shopId)
+                ->select('users.id', 'users.phone')
+                ->first();
             if ($sellerUser) {
                 DB::table('notifications')->insert([
                     'receiver_role'    => 'seller',
-                    'receiver_user_id' => $sellerUser,
+                    'receiver_user_id' => $sellerUser->id,
                     'title'            => '🎨 New Custom Order #' . $oid,
                     'message'          => $notifMsg,
                     'is_read' => false,
                     'created_at'       => now(),
                 ]);
+                app(MobileNotificationService::class)->notifyUser(
+                    'seller',
+                    (string) $sellerUser->id,
+                    $sellerUser->phone ?? null,
+                    'New Custom Order',
+                    $notifMsg,
+                    ['event' => 'custom_order', 'order_id' => (string) $oid],
+                    null,
+                    route('seller.custom_orders', [], false)
+                );
             }
         }
 

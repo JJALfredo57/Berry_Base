@@ -2,7 +2,7 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
-use App\Services\PushNotificationService;
+use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -363,7 +363,7 @@ class PaymentController extends Controller
         try {
             $pushOrder = DB::table('orders')->where('id', $orderId)->first();
             if ($pushOrder) {
-                app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+                app(MobileNotificationService::class)->notifyPaymentComplete($pushOrder);
             }
         } catch (\Throwable $e) {
             Log::warning('Customer deposit payment push failed: ' . $e->getMessage());
@@ -464,7 +464,7 @@ class PaymentController extends Controller
             try {
                 $pushOrder = DB::table('orders')->where('id', $orderId)->first();
                 if ($pushOrder) {
-                    app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+                    app(MobileNotificationService::class)->notifyPaymentComplete($pushOrder);
                 }
             } catch (\Throwable $e) {
                 Log::warning('Customer full payment push failed: ' . $e->getMessage());

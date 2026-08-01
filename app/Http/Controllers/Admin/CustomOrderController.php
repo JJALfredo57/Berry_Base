@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -131,11 +132,14 @@ class CustomOrderController extends Controller
                     'created_at' => now(),
                 ]);
 
-                // SMS notification
-                $phone = DB::table('users')->where('id', $co->user_id)->value('phone');
-                if ($phone) {
+                $order = DB::table('orders')->where('id', $co->order_id)->first();
+                if ($order) {
                     $siteName = config('app.name', 'Cake Shop');
-                    \App\Helpers\SmsHelper::send($phone,
+                    app(MobileNotificationService::class)->notifyOrderCustomer(
+                        $order,
+                        'Custom Order Price Proposal',
+                        'Final price: PHP ' . number_format($price, 2) . '. Please accept or cancel in My Orders.',
+                        ['event' => 'custom_order_price'],
                         "[{$siteName}]\nPrice proposal for your custom order #{$co->order_id} - PHP " . number_format($price, 2) . ". Please check My Orders to accept or cancel."
                     );
                 }
@@ -193,6 +197,15 @@ class CustomOrderController extends Controller
                 'is_read' => false,
                 'created_at'       => now(),
             ]);
+            $order = DB::table('orders')->where('id', $co->order_id)->first();
+            if ($order) {
+                app(MobileNotificationService::class)->notifyOrderCustomer(
+                    $order,
+                    'Custom Order Not Approved',
+                    'Reason: ' . $reason,
+                    ['event' => 'custom_order_rejected']
+                );
+            }
         }
 
         CakeshopHelper::logActivity($user['id'], 'admin', 'Reject Custom Order', "Custom Order #{$id}");
@@ -247,6 +260,17 @@ class CustomOrderController extends Controller
             'is_read' => false,
             'created_at' => now(),
         ]);
+        if ($co->order_id) {
+            $order = DB::table('orders')->where('id', $co->order_id)->first();
+            if ($order) {
+                app(MobileNotificationService::class)->notifyOrderCustomer(
+                    $order,
+                    'Custom Cake Progress Update',
+                    $message ?: 'A progress photo was sent for your custom cake.',
+                    ['event' => 'custom_order_progress']
+                );
+            }
+        }
 
         CakeshopHelper::logActivity($user['id'], 'admin', 'Send Progress Photo', "Custom Order #{$id}");
         return redirect()->route('admin.custom_orders.index')->with('msg', '✅ Progress update sent to customer!');

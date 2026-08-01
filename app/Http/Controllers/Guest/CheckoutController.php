@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
-use App\Services\PushNotificationService;
+use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -420,7 +420,7 @@ class CheckoutController extends Controller
         try {
             $pushOrder = DB::table('orders')->where('id', $oid)->first();
             if ($pushOrder) {
-                app(PushNotificationService::class)->sendToOrderSeller(
+                app(MobileNotificationService::class)->notifyOrderSeller(
                     $pushOrder,
                     'New Order #' . $oid,
                     "{$guestName} placed a new order.",
@@ -431,22 +431,23 @@ class CheckoutController extends Controller
 
         $request->session()->forget(['guest_checkout','guest_otp','guest_otp_exp','guest_phone','guest_pre_track']);
 
-        // SMS confirmation
+        // Customer confirmation: push first for mobile app, SMS fallback when no mobile session exists.
         $siteName = config('app.name','Cake Shop');
         $shopName = SmsHelper::getShopName($product->shop_id ?? null);
         $header   = SmsHelper::header($siteName, $shopName);
         $shopLine = $shopName ? "\nShop: {$shopName}" : '';
         if ($needsDeposit) {
-            SmsHelper::send($phone,
+            $customerSms =
                 "{$header}\n"
                 . "Hi {$guestName}! Your order has been received.\n\n"
                 . "Order No.: #{$oid}{$shopLine}\n"
                 . "Action Required: Pay ₱" . number_format($depositAmount, 2) . " deposit via GCash to confirm your order.\n\n"
                 . "Your Tracking Code: {$trackCode}\n"
-                . "Track your order and pay the deposit on our website."
-            );
+                . "Track your order and pay the deposit on our website.";
+            $customerTitle = 'Deposit Required';
+            $customerBody = "Order #{$oid} was received. Please pay your deposit to confirm.";
         } else {
-            SmsHelper::send($phone,
+            $customerSms =
                 "{$header}\n"
                 . "Hi {$guestName}! Thank you for your order!\n\n"
                 . "Order No.: #{$oid}{$shopLine}\n"
@@ -454,9 +455,18 @@ class CheckoutController extends Controller
                 . "We'll review and confirm your order shortly.\n\n"
                 . "Your Tracking Code: {$trackCode}\n"
                 . "Use this code to track your order on our website.\n\n"
-                . "For concerns, contact us through our shop page."
-            );
+                . "For concerns, contact us through our shop page.";
+            $customerTitle = 'Order Received';
+            $customerBody = "Order #{$oid} was received and is pending confirmation.";
         }
+        app(MobileNotificationService::class)->notifyGuestTrackCode(
+            $trackCode,
+            $phone,
+            $customerTitle,
+            $customerBody,
+            ['event' => 'new_order', 'order_id' => (string) $oid],
+            $customerSms
+        );
 
         $successMsg = $needsDeposit
             ? 'Order placed! 🎂 Please pay your 50% deposit below to confirm your order.'

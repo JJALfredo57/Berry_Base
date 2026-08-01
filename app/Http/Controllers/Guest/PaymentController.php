@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
-use App\Services\PushNotificationService;
+use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -44,8 +44,9 @@ class PaymentController extends Controller
                 ->with('error', 'Minimum GCash payment is ₱100.00.');
         }
 
-        $successUrl = url('/track/' . $trackCode . '/payment-return?status=success');
-        $cancelUrl  = url('/track/' . $trackCode . '/payment-return?status=cancelled');
+        $mobileParam = $this->mobileReturnParam();
+        $successUrl = url('/track/' . $trackCode . '/payment-return?status=success' . $mobileParam);
+        $cancelUrl  = url('/track/' . $trackCode . '/payment-return?status=cancelled' . $mobileParam);
 
         // PayMongo checkout already renders +63, so send only 9XXXXXXXXX.
         $rawPhone = $order->guest_phone ?? '';
@@ -219,8 +220,9 @@ class PaymentController extends Controller
         if ($amountCentavos < 10000)
             return redirect()->route('track.order', $trackCode)->with('error', 'Minimum GCash payment is ₱100.00.');
 
-        $successUrl = url('/track/' . $trackCode . '/deposit-return?status=success');
-        $cancelUrl  = url('/track/' . $trackCode . '/deposit-return?status=cancelled');
+        $mobileParam = $this->mobileReturnParam();
+        $successUrl = url('/track/' . $trackCode . '/deposit-return?status=success' . $mobileParam);
+        $cancelUrl  = url('/track/' . $trackCode . '/deposit-return?status=cancelled' . $mobileParam);
 
         $phone = $this->formatPaymongoCheckoutPhone($order->guest_phone ?? '');
 
@@ -369,7 +371,7 @@ class PaymentController extends Controller
         try {
             $pushOrder = DB::table('orders')->where('id', $order->id)->first();
             if ($pushOrder) {
-                app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+                app(MobileNotificationService::class)->notifyPaymentComplete($pushOrder);
             }
         } catch (\Throwable $e) {
             Log::warning('Guest deposit payment push failed: ' . $e->getMessage());
@@ -442,7 +444,14 @@ class PaymentController extends Controller
                 $header    = \App\Helpers\SmsHelper::header($siteName, $shopName);
                 $shopLine  = $shopName ? "\nShop: {$shopName}" : '';
                 $guestName = $order->guest_name ?? 'Customer';
-                \App\Helpers\SmsHelper::send($guestPhone,
+                $hasMobileDevice = \Illuminate\Support\Facades\Schema::hasTable('device_sessions')
+                    && DB::table('device_sessions')
+                        ->where('role', 'guest_customer')
+                        ->where('guest_track_code', strtoupper($trackCode))
+                        ->where('is_push_enabled', true)
+                        ->whereNull('revoked_at')
+                        ->exists();
+                if (!$hasMobileDevice) \App\Helpers\SmsHelper::send($guestPhone,
                     "{$header}\n"
                     . "Hi {$guestName}! Your payment has been received.\n\n"
                     . "Order No.: #{$order->id}{$shopLine}\n"
@@ -462,6 +471,8 @@ class PaymentController extends Controller
             ->first();
 
         $vatSettings = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
+
+        if ($appReturn = $this->mobileAppReturn($request, '/track/' . $trackCode . '?payment=success')) return $appReturn;
 
         return view('guest.deposit_receipt', [
             'trackCode'   => $trackCode,
@@ -553,8 +564,9 @@ class PaymentController extends Controller
                 ->with('error', 'Minimum GCash payment is ₱100.00.');
 
         $label      = $depositPaid ? 'Remaining Balance' : 'Full Payment';
-        $successUrl = url('/track/' . $trackCode . '/remaining-return?status=success');
-        $cancelUrl  = url('/track/' . $trackCode . '/remaining-return?status=cancelled');
+        $mobileParam = $this->mobileReturnParam();
+        $successUrl = url('/track/' . $trackCode . '/remaining-return?status=success' . $mobileParam);
+        $cancelUrl  = url('/track/' . $trackCode . '/remaining-return?status=cancelled' . $mobileParam);
         $phone      = $this->formatPaymongoCheckoutPhone($order->guest_phone ?? '');
 
         $payload = [
@@ -638,6 +650,7 @@ class PaymentController extends Controller
                 ?? (float) $order->total_price;
             $receiptAddons = DB::table('order_addons')->where('order_id', $order->id)->get();
             $vatSettings   = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
+            if ($appReturn = $this->mobileAppReturn($request, '/track/' . $trackCode . '?payment=success')) return $appReturn;
             return view('guest.payment_receipt', ['success'=>true,'trackCode'=>$trackCode,'receipt'=>$order,'receiptAddons'=>$receiptAddons,'vatSettings'=>$vatSettings,'pmReference'=>null]);
         }
 
@@ -680,7 +693,7 @@ class PaymentController extends Controller
             try {
                 $pushOrder = DB::table('orders')->where('id', $order->id)->first();
                 if ($pushOrder) {
-                    app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+                    app(MobileNotificationService::class)->notifyPaymentComplete($pushOrder);
                 }
             } catch (\Throwable $e) {
                 Log::warning('Guest remaining payment push failed: ' . $e->getMessage());
@@ -744,6 +757,7 @@ class PaymentController extends Controller
             $receiptAddons = DB::table('order_addons')->where('order_id', $order->id)->get();
             $vatSettings   = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
 
+            if ($appReturn = $this->mobileAppReturn($request, '/track/' . $trackCode . '?payment=success')) return $appReturn;
             return view('guest.payment_receipt', [
                 'success'       => true,
                 'trackCode'     => $trackCode,
@@ -778,6 +792,7 @@ class PaymentController extends Controller
         if ($order->payment_status === 'Paid') {
             $receiptAddons = DB::table('order_addons')->where('order_id', $order->id)->get();
             $vatSettings   = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
+            if ($appReturn = $this->mobileAppReturn($request, '/track/' . $trackCode . '?payment=success')) return $appReturn;
             return view('guest.payment_receipt', [
                 'success'       => true,
                 'trackCode'     => $trackCode,
@@ -823,7 +838,7 @@ class PaymentController extends Controller
             try {
                 $pushOrder = DB::table('orders')->where('id', $order->id)->first();
                 if ($pushOrder) {
-                    app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+                    app(MobileNotificationService::class)->notifyPaymentComplete($pushOrder);
                 }
             } catch (\Throwable $e) {
                 Log::warning('Guest full payment push failed: ' . $e->getMessage());
@@ -911,6 +926,7 @@ class PaymentController extends Controller
             $receiptAddons = DB::table('order_addons')->where('order_id', $order->id)->get();
             $vatSettings   = DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
 
+            if ($appReturn = $this->mobileAppReturn($request, '/track/' . $trackCode . '?payment=success')) return $appReturn;
             return view('guest.payment_receipt', [
                 'success'       => true,
                 'trackCode'     => $trackCode,
@@ -928,6 +944,21 @@ class PaymentController extends Controller
     private function getPaymongoCheckoutMethods(): array
     {
         return ['gcash'];
+    }
+
+    private function mobileReturnParam(): string
+    {
+        return request()->boolean('mobile_app') ? '&mobile_app=1' : '';
+    }
+
+    private function mobileAppReturn(Request $request, string $path): ?\Illuminate\Http\RedirectResponse
+    {
+        if (!$request->boolean('mobile_app')) {
+            return null;
+        }
+
+        $path = '/' . ltrim($path, '/');
+        return redirect()->away('com.berrybase.cakeshop://' . $path);
     }
 
     private function latestPaymentTransactionAmount(string $orderId, string $type): ?float
@@ -989,8 +1020,9 @@ class PaymentController extends Controller
             return redirect()->route('customer.orders')->with('err', 'Minimum GCash payment is PHP 100.00.');
         }
 
-        $successUrl = route('customer.custom_orders.deposit_return', $coId) . '?status=success';
-        $cancelUrl  = route('customer.custom_orders.deposit_return', $coId) . '?status=cancelled';
+        $mobileParam = $this->mobileReturnParam();
+        $successUrl = route('customer.custom_orders.deposit_return', $coId) . '?status=success' . $mobileParam;
+        $cancelUrl  = route('customer.custom_orders.deposit_return', $coId) . '?status=cancelled' . $mobileParam;
 
         $payload = [
             'data' => ['attributes' => [
@@ -1098,7 +1130,7 @@ class PaymentController extends Controller
             try {
                 $pushOrder = DB::table('orders')->where('id', $order->id)->first();
                 if ($pushOrder) {
-                    app(PushNotificationService::class)->notifyPaymentComplete($pushOrder);
+                    app(MobileNotificationService::class)->notifyPaymentComplete($pushOrder);
                 }
             } catch (\Throwable $e) {
                 Log::warning('Guest custom deposit payment push failed: ' . $e->getMessage());
@@ -1151,7 +1183,8 @@ class PaymentController extends Controller
                 'created_at'       => now(),
             ]);
 
-            return redirect()->route('customer.orders')->with('msg', '✅ Payment received! Your custom cake order is now confirmed. 🎂');
+            if ($appReturn = $this->mobileAppReturn($request, '/customer/orders?payment=success')) return $appReturn;
+            return redirect()->route('customer.orders')->with('msg', 'Payment received! Your custom cake order is now confirmed.');
         }
 
         return redirect()->route('customer.orders')->with('err', 'Payment not completed. Please try again.');
