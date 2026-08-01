@@ -111,7 +111,7 @@
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div>
         <h5 class="fw-bold mb-1" style="color:var(--primary)"><i class="bi bi-funnel me-2"></i>Smart Product Filters</h5>
-        <p class="text-muted small mb-0">Search by cake name, flavor, seller, category, rating, or covered barangay</p>
+        <p class="text-muted small mb-0">Search by cake name, flavor, seller, category, or covered barangay</p>
       </div>
       <div class="d-flex gap-2">
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetCatalogFilters()">
@@ -134,14 +134,6 @@
           @foreach($products->pluck('classification')->filter()->unique()->sort()->values() as $classificationOption)
           <option value="{{ $classificationOption }}"></option>
           @endforeach
-        </datalist>
-      </div>
-      <div class="col-sm-6 col-lg-2">
-        <input id="catalogRatingFilter" list="catalogRatingOptions" class="form-control form-control-lg" placeholder="Any rating" oninput="filterCatalog()">
-        <datalist id="catalogRatingOptions">
-          <option value="4 stars & up"></option>
-          <option value="3 stars & up"></option>
-          <option value="With reviews"></option>
         </datalist>
       </div>
       <div class="col-sm-6 col-lg-2">
@@ -827,8 +819,6 @@ document.addEventListener('hidden.bs.modal', forceCleanModals);
 function filterCatalog(){
   const q = (document.getElementById('catalogSearch')?.value || '').toLowerCase().trim();
   const classification = (document.getElementById('catalogClassFilter')?.value || '').toLowerCase();
-  const ratingText = (document.getElementById('catalogRatingFilter')?.value || '').toLowerCase();
-  const rating = ratingText.includes('4') ? 4 : (ratingText.includes('3') ? 3 : (ratingText.includes('review') ? 1 : 0));
   const seller = (document.getElementById('catalogSellerFilter')?.value || '').toLowerCase();
   const barangay = (document.getElementById('catalogBarangayFilter')?.value || '').toLowerCase();
   let visibleCount = 0;
@@ -838,15 +828,12 @@ function filterCatalog(){
     const elClass = (el.getAttribute('data-classification') || '').toLowerCase();
     const elSeller = (el.getAttribute('data-seller') || '').toLowerCase();
     const elBarangays = (el.getAttribute('data-barangays') || '').toLowerCase();
-    const elRating = parseFloat(el.getAttribute('data-rating') || '0');
-    const reviewed = (el.getAttribute('data-reviewed') || '0') === '1';
 
     const matchesSearch = !q || haystack.includes(q);
     const matchesClass = !classification || elClass.includes(classification);
     const matchesSeller = !seller || elSeller.includes(seller);
     const matchesBarangay = !barangay || elBarangays.includes(barangay);
-    const matchesRating = !rating || (rating === 1 ? reviewed : elRating >= rating);
-    const matches = matchesSearch && matchesClass && matchesSeller && matchesBarangay && matchesRating;
+    const matches = matchesSearch && matchesClass && matchesSeller && matchesBarangay;
 
     el.style.display = matches ? '' : 'none';
     if (matches) visibleCount++;
@@ -863,7 +850,7 @@ function filterCatalog(){
 }
 
 function resetCatalogFilters() {
-  ['catalogSearch','catalogClassFilter','catalogRatingFilter','catalogSellerFilter','catalogBarangayFilter'].forEach(id => {
+  ['catalogSearch','catalogClassFilter','catalogSellerFilter','catalogBarangayFilter'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });

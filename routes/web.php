@@ -52,6 +52,18 @@ Route::get('/', function () {
         || !\Illuminate\Support\Facades\DB::table('users')->whereIn('role',['admin','superadmin'])->exists()) {
         return redirect()->route('setup');
     }
+
+    $role = session('user')['role'] ?? null;
+    if ($role === 'seller') {
+        return redirect()->route('seller.dashboard');
+    }
+    if ($role === 'superadmin') {
+        return redirect()->route('superadmin.dashboard');
+    }
+    if ($role === 'admin') {
+        return redirect()->route('admin.dashboard');
+    }
+
     // Show the welcome/splash page
     return view('welcome');
 })->name('platform.home');
