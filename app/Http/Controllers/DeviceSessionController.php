@@ -18,8 +18,8 @@ class DeviceSessionController extends Controller
         $validated = $request->validate([
             'device_token'     => 'required|string|min:20|max:4096',
             'device_type'      => 'nullable|string|max:30',
-            'platform'         => 'nullable|string|max:80',
-            'device_name'      => 'nullable|string|max:120',
+            'platform'         => 'nullable|string|max:120',
+            'device_name'      => 'nullable|string|max:1000',
             'guest_track_code' => 'nullable|string|max:30',
             'rider_order_id'   => 'nullable|string|max:30',
             'rider_token'      => 'nullable|string|max:80',

@@ -4078,8 +4078,8 @@ window.BERRY_PUSH_CONTEXT = {
       body: JSON.stringify({
         device_token: value,
         device_type: 'android',
-        platform: navigator.platform || 'Android',
-        device_name: navigator.userAgent || '',
+        platform: String(navigator.platform || 'Android').slice(0, 120),
+        device_name: String(navigator.userAgent || '').slice(0, 1000),
         guest_track_code: window.BERRY_PUSH_CONTEXT.guestTrackCode || '',
       }),
     }).then(function (response) {
