@@ -88,6 +88,8 @@ Route::post('/device/unregister', [DeviceSessionController::class, 'unregister']
 Route::get('/device/push-config-check', function () {
     $deviceTableExists = \Illuminate\Support\Facades\Schema::hasTable('device_sessions');
     $deviceCounts = [];
+    $totalDeviceSessions = 0;
+    $latestDeviceSeenAt = null;
     if ($deviceTableExists) {
         $deviceCounts = \Illuminate\Support\Facades\DB::table('device_sessions')
             ->select('role', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total'))
@@ -95,6 +97,8 @@ Route::get('/device/push-config-check', function () {
             ->whereNull('revoked_at')
             ->groupBy('role')
             ->pluck('total', 'role');
+        $totalDeviceSessions = \Illuminate\Support\Facades\DB::table('device_sessions')->count();
+        $latestDeviceSeenAt = \Illuminate\Support\Facades\DB::table('device_sessions')->max('last_seen_at');
     }
 
     return response()->json([
@@ -104,6 +108,8 @@ Route::get('/device/push-config-check', function () {
         'has_credentials_path' => filled(config('services.fcm.credentials_path')),
         'mobile_registration_enabled' => (bool) config('services.fcm.mobile_registration_enabled'),
         'device_sessions_table' => $deviceTableExists,
+        'total_device_sessions' => $totalDeviceSessions,
+        'latest_device_session_seen_at' => $latestDeviceSeenAt,
         'enabled_device_sessions' => $deviceCounts,
         'session_lifetime' => config('session.lifetime'),
     ]);

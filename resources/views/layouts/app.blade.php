@@ -1705,6 +1705,10 @@
     <a href="#" class="csb-link" onclick="closeCustSidebar(); csTrackPrompt(); return false;">
       <i class="bi bi-search"></i> Track My Order
     </a>
+    <button type="button" class="csb-link" id="pushDebugBtn" onclick="BerryPushDebug.show(); closeCustSidebar();"
+            style="display:none;background:none;border:none;cursor:pointer;width:100%;text-align:left">
+      <i class="bi bi-bell"></i> Notification Status
+    </button>
 
     <div class="csb-divider"></div>
     <div class="csb-section-label">For Riders</div>
@@ -3965,6 +3969,30 @@ function formatMcTime(dateStr) {
 @endif
 
 @stack('modals')
+<div id="pushDebugPanel" role="dialog" aria-modal="true" aria-label="Notification Status"
+     style="display:none;position:fixed;inset:auto 14px 14px auto;z-index:999999;width:min(360px,calc(100vw - 28px));max-height:min(560px,calc(100vh - 28px));overflow:auto;background:#fff;border:1px solid rgba(17,24,39,.12);border-radius:14px;box-shadow:0 18px 50px rgba(17,24,39,.2);padding:14px;color:#111827">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+    <div>
+      <div style="font-weight:800;font-size:.95rem">Notification Status</div>
+      <div style="font-size:.75rem;color:#6b7280">Token is hidden for security</div>
+    </div>
+    <button type="button" onclick="BerryPushDebug.close()" aria-label="Close"
+            style="width:34px;height:34px;border:none;border-radius:50%;background:#f3f4f6;color:#111827;display:flex;align-items:center;justify-content:center">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+  <div id="pushDebugContent" style="font-size:.78rem;line-height:1.5;background:#f9fafb;border:1px solid #eef2f7;border-radius:10px;padding:10px;white-space:pre-wrap;word-break:break-word"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+    <button type="button" onclick="BerryPushDebug.retry()"
+            style="border:none;border-radius:10px;background:var(--primary);color:#fff;font-weight:800;font-size:.78rem;padding:.55rem .75rem">
+      <i class="bi bi-arrow-clockwise"></i> Retry Register
+    </button>
+    <button type="button" onclick="BerryPushDebug.refresh()"
+            style="border:1px solid #d1d5db;border-radius:10px;background:#fff;color:#111827;font-weight:700;font-size:.78rem;padding:.55rem .75rem">
+      Refresh
+    </button>
+  </div>
+</div>
 <script>
 window.BerryAppTracking = window.BerryAppTracking || (function () {
   const KEY = 'berry_last_tracking_url';
@@ -4025,13 +4053,23 @@ window.BERRY_PUSH_CONTEXT = {
     try { localStorage.setItem(key, String(value)); } catch (e) {}
   }
 
+  function readPushDebug(key) {
+    try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+  }
+
+  function isNativeApp() {
+    return !!window.Capacitor?.isNativePlatform?.();
+  }
+
   function registerDeviceToken(value) {
     if (!value) return Promise.resolve();
     savePushDebug('berry_push_last_token_seen_at', new Date().toISOString());
+    savePushDebug('berry_push_register_attempt_at', new Date().toISOString());
     try { localStorage.setItem('berry_push_device_token', value); } catch (e) {}
 
     return fetch(window.BERRY_PUSH_CONTEXT.registerUrl, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -4046,8 +4084,15 @@ window.BERRY_PUSH_CONTEXT = {
       }),
     }).then(function (response) {
       savePushDebug('berry_push_register_status', response.status);
-      if (!response.ok) throw new Error('Device registration failed: ' + response.status);
-      return response.json();
+      return response.text().then(function (text) {
+        let data = {};
+        try { data = text ? JSON.parse(text) : {}; } catch (e) {}
+        if (!response.ok) {
+          const serverMessage = data?.message || data?.error || text || 'Device registration failed';
+          throw new Error(serverMessage + ' (HTTP ' + response.status + ')');
+        }
+        return data;
+      });
     }).then(function (data) {
       savePushDebug('berry_push_registered_at', new Date().toISOString());
       savePushDebug('berry_push_registered_role', data.role || '');
@@ -4059,18 +4104,34 @@ window.BERRY_PUSH_CONTEXT = {
   }
 
   async function registerBerryPush() {
-    if (!window.BERRY_PUSH_CONTEXT.pushEnabled) return;
+    savePushDebug('berry_push_last_setup_at', new Date().toISOString());
+    if (!window.BERRY_PUSH_CONTEXT.pushEnabled) {
+      savePushDebug('berry_push_setup_error', 'Mobile registration is disabled on server.');
+      return;
+    }
 
     const capacitor = window.Capacitor;
     const push = capacitor?.Plugins?.PushNotifications;
-    if (!capacitor?.isNativePlatform?.() || !push) return;
+    if (!capacitor?.isNativePlatform?.()) {
+      savePushDebug('berry_push_setup_error', 'Not running inside Android app.');
+      return;
+    }
+    if (!push) {
+      savePushDebug('berry_push_setup_error', 'PushNotifications plugin is not available in this APK.');
+      return;
+    }
 
     try {
       let permission = await push.checkPermissions();
+      savePushDebug('berry_push_permission', JSON.stringify(permission));
       if (permission.receive !== 'granted') {
         permission = await push.requestPermissions();
+        savePushDebug('berry_push_permission', JSON.stringify(permission));
       }
-      if (permission.receive !== 'granted') return;
+      if (permission.receive !== 'granted') {
+        savePushDebug('berry_push_setup_error', 'Notification permission is not granted.');
+        return;
+      }
 
       await push.removeAllListeners();
       await push.addListener('registration', function (token) {
@@ -4080,6 +4141,7 @@ window.BERRY_PUSH_CONTEXT = {
 
       await push.addListener('registrationError', function (error) {
         console.warn('Push registration failed', error);
+        savePushDebug('berry_push_registration_error', JSON.stringify(error));
       });
 
       await push.addListener('pushNotificationReceived', function (notification) {
@@ -4103,10 +4165,70 @@ window.BERRY_PUSH_CONTEXT = {
     }
   }
 
+  function buildPushDebugText() {
+    const hasSavedToken = !!readPushDebug('berry_push_device_token');
+    const status = {
+      isNativeApp: isNativeApp(),
+      pushEnabled: !!window.BERRY_PUSH_CONTEXT.pushEnabled,
+      currentPath: window.location.pathname,
+      guestTrackCode: window.BERRY_PUSH_CONTEXT.guestTrackCode || '',
+      hasSavedToken: hasSavedToken,
+      lastSetupAt: readPushDebug('berry_push_last_setup_at'),
+      permission: readPushDebug('berry_push_permission'),
+      lastTokenSeenAt: readPushDebug('berry_push_last_token_seen_at'),
+      registerAttemptAt: readPushDebug('berry_push_register_attempt_at'),
+      registerStatus: readPushDebug('berry_push_register_status'),
+      registeredAt: readPushDebug('berry_push_registered_at'),
+      registeredRole: readPushDebug('berry_push_registered_role'),
+      registerError: readPushDebug('berry_push_register_error'),
+      setupError: readPushDebug('berry_push_setup_error'),
+      registrationError: readPushDebug('berry_push_registration_error'),
+      savedTrackingUrl: readPushDebug('berry_last_tracking_url'),
+      csrfTokenPresent: !!window.BERRY_PUSH_CONTEXT.csrfToken,
+    };
+
+    return Object.entries(status)
+      .map(function ([key, value]) { return key + ': ' + (value === '' ? '(empty)' : value); })
+      .join('\n');
+  }
+
+  window.BerryPushDebug = {
+    show: function () {
+      this.refresh();
+      const panel = document.getElementById('pushDebugPanel');
+      if (panel) panel.style.display = 'block';
+    },
+    close: function () {
+      const panel = document.getElementById('pushDebugPanel');
+      if (panel) panel.style.display = 'none';
+    },
+    refresh: function () {
+      const content = document.getElementById('pushDebugContent');
+      if (content) content.textContent = buildPushDebugText();
+    },
+    retry: function () {
+      const savedToken = readPushDebug('berry_push_device_token');
+      if (!savedToken) {
+        savePushDebug('berry_push_register_error', 'No saved Firebase token yet. Reopen app or reinstall latest APK.');
+        this.refresh();
+        return;
+      }
+      registerDeviceToken(savedToken).then(() => this.refresh());
+    },
+  };
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', registerBerryPush);
+    document.addEventListener('DOMContentLoaded', function () {
+      registerBerryPush();
+      const debugBtn = document.getElementById('pushDebugBtn');
+      if (debugBtn && isNativeApp()) debugBtn.style.display = 'flex';
+      if (new URLSearchParams(window.location.search).has('push_debug')) window.BerryPushDebug.show();
+    });
   } else {
     registerBerryPush();
+    const debugBtn = document.getElementById('pushDebugBtn');
+    if (debugBtn && isNativeApp()) debugBtn.style.display = 'flex';
+    if (new URLSearchParams(window.location.search).has('push_debug')) window.BerryPushDebug.show();
   }
 })();
 </script>
