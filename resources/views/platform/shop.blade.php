@@ -263,11 +263,11 @@
     @if($shop->tier === 'verified')
     <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:.85rem 0 1rem">
       @if($viewerRole === 'customer')
-        <a href="{{ route('customer.custom_order', ['shop' => $shop->shop_slug]) }}" class="btn-custom-cake" onclick="return confirmCustomCake(event, this)">
+        <a href="{{ route('customer.custom_order', ['shop' => $shop->shop_slug]) }}" class="btn-custom-cake">
           <i class="bi bi-palette-fill"></i> Order Custom Cake
         </a>
       @elseif(!$viewerRole)
-        <a href="{{ route('guest.custom_order', ['shop' => $shop->shop_slug]) }}" class="btn-custom-cake" onclick="return confirmCustomCake(event, this)">
+        <a href="{{ route('guest.custom_order', ['shop' => $shop->shop_slug]) }}" class="btn-custom-cake">
           <i class="bi bi-palette-fill"></i> Order Custom Cake
         </a>
       @else
