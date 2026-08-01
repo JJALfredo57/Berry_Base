@@ -4021,6 +4021,43 @@ window.BERRY_PUSH_CONTEXT = {
 };
 
 (function () {
+  function savePushDebug(key, value) {
+    try { localStorage.setItem(key, String(value)); } catch (e) {}
+  }
+
+  function registerDeviceToken(value) {
+    if (!value) return Promise.resolve();
+    savePushDebug('berry_push_last_token_seen_at', new Date().toISOString());
+    try { localStorage.setItem('berry_push_device_token', value); } catch (e) {}
+
+    return fetch(window.BERRY_PUSH_CONTEXT.registerUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': window.BERRY_PUSH_CONTEXT.csrfToken,
+      },
+      body: JSON.stringify({
+        device_token: value,
+        device_type: 'android',
+        platform: navigator.platform || 'Android',
+        device_name: navigator.userAgent || '',
+        guest_track_code: window.BERRY_PUSH_CONTEXT.guestTrackCode || '',
+      }),
+    }).then(function (response) {
+      savePushDebug('berry_push_register_status', response.status);
+      if (!response.ok) throw new Error('Device registration failed: ' + response.status);
+      return response.json();
+    }).then(function (data) {
+      savePushDebug('berry_push_registered_at', new Date().toISOString());
+      savePushDebug('berry_push_registered_role', data.role || '');
+      localStorage.removeItem('berry_push_register_error');
+    }).catch(function (error) {
+      console.warn('Device token was not saved', error);
+      savePushDebug('berry_push_register_error', error?.message || error);
+    });
+  }
+
   async function registerBerryPush() {
     if (!window.BERRY_PUSH_CONTEXT.pushEnabled) return;
 
@@ -4038,33 +4075,7 @@ window.BERRY_PUSH_CONTEXT = {
       await push.removeAllListeners();
       await push.addListener('registration', function (token) {
         const value = token?.value || token;
-        if (!value) return;
-        fetch(window.BERRY_PUSH_CONTEXT.registerUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-CSRF-TOKEN': window.BERRY_PUSH_CONTEXT.csrfToken,
-          },
-          body: JSON.stringify({
-            device_token: value,
-            device_type: 'android',
-            platform: navigator.platform || 'Android',
-            device_name: navigator.userAgent || '',
-            guest_track_code: window.BERRY_PUSH_CONTEXT.guestTrackCode || '',
-          }),
-        }).then(function (response) {
-          if (!response.ok) throw new Error('Device registration failed: ' + response.status);
-          return response.json();
-        }).then(function (data) {
-          try {
-            localStorage.setItem('berry_push_registered_at', new Date().toISOString());
-            localStorage.setItem('berry_push_registered_role', data.role || '');
-          } catch (e) {}
-        }).catch(function (error) {
-          console.warn('Device token was not saved', error);
-          try { localStorage.setItem('berry_push_register_error', String(error?.message || error)); } catch (e) {}
-        });
+        registerDeviceToken(value);
       });
 
       await push.addListener('registrationError', function (error) {
@@ -4083,8 +4094,12 @@ window.BERRY_PUSH_CONTEXT = {
       });
 
       await push.register();
+
+      const savedToken = localStorage.getItem('berry_push_device_token');
+      if (savedToken && window.BERRY_PUSH_CONTEXT.guestTrackCode) registerDeviceToken(savedToken);
     } catch (error) {
       console.warn('Push setup skipped', error);
+      savePushDebug('berry_push_setup_error', error?.message || error);
     }
   }
 
