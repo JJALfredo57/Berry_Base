@@ -422,31 +422,44 @@ document.body.style.paddingRight = '';
 </div>
 
 <script>
+var checkoutAvailabilityIssue = '';
+var checkoutAvailabilityPending = false;
+
 function checkCheckoutAvailability() {
   const date      = document.getElementById('fieldDate')?.value;
   const shopId    = '{{ $product->shop_id ?? '' }}';
   const orderQty  = {{ (int)($checkout['quantity'] ?? 1) }};
   const resultEl  = document.getElementById('checkoutAvailability');
+  checkoutAvailabilityIssue = '';
+  checkoutAvailabilityPending = false;
   if (!date || !resultEl) return;
+  checkoutAvailabilityPending = true;
   resultEl.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking availability...</span>';
   fetch('/catalog/availability?date=' + date + (shopId ? '&shop_id=' + shopId : ''))
     .then(r => r.json())
     .then(data => {
+      checkoutAvailabilityPending = false;
       if (data.remaining !== null && orderQty > data.remaining) {
+        checkoutAvailabilityIssue = 'Only ' + data.remaining + ' pcs are available on this date, but your order quantity is ' + orderQty + ' pcs.';
         resultEl.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Only ' + data.remaining + ' pcs available on this date. Your order quantity is ' + orderQty + ' pcs.</span>';
       } else if (data.status === 'available') {
+        checkoutAvailabilityIssue = '';
         resultEl.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + data.message + '</span>';
       } else if (data.status === 'almost') {
+        checkoutAvailabilityIssue = '';
         resultEl.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + data.message + '</span>';
       } else if (data.status === 'full') {
+        checkoutAvailabilityIssue = (data.message || 'This date is fully booked.') + ' Please choose another date.';
         resultEl.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + data.message + ' — please choose another date.</span>';
       } else if (data.status === 'invalid') {
+        checkoutAvailabilityIssue = data.message || 'Selected date is not available.';
         resultEl.innerHTML = '<span class="text-danger small"><i class="bi bi-x-circle me-1"></i>' + data.message + '</span>';
       } else {
+        checkoutAvailabilityIssue = '';
         resultEl.innerHTML = '';
       }
     })
-    .catch(function() { resultEl.innerHTML = ''; });
+    .catch(function() { checkoutAvailabilityPending = false; checkoutAvailabilityIssue = ''; resultEl.innerHTML = ''; });
 }
 </script>
 
@@ -1218,6 +1231,37 @@ const cvRules = {
   otp:   { pattern: /^[0-9]+$/,              min: 0, max: 6,   errChar: 'Numbers only.' },
 };
 
+function showOrderValidationWarning(issues, focusEl) {
+  const uniqueIssues = [...new Set(issues.filter(Boolean))];
+  if (!uniqueIssues.length) uniqueIssues.push('Please complete all required details.');
+  const message = 'Please fix these before placing your order:\n\n' + uniqueIssues.map((issue, index) => (index + 1) + '. ' + issue).join('\n');
+  const focusTarget = focusEl;
+  const onConfirm = function() {
+    if (focusTarget && typeof focusTarget.scrollIntoView === 'function') {
+      focusTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(function() {
+        if (typeof focusTarget.focus === 'function') focusTarget.focus({ preventScroll: true });
+      }, 350);
+    }
+  };
+  if (typeof _csDlgBuild === 'function') {
+    _csDlgBuild({
+      title: 'Complete Missing Details',
+      message: message,
+      icon: 'bi-exclamation-triangle-fill',
+      iconBg: '#fff7ed',
+      iconColor: '#f59e0b',
+      okLabel: 'Review Details',
+      okColor: '#f59e0b',
+      showCancel: false,
+      onConfirm: onConfirm
+    });
+    return;
+  }
+  alert(message);
+  onConfirm();
+}
+
 // ── Set input visual state ────────────────────────────
 function cvSetState(input, msgId, state, text = '') {
   input.classList.remove('cv-valid','cv-invalid');
@@ -1451,6 +1495,7 @@ function cvValidateAll() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   let ok = true;
   let firstErr = null;
+  const issues = [];
 
   // Name
   const nameEl = document.getElementById('fieldName');
@@ -1459,6 +1504,7 @@ function cvValidateAll() {
     if (nameEl.classList.contains('cv-invalid') || !nameEl.value.trim()) {
       cvSetState(nameEl, 'msgName', 'err', 'Full name is required.');
       cvShake(nameEl);
+      issues.push(nameEl.value.trim() ? 'Full name has invalid characters.' : 'Full name is required.');
       ok = false; firstErr = firstErr || nameEl;
     }
   }
@@ -1470,6 +1516,7 @@ function cvValidateAll() {
     if (phoneEl.classList.contains('cv-invalid') || !phoneEl.value.trim()) {
       cvSetState(phoneEl, 'msgPhone', 'err', 'Phone number is required.');
       cvShake(phoneEl);
+      issues.push(phoneEl.value.trim() ? 'Phone number format is invalid.' : 'Phone number is required.');
       ok = false; firstErr = firstErr || phoneEl;
     }
   }
@@ -1480,22 +1527,31 @@ function cvValidateAll() {
     const msgPhone = document.getElementById('msgPhone');
     if (msgPhone) { msgPhone.className = 'cv-msg cv-err'; msgPhone.textContent = 'Please tap "Send OTP" to verify your phone number first.'; }
     if (phoneEl) { phoneEl.classList.add('cv-invalid'); cvShake(phoneEl); }
-    cakeToast('Please tap "Send OTP" to verify your phone number.', 'error');
+    issues.push('Please tap "Send OTP" to verify your phone number.');
     ok = false; firstErr = firstErr || phoneEl;
   } else if (otpEl && otpEl.value.length !== 6) {
     otpEl.classList.add('cv-invalid');
     const m = document.getElementById('msgOtp');
     if (m) { m.className = 'cv-msg cv-err'; m.textContent = 'Please enter the complete 6-digit OTP.'; }
     cvShake(otpEl);
+    issues.push('Please enter the complete 6-digit OTP.');
     ok = false; firstErr = firstErr || otpEl;
   }
 
   // Delivery location
   if (isDelivery) {
     const zoneEl = document.getElementById('zoneSelect');
-    if (!cvValidateMap()) { ok = false; firstErr = firstErr || document.getElementById('map'); }
+    if (!cvValidateMap()) {
+      issues.push(deliveryCoverageBlocked ? 'Pinned location is outside the seller delivery area.' : 'Please pin your exact delivery location on the map.');
+      ok = false; firstErr = firstErr || document.getElementById('map');
+    }
     cvValidateZone();
-    if (!zoneEl?.value || deliveryCoverageBlocked) {
+    if (!zoneEl?.value) {
+      issues.push('Please select a delivery area.');
+      ok = false;
+      firstErr = firstErr || document.getElementById('map');
+    }
+    if (deliveryCoverageBlocked) {
       ok = false;
       firstErr = firstErr || document.getElementById('map');
     }
@@ -1507,10 +1563,21 @@ function cvValidateAll() {
     if (!dateEl.value) {
       cvSetState(dateEl, 'msgDate', 'err', 'Please select your preferred date.');
       cvShake(dateEl);
+      issues.push('Preferred date is required.');
       ok = false; firstErr = firstErr || dateEl;
     } else {
       cvValidateDate(dateEl);
-      if (dateEl.classList.contains('cv-invalid')) { ok = false; firstErr = firstErr || dateEl; }
+      if (dateEl.classList.contains('cv-invalid')) {
+        issues.push('Preferred date is invalid or already in the past.');
+        ok = false; firstErr = firstErr || dateEl;
+      }
+      if (checkoutAvailabilityPending) {
+        issues.push('Please wait for the date availability check to finish.');
+        ok = false; firstErr = firstErr || dateEl;
+      } else if (checkoutAvailabilityIssue) {
+        issues.push(checkoutAvailabilityIssue);
+        ok = false; firstErr = firstErr || dateEl;
+      }
     }
   }
 
@@ -1521,10 +1588,11 @@ function cvValidateAll() {
     const m = document.getElementById('msgTime');
     if (m) { m.className = 'cv-msg cv-err'; m.textContent = 'Please select a preferred time slot.'; }
     cvShake(timeEl);
+    issues.push('Preferred time slot is required.');
     ok = false; firstErr = firstErr || timeEl;
   }
 
-  if (!ok && firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (!ok) showOrderValidationWarning(issues, firstErr);
   return ok;
 }
 
@@ -1594,6 +1662,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const basePriceEl = document.getElementById('basePrice');
     if (basePriceEl) basePriceEl.style.color = '#dc2626';
   }
+  checkCheckoutAvailability();
   updatePaymentTransparency();
 });
 
