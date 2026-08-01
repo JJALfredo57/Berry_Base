@@ -24,6 +24,8 @@
 /storage/framework/sessions/
 /storage/framework/views/*.php
 /vendor
+android/app/google-services.json
+*firebase-adminsdk*.json
 Homestead.json
 Homestead.yaml
 Thumbs.db
