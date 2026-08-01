@@ -85,6 +85,15 @@ Route::get('/api/geocode/search', function (\Illuminate\Http\Request $req) {
 
 Route::post('/device/register', [DeviceSessionController::class, 'register'])->name('device.register');
 Route::post('/device/unregister', [DeviceSessionController::class, 'unregister'])->name('device.unregister');
+Route::get('/device/push-config-check', function () {
+    return response()->json([
+        'project_id' => config('services.fcm.project_id'),
+        'has_credentials_json' => filled(config('services.fcm.credentials_json')),
+        'has_credentials_path' => filled(config('services.fcm.credentials_path')),
+        'mobile_registration_enabled' => (bool) config('services.fcm.mobile_registration_enabled'),
+        'session_lifetime' => config('session.lifetime'),
+    ]);
+})->name('device.push_config_check');
 
 // ── Guest Checkout ────────────────────────────────────────────────────────
 Route::get('/checkout',             [GuestCheckout::class, 'show'])->name('guest.checkout');
