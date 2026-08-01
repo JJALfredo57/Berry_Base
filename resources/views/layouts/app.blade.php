@@ -1673,7 +1673,7 @@
     <a href="{{ route('customer.dashboard') }}" class="csb-link {{ $currentRoute==='customer.dashboard' ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-speedometer2"></i> Dashboard
     </a>
-    <a href="{{ route('customer.catalog') }}" class="csb-link {{ $currentRoute==='customer.catalog' ? 'active' : '' }}" onclick="closeCustSidebar()">
+    <a href="{{ route('customer.catalog') }}" class="csb-link {{ $currentRoute==='customer.catalog' ? 'active' : '' }}" onclick="BerryAppTracking.clear(); closeCustSidebar()">
       <i class="bi bi-shop"></i> Catalog
     </a>
     <a href="{{ route('customer.orders') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.orders') || str_starts_with($currentRoute,'customer.custom_orders') ? 'active' : '' }}" onclick="closeCustSidebar()">
@@ -1693,7 +1693,7 @@
       <i class="bi bi-box-arrow-right"></i> Logout
     </button></form>
     @else
-    <a href="{{ route('catalog') }}" class="csb-link {{ $currentRoute==='catalog' ? 'active' : '' }}" onclick="closeCustSidebar()">
+    <a href="{{ route('catalog') }}" class="csb-link {{ $currentRoute==='catalog' ? 'active' : '' }}" onclick="BerryAppTracking.clear(); closeCustSidebar()">
       <i class="bi bi-shop"></i> Catalog
     </a>
     <a href="{{ route('guest.feedback') }}" class="csb-link {{ $currentRoute==='guest.feedback' ? 'active' : '' }}" onclick="closeCustSidebar()">
@@ -1743,10 +1743,10 @@
 
     <div class="csb-divider"></div>
     <div class="csb-section-label">Sellers</div>
-    <a href="{{ route('login') }}" class="csb-link" onclick="closeCustSidebar()" style="color:#e53935;font-weight:600">
+    <a href="{{ route('login') }}" class="csb-link" onclick="BerryAppTracking.clear(); closeCustSidebar()" style="color:#e53935;font-weight:600">
       <i class="bi bi-person-badge"></i> Seller Login
     </a>
-    <button onclick="openBecomeSellerModal()"
+    <button onclick="BerryAppTracking.clear(); openBecomeSellerModal()"
             class="csb-link" style="color:#e53935;font-weight:600;background:none;border:none;cursor:pointer;width:100%;text-align:left;padding:0">
       <i class="bi bi-stars"></i> Become a Seller
     </button>
@@ -1811,10 +1811,10 @@
     </div>
 
     <div class="bsm-footer">
-      <a href="{{ route('seller.apply') }}" class="bsm-cta-btn">
+      <a href="{{ route('seller.apply') }}" class="bsm-cta-btn" onclick="BerryAppTracking.clear()">
         <i class="bi bi-shop-window me-2"></i>Start Selling Now
       </a>
-      <a href="{{ route('login') }}" class="bsm-login-link">
+      <a href="{{ route('login') }}" class="bsm-login-link" onclick="BerryAppTracking.clear()">
         Already a seller? <strong>Sign in here</strong>
       </a>
     </div>
@@ -1851,7 +1851,7 @@
   <button class="cust-menu-btn" onclick="openCustSidebar()" aria-label="Menu">
     <i class="bi bi-list"></i>
   </button>
-  <a href="{{ route('catalog') }}" class="cust-topbar-brand">
+  <a href="{{ route('catalog') }}" class="cust-topbar-brand" onclick="BerryAppTracking.clear()">
     @if(!empty($brandLogo))
       <img src="{{ $brandLogo }}" onerror="this.style.display='none'">
     @else
@@ -1874,10 +1874,10 @@
         Open your shop profile, accept online orders, and manage your cakes from one seller dashboard built for {{ $brandTitle }}.
       </p>
       <div class="bsm-actions">
-        <a href="{{ route('seller.apply') }}" class="bsm-primary">
+        <a href="{{ route('seller.apply') }}" class="bsm-primary" onclick="BerryAppTracking.clear()">
           <i class="bi bi-shop-window"></i> Sell Here
         </a>
-        <a href="{{ route('login') }}" class="bsm-secondary">
+        <a href="{{ route('login') }}" class="bsm-secondary" onclick="BerryAppTracking.clear()">
           <i class="bi bi-person-badge"></i> Seller Login
         </a>
       </div>
@@ -2396,7 +2396,12 @@ function csTrackPrompt() {
   _csDlgBuild({title:'Track Your Order',message:'Enter your order tracking code:',
     icon:'bi-search',iconBg:'#fff0f6',iconColor:'var(--primary)',
     prompt:true,placeholder:'e.g. TRK-12345',okLabel:'Track',showCancel:true,
-    onConfirm:function(val){ if(val&&val.trim()) window.location='/track/'+val.trim(); }});
+    onConfirm:function(val){
+      if (val && val.trim()) {
+        if (window.BerryAppTracking) window.BerryAppTracking.saveTrackCode(val.trim());
+        window.location = '/track/' + val.trim();
+      }
+    }});
 }
 
 // Override native browser dialogs
@@ -3961,6 +3966,53 @@ function formatMcTime(dateStr) {
 
 @stack('modals')
 <script>
+window.BerryAppTracking = window.BerryAppTracking || (function () {
+  const KEY = 'berry_last_tracking_url';
+  const BOOT_KEY = 'berry_tracking_boot_checked';
+
+  function isNativeApp() {
+    return !!window.Capacitor?.isNativePlatform?.();
+  }
+
+  function isTrackPath(path) {
+    return /^\/track\/[^/?#]+/i.test(path || window.location.pathname);
+  }
+
+  function saveCurrentIfTracking() {
+    if (!isNativeApp() || !isTrackPath(window.location.pathname)) return;
+    localStorage.setItem(KEY, window.location.pathname + window.location.search + window.location.hash);
+  }
+
+  function saveTrackCode(code) {
+    const clean = String(code || '').trim();
+    if (!isNativeApp() || !clean) return;
+    localStorage.setItem(KEY, '/track/' + encodeURIComponent(clean));
+  }
+
+  function clear() {
+    try { localStorage.removeItem(KEY); } catch (e) {}
+  }
+
+  function bootRedirect() {
+    if (!isNativeApp() || sessionStorage.getItem(BOOT_KEY)) return;
+    sessionStorage.setItem(BOOT_KEY, '1');
+    saveCurrentIfTracking();
+    const saved = localStorage.getItem(KEY);
+    if (saved && !isTrackPath(window.location.pathname)) {
+      window.location.replace(saved);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    saveCurrentIfTracking();
+    document.getElementById('riderAccessForm')?.addEventListener('submit', clear);
+  });
+
+  bootRedirect();
+
+  return { clear, saveTrackCode, saveCurrentIfTracking };
+})();
+
 window.BERRY_PUSH_CONTEXT = {
   registerUrl: @json(route('device.register')),
   csrfToken: @json(csrf_token()),
@@ -4001,11 +4053,28 @@ window.BERRY_PUSH_CONTEXT = {
             device_name: navigator.userAgent || '',
             guest_track_code: window.BERRY_PUSH_CONTEXT.guestTrackCode || '',
           }),
-        }).catch(function () {});
+        }).then(function (response) {
+          if (!response.ok) throw new Error('Device registration failed: ' + response.status);
+          return response.json();
+        }).then(function (data) {
+          try {
+            localStorage.setItem('berry_push_registered_at', new Date().toISOString());
+            localStorage.setItem('berry_push_registered_role', data.role || '');
+          } catch (e) {}
+        }).catch(function (error) {
+          console.warn('Device token was not saved', error);
+          try { localStorage.setItem('berry_push_register_error', String(error?.message || error)); } catch (e) {}
+        });
       });
 
       await push.addListener('registrationError', function (error) {
         console.warn('Push registration failed', error);
+      });
+
+      await push.addListener('pushNotificationReceived', function (notification) {
+        const title = notification?.title || 'Berry Base';
+        const body = notification?.body || 'You have a new update.';
+        if (typeof showToast === 'function') showToast(title + ': ' + body, 'info', 7000);
       });
 
       await push.addListener('pushNotificationActionPerformed', function (event) {

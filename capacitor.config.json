@@ -1,0 +1,14 @@
+{
+  "appId": "com.berrybase.cakeshop",
+  "appName": "Berry Base",
+  "webDir": "capacitor-www",
+  "server": {
+    "url": "https://berry-base-main.laravel.cloud/",
+    "cleartext": true
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["sound", "alert", "banner", "list"]
+    }
+  }
+}

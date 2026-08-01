@@ -941,6 +941,21 @@
 <script>
 (function () {
   var AUTO_MS = 14000;
+  var TRACK_KEY = 'berry_last_tracking_url';
+  var BOOT_KEY = 'berry_tracking_boot_checked';
+
+  function isNativeApp() {
+    return !!window.Capacitor?.isNativePlatform?.();
+  }
+
+  if (isNativeApp() && !sessionStorage.getItem(BOOT_KEY)) {
+    sessionStorage.setItem(BOOT_KEY, '1');
+    var savedTrack = localStorage.getItem(TRACK_KEY);
+    if (savedTrack) {
+      window.location.replace(savedTrack);
+      return;
+    }
+  }
 
   var isMobile = window.innerWidth <= 700 ||
     (window.innerWidth <= 767 && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent));
