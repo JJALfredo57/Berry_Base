@@ -15,17 +15,18 @@ class CatalogController extends Controller
             $bestSellerStats = DB::table('orders')
                 ->select(
                     'product_id',
-                    DB::raw('SUM(quantity) as total_sold'),
+                    'shop_id',
+                    DB::raw('COUNT(DISTINCT id) as total_sold'),
                     DB::raw('COUNT(*) as total_orders')
                 )
                 ->whereNotNull('product_id')
-                ->whereNotIn('status', ['Cancelled'])
-                ->groupBy('product_id')
+                ->whereNotNull('shop_id')
+                ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                ->groupBy('product_id', 'shop_id')
                 ->orderByDesc('total_sold')
                 ->orderByDesc('total_orders')
-                ->limit(6)
                 ->get()
-                ->keyBy('product_id');
+                ->keyBy(fn ($row) => (string) $row->product_id . '|' . (string) $row->shop_id);
         } catch (\Exception $e) {}
 
         $products = DB::table('products')
@@ -55,7 +56,8 @@ class CatalogController extends Controller
         $discountMap = CakeshopHelper::getActiveDiscountMap($products->pluck('id')->toArray());
 
         foreach ($products as $product) {
-            $bestSeller = $bestSellerStats[$product->id] ?? null;
+            $bestSellerKey = (string) $product->id . '|' . (string) ($product->shop_id ?? '');
+            $bestSeller = $bestSellerStats[$bestSellerKey] ?? null;
             $shopZones = $zonesByShop->get((string)($product->shop_id ?? ''), collect());
             $product->total_sold = (int)($bestSeller->total_sold ?? 0);
             $product->total_orders = (int)($bestSeller->total_orders ?? 0);

@@ -62,7 +62,7 @@
   @endif
 
   @if(($bestSellers ?? collect())->count() > 0)
-  <div class="mb-5">
+  <div class="mb-5" id="bestSellerSection">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div>
         <h5 class="fw-bold mb-1" style="color:#9d174d"><i class="bi bi-fire me-2"></i>Best Seller Cakes</h5>
@@ -70,18 +70,23 @@
       </div>
       <span class="badge rounded-pill" style="background:#fff1f2;color:#be123c;font-size:.78rem">Live ranking from completed and active orders</span>
     </div>
-    <div class="best-seller-grid">
+    <div class="best-seller-grid" id="bestSellerGrid">
       @foreach($bestSellers as $p)
       @php
         $avgRating   = isset($reviewsMap[$p->id]) ? $reviewsMap[$p->id]->avg_rating : null ?? null;
         $reviewCount = isset($reviewsMap[$p->id]) ? $reviewsMap[$p->id]->total : 0 ?? 0;
       @endphp
-      <button type="button" class="text-start border-0 p-0" data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}"
+      <button type="button" class="best-seller-item text-start border-0 p-0"
+              data-name="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? '') . ' ' . ($p->shop_name ?? '') . ' ' . ($p->delivery_barangays_text ?? ''))) }}"
+              data-classification="{{ strtolower($p->classification ?? '') }}"
+              data-seller="{{ strtolower($p->shop_name ?? '') }}"
+              data-barangays="{{ $p->delivery_barangays_filter ?? '||' }}"
+              data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}"
               style="background:#fff;border-radius:1.15rem;overflow:hidden;box-shadow:0 12px 30px rgba(15,23,42,.08)">
         <div class="position-relative" style="height:180px">
           <img src="{{ $p->image_path }}" alt="{{ $p->name }}" style="width:100%;height:100%;object-fit:cover"
                onerror="this.src='https://placehold.co/480x320/fce4ec/e91e63?text=Cake'">
-          <span class="position-absolute top-0 start-0 m-2 badge" style="background:#be123c;color:#fff">
+          <span class="position-absolute top-0 start-0 m-2 badge best-seller-rank" style="background:#be123c;color:#fff">
             <i class="bi bi-trophy-fill me-1"></i>Top {{ $loop->iteration }}
           </span>
         </div>
@@ -822,29 +827,50 @@ function filterCatalog(){
   const seller = (document.getElementById('catalogSellerFilter')?.value || '').toLowerCase();
   const barangay = (document.getElementById('catalogBarangayFilter')?.value || '').toLowerCase();
   let visibleCount = 0;
+  let visibleBestSellerCount = 0;
 
-  document.querySelectorAll('.catalog-item').forEach(el => {
+  const matchesCatalogFilters = (el) => {
     const haystack = (el.getAttribute('data-name') || '').toLowerCase();
     const elClass = (el.getAttribute('data-classification') || '').toLowerCase();
     const elSeller = (el.getAttribute('data-seller') || '').toLowerCase();
     const elBarangays = (el.getAttribute('data-barangays') || '').toLowerCase();
 
-    const matchesSearch = !q || haystack.includes(q);
-    const matchesClass = !classification || elClass.includes(classification);
-    const matchesSeller = !seller || elSeller.includes(seller);
-    const matchesBarangay = !barangay || elBarangays.includes(barangay);
-    const matches = matchesSearch && matchesClass && matchesSeller && matchesBarangay;
+    return (!q || haystack.includes(q))
+      && (!classification || elClass.includes(classification))
+      && (!seller || elSeller.includes(seller))
+      && (!barangay || elBarangays.includes(barangay));
+  };
 
+  document.querySelectorAll('.catalog-item').forEach(el => {
+    const matches = matchesCatalogFilters(el);
     el.style.display = matches ? '' : 'none';
     if (matches) visibleCount++;
   });
+
+  document.querySelectorAll('.best-seller-item').forEach(el => {
+    const matches = matchesCatalogFilters(el);
+    el.style.display = matches ? '' : 'none';
+    if (matches) {
+      visibleBestSellerCount++;
+      const rank = el.querySelector('.best-seller-rank');
+      if (rank) rank.innerHTML = '<i class="bi bi-trophy-fill me-1"></i>Top ' + visibleBestSellerCount;
+    }
+  });
+
+  const bestSellerSection = document.getElementById('bestSellerSection');
+  if (bestSellerSection) {
+    bestSellerSection.style.display = visibleBestSellerCount === 0 ? 'none' : '';
+  }
 
   const emptyState = document.getElementById('catalogEmptyState');
   if (emptyState) emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
 
   const summary = document.getElementById('catalogFilterSummary');
   if (summary) {
-    const suffix = barangay ? ' for ' + document.getElementById('catalogBarangayFilter').value : '';
+    const suffixParts = [];
+    if (seller) suffixParts.push('seller "' + document.getElementById('catalogSellerFilter').value + '"');
+    if (barangay) suffixParts.push('barangay "' + document.getElementById('catalogBarangayFilter').value + '"');
+    const suffix = suffixParts.length ? ' for ' + suffixParts.join(' and ') : '';
     summary.textContent = 'Showing ' + visibleCount + ' of ' + document.querySelectorAll('.catalog-item').length + ' cake options' + suffix;
   }
 }
