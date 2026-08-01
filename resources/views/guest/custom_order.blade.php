@@ -262,7 +262,7 @@
                       <div id="map" style="height:260px;border-radius:.9rem;border:2px dashed #f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15)"></div>
                       <div style="position:absolute;top:12px;left:12px;right:12px;z-index:999;pointer-events:none">
                         <div style="background:#fff;border:1.5px solid #bbf7d0;border-radius:.85rem;padding:.65rem .8rem;box-shadow:0 4px 18px rgba(0,0,0,.16);max-width:300px;font-size:.72rem;color:#166534;font-weight:700">
-                          <i class="bi bi-map me-1"></i>Green circles show where this seller delivers.
+                          <i class="bi bi-map me-1"></i>The green coverage area shows where this seller delivers.
                         </div>
                       </div>
                     </div>
@@ -511,6 +511,7 @@
 @endpush
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <script>
 // ── Price calculation ─────────────────────────────────────────────────
 var SIZE_PRICES = {
@@ -825,6 +826,7 @@ function setMarkerAt(latlng) {
 
 function drawCoverageAreas() {
   var bounds = [];
+  var coverageFeatures = [];
   var sel = document.getElementById('zoneSelect');
   if (!sel) return;
   for (var i = 0; i < sel.options.length; i++) {
@@ -833,24 +835,50 @@ function drawCoverageAreas() {
     var zLng = parseFloat(opt.dataset.lng || '');
     if (!opt.value || !Number.isFinite(zLat) || !Number.isFinite(zLng)) continue;
 
-    L.circle([zLat, zLng], {
-      radius: COVERAGE_RADIUS,
-      color: '#16a34a',
+    if (window.turf) {
+      coverageFeatures.push(turf.circle([zLng, zLat], COVERAGE_RADIUS / 1000, {
+        steps: 72,
+        units: 'kilometers',
+        properties: { name: opt.value }
+      }));
+    } else {
+      L.circle([zLat, zLng], {
+        radius: COVERAGE_RADIUS,
+        color: '#16a34a',
+        weight: 1.5,
+        fillColor: '#22c55e',
+        fillOpacity: .09,
+        dashArray: '6 4',
+        interactive: false
+      }).addTo(map);
+    }
+    L.circleMarker([zLat, zLng], {
+      radius: 4,
+      color: '#15803d',
       weight: 1.5,
       fillColor: '#22c55e',
-      fillOpacity: .09,
-      dashArray: '6 4',
-      interactive: false
-    }).addTo(map);
-    L.circleMarker([zLat, zLng], {
-      radius: 5,
-      color: '#15803d',
-      weight: 2,
-      fillColor: '#22c55e',
-      fillOpacity: .8,
+      fillOpacity: .75,
       interactive: true
     }).addTo(map).bindTooltip(opt.value, { direction: 'top' });
     bounds.push([zLat, zLng]);
+  }
+
+  if (coverageFeatures.length) {
+    var merged = coverageFeatures[0];
+    for (var j = 1; j < coverageFeatures.length; j++) {
+      try { merged = turf.union(merged, coverageFeatures[j]) || merged; }
+      catch (e) { merged = turf.featureCollection(coverageFeatures); break; }
+    }
+    L.geoJSON(merged, {
+      interactive: false,
+      style: {
+        color: '#15803d',
+        weight: 2,
+        opacity: .75,
+        fillColor: '#22c55e',
+        fillOpacity: .18
+      }
+    }).addTo(map);
   }
 
   if (bounds.length > 1) map.fitBounds(bounds, { padding: [28, 28], maxZoom: 14 });
@@ -1047,7 +1075,7 @@ function cvValidateMap() {
   }
   if(deliveryCoverageBlocked) {
     mapEl.style.borderColor='#f97316'; mapEl.style.boxShadow='0 0 0 3px rgba(249,115,22,.2)';
-    msg.className='cv-msg cv-err'; msg.textContent='This pinned location is outside the seller delivery area. Move the pin inside a green coverage circle or choose pickup.'; return false;
+    msg.className='cv-msg cv-err'; msg.textContent='This pinned location is outside the seller delivery area. Move the pin inside the green coverage area or choose pickup.'; return false;
   }
   mapEl.style.borderColor='#16a34a'; mapEl.style.boxShadow='0 0 0 3px rgba(22,163,74,.15)';
   msg.className='cv-msg cv-ok'; msg.textContent='✓ Location pinned.'; return true;

@@ -373,6 +373,7 @@ function checkCustAvailability() {
 @endpush
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <script>
 // ── Shop & coverage data from server ──────────────────
 const SHOP_META = {
@@ -573,20 +574,7 @@ function initMap() {
       .addTo(map).bindTooltip('Cake Shop', {permanent: false, direction: 'top'});
   }
 
-  // Coverage zone markers + radius circles
-  COVERAGE_ZONES.forEach(z => {
-    if (!z.lat || !z.lng) return;
-    L.circle([z.lat, z.lng], {
-      radius: COVERAGE_RADIUS, color: '#16a34a', weight: 1.5,
-      fillColor: '#22c55e', fillOpacity: .09, dashArray: '6 4', interactive: false
-    }).addTo(map);
-    const cIcon = L.divIcon({
-      html: '<div style="background:#22c55e;width:10px;height:10px;border-radius:50%;opacity:.85;border:2px solid #15803d"></div>',
-      className: '', iconSize: [10,10], iconAnchor: [5,5]
-    });
-    L.marker([z.lat, z.lng], {icon: cIcon, interactive: false}).addTo(map)
-      .bindTooltip(z.barangay || 'Coverage Area');
-  });
+  drawCoverageAreas();
 
   // Pre-load default address pin
   @if($defaultAddr && $defaultAddr->latitude && $defaultAddr->longitude)
@@ -619,6 +607,54 @@ function setMarkerAt(latlng, triggerPin = true) {
   else {
     document.getElementById('lat').value = latlng.lat;
     document.getElementById('lng').value = latlng.lng;
+  }
+}
+
+function drawCoverageAreas() {
+  const coverageFeatures = [];
+  COVERAGE_ZONES.forEach(z => {
+    if (!z.lat || !z.lng) return;
+    const zLat = parseFloat(z.lat);
+    const zLng = parseFloat(z.lng);
+    if (!Number.isFinite(zLat) || !Number.isFinite(zLng)) return;
+
+    if (window.turf) {
+      coverageFeatures.push(turf.circle([zLng, zLat], COVERAGE_RADIUS / 1000, {
+        steps: 72,
+        units: 'kilometers',
+        properties: { name: z.barangay || 'Coverage Area' }
+      }));
+    } else {
+      L.circle([zLat, zLng], {
+        radius: COVERAGE_RADIUS, color: '#16a34a', weight: 1.5,
+        fillColor: '#22c55e', fillOpacity: .09, dashArray: '6 4', interactive: false
+      }).addTo(map);
+    }
+
+    const cIcon = L.divIcon({
+      html: '<div style="background:#22c55e;width:10px;height:10px;border-radius:50%;opacity:.85;border:2px solid #15803d"></div>',
+      className: '', iconSize: [10,10], iconAnchor: [5,5]
+    });
+    L.marker([zLat, zLng], {icon: cIcon, interactive: false}).addTo(map)
+      .bindTooltip(z.barangay || 'Coverage Area');
+  });
+
+  if (coverageFeatures.length) {
+    let merged = coverageFeatures[0];
+    for (let i = 1; i < coverageFeatures.length; i++) {
+      try { merged = turf.union(merged, coverageFeatures[i]) || merged; }
+      catch (e) { merged = turf.featureCollection(coverageFeatures); break; }
+    }
+    L.geoJSON(merged, {
+      interactive: false,
+      style: {
+        color: '#15803d',
+        weight: 2,
+        opacity: .75,
+        fillColor: '#22c55e',
+        fillOpacity: .18
+      }
+    }).addTo(map);
   }
 }
 
@@ -770,7 +806,7 @@ function validateAndSubmit(btn) {
       return false;
     }
     if (deliveryCoverageBlocked) {
-      alert('This pinned location is outside the seller delivery area. Move the pin inside a green coverage circle or choose pickup.');
+      alert('This pinned location is outside the seller delivery area. Move the pin inside the green coverage area or choose pickup.');
       return false;
     }
   }

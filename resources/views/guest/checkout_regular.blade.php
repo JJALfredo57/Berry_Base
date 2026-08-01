@@ -219,7 +219,7 @@ document.body.style.paddingRight = '';
                                   style="background:#2563eb;color:#fff;border:none;border-radius:.7rem;padding:.55rem 1rem;font-size:.82rem;font-weight:700;cursor:pointer;width:100%;margin-bottom:.5rem;display:flex;align-items:center;justify-content:center;gap:.4rem">
                             <i class="bi bi-geo-alt-fill"></i> Find My Location
                           </button>
-                          <div style="font-size:.7rem;color:#6b7280">Green circles show where this seller delivers. You can also click the map to pin manually.</div>
+                          <div style="font-size:.7rem;color:#6b7280">The green coverage area shows where this seller delivers. You can also click the map to pin manually.</div>
                         </div>
                       </div>
 
@@ -472,6 +472,7 @@ function checkCheckoutAvailability() {
 </style>
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <script>
 const BASE_PRICE  = {{ $pricing['final_unit_price'] * $checkout['quantity'] }};
 const HAS_PRODUCT_DISCOUNT = {{ !empty($pricing['has_discount']) ? 'true' : 'false' }};
@@ -786,6 +787,7 @@ function setMarkerAt(latlng) {
 
 function drawCoverageAreas() {
   const bounds = [];
+  const coverageFeatures = [];
   if (SHOP_META.lat && SHOP_META.lng) {
     const shopIcon = L.divIcon({
       html: '<div style="background:#2563eb;width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 12px rgba(37,99,235,.45);display:flex;align-items:center;justify-content:center"><i class="bi bi-shop" style="transform:rotate(45deg);color:#fff;font-size:14px"></i></div>',
@@ -803,24 +805,50 @@ function drawCoverageAreas() {
     const zLng = parseFloat(opt.dataset.lng || '');
     if (!opt.value || !Number.isFinite(zLat) || !Number.isFinite(zLng)) continue;
 
-    L.circle([zLat, zLng], {
-      radius: COVERAGE_RADIUS,
-      color: '#16a34a',
+    if (window.turf) {
+      coverageFeatures.push(turf.circle([zLng, zLat], COVERAGE_RADIUS / 1000, {
+        steps: 72,
+        units: 'kilometers',
+        properties: { name: opt.value }
+      }));
+    } else {
+      L.circle([zLat, zLng], {
+        radius: COVERAGE_RADIUS,
+        color: '#16a34a',
+        weight: 1.5,
+        fillColor: '#22c55e',
+        fillOpacity: .09,
+        dashArray: '6 4',
+        interactive: false
+      }).addTo(map);
+    }
+    L.circleMarker([zLat, zLng], {
+      radius: 4,
+      color: '#15803d',
       weight: 1.5,
       fillColor: '#22c55e',
-      fillOpacity: .09,
-      dashArray: '6 4',
-      interactive: false
-    }).addTo(map);
-    L.circleMarker([zLat, zLng], {
-      radius: 5,
-      color: '#15803d',
-      weight: 2,
-      fillColor: '#22c55e',
-      fillOpacity: .8,
+      fillOpacity: .75,
       interactive: true
     }).addTo(map).bindTooltip(opt.value, { direction: 'top' });
     bounds.push([zLat, zLng]);
+  }
+
+  if (coverageFeatures.length) {
+    let merged = coverageFeatures[0];
+    for (let i = 1; i < coverageFeatures.length; i++) {
+      try { merged = turf.union(merged, coverageFeatures[i]) || merged; }
+      catch (e) { merged = turf.featureCollection(coverageFeatures); break; }
+    }
+    L.geoJSON(merged, {
+      interactive: false,
+      style: {
+        color: '#15803d',
+        weight: 2,
+        opacity: .75,
+        fillColor: '#22c55e',
+        fillOpacity: .18
+      }
+    }).addTo(map);
   }
 
   if (bounds.length > 1) {
@@ -1402,7 +1430,7 @@ function cvValidateMap() {
     mapEl.style.border    = '2px solid #f97316';
     mapEl.style.boxShadow = '0 0 0 3px rgba(249,115,22,.2)';
     msg.className   = 'cv-msg cv-err';
-    msg.textContent = 'This pinned location is outside the seller delivery area. Move the pin inside a green coverage circle or choose pickup.';
+    msg.textContent = 'This pinned location is outside the seller delivery area. Move the pin inside the green coverage area or choose pickup.';
     return false;
   }
   mapEl.style.border    = '2px solid #16a34a';
