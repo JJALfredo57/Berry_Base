@@ -90,6 +90,7 @@ Route::get('/device/push-config-check', function () {
     $deviceCounts = [];
     $totalDeviceSessions = 0;
     $latestDeviceSeenAt = null;
+    $deviceSessionColumns = [];
     if ($deviceTableExists) {
         $deviceCounts = \Illuminate\Support\Facades\DB::table('device_sessions')
             ->select('role', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total'))
@@ -99,6 +100,20 @@ Route::get('/device/push-config-check', function () {
             ->pluck('total', 'role');
         $totalDeviceSessions = \Illuminate\Support\Facades\DB::table('device_sessions')->count();
         $latestDeviceSeenAt = \Illuminate\Support\Facades\DB::table('device_sessions')->max('last_seen_at');
+        try {
+            if (\Illuminate\Support\Facades\DB::getDriverName() === 'pgsql') {
+                $deviceSessionColumns = \Illuminate\Support\Facades\DB::table('information_schema.columns')
+                    ->select('column_name', 'data_type', 'character_maximum_length', 'is_nullable')
+                    ->where('table_name', 'device_sessions')
+                    ->orderBy('ordinal_position')
+                    ->get();
+            } else {
+                $deviceSessionColumns = collect(\Illuminate\Support\Facades\Schema::getColumnListing('device_sessions'))
+                    ->map(fn ($name) => ['column_name' => $name]);
+            }
+        } catch (\Throwable $e) {
+            $deviceSessionColumns = ['error' => 'Unable to inspect device_sessions columns.'];
+        }
     }
 
     return response()->json([
@@ -110,6 +125,7 @@ Route::get('/device/push-config-check', function () {
         'device_sessions_table' => $deviceTableExists,
         'total_device_sessions' => $totalDeviceSessions,
         'latest_device_session_seen_at' => $latestDeviceSeenAt,
+        'device_session_columns' => $deviceSessionColumns,
         'enabled_device_sessions' => $deviceCounts,
         'session_lifetime' => config('session.lifetime'),
     ]);

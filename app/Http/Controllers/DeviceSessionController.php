@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class DeviceSessionController extends Controller
@@ -30,25 +31,40 @@ class DeviceSessionController extends Controller
         }
 
         $token = trim($validated['device_token']);
-        DB::table('device_sessions')->updateOrInsert(
-            ['token_hash' => hash('sha256', $token)],
-            [
-                'role'             => $role,
-                'user_id'          => $userId,
-                'rider_id'         => $riderId,
+        try {
+            DB::table('device_sessions')->updateOrInsert(
+                ['token_hash' => hash('sha256', $token)],
+                [
+                    'role'             => $role,
+                    'user_id'          => $userId,
+                    'rider_id'         => $riderId,
+                    'guest_track_code' => $guestTrackCode,
+                    'device_token'     => $token,
+                    'device_type'      => $validated['device_type'] ?? 'android',
+                    'platform'         => $validated['platform'] ?? null,
+                    'device_name'      => $validated['device_name'] ?? null,
+                    'user_agent'       => substr((string) $request->userAgent(), 0, 1000),
+                    'is_push_enabled'  => true,
+                    'last_seen_at'     => now(),
+                    'revoked_at'       => null,
+                    'updated_at'       => now(),
+                    'created_at'       => now(),
+                ]
+            );
+        } catch (\Throwable $e) {
+            Log::error('Device push registration failed: ' . $e->getMessage(), [
+                'role' => $role,
                 'guest_track_code' => $guestTrackCode,
-                'device_token'     => $token,
-                'device_type'      => $validated['device_type'] ?? 'android',
-                'platform'         => $validated['platform'] ?? null,
-                'device_name'      => $validated['device_name'] ?? null,
-                'user_agent'       => substr((string) $request->userAgent(), 0, 1000),
-                'is_push_enabled'  => true,
-                'last_seen_at'     => now(),
-                'revoked_at'       => null,
-                'updated_at'       => now(),
-                'created_at'       => now(),
-            ]
-        );
+                'driver' => DB::getDriverName(),
+                'code' => $e->getCode(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'error' => 'Device registration database error.',
+                'code' => (string) $e->getCode(),
+            ], 500);
+        }
 
         return response()->json(['ok' => true, 'role' => $role]);
     }
