@@ -209,6 +209,17 @@ class PushNotificationService
 
     private function credentials(): ?array
     {
+        $base64Json = config('services.fcm.credentials_json_b64');
+        if ($base64Json) {
+            $decodedJson = base64_decode($base64Json, true);
+            if ($decodedJson !== false) {
+                $decoded = json_decode($decodedJson, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            }
+        }
+
         $json = config('services.fcm.credentials_json');
         if ($json) {
             $decoded = json_decode($json, true);

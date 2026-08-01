@@ -39,6 +39,7 @@ return [
         'project_id' => env('FCM_PROJECT_ID'),
         'credentials_path' => env('FCM_SERVICE_ACCOUNT_PATH'),
         'credentials_json' => env('FCM_SERVICE_ACCOUNT_JSON'),
+        'credentials_json_b64' => env('FCM_SERVICE_ACCOUNT_JSON_B64'),
         'mobile_registration_enabled' => filter_var(env('FCM_MOBILE_REGISTRATION_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     ],
 
