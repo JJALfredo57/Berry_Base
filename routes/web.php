@@ -69,7 +69,23 @@ Route::get('/', function () {
 })->name('platform.home');
 
 // ── Public Catalog (no login needed) ─────────────────────────────────────
-Route::get('/catalog',          [GuestCatalog::class, 'index'])->name('catalog');
+Route::get('/catalog', function (\Illuminate\Http\Request $request) {
+    $role = session('user')['role'] ?? null;
+    if ($role === 'seller') {
+        return redirect()->route('seller.dashboard');
+    }
+    if ($role === 'superadmin') {
+        return redirect()->route('superadmin.dashboard');
+    }
+    if ($role === 'admin') {
+        return redirect()->route('admin.dashboard');
+    }
+    if ($role === 'customer') {
+        return redirect()->route('customer.catalog');
+    }
+
+    return app(GuestCatalog::class)->index($request);
+})->name('catalog');
 Route::get('/catalog/products/{productId}/reviews', [GuestCatalog::class, 'reviews'])->name('catalog.reviews');
 Route::post('/catalog/select',  [GuestCatalog::class, 'selectProduct'])->name('catalog.select');
 Route::get('/feedback',         [GuestFeedback::class, 'create'])->name('guest.feedback');
