@@ -389,6 +389,7 @@ const BASE_PRICE       = {{ $pricing['final_unit_price'] * $checkout['quantity']
 const HAS_PRODUCT_DISCOUNT = {{ !empty($pricing['has_discount']) ? 'true' : 'false' }};
 let deliveryFee = 0;
 let map, marker, routeLine;
+let deliveryCoverageBlocked = false;
 
 // ── Haversine ─────────────────────────────────────────
 function haversine(lat1, lon1, lat2, lon2) {
@@ -424,6 +425,20 @@ function isInCoverage(lat, lng) {
   return COVERAGE_ZONES.some(z => z.lat && z.lng && haversine(lat, lng, z.lat, z.lng) <= COVERAGE_RADIUS);
 }
 
+function formatCoverageDistance(distance) {
+  return distance < 1000 ? Math.round(distance) + ' m' : (distance / 1000).toFixed(2) + ' km';
+}
+
+function nearestCoverageZone(lat, lng) {
+  let nearest = null;
+  COVERAGE_ZONES.forEach(z => {
+    if (!z.lat || !z.lng) return;
+    const distance = haversine(lat, lng, parseFloat(z.lat), parseFloat(z.lng));
+    if (!nearest || distance < nearest.distance) nearest = { zone: z, distance };
+  });
+  return nearest;
+}
+
 // ── On customer pin set ────────────────────────────────
 function onPinSet(lat, lng) {
   document.getElementById('lat').value = lat;
@@ -434,13 +449,20 @@ function onPinSet(lat, lng) {
   const statusEl = document.getElementById('coverageStatus');
   const msgEl    = document.getElementById('coverageMsg');
   if (covered === null) {
+    deliveryCoverageBlocked = false;
     statusEl.style.display = 'none';
   } else if (covered) {
+    deliveryCoverageBlocked = false;
+    const nearest = nearestCoverageZone(lat, lng);
+    const zoneName = nearest?.zone?.barangay || 'this seller';
     statusEl.style.cssText = 'display:block;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:.5rem;padding:.5rem .75rem';
-    msgEl.textContent = '✓ Your location is within the delivery coverage area.';
+    msgEl.textContent = 'Inside delivery coverage: ' + zoneName + '.';
   } else {
+    deliveryCoverageBlocked = true;
+    const nearest = nearestCoverageZone(lat, lng);
+    const nearestText = nearest ? ' Nearest coverage: ' + (nearest.zone.barangay || 'coverage area') + ', ' + formatCoverageDistance(nearest.distance) + ' away.' : '';
     statusEl.style.cssText = 'display:block;background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;border-radius:.5rem;padding:.5rem .75rem';
-    msgEl.textContent = 'Delivery is not available at this pinned location. Please move the pin or choose pickup.';
+    msgEl.textContent = 'Outside this seller delivery area.' + nearestText + ' Move the pin or choose pickup.';
     deliveryFee = 0;
     document.getElementById('deliveryFeeInput').value = 0;
     document.getElementById('deliveryCalcBox').style.display = 'none';
@@ -555,11 +577,11 @@ function initMap() {
   COVERAGE_ZONES.forEach(z => {
     if (!z.lat || !z.lng) return;
     L.circle([z.lat, z.lng], {
-      radius: COVERAGE_RADIUS, color: '#e91e8c', weight: 1.5,
-      fillColor: '#e91e8c', fillOpacity: .05, dashArray: '6 4', interactive: false
+      radius: COVERAGE_RADIUS, color: '#16a34a', weight: 1.5,
+      fillColor: '#22c55e', fillOpacity: .09, dashArray: '6 4', interactive: false
     }).addTo(map);
     const cIcon = L.divIcon({
-      html: '<div style="background:var(--primary,#e91e8c);width:10px;height:10px;border-radius:50%;opacity:.5;border:2px solid rgba(233,30,140,.7)"></div>',
+      html: '<div style="background:#22c55e;width:10px;height:10px;border-radius:50%;opacity:.85;border:2px solid #15803d"></div>',
       className: '', iconSize: [10,10], iconAnchor: [5,5]
     });
     L.marker([z.lat, z.lng], {icon: cIcon, interactive: false}).addTo(map)
@@ -745,6 +767,10 @@ function validateAndSubmit(btn) {
     const addr = document.getElementById('addressField')?.value?.trim();
     if (!lat || !addr) {
       alert('Please pin your location on the map and enter your address.');
+      return false;
+    }
+    if (deliveryCoverageBlocked) {
+      alert('This pinned location is outside the seller delivery area. Move the pin inside a green coverage circle or choose pickup.');
       return false;
     }
   }

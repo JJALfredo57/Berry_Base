@@ -258,7 +258,15 @@
                             class="btn btn-outline-primary btn-sm mb-2 w-100" style="border-radius:.7rem">
                       <i class="bi bi-geo-alt-fill me-1"></i>📍 Find My Location
                     </button>
-                    <div id="map" style="height:240px;border-radius:.9rem;border:1px solid #dee2e6"></div>
+                    <div id="mapWrapper" style="position:relative">
+                      <div id="map" style="height:260px;border-radius:.9rem;border:2px dashed #f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15)"></div>
+                      <div style="position:absolute;top:12px;left:12px;right:12px;z-index:999;pointer-events:none">
+                        <div style="background:#fff;border:1.5px solid #bbf7d0;border-radius:.85rem;padding:.65rem .8rem;box-shadow:0 4px 18px rgba(0,0,0,.16);max-width:300px;font-size:.72rem;color:#166534;font-weight:700">
+                          <i class="bi bi-map me-1"></i>Green circles show where this seller delivers.
+                        </div>
+                      </div>
+                    </div>
+                    <div id="coverageStatus" style="display:none;margin-top:.65rem;border-radius:.75rem;padding:.65rem .8rem;font-size:.78rem;font-weight:700"></div>
                     <div class="cv-msg" id="msgMap"></div>
                     <input type="hidden" name="latitude"  id="lat">
                     <input type="hidden" name="longitude" id="lng">
@@ -519,6 +527,7 @@ var BASE_CUSTOM = 1200;
 var deliveryFee = 0;
 var map, marker;
 var COVERAGE_RADIUS = Math.max(1000, {{ (int)($shopSettings->delivery_coverage_radius ?? 5000) }});
+var deliveryCoverageBlocked = false;
 
 function haversine(lat1, lon1, lat2, lon2) {
   var R = 6371000;
@@ -526,6 +535,63 @@ function haversine(lat1, lon1, lat2, lon2) {
   var dLon = (lon2 - lon1) * Math.PI / 180;
   var a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function formatCoverageDistance(distance) {
+  return distance < 1000 ? Math.round(distance) + ' m' : (distance / 1000).toFixed(2) + ' km';
+}
+
+function findClosestZoneOption(lat, lng) {
+  var sel = document.getElementById('zoneSelect');
+  if (!sel) return null;
+
+  var closest = null;
+  for (var i = 0; i < sel.options.length; i++) {
+    var opt = sel.options[i];
+    var zLat = parseFloat(opt.dataset.lat || '');
+    var zLng = parseFloat(opt.dataset.lng || '');
+    if (!opt.value || !Number.isFinite(zLat) || !Number.isFinite(zLng)) continue;
+
+    var distance = haversine(lat, lng, zLat, zLng);
+    if (!closest || distance < closest.distance) {
+      closest = { index: i, option: opt, distance: distance };
+    }
+  }
+  return closest;
+}
+
+function updateCoverageStatus(lat, lng, matchedOption) {
+  var statusEl = document.getElementById('coverageStatus');
+  if (!statusEl) return;
+
+  var closest = findClosestZoneOption(lat, lng);
+  if (!closest && !matchedOption) {
+    deliveryCoverageBlocked = false;
+    statusEl.style.display = 'none';
+    return;
+  }
+
+  var hasPinnedCoverage = !!closest;
+  var covered = hasPinnedCoverage ? closest.distance <= COVERAGE_RADIUS : !!matchedOption;
+  var zoneName = (covered && matchedOption ? matchedOption : (closest ? closest.option : null))?.value || 'coverage area';
+
+  if (covered) {
+    deliveryCoverageBlocked = false;
+    statusEl.style.cssText = 'display:block;margin-top:.65rem;border-radius:.75rem;padding:.65rem .8rem;font-size:.78rem;font-weight:700;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0';
+    statusEl.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Inside delivery coverage: ' + zoneName + '.';
+  } else {
+    deliveryCoverageBlocked = true;
+    statusEl.style.cssText = 'display:block;margin-top:.65rem;border-radius:.75rem;padding:.65rem .8rem;font-size:.78rem;font-weight:700;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa';
+    statusEl.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>Outside this seller&apos;s delivery area. Nearest coverage: ' + zoneName + ', ' + formatCoverageDistance(closest.distance) + ' away. Move the pin or choose pickup.';
+    deliveryFee = 0;
+    var feeInput = document.getElementById('deliveryFeeInput');
+    if (feeInput) feeInput.value = 0;
+    var feePreview = document.getElementById('feePreview');
+    if (feePreview) feePreview.style.display = 'none';
+    var feeRow = document.getElementById('feeRow');
+    if (feeRow) feeRow.style.display = 'none';
+    updatePriceSummary();
+  }
 }
 
 function findNearestZoneOption(lat, lng) {
@@ -554,6 +620,9 @@ function selectDetectedZone(index, sourceText) {
   sel.selectedIndex = index;
   updateFee();
   updateZoneBadge(sel.options[index]);
+  var lat = parseFloat(document.getElementById('lat')?.value || '');
+  var lng = parseFloat(document.getElementById('lng')?.value || '');
+  if (Number.isFinite(lat) && Number.isFinite(lng)) updateCoverageStatus(lat, lng, sel.options[index]);
   cakeToast('Delivery zone detected: ' + sel.options[index].value + (sourceText || ''), 'success');
 }
 
@@ -665,6 +734,14 @@ function clearDetectedDeliveryZone(message = '') {
     msg.textContent = message;
   }
 
+  var lat = parseFloat(document.getElementById('lat')?.value || '');
+  var lng = parseFloat(document.getElementById('lng')?.value || '');
+  if (message && Number.isFinite(lat) && Number.isFinite(lng)) {
+    updateCoverageStatus(lat, lng);
+  } else if (!message) {
+    deliveryCoverageBlocked = false;
+  }
+
   updatePriceSummary();
 }
 
@@ -746,11 +823,45 @@ function setMarkerAt(latlng) {
   setTimeout(cvValidateMap, 300);
 }
 
+function drawCoverageAreas() {
+  var bounds = [];
+  var sel = document.getElementById('zoneSelect');
+  if (!sel) return;
+  for (var i = 0; i < sel.options.length; i++) {
+    var opt = sel.options[i];
+    var zLat = parseFloat(opt.dataset.lat || '');
+    var zLng = parseFloat(opt.dataset.lng || '');
+    if (!opt.value || !Number.isFinite(zLat) || !Number.isFinite(zLng)) continue;
+
+    L.circle([zLat, zLng], {
+      radius: COVERAGE_RADIUS,
+      color: '#16a34a',
+      weight: 1.5,
+      fillColor: '#22c55e',
+      fillOpacity: .09,
+      dashArray: '6 4',
+      interactive: false
+    }).addTo(map);
+    L.circleMarker([zLat, zLng], {
+      radius: 5,
+      color: '#15803d',
+      weight: 2,
+      fillColor: '#22c55e',
+      fillOpacity: .8,
+      interactive: true
+    }).addTo(map).bindTooltip(opt.value, { direction: 'top' });
+    bounds.push([zLat, zLng]);
+  }
+
+  if (bounds.length > 1) map.fitBounds(bounds, { padding: [28, 28], maxZoom: 14 });
+}
+
 function initMap() {
   var defaultLat = {{ (float)($shopLat ?? 15.8107127) }};
   var defaultLng = {{ (float)($shopLng ?? 120.4716710) }};
   map = L.map('map').setView([defaultLat, defaultLng], 14);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  drawCoverageAreas();
   map.on('click', e => setMarkerAt(e.latlng));
 }
 
@@ -923,6 +1034,7 @@ function cvValidateZone() {
   if(!sel||!msg) return;
   msg.className='cv-msg';
   if (!sel.value) { msg.classList.add('cv-err'); msg.textContent='Please pin your delivery location on the map above.'; cvShake(document.getElementById('map')); }
+  else if (deliveryCoverageBlocked) { msg.classList.add('cv-err'); msg.textContent='This pinned location is outside the seller delivery area. Move the pin or choose pickup.'; cvShake(document.getElementById('map')); }
   else { msg.classList.add('cv-ok'); msg.textContent='✓ Delivery zone detected.'; }
 }
 function cvValidateMap() {
@@ -932,6 +1044,10 @@ function cvValidateMap() {
   if(!lat||!lng) {
     mapEl.style.borderColor='#ef4444'; mapEl.style.boxShadow='0 0 0 3px rgba(239,68,68,.15)';
     msg.className='cv-msg cv-err'; msg.textContent='Please pin your exact location on the map.'; return false;
+  }
+  if(deliveryCoverageBlocked) {
+    mapEl.style.borderColor='#f97316'; mapEl.style.boxShadow='0 0 0 3px rgba(249,115,22,.2)';
+    msg.className='cv-msg cv-err'; msg.textContent='This pinned location is outside the seller delivery area. Move the pin inside a green coverage circle or choose pickup.'; return false;
   }
   mapEl.style.borderColor='#16a34a'; mapEl.style.boxShadow='0 0 0 3px rgba(22,163,74,.15)';
   msg.className='cv-msg cv-ok'; msg.textContent='✓ Location pinned.'; return true;
@@ -1029,6 +1145,10 @@ function cvValidateAllCustom() {
   if (isDelivery) {
     var zoneEl = document.getElementById('zoneSelect');
     if (!cvValidateMap()) { ok = false; firstErr = firstErr || document.getElementById('map'); }
+    cvValidateZone();
+    if (!zoneEl?.value || deliveryCoverageBlocked) {
+      ok = false; firstErr = firstErr || document.getElementById('map');
+    }
   }
 
   // ── 5. Guest identity (name, phone, OTP) ──────────────────────────────
@@ -1069,6 +1189,7 @@ function cvValidateAllCustom() {
 }
 
 function confirmCustomOrder(btn) {
+  if (!cvValidateAllCustom()) return false;
   var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   if (isDelivery) {
     var lat = document.getElementById('lat')?.value, lng = document.getElementById('lng')?.value;
