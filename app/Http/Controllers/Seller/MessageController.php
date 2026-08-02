@@ -34,6 +34,46 @@ class MessageController extends Controller
             ->first();
     }
 
+    private function insertSellerMessageRows(string $orderId, ?string $senderId, string $text, array $paths, ?string $imgPath): int
+    {
+        try {
+            return DB::table('messages')->insertGetId([
+                'order_id'    => $orderId,
+                'sender_role' => 'seller',
+                'sender_id'   => $senderId,
+                'message'     => $text ?: null,
+                'image_path'  => $imgPath,
+                'is_read'     => false,
+                'created_at'  => now(),
+            ]);
+        } catch (\Throwable $e) {
+            if (count($paths) <= 1 || strlen((string) $imgPath) <= 240) {
+                throw $e;
+            }
+
+            Log::warning('Seller message image payload split after insert failed', [
+                'order_id' => $orderId,
+                'message' => $e->getMessage(),
+            ]);
+
+            $firstId = 0;
+            foreach ($paths as $index => $path) {
+                $id = DB::table('messages')->insertGetId([
+                    'order_id'    => $orderId,
+                    'sender_role' => 'seller',
+                    'sender_id'   => $senderId,
+                    'message'     => $index === 0 ? ($text ?: null) : null,
+                    'image_path'  => $path,
+                    'is_read'     => false,
+                    'created_at'  => now(),
+                ]);
+                if ($index === 0) $firstId = $id;
+            }
+
+            return $firstId;
+        }
+    }
+
     public function index()
     {
         $shop = $this->getShop();
@@ -114,15 +154,13 @@ class MessageController extends Controller
 
             if (!$text && !$imgPath) return response()->json(['ok' => false, 'error' => 'Cannot send empty message.'], 422);
 
-            $msgId = DB::table('messages')->insertGetId([
-                'order_id'    => $order->id,
-                'sender_role' => 'seller',
-                'sender_id'   => session('user')['id'],
-                'message'     => $text ?: null,
-                'image_path'  => $imgPath,
-                'is_read'     => false,
-                'created_at'  => now(),
-            ]);
+            $msgId = $this->insertSellerMessageRows(
+                $order->id,
+                session('user')['id'] ?? null,
+                $text,
+                $paths,
+                $imgPath
+            );
 
             try {
                 CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Send Message', "Order #{$orderId}");
@@ -273,15 +311,13 @@ class MessageController extends Controller
 
         if (!$text && !$imgPath) return response()->json(['ok'=>false,'error'=>'Message cannot be empty.'], 422);
 
-        $id = DB::table('messages')->insertGetId([
-            'order_id'    => $order->id,
-            'sender_role' => 'seller',
-            'sender_id'   => session('user')['id'],
-            'message'     => $text ?: null,
-            'image_path'  => $imgPath,
-            'is_read' => false,
-            'created_at'  => now(),
-        ]);
+        $id = $this->insertSellerMessageRows(
+            $order->id,
+            session('user')['id'] ?? null,
+            $text,
+            $paths,
+            $imgPath
+        );
         try {
             app(MobileNotificationService::class)->notifyOrderCustomer(
                 $order,
