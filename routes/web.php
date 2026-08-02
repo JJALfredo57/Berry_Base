@@ -68,6 +68,31 @@ Route::get('/', function () {
     return view('welcome');
 })->name('platform.home');
 
+Route::get('/session/continue', function () {
+    $user = session('user');
+    $role = $user['role'] ?? null;
+    $redirectUrl = null;
+
+    if ($role === 'seller') {
+        $redirectUrl = route('seller.dashboard');
+    } elseif ($role === 'superadmin') {
+        $redirectUrl = route('superadmin.dashboard');
+    } elseif ($role === 'admin') {
+        $redirectUrl = route('admin.dashboard');
+    }
+
+    $name = trim((string) ($user['fullname'] ?? $user['username'] ?? ''));
+
+    return response()
+        ->json([
+            'active' => (bool) $redirectUrl,
+            'role' => $redirectUrl ? $role : null,
+            'name' => $redirectUrl ? ($name !== '' ? $name : ucfirst((string) $role)) : null,
+            'redirect_url' => $redirectUrl,
+        ])
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+})->name('session.continue');
+
 // ── Public Catalog (no login needed) ─────────────────────────────────────
 Route::get('/catalog', function (\Illuminate\Http\Request $request) {
     $role = session('user')['role'] ?? null;

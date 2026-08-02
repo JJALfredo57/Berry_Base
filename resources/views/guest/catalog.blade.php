@@ -1,5 +1,41 @@
 @extends('layouts.app')
 @section('content')
+@php
+  $catalogSessionRole = session('user')['role'] ?? null;
+  $catalogSessionRedirect = null;
+  if ($catalogSessionRole === 'seller') {
+      $catalogSessionRedirect = route('seller.dashboard');
+  } elseif ($catalogSessionRole === 'superadmin') {
+      $catalogSessionRedirect = route('superadmin.dashboard');
+  } elseif ($catalogSessionRole === 'admin') {
+      $catalogSessionRedirect = route('admin.dashboard');
+  }
+@endphp
+<script>
+(function () {
+  var fallbackUrl = @json($catalogSessionRedirect);
+  if (fallbackUrl) {
+    window.location.replace(fallbackUrl);
+    return;
+  }
+
+  fetch(@json(route('session.continue')), {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: {
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+    .then(function (response) { return response.ok ? response.json() : null; })
+    .then(function (data) {
+      if (data && data.active && data.redirect_url) {
+        window.location.replace(data.redirect_url);
+      }
+    })
+    .catch(function () {});
+}());
+</script>
 <div class="container-fluid py-4" style="padding-left:clamp(12px,3vw,32px);padding-right:clamp(12px,3vw,32px)">
 <style>
 .catalog-grid{

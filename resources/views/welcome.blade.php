@@ -31,6 +31,21 @@
   $textSoft   = $adj($rawPrimary,  0.22);
   $chocRgb    = $toRgb($choc);
   $chocMidRgb = $toRgb($chocMid);
+
+  $sessionUser = session('user');
+  $continueRole = $sessionUser['role'] ?? null;
+  $continueName = trim((string) ($sessionUser['fullname'] ?? $sessionUser['username'] ?? ''));
+  $continueUrl = route('catalog');
+  if ($continueRole === 'seller') {
+      $continueUrl = route('seller.dashboard');
+  } elseif ($continueRole === 'superadmin') {
+      $continueUrl = route('superadmin.dashboard');
+  } elseif ($continueRole === 'admin') {
+      $continueUrl = route('admin.dashboard');
+  }
+  $continueText = in_array($continueRole, ['seller', 'admin', 'superadmin'], true)
+      ? 'Continue as ' . ($continueName !== '' ? $continueName : ucfirst($continueRole))
+      : 'Browse Our Cakes';
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -813,7 +828,7 @@
       <span class="ms-fbadge"><i class="bi bi-phone"></i> Order Online</span>
     </div>
     <button class="ms-cta-btn" id="ms-enter-btn">
-      Browse Our Cakes
+      {{ $continueText }}
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
@@ -876,8 +891,8 @@
     </div>
 
     <div class="btn-row">
-      <button class="btn-primary" id="openBtn" onclick="enterSystem()">
-        <span id="btnText">Browse Our Cakes</span>
+      <button class="btn-primary" id="openBtn">
+        <span id="btnText">{{ $continueText }}</span>
         <svg class="btn-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -943,39 +958,86 @@
   var AUTO_MS = 14000;
   var TRACK_KEY = 'berry_last_tracking_url';
   var BOOT_KEY = 'berry_tracking_boot_checked';
+  var CONTINUE_URL = @json($continueUrl);
+  var HAS_ACTIVE_ACCOUNT = @json(in_array($continueRole, ['seller', 'admin', 'superadmin'], true));
+  var SESSION_CONTINUE_URL = @json(route('session.continue'));
 
   function isNativeApp() {
     return !!window.Capacitor?.isNativePlatform?.();
   }
 
-  if (isNativeApp() && !sessionStorage.getItem(BOOT_KEY)) {
-    sessionStorage.setItem(BOOT_KEY, '1');
-    var savedTrack = localStorage.getItem(TRACK_KEY);
-    if (savedTrack) {
-      window.location.replace(savedTrack);
-      return;
+  function setButtonText(label) {
+    var text = label || 'Browse Our Cakes';
+    var desktopText = document.getElementById('btnText');
+    var mobileButton = document.getElementById('ms-enter-btn');
+    if (desktopText) desktopText.textContent = text;
+    if (mobileButton) {
+      var svg = mobileButton.querySelector('svg');
+      mobileButton.textContent = text + ' ';
+      if (svg) mobileButton.appendChild(svg);
     }
+  }
+
+  function applyContinueState(data) {
+    if (!data || !data.active || !data.redirect_url) return false;
+    HAS_ACTIVE_ACCOUNT = true;
+    CONTINUE_URL = data.redirect_url;
+    setButtonText('Continue as ' + (data.name || data.role || 'Account'));
+    return true;
+  }
+
+  function refreshContinueState() {
+    return fetch(SESSION_CONTINUE_URL, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (data) {
+        applyContinueState(data);
+        return data;
+      })
+      .catch(function () { return null; });
+  }
+
+  function savedTrackingUrl() {
+    if (HAS_ACTIVE_ACCOUNT) return '';
+    try { return localStorage.getItem(TRACK_KEY) || ''; } catch (e) { return ''; }
+  }
+
+  function bootNativeRedirect() {
+    if (!isNativeApp() || sessionStorage.getItem(BOOT_KEY)) return Promise.resolve(false);
+    sessionStorage.setItem(BOOT_KEY, '1');
+    return refreshContinueState().then(function () {
+      var target = HAS_ACTIVE_ACCOUNT ? CONTINUE_URL : savedTrackingUrl();
+      if (target) {
+        window.location.replace(target);
+        return true;
+      }
+      return false;
+    });
   }
 
   var isMobile = window.innerWidth <= 700 ||
     (window.innerWidth <= 767 && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent));
 
-  function goToCatalog() {
-    window.location.href = '{{ route("catalog") }}';
+  function goToContinue() {
+    window.location.href = savedTrackingUrl() || CONTINUE_URL;
   }
 
-  /* \u2500\u2500 Desktop \u2500\u2500 */
   function enterDesktop() {
     var btn = document.getElementById('openBtn');
     var txt = document.getElementById('btnText');
     if (btn.disabled) return;
     btn.disabled = true; btn.style.opacity = '0.72';
-    txt.textContent = 'Loading\u2026';
+    txt.textContent = 'Loading...';
     document.getElementById('splash').classList.add('exiting');
-    setTimeout(goToCatalog, 820);
+    setTimeout(goToContinue, 820);
   }
 
-  /* \u2500\u2500 Mobile: go to catalog \u2500\u2500 */
   function enterMobile() {
     var btn = document.getElementById('ms-enter-btn');
     if (btn.disabled) return;
@@ -983,26 +1045,31 @@
     var ms = document.getElementById('mobile-splash');
     ms.style.transition = 'opacity 0.45s ease';
     ms.style.opacity = '0';
-    setTimeout(goToCatalog, 470);
+    setTimeout(goToContinue, 470);
   }
 
-  /* \u2500\u2500 Show mobile welcome page \u2500\u2500 */
   function showMobileSplash() {
     var ms = document.getElementById('mobile-splash');
-    ms.style.display = 'flex'; /* animations auto-play from here */
+    ms.style.display = 'flex';
     document.getElementById('ms-enter-btn').addEventListener('click', enterMobile);
     setTimeout(enterMobile, AUTO_MS);
   }
 
-  /* \u2500\u2500 Init \u2500\u2500 */
-  if (isMobile) {
-    var w = document.getElementById('mobile-warning');
-    if (w) w.style.display = 'none';
-    showMobileSplash();
-  } else {
-    document.getElementById('openBtn').addEventListener('click', enterDesktop);
-    setTimeout(enterDesktop, AUTO_MS);
+  function initWelcome() {
+    refreshContinueState();
+    if (isMobile) {
+      var w = document.getElementById('mobile-warning');
+      if (w) w.style.display = 'none';
+      showMobileSplash();
+    } else {
+      document.getElementById('openBtn').addEventListener('click', enterDesktop);
+      setTimeout(enterDesktop, AUTO_MS);
+    }
   }
+
+  bootNativeRedirect().then(function (redirecting) {
+    if (!redirecting) initWelcome();
+  });
 }());
 </script>
 </body>
