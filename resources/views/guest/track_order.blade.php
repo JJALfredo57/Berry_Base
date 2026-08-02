@@ -519,7 +519,29 @@
           <div class="p-2 rounded-2 track-payment-summary">
             <div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Total Amount</div>
             <div class="fw-bold" style="color:var(--primary);font-size:clamp(.9rem,2.2vw,1.1rem)">&#8369;{{ number_format($paymentTotalAmount, 2) }}</div>
-            @if($paymentDepositPaid)
+            @if($order->status === 'Cancelled' || $cancelApproved)
+              @if(($refund ?? null) && ($refund->status ?? '') === 'refunded')
+              <div class="track-payment-note success">
+                <i class="bi bi-cash-coin"></i>
+                <span>Order cancelled. Refund sent.</span>
+              </div>
+              @elseif(($refund ?? null) && ($refund->status ?? '') === 'pending')
+              <div class="track-payment-note warning">
+                <i class="bi bi-hourglass-split"></i>
+                <span>Order cancelled. Refund request is waiting for seller review.</span>
+              </div>
+              @else
+              <div class="track-payment-note success">
+                <i class="bi bi-x-circle"></i>
+                <span>Order cancelled. No payment is required.</span>
+              </div>
+              @endif
+            @elseif($hasPendingCancel)
+            <div class="track-payment-note warning">
+              <i class="bi bi-hourglass-split"></i>
+              <span>Cancellation/refund request pending. Please wait for seller review.</span>
+            </div>
+            @elseif($paymentDepositPaid)
               @if($paymentFullyPaid)
               <div class="track-payment-note success">
                 <i class="bi bi-check-circle-fill"></i>

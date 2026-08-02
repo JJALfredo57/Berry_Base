@@ -77,6 +77,7 @@
     $addons = $orderAddons[$o->id] ?? [];
     $refund = $orderRefunds[$o->id] ?? null;
     $hasPaidCancelRequest = $refund && ($refund->status ?? '') === 'pending';
+    $isCancelledOrder = ($o->status ?? '') === 'Cancelled' || ($o->cancel_status ?? '') === 'accepted';
     $needsPickupAction = ($o->status ?? '') === 'Pickup' || $hasPaidCancelRequest;
     $sc = match($o->status) {
       'Awaiting Deposit'         => 'background:#FCE4EC;color:#880E4F',
@@ -205,7 +206,25 @@
       @endif
 
       {{-- Deposit Alert --}}
-      @if($o->deposit_required && ($o->deposit_status ?? '') !== 'paid')
+      @if($isCancelledOrder)
+      <div style="margin-bottom:1rem;background:#FEF2F2;border-radius:10px;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem">
+        <i class="bi bi-x-circle-fill" style="color:#B91C1C;font-size:1.1rem;flex-shrink:0"></i>
+        <div>
+          <div style="font-size:.78rem;font-weight:800;color:#991B1B;letter-spacing:.04em">ORDER CANCELLED</div>
+          <div style="font-size:.8rem;color:#991B1B;margin-top:.1rem">
+            @if($refund && $refund->status === 'refunded')
+              Refund sent. Reference: {{ $refund->reference_number ?: 'receipt uploaded' }}.
+            @elseif($refund && $refund->status === 'pending')
+              Paid cancellation/refund request is waiting for review.
+            @elseif($o->deposit_status === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']))
+              Cancelled with payment recorded. Check refund status before payout.
+            @else
+              Cancelled before payment. No deposit is needed.
+            @endif
+          </div>
+        </div>
+      </div>
+      @elseif($o->deposit_required && ($o->deposit_status ?? '') !== 'paid')
       <div style="margin-bottom:1rem;background:#FCE4EC;border-radius:10px;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem">
         <i class="bi bi-lock-fill" style="color:#880E4F;font-size:1.1rem;flex-shrink:0"></i>
         <div>
@@ -256,8 +275,12 @@
         @endif
         @if($o->deposit_required)
         <div><span style="color:var(--gray-500)">Deposit</span><br>
-          <strong style="color:{{ ($o->deposit_status??'') === 'paid' ? '#16a34a' : '#880E4F' }}">
-            ₱{{ number_format((float)($o->deposit_amount ?? 0),2) }} — {{ ($o->deposit_status??'') === 'paid' ? 'Paid' : 'Pending' }}
+          <strong style="color:{{ $isCancelledOrder ? '#991b1b' : (($o->deposit_status??'') === 'paid' ? '#16a34a' : '#880E4F') }}">
+            @if($isCancelledOrder)
+              {{ ($o->deposit_status??'') === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']) ? 'Cancelled - refund status shown below' : 'Cancelled before payment' }}
+            @else
+              ₱{{ number_format((float)($o->deposit_amount ?? 0),2) }} — {{ ($o->deposit_status??'') === 'paid' ? 'Paid' : 'Pending' }}
+            @endif
           </strong>
         </div>
         @endif

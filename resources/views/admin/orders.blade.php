@@ -66,6 +66,7 @@
     @php
       $isCancelPending = $o->cancel_requested && $o->cancel_status === 'pending';
       $refund = $orderRefunds[$o->id] ?? null;
+      $isCancelledOrder = ($o->status ?? '') === 'Cancelled' || ($o->cancel_status ?? '') === 'accepted';
       $customOrder = $customOrderData[$o->id] ?? null;
       $customRefs = [];
       if ($customOrder && !empty($customOrder->reference_images)) {
@@ -185,7 +186,20 @@
               </span><br>
               <span class="status-badge status-{{ str_replace(' ','-',$o->status) }}">{{ $o->status }}</span>
               <div class="fw-bold mt-1 fs-6">₱{{ number_format($o->total_price,2) }}</div>
-              @if($o->deposit_required && $o->deposit_status === 'paid')
+              @if($isCancelledOrder)
+              <div class="small" style="color:#991b1b">
+                <i class="bi bi-x-circle-fill me-1"></i>
+                @if($refund && $refund->status === 'refunded')
+                  Cancelled - refunded
+                @elseif($refund && $refund->status === 'pending')
+                  Cancelled - refund pending
+                @elseif($o->deposit_status === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']))
+                  Cancelled - payment recorded
+                @else
+                  Cancelled before payment
+                @endif
+              </div>
+              @elseif($o->deposit_required && $o->deposit_status === 'paid')
               <div class="small" style="color:#16a34a">
                 <i class="bi bi-check-circle-fill me-1"></i>Deposit: ₱{{ number_format($o->deposit_amount,2) }}
               </div>
@@ -375,7 +389,17 @@
               {{-- Confirm Order button removed — auto-confirmed after payment --}}
 
               {{-- Deposit status badge --}}
-              @if($o->deposit_required)
+              @if($isCancelledOrder)
+                @if($refund && $refund->status === 'refunded')
+                <span class="badge bg-success">Refunded ₱{{ number_format((float)($refund->amount ?? $o->deposit_amount ?? 0),2) }}</span>
+                @elseif($refund && $refund->status === 'pending')
+                <span class="badge bg-danger">Cancelled - Refund Pending</span>
+                @elseif($o->deposit_status === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']))
+                <span class="badge bg-danger">Cancelled - Payment Recorded</span>
+                @else
+                <span class="badge bg-danger">Cancelled Before Payment</span>
+                @endif
+              @elseif($o->deposit_required)
                 @if($o->deposit_status === 'paid')
                 <span class="badge bg-success">💰 Deposit Paid ₱{{ number_format($o->deposit_amount,2) }}</span>
                 @elseif($o->deposit_status === 'pending')
