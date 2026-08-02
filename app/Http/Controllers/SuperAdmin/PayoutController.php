@@ -39,6 +39,8 @@ class PayoutController extends Controller
             'available' => (float) DB::table('seller_payout_ledgers')->where('status', 'available')->sum('seller_net_amount'),
             'processing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['requested', 'processing'])->sum('seller_net_amount'),
             'paid' => (float) DB::table('seller_payout_ledgers')->where('status', 'paid')->sum('seller_net_amount'),
+            'refund_deductions' => abs((float) DB::table('seller_payout_ledgers')->where('seller_net_amount', '<', 0)->sum('seller_net_amount')),
+            'pending_refunds' => Schema::hasTable('order_refunds') ? (int) DB::table('order_refunds')->where('status', 'pending')->count() : 0,
         ];
 
         $shops = DB::table('shops as s')
@@ -60,6 +62,13 @@ class PayoutController extends Controller
                     ->where('shop_id', $shop->id)
                     ->whereIn('status', ['pending', 'clearing'])
                     ->sum('seller_net_amount');
+                $shop->refund_deductions = abs((float) DB::table('seller_payout_ledgers')
+                    ->where('shop_id', $shop->id)
+                    ->where('seller_net_amount', '<', 0)
+                    ->sum('seller_net_amount'));
+                $shop->pending_refunds = Schema::hasTable('order_refunds')
+                    ? (int) DB::table('order_refunds')->where('shop_id', $shop->id)->where('status', 'pending')->count()
+                    : 0;
                 $nextClearing = DB::table('seller_payout_ledgers')
                     ->where('shop_id', $shop->id)
                     ->whereIn('status', ['pending', 'clearing'])
@@ -78,8 +87,16 @@ class PayoutController extends Controller
             ->orderByDesc('p.created_at')
             ->limit(50)
             ->get();
+        $refunds = Schema::hasTable('order_refunds')
+            ? DB::table('order_refunds as r')
+                ->leftJoin('shops as s', 's.id', '=', 'r.shop_id')
+                ->select('r.*', 's.shop_name')
+                ->orderByDesc('r.created_at')
+                ->limit(30)
+                ->get()
+            : collect();
 
-        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'shops', 'payouts'));
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'shops', 'payouts', 'refunds'));
     }
 
     public function saveSettings(Request $request)

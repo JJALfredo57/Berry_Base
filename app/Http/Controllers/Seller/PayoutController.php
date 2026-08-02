@@ -45,6 +45,9 @@ class PayoutController extends Controller
             ->orderByDesc('created_at')
             ->limit(20)
             ->get();
+        $refunds = Schema::hasTable('order_refunds')
+            ? DB::table('order_refunds')->where('shop_id', $shop->id)->orderByDesc('created_at')->limit(12)->get()
+            : collect();
         $nextClearingLedger = DB::table('seller_payout_ledgers')
             ->where('shop_id', $shop->id)
             ->whereIn('status', ['pending', 'clearing'])
@@ -52,7 +55,7 @@ class PayoutController extends Controller
             ->orderBy('release_at')
             ->first();
 
-        return view('seller.payouts', compact('shop', 'payoutSettings', 'summary', 'ledgers', 'payouts', 'nextClearingLedger'));
+        return view('seller.payouts', compact('shop', 'payoutSettings', 'summary', 'ledgers', 'payouts', 'refunds', 'nextClearingLedger'));
     }
 
     public function saveDetails(Request $request)

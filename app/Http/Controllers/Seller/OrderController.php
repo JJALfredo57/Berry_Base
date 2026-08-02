@@ -6,12 +6,16 @@ use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
+use App\Services\OrderRefundService;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
+    use UploadsFiles;
+
     private function getShop(): object
     {
         $uid  = session('user')['id'];
@@ -46,7 +50,11 @@ class OrderController extends Controller
                     ->orWhereRaw("o.payment_method ilike ?", ["%$search%"])
                     ->orWhereRaw("o.status ilike ?", ["%$search%"])
                 ))
-                ->when($status && $status !== 'All', fn($q) => $q->where('o.status', $status))
+                ->when($status && $status !== 'All', fn($q) =>
+                    $status === 'Cancel Requests'
+                        ? $q->where('o.cancel_status', 'pending')
+                        : $q->where('o.status', $status)
+                )
                 ->orderByRaw("
                     CASE
                         WHEN o.status = 'Pickup' THEN 0
@@ -73,12 +81,19 @@ class OrderController extends Controller
         $orderIds    = collect($orders->items())->pluck('id')->toArray();
         $orderAddons = [];
         $customData  = [];
+        $orderRefunds = [];
         if ($orderIds) {
             try {
                 $addons = DB::table('order_addons')->whereIn('order_id', $orderIds)->get();
                 foreach ($addons as $a) $orderAddons[$a->order_id][] = $a;
                 $customs = DB::table('custom_orders')->whereIn('order_id', $orderIds)->get();
                 foreach ($customs as $c) $customData[$c->order_id] = $c;
+                if (\Illuminate\Support\Facades\Schema::hasTable('order_refunds')) {
+                    $refundRows = DB::table('order_refunds')->whereIn('order_id', $orderIds)->orderByDesc('id')->get();
+                    foreach ($refundRows as $r) {
+                        if (!isset($orderRefunds[$r->order_id])) $orderRefunds[$r->order_id] = $r;
+                    }
+                }
             } catch (\Throwable $e) {
                 Log::error('Seller orders addons/customs failed: ' . $e->getMessage());
             }
@@ -89,10 +104,14 @@ class OrderController extends Controller
         foreach ($orders->items() as $order) {
             $customerRiskMap[$order->id] = $riskService->badge($order->order_customer_phone ?? null, $shop->id);
         }
+        $pendingCancelCount = (int) DB::table('orders')
+            ->where('shop_id', $shop->id)
+            ->where('cancel_status', 'pending')
+            ->count();
 
         try {
             return response(
-                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'customerRiskMap', 'search', 'status'))->render()
+                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'orderRefunds', 'customerRiskMap', 'pendingCancelCount', 'search', 'status'))->render()
             );
         } catch (\Throwable $e) {
             Log::error('Seller orders VIEW render failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
@@ -262,6 +281,62 @@ class OrderController extends Controller
             'paid_at'            => (string) ($order->paid_at ?? ''),
             'updated_at'         => (string) ($order->updated_at ?? ''),
         ]);
+    }
+
+    public function approveCancel(Request $request, string $id, OrderRefundService $refunds)
+    {
+        $shop = $this->getShop();
+        $order = DB::table('orders')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$order) return back()->with('err', 'Order not found.');
+
+        $refund = $refunds->pendingForOrder($id);
+        if (!$refund) return back()->with('err', 'No pending refund request found for this order.');
+
+        $validated = $request->validate([
+            'refund_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'reference_number' => 'nullable|string|max:120',
+            'admin_note' => 'nullable|string|max:500',
+        ], [
+            'refund_receipt.required' => 'Upload the GCash refund receipt before approving.',
+            'refund_receipt.image' => 'The refund receipt must be an image.',
+        ]);
+
+        $receiptPath = $this->uploadFile($request->file('refund_receipt'), 'uploads/refund_receipts');
+        if (!$receiptPath) return back()->with('err', 'Receipt upload failed. Please try again.');
+
+        $user = session('user');
+        $refunds->markRefunded(
+            $order,
+            $refund,
+            $receiptPath,
+            $validated['reference_number'] ?? null,
+            trim((string) ($validated['admin_note'] ?? 'Cancellation approved and refund sent.')),
+            'seller',
+            (string) ($user['id'] ?? '')
+        );
+
+        return back()->with('msg', "Order #{$id} cancelled and refund receipt sent to customer tracking page.");
+    }
+
+    public function rejectCancel(Request $request, string $id, OrderRefundService $refunds)
+    {
+        $shop = $this->getShop();
+        $order = DB::table('orders')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$order) return back()->with('err', 'Order not found.');
+
+        $refund = $refunds->pendingForOrder($id);
+        if (!$refund) return back()->with('err', 'No pending refund request found for this order.');
+
+        $validated = $request->validate([
+            'admin_note' => 'required|string|min:5|max:500',
+        ], [
+            'admin_note.required' => 'Please provide a reason for rejecting this cancellation.',
+        ]);
+
+        $user = session('user');
+        $refunds->reject($order, $refund, trim($validated['admin_note']), 'seller', (string) ($user['id'] ?? ''));
+
+        return back()->with('msg', "Order #{$id} cancellation/refund request rejected.");
     }
 
     public function assignRider(Request $request, string $id)

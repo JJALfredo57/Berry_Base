@@ -159,6 +159,7 @@ class SellerPayoutService
             'available' => (float) DB::table('seller_payout_ledgers')->where('shop_id', $shopId)->where('status', 'available')->sum('seller_net_amount'),
             'processing' => (float) DB::table('seller_payout_ledgers')->where('shop_id', $shopId)->whereIn('status', ['requested', 'processing'])->sum('seller_net_amount'),
             'paid' => (float) DB::table('seller_payout_ledgers')->where('shop_id', $shopId)->where('status', 'paid')->sum('seller_net_amount'),
+            'refund_deductions' => abs((float) DB::table('seller_payout_ledgers')->where('shop_id', $shopId)->where('seller_net_amount', '<', 0)->sum('seller_net_amount')),
         ];
     }
 

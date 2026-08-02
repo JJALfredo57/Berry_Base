@@ -50,6 +50,7 @@ class CustomerRiskService
             'block_reason' => null,
             'cancelled_7d' => 0,
             'cancel_requests_7d' => 0,
+            'refund_requests_7d' => 0,
             'unpaid_24h' => 0,
             'active_unpaid' => 0,
             'pending_custom_same_shop' => 0,
@@ -78,6 +79,13 @@ class CustomerRiskService
             ->where($orderPhones)
             ->where('cancel_requested_at', '>=', $since7)
             ->count();
+
+        if (Schema::hasTable('order_refunds')) {
+            $summary['refund_requests_7d'] = (int) DB::table('order_refunds')
+                ->whereIn('customer_phone', $variants)
+                ->where('created_at', '>=', $since7)
+                ->count();
+        }
 
         $summary['unpaid_24h'] = (int) DB::table('orders')
             ->where($orderPhones)
@@ -121,6 +129,7 @@ class CustomerRiskService
         $score = 0;
         $score += $summary['cancelled_7d'] * 30;
         $score += $summary['cancel_requests_7d'] * 15;
+        $score += $summary['refund_requests_7d'] * 20;
         $score += $summary['unpaid_24h'] * 25;
         $score += $summary['active_unpaid'] * 12;
         $score += $summary['pending_custom_same_shop'] * 15;
@@ -129,7 +138,7 @@ class CustomerRiskService
 
         $summary['score'] = max(0, $score);
         $summary['reasons'] = $this->riskReasons($summary);
-        $summary['level'] = $summary['is_blocked'] || $summary['cancelled_7d'] >= 3 || $summary['unpaid_24h'] >= 3 || $summary['active_unpaid'] >= 5
+        $summary['level'] = $summary['is_blocked'] || $summary['cancelled_7d'] >= 3 || $summary['refund_requests_7d'] >= 3 || $summary['unpaid_24h'] >= 3 || $summary['active_unpaid'] >= 5
             ? 'blocked'
             : ($summary['score'] >= 60 ? 'suspicious' : ($summary['score'] >= 30 ? 'watch' : 'low'));
 
@@ -220,6 +229,7 @@ class CustomerRiskService
         if ($summary['is_blocked']) $reasons[] = $summary['block_reason'] ?: 'Manually blocked.';
         if ($summary['cancelled_7d'] > 0) $reasons[] = $summary['cancelled_7d'] . ' cancelled order(s) in 7 days';
         if ($summary['cancel_requests_7d'] > 0) $reasons[] = $summary['cancel_requests_7d'] . ' cancel request(s) in 7 days';
+        if (($summary['refund_requests_7d'] ?? 0) > 0) $reasons[] = $summary['refund_requests_7d'] . ' refund request(s) in 7 days';
         if ($summary['unpaid_24h'] > 0) $reasons[] = $summary['unpaid_24h'] . ' unpaid deposit order(s) in 24 hours';
         if ($summary['active_unpaid'] > 0) $reasons[] = $summary['active_unpaid'] . ' active unpaid order(s)';
         if ($summary['pending_custom_same_shop'] > 0) $reasons[] = $summary['pending_custom_same_shop'] . ' pending custom order(s)';

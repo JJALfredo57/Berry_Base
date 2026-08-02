@@ -6,6 +6,7 @@ use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
+use App\Services\OrderRefundService;
 use App\Support\BecCastilloAddons;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -601,7 +602,7 @@ class CustomOrderController extends Controller
     }
 
     /** Guest cancels custom order after price set */
-    public function cancelPrice(string $coId)
+    public function cancelPrice(string $coId, OrderRefundService $refunds)
     {
         $co = DB::table('custom_orders')->where('id', $coId)->whereNotNull('guest_phone')->first();
         if (!$co) return back()->with('err', 'Custom order not found.');
@@ -615,13 +616,7 @@ class CustomOrderController extends Controller
         }
 
         DB::table('custom_orders')->where('id', $coId)->update(['price_confirmed' => 'cancelled']);
-        DB::table('orders')->where('id', $co->order_id)->update(['status' => 'Cancelled']);
-        DB::table('order_tracking')->insert([
-            'order_id'   => $co->order_id,
-            'status'     => 'Cancelled',
-            'notes'      => 'Guest cancelled the custom order after admin set price.',
-            'created_at' => now(),
-        ]);
+        $refunds->cancelUnpaid($order, 'Customer declined the final custom cake price.', 'customer');
 
         $order = DB::table('orders')->where('id', $co->order_id)->first();
         return redirect()->route('track.order', $order->track_code ?? '')->with('msg', 'Custom order cancelled.');

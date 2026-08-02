@@ -40,8 +40,9 @@
     ['Available', $summary['available'], 'bi-cash-stack', '#166534', '#ecfdf5'],
     ['Processing', $summary['processing'], 'bi-arrow-repeat', '#1d4ed8', '#eff6ff'],
     ['Paid Out', $summary['paid'], 'bi-check2-circle', '#6d28d9', '#f5f3ff'],
+    ['Refund Deductions', $summary['refund_deductions'] ?? 0, 'bi-arrow-counterclockwise', '#b91c1c', '#fef2f2'],
   ] as [$label, $value, $icon, $color, $bg])
-  <div class="col-6 col-lg-3">
+  <div class="col-6 col-lg">
     <div class="cs-stat-card h-100">
       <div class="cs-stat-icon" style="background:{{ $bg }}"><i class="bi {{ $icon }}" style="color:{{ $color }}"></i></div>
       <div class="cs-stat-body">
@@ -163,6 +164,12 @@
                   @else
                     <span class="text-muted">No clearing balance</span>
                   @endif
+                  @if(($shop->pending_refunds ?? 0) > 0)
+                    <div class="mt-1"><span class="badge text-bg-danger">{{ $shop->pending_refunds }} pending refund{{ $shop->pending_refunds > 1 ? 's' : '' }}</span></div>
+                  @endif
+                  @if(($shop->refund_deductions ?? 0) > 0)
+                    <div class="small text-danger mt-1">Refund deductions: ₱{{ number_format($shop->refund_deductions, 2) }}</div>
+                  @endif
                 </td>
                 <td class="text-end fw-semibold">₱{{ number_format($shop->available_balance, 2) }}</td>
                 <td class="text-end">₱{{ number_format($shop->processing_balance, 2) }}</td>
@@ -204,6 +211,38 @@
     </div>
   </div>
 </div>
+
+@if(($refunds ?? collect())->count() > 0)
+<div class="card mt-4">
+  <div class="card-header"><i class="bi bi-arrow-counterclockwise me-2" style="color:#b91c1c"></i>Recent Refund Requests</div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Seller</th>
+          <th>Status</th>
+          <th>GCash</th>
+          <th class="text-end">Amount</th>
+          <th>Reference</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($refunds as $r)
+        <tr>
+          <td>#{{ $r->order_id }}</td>
+          <td>{{ $r->shop_name ?? 'Shop' }}</td>
+          <td><span class="badge text-bg-{{ $r->status === 'refunded' ? 'success' : ($r->status === 'rejected' ? 'danger' : 'warning') }}">{{ ucfirst($r->status) }}</span></td>
+          <td class="small">{{ $r->refund_gcash_name }}<br><span class="text-muted">{{ $r->refund_gcash_number }}</span></td>
+          <td class="text-end fw-semibold">₱{{ number_format((float)$r->refund_amount, 2) }}</td>
+          <td class="small text-muted">{{ $r->reference_number ?: 'Pending' }}</td>
+        </tr>
+        @endforeach
+      </tbody>
+    </table>
+  </div>
+</div>
+@endif
 
 <div class="card mt-4">
   <div class="card-header"><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Payouts</div>

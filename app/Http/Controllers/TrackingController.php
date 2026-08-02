@@ -3,8 +3,10 @@ namespace App\Http\Controllers;
 
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
+use App\Services\OrderRefundService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
 class TrackingController extends Controller
@@ -46,8 +48,10 @@ class TrackingController extends Controller
             ->limit(5)
             ->get();
 
+        $refund = app(OrderRefundService::class)->latestForOrder((string) $order->id);
+
         return view('guest.track_order', compact(
-            'order','tracking','addons','customOrder','statusSteps','currentStep','recentReceipts','receiptCount'
+            'order','tracking','addons','customOrder','statusSteps','currentStep','recentReceipts','receiptCount','refund'
         ));
     }
 
@@ -311,7 +315,7 @@ class TrackingController extends Controller
         ])));
     }
 
-    public function requestCancel(Request $request, string $trackCode)
+    public function requestCancel(Request $request, string $trackCode, OrderRefundService $refunds)
     {
         $reason = trim($request->input('cancel_reason', ''));
         if ($reason === '') {
@@ -326,13 +330,7 @@ class TrackingController extends Controller
             return back()->with('error', 'Order not found.');
         }
 
-        $hasPaidDeposit = ($order->deposit_status ?? null) === 'paid'
-            || in_array(($order->payment_status ?? ''), ['Partial Payment', 'Paid'], true);
-        if ($hasPaidDeposit) {
-            return back()->with('error', 'Cannot cancel this order because your deposit has already been paid.');
-        }
-
-        if (in_array($order->status, ['Preparing', 'Out for Delivery', 'Delivered', 'Cancelled', 'Picked Up'], true)) {
+        if (in_array($order->status, ['Out for Delivery', 'Delivered', 'Cancelled', 'Picked Up'], true)) {
             return back()->with('error', "Cannot cancel this order because it is already {$order->status}.");
         }
 
@@ -340,19 +338,33 @@ class TrackingController extends Controller
             return back()->with('error', 'A cancellation request is already pending for this order.');
         }
 
-        DB::table('orders')->where('id', $order->id)->update([
-            'cancel_requested'    => 1,
-            'cancel_reason'       => $reason,
-            'cancel_status'       => 'pending',
-            'cancel_admin_note'   => null,
-            'cancel_requested_at' => now()->format('Y-m-d H:i:s'),
+        if (!$refunds->hasPaidAmount($order)) {
+            $refunds->cancelUnpaid($order, $reason, 'customer');
+            CakeshopHelper::logActivity('guest', 'guest', 'Cancel Order', "Order #{$order->id} cancelled before payment - {$reason}");
+            return back()->with('msg', 'Order cancelled successfully. No refund is needed because no payment was collected.');
+        }
+
+        $gcashName = trim((string) $request->input('refund_gcash_name', ''));
+        $gcashNumber = trim((string) $request->input('refund_gcash_number', ''));
+        if ($gcashName === '' || $gcashNumber === '') {
+            return back()->with('error', 'Please enter the GCash account name and mobile number for refund.')->withInput();
+        }
+        if (!$refunds->validateGcashNumber($gcashNumber)) {
+            return back()->with('error', 'Please enter a valid GCash mobile number, like 09XXXXXXXXX or +639XXXXXXXXX.')->withInput();
+        }
+
+        $refund = $refunds->requestPaidRefund($order, [
+            'cancel_reason' => $reason,
+            'refund_gcash_name' => $gcashName,
+            'refund_gcash_number' => $gcashNumber,
         ]);
+        $refunds->notifyPaidRequest($order, $refund);
 
         DB::table('notifications')->insert([
             'receiver_role'    => 'admin',
             'receiver_user_id' => null,
-            'title'            => 'Cancel Request - Order #' . $order->id,
-            'message'          => ($order->guest_name ?? 'Guest customer') . " wants to cancel Order #{$order->id}. Reason: {$reason}",
+            'title'            => 'Refund Request - Order #' . $order->id,
+            'message'          => ($order->guest_name ?? 'Guest customer') . " wants to cancel paid Order #{$order->id}. Refund to {$gcashName} / {$gcashNumber}. Reason: {$reason}",
             'is_read' => false,
             'created_at'       => now(),
         ]);
@@ -361,12 +373,32 @@ class TrackingController extends Controller
             'order_id'    => $order->id,
             'sender_role' => 'guest',
             'sender_id'   => null,
-            'message'     => "Cancel request submitted.\n\nReason: {$reason}",
+            'message'     => "Cancellation/refund request submitted.\n\nReason: {$reason}\nRefund GCash: {$gcashName} / {$gcashNumber}",
             'is_read' => false,
             'created_at'  => now(),
         ]);
 
-        CakeshopHelper::logActivity('guest', 'guest', 'Cancel Request', "Order #{$order->id} - {$reason}");
-        return back()->with('msg', 'Cancel request submitted successfully. Waiting for admin approval.');
+        CakeshopHelper::logActivity('guest', 'guest', 'Refund Request', "Order #{$order->id} - {$reason}");
+        return back()->with('msg', 'Cancellation and refund request submitted successfully. Waiting for seller review.');
+    }
+
+    public function refundReceipt(string $trackCode, int $refundId)
+    {
+        $refund = DB::table('order_refunds')
+            ->where('id', $refundId)
+            ->where('track_code', strtoupper($trackCode))
+            ->where('status', 'refunded')
+            ->first();
+
+        if (!$refund || empty($refund->receipt_path)) abort(404);
+
+        $response = Http::timeout(20)->get($refund->receipt_path);
+        if (!$response->successful()) abort(404);
+
+        return response($response->body(), 200, [
+            'Content-Type' => $response->header('Content-Type') ?: 'image/jpeg',
+            'Content-Disposition' => 'attachment; filename="refund-receipt-'.$refund->order_id.'.jpg"',
+            'Cache-Control' => 'private, max-age=60',
+        ]);
     }
 }

@@ -284,10 +284,10 @@
   @php
     $isPickup = $order->fulfillment_type === 'Pickup';
     $hasDepositLock = ($order->deposit_status ?? null) === 'paid' || in_array(($order->payment_status ?? ''), ['Partial Payment', 'Paid']);
-    $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Confirmed']) && !$hasDepositLock;
     $hasPendingCancel = ($order->cancel_requested ?? 0) && ($order->cancel_status ?? '') === 'pending';
     $cancelApproved = ($order->cancel_status ?? '') === 'accepted';
     $cancelRejected = ($order->cancel_status ?? '') === 'rejected';
+    $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Awaiting Deposit', 'Confirmed', 'Preparing']) && !$cancelApproved;
     $statusColors = [
       'Awaiting Deposit' => ['bg'=>'#fff7ed','color'=>'#9a3412','icon'=>'bi-credit-card-fill'],
       'Pending'          => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split'],
@@ -299,6 +299,7 @@
       'Delivered'        => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'bi-house-check-fill'],
       'Picked Up'        => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'bi-bag-check-fill'],
       'Cancelled'        => ['bg'=>'#fee2e2','color'=>'#991b1b','icon'=>'bi-x-circle-fill'],
+      'Refunded'         => ['bg'=>'#dcfce7','color'=>'#166534','icon'=>'bi-cash-coin'],
     ];
     $sc = $statusColors[$order->status] ?? $statusColors['Pending'];
     $statusLabels = ['Pickup' => 'Ready for Pickup'];
@@ -361,7 +362,7 @@
   </div>
   @elseif($hasDepositLock && $order->status !== 'Cancelled')
   <div class="alert border-0 mb-4" style="background:#eff6ff;color:#1d4ed8">
-    <i class="bi bi-shield-lock me-2"></i>Cancellation locked because the deposit has already been paid.
+    <i class="bi bi-shield-check me-2"></i>This order has payment recorded. Cancellation is still possible, but it must be reviewed because a refund is required.
   </div>
   @endif
 
@@ -804,9 +805,13 @@
   @if($canRequestCancel && !$hasPendingCancel && !$cancelApproved)
   <div class="card mb-3">
     <div class="card-body p-4">
-      <h6 class="fw-bold mb-3"><i class="bi bi-x-circle me-2" style="color:#dc2626"></i>Request Cancellation</h6>
+      <h6 class="fw-bold mb-3"><i class="bi bi-x-circle me-2" style="color:#dc2626"></i>{{ $hasDepositLock ? 'Request Cancellation & Refund' : 'Cancel Order' }}</h6>
       <div class="small text-muted mb-3">
-        You may still request cancellation because no paid deposit has been recorded for this order.
+        @if($hasDepositLock)
+          Payment has already been recorded for this order. Enter the GCash details where the refund should be sent, then the seller will review your request.
+        @else
+          No paid deposit has been recorded yet. Submitting this will cancel the order immediately.
+        @endif
       </div>
       <form action="{{ route('guest.cancel_request', $order->track_code) }}" method="POST">
         @csrf
@@ -814,18 +819,62 @@
           <label class="form-label fw-semibold small">Reason for Cancellation <span class="text-danger">*</span></label>
           <textarea class="form-control" name="cancel_reason" rows="3" required placeholder="Please explain why you want to cancel this order."></textarea>
         </div>
+        @if($hasDepositLock)
+        <div class="p-3 rounded-3 mb-3" style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412">
+          <div class="fw-bold small mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Double-check your refund details</div>
+          <div class="small">The refund will be sent to the GCash name and number you provide. Make sure the account name and mobile number are correct before submitting.</div>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">GCash Account Name <span class="text-danger">*</span></label>
+            <input class="form-control" name="refund_gcash_name" value="{{ old('refund_gcash_name') }}" placeholder="Exact registered GCash name" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold small">GCash Mobile Number <span class="text-danger">*</span></label>
+            <input class="form-control" name="refund_gcash_number" value="{{ old('refund_gcash_number') }}" placeholder="09XXXXXXXXX" pattern="^(09[0-9]{9}|\+639[0-9]{9})$" inputmode="tel" required>
+          </div>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="refundConfirmCheck" required>
+          <label class="form-check-label small" for="refundConfirmCheck">
+            I confirm that the GCash account name and number are correct.
+          </label>
+        </div>
+        @endif
         <button type="submit"
                 class="btn btn-outline-danger"
-                data-cs-confirm="Submit a cancellation request for this order?"
-                data-cs-title="Request Cancellation"
-                data-cs-ok="Submit Request"
+                data-cs-confirm="{{ $hasDepositLock ? 'Submit cancellation and refund request? Make sure your GCash details are correct.' : 'Cancel this unpaid order now?' }}"
+                data-cs-title="{{ $hasDepositLock ? 'Request Refund' : 'Cancel Order' }}"
+                data-cs-ok="{{ $hasDepositLock ? 'Submit Request' : 'Cancel Order' }}"
                 data-cs-ok-color="#dc2626"
                 data-cs-icon="bi-x-octagon"
                 data-cs-icon-bg="#fee2e2"
                 data-cs-icon-color="#dc2626">
-          <i class="bi bi-send me-1"></i>Submit Cancel Request
+          <i class="bi bi-send me-1"></i>{{ $hasDepositLock ? 'Submit Refund Request' : 'Cancel Order' }}
         </button>
       </form>
+    </div>
+  </div>
+  @endif
+
+  @if(($refund ?? null) && ($refund->status ?? '') === 'refunded')
+  <div class="card mb-3" style="border:1px solid #bbf7d0">
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-2" style="color:#166534"><i class="bi bi-cash-coin me-2"></i>Refunded</h6>
+      <div class="small text-muted mb-3">
+        Refund sent to {{ $refund->refund_gcash_name }} / {{ $refund->refund_gcash_number }}.
+        @if($refund->reference_number) Reference: {{ $refund->reference_number }}. @endif
+      </div>
+      @if($refund->receipt_path)
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="{{ $refund->receipt_path }}" target="_blank" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-eye me-1"></i>View Receipt
+          </a>
+          <a href="{{ route('guest.refund_receipt_download', [$order->track_code, $refund->id]) }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-download me-1"></i>Download Receipt
+          </a>
+        </div>
+      @endif
     </div>
   </div>
   @endif
@@ -1104,6 +1153,16 @@
             <button type="button" class="proof-view-btn" onclick="openDeliveryProof(@js($deliveryProofUrl))">
               <i class="bi bi-image"></i>View Proof
             </button>
+          @endif
+          @if($t->status === 'Refunded' && ($refund ?? null) && ($refund->status ?? '') === 'refunded' && !empty($refund->receipt_path))
+            <div class="d-flex gap-2 flex-wrap mt-2">
+              <a href="{{ $refund->receipt_path }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-eye me-1"></i>View Receipt
+              </a>
+              <a href="{{ route('guest.refund_receipt_download', [$order->track_code, $refund->id]) }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-download me-1"></i>Download
+              </a>
+            </div>
           @endif
               <div class="text-muted" style="font-size:clamp(.68rem,1.3vw,.72rem)">{{ \Carbon\Carbon::parse($t->created_at)->format('M d, Y g:i A') }}</div>
         </div>

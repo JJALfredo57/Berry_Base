@@ -60,8 +60,9 @@
     ['Available', $summary['available'], 'bi-cash-stack', '#166534', '#ecfdf5'],
     ['Requested/Processing', $summary['processing'], 'bi-arrow-repeat', '#1d4ed8', '#eff6ff'],
     ['Paid Out', $summary['paid'], 'bi-check2-circle', '#6d28d9', '#f5f3ff'],
+    ['Refund Deductions', $summary['refund_deductions'] ?? 0, 'bi-arrow-counterclockwise', '#b91c1c', '#fef2f2'],
   ] as [$label, $value, $icon, $color, $bg])
-  <div class="col-6 col-lg-3">
+  <div class="col-6 col-lg">
     <div class="cs-stat-card h-100">
       <div class="cs-stat-icon" style="background:{{ $bg }}"><i class="bi {{ $icon }}" style="color:{{ $color }}"></i></div>
       <div class="cs-stat-body">
@@ -72,6 +73,28 @@
   </div>
   @endforeach
 </div>
+
+@if(($refunds ?? collect())->count() > 0)
+<div class="card mb-4">
+  <div class="card-header"><i class="bi bi-arrow-counterclockwise me-2" style="color:#b91c1c"></i>Recent Refunds</div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Order</th><th>Status</th><th>GCash</th><th class="text-end">Amount</th><th>Reference</th></tr></thead>
+      <tbody>
+      @foreach($refunds as $r)
+        <tr>
+          <td>#{{ $r->order_id }}</td>
+          <td><span class="badge text-bg-{{ $r->status === 'refunded' ? 'success' : ($r->status === 'rejected' ? 'danger' : 'warning') }}">{{ ucfirst($r->status) }}</span></td>
+          <td class="small">{{ $r->refund_gcash_name }}<br><span class="text-muted">{{ $r->refund_gcash_number }}</span></td>
+          <td class="text-end fw-semibold">₱{{ number_format((float)$r->refund_amount, 2) }}</td>
+          <td class="small text-muted">{{ $r->reference_number ?: 'Pending' }}</td>
+        </tr>
+      @endforeach
+      </tbody>
+    </table>
+  </div>
+</div>
+@endif
 
 @php
   $nextReleaseAt = $nextClearingLedger?->release_at ? \Carbon\Carbon::parse($nextClearingLedger->release_at) : null;

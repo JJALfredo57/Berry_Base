@@ -209,6 +209,7 @@ Route::get('/track/{trackCode}/status', [TrackingController::class, 'status'])->
 Route::get('/track/{trackCode}/receipts', [TrackingController::class, 'receipts'])->name('guest.receipts');
 Route::get('/track/{trackCode}/receipt/{transactionId}', [TrackingController::class, 'receipt'])->name('guest.receipt_transaction');
 Route::get('/track/{trackCode}/receipt', [TrackingController::class, 'receipt'])->name('guest.receipt');
+Route::get('/track/{trackCode}/refund/{refundId}/receipt-download', [TrackingController::class, 'refundReceipt'])->name('guest.refund_receipt_download');
 
 // ── Guest Messaging (on tracking page) ───────────────────────────────────
 Route::get('/track/{trackCode}/messages',  [GuestMessage::class, 'poll'])->name('guest.messages.poll');
@@ -362,6 +363,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
     Route::get('/orders/{id}/realtime-status', [\App\Http\Controllers\Seller\OrderController::class, 'realtimeStatus'])->name('orders.realtime_status');
     Route::post('/orders/{id}/status',       [\App\Http\Controllers\Seller\OrderController::class, 'updateStatus'])->name('orders.status');
+    Route::post('/orders/{id}/accept-cancel', [\App\Http\Controllers\Seller\OrderController::class, 'approveCancel'])->name('orders.accept_cancel');
+    Route::post('/orders/{id}/reject-cancel', [\App\Http\Controllers\Seller\OrderController::class, 'rejectCancel'])->name('orders.reject_cancel');
     Route::post('/orders/{id}/assign-rider', [\App\Http\Controllers\Seller\OrderController::class, 'assignRider'])->name('orders.assign_rider');
 
     // Settings

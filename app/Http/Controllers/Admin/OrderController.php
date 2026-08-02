@@ -6,11 +6,16 @@ use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
+use App\Services\OrderRefundService;
+use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class OrderController extends Controller
 {
+    use UploadsFiles;
+
     public function index(Request $request)
     {
         $search = trim($request->input('search', ''));
@@ -45,6 +50,7 @@ class OrderController extends Controller
         $orderAddons = [];
         $orderReviews = [];
         $customOrderData = [];
+        $orderRefunds = [];
         if ($orderIds) {
             try {
                 $addonRows = DB::table('order_addons')->whereIn('order_id', $orderIds)->get();
@@ -53,6 +59,12 @@ class OrderController extends Controller
                 foreach ($reviewRows as $r) $orderReviews[$r->order_id] = $r;
                 $customRows = DB::table('custom_orders')->whereIn('order_id', $orderIds)->get();
                 foreach ($customRows as $c) $customOrderData[$c->order_id] = $c;
+                if (Schema::hasTable('order_refunds')) {
+                    $refundRows = DB::table('order_refunds')->whereIn('order_id', $orderIds)->orderByDesc('id')->get();
+                    foreach ($refundRows as $r) {
+                        if (!isset($orderRefunds[$r->order_id])) $orderRefunds[$r->order_id] = $r;
+                    }
+                }
             } catch (\Exception $e) {}
         }
 
@@ -64,7 +76,7 @@ class OrderController extends Controller
 
         $pendingCancelCount = DB::table('orders')->where('cancel_status', 'pending')->count();
 
-        return view('admin.orders', compact('orders','pendingCancelCount','orderAddons','orderReviews','customOrderData','customerRiskMap','search','status'));
+        return view('admin.orders', compact('orders','pendingCancelCount','orderAddons','orderReviews','customOrderData','orderRefunds','customerRiskMap','search','status'));
     }
 
     public function blockCustomerPhone(Request $request, string $id)
@@ -506,12 +518,40 @@ class OrderController extends Controller
     }
 
 
-    public function acceptCancel(Request $request, string $id)
+    public function acceptCancel(Request $request, string $id, OrderRefundService $refunds)
     {
         $user      = session('user');
         $order     = DB::table('orders')->where('id', $id)->first();
         if (!$order) return back()->with('err', 'Order not found.');
         $adminNote = trim($request->input('admin_note', 'Cancel request approved.'));
+
+        $refund = $refunds->pendingForOrder($id);
+        if ($refund && $refunds->hasPaidAmount($order)) {
+            $validated = $request->validate([
+                'refund_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+                'reference_number' => 'nullable|string|max:120',
+                'admin_note' => 'nullable|string|max:500',
+            ], [
+                'refund_receipt.required' => 'Upload the GCash refund receipt before approving a paid cancellation.',
+                'refund_receipt.image' => 'The refund receipt must be an image.',
+            ]);
+
+            $receiptPath = $this->uploadFile($request->file('refund_receipt'), 'uploads/refund_receipts');
+            if (!$receiptPath) return back()->with('err', 'Receipt upload failed. Please try again.');
+
+            $refunds->markRefunded(
+                $order,
+                $refund,
+                $receiptPath,
+                $validated['reference_number'] ?? null,
+                $adminNote ?: 'Cancellation approved and refund sent.',
+                $user['role'] ?? 'admin',
+                (string) ($user['id'] ?? '')
+            );
+
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Approve Refund Cancel', "Order #{$id}");
+            return back()->with('msg', "Order #{$id} cancelled and refund receipt sent.");
+        }
 
         DB::table('orders')->where('id', $id)->update([
             'status'           => 'Cancelled',
@@ -568,13 +608,20 @@ class OrderController extends Controller
         return back()->with('msg', "Order #{$id} cancel approved.");
     }
 
-    public function rejectCancel(Request $request, string $id)
+    public function rejectCancel(Request $request, string $id, OrderRefundService $refunds)
     {
         $user      = session('user');
         $order     = DB::table('orders')->where('id', $id)->first();
         if (!$order) return back()->with('err', 'Order not found.');
         $adminNote = trim($request->input('admin_note', ''));
         if (!$adminNote) return back()->with('err', 'Please provide a reason for rejection.');
+
+        $refund = $refunds->pendingForOrder($id);
+        if ($refund) {
+            $refunds->reject($order, $refund, $adminNote, $user['role'] ?? 'admin', (string) ($user['id'] ?? ''));
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Reject Refund Cancel', "Order #{$id}");
+            return back()->with('msg', "Order #{$id} cancel/refund request rejected.");
+        }
 
         DB::table('orders')->where('id', $id)->update([
             'cancel_status'    => 'rejected',
@@ -589,7 +636,8 @@ class OrderController extends Controller
             'created_at'       => now(),
         ]);
         DB::table('messages')->insert([
-                        'sender_role' => 'admin',
+            'order_id'    => $id,
+            'sender_role' => 'admin',
             'sender_id'   => $user['id'],
             'message'     => "❌ Cancel request rejected.\n\nReason: {$adminNote}",
             'is_read' => false,

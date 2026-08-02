@@ -62,7 +62,7 @@
         <select id="sellerOrderStatusFilter" class="form-select" style="flex:1;min-width:0;max-width:160px"
                 onchange="pgFilter('status', this.value)">
           <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All status</option>
-          @foreach(['Awaiting Deposit','Pending','Pending Review','Confirmed','Preparing','Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
+          @foreach(['Cancel Requests','Awaiting Deposit','Pending','Pending Review','Confirmed','Preparing','Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
           <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st === 'Pickup' ? 'Ready for Pickup' : $st }}</option>
           @endforeach
         </select>
@@ -75,7 +75,9 @@
   @php
     $custom = $customData[$o->id] ?? null;
     $addons = $orderAddons[$o->id] ?? [];
-    $needsPickupAction = ($o->status ?? '') === 'Pickup';
+    $refund = $orderRefunds[$o->id] ?? null;
+    $hasPaidCancelRequest = $refund && ($refund->status ?? '') === 'pending';
+    $needsPickupAction = ($o->status ?? '') === 'Pickup' || $hasPaidCancelRequest;
     $sc = match($o->status) {
       'Awaiting Deposit'         => 'background:#FCE4EC;color:#880E4F',
       'Pending','Pending Review' => 'background:#FFF3E0;color:#E65100',
@@ -294,7 +296,78 @@
         {{ $o->cancel_reason }}
       </div>
       @endif
+
+      @if($refund)
+      <div style="margin-top:.65rem;background:{{ $refund->status === 'pending' ? '#fff7ed' : ($refund->status === 'refunded' ? '#ecfdf5' : '#f8fafc') }};border-radius:8px;padding:.75rem .9rem;font-size:.81rem;color:#111827;border:1px solid {{ $refund->status === 'pending' ? '#fed7aa' : ($refund->status === 'refunded' ? '#bbf7d0' : '#e5e7eb') }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap">
+          <div>
+            <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#92400e;margin-bottom:.25rem">
+              {{ $refund->status === 'pending' ? 'Paid Cancellation / Refund Request' : 'Refund Status' }}
+            </div>
+            <div><strong>Refund amount:</strong> ₱{{ number_format((float)$refund->refund_amount, 2) }}</div>
+            <div><strong>GCash:</strong> {{ $refund->refund_gcash_name }} / {{ $refund->refund_gcash_number }}</div>
+            @if($refund->review_note)<div><strong>Note:</strong> {{ $refund->review_note }}</div>@endif
+            @if($refund->reference_number)<div><strong>Reference:</strong> {{ $refund->reference_number }}</div>@endif
+          </div>
+          <span class="badge text-bg-{{ $refund->status === 'refunded' ? 'success' : ($refund->status === 'rejected' ? 'danger' : 'warning') }}">
+            {{ ucfirst($refund->status) }}
+          </span>
+        </div>
+      </div>
+      @endif
     </div>
+
+    @if($hasPaidCancelRequest)
+    <div style="border-top:1px solid var(--gray-100);padding:.95rem 1.25rem;background:#fff7ed">
+      <div style="display:flex;align-items:flex-start;gap:.75rem;flex-wrap:wrap">
+        <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#fed7aa;color:#c2410c;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+        </div>
+        <div style="flex:1;min-width:260px">
+          <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">REFUND REVIEW NEEDED</div>
+          <div style="font-size:.82rem;color:#92400e;line-height:1.5;font-weight:600">
+            Customer paid ₱{{ number_format((float)$refund->payment_amount_paid, 2) }}. Approve only after sending the GCash refund and uploading the receipt.
+          </div>
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-lg-7">
+          <form action="{{ route('seller.orders.accept_cancel', $o->id) }}" method="POST" enctype="multipart/form-data" data-prevent-double-submit>
+            @csrf
+            <label class="form-label small fw-bold">Refund receipt screenshot <span class="text-danger">*</span></label>
+            <input type="file" name="refund_receipt" class="form-control form-control-sm mb-2" accept="image/*" required>
+            <div class="row g-2">
+              <div class="col-md-5">
+                <input name="reference_number" class="form-control form-control-sm" placeholder="GCash ref no.">
+              </div>
+              <div class="col-md-7">
+                <input name="admin_note" class="form-control form-control-sm" placeholder="Note to customer" value="Cancellation approved and refund sent.">
+              </div>
+            </div>
+            <button class="btn btn-success btn-sm mt-2" type="submit"
+                    data-cs-confirm="Approve cancellation and mark refund as sent? Make sure the uploaded receipt is correct."
+                    data-cs-title="Approve Refund"
+                    data-cs-ok="Approve & Send Receipt"
+                    data-cs-icon="bi-cash-coin"
+                    data-cs-icon-bg="#dcfce7"
+                    data-cs-icon-color="#16a34a">
+              <i class="bi bi-check2-circle me-1"></i>Approve & Send Receipt
+            </button>
+          </form>
+        </div>
+        <div class="col-lg-5">
+          <form action="{{ route('seller.orders.reject_cancel', $o->id) }}" method="POST" data-prevent-double-submit>
+            @csrf
+            <label class="form-label small fw-bold">Reject reason</label>
+            <input name="admin_note" class="form-control form-control-sm mb-2" required placeholder="Reason shown to customer">
+            <button class="btn btn-outline-danger btn-sm" type="submit">
+              <i class="bi bi-x-circle me-1"></i>Reject Request
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    @endif
 
     {{-- Pickup Ready: Picked Up button or payment warning --}}
     @if($o->status === 'Pickup')
@@ -446,6 +519,23 @@
 </div>
 
 <script>
+function pgFilter(key, value) {
+  const url = new URL(window.location.href);
+  url.searchParams.set(key, value || 'All');
+  url.searchParams.set('page', '1');
+  window.location.href = url.toString();
+}
+
+function pgSearch(value) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('search', value || '');
+  url.searchParams.set('page', '1');
+  clearTimeout(window.__sellerOrderSearchTimer);
+  window.__sellerOrderSearchTimer = setTimeout(() => {
+    window.location.href = url.toString();
+  }, 450);
+}
+
 function showOrderDetail(id) {
   const src = document.getElementById('order-detail-' + id);
   document.getElementById('orderDetailBody').innerHTML = src ? src.innerHTML : '<p class="text-muted">No details found.</p>';

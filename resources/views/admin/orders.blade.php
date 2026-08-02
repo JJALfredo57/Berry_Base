@@ -65,6 +65,7 @@
     @forelse($orders as $o)
     @php
       $isCancelPending = $o->cancel_requested && $o->cancel_status === 'pending';
+      $refund = $orderRefunds[$o->id] ?? null;
       $customOrder = $customOrderData[$o->id] ?? null;
       $customRefs = [];
       if ($customOrder && !empty($customOrder->reference_images)) {
@@ -585,6 +586,16 @@
               @endif
             </div>
 
+            @if($refund)
+            <div class="p-3 rounded mb-3" style="background:#fff7ed;border-left:4px solid #f97316">
+              <div class="fw-semibold small mb-1"><i class="bi bi-cash-coin me-1"></i>Refund Details</div>
+              <div class="small"><strong>Amount:</strong> ₱{{ number_format((float)$refund->refund_amount, 2) }}</div>
+              <div class="small"><strong>GCash name:</strong> {{ $refund->refund_gcash_name }}</div>
+              <div class="small"><strong>GCash number:</strong> {{ $refund->refund_gcash_number }}</div>
+              <div class="small text-muted mt-1">Approve only after sending the refund and uploading the receipt.</div>
+            </div>
+            @endif
+
             {{-- Accept / Reject forms --}}
             <div class="row g-3">
               {{-- ACCEPT --}}
@@ -593,16 +604,26 @@
                   <div class="card-body p-3">
                     <h6 class="fw-bold text-success mb-2"><i class="bi bi-check-circle me-1"></i>Accept Cancel</h6>
                     <p class="small text-muted mb-2">Order will be marked as <strong>Cancelled</strong> and customer will be notified.</p>
-                    <form action="{{ route('admin.orders.accept_cancel', $o->id) }}" method="POST">
+                    <form action="{{ route('admin.orders.accept_cancel', $o->id) }}" method="POST" enctype="multipart/form-data">
                       @csrf
+                      @if($refund)
+                      <div class="mb-2">
+                        <label class="form-label small fw-semibold">Refund receipt <span class="text-danger">*</span></label>
+                        <input type="file" class="form-control form-control-sm" name="refund_receipt" accept="image/*" required>
+                      </div>
+                      <div class="mb-2">
+                        <input type="text" class="form-control form-control-sm" name="reference_number"
+                               placeholder="GCash reference no. (optional)">
+                      </div>
+                      @endif
                       <div class="mb-2">
                         <input type="text" class="form-control form-control-sm" name="admin_note"
                                placeholder="Note to customer (optional)"
-                               value="Your cancellation request has been approved.">
+                               value="{{ $refund ? 'Cancellation approved and refund sent.' : 'Your cancellation request has been approved.' }}">
                       </div>
                       <button type="submit" class="btn btn-success btn-sm w-100"
-                              onclick="confirmAction('Accept Cancel Request?', 'The order will be marked as Cancelled.', () => this.closest('form').submit()); return false;">
-                        <i class="bi bi-check-lg me-1"></i>Accept & Cancel Order
+                              onclick="confirmAction('Accept Cancel Request?', '{{ $refund ? 'The order will be cancelled and the refund receipt will be shown to the customer.' : 'The order will be marked as Cancelled.' }}', () => this.closest('form').submit()); return false;">
+                        <i class="bi bi-check-lg me-1"></i>{{ $refund ? 'Approve Refund & Cancel' : 'Accept & Cancel Order' }}
                       </button>
                     </form>
                   </div>
