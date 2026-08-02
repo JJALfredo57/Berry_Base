@@ -31,21 +31,6 @@
   $textSoft   = $adj($rawPrimary,  0.22);
   $chocRgb    = $toRgb($choc);
   $chocMidRgb = $toRgb($chocMid);
-
-  $sessionUser = session('user');
-  $continueRole = $sessionUser['role'] ?? null;
-  $continueName = trim((string) ($sessionUser['fullname'] ?? $sessionUser['username'] ?? ''));
-  $continueUrl = null;
-  if ($continueRole === 'seller') {
-      $continueUrl = route('seller.dashboard');
-  } elseif ($continueRole === 'superadmin') {
-      $continueUrl = route('superadmin.dashboard');
-  } elseif ($continueRole === 'admin') {
-      $continueUrl = route('admin.dashboard');
-  }
-  $continueText = $continueUrl
-      ? 'Continue as ' . ($continueName !== '' ? $continueName : ucfirst($continueRole))
-      : 'Browse Our Cakes';
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -828,7 +813,7 @@
       <span class="ms-fbadge"><i class="bi bi-phone"></i> Order Online</span>
     </div>
     <button class="ms-cta-btn" id="ms-enter-btn">
-      <span id="msBtnText">{{ $continueText }}</span>
+      Browse Our Cakes
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
@@ -892,7 +877,7 @@
 
     <div class="btn-row">
       <button class="btn-primary" id="openBtn" onclick="enterSystem()">
-        <span id="btnText">{{ $continueText }}</span>
+        <span id="btnText">Browse Our Cakes</span>
         <svg class="btn-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -958,62 +943,16 @@
   var AUTO_MS = 14000;
   var TRACK_KEY = 'berry_last_tracking_url';
   var BOOT_KEY = 'berry_tracking_boot_checked';
-  var CONTINUE_URL = @json($continueUrl);
-  var CONTINUE_TEXT = @json($continueText);
-  var CATALOG_URL = @json(route('catalog'));
 
   function isNativeApp() {
     return !!window.Capacitor?.isNativePlatform?.();
   }
 
-  function savedTrackingUrl() {
-    try { return localStorage.getItem(TRACK_KEY) || ''; } catch (e) { return ''; }
-  }
-
-  function activeDashboardUrl() {
-    if (CONTINUE_URL) return CONTINUE_URL;
-    try {
-      var role = localStorage.getItem('berry_active_role') || '';
-      var url = localStorage.getItem('berry_active_dashboard_url') || '';
-      if (['seller', 'admin', 'superadmin'].indexOf(role) !== -1 && url) return url;
-    } catch (e) {}
-    return '';
-  }
-
-  function preferredDestination() {
-    var dashboard = activeDashboardUrl();
-    if (dashboard) return dashboard;
-    var track = savedTrackingUrl();
-    if (track) return track;
-    return CATALOG_URL;
-  }
-
-  function updateContinueLabels() {
-    var dashboard = activeDashboardUrl();
-    var track = !dashboard ? savedTrackingUrl() : '';
-    var label = CONTINUE_TEXT;
-    if (dashboard && !CONTINUE_URL) {
-      var savedName = '';
-      var savedRole = '';
-      try {
-        savedName = localStorage.getItem('berry_active_name') || '';
-        savedRole = localStorage.getItem('berry_active_role') || '';
-      } catch (e) {}
-      label = 'Continue as ' + (savedName || (savedRole ? savedRole.charAt(0).toUpperCase() + savedRole.slice(1) : 'Account'));
-    } else if (!dashboard) {
-      label = track ? 'Continue Tracking Order' : 'Browse Our Cakes';
-    }
-    var desktop = document.getElementById('btnText');
-    var mobile = document.getElementById('msBtnText');
-    if (desktop) desktop.textContent = label;
-    if (mobile) mobile.textContent = label;
-  }
-
   if (isNativeApp() && !sessionStorage.getItem(BOOT_KEY)) {
     sessionStorage.setItem(BOOT_KEY, '1');
-    var destination = preferredDestination();
-    if (destination && destination !== CATALOG_URL) {
-      window.location.replace(destination);
+    var savedTrack = localStorage.getItem(TRACK_KEY);
+    if (savedTrack) {
+      window.location.replace(savedTrack);
       return;
     }
   }
@@ -1021,8 +960,8 @@
   var isMobile = window.innerWidth <= 700 ||
     (window.innerWidth <= 767 && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent));
 
-  function goToPreferredDestination() {
-    window.location.href = preferredDestination();
+  function goToCatalog() {
+    window.location.href = '{{ route("catalog") }}';
   }
 
   /* \u2500\u2500 Desktop \u2500\u2500 */
@@ -1031,9 +970,9 @@
     var txt = document.getElementById('btnText');
     if (btn.disabled) return;
     btn.disabled = true; btn.style.opacity = '0.72';
-    txt.textContent = 'Loading...';
+    txt.textContent = 'Loading\u2026';
     document.getElementById('splash').classList.add('exiting');
-    setTimeout(goToPreferredDestination, 820);
+    setTimeout(goToCatalog, 820);
   }
 
   /* \u2500\u2500 Mobile: go to catalog \u2500\u2500 */
@@ -1044,7 +983,7 @@
     var ms = document.getElementById('mobile-splash');
     ms.style.transition = 'opacity 0.45s ease';
     ms.style.opacity = '0';
-    setTimeout(goToPreferredDestination, 470);
+    setTimeout(goToCatalog, 470);
   }
 
   /* \u2500\u2500 Show mobile welcome page \u2500\u2500 */
@@ -1056,7 +995,6 @@
   }
 
   /* \u2500\u2500 Init \u2500\u2500 */
-  updateContinueLabels();
   if (isMobile) {
     var w = document.getElementById('mobile-warning');
     if (w) w.style.display = 'none';
