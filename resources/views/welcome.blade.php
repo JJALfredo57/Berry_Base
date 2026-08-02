@@ -43,7 +43,8 @@
   } elseif ($continueRole === 'admin') {
       $continueUrl = route('admin.dashboard');
   }
-  $continueText = in_array($continueRole, ['seller', 'admin', 'superadmin'], true)
+  $hasActiveAccount = in_array($continueRole, ['seller', 'admin', 'superadmin'], true);
+  $continueText = $hasActiveAccount
       ? 'Continue as ' . ($continueName !== '' ? $continueName : ucfirst($continueRole))
       : 'Browse Our Cakes';
 @endphp
@@ -959,7 +960,7 @@
   var TRACK_KEY = 'berry_last_tracking_url';
   var BOOT_KEY = 'berry_tracking_boot_checked';
   var CONTINUE_URL = @json($continueUrl);
-  var HAS_ACTIVE_ACCOUNT = @json(in_array($continueRole, ['seller', 'admin', 'superadmin'], true));
+  var HAS_ACTIVE_ACCOUNT = @json($hasActiveAccount);
   var SESSION_CONTINUE_URL = @json(route('session.continue'));
 
   function isNativeApp() {
