@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Services\SellerPayoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class PayoutController extends Controller
 {
@@ -21,6 +22,15 @@ class PayoutController extends Controller
     {
         $shop = $this->shop();
         if (!$shop) return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
+
+        if (Schema::hasTable('mobile_notifications')) {
+            DB::table('mobile_notifications')
+                ->where('role', 'seller')
+                ->where('user_id', (string) session('user')['id'])
+                ->where('is_read', false)
+                ->where('event_type', 'like', 'seller_payout%')
+                ->update(['is_read' => true, 'updated_at' => now()]);
+        }
 
         $payoutSettings = $this->payouts->settings();
         $summary = $this->payouts->summaryForShop($shop->id);
@@ -51,10 +61,11 @@ class PayoutController extends Controller
 
         $validated = $request->validate([
             'payout_account_name' => 'required|string|min:3|max:150',
-            'payout_account_number' => 'required|string|min:5|max:80',
+            'payout_account_number' => ['required', 'string', 'regex:/^(09\d{9}|\+639\d{9})$/'],
         ], [
             'payout_account_name.required' => 'Enter the GCash account name exactly as registered.',
             'payout_account_number.required' => 'Enter the GCash mobile number.',
+            'payout_account_number.regex' => 'Enter a valid GCash mobile number, like 09XXXXXXXXX or +639XXXXXXXXX.',
         ]);
 
         DB::table('shops')->where('id', $shop->id)->update([

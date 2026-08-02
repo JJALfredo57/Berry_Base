@@ -1195,6 +1195,23 @@
     <div class="sb-label">Finance</div>
     <a href="{{ route('superadmin.payouts') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.payouts') ? 'active' : '' }}">
       <i class="bi bi-wallet2"></i><span class="sb-link-text">Seller Payouts</span>
+      @php
+        try {
+          $payoutAttention = (int)\Illuminate\Support\Facades\DB::table('shops')
+            ->where('status', 'approved')
+            ->where(function($q) {
+              $q->whereNull('payout_method')
+                ->orWhere('payout_method', '')
+                ->orWhereNull('payout_account_name')
+                ->orWhere('payout_account_name', '')
+                ->orWhereNull('payout_account_number')
+                ->orWhere('payout_account_number', '')
+                ->orWhere('payout_details_verified', false);
+            })
+            ->count();
+        } catch(\Throwable $e) { $payoutAttention = 0; }
+      @endphp
+      @if($payoutAttention > 0)<span class="sb-badge warn">{{ $payoutAttention > 9 ? '9+' : $payoutAttention }}</span>@endif
     </a>
 
     <div class="sb-label">Customers</div>
@@ -1319,6 +1336,7 @@
     'orders' => 0,
     'kitchen' => 0,
     'messages' => 0,
+    'payouts' => 0,
     'custom_orders' => 0,
     'reviews' => 0,
     'feedback' => 0,
@@ -1360,6 +1378,7 @@
     </a>
     <a href="{{ route('seller.payouts') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.payouts') ? 'active' : '' }}">
       <i class="bi bi-wallet2"></i><span class="sb-link-text">Payouts</span>
+      <span class="sb-badge info" data-seller-badge="payouts" title="Unread payout notifications" style="{{ $sbCount('payouts') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('payouts')) }}</span>
     </a>
     <a href="{{ route('seller.messages') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.messages') ? 'active' : '' }}">
       <i class="bi bi-chat-dots"></i><span class="sb-link-text">Messages</span>
@@ -4259,6 +4278,82 @@ window.BERRY_PUSH_CONTEXT = {
 
 <script>
 // ── Lightbox state ────────────────────────────────────────────────────
+window.BerryBaseDownloads = window.BerryBaseDownloads || {
+  notify: function(message) {
+    if (window.bootstrap) {
+      var toastWrap = document.getElementById('berryDownloadToastWrap');
+      if (!toastWrap) {
+        toastWrap = document.createElement('div');
+        toastWrap.id = 'berryDownloadToastWrap';
+        toastWrap.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px';
+        document.body.appendChild(toastWrap);
+      }
+      var toast = document.createElement('div');
+      toast.className = 'toast align-items-center text-bg-dark border-0';
+      toast.role = 'status';
+      toast.ariaLive = 'polite';
+      toast.innerHTML = '<div class="d-flex"><div class="toast-body">' + message + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>';
+      toastWrap.appendChild(toast);
+      bootstrap.Toast.getOrCreateInstance(toast, { delay: 2200 }).show();
+      toast.addEventListener('hidden.bs.toast', function() { toast.remove(); });
+      return;
+    }
+    if (message) alert(message);
+  },
+  filenameFromUrl: function(url, fallback) {
+    try {
+      var path = new URL(url, window.location.href).pathname;
+      var name = decodeURIComponent(path.split('/').filter(Boolean).pop() || '');
+      return name || fallback || 'image-download.jpg';
+    } catch (e) {
+      return fallback || 'image-download.jpg';
+    }
+  },
+  download: async function(url, filename, button) {
+    if (!url) return;
+    var name = filename || this.filenameFromUrl(url, 'image-download.jpg');
+    var originalHtml = button ? button.innerHTML : null;
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Downloading...';
+    }
+
+    try {
+      var response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) throw new Error('Download failed');
+      var blob = await response.blob();
+      var objectUrl = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function() { URL.revokeObjectURL(objectUrl); }, 1000);
+      this.notify('Download started.');
+    } catch (e) {
+      var parsed = null;
+      try { parsed = new URL(url, window.location.href); } catch (ignore) {}
+      if (parsed && parsed.origin === window.location.origin) {
+        var fallback = document.createElement('a');
+        fallback.href = url;
+        fallback.download = name;
+        document.body.appendChild(fallback);
+        fallback.click();
+        fallback.remove();
+        this.notify('Download started.');
+      } else {
+        this.notify('Download could not start for this external image.');
+      }
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+      }
+    }
+  }
+};
+
 if (typeof lbImages === 'undefined') { var lbImages = []; }
 if (typeof lbIndex === 'undefined')  { var lbIndex  = 0; }
 if (typeof lbZoomLvl === 'undefined'){ var lbZoomLvl= 1; }
@@ -4307,6 +4402,8 @@ function lbRender() {
   next.disabled = lbIndex === lbImages.length - 1;
   ctr.textContent = lbImages.length > 1 ? (lbIndex + 1) + ' / ' + lbImages.length : '';
   dl.href = lbImages[lbIndex];
+  dl.dataset.downloadUrl = lbImages[lbIndex];
+  dl.dataset.downloadName = window.BerryBaseDownloads.filenameFromUrl(lbImages[lbIndex], 'berry-base-image.jpg');
   // Hide nav buttons if only 1 image
   prev.style.display = next.style.display = lbImages.length > 1 ? 'flex' : 'none';
 }
@@ -4324,6 +4421,11 @@ function lbZoomReset() {
   document.getElementById('lbImg').style.transform = 'scale(1)';
   document.getElementById('lbZoomLabel').textContent = '100%';
 }
+
+document.getElementById('lbDownload')?.addEventListener('click', function(e) {
+  e.preventDefault();
+  window.BerryBaseDownloads.download(this.dataset.downloadUrl || this.href, this.dataset.downloadName || 'berry-base-image.jpg', this);
+});
 
 // Keyboard nav
 document.addEventListener('keydown', e => {

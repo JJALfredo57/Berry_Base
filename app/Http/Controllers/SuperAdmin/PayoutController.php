@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Services\MobileNotificationService;
 use App\Services\SellerPayoutService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -12,7 +13,7 @@ class PayoutController extends Controller
 {
     use UploadsFiles;
 
-    public function __construct(private SellerPayoutService $payouts)
+    public function __construct(private SellerPayoutService $payouts, private MobileNotificationService $notifications)
     {
     }
 
@@ -144,7 +145,34 @@ class PayoutController extends Controller
             'updated_at' => now(),
         ]);
 
+        $this->notifySellerPayout($shop, 'Payout Details Verified', 'Your GCash payout details have been verified. You can now request eligible payouts.', [
+            'event' => 'seller_payout_details_verified',
+            'shop_id' => (string) $shop->id,
+        ]);
+
         return back()->with('msg', "{$shop->shop_name} payout details marked as verified.");
+    }
+
+    public function requestSellerDetails(Request $request, string $shopId)
+    {
+        $shop = DB::table('shops')->where('id', $shopId)->first();
+        if (!$shop) return back()->with('err', 'Seller shop not found.');
+
+        if (!empty($shop->payout_method) && !empty($shop->payout_account_name) && !empty($shop->payout_account_number)) {
+            return back()->with('msg', "{$shop->shop_name} already submitted payout details.");
+        }
+
+        $result = $this->notifySellerPayout($shop, 'Payout Details Needed', 'Please add your exact GCash account name and mobile number so your payout can be processed.', [
+            'event' => 'seller_payout_details_requested',
+            'shop_id' => (string) $shop->id,
+        ]);
+
+        $channel = $result['channel'] ?? 'none';
+        $message = $channel === 'push'
+            ? "Payout details request sent to {$shop->shop_name} by mobile push."
+            : "Payout details request saved for {$shop->shop_name}. It will show on the seller website payout badge.";
+
+        return back()->with('msg', $message);
     }
 
     public function createManual(Request $request, string $shopId)
@@ -153,6 +181,18 @@ class PayoutController extends Controller
         if (!$id) {
             return back()->with('err', 'No eligible payout was created. Check available balance, minimum amount, payout pause, or seller details.');
         }
+
+        $payout = DB::table('seller_payouts')->where('id', $id)->first();
+        if ($payout) {
+            $this->notifySellerPayout($payout, 'Payout Request Created', 'A payout request for PHP '.number_format((float) $payout->net_amount, 2).' was created and is waiting for transfer.', [
+                'event' => 'seller_payout_created',
+                'payout_id' => (string) $payout->id,
+                'shop_id' => (string) $payout->shop_id,
+                'amount' => number_format((float) $payout->net_amount, 2, '.', ''),
+                'status' => (string) $payout->status,
+            ]);
+        }
+
         return back()->with('msg', "Manual payout request #{$id} created for review/payment.");
     }
 
@@ -196,11 +236,41 @@ class PayoutController extends Controller
             ]);
         });
 
+        $this->notifySellerPayout($payout, 'Payout Paid', 'Your payout #'.$payoutId.' for PHP '.number_format((float) $payout->net_amount, 2).' has been marked as paid.', [
+            'event' => 'seller_payout_paid',
+            'payout_id' => (string) $payoutId,
+            'shop_id' => (string) $payout->shop_id,
+            'amount' => number_format((float) $payout->net_amount, 2, '.', ''),
+            'status' => 'paid',
+        ]);
+
         return back()->with('msg', "Payout #{$payoutId} marked as paid.");
     }
 
     public function runAutomatic()
     {
         return back()->with('err', 'Automatic payouts are not available yet. Manual payouts remain active while business verification and payout provider access are being prepared.');
+    }
+
+    private function notifySellerPayout(object $source, string $title, string $message, array $data): array
+    {
+        $sellerId = $source->seller_id ?? null;
+        if (!$sellerId && !empty($source->shop_id)) {
+            $sellerId = DB::table('shops')->where('id', $source->shop_id)->value('seller_id');
+        }
+
+        $phone = $sellerId ? DB::table('users')->where('id', $sellerId)->value('phone') : null;
+        $url = route('seller.payouts', [], false);
+
+        return $this->notifications->notifyUser(
+            'seller',
+            $sellerId ? (string) $sellerId : null,
+            $phone,
+            $title,
+            $message,
+            $data + ['url' => $url],
+            null,
+            $url
+        );
     }
 }

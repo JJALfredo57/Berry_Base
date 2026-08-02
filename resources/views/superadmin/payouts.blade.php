@@ -125,9 +125,10 @@
               @php
                 $minimumPayout = (float)($payoutSettings->payout_minimum_amount ?? 0);
                 $payoutBlockReason = null;
+                $missingPayoutDetails = empty($shop->payout_method) || empty($shop->payout_account_name) || empty($shop->payout_account_number);
                 if (!empty($shop->payout_paused)) {
                   $payoutBlockReason = 'Payout is paused for this seller. Enable payouts for this shop first.';
-                } elseif (empty($shop->payout_method) || empty($shop->payout_account_name) || empty($shop->payout_account_number)) {
+                } elseif ($missingPayoutDetails) {
                   $payoutBlockReason = 'Seller GCash payout details are incomplete. Ask the seller to add GCash details first.';
                 } elseif (empty($shop->payout_details_verified)) {
                   $payoutBlockReason = 'Seller payout details need admin verification before creating a payout.';
@@ -167,13 +168,21 @@
                 <td class="text-end">₱{{ number_format($shop->processing_balance, 2) }}</td>
                 <td class="text-end">
                   <div class="d-flex gap-2 justify-content-end flex-wrap">
-                    @if($shop->payout_method && !$shop->payout_details_verified)
+                    @if($missingPayoutDetails)
+                      <form action="{{ route('superadmin.payouts.request_seller_details', $shop->id) }}" method="POST" data-prevent-double-submit>
+                        @csrf
+                        <button class="btn btn-outline-primary btn-sm" type="submit" data-loading-text="Sending...">
+                          <i class="bi bi-bell me-1"></i>Request Details
+                        </button>
+                      </form>
+                    @elseif($shop->payout_method && !$shop->payout_details_verified)
                       <form action="{{ route('superadmin.payouts.verify_seller', $shop->id) }}" method="POST" data-prevent-double-submit>
                         @csrf
-                        <button class="btn btn-outline-success btn-sm" type="submit">Verify</button>
+                        <button class="btn btn-outline-success btn-sm" type="submit">
+                          <i class="bi bi-check2-circle me-1"></i>Verify
+                        </button>
                       </form>
-                    @endif
-                    @if($payoutBlockReason)
+                    @elseif($payoutBlockReason)
                       <button class="btn btn-outline-secondary btn-sm" type="button" onclick="alert(@js($payoutBlockReason))">
                         Create Payout
                       </button>
@@ -281,9 +290,9 @@
         <img id="payoutReceiptViewerImage" src="" alt="Payout receipt" style="max-width:100%;max-height:75vh;object-fit:contain;border-radius:8px">
       </div>
       <div class="modal-footer">
-        <a href="#" class="btn btn-outline-primary btn-sm" id="payoutReceiptViewerDownload" download>
+        <button type="button" class="btn btn-outline-primary btn-sm" id="payoutReceiptViewerDownload">
           <i class="bi bi-download me-1"></i>Download
-        </a>
+        </button>
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
@@ -369,13 +378,30 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!url) return;
       document.getElementById('payoutReceiptViewerTitle').textContent = button.dataset.receiptTitle || 'Payout Receipt';
       document.getElementById('payoutReceiptViewerImage').src = url;
-      document.getElementById('payoutReceiptViewerDownload').href = url;
+      const downloadButton = document.getElementById('payoutReceiptViewerDownload');
+      downloadButton.dataset.downloadUrl = url;
+      downloadButton.dataset.downloadName = 'payout-receipt-' + (button.dataset.receiptTitle || 'receipt').replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '') + '.jpg';
       if (window.bootstrap) {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('payoutReceiptViewerModal')).show();
       } else {
         window.open(url, '_blank', 'noopener');
       }
     });
+  });
+
+  document.getElementById('payoutReceiptViewerDownload')?.addEventListener('click', function() {
+    const url = this.dataset.downloadUrl;
+    if (!url) return;
+    if (window.BerryBaseDownloads && typeof window.BerryBaseDownloads.download === 'function') {
+      window.BerryBaseDownloads.download(url, this.dataset.downloadName || 'payout-receipt.jpg', this);
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = this.dataset.downloadName || 'payout-receipt.jpg';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   });
 });
 </script>

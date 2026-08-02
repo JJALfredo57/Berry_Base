@@ -145,7 +145,7 @@
                     @include('shared.customer_risk_badge', ['risk' => $customerRiskMap[$o->id] ?? null])
                   @else <span class="text-muted fst-italic">no phone</span> @endif
                 </div>
-                @if($o->phone && !empty($customerRiskMap[$o->id]) && (($customerRiskMap[$o->id]['level'] ?? 'low') !== 'low'))
+                @if($o->phone && !empty($customerRiskMap[$o->id]))
                 <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
                   @if(!empty($customerRiskMap[$o->id]['reasons']))
                     <span class="small" style="color:#92400e">{{ implode(' | ', array_slice($customerRiskMap[$o->id]['reasons'], 0, 2)) }}</span>

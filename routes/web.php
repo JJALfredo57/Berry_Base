@@ -435,6 +435,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/payouts/settings',           [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'saveSettings'])->name('payouts.settings');
     Route::post('/payouts/run-automatic',      [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'runAutomatic'])->name('payouts.run_automatic');
     Route::post('/payouts/seller/{id}/verify', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'verifySeller'])->name('payouts.verify_seller');
+    Route::post('/payouts/seller/{id}/request-details', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'requestSellerDetails'])->name('payouts.request_seller_details');
     Route::post('/payouts/seller/{id}/create', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'createManual'])->name('payouts.create_manual');
     Route::post('/payouts/{id}/paid',          [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markPaid'])->name('payouts.mark_paid');
     Route::get('/feedback',                    [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'index'])->name('feedback');

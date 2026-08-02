@@ -19,6 +19,7 @@ class ViewServiceProvider extends ServiceProvider
                 'orders' => 0,
                 'kitchen' => 0,
                 'messages' => 0,
+                'payouts' => 0,
                 'custom_orders' => 0,
                 'reviews' => 0,
                 'feedback' => 0,
@@ -99,10 +100,20 @@ class ViewServiceProvider extends ServiceProvider
                                 $feedback = (int) $feedbackQuery->count();
                             }
 
+                            $payouts = Schema::hasTable('mobile_notifications')
+                                ? (int) DB::table('mobile_notifications')
+                                    ->where('role', 'seller')
+                                    ->where('user_id', (string) $user['id'])
+                                    ->where('is_read', false)
+                                    ->where('event_type', 'like', 'seller_payout%')
+                                    ->count()
+                                : 0;
+
                             $sellerSidebarCounts = [
                                 'orders' => $pendingOrders + $pickupReady,
                                 'kitchen' => $kitchenPending + $kitchenPreparing,
                                 'messages' => $messages,
+                                'payouts' => $payouts,
                                 'custom_orders' => $customOrders,
                                 'reviews' => $reviews,
                                 'feedback' => $feedback,

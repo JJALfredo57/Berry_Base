@@ -134,7 +134,7 @@
           </span>
           <div class="form-text">Changing details resets verification for your safety.</div>
         </div>
-        <form action="{{ route('seller.payouts.details') }}" method="POST" data-prevent-double-submit>
+        <form action="{{ route('seller.payouts.details') }}" method="POST" data-prevent-double-submit onsubmit="return confirm('Please double-check your GCash details before saving. The account name must match the registered GCash name, and the mobile number must be correct. Wrong details can delay or misdirect payout transfer, so confirm only if everything is accurate.')">
           @csrf
           <div class="mb-3">
             <label class="form-label">Receive via</label>
@@ -147,7 +147,8 @@
           </div>
           <div class="mb-3">
             <label class="form-label">GCash Mobile Number</label>
-            <input class="form-control" name="payout_account_number" value="{{ $shop->payout_account_number }}" placeholder="09XXXXXXXXX" required>
+            <input class="form-control" name="payout_account_number" value="{{ $shop->payout_account_number }}" placeholder="09XXXXXXXXX" pattern="^(09[0-9]{9}|\+639[0-9]{9})$" inputmode="tel" required>
+            <div class="form-text">Use 09XXXXXXXXX or +639XXXXXXXXX. Check every digit before saving.</div>
           </div>
           <button class="btn btn-primary w-100" type="submit" data-loading-text="Saving..."><i class="bi bi-save me-1"></i>Save Details</button>
         </form>
@@ -225,9 +226,9 @@
         <img id="payoutReceiptViewerImage" src="" alt="Payout receipt" style="max-width:100%;max-height:75vh;object-fit:contain;border-radius:8px">
       </div>
       <div class="modal-footer">
-        <a href="#" class="btn btn-outline-primary btn-sm" id="payoutReceiptViewerDownload" download>
+        <button type="button" class="btn btn-outline-primary btn-sm" id="payoutReceiptViewerDownload">
           <i class="bi bi-download me-1"></i>Download
-        </a>
+        </button>
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
@@ -282,13 +283,30 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!url) return;
       document.getElementById('payoutReceiptViewerTitle').textContent = button.dataset.receiptTitle || 'Payout Receipt';
       document.getElementById('payoutReceiptViewerImage').src = url;
-      document.getElementById('payoutReceiptViewerDownload').href = url;
+      const downloadButton = document.getElementById('payoutReceiptViewerDownload');
+      downloadButton.dataset.downloadUrl = url;
+      downloadButton.dataset.downloadName = 'payout-receipt-' + (button.dataset.receiptTitle || 'receipt').replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '') + '.jpg';
       if (window.bootstrap) {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('payoutReceiptViewerModal')).show();
       } else {
         window.open(url, '_blank', 'noopener');
       }
     });
+  });
+
+  document.getElementById('payoutReceiptViewerDownload')?.addEventListener('click', function() {
+    const url = this.dataset.downloadUrl;
+    if (!url) return;
+    if (window.BerryBaseDownloads && typeof window.BerryBaseDownloads.download === 'function') {
+      window.BerryBaseDownloads.download(url, this.dataset.downloadName || 'payout-receipt.jpg', this);
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = this.dataset.downloadName || 'payout-receipt.jpg';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   });
 });
 </script>
