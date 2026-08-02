@@ -298,7 +298,7 @@ return new class extends Migration {
                 $t->enum('sender_role', ['admin','customer','guest','seller']);
                 $t->string('sender_id', 12)->nullable();
                 $t->text('message')->nullable();
-                $t->string('image_path')->nullable();
+                $t->text('image_path')->nullable();
                 $t->boolean('is_read')->default(false);
                 $t->timestamp('created_at')->nullable();
             });

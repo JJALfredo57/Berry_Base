@@ -12,12 +12,26 @@ use Illuminate\Support\Facades\Log;
 class MessageController extends Controller
 {
     use UploadsFiles;
+
     private function getShop(): object
     {
         $uid  = session('user')['id'];
         $shop = DB::table('shops')->where('seller_id', $uid)->where('status', 'approved')->first();
         if (!$shop) abort(403, 'Shop not found or not approved.');
         return $shop;
+    }
+
+    private function findShopOrder(object $shop, string $orderRef): ?object
+    {
+        $ref = trim($orderRef);
+
+        return DB::table('orders')
+            ->where('shop_id', $shop->id)
+            ->where(function ($query) use ($ref) {
+                $query->where('id', $ref)
+                    ->orWhereRaw('LOWER(track_code) = ?', [strtolower($ref)]);
+            })
+            ->first();
     }
 
     public function index()
@@ -41,10 +55,13 @@ class MessageController extends Controller
     public function thread(string $orderId)
     {
         $shop  = $this->getShop();
+        $baseOrder = $this->findShopOrder($shop, $orderId);
+        if (!$baseOrder) return redirect()->route('seller.messages');
+
         $order = DB::table('orders as o')
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
-            ->where('o.id', $orderId)
+            ->where('o.id', $baseOrder->id)
             ->where('o.shop_id', $shop->id)
             ->select('o.*', 'p.name as product_name', 'p.image_path as product_image_path',
                 DB::raw("COALESCE(o.guest_name, o.fullname, u.fullname, 'Customer') as fullname"),
@@ -53,6 +70,7 @@ class MessageController extends Controller
             ->first();
 
         if (!$order) return redirect()->route('seller.messages');
+        $orderId = $order->id;
 
         $orderAddons = DB::table('order_addons')
             ->where('order_id', $orderId)
@@ -77,8 +95,9 @@ class MessageController extends Controller
     {
         try {
             $shop    = $this->getShop();
-            $order   = DB::table('orders')->where('id', $orderId)->where('shop_id', $shop->id)->first();
+            $order   = $this->findShopOrder($shop, $orderId);
             if (!$order) return response()->json(['ok'=>false,'error'=>'Order not found.'], 404);
+            $orderId = $order->id;
 
             $text  = trim($request->input('message', ''));
             $files = $request->file('images') ?? [];
@@ -96,7 +115,7 @@ class MessageController extends Controller
             if (!$text && !$imgPath) return response()->json(['ok' => false, 'error' => 'Cannot send empty message.'], 422);
 
             $msgId = DB::table('messages')->insertGetId([
-                'order_id'    => $orderId,
+                'order_id'    => $order->id,
                 'sender_role' => 'seller',
                 'sender_id'   => session('user')['id'],
                 'message'     => $text ?: null,
@@ -149,8 +168,10 @@ class MessageController extends Controller
     public function markOrderRead(Request $request, string $orderId)
     {
         $shop = $this->getShop();
+        $order = $this->findShopOrder($shop, $orderId);
+        if (!$order) return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
         DB::table('messages')
-            ->where('order_id', $orderId)
+            ->where('order_id', $order->id)
             ->where('sender_role', 'customer')
             ->where('is_read', false)
             ->update(['is_read' => true]);
@@ -160,9 +181,12 @@ class MessageController extends Controller
     public function threadOrderData(string $orderId)
     {
         $shop  = $this->getShop();
+        $baseOrder = $this->findShopOrder($shop, $orderId);
+        if (!$baseOrder) return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+
         $order = DB::table('orders as o')
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
-            ->where('o.id', $orderId)
+            ->where('o.id', $baseOrder->id)
             ->where('o.shop_id', $shop->id)
             ->select(
                 'o.id',
@@ -227,8 +251,9 @@ class MessageController extends Controller
     {
         $shop    = $this->getShop();
         $orderId = $request->input('order_id');
-        $order   = DB::table('orders')->where('id',$orderId)->where('shop_id',$shop->id)->first();
+        $order   = $this->findShopOrder($shop, (string) $orderId);
         if (!$order) return response()->json(['ok'=>false,'error'=>'Order not found.']);
+        $orderId = $order->id;
 
         $text  = trim($request->input('message',''));
         $files = $request->file('images') ?? [];
@@ -249,7 +274,7 @@ class MessageController extends Controller
         if (!$text && !$imgPath) return response()->json(['ok'=>false,'error'=>'Message cannot be empty.'], 422);
 
         $id = DB::table('messages')->insertGetId([
-            'order_id'    => $orderId,
+            'order_id'    => $order->id,
             'sender_role' => 'seller',
             'sender_id'   => session('user')['id'],
             'message'     => $text ?: null,
