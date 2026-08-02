@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -216,6 +217,11 @@ class CheckoutController extends Controller
         $sizePrice = CakeshopHelper::resolveProductUnitPrice($product->id, (float) $product->price, $selectedSize);
         $discount = CakeshopHelper::getActiveProductDiscount($product->id);
         $pricing = CakeshopHelper::calculateDiscountSnapshot($sizePrice, $discount);
+
+        $capacity = app(DailyCapacityService::class)->validate($product->shop_id ?? null, $sdate, $qty);
+        if (!$capacity['allowed']) {
+            return back()->with('error', $capacity['message']);
+        }
 
         // ── Daily capacity check ──────────────────────────────
         if ($sdate) {

@@ -1144,7 +1144,10 @@ function checkCoGuestAvailability() {
     .then(r => r.json())
     .then(data => {
       coGuestAvailabilityPending = false;
-      if (data.status === 'invalid') {
+      if (data.status === 'capacity_not_configured') {
+        coGuestAvailabilityIssue = data.message || 'This shop has not set its daily capacity yet.';
+        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + coGuestAvailabilityIssue + '</span>';
+      } else if (data.status === 'invalid') {
         coGuestAvailabilityIssue = data.message || 'Selected date is not available.';
         el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + (data.message || 'Date not available.') + '</span>';
       } else if (data.status === 'full') {

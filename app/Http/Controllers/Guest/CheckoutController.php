@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
+use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -305,39 +306,9 @@ class CheckoutController extends Controller
         $discount = CakeshopHelper::getActiveProductDiscount($product->id);
         $pricing = CakeshopHelper::calculateDiscountSnapshot($sizePrice, $discount);
 
-        // ── SHOP-WIDE DAILY CAPACITY CHECK ───────────────────────────────────
-        if ($sdate) {
-            $shopId   = $product->shop_id ?? null;
-            $settings = $shopId ? DB::table('site_settings')->where('shop_id', $shopId)->first() : null;
-            if (!$settings) $settings = DB::table('site_settings')->whereNull('shop_id')->first() ?? DB::table('site_settings')->first();
-            $dailyMax = (int)($settings->daily_max_cakes ?? 0);
-            if ($dailyMax > 0) {
-                $today    = date('Y-m-d');
-                $leadDays = (int)ceil((strtotime($sdate) - strtotime($today)) / 86400);
-                $effectiveMax = $dailyMax;
-                if ($leadDays === 1 && ($settings->lead_1day_max ?? 0) > 0) $effectiveMax = (int)$settings->lead_1day_max;
-                elseif ($leadDays === 2 && ($settings->lead_2day_max ?? 0) > 0) $effectiveMax = (int)$settings->lead_2day_max;
-                elseif ($leadDays >= 3 && ($settings->lead_3day_plus_max ?? 0) > 0) $effectiveMax = (int)$settings->lead_3day_plus_max;
-                $ordersQuery = DB::table('orders')
-                    ->where('schedule_date', $sdate)
-                    ->whereNotIn('status', ['Cancelled']);
-                if ($shopId) $ordersQuery->where('shop_id', $shopId);
-                $totalOrdered = (int) $ordersQuery->sum('quantity');
-                try {
-                    $customQuery = DB::table('custom_orders')
-                        ->where('schedule_date', $sdate)
-                        ->whereNotIn('status', ['Rejected','Cancelled']);
-                    if ($shopId) $customQuery->where('shop_id', $shopId);
-                    $totalOrdered += (int) $customQuery->sum('quantity');
-                } catch (\Exception $e) {}
-                if (($totalOrdered + $qty) > $effectiveMax) {
-                    $remaining = max(0, $effectiveMax - $totalOrdered);
-                    $msg = $remaining === 0
-                        ? "Sorry, {$sdate} is fully booked ({$effectiveMax} pcs max). Please choose another date."
-                        : "Only {$remaining} pcs available on {$sdate}. Please reduce your quantity or choose another date.";
-                    return back()->with('error', $msg)->withInput();
-                }
-            }
+        $capacity = app(DailyCapacityService::class)->validate($product->shop_id ?? null, $sdate, $qty);
+        if (!$capacity['allowed']) {
+            return back()->with('error', $capacity['message'])->withInput();
         }
 
         $addonTotal  = 0;

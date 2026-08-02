@@ -352,7 +352,9 @@ function checkCustAvailability() {
   fetch(`/catalog/availability?product_id=${productId}&date=${date}`)
     .then(r => r.json())
     .then(data => {
-      if (data.remaining !== null && orderQty > data.remaining) {
+      if (data.status === 'capacity_not_configured') {
+        resultEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>${data.message}</span>`;
+      } else if (data.remaining !== null && orderQty > data.remaining) {
         resultEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Only ${data.remaining} pcs available on this date. Your order quantity is ${orderQty} pcs.</span>`;
       } else if (data.status === 'available')
         resultEl.innerHTML = `<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>${data.message}</span>`;

@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\DailyCapacityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -247,6 +248,8 @@ class CatalogController extends Controller
             $prod   = DB::table('products')->where('id', $request->input('product_id'))->value('shop_id');
             $shopId = $prod ?: null;
         }
+
+        return response()->json(app(DailyCapacityService::class)->snapshot($shopId ?: null, $date));
 
         // Get shop-specific settings first, then global
         $settings = null;

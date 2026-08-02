@@ -917,7 +917,9 @@ function checkCustCoAvailability() {
   fetch(url)
     .then(r => r.json())
     .then(data => {
-      if (data.status === 'invalid') {
+      if (data.status === 'capacity_not_configured') {
+        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + (data.message || 'This shop has not set its daily capacity yet.') + '</span>';
+      } else if (data.status === 'invalid') {
         el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + (data.message || 'Date not available.') + '</span>';
       } else if (data.status === 'full') {
         el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + data.message + ' — please choose another date.</span>';

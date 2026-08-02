@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
+use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
 use App\Services\OrderRefundService;
 use App\Support\BecCastilloAddons;
@@ -292,8 +293,17 @@ class CustomOrderController extends Controller
         $sdate         = $request->input('schedule_date') ?: null;
         $payment       = $request->input('payment_method','COD');
 
+        if (!$sdate) {
+            return back()->with('error', 'Please select your preferred date.')->withInput();
+        }
+
         if ($sdate && $sdate <= date('Y-m-d'))
             return back()->with('error', 'Preferred date must be at least tomorrow. Custom cakes require preparation time — same-day orders are not accepted.')->withInput();
+
+        $capacity = app(DailyCapacityService::class)->validate($shopId, $sdate, $qty);
+        if (!$capacity['allowed']) {
+            return back()->with('error', $capacity['message'])->withInput();
+        }
 
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null))
             return back()->with('error','Please pin your location.')->withInput();

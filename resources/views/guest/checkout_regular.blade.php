@@ -439,7 +439,10 @@ function checkCheckoutAvailability() {
     .then(r => r.json())
     .then(data => {
       checkoutAvailabilityPending = false;
-      if (data.remaining !== null && orderQty > data.remaining) {
+      if (data.status === 'capacity_not_configured') {
+        checkoutAvailabilityIssue = data.message || 'This shop has not set its daily capacity yet.';
+        resultEl.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + checkoutAvailabilityIssue + '</span>';
+      } else if (data.remaining !== null && orderQty > data.remaining) {
         checkoutAvailabilityIssue = 'Only ' + data.remaining + ' pcs are available on this date, but your order quantity is ' + orderQty + ' pcs.';
         resultEl.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Only ' + data.remaining + ' pcs available on this date. Your order quantity is ' + orderQty + ' pcs.</span>';
       } else if (data.status === 'available') {
