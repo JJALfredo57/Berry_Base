@@ -288,6 +288,8 @@
     $cancelApproved = ($order->cancel_status ?? '') === 'accepted';
     $cancelRejected = ($order->cancel_status ?? '') === 'rejected';
     $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Awaiting Deposit', 'Confirmed', 'Preparing']) && !$cancelApproved;
+    $canPayOrder = !in_array($order->status, ['Cancelled', 'Delivered', 'Picked Up'], true)
+      && !in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true);
     $statusColors = [
       'Awaiting Deposit' => ['bg'=>'#fff7ed','color'=>'#9a3412','icon'=>'bi-credit-card-fill'],
       'Pending'          => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split'],
@@ -596,7 +598,7 @@
         @endif
 
         {{-- ─── GCash Deposit Card — one-click payment ──────────────── --}}
-        @if($order->payment_method === 'GCash' && $order->payment_status === 'Unpaid' && in_array($order->status, ['Pending','Pending Review']) && $order->deposit_status !== 'paid' && !$customOrder)
+        @if($canPayOrder && $order->payment_method === 'GCash' && $order->payment_status === 'Unpaid' && in_array($order->status, ['Pending','Pending Review']) && $order->deposit_status !== 'paid' && !$customOrder)
         @php $minDeposit = max(100, round($order->total_price * 0.5, 2)); @endphp
         <div class="col-12 mt-3">
           <div style="border-radius:1rem;overflow:hidden;border:1.5px solid #d1fae5">
@@ -680,7 +682,7 @@
         </div>
 
         {{-- Already initiated → resume payment (editable amount) --}}
-        @elseif($order->deposit_required && $order->deposit_status === 'pending')
+        @elseif($canPayOrder && $order->deposit_required && $order->deposit_status === 'pending')
         @php $pendingMin = max(100, round((float)$order->total_price * 0.5, 2)); @endphp
         <div class="col-12 mt-3">
           <div style="border-radius:1rem;overflow:hidden;border:1.5px solid #fed7aa">
@@ -926,7 +928,8 @@
         </div>
       @endif
       {{-- ── CUSTOM ORDER DEPOSIT — one-click payment card ─────────── --}}
-      @if($customOrder->review_status === 'approved'
+      @if($canPayOrder
+          && $customOrder->review_status === 'approved'
           && $customOrder->admin_price > 0
           && $customOrder->price_confirmed === 'accepted'
           && $order->payment_status === 'Unpaid'
@@ -1049,7 +1052,8 @@
       @endif
 
       {{-- Price acceptance buttons (only if admin set price but customer hasn't responded yet) --}}
-      @if($customOrder->review_status === 'approved'
+      @if($canPayOrder
+          && $customOrder->review_status === 'approved'
           && $customOrder->admin_price > 0
           && $customOrder->price_confirmed === 'pending')
       @php $acceptTotal = (float)$customOrder->admin_price; $acceptMin = max(100, round($acceptTotal * 0.5, 2)); @endphp

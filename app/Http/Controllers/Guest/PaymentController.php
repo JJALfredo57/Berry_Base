@@ -138,6 +138,10 @@ class PaymentController extends Controller
         $order = DB::table('orders')->where('track_code', strtoupper($trackCode))->first();
         if (!$order) return back()->with('error', 'Order not found.');
 
+        if (($order->status ?? '') === 'Cancelled' || in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true)) {
+            return back()->with('error', 'Payment is no longer available because this order has been cancelled or has a pending cancellation request.');
+        }
+
         if (!in_array($order->status, ['Pending', 'Pending Review', 'Awaiting Deposit']))
             return back()->with('error', 'This order cannot be modified at this stage.');
 
@@ -209,6 +213,10 @@ class PaymentController extends Controller
             ->first();
 
         if (!$order) abort(404);
+        if (($order->status ?? '') === 'Cancelled' || in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true)) {
+            return redirect()->route('track.order', $trackCode)
+                ->with('error', 'Payment is no longer available because this order has been cancelled or has a pending cancellation request.');
+        }
         if (!$order->deposit_required)
             return redirect()->route('track.order', $trackCode)->with('error', 'No deposit required for this order.');
         if ($order->deposit_status === 'paid')
@@ -1005,6 +1013,11 @@ class PaymentController extends Controller
 
         $order = DB::table('orders')->where('id', $co->order_id)->first();
         if (!$order) abort(404);
+
+        if (($order->status ?? '') === 'Cancelled' || in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true)) {
+            return redirect()->route('customer.orders')
+                ->with('err', 'Payment is no longer available because this order has been cancelled or has a pending cancellation request.');
+        }
 
         if ($order->deposit_status === 'paid')
             return redirect()->route('customer.orders')->with('msg', 'Deposit already paid!');
