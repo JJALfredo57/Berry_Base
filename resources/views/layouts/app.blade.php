@@ -1432,7 +1432,7 @@
       <i class="bi bi-chat-square-heart"></i><span class="sb-link-text">Platform Feedback</span>
       <span class="sb-badge info" data-seller-badge="feedback" title="Open platform feedback" style="{{ $sbCount('feedback') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('feedback')) }}</span>
     </a>
-    <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="sb-link" style="margin-top:4px;background:none;border:none;width:100%;text-align:left;padding:0;cursor:pointer">
+    <form method="POST" action="{{ route('logout') }}" style="margin:0" data-seller-logout-form="1">@csrf<button type="submit" class="sb-link" style="margin-top:4px;background:none;border:none;width:100%;text-align:left;padding:0;cursor:pointer">
       <i class="bi bi-box-arrow-right" style="color:#ef4444"></i>
       <span class="sb-link-text" style="color:#ef4444">Logout</span>
     </button></form>
@@ -4124,6 +4124,46 @@ window.BERRY_PUSH_CONTEXT = {
     } catch (e) {}
   }
 
+  function clearSellerMobileLogoutState() {
+    try {
+      [
+        'berry_push_device_token',
+        'berry_push_register_error',
+        'berry_push_registered_role',
+        'berry_push_registered_at',
+        'berry_push_last_setup_at',
+        'berry_push_last_token_seen_at',
+        'berry_push_register_attempt_at',
+        'berry_push_register_status',
+        'berry_push_setup_error'
+      ].forEach(function (key) { localStorage.removeItem(key); });
+      Object.keys(localStorage).forEach(function (key) {
+        if (/seller|dashboard|auth/i.test(key)) localStorage.removeItem(key);
+      });
+      Object.keys(sessionStorage).forEach(function (key) {
+        if (/seller|dashboard|auth/i.test(key)) sessionStorage.removeItem(key);
+      });
+      sessionStorage.setItem('berry_seller_logged_out', '1');
+    } catch (e) {}
+  }
+
+  function prepareSellerMobileLogout(form) {
+    if (!form || form.dataset.sellerLogoutPrepared === '1') return;
+    form.dataset.sellerLogoutPrepared = '1';
+    unregisterSavedDeviceToken();
+    clearSellerMobileLogoutState();
+    if (!form.querySelector('[name="mobile_app"]')) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'mobile_app';
+      input.value = isNativeApp() ? '1' : '0';
+      form.appendChild(input);
+    }
+    if (isNativeApp()) {
+      try { window.history.replaceState({ loggedOut: true }, '', @json(route('login'))); } catch (e) {}
+    }
+  }
+
   async function registerBerryPush() {
     savePushDebug('berry_push_last_setup_at', new Date().toISOString());
     if (!window.BERRY_PUSH_CONTEXT.pushEnabled) {
@@ -4191,12 +4231,18 @@ window.BERRY_PUSH_CONTEXT = {
       registerBerryPush();
       document.querySelectorAll('form[action="{{ route('logout') }}"]').forEach(function (form) {
         form.addEventListener('submit', unregisterSavedDeviceToken);
+        if (form.dataset.sellerLogoutForm === '1') {
+          form.addEventListener('submit', function () { prepareSellerMobileLogout(form); }, true);
+        }
       });
     });
   } else {
     registerBerryPush();
     document.querySelectorAll('form[action="{{ route('logout') }}"]').forEach(function (form) {
       form.addEventListener('submit', unregisterSavedDeviceToken);
+      if (form.dataset.sellerLogoutForm === '1') {
+        form.addEventListener('submit', function () { prepareSellerMobileLogout(form); }, true);
+      }
     });
   }
 })();

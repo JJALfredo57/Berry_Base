@@ -169,7 +169,7 @@ document.body.classList.add('seller-login-page');
         </div>
       @endif
 
-      <form action="{{ route('login.post') }}" method="POST" novalidate>
+      <form action="{{ route('login.post') }}" method="POST" novalidate onsubmit="try{sessionStorage.removeItem('berry_seller_logged_out')}catch(e){}">
         @csrf
 
         <div class="mb-3">
@@ -218,6 +218,16 @@ document.body.classList.add('seller-login-page');
 
 <script>
 document.body.classList.add('seller-login-page');
+try {
+  if (sessionStorage.getItem('berry_seller_logged_out') === '1') {
+    window.history.replaceState({ sellerLoggedOut: true }, '', @json(route('login')));
+  }
+  window.addEventListener('pageshow', function(event) {
+    if (event.persisted && sessionStorage.getItem('berry_seller_logged_out') === '1') {
+      window.location.replace(@json(route('login')));
+    }
+  });
+} catch (e) {}
 function csTogglePwd(id, btn) {
   const input = document.getElementById(id);
   const icon  = btn.querySelector('i');

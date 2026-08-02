@@ -138,12 +138,19 @@ class LoginController extends Controller
             CakeshopHelper::logActivity($user['id'], $user['role'], 'Logout', 'Logged out');
         }
         $role = $user['role'] ?? '';
-        $request->session()->flush();
-        $request->session()->regenerate();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
-        if (in_array($role, ['admin','superadmin'])) {
-            return redirect()->route('superadmin.login');
-        }
-        return redirect()->route('login');
+        $redirect = in_array($role, ['admin','superadmin'], true)
+            ? redirect()->route('superadmin.login')
+            : redirect()->route('login');
+
+        return $redirect
+            ->withHeaders([
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0, private',
+                'Pragma' => 'no-cache',
+                'Expires' => 'Sat, 01 Jan 2000 00:00:00 GMT',
+                'Clear-Site-Data' => '"cache"',
+            ]);
     }
 }
