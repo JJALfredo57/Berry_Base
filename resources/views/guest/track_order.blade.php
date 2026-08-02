@@ -185,6 +185,15 @@
     .proof-stage img{max-width:100%;max-height:100%;object-fit:contain;transform:scale(var(--proof-scale,1));transition:transform .15s ease;will-change:transform;user-select:none;-webkit-user-drag:none}
     .proof-tools{height:64px;padding:8px max(12px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(0deg,rgba(0,0,0,.58),rgba(0,0,0,0));flex-shrink:0}
     .proof-zoom-pill{min-width:72px;text-align:center;color:#fff;font-size:.8rem;font-weight:800}
+    .refund-receipt-viewer{position:fixed!important;inset:0!important;background:rgba(15,23,42,.68);z-index:1092;display:none;align-items:center;justify-content:center;padding:18px;overflow:hidden}
+    .refund-receipt-viewer.is-open{display:flex}
+    .refund-receipt-dialog{width:min(520px,100%);max-height:min(86vh,760px);background:#fff;border-radius:16px;box-shadow:0 24px 70px rgba(15,23,42,.3);display:flex;flex-direction:column;overflow:hidden}
+    .refund-receipt-head{height:54px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #e5e7eb}
+    .refund-receipt-title{font-weight:800;color:#111827;font-size:.95rem;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .refund-receipt-body{background:#0f172a;display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto;min-height:220px}
+    .refund-receipt-body img{display:block;max-width:100%;max-height:64vh;object-fit:contain;border-radius:10px;background:#fff}
+    .refund-receipt-foot{padding:12px 14px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid #e5e7eb;flex-wrap:wrap}
+    .refund-download-btn.is-loading{pointer-events:none;opacity:.72}
     .track-head{position:relative;text-align:center;margin-bottom:1.5rem}
     .track-bell-btn{position:absolute;right:0;top:4px;width:48px;height:48px;border:0;border-radius:50%;background:#fff;color:var(--primary);box-shadow:0 12px 28px rgba(15,23,42,.14);display:flex;align-items:center;justify-content:center;font-size:1.2rem}
     .track-bell-btn.has-unread i{animation:trackBellRing 1.3s ease-in-out infinite;transform-origin:50% 0}
@@ -242,6 +251,7 @@
     }
     html.track-modal-open,body.track-modal-open{overflow:hidden!important;height:100%!important}
     html.proof-viewer-open,body.proof-viewer-open{overflow:hidden!important;height:100%!important}
+    html.refund-receipt-open,body.refund-receipt-open{overflow:hidden!important;height:100%!important}
   </style>
 
   {{-- Header --}}
@@ -763,7 +773,7 @@
         @endif
 
         {{-- Deposit Paid Badge --}}
-        @if($paymentDepositPaid)
+        @if($paymentDepositPaid && $order->status !== 'Cancelled' && !$cancelApproved)
         <div class="col-12 mt-2">
           <div class="track-paid-banner">
             <i class="bi bi-check-circle-fill"></i>
@@ -877,28 +887,6 @@
           <i class="bi bi-send me-1"></i>{{ $hasDepositLock ? 'Submit Refund Request' : 'Cancel Order' }}
         </button>
       </form>
-    </div>
-  </div>
-  @endif
-
-  @if(($refund ?? null) && ($refund->status ?? '') === 'refunded')
-  <div class="card mb-3" style="border:1px solid #bbf7d0">
-    <div class="card-body p-4">
-      <h6 class="fw-bold mb-2" style="color:#166534"><i class="bi bi-cash-coin me-2"></i>Refunded</h6>
-      <div class="small text-muted mb-3">
-        Refund sent to {{ $refund->refund_gcash_name }} / {{ $refund->refund_gcash_number }}.
-        @if($refund->reference_number) Reference: {{ $refund->reference_number }}. @endif
-      </div>
-      @if($refund->receipt_path)
-        <div class="d-flex gap-2 flex-wrap">
-          <a href="{{ $refund->receipt_path }}" target="_blank" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-eye me-1"></i>View Receipt
-          </a>
-          <a href="{{ route('guest.refund_receipt_download', [$order->track_code, $refund->id]) }}" class="btn btn-primary btn-sm">
-            <i class="bi bi-download me-1"></i>Download Receipt
-          </a>
-        </div>
-      @endif
     </div>
   </div>
   @endif
@@ -1182,12 +1170,16 @@
           @endif
           @if($t->status === 'Refunded' && ($refund ?? null) && ($refund->status ?? '') === 'refunded' && !empty($refund->receipt_path))
             <div class="d-flex gap-2 flex-wrap mt-2">
-              <a href="{{ $refund->receipt_path }}" target="_blank" class="btn btn-outline-primary btn-sm">
+              <button type="button"
+                      class="btn btn-outline-primary btn-sm"
+                      onclick="openRefundReceipt(@js($refund->receipt_path), @js('Refund Receipt'))">
                 <i class="bi bi-eye me-1"></i>View Receipt
-              </a>
-              <a href="{{ route('guest.refund_receipt_download', [$order->track_code, $refund->id]) }}" class="btn btn-primary btn-sm">
+              </button>
+              <button type="button"
+                      class="btn btn-primary btn-sm refund-download-btn"
+                      onclick="downloadRefundReceipt(this, @js(route('guest.refund_receipt_download', [$order->track_code, $refund->id])))">
                 <i class="bi bi-download me-1"></i>Download
-              </a>
+              </button>
             </div>
           @endif
               <div class="text-muted" style="font-size:clamp(.68rem,1.3vw,.72rem)">{{ \Carbon\Carbon::parse($t->created_at)->format('M d, Y g:i A') }}</div>
@@ -1353,6 +1345,23 @@
     <button type="button" class="proof-icon-btn" onclick="resetDeliveryProofZoom()" title="Reset zoom">
       <i class="bi bi-arrows-angle-contract"></i>
     </button>
+  </div>
+</div>
+
+<div class="refund-receipt-viewer" id="refundReceiptViewer" aria-hidden="true" onclick="if(event.target === this) closeRefundReceipt()">
+  <div class="refund-receipt-dialog" role="dialog" aria-modal="true" aria-labelledby="refundReceiptViewerTitle">
+    <div class="refund-receipt-head">
+      <div class="refund-receipt-title" id="refundReceiptViewerTitle">Refund Receipt</div>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeRefundReceipt()" title="Close">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="refund-receipt-body">
+      <img src="" alt="Refund receipt" id="refundReceiptViewerImage" loading="lazy" decoding="async">
+    </div>
+    <div class="refund-receipt-foot">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeRefundReceipt()">Close</button>
+    </div>
   </div>
 </div>
 
@@ -1620,6 +1629,71 @@ function closeDeliveryProof() {
   if (img) img.src = '';
 }
 
+function setRefundReceiptLock(locked) {
+  document.documentElement.classList.toggle('refund-receipt-open', locked);
+  document.body.classList.toggle('refund-receipt-open', locked);
+}
+
+function openRefundReceipt(src, title) {
+  const viewer = document.getElementById('refundReceiptViewer');
+  const img = document.getElementById('refundReceiptViewerImage');
+  const titleEl = document.getElementById('refundReceiptViewerTitle');
+  if (!viewer || !img || !src) return;
+  img.src = src;
+  if (titleEl) titleEl.textContent = title || 'Refund Receipt';
+  viewer.classList.add('is-open');
+  viewer.setAttribute('aria-hidden', 'false');
+  setRefundReceiptLock(true);
+}
+
+function closeRefundReceipt() {
+  const viewer = document.getElementById('refundReceiptViewer');
+  const img = document.getElementById('refundReceiptViewerImage');
+  if (!viewer) return;
+  viewer.classList.remove('is-open');
+  viewer.setAttribute('aria-hidden', 'true');
+  setRefundReceiptLock(false);
+  if (img) img.src = '';
+}
+
+function downloadRefundReceipt(button, url) {
+  if (!url || button?.classList.contains('is-loading')) return;
+  const originalHtml = button?.innerHTML;
+  if (button) {
+    button.classList.add('is-loading');
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Downloading...';
+  }
+
+  const resetButton = () => {
+    if (!button) return;
+    button.classList.remove('is-loading');
+    button.disabled = false;
+    button.innerHTML = originalHtml || '<i class="bi bi-download me-1"></i>Download';
+  };
+
+  try {
+    if (window.BerryBaseDownloads && typeof window.BerryBaseDownloads.download === 'function') {
+      window.BerryBaseDownloads.download(url, 'refund-receipt-' + TRACK_CODE + '.jpg');
+      setTimeout(resetButton, 900);
+      return;
+    }
+
+    const frame = document.createElement('iframe');
+    frame.style.display = 'none';
+    frame.src = url;
+    document.body.appendChild(frame);
+    setTimeout(() => {
+      frame.remove();
+      resetButton();
+      if (typeof cakeToast === 'function') cakeToast('Receipt download started.', 'success');
+    }, 1300);
+  } catch (e) {
+    window.location.href = url;
+    setTimeout(resetButton, 1300);
+  }
+}
+
 function zoomDeliveryProof(delta) {
   deliveryProofScale = Math.min(4, Math.max(1, deliveryProofScale + delta));
   renderDeliveryProofScale();
@@ -1681,7 +1755,7 @@ function deliveryProofPointerDistance(a, b) {
 }
 
 function mountTrackFloatingUi() {
-  ['trackActionBackdrop', 'receiptDrawer', 'trackFab', 'messagePanel', 'ratePanel', 'deliveryProofViewer'].forEach(id => {
+  ['trackActionBackdrop', 'receiptDrawer', 'trackFab', 'messagePanel', 'ratePanel', 'deliveryProofViewer', 'refundReceiptViewer'].forEach(id => {
     const el = document.getElementById(id);
     if (el && el.parentElement !== document.body) document.body.appendChild(el);
   });
@@ -1811,6 +1885,7 @@ function closeReceiptDrawer() {
 function closeAllTrackPopups() {
   document.querySelectorAll('.track-action-panel.is-open').forEach(panel => panel.classList.remove('is-open'));
   closeDeliveryProof();
+  closeRefundReceipt();
   closeReceiptDrawer();
   document.getElementById('trackActionBackdrop')?.classList.remove('is-open');
   setTrackModalLock(false);
@@ -1820,6 +1895,10 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
     if (document.getElementById('deliveryProofViewer')?.classList.contains('is-open')) {
       closeDeliveryProof();
+      return;
+    }
+    if (document.getElementById('refundReceiptViewer')?.classList.contains('is-open')) {
+      closeRefundReceipt();
       return;
     }
     toggleTrackFab(false);
