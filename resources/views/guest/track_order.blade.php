@@ -2121,6 +2121,11 @@ async function sendGuestMsg() {
   if (guestMsgSending) return;
   const input   = document.getElementById('msgInput');
   const text    = input ? input.innerText.trim() : '';
+  const picker  = document.getElementById('gImgFilePicker');
+  if (gPicked.some(x => x.compressing) || (typeof window.csIsFileUploadOptimizing === 'function' && window.csIsFileUploadOptimizing(picker))) {
+    if (typeof cakeToast === 'function') cakeToast('Please wait for images to finish optimizing.', 'warning');
+    return;
+  }
   const hasImgs = gPicked.filter(x => !x.compressing && x.file).length > 0;
   if (!text && !hasImgs) return;
 

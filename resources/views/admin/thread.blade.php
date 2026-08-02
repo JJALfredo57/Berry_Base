@@ -177,5 +177,14 @@ function clearThreadImg() {
 window.addEventListener('pageshow', function(event) {
   if (event.persisted) clearThreadImg();
 });
+
+document.getElementById('threadForm')?.addEventListener('submit', function(e) {
+  const input = document.getElementById('threadImgFile');
+  if (typeof window.csIsFileUploadOptimizing === 'function' && window.csIsFileUploadOptimizing(input)) {
+    e.preventDefault();
+    if (typeof cakeToast === 'function') cakeToast('Please wait for images to finish optimizing.', 'warning');
+    else alert('Please wait for images to finish optimizing.');
+  }
+});
 </script>
 @endpush

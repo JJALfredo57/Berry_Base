@@ -517,6 +517,12 @@ function openImgPreview(src) {
 document.getElementById('threadForm').addEventListener('submit', async function (e) {
   e.preventDefault();
   const text     = msgInput.innerText.trim();
+  const picker   = document.getElementById('imgFilePicker');
+  if (pickedImages.some(x => x.compressing) || (typeof window.csIsFileUploadOptimizing === 'function' && window.csIsFileUploadOptimizing(picker))) {
+    if (typeof cakeToast === 'function') cakeToast('Please wait for images to finish optimizing.', 'warning');
+    else alert('Please wait for images to finish optimizing.');
+    return;
+  }
   const hasImgs  = pickedImages.filter(x => !x.compressing && x.file).length > 0;
   if (!text && !hasImgs) return;
 

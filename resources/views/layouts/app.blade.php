@@ -3717,6 +3717,11 @@ async function mcSend() {
   if (mcSending) return;
   const input  = document.getElementById('mcInput');
   const sendBtn = document.getElementById('mcSendBtn');
+  const imageInput = document.getElementById('mcImageInput');
+  if (typeof window.csIsFileUploadOptimizing === 'function' && window.csIsFileUploadOptimizing(imageInput)) {
+    if (typeof cakeToast === 'function') cakeToast('Please wait for images to finish optimizing.', 'warning');
+    return;
+  }
   const text   = input.value.trim();
   const images = [...mcSelectedImages];
   if (!text && images.length === 0) return;
@@ -4711,6 +4716,8 @@ function pgFilter(param, val) {
       '.cs-upload-pill.is-warning i{color:#d97706}' +
       '.cs-upload-save-badge{display:inline-flex;align-items:center;border-radius:999px;padding:.12rem .42rem;color:#fff;font-size:.68rem;font-weight:800}' +
       '.cs-upload-arrow{color:#94a3b8;font-weight:800;align-self:center;flex:0 0 auto}' +
+      '#threadUploadSummary,#mcUploadSummary,#guestUploadSummary{width:100%;min-width:0;overflow:hidden}' +
+      '#threadUploadSummary>[id^="img-size-preview-"],#mcUploadSummary>[id^="img-size-preview-"],#guestUploadSummary>[id^="img-size-preview-"]{flex:1 1 100%;width:100%;max-width:100%;min-width:0}' +
       '.mc-bubble .cs-upload-summary,.bbl-g .cs-upload-summary,.bubble .cs-upload-summary{display:grid;grid-template-columns:1fr;gap:.32rem;width:100%}' +
       '.mc-bubble .cs-upload-arrow,.bbl-g .cs-upload-arrow,.bubble .cs-upload-arrow{display:none}' +
       '@media(max-width:575px){.cs-upload-summary{display:grid;grid-template-columns:1fr;gap:.35rem;width:100%}.cs-upload-pill{width:100%;border-radius:10px}.cs-upload-arrow{display:none}.cs-upload-save-badge{width:max-content}}';
@@ -4767,6 +4774,10 @@ function pgFilter(param, val) {
     }
     var target = input.dataset.sizePreviewTarget ? document.getElementById(input.dataset.sizePreviewTarget) : null;
     if (target) target.innerHTML = '';
+  }
+
+  function isFileUploadOptimizing(input) {
+    return !!(input && input.dataset && input.dataset.csCompressing === '1');
   }
 
   function compressAndShow(input, file, preview) {
@@ -4936,6 +4947,7 @@ function pgFilter(param, val) {
   obs.observe(document.body, { childList: true, subtree: true });
   window.csCompressImageFile = compressImageFile;
   window.csClearFileUploadPreview = clearUploadPreview;
+  window.csIsFileUploadOptimizing = isFileUploadOptimizing;
 })();
 </script>
 <script>
