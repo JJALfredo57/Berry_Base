@@ -3985,6 +3985,69 @@ function formatMcTime(dateStr) {
 
 @stack('modals')
 <script>
+window.BERRY_SESSION_CONTEXT = {
+  role: @json(in_array($role ?? null, ['seller','admin','superadmin'], true) ? $role : null),
+  name: @json($fullname ?? $username ?? ''),
+  dashboardUrl: @json(($role ?? null) === 'seller' ? route('seller.dashboard') : (($role ?? null) === 'superadmin' ? route('superadmin.dashboard') : (($role ?? null) === 'admin' ? route('admin.dashboard') : null))),
+  loginUrl: @json(route('login')),
+  superadminLoginUrl: @json(route('superadmin.login')),
+};
+
+(function () {
+  const ctx = window.BERRY_SESSION_CONTEXT || {};
+  const DASH_KEY = 'berry_active_dashboard_url';
+  const ROLE_KEY = 'berry_active_role';
+  const NAME_KEY = 'berry_active_name';
+  const PUBLIC_PATH_RE = /^(\/|\/catalog|\/login|\/superadmin\/portal)$/;
+
+  function isNativeApp() {
+    return !!window.Capacitor?.isNativePlatform?.();
+  }
+
+  function rememberActiveSession() {
+    if (!ctx.role || !ctx.dashboardUrl) return;
+    try {
+      localStorage.setItem(DASH_KEY, ctx.dashboardUrl);
+      localStorage.setItem(ROLE_KEY, ctx.role);
+      localStorage.setItem(NAME_KEY, ctx.name || '');
+      sessionStorage.removeItem('berry_seller_logged_out');
+    } catch (e) {}
+  }
+
+  function restoreAuthenticatedDestination() {
+    let dashboard = ctx.dashboardUrl || '';
+    let role = ctx.role || '';
+    try {
+      if (!dashboard) dashboard = localStorage.getItem(DASH_KEY) || '';
+      if (!role) role = localStorage.getItem(ROLE_KEY) || '';
+      if (sessionStorage.getItem('berry_seller_logged_out') === '1') return;
+    } catch (e) {}
+
+    if (!dashboard || !['seller', 'admin', 'superadmin'].includes(role)) return;
+    if (!PUBLIC_PATH_RE.test(window.location.pathname)) return;
+    if (window.location.href === new URL(dashboard, window.location.origin).href) return;
+    window.location.replace(dashboard);
+  }
+
+  rememberActiveSession();
+
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) restoreAuthenticatedDestination();
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') restoreAuthenticatedDestination();
+  });
+
+  document.addEventListener('DOMContentLoaded', restoreAuthenticatedDestination);
+
+  if (isNativeApp() && window.Capacitor?.Plugins?.App) {
+    window.Capacitor.Plugins.App.addListener('appStateChange', function (state) {
+      if (state?.isActive) restoreAuthenticatedDestination();
+    }).catch?.(function () {});
+  }
+})();
+
 window.BerryAppTracking = window.BerryAppTracking || (function () {
   const KEY = 'berry_last_tracking_url';
   const BOOT_KEY = 'berry_tracking_boot_checked';
@@ -4124,6 +4187,14 @@ window.BERRY_PUSH_CONTEXT = {
     } catch (e) {}
   }
 
+  function clearActiveSessionHints() {
+    try {
+      localStorage.removeItem('berry_active_dashboard_url');
+      localStorage.removeItem('berry_active_role');
+      localStorage.removeItem('berry_active_name');
+    } catch (e) {}
+  }
+
   function clearSellerMobileLogoutState() {
     try {
       [
@@ -4231,6 +4302,7 @@ window.BERRY_PUSH_CONTEXT = {
       registerBerryPush();
       document.querySelectorAll('form[action="{{ route('logout') }}"]').forEach(function (form) {
         form.addEventListener('submit', unregisterSavedDeviceToken);
+        form.addEventListener('submit', clearActiveSessionHints, true);
         if (form.dataset.sellerLogoutForm === '1') {
           form.addEventListener('submit', function () { prepareSellerMobileLogout(form); }, true);
         }
@@ -4240,6 +4312,7 @@ window.BERRY_PUSH_CONTEXT = {
     registerBerryPush();
     document.querySelectorAll('form[action="{{ route('logout') }}"]').forEach(function (form) {
       form.addEventListener('submit', unregisterSavedDeviceToken);
+      form.addEventListener('submit', clearActiveSessionHints, true);
       if (form.dataset.sellerLogoutForm === '1') {
         form.addEventListener('submit', function () { prepareSellerMobileLogout(form); }, true);
       }
