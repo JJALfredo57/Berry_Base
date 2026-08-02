@@ -281,16 +281,20 @@
 
 <style>
   #payoutReceiptViewerModal.payout-receipt-modal .modal-dialog {
-    position:fixed;
-    top:50%;
-    left:50%;
     width:min(920px, calc(100vw - 24px));
     max-width:min(920px, calc(100vw - 24px)) !important;
     margin:0 !important;
-    transform:translate(-50%, -50%) scale(.96);
+    transform:scale(.96);
+  }
+  #payoutReceiptViewerModal.payout-receipt-modal.show {
+    display:flex !important;
+    align-items:center;
+    justify-content:center;
+    padding:12px !important;
+    overflow:hidden;
   }
   #payoutReceiptViewerModal.payout-receipt-modal.show .modal-dialog {
-    transform:translate(-50%, -50%) scale(1);
+    transform:scale(1);
   }
   #payoutReceiptViewerModal.payout-receipt-modal .modal-content {
     max-height:calc(100dvh - 24px);
@@ -355,6 +359,11 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  const receiptModal = document.getElementById('payoutReceiptViewerModal');
+  if (receiptModal && receiptModal.parentElement !== document.body) {
+    document.body.appendChild(receiptModal);
+  }
+
   const mode = document.getElementById('payoutModeSelect');
   const automaticSettings = document.querySelectorAll('.payout-auto-setting');
   const automaticNotice = document.getElementById('automaticPayoutNoticeModal');
@@ -436,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
       downloadButton.dataset.downloadUrl = button.dataset.receiptDownloadUrl || url;
       downloadButton.dataset.downloadName = 'payout-receipt-' + (button.dataset.receiptTitle || 'receipt').replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '') + '.jpg';
       if (window.bootstrap) {
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('payoutReceiptViewerModal')).show();
+        bootstrap.Modal.getOrCreateInstance(receiptModal).show();
       } else {
         window.open(url, '_blank', 'noopener');
       }
@@ -446,16 +455,21 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('payoutReceiptViewerDownload')?.addEventListener('click', function() {
     const url = this.dataset.downloadUrl;
     if (!url) return;
-    if (window.BerryBaseDownloads && typeof window.BerryBaseDownloads.download === 'function') {
-      window.BerryBaseDownloads.download(url, this.dataset.downloadName || 'payout-receipt.jpg', this);
-      return;
-    }
+    const originalHtml = this.innerHTML;
+    this.disabled = true;
     const link = document.createElement('a');
     link.href = url;
     link.download = this.dataset.downloadName || 'payout-receipt.jpg';
     document.body.appendChild(link);
     link.click();
     link.remove();
+    if (window.BerryBaseDownloads && typeof window.BerryBaseDownloads.notify === 'function') {
+      window.BerryBaseDownloads.notify('Download started.');
+    }
+    setTimeout(() => {
+      this.disabled = false;
+      this.innerHTML = originalHtml;
+    }, 900);
   });
 });
 </script>
