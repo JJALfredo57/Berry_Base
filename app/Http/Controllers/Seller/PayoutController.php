@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Services\SellerPayoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
 class PayoutController extends Controller
@@ -95,5 +96,39 @@ class PayoutController extends Controller
         }
 
         return back()->with('msg', "Payout request #{$id} submitted. Admin will verify and mark it paid after transfer.");
+    }
+
+    public function downloadReceipt(int $payoutId)
+    {
+        $shop = $this->shop();
+        if (!$shop) abort(404);
+
+        $payout = DB::table('seller_payouts')
+            ->where('id', $payoutId)
+            ->where('shop_id', $shop->id)
+            ->first();
+
+        if (!$payout || empty($payout->payout_receipt_path)) {
+            abort(404);
+        }
+
+        return $this->downloadReceiptResponse((string) $payout->payout_receipt_path, 'payout-receipt-'.$payout->id.'.jpg');
+    }
+
+    private function downloadReceiptResponse(string $url, string $filename)
+    {
+        $response = Http::timeout(20)->get($url);
+        if (!$response->successful()) {
+            abort(404);
+        }
+
+        $contentType = $response->header('Content-Type') ?: 'image/jpeg';
+        $filename = preg_replace('/[^A-Za-z0-9._-]/', '-', $filename) ?: 'payout-receipt.jpg';
+
+        return response($response->body(), 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'private, max-age=60',
+        ]);
     }
 }

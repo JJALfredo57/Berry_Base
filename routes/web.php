@@ -318,6 +318,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/payouts',   [\App\Http\Controllers\Seller\PayoutController::class, 'index'])->name('payouts');
     Route::post('/payouts/details', [\App\Http\Controllers\Seller\PayoutController::class, 'saveDetails'])->name('payouts.details');
     Route::post('/payouts/request', [\App\Http\Controllers\Seller\PayoutController::class, 'requestManual'])->name('payouts.request');
+    Route::get('/payouts/{id}/receipt-download', [\App\Http\Controllers\Seller\PayoutController::class, 'downloadReceipt'])->name('payouts.receipt_download');
 
     // Products
     Route::get('/products',                  [\App\Http\Controllers\Seller\ProductController::class, 'index'])->name('products');
@@ -438,6 +439,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/payouts/seller/{id}/request-details', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'requestSellerDetails'])->name('payouts.request_seller_details');
     Route::post('/payouts/seller/{id}/create', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'createManual'])->name('payouts.create_manual');
     Route::post('/payouts/{id}/paid',          [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markPaid'])->name('payouts.mark_paid');
+    Route::get('/payouts/{id}/receipt-download', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'downloadReceipt'])->name('payouts.receipt_download');
     Route::get('/feedback',                    [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'index'])->name('feedback');
     Route::post('/feedback/{id}',              [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'update'])->name('feedback.update');
     Route::get('/platform-settings',           [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'index'])->name('settings');

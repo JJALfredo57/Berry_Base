@@ -7,6 +7,7 @@ use App\Services\SellerPayoutService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
 class PayoutController extends Controller
@@ -252,6 +253,16 @@ class PayoutController extends Controller
         return back()->with('err', 'Automatic payouts are not available yet. Manual payouts remain active while business verification and payout provider access are being prepared.');
     }
 
+    public function downloadReceipt(int $payoutId)
+    {
+        $payout = DB::table('seller_payouts')->where('id', $payoutId)->first();
+        if (!$payout || empty($payout->payout_receipt_path)) {
+            abort(404);
+        }
+
+        return $this->downloadReceiptResponse((string) $payout->payout_receipt_path, 'payout-receipt-'.$payout->id.'.jpg');
+    }
+
     private function notifySellerPayout(object $source, string $title, string $message, array $data): array
     {
         $sellerId = $source->seller_id ?? null;
@@ -272,5 +283,22 @@ class PayoutController extends Controller
             null,
             $url
         );
+    }
+
+    private function downloadReceiptResponse(string $url, string $filename)
+    {
+        $response = Http::timeout(20)->get($url);
+        if (!$response->successful()) {
+            abort(404);
+        }
+
+        $contentType = $response->header('Content-Type') ?: 'image/jpeg';
+        $filename = preg_replace('/[^A-Za-z0-9._-]/', '-', $filename) ?: 'payout-receipt.jpg';
+
+        return response($response->body(), 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'private, max-age=60',
+        ]);
     }
 }

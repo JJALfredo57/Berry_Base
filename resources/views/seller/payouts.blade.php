@@ -170,7 +170,7 @@
               <td class="text-end fw-semibold">₱{{ number_format($p->net_amount, 2) }}</td>
               <td>
                 @if(!empty($p->payout_receipt_path ?? null))
-                  <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-title="Payout Receipt #{{ $p->id }}">
+                  <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-download-url="{{ route('seller.payouts.receipt_download', $p->id) }}" data-receipt-title="Payout Receipt #{{ $p->id }}">
                     <i class="bi bi-image me-1"></i>View Receipt
                   </button>
                   @if($p->reference_number)
@@ -215,7 +215,61 @@
   </div>
 </div>
 
-<div class="modal fade" id="payoutReceiptViewerModal" tabindex="-1" aria-hidden="true">
+<style>
+  #payoutReceiptViewerModal.payout-receipt-modal .modal-dialog {
+    position:fixed;
+    top:50%;
+    left:50%;
+    width:min(920px, calc(100vw - 24px));
+    max-width:min(920px, calc(100vw - 24px)) !important;
+    margin:0 !important;
+    transform:translate(-50%, -50%) scale(.96);
+  }
+  #payoutReceiptViewerModal.payout-receipt-modal.show .modal-dialog {
+    transform:translate(-50%, -50%) scale(1);
+  }
+  #payoutReceiptViewerModal.payout-receipt-modal .modal-content {
+    max-height:calc(100dvh - 24px);
+    display:flex;
+    flex-direction:column;
+  }
+  #payoutReceiptViewerModal.payout-receipt-modal .modal-body {
+    flex:1 1 auto;
+    min-height:0;
+    max-height:none;
+    overflow:auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:12px;
+    -webkit-overflow-scrolling:touch;
+  }
+  #payoutReceiptViewerModal.payout-receipt-modal .modal-body img {
+    max-height:calc(100dvh - 160px) !important;
+    width:auto;
+  }
+  #payoutReceiptViewerModal.payout-receipt-modal .modal-footer {
+    flex-shrink:0;
+    position:relative;
+    z-index:2;
+    background:#fff;
+  }
+  #payoutReceiptViewerModal.payout-receipt-modal .modal-footer .btn {
+    min-height:44px;
+    padding-inline:16px;
+  }
+  @media(max-width:575px) {
+    #payoutReceiptViewerModal.payout-receipt-modal .modal-footer {
+      justify-content:stretch;
+      gap:8px;
+    }
+    #payoutReceiptViewerModal.payout-receipt-modal .modal-footer .btn {
+      flex:1 1 0;
+    }
+  }
+</style>
+
+<div class="modal fade payout-receipt-modal" id="payoutReceiptViewerModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <div class="modal-header">
@@ -284,7 +338,7 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('payoutReceiptViewerTitle').textContent = button.dataset.receiptTitle || 'Payout Receipt';
       document.getElementById('payoutReceiptViewerImage').src = url;
       const downloadButton = document.getElementById('payoutReceiptViewerDownload');
-      downloadButton.dataset.downloadUrl = url;
+      downloadButton.dataset.downloadUrl = button.dataset.receiptDownloadUrl || url;
       downloadButton.dataset.downloadName = 'payout-receipt-' + (button.dataset.receiptTitle || 'receipt').replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '') + '.jpg';
       if (window.bootstrap) {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('payoutReceiptViewerModal')).show();
