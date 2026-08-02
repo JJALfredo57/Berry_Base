@@ -230,14 +230,30 @@ class MessageController extends Controller
         $order   = DB::table('orders')->where('id',$orderId)->where('shop_id',$shop->id)->first();
         if (!$order) return response()->json(['ok'=>false,'error'=>'Order not found.']);
 
-        $text = trim($request->input('message',''));
-        if (!$text) return response()->json(['ok'=>false,'error'=>'Message cannot be empty.']);
+        $text  = trim($request->input('message',''));
+        $files = $request->file('images') ?? [];
+        if (!is_array($files)) $files = [$files];
 
-        DB::table('messages')->insert([
+        $paths = [];
+        foreach ($files as $file) {
+            if ($file && $file->isValid()) {
+                $ext = strtolower($file->getClientOriginalExtension());
+                if (in_array($ext, ['jpg','jpeg','png','webp','gif']) && $file->getSize() <= 10 * 1024 * 1024) {
+                    $url = $this->uploadFile($file, 'uploads/messages');
+                    if ($url) $paths[] = $url;
+                }
+            }
+        }
+        $imgPath = count($paths) === 1 ? $paths[0] : (count($paths) > 1 ? json_encode($paths) : null);
+
+        if (!$text && !$imgPath) return response()->json(['ok'=>false,'error'=>'Message cannot be empty.'], 422);
+
+        $id = DB::table('messages')->insertGetId([
             'order_id'    => $orderId,
             'sender_role' => 'seller',
             'sender_id'   => session('user')['id'],
-            'message'     => $text,
+            'message'     => $text ?: null,
+            'image_path'  => $imgPath,
             'is_read' => false,
             'created_at'  => now(),
         ]);
@@ -245,12 +261,20 @@ class MessageController extends Controller
             app(MobileNotificationService::class)->notifyOrderCustomer(
                 $order,
                 'New Message from Seller',
-                mb_strimwidth($text, 0, 90, '...'),
+                $text !== '' ? mb_strimwidth($text, 0, 90, '...') : 'The seller sent image attachments.',
                 ['event' => 'message']
             );
         } catch (\Throwable $e) {
             Log::warning('Seller popup message push failed: ' . $e->getMessage());
         }
-        return response()->json(['ok'=>true]);
+        return response()->json([
+            'ok'           => true,
+            'id'           => $id,
+            'order_id'     => $orderId,
+            'sender_role'  => 'seller',
+            'message'      => $text,
+            'image_path'   => $imgPath,
+            'created_at'   => now(),
+        ]);
     }
 }

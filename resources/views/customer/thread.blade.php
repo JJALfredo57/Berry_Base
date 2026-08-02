@@ -166,5 +166,19 @@ function rebuildInput() {
   threadFiles.forEach(f => dt.items.add(f));
   document.getElementById('threadImgFile').files = dt.files;
 }
+
+function clearThreadImg() {
+  threadFiles = [];
+  const input = document.getElementById('threadImgFile');
+  if (input) {
+    input.value = '';
+    if (typeof window.csClearFileUploadPreview === 'function') window.csClearFileUploadPreview(input);
+  }
+  renderThreadPreview();
+}
+
+window.addEventListener('pageshow', function(event) {
+  if (event.persisted) clearThreadImg();
+});
 </script>
 @endpush

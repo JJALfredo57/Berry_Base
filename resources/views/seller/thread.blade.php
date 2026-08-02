@@ -495,8 +495,16 @@ function clearImgPicker(revoke = true) {
   document.getElementById('imgPreviewBar').style.display = 'none';
   document.getElementById('attachBtn').classList.remove('active');
   const picker = document.getElementById('imgFilePicker');
-  const summary = picker?.dataset.sizePreviewId ? document.getElementById(picker.dataset.sizePreviewId) : null;
-  if (summary) summary.style.display = 'none';
+  if (picker) {
+    picker.value = '';
+    if (typeof window.csClearFileUploadPreview === 'function') window.csClearFileUploadPreview(picker);
+    else {
+      const summary = picker.dataset.sizePreviewId ? document.getElementById(picker.dataset.sizePreviewId) : null;
+      if (summary) { summary.innerHTML = ''; summary.style.display = 'none'; }
+      const target = picker.dataset.sizePreviewTarget ? document.getElementById(picker.dataset.sizePreviewTarget) : null;
+      if (target) target.innerHTML = '';
+    }
+  }
 }
 
 function openImgPreview(src) {

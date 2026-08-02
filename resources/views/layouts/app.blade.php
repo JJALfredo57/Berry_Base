@@ -3139,6 +3139,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   {{-- Multi-image preview strip --}}
   <div id="mcImgPreviewBar" style="display:none;padding:8px 12px 4px;border-top:1px solid #f0f0f0;background:#fafafa">
+    <div id="mcUploadSummary" style="display:flex;align-items:center;flex-wrap:wrap;margin-bottom:.35rem"></div>
     <div id="mcImgPreviewStrip" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
   </div>
 
@@ -3146,7 +3147,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div id="miniChatInput" style="display:none">
     <label for="mcImageInput" id="mcImgBtn" style="width:32px;height:32px;border-radius:50%;background:#f5f5f5;border:none;color:#aaa;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;margin:0" title="Attach images">
       <i class="bi bi-paperclip" style="font-size:.85rem"></i>
-      <input type="file" id="mcImageInput" accept="image/*" multiple hidden onchange="mcImageSelected(this)">
+      <input type="file" id="mcImageInput" accept="image/*" multiple hidden data-size-preview-target="mcUploadSummary" onchange="mcImageSelected(this)">
     </label>
     <textarea id="mcInput" placeholder="Aa" maxlength="500" rows="1"
               oninput="autoGrowMcInput(this)"
@@ -3180,6 +3181,7 @@ var mcViewState      = 'list';
 var mcActiveCustomer = null;
 var mcPollTimer      = null;
 var mcSelectedImages = [];
+var mcSending        = false;
 var mcBadgePollTimer = null;
 
 function sellerBadgeLabel(count) {
@@ -3701,16 +3703,29 @@ function renderMcImagePreview() {
 function mcClearImage() {
   mcSelectedImages = [];
   const fileIn = document.getElementById('mcImageInput');
-  if (fileIn) fileIn.value = '';
+  if (fileIn) {
+    fileIn.value = '';
+    if (typeof window.csClearFileUploadPreview === 'function') window.csClearFileUploadPreview(fileIn);
+  }
+  const summary = document.getElementById('mcUploadSummary');
+  if (summary) summary.innerHTML = '';
   renderMcImagePreview();
 }
 
 // ── Send message ──────────────────────────────────────────────────────
 async function mcSend() {
+  if (mcSending) return;
   const input  = document.getElementById('mcInput');
+  const sendBtn = document.getElementById('mcSendBtn');
   const text   = input.value.trim();
   const images = [...mcSelectedImages];
   if (!text && images.length === 0) return;
+
+  mcSending = true;
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:.75rem;height:.75rem"></span>';
+  }
 
   input.value = '';
   autoGrowMcInput(input);
@@ -3758,8 +3773,10 @@ async function mcSend() {
     fd.append('_token',   MC_CSRF);
     images.forEach(f => fd.append('images[]', f));
 
-    const res  = await fetch(MC_SEND_URL, { method: 'POST', body: fd });
+    const res  = await fetch(MC_SEND_URL, { method: 'POST', body: fd, headers: { 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest' } });
+    if (!res.ok) throw new Error('Message could not be sent.');
     const data = await res.json();
+    if (data.ok === false) throw new Error(data.error || 'Message could not be sent.');
     if (data.order_id) {
       mcLatestOrderId = data.order_id;
       wrap.dataset.orderId = data.order_id;
@@ -3786,6 +3803,12 @@ async function mcSend() {
   } catch(e) {
     time.textContent = 'Failed';
     time.style.color = '#f44336';
+  } finally {
+    mcSending = false;
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = '<i class="bi bi-send-fill" style="font-size:.8rem"></i>';
+    }
   }
 }
 
@@ -4676,8 +4699,9 @@ function pgFilter(param, val) {
     var style = document.createElement('style');
     style.id = 'csUploadSummaryStyles';
     style.textContent =
-      '.cs-upload-summary{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-top:.45rem;font-size:.74rem;color:#475569;line-height:1.3}' +
-      '.cs-upload-pill{display:inline-flex;align-items:center;gap:.35rem;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:.24rem .62rem;font-weight:650;white-space:nowrap}' +
+      '.cs-upload-summary{display:flex;align-items:stretch;gap:.45rem;flex-wrap:wrap;margin-top:.45rem;font-size:.74rem;color:#475569;line-height:1.3;max-width:100%;min-width:0;overflow:hidden}' +
+      '.cs-upload-pill{display:inline-flex;align-items:center;gap:.35rem;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:.24rem .62rem;font-weight:650;white-space:normal;min-width:0;max-width:100%;overflow:hidden}' +
+      '.cs-upload-pill span{min-width:0;overflow-wrap:anywhere;word-break:break-word}' +
       '.cs-upload-pill i{font-size:.82rem;color:#64748b}' +
       '.cs-upload-pill strong{font-weight:800;color:#111827}' +
       '.cs-upload-pill.is-success{border-color:#bbf7d0;background:#f0fdf4;color:#166534}' +
@@ -4686,8 +4710,10 @@ function pgFilter(param, val) {
       '.cs-upload-pill.is-success i{color:#16a34a}' +
       '.cs-upload-pill.is-warning i{color:#d97706}' +
       '.cs-upload-save-badge{display:inline-flex;align-items:center;border-radius:999px;padding:.12rem .42rem;color:#fff;font-size:.68rem;font-weight:800}' +
-      '.cs-upload-arrow{color:#94a3b8;font-weight:800}' +
-      '@media(max-width:575px){.cs-upload-summary{gap:.35rem}.cs-upload-pill{white-space:normal;border-radius:10px}}';
+      '.cs-upload-arrow{color:#94a3b8;font-weight:800;align-self:center;flex:0 0 auto}' +
+      '.mc-bubble .cs-upload-summary,.bbl-g .cs-upload-summary,.bubble .cs-upload-summary{display:grid;grid-template-columns:1fr;gap:.32rem;width:100%}' +
+      '.mc-bubble .cs-upload-arrow,.bbl-g .cs-upload-arrow,.bubble .cs-upload-arrow{display:none}' +
+      '@media(max-width:575px){.cs-upload-summary{display:grid;grid-template-columns:1fr;gap:.35rem;width:100%}.cs-upload-pill{width:100%;border-radius:10px}.cs-upload-arrow{display:none}.cs-upload-save-badge{width:max-content}}';
     document.head.appendChild(style);
   }
 
@@ -4730,6 +4756,17 @@ function pgFilter(param, val) {
       }
     }
     return el;
+  }
+
+  function clearUploadPreview(input) {
+    if (!input) return;
+    var preview = input.dataset.sizePreviewId ? document.getElementById(input.dataset.sizePreviewId) : null;
+    if (preview) {
+      preview.innerHTML = '';
+      preview.style.display = 'none';
+    }
+    var target = input.dataset.sizePreviewTarget ? document.getElementById(input.dataset.sizePreviewTarget) : null;
+    if (target) target.innerHTML = '';
   }
 
   function compressAndShow(input, file, preview) {
@@ -4898,6 +4935,7 @@ function pgFilter(param, val) {
   var obs = new MutationObserver(attachAll);
   obs.observe(document.body, { childList: true, subtree: true });
   window.csCompressImageFile = compressImageFile;
+  window.csClearFileUploadPreview = clearUploadPreview;
 })();
 </script>
 <script>

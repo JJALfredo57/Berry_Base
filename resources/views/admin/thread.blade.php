@@ -166,8 +166,16 @@ function rebuildInput() {
 
 function clearThreadImg() {
   threadFiles = [];
-  document.getElementById('threadImgFile').value = '';
+  const input = document.getElementById('threadImgFile');
+  if (input) {
+    input.value = '';
+    if (typeof window.csClearFileUploadPreview === 'function') window.csClearFileUploadPreview(input);
+  }
   renderThreadPreview();
 }
+
+window.addEventListener('pageshow', function(event) {
+  if (event.persisted) clearThreadImg();
+});
 </script>
 @endpush
