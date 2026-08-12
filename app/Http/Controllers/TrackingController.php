@@ -3,14 +3,219 @@ namespace App\Http\Controllers;
 
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
+use App\Helpers\SmsHelper;
 use App\Services\OrderRefundService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 
 class TrackingController extends Controller
 {
+    public function recoverForm()
+    {
+        $recovery = session('track_recovery', []);
+        $orders = collect();
+
+        if (!empty($recovery['verified']) && !empty($recovery['order_ids'])) {
+            $orders = $this->recoveryOrdersByIds($recovery['order_ids']);
+        }
+
+        return view('guest.recover_tracking', [
+            'recovery' => $recovery,
+            'orders' => $orders,
+            'devMode' => $this->isDevMode(),
+        ]);
+    }
+
+    public function recoverSubmit(Request $request)
+    {
+        $action = $request->input('action', 'find');
+
+        return match ($action) {
+            'verify' => $this->verifyRecoveryOtp($request),
+            'deliver' => $this->deliverRecoveredCode($request),
+            'reset' => $this->resetRecovery(),
+            default => $this->startRecovery($request),
+        };
+    }
+
+    private function startRecovery(Request $request)
+    {
+        $data = $request->validate([
+            'phone' => ['required', 'string', 'max:30'],
+            'order_date' => ['required', 'date', 'before_or_equal:today'],
+            'guest_name' => ['required', 'string', 'min:2', 'max:120'],
+            'order_type' => ['nullable', 'in:any,regular,custom'],
+        ], [
+            'order_date.before_or_equal' => 'Order date cannot be in the future.',
+            'guest_name.required' => 'Please enter the name used for the order.',
+        ]);
+
+        $phone = $this->normalizePhone($data['phone']);
+        if (!$phone) {
+            return back()->withInput()->with('error', 'Please enter a valid Philippine mobile number.');
+        }
+
+        $rateKey = 'track-recovery-find:' . sha1($request->ip() . '|' . $phone);
+        if (RateLimiter::tooManyAttempts($rateKey, 6)) {
+            return back()->withInput()->with('error', 'Too many recovery attempts. Please wait a few minutes before trying again.');
+        }
+        RateLimiter::hit($rateKey, 600);
+
+        $matches = $this->matchingRecoveryOrders($phone, $data['order_date'], $data['guest_name'], $data['order_type'] ?? 'any');
+        if ($matches->isEmpty()) {
+            return back()->withInput()->with('error', 'We could not continue recovery with those details. Please check your information or contact support.');
+        }
+
+        $otpKey = 'track-recovery-otp:' . sha1($request->ip() . '|' . $phone);
+        if (RateLimiter::tooManyAttempts($otpKey, 3)) {
+            return back()->withInput()->with('error', 'OTP was requested too many times. Please wait a few minutes before trying again.');
+        }
+        RateLimiter::hit($otpKey, 600);
+
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $recipientPhone = $matches->first()->guest_phone ?: $phone;
+        $siteName = config('app.name', 'Cake Shop');
+        $smsResult = SmsHelper::sendOtpWithResult($recipientPhone, $otp, $siteName, trim($data['guest_name']), '', '', '');
+
+        if (!$smsResult['ok']) {
+            return back()->withInput()->with('error', $smsResult['error'] ?? 'OTP could not be sent. Please try again or contact support.');
+        }
+
+        session([
+            'track_recovery' => [
+                'phone' => $phone,
+                'phone_masked' => $this->maskPhone($recipientPhone),
+                'order_date' => $data['order_date'],
+                'guest_name' => trim($data['guest_name']),
+                'order_type' => $data['order_type'] ?? 'any',
+                'order_ids' => $matches->pluck('id')->values()->all(),
+                'otp_hash' => hash('sha256', $otp),
+                'otp_expires_at' => now()->addMinutes(10)->toDateTimeString(),
+                'otp_attempts' => 0,
+                'verified' => false,
+                'step' => 'otp',
+            ],
+        ]);
+
+        return redirect()->route('track.recover')->with('msg', $this->isDevMode()
+            ? 'Developer mode: OTP is shown on this page.'
+            : 'OTP sent to the phone number used for this order.');
+    }
+
+    private function verifyRecoveryOtp(Request $request)
+    {
+        $recovery = session('track_recovery', []);
+        if (empty($recovery['otp_hash']) || empty($recovery['order_ids'])) {
+            return redirect()->route('track.recover')->with('error', 'Please start recovery again.');
+        }
+
+        $otp = trim((string) $request->input('otp_code', ''));
+        if (!preg_match('/^\d{6}$/', $otp)) {
+            return back()->with('error', 'Please enter the 6-digit OTP.');
+        }
+
+        if (now()->greaterThan(\Carbon\Carbon::parse($recovery['otp_expires_at'] ?? now()->subMinute()))) {
+            session()->forget('track_recovery');
+            return redirect()->route('track.recover')->with('error', 'OTP expired. Please start recovery again.');
+        }
+
+        $attempts = (int) ($recovery['otp_attempts'] ?? 0) + 1;
+        if (!hash_equals((string) $recovery['otp_hash'], hash('sha256', $otp))) {
+            $recovery['otp_attempts'] = $attempts;
+            session(['track_recovery' => $recovery]);
+
+            if ($attempts >= 5) {
+                session()->forget('track_recovery');
+                return redirect()->route('track.recover')->with('error', 'Too many wrong OTP attempts. Please start recovery again.');
+            }
+
+            return back()->with('error', 'Invalid OTP. Please try again.');
+        }
+
+        $recovery['verified'] = true;
+        $recovery['step'] = 'deliver';
+        unset($recovery['otp_hash']);
+        session(['track_recovery' => $recovery]);
+
+        return redirect()->route('track.recover')->with('msg', 'Phone verified. Choose the order you want to recover.');
+    }
+
+    private function deliverRecoveredCode(Request $request)
+    {
+        $recovery = session('track_recovery', []);
+        if (empty($recovery['verified']) || empty($recovery['order_ids'])) {
+            return redirect()->route('track.recover')->with('error', 'Please verify your phone first.');
+        }
+
+        $data = $request->validate([
+            'order_id' => ['required', 'string'],
+            'delivery_method' => ['required', 'in:screen,sms,email'],
+            'email' => ['nullable', 'required_if:delivery_method,email', 'email:rfc', 'max:150'],
+        ], [
+            'email.required_if' => 'Please enter the email address where we should send the tracking code.',
+        ]);
+
+        if (!in_array($data['order_id'], $recovery['order_ids'], true)) {
+            return back()->with('error', 'Please choose one of the verified orders.');
+        }
+
+        $order = $this->recoveryOrdersByIds([$data['order_id']])->first();
+        if (!$order || empty($order->track_code)) {
+            return back()->with('error', 'Selected order is no longer available for recovery.');
+        }
+
+        $message = "Your tracking code for Order #{$order->id} is {$order->track_code}.";
+        $method = $data['delivery_method'];
+        $devMode = $this->isDevMode();
+
+        if ($method === 'sms') {
+            if ($devMode) {
+                $this->queueDevSmsPreview($order->guest_phone, config('app.name', 'Cake Shop') . ': ' . $message);
+            } else {
+                $sent = SmsHelper::send($order->guest_phone, config('app.name', 'Cake Shop') . ': ' . $message);
+                if (!$sent) {
+                    return back()->with('error', 'Tracking code could not be sent by SMS. You can show it on screen instead.');
+                }
+            }
+        }
+
+        if ($method === 'email') {
+            try {
+                Mail::raw($message . "\n\nUse this code on the Track Order page.", function ($mail) use ($data) {
+                    $mail->to($data['email'])->subject('Your Berry Base Tracking Code');
+                });
+            } catch (\Throwable $e) {
+                Log::warning('Tracking recovery email failed: ' . $e->getMessage());
+                return back()->withInput()->with('error', 'Tracking code could not be sent by email. Please check the email address or show it on screen.');
+            }
+        }
+
+        $recovery['selected_order_id'] = $order->id;
+        $recovery['recovered_code'] = $order->track_code;
+        $recovery['delivery_method'] = $method;
+        $recovery['step'] = 'done';
+        session(['track_recovery' => $recovery]);
+
+        $status = $method === 'screen'
+            ? 'Tracking code recovered.'
+            : ($devMode && $method === 'sms'
+                ? 'Developer mode: SMS preview is shown on this page.'
+                : 'Tracking code sent. It is also shown below for your convenience.');
+
+        return redirect()->route('track.recover')->with('msg', $status);
+    }
+
+    private function resetRecovery()
+    {
+        session()->forget('track_recovery');
+        return redirect()->route('track.recover');
+    }
+
     public function show(string $trackCode)
     {
         $order = DB::table('orders as o')
@@ -313,6 +518,134 @@ class TrackingController extends Controller
             $local,
             preg_replace('/\D/', '', (string) $phone),
         ])));
+    }
+
+    private function normalizePhone(?string $phone): ?string
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+        if (strlen($digits) === 10 && str_starts_with($digits, '9')) {
+            $digits = '63' . $digits;
+        } elseif (strlen($digits) === 11 && str_starts_with($digits, '0')) {
+            $digits = '63' . substr($digits, 1);
+        } elseif (strlen($digits) === 12 && str_starts_with($digits, '63')) {
+            // Already normalized.
+        } else {
+            return null;
+        }
+
+        return strlen($digits) === 12 && str_starts_with($digits, '639') ? '+' . $digits : null;
+    }
+
+    private function matchingRecoveryOrders(string $phone, string $date, string $name, string $orderType = 'any')
+    {
+        $variants = $this->phoneVariants($phone);
+        $nameKey = $this->nameKey($name);
+
+        return DB::table('orders as o')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
+            ->whereNotNull('o.guest_phone')
+            ->whereNotNull('o.track_code')
+            ->whereIn('o.guest_phone', $variants)
+            ->whereDate('o.created_at', $date)
+            ->when($orderType === 'regular', fn ($q) => $q->whereNull('co.id'))
+            ->when($orderType === 'custom', fn ($q) => $q->whereNotNull('co.id'))
+            ->select(
+                'o.id',
+                'o.guest_name',
+                'o.guest_phone',
+                'o.track_code',
+                'o.status',
+                'o.total_price',
+                'o.created_at',
+                DB::raw("COALESCE(co.cake_name, p.name, 'Custom Cake') as product_name"),
+                DB::raw("CASE WHEN co.id IS NULL THEN 'Regular Cake Order' ELSE 'Custom Cake Order' END as order_type")
+            )
+            ->orderByDesc('o.created_at')
+            ->limit(12)
+            ->get()
+            ->filter(fn ($order) => $this->nameMatches($nameKey, $order->guest_name ?? ''))
+            ->values();
+    }
+
+    private function recoveryOrdersByIds(array $ids)
+    {
+        if (empty($ids)) return collect();
+
+        return DB::table('orders as o')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
+            ->whereIn('o.id', $ids)
+            ->select(
+                'o.id',
+                'o.guest_name',
+                'o.guest_phone',
+                'o.track_code',
+                'o.status',
+                'o.total_price',
+                'o.created_at',
+                DB::raw("COALESCE(co.cake_name, p.name, 'Custom Cake') as product_name"),
+                DB::raw("CASE WHEN co.id IS NULL THEN 'Regular Cake Order' ELSE 'Custom Cake Order' END as order_type")
+            )
+            ->orderByDesc('o.created_at')
+            ->get();
+    }
+
+    private function nameKey(string $name): string
+    {
+        $name = strtolower(trim($name));
+        $name = preg_replace('/[^a-z\s]/', ' ', $name);
+        return trim(preg_replace('/\s+/', ' ', $name));
+    }
+
+    private function nameMatches(string $expected, string $actual): bool
+    {
+        $actual = $this->nameKey($actual);
+        if ($expected === '' || $actual === '') return false;
+        if ($expected === $actual) return true;
+
+        $expectedParts = array_values(array_filter(explode(' ', $expected)));
+        $actualParts = array_values(array_filter(explode(' ', $actual)));
+        if (count($expectedParts) >= 2) {
+            $first = $expectedParts[0];
+            $last = $expectedParts[count($expectedParts) - 1];
+            return in_array($first, $actualParts, true) && in_array($last, $actualParts, true);
+        }
+
+        return strlen($expected) >= 4 && str_contains($actual, $expected);
+    }
+
+    private function maskPhone(?string $phone): string
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+        if (strlen($digits) < 6) return 'your phone';
+        return '+' . substr($digits, 0, 4) . str_repeat('*', max(4, strlen($digits) - 7)) . substr($digits, -3);
+    }
+
+    private function isDevMode(): bool
+    {
+        try {
+            return !empty(DB::table('platform_settings')->value('dev_mode'));
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function queueDevSmsPreview(?string $phone, string $message): void
+    {
+        try {
+            $cleanPhone = preg_replace('/\D/', '', (string) $phone);
+            if (str_starts_with($cleanPhone, '0')) $cleanPhone = '63' . substr($cleanPhone, 1);
+            if (!str_starts_with($cleanPhone, '63')) $cleanPhone = '63' . $cleanPhone;
+
+            $queue = session('dev_sms_queue', []);
+            array_unshift($queue, [
+                'to' => $cleanPhone,
+                'message' => $message,
+                'time' => now()->format('h:i A'),
+            ]);
+            session(['dev_sms_queue' => array_slice($queue, 0, 10)]);
+        } catch (\Throwable $e) {}
     }
 
     public function requestCancel(Request $request, string $trackCode, OrderRefundService $refunds)

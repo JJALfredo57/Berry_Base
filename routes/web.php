@@ -204,6 +204,8 @@ Route::post('/custom-order/{id}/accept-price', [GuestCustomOrder::class, 'accept
 Route::post('/custom-order/{id}/cancel-price', [GuestCustomOrder::class, 'cancelPrice'])->name('guest.custom_order.cancel_price');
 
 // ── Order Tracking (SMS link) ─────────────────────────────────────────────
+Route::get('/track/recover', [TrackingController::class, 'recoverForm'])->name('track.recover');
+Route::post('/track/recover', [TrackingController::class, 'recoverSubmit'])->name('track.recover.submit');
 Route::get('/track/{trackCode}', [TrackingController::class, 'show'])->name('track.order');
 Route::get('/track/{trackCode}/status', [TrackingController::class, 'status'])->name('track.status');
 Route::get('/track/{trackCode}/receipts', [TrackingController::class, 'receipts'])->name('guest.receipts');

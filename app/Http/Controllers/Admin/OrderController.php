@@ -32,6 +32,7 @@ class OrderController extends Controller
                 'p.name as product_name', 'p.image_path', 'p.price')
             ->when($search, fn($q) => $q->where(fn($sq) => $sq
                 ->where('o.id', 'like', "%$search%")
+                ->orWhere('o.track_code', 'like', "%$search%")
                 ->orWhereRaw("COALESCE(o.guest_name, u.fullname) like ?", ["%$search%"])
                 ->orWhereRaw("COALESCE(o.guest_phone, u.phone) like ?", ["%$search%"])
                 ->orWhere('p.name', 'like', "%$search%")
