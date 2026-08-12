@@ -2021,6 +2021,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <div id="csDlgInputWrap" style="display:none;margin-bottom:1.25rem">
         <input id="csDlgInput" type="text" class="form-control" style="text-align:center">
       </div>
+      <div id="csDlgHelperWrap" style="display:none;text-align:center;margin:-.45rem 0 1.15rem"></div>
       <div id="csDlgBtns" style="display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap"></div>
     </div>
   </div>
@@ -2367,6 +2368,7 @@ function _csDlgBuild(opts) {
   document.getElementById('csDlgMsg').textContent   = opts.message || '';
   var iw = document.getElementById('csDlgInputWrap');
   var inp = document.getElementById('csDlgInput');
+  var helper = document.getElementById('csDlgHelperWrap');
   if (opts.prompt) {
     iw.style.display = '';
     inp.value = opts.defaultVal || '';
@@ -2374,6 +2376,18 @@ function _csDlgBuild(opts) {
     inp.readOnly = !!opts.readOnly;
     setTimeout(function() { opts.readOnly ? inp.select() : inp.focus(); }, 350);
   } else { iw.style.display = 'none'; }
+  helper.innerHTML = '';
+  helper.style.display = 'none';
+  if (opts.helperLinkText && opts.helperLinkHref) {
+    var hl = document.createElement('a');
+    hl.href = opts.helperLinkHref;
+    hl.textContent = opts.helperLinkText;
+    hl.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;gap:.35rem;color:var(--primary);font-size:.82rem;font-weight:700;text-decoration:none';
+    hl.onmouseenter = function() { hl.style.textDecoration = 'underline'; };
+    hl.onmouseleave = function() { hl.style.textDecoration = 'none'; };
+    helper.appendChild(hl);
+    helper.style.display = 'block';
+  }
   var btns = document.getElementById('csDlgBtns');
   btns.innerHTML = '';
   _csDlgOkCb = opts.onConfirm || null;
@@ -2415,6 +2429,7 @@ function csTrackPrompt() {
   _csDlgBuild({title:'Track Your Order',message:'Enter your order tracking code:',
     icon:'bi-search',iconBg:'#fff0f6',iconColor:'var(--primary)',
     prompt:true,placeholder:'e.g. TRK-12345',okLabel:'Track',showCancel:true,
+    helperLinkText:'Forgot your tracking code?',helperLinkHref:'/track/recover',
     onConfirm:function(val){
       if (val && val.trim()) {
         if (window.BerryAppTracking) window.BerryAppTracking.saveTrackCode(val.trim());
