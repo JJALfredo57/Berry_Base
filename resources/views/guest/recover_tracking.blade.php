@@ -7,8 +7,9 @@
   $selectedOrder = $recoveredCode ? $orders->firstWhere('id', $recovery['selected_order_id'] ?? '') : null;
 @endphp
 
-<div class="container py-4" style="max-width:920px">
-  <div class="d-flex align-items-center justify-content-between gap-3 mb-3 flex-wrap">
+<div class="recover-page">
+  <div class="recover-shell">
+  <div class="recover-topbar">
     <div>
       <div class="text-uppercase fw-bold small" style="color:var(--primary);letter-spacing:.06em">Guest Order Tracking</div>
       <h3 class="fw-bold mb-1">Recover Tracking Code</h3>
@@ -34,6 +35,9 @@
   @include('components.dev-otp-hint')
 
   <style>
+    .recover-page{width:100%;min-height:calc(100vh - 92px);padding:clamp(12px,2.4vw,30px);background:linear-gradient(180deg,#fff 0%,#f8fafc 100%)}
+    .recover-shell{width:100%;max-width:none;margin:0}
+    .recover-topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
     .recover-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
     .recover-step{border:1px solid #e5e7eb;background:#fff;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:9px;min-width:0}
     .recover-step.is-active{border-color:var(--primary);box-shadow:0 8px 24px rgba(15,23,42,.08)}
@@ -53,10 +57,25 @@
     .recover-code{font-family:monospace;font-size:clamp(1.8rem,8vw,3.25rem);font-weight:900;letter-spacing:.12em;color:#111827;word-break:break-word;line-height:1.1}
     .method-panel{display:none}
     .method-panel.is-visible{display:block}
+    .recover-form-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+    .recover-field-6{grid-column:span 6}
+    .recover-field-7{grid-column:span 7}
+    .recover-field-5{grid-column:span 5}
+    .recover-field-full{grid-column:1/-1}
+    .recover-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .recover-order-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+    .recover-method-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
     @media(max-width:640px){
+      .recover-page{min-height:calc(100vh - 70px);padding:12px}
+      .recover-topbar{align-items:stretch}
+      .recover-topbar .btn{width:100%;justify-content:center}
       .recover-steps{grid-template-columns:1fr}
       .recover-card-head{padding:16px}
       .recover-card-body{padding:16px}
+      .recover-form-grid{grid-template-columns:1fr;gap:12px}
+      .recover-field-6,.recover-field-7,.recover-field-5,.recover-field-full{grid-column:1/-1}
+      .recover-method-grid,.recover-order-grid{grid-template-columns:1fr}
+      .recover-actions .btn{width:100%}
     }
   </style>
 
@@ -115,15 +134,15 @@
         </div>
       </div>
       <div class="recover-card-body">
-        <form method="POST" action="{{ route('track.recover.submit') }}" class="row g-3">
+        <form method="POST" action="{{ route('track.recover.submit') }}" class="recover-form-grid">
           @csrf
           <input type="hidden" name="action" value="verify">
-          <div class="col-md-6">
+          <div class="recover-field-6">
             <label class="form-label fw-semibold">OTP Code <span class="text-danger">*</span></label>
             <input type="text" name="otp_code" class="form-control form-control-lg" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="123456" required autocomplete="one-time-code">
             <div class="form-text">Valid for 10 minutes. Do not share this code.</div>
           </div>
-          <div class="col-12 d-flex gap-2 flex-wrap">
+          <div class="recover-field-full recover-actions">
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-shield-check me-1"></i>Verify OTP
             </button>
@@ -141,14 +160,14 @@
         </div>
       </div>
       <div class="recover-card-body">
-        <form method="POST" action="{{ route('track.recover.submit') }}" class="row g-3" id="deliverForm">
+        <form method="POST" action="{{ route('track.recover.submit') }}" class="recover-form-grid" id="deliverForm">
           @csrf
           <input type="hidden" name="action" value="deliver">
 
-          <div class="col-12">
-            <div class="row g-2">
+          <div class="recover-field-full">
+            <div class="recover-order-grid">
               @foreach($orders as $index => $order)
-                <div class="col-md-6">
+                <div>
                   <label class="recover-order">
                     <input type="radio" name="order_id" value="{{ $order->id }}" {{ $index === 0 ? 'checked' : '' }} required>
                     <div class="d-flex justify-content-between gap-2">
@@ -164,24 +183,24 @@
             </div>
           </div>
 
-          <div class="col-12">
+          <div class="recover-field-full">
             <label class="form-label fw-semibold">Receive Tracking Code By</label>
-            <div class="row g-2">
-              <div class="col-md-4">
+            <div class="recover-method-grid">
+              <div>
                 <label class="recover-order">
                   <input type="radio" name="delivery_method" value="screen" checked onchange="toggleEmailField()">
                   <div class="fw-bold"><i class="bi bi-display me-1"></i>Show on screen</div>
                   <div class="small text-muted">Fastest and no extra SMS cost.</div>
                 </label>
               </div>
-              <div class="col-md-4">
+              <div>
                 <label class="recover-order">
                   <input type="radio" name="delivery_method" value="sms" onchange="toggleEmailField()">
                   <div class="fw-bold"><i class="bi bi-phone me-1"></i>Send by SMS</div>
                   <div class="small text-muted">Code only, sent to the order phone number.</div>
                 </label>
               </div>
-              <div class="col-md-4">
+              <div>
                 <label class="recover-order">
                   <input type="radio" name="delivery_method" value="email" onchange="toggleEmailField()">
                   <div class="fw-bold"><i class="bi bi-envelope me-1"></i>Send by email</div>
@@ -191,13 +210,13 @@
             </div>
           </div>
 
-          <div class="col-md-7 method-panel" id="emailPanel">
+          <div class="recover-field-7 method-panel" id="emailPanel">
             <label class="form-label fw-semibold">Email Address</label>
             <input type="email" name="email" class="form-control" value="{{ old('email') }}" maxlength="150" placeholder="name@example.com">
             <div class="form-text">The code will be sent to this email after phone verification.</div>
           </div>
 
-          <div class="col-12 d-flex gap-2 flex-wrap">
+          <div class="recover-field-full recover-actions">
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-key-fill me-1"></i>Recover Tracking Code
             </button>
@@ -215,23 +234,23 @@
         </div>
       </div>
       <div class="recover-card-body">
-        <form method="POST" action="{{ route('track.recover.submit') }}" class="row g-3">
+        <form method="POST" action="{{ route('track.recover.submit') }}" class="recover-form-grid">
           @csrf
           <input type="hidden" name="action" value="find">
-          <div class="col-md-6">
+          <div class="recover-field-6">
             <label class="form-label fw-semibold">Phone Number <span class="text-danger">*</span></label>
             <input type="tel" name="phone" class="form-control" value="{{ old('phone') }}" placeholder="09XXXXXXXXX" maxlength="30" required inputmode="tel">
             <div class="form-text">Use the phone number verified during checkout.</div>
           </div>
-          <div class="col-md-6">
+          <div class="recover-field-6">
             <label class="form-label fw-semibold">Date You Placed The Order <span class="text-danger">*</span></label>
             <input type="date" name="order_date" class="form-control" value="{{ old('order_date') }}" max="{{ now()->toDateString() }}" required>
           </div>
-          <div class="col-md-7">
+          <div class="recover-field-7">
             <label class="form-label fw-semibold">Full Name Used In The Order <span class="text-danger">*</span></label>
             <input type="text" name="guest_name" class="form-control" value="{{ old('guest_name') }}" placeholder="e.g. Maria Santos" maxlength="120" required>
           </div>
-          <div class="col-md-5">
+          <div class="recover-field-5">
             <label class="form-label fw-semibold">Order Type</label>
             <select name="order_type" class="form-select">
               <option value="any" {{ old('order_type') === 'any' ? 'selected' : '' }}>Any order type</option>
@@ -239,13 +258,13 @@
               <option value="custom" {{ old('order_type') === 'custom' ? 'selected' : '' }}>Custom Cake Order</option>
             </select>
           </div>
-          <div class="col-12">
+          <div class="recover-field-full">
             <div class="recover-soft small text-muted">
               <i class="bi bi-lock-fill me-1"></i>
               We check your order details first. OTP is sent only when the details match an order, and tracking codes are shown only after verification.
             </div>
           </div>
-          <div class="col-12">
+          <div class="recover-field-full recover-actions">
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-search me-1"></i>Continue
             </button>
@@ -254,6 +273,7 @@
       </div>
     </div>
   @endif
+  </div>
 </div>
 
 <script>
