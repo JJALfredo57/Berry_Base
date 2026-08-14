@@ -3,14 +3,20 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Services\BackupService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class SettingsController extends Controller
 {
     use UploadsFiles;
+
+    public function __construct(private BackupService $backups)
+    {
+    }
 
     private function saveBrandFile($file, string $folder = 'branding'): string
     {
@@ -34,12 +40,7 @@ class SettingsController extends Controller
     {
         $tab      = $request->input('tab', 'site');
         $settings = CakeshopHelper::getSettings();
-        $files    = [];
-        $backupsDir = storage_path('app/backups');
-        if (is_dir($backupsDir)) {
-            $files = array_filter(glob($backupsDir . '/*.sql') ?: [], 'is_file');
-            usort($files, fn($a,$b) => filemtime($b) - filemtime($a));
-        }
+        $files    = $this->backups->listBackups();
         return view('admin.settings', compact('tab','settings','files'));
     }
 
@@ -295,42 +296,86 @@ class SettingsController extends Controller
 
     public function createBackup()
     {
-        $user       = session('user');
-        $backupsDir = storage_path('app/backups');
-        if (!is_dir($backupsDir)) mkdir($backupsDir, 0755, true);
-        $content = CakeshopHelper::exportSql(config('database.connections.mysql.database'));
-        $fname   = 'cakeshop_db_' . date('Y-m-d_H-i-s') . '.sql';
-        $path    = $backupsDir . '/' . $fname;
-        if (file_put_contents($path, $content) === false) {
-            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('err', 'Failed to write backup.');
+        try {
+            $info = $this->backups->createDatabaseBackup('admin_manual');
+            $user = session('user') ?? ['id' => 'system', 'role' => 'admin'];
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Backup Database', $info['name']);
+
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('msg', "Backup created successfully: {$info['name']}");
+        } catch (\Throwable $e) {
+            Log::error('Admin backup failed: ' . $e->getMessage(), ['exception' => $e]);
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('err', 'Backup failed: ' . $e->getMessage());
         }
-        CakeshopHelper::logActivity($user['id'], $user['role'], 'Backup Database', $fname);
-        return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('msg', "Backup created: {$fname}");
+    }
+
+    public function createFullBackup()
+    {
+        try {
+            $info = $this->backups->createFullBackup('admin_manual');
+            $user = session('user') ?? ['id' => 'system', 'role' => 'admin'];
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Full Backup', $info['name']);
+
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('msg', "Full backup created successfully: {$info['name']}");
+        } catch (\Throwable $e) {
+            Log::error('Admin full backup failed: ' . $e->getMessage(), ['exception' => $e]);
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('err', 'Full backup failed: ' . $e->getMessage());
+        }
     }
 
     public function restore(Request $request)
     {
-        $user       = session('user');
-        $file       = preg_replace('/[^A-Za-z0-9._-]/', '', $request->input('file', ''));
-        $backupsDir = storage_path('app/backups');
-        $path       = $backupsDir . '/' . $file;
-        if (!$file || !is_file($path)) {
-            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('err', 'Backup file not found.');
+        try {
+            $result = $this->backups->restoreSqlBackup((string) $request->input('file', ''));
+            $user = session('user') ?? ['id' => 'system', 'role' => 'admin'];
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Restore Database', $result['restored']['name'] . ' | safety: ' . $result['safety']['name']);
+
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('msg', "Database restored from {$result['restored']['name']}. Safety backup created first: {$result['safety']['name']}");
+        } catch (\Throwable $e) {
+            Log::error('Admin restore failed: ' . $e->getMessage(), ['file' => $request->input('file'), 'exception' => $e]);
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('err', 'Restore failed: ' . $e->getMessage());
         }
-        DB::getPdo()->exec(file_get_contents($path));
-        CakeshopHelper::logActivity($user['id'], $user['role'], 'Restore Database', $file);
-        return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('msg', "Database restored from: {$file}");
     }
 
     public function deleteBackup(Request $request)
     {
-        $user       = session('user');
-        $file       = preg_replace('/[^A-Za-z0-9._-]/', '', $request->input('file', ''));
-        $path       = storage_path('app/backups') . '/' . $file;
-        if ($file && is_file($path)) {
-            unlink($path);
-            CakeshopHelper::logActivity($user['id'], $user['role'], 'Delete Backup', $file);
+        try {
+            $info = $this->backups->deleteBackup((string) $request->input('file', ''));
+            $user = session('user') ?? ['id' => 'system', 'role' => 'admin'];
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Delete Backup', $info['name']);
+
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('msg', 'Backup deleted.');
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('err', 'Delete failed: ' . $e->getMessage());
         }
-        return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('msg', 'Backup deleted.');
+    }
+
+    public function downloadBackup(Request $request)
+    {
+        try {
+            $path = $this->backups->resolveBackupPath((string) $request->input('file', ''));
+            $user = session('user') ?? ['id' => 'system', 'role' => 'admin'];
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Download Backup', basename($path));
+
+            return response()->download($path, basename($path));
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('err', 'Download failed: ' . $e->getMessage());
+        }
+    }
+
+    public function uploadBackup(Request $request)
+    {
+        $request->validate([
+            'backup_file' => 'required|file|mimes:sql,txt|max:51200',
+        ]);
+
+        try {
+            $info = $this->backups->storeUploadedSql($request->file('backup_file'));
+            $user = session('user') ?? ['id' => 'system', 'role' => 'admin'];
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Upload Backup', $info['name']);
+
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('msg', "Backup uploaded: {$info['name']}");
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index', ['tab' => 'backup'])->with('err', 'Upload failed: ' . $e->getMessage());
+        }
     }
 }

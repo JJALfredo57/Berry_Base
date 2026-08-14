@@ -546,8 +546,11 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/settings/password',                   [SettingsController::class, 'changePassword'])->name('settings.password');
     Route::post('/settings/daily-capacity',             [SettingsController::class, 'saveDailyCapacity'])->name('settings.daily_capacity');
     Route::post('/settings/backup',                     [SettingsController::class, 'createBackup'])->name('settings.backup');
-    Route::get('/settings/restore',                     [SettingsController::class, 'restore'])->name('settings.restore');
-    Route::get('/settings/delete-backup',               [SettingsController::class, 'deleteBackup'])->name('settings.delete_backup');
+    Route::post('/settings/full-backup',                [SettingsController::class, 'createFullBackup'])->name('settings.full_backup');
+    Route::post('/settings/upload-backup',              [SettingsController::class, 'uploadBackup'])->name('settings.upload_backup');
+    Route::get('/settings/download-backup',             [SettingsController::class, 'downloadBackup'])->name('settings.download_backup');
+    Route::post('/settings/restore',                    [SettingsController::class, 'restore'])->name('settings.restore');
+    Route::post('/settings/delete-backup',              [SettingsController::class, 'deleteBackup'])->name('settings.delete_backup');
 
     Route::get('/addons',                            [AddonController::class, 'index'])->name('addons.index');
     Route::post('/addons/category',                  [AddonController::class, 'storeCategory'])->name('addons.store_category');
@@ -634,8 +637,11 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/settings/password',                    [SettingsController::class, 'changePassword'])->name('settings.password');
     Route::post('/settings/daily-capacity',              [SettingsController::class, 'saveDailyCapacity'])->name('settings.daily_capacity');
     Route::post('/settings/backup',                      [SettingsController::class, 'createBackup'])->name('settings.backup');
-    Route::get('/settings/restore',                      [SettingsController::class, 'restore'])->name('settings.restore');
-    Route::get('/settings/delete-backup',                [SettingsController::class, 'deleteBackup'])->name('settings.delete_backup');
+    Route::post('/settings/full-backup',                 [SettingsController::class, 'createFullBackup'])->name('settings.full_backup');
+    Route::post('/settings/upload-backup',               [SettingsController::class, 'uploadBackup'])->name('settings.upload_backup');
+    Route::get('/settings/download-backup',              [SettingsController::class, 'downloadBackup'])->name('settings.download_backup');
+    Route::post('/settings/restore',                     [SettingsController::class, 'restore'])->name('settings.restore');
+    Route::post('/settings/delete-backup',               [SettingsController::class, 'deleteBackup'])->name('settings.delete_backup');
 
     Route::get('/addons',                           [AddonController::class, 'index'])->name('addons.index');
     Route::post('/addons/category',                 [AddonController::class, 'storeCategory'])->name('addons.store_category');

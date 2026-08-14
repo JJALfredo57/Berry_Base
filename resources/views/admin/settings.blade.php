@@ -677,34 +677,122 @@
   @endpush
 
   @elseif($tab==='backup')
+  @php
+    $totalBackupSize = array_sum(array_map(fn($f) => (int) ($f['size'] ?? 0), $files));
+    $latestBackup = count($files) ? $files[0] : null;
+    $fullBackupAvailable = class_exists(\ZipArchive::class);
+  @endphp
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-body p-4">
+          <h6 class="fw-bold mb-2"><i class="bi bi-cloud-arrow-up me-2" style="color:var(--primary)"></i>Backup Actions</h6>
+          <p class="text-muted small mb-3">Create database or full backups and store them in <code>storage/app/backups/</code>.</p>
+          <div class="d-flex flex-wrap gap-2">
+            <form action="{{ route('admin.settings.backup') }}" method="POST" onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('.backup-btn-text').textContent='Creating...';">
+              @csrf
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-database-down me-1"></i><span class="backup-btn-text">Database Backup</span>
+              </button>
+            </form>
+            <form action="{{ route('admin.settings.full_backup') }}" method="POST" onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('.backup-btn-text').textContent='Creating...';">
+              @csrf
+              <button type="submit" class="btn btn-outline-primary" {{ $fullBackupAvailable ? '' : 'disabled' }}>
+                <i class="bi bi-archive me-1"></i><span class="backup-btn-text">Full Backup</span>
+              </button>
+            </form>
+          </div>
+          <div class="form-text mt-2">
+            Full backup includes database plus uploaded files.
+            @unless($fullBackupAvailable)
+              Enable PHP ZipArchive on the server to use this.
+            @endunless
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-body p-4">
+          <h6 class="fw-bold mb-2"><i class="bi bi-shield-check me-2" style="color:#16a34a"></i>Backup Status</h6>
+          <div class="row g-2">
+            <div class="col-6">
+              <div class="border rounded-2 p-3">
+                <div class="text-muted small">Files</div>
+                <div class="fw-bold">{{ count($files) }}</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="border rounded-2 p-3">
+                <div class="text-muted small">Total Size</div>
+                <div class="fw-bold">{{ number_format($totalBackupSize / 1024, 1) }} KB</div>
+              </div>
+            </div>
+          </div>
+          <div class="text-muted small mt-3">
+            Latest:
+            <strong>{{ $latestBackup ? date('M d, Y H:i', $latestBackup['modified_at']) : 'No backup yet' }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="card mb-4">
     <div class="card-body p-4">
-      <h6 class="fw-bold mb-3"><i class="bi bi-cloud-arrow-up me-2" style="color:var(--primary)"></i>Database Backup</h6>
-      <p class="text-muted small">Create a full backup of the database. Backups are stored in <code>storage/app/backups/</code>.</p>
-      <form action="{{ route('admin.settings.backup') }}" method="POST">
+      <h6 class="fw-bold mb-3"><i class="bi bi-upload me-2" style="color:#2563eb"></i>Upload SQL Backup</h6>
+      <form action="{{ route('admin.settings.upload_backup') }}" method="POST" enctype="multipart/form-data">
         @csrf
-        <button type="submit" class="btn btn-primary"><i class="bi bi-download me-1"></i>Create Backup Now</button>
+        <div class="row g-2 align-items-start">
+          <div class="col-md">
+            <input type="file" name="backup_file" class="form-control" accept=".sql" required>
+            <div class="form-text">Upload a trusted SQL backup. Restores create a safety backup first. Max 50 MB.</div>
+          </div>
+          <div class="col-md-auto">
+            <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-cloud-upload me-1"></i>Upload Backup</button>
+          </div>
+        </div>
       </form>
     </div>
   </div>
+
   @if(count($files) > 0)
   <div class="card">
     <div class="card-body p-4">
       <h6 class="fw-bold mb-3">Existing Backups ({{ count($files) }})</h6>
       @foreach($files as $f)
-      <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
-        <div>
-          <span class="small fw-semibold">{{ basename($f) }}</span>
-          <span class="text-muted small ms-2">{{ number_format(filesize($f)/1024, 1) }} KB</span>
+      <div class="d-flex align-items-start justify-content-between gap-3 py-3 border-bottom flex-wrap">
+        <div style="min-width:220px;flex:1">
+          <div class="small fw-semibold">
+            {{ $f['name'] }}
+            <span class="badge ms-1 {{ $f['extension'] === 'sql' ? 'bg-success' : 'bg-secondary' }}">{{ strtoupper($f['extension']) }}</span>
+          </div>
+          <div class="text-muted small">{{ number_format(($f['size'] ?? 0)/1024, 1) }} KB &bull; {{ date('M d, Y H:i', $f['modified_at']) }}</div>
         </div>
-        <div class="d-flex gap-2">
-          <a href="{{ route('admin.settings.restore', ['file'=>basename($f)]) }}" class="btn btn-outline-secondary btn-sm" onclick="confirmAction('Restore Backup?', 'Current data will be overwritten. This cannot be undone.', () => window.location=this.href); return false;"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</a>
-          <a href="{{ route('admin.settings.delete_backup', ['file'=>basename($f)]) }}" class="btn btn-outline-danger btn-sm" onclick="confirmDelete('This backup file will be permanently deleted.', () => window.location=this.href); return false;"><i class="bi bi-trash me-1"></i>Delete</a>
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="{{ route('admin.settings.download_backup', ['file'=>$f['name']]) }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-download me-1"></i>Download</a>
+          @if($f['is_restorable'])
+          <form action="{{ route('admin.settings.restore') }}" method="POST" class="d-inline"
+                data-cs-confirm="Restore this SQL backup? A safety backup will be created first, then current data will be overwritten." data-cs-title="Restore Backup" data-cs-icon="bi-arrow-counterclockwise" data-cs-ok="Restore">
+            @csrf
+            <input type="hidden" name="file" value="{{ $f['name'] }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+          </form>
+          @endif
+          <form action="{{ route('admin.settings.delete_backup') }}" method="POST" class="d-inline"
+                data-cs-confirm="Delete this backup file permanently?" data-cs-title="Delete Backup" data-cs-icon="bi-trash" data-cs-icon-bg="#fff1f2" data-cs-icon-color="#ef4444" data-cs-ok="Delete" data-cs-ok-color="#ef4444">
+            @csrf
+            <input type="hidden" name="file" value="{{ $f['name'] }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1"></i>Delete</button>
+          </form>
         </div>
       </div>
       @endforeach
     </div>
   </div>
+  @else
+  <div class="card"><div class="card-body text-center text-muted py-5">No backups yet.</div></div>
   @endif
   @elseif($tab==='custom_options')
   {{-- ── CUSTOM ORDER OPTIONS TAB ─────────────────────────────── --}}
