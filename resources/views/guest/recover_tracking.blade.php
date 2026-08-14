@@ -49,7 +49,7 @@
     .recover-subtitle{max-width:760px;color:#4b5563;font-size:clamp(.86rem,1.6vw,.95rem);line-height:1.5;font-weight:600}
     .recover-back-btn{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:.45rem .9rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--primary) 22%,rgba(255,255,255,.5));background:rgba(255,255,255,.42);color:#374151;text-decoration:none;font-size:.82rem;font-weight:800;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:background .16s,border-color .16s,color .16s,transform .16s}
     .recover-back-btn:hover{background:color-mix(in srgb,var(--primary-bg) 74%,rgba(255,255,255,.52));border-color:color-mix(in srgb,var(--primary) 42%,transparent);color:var(--primary);transform:translateY(-1px)}
-    .recover-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
+    .recover-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:18px 0}
     .recover-step{border:1px solid color-mix(in srgb,var(--primary) 13%,rgba(255,255,255,.65));background:rgba(255,255,255,.44);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:8px;padding:11px 12px;display:flex;align-items:center;gap:9px;min-width:0;box-shadow:0 10px 26px rgba(15,23,42,.05)}
     .recover-step.is-active{border-color:color-mix(in srgb,var(--primary) 46%,rgba(255,255,255,.7));background:color-mix(in srgb,var(--primary-bg) 72%,rgba(255,255,255,.48));box-shadow:0 12px 30px color-mix(in srgb,var(--primary) 14%,transparent)}
     .recover-step.is-done{background:rgba(240,253,244,.58);border-color:rgba(34,197,94,.32)}
@@ -70,8 +70,6 @@
     .recover-order:has(input:checked){border-color:var(--primary);background:color-mix(in srgb,var(--primary-bg) 76%,rgba(255,255,255,.5));box-shadow:0 12px 30px color-mix(in srgb,var(--primary) 16%,transparent)}
     .recover-order .badge{background:rgba(255,255,255,.68)!important;border:1px solid color-mix(in srgb,var(--primary) 14%,transparent)}
     .recover-code{font-family:monospace;font-size:clamp(1.8rem,8vw,3.25rem);font-weight:900;letter-spacing:.12em;color:#111827;word-break:break-word;line-height:1.1}
-    .method-panel{display:none}
-    .method-panel.is-visible{display:block}
     .recover-form-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
     .recover-field-6{grid-column:span 6}
     .recover-field-7{grid-column:span 7}
@@ -79,17 +77,19 @@
     .recover-field-full{grid-column:1/-1}
     .recover-actions{display:flex;gap:10px;flex-wrap:wrap}
     .recover-order-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
-    .recover-method-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
     @media(max-width:640px){
       .recover-page{min-height:calc(100vh - 70px);padding:12px}
       .recover-topbar{align-items:stretch}
-      .recover-topbar .btn{width:100%;justify-content:center}
-      .recover-steps{grid-template-columns:1fr}
+      .recover-topbar .recover-back-btn{width:100%;justify-content:center}
+      .recover-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+      .recover-step{padding:9px 6px;flex-direction:column;justify-content:center;text-align:center;gap:5px}
+      .recover-step-num{width:24px;height:24px;font-size:.72rem}
+      .recover-step-label{font-size:clamp(.62rem,2.6vw,.72rem);white-space:normal;line-height:1.12}
       .recover-card-head{padding:16px}
       .recover-card-body{padding:16px}
       .recover-form-grid{grid-template-columns:1fr;gap:12px}
       .recover-field-6,.recover-field-7,.recover-field-5,.recover-field-full{grid-column:1/-1}
-      .recover-method-grid,.recover-order-grid{grid-template-columns:1fr}
+      .recover-order-grid{grid-template-columns:1fr}
       .recover-actions .btn{width:100%}
     }
   </style>
@@ -171,7 +171,7 @@
       <div class="recover-card-head">
         <div>
           <h5 class="fw-bold mb-1">Choose The Order</h5>
-          <div class="text-muted small">Select the exact order, then choose how to receive the tracking code.</div>
+          <div class="text-muted small">Select the exact order you want to recover.</div>
         </div>
       </div>
       <div class="recover-card-body">
@@ -199,36 +199,10 @@
           </div>
 
           <div class="recover-field-full">
-            <label class="form-label fw-semibold">Receive Tracking Code By</label>
-            <div class="recover-method-grid">
-              <div>
-                <label class="recover-order">
-                  <input type="radio" name="delivery_method" value="screen" checked onchange="toggleEmailField()">
-                  <div class="fw-bold"><i class="bi bi-display me-1"></i>Show on screen</div>
-                  <div class="small text-muted">Fastest and no extra SMS cost.</div>
-                </label>
-              </div>
-              <div>
-                <label class="recover-order">
-                  <input type="radio" name="delivery_method" value="sms" onchange="toggleEmailField()">
-                  <div class="fw-bold"><i class="bi bi-phone me-1"></i>Send by SMS</div>
-                  <div class="small text-muted">Code only, sent to the order phone number.</div>
-                </label>
-              </div>
-              <div>
-                <label class="recover-order">
-                  <input type="radio" name="delivery_method" value="email" onchange="toggleEmailField()">
-                  <div class="fw-bold"><i class="bi bi-envelope me-1"></i>Send by email</div>
-                  <div class="small text-muted">Enter an email address below.</div>
-                </label>
-              </div>
+            <div class="recover-soft small text-muted">
+              <i class="bi bi-eye-fill me-1"></i>
+              After you choose an order, the tracking code will appear on this screen.
             </div>
-          </div>
-
-          <div class="recover-field-7 method-panel" id="emailPanel">
-            <label class="form-label fw-semibold">Email Address</label>
-            <input type="email" name="email" class="form-control" value="{{ old('email') }}" maxlength="150" placeholder="name@example.com">
-            <div class="form-text">The code will be sent to this email after phone verification.</div>
           </div>
 
           <div class="recover-field-full recover-actions">
@@ -292,13 +266,6 @@
 </div>
 
 <script>
-function toggleEmailField() {
-  var method = document.querySelector('input[name="delivery_method"]:checked')?.value || 'screen';
-  var panel = document.getElementById('emailPanel');
-  if (!panel) return;
-  panel.classList.toggle('is-visible', method === 'email');
-}
-
 function copyRecoveredCode() {
   var code = document.getElementById('recoveredCode')?.textContent.trim() || '';
   if (!code) return;
@@ -306,7 +273,5 @@ function copyRecoveredCode() {
     if (typeof cakeToast === 'function') cakeToast('Tracking code copied.', 'success');
   }).catch(function () {});
 }
-
-toggleEmailField();
 </script>
 @endsection

@@ -19,7 +19,7 @@
   <div style="background:linear-gradient(90deg,#78350f,#92400e);padding:.55rem 1rem;display:flex;align-items:center;justify-content:space-between">
     <span style="font-size:.7rem;font-weight:700;color:#fef3c7;letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:.4rem">
       <i class="bi bi-bug-fill" style="font-size:.75rem"></i>
-      Developer Mode &mdash; SMS Preview
+      Developer Mode - SMS Preview
     </span>
     <span style="font-size:.65rem;color:rgba(254,243,199,.65)">{{ $devOtp['time'] }}</span>
   </div>
@@ -28,16 +28,16 @@
 
     {{-- Sub-label --}}
     <div style="font-size:.72rem;color:#b45309;margin-bottom:.65rem;font-style:italic">
-      This is what the customer receives when SMS is working:
+      Developer Mode is ON. No real SMS was sent. Use this preview OTP for testing.
     </div>
 
     {{-- SMS bubble mockup --}}
     <div style="background:#fff;border-radius:12px;padding:.75rem .9rem;border:1px solid #fde68a;margin-bottom:.85rem;position:relative">
       <div style="font-size:.64rem;font-weight:700;color:#92400e;letter-spacing:.05em;margin-bottom:.3rem;text-transform:uppercase">
-        <i class="bi bi-phone-fill" style="font-size:.7rem"></i> SMS from UniSMS
+        <i class="bi bi-phone-fill" style="font-size:.7rem"></i> SMS Preview
       </div>
       <div style="font-size:.8rem;color:#1c1917;line-height:1.6;font-family:monospace;word-break:break-word">{{ $smsText }}</div>
-      <div style="font-size:.62rem;color:#a8a29e;text-align:right;margin-top:.35rem">{{ $devOtp['time'] }} &nbsp;·&nbsp; Delivered</div>
+      <div style="font-size:.62rem;color:#a8a29e;text-align:right;margin-top:.35rem">{{ $devOtp['time'] }} &nbsp;&middot;&nbsp; Preview only</div>
     </div>
 
     {{-- OTP copy section --}}

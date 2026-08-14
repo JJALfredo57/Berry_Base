@@ -8,8 +8,6 @@ use App\Services\OrderRefundService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 
@@ -154,10 +152,6 @@ class TrackingController extends Controller
 
         $data = $request->validate([
             'order_id' => ['required', 'string'],
-            'delivery_method' => ['required', 'in:screen,sms,email'],
-            'email' => ['nullable', 'required_if:delivery_method,email', 'email:rfc', 'max:150'],
-        ], [
-            'email.required_if' => 'Please enter the email address where we should send the tracking code.',
         ]);
 
         if (!in_array($data['order_id'], $recovery['order_ids'], true)) {
@@ -169,45 +163,13 @@ class TrackingController extends Controller
             return back()->with('error', 'Selected order is no longer available for recovery.');
         }
 
-        $message = "Your tracking code for Order #{$order->id} is {$order->track_code}.";
-        $method = $data['delivery_method'];
-        $devMode = $this->isDevMode();
-
-        if ($method === 'sms') {
-            if ($devMode) {
-                $this->queueDevSmsPreview($order->guest_phone, config('app.name', 'Cake Shop') . ': ' . $message);
-            } else {
-                $sent = SmsHelper::send($order->guest_phone, config('app.name', 'Cake Shop') . ': ' . $message);
-                if (!$sent) {
-                    return back()->with('error', 'Tracking code could not be sent by SMS. You can show it on screen instead.');
-                }
-            }
-        }
-
-        if ($method === 'email') {
-            try {
-                Mail::raw($message . "\n\nUse this code on the Track Order page.", function ($mail) use ($data) {
-                    $mail->to($data['email'])->subject('Your Berry Base Tracking Code');
-                });
-            } catch (\Throwable $e) {
-                Log::warning('Tracking recovery email failed: ' . $e->getMessage());
-                return back()->withInput()->with('error', 'Tracking code could not be sent by email. Please check the email address or show it on screen.');
-            }
-        }
-
         $recovery['selected_order_id'] = $order->id;
         $recovery['recovered_code'] = $order->track_code;
-        $recovery['delivery_method'] = $method;
         $recovery['step'] = 'done';
+        unset($recovery['delivery_method']);
         session(['track_recovery' => $recovery]);
 
-        $status = $method === 'screen'
-            ? 'Tracking code recovered.'
-            : ($devMode && $method === 'sms'
-                ? 'Developer mode: SMS preview is shown on this page.'
-                : 'Tracking code sent. It is also shown below for your convenience.');
-
-        return redirect()->route('track.recover')->with('msg', $status);
+        return redirect()->route('track.recover')->with('msg', 'Tracking code recovered.');
     }
 
     private function resetRecovery()
@@ -629,23 +591,6 @@ class TrackingController extends Controller
         } catch (\Throwable $e) {
             return false;
         }
-    }
-
-    private function queueDevSmsPreview(?string $phone, string $message): void
-    {
-        try {
-            $cleanPhone = preg_replace('/\D/', '', (string) $phone);
-            if (str_starts_with($cleanPhone, '0')) $cleanPhone = '63' . substr($cleanPhone, 1);
-            if (!str_starts_with($cleanPhone, '63')) $cleanPhone = '63' . $cleanPhone;
-
-            $queue = session('dev_sms_queue', []);
-            array_unshift($queue, [
-                'to' => $cleanPhone,
-                'message' => $message,
-                'time' => now()->format('h:i A'),
-            ]);
-            session(['dev_sms_queue' => array_slice($queue, 0, 10)]);
-        } catch (\Throwable $e) {}
     }
 
     public function requestCancel(Request $request, string $trackCode, OrderRefundService $refunds)
