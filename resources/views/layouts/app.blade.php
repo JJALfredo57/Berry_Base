@@ -3679,6 +3679,7 @@ function buildMcGalleryGrid(sources, marginBottom) {
       more.dataset.src = src;
       more.dataset.galleryIndex = '3';
       more.title = 'View ' + clean.length + ' images';
+      more.onclick = function(event) { return openMessageImageButton(this, event); };
       more.style = 'width:100%;aspect-ratio:1/1;border:0;border-radius:8px;background:#111827;color:#fff;font-size:1.15rem;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:zoom-in;touch-action:manipulation';
       more.innerHTML = '<span>+' + (clean.length - 3) + '</span>';
       grid.appendChild(more);
@@ -3690,6 +3691,7 @@ function buildMcGalleryGrid(sources, marginBottom) {
     tile.className = 'chat-img';
     tile.dataset.src = src;
     tile.dataset.galleryIndex = String(index);
+    tile.onclick = function(event) { return openMessageImageButton(this, event); };
     tile.style = 'width:100%;aspect-ratio:' + (clean.length === 1 ? '4/3' : '1/1') + ';border:0;padding:0;max-width:100%;border-radius:8px;cursor:zoom-in;overflow:hidden;background:transparent;display:block;touch-action:manipulation;-webkit-tap-highlight-color:transparent';
     const img = document.createElement('img');
     img.src = src;
@@ -4542,6 +4544,15 @@ function openLightboxFromGalleryTarget(target) {
   }
   var index = parseInt(target.dataset.galleryIndex || '0', 10);
   openLightbox(target, sources, isFinite(index) ? index : 0);
+}
+
+function openMessageImageButton(target, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  openLightboxFromGalleryTarget(target);
+  return false;
 }
 
 (function() {

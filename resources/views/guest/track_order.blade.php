@@ -2177,12 +2177,12 @@ function messageImageGridHtml(imgs) {
   const items = visible.map((src, index) => {
     const safeSrc = escAttr(src);
     if (index === 3 && cleanImgs.length > 4) {
-      return `<button type="button" class="bbl-img-more-g chat-img" data-src="${safeSrc}" data-gallery-index="3" title="View ${cleanImgs.length} images">
+      return `<button type="button" class="bbl-img-more-g chat-img" data-src="${safeSrc}" data-gallery-index="3" title="View ${cleanImgs.length} images" onclick="return openMessageImageButton(this,event)">
         <span>+${moreCount}</span>
       </button>`;
     }
 
-    return `<button type="button" class="bbl-img-tile-g chat-img" data-src="${safeSrc}" data-gallery-index="${index}" title="View image ${index + 1}">
+    return `<button type="button" class="bbl-img-tile-g chat-img" data-src="${safeSrc}" data-gallery-index="${index}" title="View image ${index + 1}" onclick="return openMessageImageButton(this,event)">
       <img src="${safeSrc}" alt="" onerror="this.closest('button').style.display='none'">
     </button>`;
   }).join('');
