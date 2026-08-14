@@ -9,16 +9,16 @@
 
 <div class="recover-page">
   <div class="recover-shell">
-  <div class="recover-topbar">
-    <div>
-      <div class="text-uppercase fw-bold small" style="color:var(--primary);letter-spacing:.06em">Guest Order Tracking</div>
-      <h3 class="fw-bold mb-1">Recover Tracking Code</h3>
-      <div class="text-muted small">Verify the phone number used for the order, then recover only the specific tracking code you need.</div>
+    <div class="recover-topbar">
+      <div>
+        <div class="recover-kicker">Guest Order Tracking</div>
+        <h3 class="recover-title">Recover Tracking Code</h3>
+        <div class="recover-subtitle">Verify the phone number used for the order, then recover only the specific tracking code you need.</div>
+      </div>
+      <a href="{{ route('catalog') }}" class="recover-back-btn">
+        <i class="bi bi-arrow-left me-1"></i>Back to Cakes
+      </a>
     </div>
-    <a href="{{ route('catalog') }}" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left me-1"></i>Back to Cakes
-    </a>
-  </div>
 
   @if(session('msg'))
     <div class="alert alert-success border-0"><i class="bi bi-check-circle me-2"></i>{{ session('msg') }}</div>
@@ -35,25 +35,43 @@
   @include('components.dev-otp-hint')
 
   <style>
-    .recover-page{width:100%;min-height:calc(100vh - 92px);padding:clamp(12px,2.4vw,30px);background:linear-gradient(180deg,#fff 0%,#f8fafc 100%)}
+    .recover-page{
+      width:100%;
+      min-height:calc(100vh - 92px);
+      padding:clamp(12px,2.4vw,30px);
+      background:
+        radial-gradient(circle at top left,color-mix(in srgb,var(--primary) 18%,transparent),transparent 34%),
+        radial-gradient(circle at bottom right,color-mix(in srgb,var(--primary-dark) 14%,transparent),transparent 30%),
+        linear-gradient(135deg,color-mix(in srgb,var(--primary-bg) 62%,transparent),rgba(255,255,255,.08));
+    }
     .recover-shell{width:100%;max-width:none;margin:0}
     .recover-topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+    .recover-kicker{display:inline-flex;align-items:center;gap:8px;color:var(--primary);font-size:.72rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+    .recover-kicker:before{content:'';width:8px;height:8px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 5px color-mix(in srgb,var(--primary) 12%,transparent)}
+    .recover-title{font-size:clamp(1.45rem,3vw,2.15rem);font-weight:900;color:#111827;margin:.35rem 0 .2rem;line-height:1.12}
+    .recover-subtitle{max-width:760px;color:#4b5563;font-size:clamp(.86rem,1.6vw,.95rem);line-height:1.5;font-weight:600}
+    .recover-back-btn{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:.45rem .9rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--primary) 22%,rgba(255,255,255,.5));background:rgba(255,255,255,.42);color:#374151;text-decoration:none;font-size:.82rem;font-weight:800;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:background .16s,border-color .16s,color .16s,transform .16s}
+    .recover-back-btn:hover{background:color-mix(in srgb,var(--primary-bg) 74%,rgba(255,255,255,.52));border-color:color-mix(in srgb,var(--primary) 42%,transparent);color:var(--primary);transform:translateY(-1px)}
     .recover-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
-    .recover-step{border:1px solid #e5e7eb;background:#fff;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:9px;min-width:0}
-    .recover-step.is-active{border-color:var(--primary);box-shadow:0 8px 24px rgba(15,23,42,.08)}
-    .recover-step.is-done{background:#f0fdf4;border-color:#bbf7d0}
-    .recover-step-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#f3f4f6;color:#374151;font-size:.78rem;font-weight:900;flex:0 0 auto}
+    .recover-step{border:1px solid color-mix(in srgb,var(--primary) 13%,rgba(255,255,255,.65));background:rgba(255,255,255,.44);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:8px;padding:11px 12px;display:flex;align-items:center;gap:9px;min-width:0;box-shadow:0 10px 26px rgba(15,23,42,.05)}
+    .recover-step.is-active{border-color:color-mix(in srgb,var(--primary) 46%,rgba(255,255,255,.7));background:color-mix(in srgb,var(--primary-bg) 72%,rgba(255,255,255,.48));box-shadow:0 12px 30px color-mix(in srgb,var(--primary) 14%,transparent)}
+    .recover-step.is-done{background:rgba(240,253,244,.58);border-color:rgba(34,197,94,.32)}
+    .recover-step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.68);color:#374151;font-size:.78rem;font-weight:900;flex:0 0 auto;border:1px solid rgba(255,255,255,.6)}
     .recover-step.is-active .recover-step-num{background:var(--primary);color:#fff}
     .recover-step.is-done .recover-step-num{background:#16a34a;color:#fff}
     .recover-step-label{font-size:.82rem;font-weight:800;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .recover-card{background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 16px 40px rgba(15,23,42,.06)}
-    .recover-card-head{padding:18px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+    .recover-card{background:rgba(255,255,255,.55);border:1px solid color-mix(in srgb,var(--primary) 16%,rgba(255,255,255,.68));border-radius:10px;box-shadow:0 22px 58px rgba(15,23,42,.08);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);overflow:hidden}
+    .recover-card-head{padding:18px 20px;border-bottom:1px solid color-mix(in srgb,var(--primary) 10%,rgba(255,255,255,.5));display:flex;align-items:flex-start;justify-content:space-between;gap:14px;background:linear-gradient(135deg,rgba(255,255,255,.42),color-mix(in srgb,var(--primary-bg) 55%,transparent))}
     .recover-card-body{padding:20px}
-    .recover-soft{background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px}
-    .recover-order{position:relative;border:1px solid #e5e7eb;border-radius:8px;padding:14px;background:#fff;cursor:pointer;display:block;transition:border-color .15s,box-shadow .15s}
-    .recover-order:hover{border-color:var(--primary);box-shadow:0 8px 22px rgba(15,23,42,.08)}
+    .recover-card .form-label{color:#1f2937}
+    .recover-card .form-control,.recover-card .form-select{background:rgba(255,255,255,.64);border-color:color-mix(in srgb,var(--primary) 14%,rgba(255,255,255,.7));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+    .recover-card .form-control:focus,.recover-card .form-select:focus{background:rgba(255,255,255,.78);border-color:var(--primary);box-shadow:0 0 0 .2rem color-mix(in srgb,var(--primary) 14%,transparent)}
+    .recover-soft{background:color-mix(in srgb,var(--primary-bg) 60%,rgba(255,255,255,.48));border:1px solid color-mix(in srgb,var(--primary) 14%,rgba(255,255,255,.6));border-radius:8px;padding:14px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+    .recover-order{position:relative;border:1px solid color-mix(in srgb,var(--primary) 13%,rgba(255,255,255,.65));border-radius:8px;padding:14px;background:rgba(255,255,255,.48);cursor:pointer;display:block;transition:border-color .15s,box-shadow .15s,background .15s,transform .15s;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);min-height:100%}
+    .recover-order:hover{border-color:color-mix(in srgb,var(--primary) 48%,transparent);box-shadow:0 10px 28px color-mix(in srgb,var(--primary) 12%,transparent);background:rgba(255,255,255,.64);transform:translateY(-1px)}
     .recover-order input{position:absolute;opacity:0;pointer-events:none}
-    .recover-order:has(input:checked){border-color:var(--primary);background:#fff7fb;box-shadow:0 8px 22px rgba(219,39,119,.12)}
+    .recover-order:has(input:checked){border-color:var(--primary);background:color-mix(in srgb,var(--primary-bg) 76%,rgba(255,255,255,.5));box-shadow:0 12px 30px color-mix(in srgb,var(--primary) 16%,transparent)}
+    .recover-order .badge{background:rgba(255,255,255,.68)!important;border:1px solid color-mix(in srgb,var(--primary) 14%,transparent)}
     .recover-code{font-family:monospace;font-size:clamp(1.8rem,8vw,3.25rem);font-weight:900;letter-spacing:.12em;color:#111827;word-break:break-word;line-height:1.1}
     .method-panel{display:none}
     .method-panel.is-visible{display:block}

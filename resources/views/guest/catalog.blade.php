@@ -91,9 +91,6 @@
       <i class="bi bi-cake2 me-2"></i>{{ $settings['tagline'] ?? 'Our Cakes' }}
     </h3>
     <p class="text-muted">Choose your cake and place your order</p>
-    <a href="{{ route('track.recover') }}" class="btn btn-outline-primary btn-sm mt-2">
-      <i class="bi bi-key-fill me-1"></i>Forgot tracking code?
-    </a>
   </div>
 
   @if(session('msg'))
