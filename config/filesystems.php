@@ -19,6 +19,10 @@ return [
     // Set UPLOAD_DISK=s3 in Laravel Cloud env vars (uses the attached Object Storage bucket)
     'upload_disk' => env('UPLOAD_DISK', 'public'),
 
+    // Disk used for generated SQL / full backup archives.
+    // Set BACKUP_DISK=s3 in Laravel Cloud so backups survive deploys.
+    'backup_disk' => env('BACKUP_DISK', env('FILESYSTEM_DISK', 'local')),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks

@@ -7,6 +7,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
 class BackupService
@@ -16,8 +17,37 @@ class BackupService
         return storage_path('app/backups');
     }
 
+    public function backupDiskName(): string
+    {
+        return (string) config('filesystems.backup_disk', 'local');
+    }
+
+    public function backupStoragePrefix(): string
+    {
+        return trim((string) env('BACKUP_PATH', 'backups'), '/');
+    }
+
+    private function usesLocalBackupDisk(): bool
+    {
+        $disk = $this->backupDiskName();
+        $driver = (string) config("filesystems.disks.{$disk}.driver", 'local');
+
+        return $driver !== 's3';
+    }
+
+    private function backupKey(string $filename): string
+    {
+        $prefix = $this->backupStoragePrefix();
+
+        return $prefix === '' ? $filename : $prefix . '/' . $filename;
+    }
+
     public function ensureBackupsDir(): void
     {
+        if (!$this->usesLocalBackupDisk()) {
+            return;
+        }
+
         $dir = $this->backupsDir();
 
         if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
@@ -31,11 +61,37 @@ class BackupService
 
     public function listBackups(): array
     {
+        if (!$this->usesLocalBackupDisk()) {
+            try {
+                $disk = Storage::disk($this->backupDiskName());
+                $files = array_filter($disk->files($this->backupStoragePrefix()), function (string $path): bool {
+                    return in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['sql', 'zip'], true);
+                });
+
+                usort($files, fn ($a, $b) => $disk->lastModified($b) <=> $disk->lastModified($a));
+
+                return array_map(function (string $path) use ($disk): array {
+                    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+                    return [
+                        'path' => $path,
+                        'name' => basename($path),
+                        'extension' => $extension,
+                        'size' => $disk->size($path) ?: 0,
+                        'modified_at' => $disk->lastModified($path) ?: time(),
+                        'is_restorable' => $extension === 'sql',
+                    ];
+                }, $files);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to list cloud backup files: ' . $e->getMessage());
+                return [];
+            }
+        }
+
         $dir = $this->backupsDir();
         if (!is_dir($dir)) {
             return [];
         }
-
         try {
             $files = array_filter(array_map(
                 fn ($file) => $file->getPathname(),
@@ -75,6 +131,16 @@ class BackupService
         }
 
         $fname = 'berrybase_' . $label . '_' . $connection . '_' . date('Y-m-d_H-i-s') . '.sql';
+
+        if (!$this->usesLocalBackupDisk()) {
+            $key = $this->backupKey($fname);
+            if (!Storage::disk($this->backupDiskName())->put($key, $content)) {
+                throw new \RuntimeException('Failed to write backup file to cloud storage.');
+            }
+
+            return $this->cloudFileInfo($key);
+        }
+
         $path = $this->backupsDir() . DIRECTORY_SEPARATOR . $fname;
 
         if (file_put_contents($path, $content, LOCK_EX) === false) {
@@ -101,7 +167,9 @@ class BackupService
         }
 
         $fname = 'berrybase_full_' . $label . '_' . $connection . '_' . date('Y-m-d_H-i-s') . '.zip';
-        $path = $this->backupsDir() . DIRECTORY_SEPARATOR . $fname;
+        $path = $this->usesLocalBackupDisk()
+            ? $this->backupsDir() . DIRECTORY_SEPARATOR . $fname
+            : storage_path('app/tmp_' . $fname);
         $zip = new ZipArchive();
 
         if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
@@ -111,6 +179,22 @@ class BackupService
         $zip->addFromString('database.sql', $sql);
         $this->addDirectoryToZip($zip, storage_path('app/public'), 'uploads');
         $zip->close();
+
+        if (!$this->usesLocalBackupDisk()) {
+            $key = $this->backupKey($fname);
+            $stream = fopen($path, 'rb');
+            $stored = $stream ? Storage::disk($this->backupDiskName())->put($key, $stream) : false;
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+            @unlink($path);
+
+            if (!$stored) {
+                throw new \RuntimeException('Failed to create full backup archive in cloud storage.');
+            }
+
+            return $this->cloudFileInfo($key);
+        }
 
         return $this->fileInfo($path);
     }
@@ -147,11 +231,27 @@ class BackupService
         $original = pathinfo($upload->getClientOriginalName(), PATHINFO_FILENAME);
         $original = preg_replace('/[^A-Za-z0-9._-]/', '_', $original) ?: 'uploaded_backup';
         $fname = 'uploaded_' . $original . '_' . date('Y-m-d_H-i-s') . '.sql';
-        $path = $this->backupsDir() . DIRECTORY_SEPARATOR . $fname;
 
         if (!$upload->isValid() || strtolower($upload->getClientOriginalExtension()) !== 'sql') {
             throw new \RuntimeException('Please upload a valid .sql backup file.');
         }
+
+        if (!$this->usesLocalBackupDisk()) {
+            $key = $this->backupKey($fname);
+            $stream = fopen($upload->getRealPath(), 'rb');
+            $stored = $stream ? Storage::disk($this->backupDiskName())->put($key, $stream) : false;
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+
+            if (!$stored || !Storage::disk($this->backupDiskName())->exists($key)) {
+                throw new \RuntimeException('Uploaded backup could not be saved to cloud storage.');
+            }
+
+            return $this->cloudFileInfo($key);
+        }
+
+        $path = $this->backupsDir() . DIRECTORY_SEPARATOR . $fname;
 
         $upload->move($this->backupsDir(), $fname);
 
@@ -164,6 +264,17 @@ class BackupService
 
     public function deleteBackup(string $file): array
     {
+        if (!$this->usesLocalBackupDisk()) {
+            $key = $this->resolveBackupKey($file);
+            $info = $this->cloudFileInfo($key);
+
+            if (!Storage::disk($this->backupDiskName())->delete($key)) {
+                throw new \RuntimeException('Backup file could not be deleted.');
+            }
+
+            return $info;
+        }
+
         $path = $this->resolveBackupPath($file);
         $info = $this->fileInfo($path);
 
@@ -177,6 +288,20 @@ class BackupService
     public function resolveBackupPath(string $file): string
     {
         $file = preg_replace('/[^A-Za-z0-9._-]/', '', $file);
+
+        if (!$this->usesLocalBackupDisk()) {
+            $key = $this->resolveBackupKey($file);
+            $this->ensureTempBackupsDir();
+            $tempPath = storage_path('app/temp-backups') . DIRECTORY_SEPARATOR . $file;
+            $content = Storage::disk($this->backupDiskName())->get($key);
+
+            if ($content === null || file_put_contents($tempPath, $content, LOCK_EX) === false) {
+                throw new \RuntimeException('Backup file could not be prepared.');
+            }
+
+            return $tempPath;
+        }
+
         $path = $this->backupsDir() . DIRECTORY_SEPARATOR . $file;
         $realDir = realpath($this->backupsDir());
         $realPath = realpath($path);
@@ -201,7 +326,9 @@ class BackupService
 
         foreach (array_slice($files, $keep) as $file) {
             try {
-                if (is_file($file['path']) && unlink($file['path'])) {
+                if ($this->usesLocalBackupDisk() && is_file($file['path']) && unlink($file['path'])) {
+                    $deleted++;
+                } elseif (!$this->usesLocalBackupDisk() && Storage::disk($this->backupDiskName())->delete($file['path'])) {
                     $deleted++;
                 }
             } catch (\Throwable $e) {
@@ -221,6 +348,43 @@ class BackupService
             'size' => filesize($path) ?: 0,
             'modified_at' => filemtime($path) ?: time(),
         ];
+    }
+
+    public function cloudFileInfo(string $path): array
+    {
+        $disk = Storage::disk($this->backupDiskName());
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        return [
+            'path' => $path,
+            'name' => basename($path),
+            'extension' => $extension,
+            'size' => $disk->size($path) ?: 0,
+            'modified_at' => $disk->lastModified($path) ?: time(),
+            'is_restorable' => $extension === 'sql',
+        ];
+    }
+
+    private function resolveBackupKey(string $file): string
+    {
+        $file = preg_replace('/[^A-Za-z0-9._-]/', '', $file);
+        $key = $this->backupKey($file);
+        $ext = strtolower(pathinfo($key, PATHINFO_EXTENSION));
+
+        if (!$file || !in_array($ext, ['sql', 'zip'], true) || !Storage::disk($this->backupDiskName())->exists($key)) {
+            throw new \RuntimeException('Backup file not found.');
+        }
+
+        return $key;
+    }
+
+    private function ensureTempBackupsDir(): void
+    {
+        $dir = storage_path('app/temp-backups');
+
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new \RuntimeException('Temporary backup folder could not be created.');
+        }
     }
 
     private function addDirectoryToZip(ZipArchive $zip, string $dir, string $prefix): void
