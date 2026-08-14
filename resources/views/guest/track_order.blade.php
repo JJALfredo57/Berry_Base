@@ -153,6 +153,21 @@
     .g-send-btn:disabled{opacity:.45;cursor:not-allowed}
     .track-action-panel{display:none}
     .track-action-panel.is-open{display:block;position:fixed!important;left:50%!important;top:50%!important;width:min(720px,calc(100vw - 28px));max-height:min(82vh,720px);overflow:auto;z-index:1062;transform:translate(-50%,-50%);animation:trackPanelIn .2s ease;overscroll-behavior:contain}
+    #messagePanel.track-action-panel.is-open{display:flex;flex-direction:column;overflow:hidden}
+    #messagePanel .chat-box-g{flex:1 1 auto;min-height:190px;max-height:none;overscroll-behavior:contain}
+    #messagePanel .g-preview-bar{flex:0 0 auto;max-height:126px;overflow:hidden;background:linear-gradient(180deg,#fff,#fafafa)}
+    #messagePanel .g-img-cards{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;scrollbar-width:thin}
+    #messagePanel .g-img-card{width:88px;flex:0 0 88px;border-radius:12px}
+    #messagePanel .g-img-card img{width:88px;height:64px}
+    #messagePanel .g-img-card-info{white-space:nowrap}
+    #messagePanel .g-compose-wrap{flex:0 0 auto;box-shadow:0 -10px 24px rgba(15,23,42,.05)}
+    #messagePanel .g-compose-row{min-width:0}
+    #messagePanel .g-compose-box{min-width:0}
+    #messagePanel #guestUploadSummary{margin-bottom:.4rem}
+    #messagePanel #guestUploadSummary .cs-upload-summary{display:flex!important;flex-wrap:nowrap!important;gap:.38rem;width:100%;overflow-x:auto;overflow-y:hidden;margin-top:0;padding-bottom:2px;scrollbar-width:thin}
+    #messagePanel #guestUploadSummary .cs-upload-pill{width:auto!important;flex:0 0 auto;max-width:min(260px,78vw);border-radius:999px!important;white-space:nowrap}
+    #messagePanel #guestUploadSummary .cs-upload-pill span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #messagePanel #guestUploadSummary .cs-upload-arrow{display:none}
     @keyframes trackPanelIn{from{opacity:0;transform:translate(-50%,-46%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
     .track-fab-wrap{position:fixed!important;right:18px!important;bottom:22px!important;z-index:1050;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
     .track-fab-menu{display:flex;flex-direction:column;align-items:flex-end;gap:9px;pointer-events:none}
@@ -244,6 +259,42 @@
         width:calc(100vw - 18px);
         max-height:86vh;
         border-radius:16px;
+      }
+      #messagePanel.track-action-panel.is-open {
+        height:calc(100dvh - 18px);
+        max-height:calc(100dvh - 18px);
+      }
+      #messagePanel .chat-box-g {
+        min-height:120px;
+        padding:12px;
+      }
+      #messagePanel .g-preview-bar {
+        max-height:112px;
+        padding:8px 12px 4px;
+      }
+      #messagePanel .g-img-card {
+        width:78px;
+        flex-basis:78px;
+      }
+      #messagePanel .g-img-card img {
+        width:78px;
+        height:58px;
+      }
+      #messagePanel .g-compose-wrap {
+        padding:9px 10px calc(10px + env(safe-area-inset-bottom));
+      }
+      #messagePanel .g-compose-row {
+        gap:7px;
+      }
+      #messagePanel .g-attach-btn,
+      #messagePanel .g-send-btn {
+        width:40px;
+        height:40px;
+      }
+      #messagePanel .g-compose-box {
+        font-size:.86rem;
+        border-radius:12px;
+        max-height:92px;
       }
       .track-review-actions {
         grid-template-columns:1fr;
