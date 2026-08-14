@@ -3,6 +3,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SetupController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DeviceSessionController;
+use App\Http\Controllers\AssetDownloadController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
@@ -92,6 +93,8 @@ Route::get('/session/continue', function () {
         ])
         ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
 })->name('session.continue');
+
+Route::get('/asset-download', AssetDownloadController::class)->name('asset.download');
 
 // ── Public Catalog (no login needed) ─────────────────────────────────────
 Route::get('/catalog', function (\Illuminate\Http\Request $request) {

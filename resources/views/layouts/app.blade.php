@@ -4493,6 +4493,12 @@ window.BerryBaseDownloads = window.BerryBaseDownloads || {
       return fallback || 'image-download.jpg';
     }
   },
+  proxyUrl: function(url, filename) {
+    var params = new URLSearchParams();
+    params.set('url', url);
+    if (filename) params.set('name', filename);
+    return '/asset-download?' + params.toString();
+  },
   download: async function(url, filename, button) {
     if (!url) return;
     var name = filename || this.filenameFromUrl(url, 'image-download.jpg');
@@ -4503,7 +4509,12 @@ window.BerryBaseDownloads = window.BerryBaseDownloads || {
     }
 
     try {
-      var response = await fetch(url, { cache: 'no-store' });
+      var parsedForProxy = null;
+      try { parsedForProxy = new URL(url, window.location.href); } catch (ignore) {}
+      var downloadUrl = parsedForProxy && parsedForProxy.origin !== window.location.origin
+        ? this.proxyUrl(parsedForProxy.href, name)
+        : url;
+      var response = await fetch(downloadUrl, { cache: 'no-store' });
       if (!response.ok) throw new Error('Download failed');
       var blob = await response.blob();
       var objectUrl = URL.createObjectURL(blob);
