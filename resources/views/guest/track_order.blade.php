@@ -128,7 +128,7 @@
     .bbl-imgs-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:6px;width:min(304px,100%);max-width:100%}
     .bbl-imgs-g.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
     .bbl-imgs-g.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
-    .bbl-imgs-g img,.bbl-img-more-g{width:100%;aspect-ratio:1/1;border-radius:8px;object-fit:cover;cursor:zoom-in;display:block;min-width:0}
+    .bbl-imgs-g img,.bbl-img-more-g{width:100%;aspect-ratio:1/1;border-radius:8px;object-fit:cover;cursor:zoom-in;display:block;min-width:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
     .bbl-imgs-g.img-count-1 img{aspect-ratio:4/3}
     .bbl-img-more-g{border:0;background:#111827;color:#fff;position:relative;overflow:hidden;padding:0;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
     .bbl-img-more-g:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.16),transparent 34%),linear-gradient(135deg,rgba(17,24,39,.94),rgba(31,41,55,.98))}
@@ -2136,16 +2136,34 @@ function messageImageGridHtml(imgs) {
   const items = visible.map((src, index) => {
     const safeSrc = escAttr(src);
     if (index === 3 && cleanImgs.length > 4) {
-      return `<button type="button" class="bbl-img-more-g chat-img" data-src="${safeSrc}" onclick="openLightbox(this, ${galleryJson}, 3)" title="View ${cleanImgs.length} images">
+      return `<button type="button" class="bbl-img-more-g chat-img" data-src="${safeSrc}" data-gallery-index="3" onclick="openGuestMessageImage(this)" title="View ${cleanImgs.length} images">
         <span>+${moreCount}</span>
       </button>`;
     }
 
-    return `<img src="${safeSrc}" class="chat-img" data-src="${safeSrc}" onclick="openLightbox(this, ${galleryJson}, ${index})" onerror="this.style.display='none'">`;
+    return `<img src="${safeSrc}" class="chat-img" data-src="${safeSrc}" data-gallery-index="${index}" onclick="openGuestMessageImage(this)" onerror="this.style.display='none'">`;
   }).join('');
 
-  return `<div class="bbl-imgs-g ${gridClass}" data-lightbox-gallery>${items}</div>`;
+  return `<div class="bbl-imgs-g ${gridClass}" data-lightbox-gallery data-gallery-sources="${galleryJson}">${items}</div>`;
 }
+
+function openGuestMessageImage(el) {
+  const gallery = el.closest('.bbl-imgs-g');
+  let sources = [];
+  if (gallery?.dataset.gallerySources) {
+    try { sources = JSON.parse(gallery.dataset.gallerySources); } catch(e) { sources = []; }
+  }
+  const index = parseInt(el.dataset.galleryIndex || '0', 10);
+  openLightbox(el, sources, Number.isFinite(index) ? index : 0);
+}
+
+document.addEventListener('click', function(e) {
+  const target = e.target.closest('#chatBox .bbl-imgs-g .chat-img');
+  if (!target) return;
+  e.preventDefault();
+  e.stopPropagation();
+  openGuestMessageImage(target);
+}, true);
 
 // ── Messaging ────────────────────────────────────────────────────────────
 let rendered = [];

@@ -4348,11 +4348,11 @@ window.BERRY_PUSH_CONTEXT = {
   display:flex;gap:8px;align-items:center;
   overflow-x:auto;overflow-y:hidden;
   padding:9px;
-  border:1px solid rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.12);
   border-radius:14px;
-  background:rgba(15,23,42,.68);
-  backdrop-filter:blur(14px);
-  -webkit-backdrop-filter:blur(14px);
+  background:transparent;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
   scrollbar-width:thin;
   z-index:100000;
 }
