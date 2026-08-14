@@ -21,7 +21,7 @@
 .bubble-imgs.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
 .bubble-img-tile,.bubble-img-more{width:100%;aspect-ratio:1/1;border:0;border-radius:8px;cursor:zoom-in;display:block;min-width:0;overflow:hidden;padding:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .bubble-img-tile{background:transparent}
-.bubble-img-tile img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.bubble-img-tile img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
 .bubble-imgs.img-count-1 .bubble-img-tile{aspect-ratio:4/3}
 .bubble-img-more{background:#111827;color:#fff;position:relative;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
 .bubble-img-more:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.16),transparent 34%),linear-gradient(135deg,rgba(17,24,39,.94),rgba(31,41,55,.98))}
@@ -281,7 +281,7 @@
                     </button>
                   @else
                     <button type="button" class="bubble-img-tile chat-img" data-src="{{ $src }}" data-gallery-index="{{ $idx }}" title="View image {{ $idx + 1 }}" onclick="return openMessageImageButton(this,event)">
-                      <img src="{{ $src }}" alt="" onerror="this.closest('button').style.display='none'">
+                      <img src="{{ $src }}" alt="" onclick="return openMessageImageButton(this.closest('button'),event)" onerror="this.closest('button').style.display='none'">
                     </button>
                   @endif
                 @endforeach
@@ -596,7 +596,7 @@ function threadImageGridHtml(imgs) {
       return `<button type="button" class="bubble-img-more chat-img" data-src="${safeSrc}" data-gallery-index="3" title="View ${cleanImgs.length} images" onclick="return openMessageImageButton(this,event)"><span>+${cleanImgs.length - 3}</span></button>`;
     }
     return `<button type="button" class="bubble-img-tile chat-img" data-src="${safeSrc}" data-gallery-index="${index}" title="View image ${index + 1}" onclick="return openMessageImageButton(this,event)">
-      <img src="${safeSrc}" alt="" onerror="this.closest('button').style.display='none'">
+      <img src="${safeSrc}" alt="" onclick="return openMessageImageButton(this.closest('button'),event)" onerror="this.closest('button').style.display='none'">
     </button>`;
   }).join('');
 

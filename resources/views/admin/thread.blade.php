@@ -7,7 +7,7 @@
 .admin-bubble-imgs.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
 .admin-img-tile,.admin-img-more{width:100%;aspect-ratio:1/1;border:0;border-radius:.45rem;cursor:zoom-in;display:block;min-width:0;overflow:hidden;padding:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .admin-img-tile{background:transparent}
-.admin-img-tile img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.admin-img-tile img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
 .admin-bubble-imgs.img-count-1 .admin-img-tile{aspect-ratio:4/3}
 .admin-img-more{background:#111827;color:#fff;position:relative;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
 .admin-img-more:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.16),transparent 34%),linear-gradient(135deg,rgba(17,24,39,.94),rgba(31,41,55,.98))}
@@ -57,7 +57,7 @@
                       </button>
                     @else
                       <button type="button" class="admin-img-tile chat-img" data-src="{{ $imgSrc }}" data-gallery-index="{{ $idx }}" title="View image {{ $idx + 1 }}" onclick="return openMessageImageButton(this,event)">
-                        <img src="{{ $imgSrc }}" alt="" onerror="this.closest('button').style.display='none'">
+                        <img src="{{ $imgSrc }}" alt="" onclick="return openMessageImageButton(this.closest('button'),event)" onerror="this.closest('button').style.display='none'">
                       </button>
                     @endif
                   @endforeach

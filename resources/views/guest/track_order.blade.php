@@ -130,7 +130,7 @@
     .bbl-imgs-g.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
     .bbl-img-tile-g,.bbl-img-more-g{width:100%;aspect-ratio:1/1;border:0;border-radius:8px;cursor:zoom-in;display:block;min-width:0;overflow:hidden;padding:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
     .bbl-img-tile-g{background:transparent}
-    .bbl-img-tile-g img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+    .bbl-img-tile-g img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
     .bbl-imgs-g.img-count-1 .bbl-img-tile-g{aspect-ratio:4/3}
     .bbl-img-more-g{background:#111827;color:#fff;position:relative;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
     .bbl-img-more-g:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.16),transparent 34%),linear-gradient(135deg,rgba(17,24,39,.94),rgba(31,41,55,.98))}
@@ -2183,7 +2183,7 @@ function messageImageGridHtml(imgs) {
     }
 
     return `<button type="button" class="bbl-img-tile-g chat-img" data-src="${safeSrc}" data-gallery-index="${index}" title="View image ${index + 1}" onclick="return openMessageImageButton(this,event)">
-      <img src="${safeSrc}" alt="" onerror="this.closest('button').style.display='none'">
+      <img src="${safeSrc}" alt="" onclick="return openMessageImageButton(this.closest('button'),event)" onerror="this.closest('button').style.display='none'">
     </button>`;
   }).join('');
 

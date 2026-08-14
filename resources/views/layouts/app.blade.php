@@ -3695,7 +3695,8 @@ function buildMcGalleryGrid(sources, marginBottom) {
     tile.style = 'width:100%;aspect-ratio:' + (clean.length === 1 ? '4/3' : '1/1') + ';border:0;padding:0;max-width:100%;border-radius:8px;cursor:zoom-in;overflow:hidden;background:transparent;display:block;touch-action:manipulation;-webkit-tap-highlight-color:transparent';
     const img = document.createElement('img');
     img.src = src;
-    img.style = 'width:100%;height:100%;object-fit:cover;display:block;pointer-events:none';
+    img.style = 'width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in';
+    img.onclick = function(event) { return openMessageImageButton(this.closest('button'), event); };
     img.onerror = function() { tile.style.display = 'none'; };
     tile.appendChild(img);
     grid.appendChild(tile);
