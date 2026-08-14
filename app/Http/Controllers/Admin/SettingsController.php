@@ -41,7 +41,8 @@ class SettingsController extends Controller
         $tab      = $request->input('tab', 'site');
         $settings = CakeshopHelper::getSettings();
         $files    = $this->backups->listBackups();
-        return view('admin.settings', compact('tab','settings','files'));
+        $backupStorage = $this->backups->storageStatus();
+        return view('admin.settings', compact('tab','settings','files','backupStorage'));
     }
 
     public function savePaymongo(Request $request)

@@ -4,10 +4,10 @@ namespace App\Services;
 
 use App\Helpers\CakeshopHelper;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
@@ -26,6 +26,24 @@ class BackupService
     public function backupStoragePrefix(): string
     {
         return trim((string) env('BACKUP_PATH', 'backups'), '/');
+    }
+
+    public function storageStatus(): array
+    {
+        $disk = $this->backupDiskName();
+        $prefix = $this->backupStoragePrefix();
+        $persistent = !$this->usesLocalBackupDisk();
+
+        return [
+            'disk' => $disk,
+            'prefix' => $prefix,
+            'label' => $persistent ? "{$disk}:{$prefix}" : 'Local app storage',
+            'persistent' => $persistent,
+            'badge_class' => $persistent ? 'bg-success' : 'bg-warning text-dark',
+            'message' => $persistent
+                ? 'Backups are stored on persistent object storage and should survive deploys.'
+                : 'Backups are stored on local app storage. On Laravel Cloud this can disappear after deploys. Set BACKUP_DISK=s3.',
+        ];
     }
 
     private function usesLocalBackupDisk(): bool
@@ -323,8 +341,43 @@ class BackupService
     {
         if (!$this->usesLocalBackupDisk()) {
             $key = $this->resolveBackupKey($file);
+            $name = basename($key);
+            $headers = [
+                'Content-Type' => $this->contentTypeFor($name),
+                'Content-Disposition' => 'attachment; filename="' . $this->safeHeaderFilename($name) . '"',
+            ];
 
-            return Storage::disk($this->backupDiskName())->download($key, basename($key));
+            try {
+                $url = Storage::disk($this->backupDiskName())->temporaryUrl(
+                    $key,
+                    now()->addMinutes(10),
+                    ['ResponseContentDisposition' => $headers['Content-Disposition']]
+                );
+
+                return redirect()->away($url);
+            } catch (\Throwable $e) {
+                Log::info('Temporary backup download URL unavailable, streaming from disk instead.', [
+                    'disk' => $this->backupDiskName(),
+                    'file' => $name,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            return Response::streamDownload(function () use ($key) {
+                $stream = Storage::disk($this->backupDiskName())->readStream($key);
+                if (!is_resource($stream)) {
+                    throw new \RuntimeException('Backup stream could not be opened.');
+                }
+
+                try {
+                    while (!feof($stream)) {
+                        echo fread($stream, 1024 * 1024);
+                        flush();
+                    }
+                } finally {
+                    fclose($stream);
+                }
+            }, $name, $headers);
         }
 
         $path = $this->resolveBackupPath($file);
@@ -399,6 +452,18 @@ class BackupService
         if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
             throw new \RuntimeException('Temporary backup folder could not be created.');
         }
+    }
+
+    private function contentTypeFor(string $name): string
+    {
+        return strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'zip'
+            ? 'application/zip'
+            : 'application/sql';
+    }
+
+    private function safeHeaderFilename(string $name): string
+    {
+        return preg_replace('/[^A-Za-z0-9._-]/', '_', $name) ?: 'berrybase-backup.sql';
     }
 
     private function addDirectoryToZip(ZipArchive $zip, string $dir, string $prefix): void

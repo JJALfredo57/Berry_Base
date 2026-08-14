@@ -27,8 +27,9 @@ class PlatformSettingsController extends Controller
             ?? (object)['platform_name' => 'Cake Shop Platform'];
 
         $files = $this->backups->listBackups();
+        $backupStorage = $this->backups->storageStatus();
 
-        return view('superadmin.settings', compact('tab', 'platform', 'files'));
+        return view('superadmin.settings', compact('tab', 'platform', 'files', 'backupStorage'));
     }
 
     public function update(Request $request)

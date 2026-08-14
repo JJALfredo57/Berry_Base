@@ -681,6 +681,7 @@
     $totalBackupSize = array_sum(array_map(fn($f) => (int) ($f['size'] ?? 0), $files));
     $latestBackup = count($files) ? $files[0] : null;
     $fullBackupAvailable = class_exists(\ZipArchive::class);
+    $backupStorage = $backupStorage ?? app(\App\Services\BackupService::class)->storageStatus();
   @endphp
 
   <div class="row g-3 mb-4">
@@ -688,7 +689,10 @@
       <div class="card h-100">
         <div class="card-body p-4">
           <h6 class="fw-bold mb-2"><i class="bi bi-cloud-arrow-up me-2" style="color:var(--primary)"></i>Backup Actions</h6>
-          <p class="text-muted small mb-3">Create database or full backups and store them in <code>storage/app/backups/</code>.</p>
+          <p class="text-muted small mb-3">Create database or full backups and store them in <code>{{ $backupStorage['label'] }}</code>.</p>
+          <div class="alert {{ $backupStorage['persistent'] ? 'alert-success' : 'alert-warning' }} py-2 small mb-3">
+            <i class="bi {{ $backupStorage['persistent'] ? 'bi-cloud-check' : 'bi-exclamation-triangle' }} me-1"></i>{{ $backupStorage['message'] }}
+          </div>
           <div class="d-flex flex-wrap gap-2">
             <form action="{{ route('admin.settings.backup') }}" method="POST" onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('.backup-btn-text').textContent='Creating...';">
               @csrf
@@ -733,6 +737,10 @@
           <div class="text-muted small mt-3">
             Latest:
             <strong>{{ $latestBackup ? date('M d, Y H:i', $latestBackup['modified_at']) : 'No backup yet' }}</strong>
+          </div>
+          <div class="text-muted small mt-2">
+            Storage:
+            <span class="badge {{ $backupStorage['badge_class'] }}">{{ $backupStorage['persistent'] ? 'Persistent' : 'Temporary' }}</span>
           </div>
         </div>
       </div>

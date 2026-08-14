@@ -641,6 +641,7 @@
     $healthColor = !$latestBackup ? '#dc2626' : (($lastBackupAgeHours !== null && $lastBackupAgeHours > 48) ? '#d97706' : '#16a34a');
     $healthText = !$latestBackup ? 'No backup yet' : (($lastBackupAgeHours !== null && $lastBackupAgeHours > 48) ? 'Backup is getting old' : 'Protected');
     $fullBackupAvailable = class_exists(\ZipArchive::class);
+    $backupStorage = $backupStorage ?? app(\App\Services\BackupService::class)->storageStatus();
   @endphp
 
   <div class="backup-console mb-4">
@@ -649,8 +650,11 @@
         <div class="backup-icon"><i class="bi bi-cloud-arrow-up"></i></div>
         <div>
           <h6 class="fw-bold mb-1">Database Backup</h6>
-          <p class="text-muted small mb-0">Create a full SQL backup of the active database connection and store it securely in <code>storage/app/backups/</code>.</p>
+          <p class="text-muted small mb-0">Create a full SQL backup of the active database connection and store it in <code>{{ $backupStorage['label'] }}</code>.</p>
         </div>
+      </div>
+      <div class="alert {{ $backupStorage['persistent'] ? 'alert-success' : 'alert-warning' }} py-2 small mt-3 mb-0">
+        <i class="bi {{ $backupStorage['persistent'] ? 'bi-cloud-check' : 'bi-exclamation-triangle' }} me-1"></i>{{ $backupStorage['message'] }}
       </div>
       <div class="d-flex flex-wrap gap-2 mt-3">
         <form action="{{ route('superadmin.settings.backup') }}" method="POST" onsubmit="this.querySelector('button[type=submit]').disabled=true;this.querySelector('.backup-btn-text').textContent='Creating Backup...';">
@@ -697,6 +701,10 @@
         @if($lastRun)
           &bull; Last run {{ $lastRun->format('M d, Y H:i') }}
         @endif
+      </div>
+      <div class="text-muted small mt-2">
+        Storage:
+        <span class="badge {{ $backupStorage['badge_class'] }}">{{ $backupStorage['persistent'] ? 'Persistent' : 'Temporary' }}</span>
       </div>
       @if(!empty($platform->backup_last_status))
         <div class="small mt-2 {{ $platform->backup_last_status === 'success' ? 'text-success' : 'text-danger' }}">
