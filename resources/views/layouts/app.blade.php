@@ -3679,7 +3679,7 @@ function buildMcGalleryGrid(sources, marginBottom) {
       more.dataset.src = src;
       more.dataset.galleryIndex = '3';
       more.title = 'View ' + clean.length + ' images';
-      more.onclick = function(event) { return openMessageImageButton(this, event); };
+      more.onclick = function() { return openMessageImageButton(this); };
       more.style = 'width:100%;aspect-ratio:1/1;border:0;border-radius:8px;background:#111827;color:#fff;font-size:1.15rem;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:zoom-in;touch-action:manipulation';
       more.innerHTML = '<span>+' + (clean.length - 3) + '</span>';
       grid.appendChild(more);
@@ -3691,12 +3691,12 @@ function buildMcGalleryGrid(sources, marginBottom) {
     tile.className = 'chat-img';
     tile.dataset.src = src;
     tile.dataset.galleryIndex = String(index);
-    tile.onclick = function(event) { return openMessageImageButton(this, event); };
+    tile.onclick = function() { return openMessageImageButton(this); };
     tile.style = 'width:100%;aspect-ratio:' + (clean.length === 1 ? '4/3' : '1/1') + ';border:0;padding:0;max-width:100%;border-radius:8px;cursor:zoom-in;overflow:hidden;background:transparent;display:block;touch-action:manipulation;-webkit-tap-highlight-color:transparent';
     const img = document.createElement('img');
     img.src = src;
     img.style = 'width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in';
-    img.onclick = function(event) { return openMessageImageButton(this.closest('button'), event); };
+    img.onclick = function() { return openMessageImageButton(this.closest('button')); };
     img.onerror = function() { tile.style.display = 'none'; };
     tile.appendChild(img);
     grid.appendChild(tile);
@@ -4548,9 +4548,10 @@ function openLightboxFromGalleryTarget(target) {
 }
 
 function openMessageImageButton(target, event) {
-  if (event) {
-    event.preventDefault();
-    event.stopPropagation();
+  var e = event || window.event;
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
   }
   openLightboxFromGalleryTarget(target);
   return false;

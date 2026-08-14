@@ -52,12 +52,12 @@
                 <div class="admin-bubble-imgs img-count-{{ min(count($imgs), 4) }}" data-lightbox-gallery data-gallery-sources='@json(array_values($imgs))' style="margin-top:{{ $m->message ? '.4rem' : '0' }}">
                   @foreach(array_slice($imgs, 0, 4) as $idx => $imgSrc)
                     @if($idx === 3 && count($imgs) > 4)
-                      <button type="button" class="admin-img-more chat-img" data-src="{{ $imgSrc }}" data-gallery-index="3" title="View {{ count($imgs) }} images" onclick="return openMessageImageButton(this,event)">
+                      <button type="button" class="admin-img-more chat-img" data-src="{{ $imgSrc }}" data-gallery-index="3" title="View {{ count($imgs) }} images" onclick="return openMessageImageButton(this)">
                         <span>+{{ count($imgs) - 3 }}</span>
                       </button>
                     @else
-                      <button type="button" class="admin-img-tile chat-img" data-src="{{ $imgSrc }}" data-gallery-index="{{ $idx }}" title="View image {{ $idx + 1 }}" onclick="return openMessageImageButton(this,event)">
-                        <img src="{{ $imgSrc }}" alt="" onclick="return openMessageImageButton(this.closest('button'),event)" onerror="this.closest('button').style.display='none'">
+                      <button type="button" class="admin-img-tile chat-img" data-src="{{ $imgSrc }}" data-gallery-index="{{ $idx }}" title="View image {{ $idx + 1 }}" onclick="return openMessageImageButton(this)">
+                        <img src="{{ $imgSrc }}" alt="" onclick="return openMessageImageButton(this.closest('button'))" onerror="this.closest('button').style.display='none'">
                       </button>
                     @endif
                   @endforeach

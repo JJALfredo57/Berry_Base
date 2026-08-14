@@ -276,12 +276,12 @@
               <div class="bubble-imgs img-count-{{ min(count($imgs), 4) }}" data-lightbox-gallery data-gallery-sources='@json(array_values($imgs))'>
                 @foreach(array_slice($imgs, 0, 4) as $idx => $src)
                   @if($idx === 3 && count($imgs) > 4)
-                    <button type="button" class="bubble-img-more chat-img" data-src="{{ $src }}" data-gallery-index="3" title="View {{ count($imgs) }} images" onclick="return openMessageImageButton(this,event)">
+                    <button type="button" class="bubble-img-more chat-img" data-src="{{ $src }}" data-gallery-index="3" title="View {{ count($imgs) }} images" onclick="return openMessageImageButton(this)">
                       <span>+{{ count($imgs) - 3 }}</span>
                     </button>
                   @else
-                    <button type="button" class="bubble-img-tile chat-img" data-src="{{ $src }}" data-gallery-index="{{ $idx }}" title="View image {{ $idx + 1 }}" onclick="return openMessageImageButton(this,event)">
-                      <img src="{{ $src }}" alt="" onclick="return openMessageImageButton(this.closest('button'),event)" onerror="this.closest('button').style.display='none'">
+                    <button type="button" class="bubble-img-tile chat-img" data-src="{{ $src }}" data-gallery-index="{{ $idx }}" title="View image {{ $idx + 1 }}" onclick="return openMessageImageButton(this)">
+                      <img src="{{ $src }}" alt="" onclick="return openMessageImageButton(this.closest('button'))" onerror="this.closest('button').style.display='none'">
                     </button>
                   @endif
                 @endforeach
@@ -593,10 +593,10 @@ function threadImageGridHtml(imgs) {
   const items = cleanImgs.slice(0, 4).map((src, index) => {
     const safeSrc = threadEscAttr(src);
     if (index === 3 && cleanImgs.length > 4) {
-      return `<button type="button" class="bubble-img-more chat-img" data-src="${safeSrc}" data-gallery-index="3" title="View ${cleanImgs.length} images" onclick="return openMessageImageButton(this,event)"><span>+${cleanImgs.length - 3}</span></button>`;
+      return `<button type="button" class="bubble-img-more chat-img" data-src="${safeSrc}" data-gallery-index="3" title="View ${cleanImgs.length} images" onclick="return openMessageImageButton(this)"><span>+${cleanImgs.length - 3}</span></button>`;
     }
-    return `<button type="button" class="bubble-img-tile chat-img" data-src="${safeSrc}" data-gallery-index="${index}" title="View image ${index + 1}" onclick="return openMessageImageButton(this,event)">
-      <img src="${safeSrc}" alt="" onclick="return openMessageImageButton(this.closest('button'),event)" onerror="this.closest('button').style.display='none'">
+    return `<button type="button" class="bubble-img-tile chat-img" data-src="${safeSrc}" data-gallery-index="${index}" title="View image ${index + 1}" onclick="return openMessageImageButton(this)">
+      <img src="${safeSrc}" alt="" onclick="return openMessageImageButton(this.closest('button'))" onerror="this.closest('button').style.display='none'">
     </button>`;
   }).join('');
 
