@@ -4556,6 +4556,16 @@ function openMessageImageButton(target, event) {
     e.preventDefault();
     e.stopPropagation();
   }
+  var src = target && target.dataset ? target.dataset.src : '';
+  src = src || (target && target.src ? target.src : '');
+  if (src && typeof window.csLightboxOpen === 'function') {
+    window.csLightboxOpen(src, '');
+    return false;
+  }
+  if (src && typeof window.catLbOpen === 'function') {
+    window.catLbOpen(src);
+    return false;
+  }
   openLightboxFromGalleryTarget(target);
   return false;
 }
