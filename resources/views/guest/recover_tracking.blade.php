@@ -39,10 +39,7 @@
       width:100%;
       min-height:calc(100vh - 92px);
       padding:clamp(12px,2.4vw,30px);
-      background:
-        radial-gradient(circle at top left,color-mix(in srgb,var(--primary) 18%,transparent),transparent 34%),
-        radial-gradient(circle at bottom right,color-mix(in srgb,var(--primary-dark) 14%,transparent),transparent 30%),
-        linear-gradient(135deg,color-mix(in srgb,var(--primary-bg) 62%,transparent),rgba(255,255,255,.08));
+      background:transparent;
     }
     .recover-shell{width:100%;max-width:none;margin:0}
     .recover-topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
