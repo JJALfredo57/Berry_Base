@@ -125,9 +125,15 @@
     .bbl-g{padding:9px 13px;border-radius:16px;font-size:.875rem;line-height:1.5;word-break:break-word}
     .bbl-g.theirs{background:#fff;color:#333;border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
     .bbl-g.mine{background:var(--primary);color:#fff;border-radius:16px 4px 16px 16px}
-    .bbl-imgs-g{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-    .bbl-imgs-g img{border-radius:8px;object-fit:cover;cursor:zoom-in;max-width:180px;max-height:180px;display:block}
-    .bbl-imgs-g img.solo{max-width:220px;max-height:220px}
+    .bbl-imgs-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:6px;width:min(304px,100%);max-width:100%}
+    .bbl-imgs-g.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
+    .bbl-imgs-g.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
+    .bbl-imgs-g img,.bbl-img-more-g{width:100%;aspect-ratio:1/1;border-radius:8px;object-fit:cover;cursor:zoom-in;display:block;min-width:0}
+    .bbl-imgs-g.img-count-1 img{aspect-ratio:4/3}
+    .bbl-img-more-g{border:0;background:#111827;color:#fff;position:relative;overflow:hidden;padding:0;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
+    .bbl-img-more-g:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.16),transparent 34%),linear-gradient(135deg,rgba(17,24,39,.94),rgba(31,41,55,.98))}
+    .bbl-img-more-g span{position:relative;z-index:1;text-shadow:0 2px 10px rgba(0,0,0,.35)}
+    .bbl-img-more-g:hover span{text-decoration:underline}
     .bbl-time-g{font-size:.65rem;color:#adb5bd;padding:0 2px}
     .bbl-time-g.mine{text-align:right}
     .sndr-lbl-g{font-size:.68rem;font-weight:600;color:#6c757d;padding:0 2px;margin-bottom:1px}
@@ -295,6 +301,16 @@
         font-size:.86rem;
         border-radius:12px;
         max-height:92px;
+      }
+      .msg-grp-g {
+        max-width:82%;
+      }
+      .bbl-imgs-g,
+      .bbl-imgs-g.img-count-2 {
+        width:min(244px,100%);
+      }
+      .bbl-imgs-g.img-count-1 {
+        width:min(220px,100%);
       }
       .track-review-actions {
         grid-template-columns:1fr;
@@ -2109,6 +2125,28 @@ function openGuestImgPv(src) {
   openLightbox(el);
 }
 
+function messageImageGridHtml(imgs) {
+  const cleanImgs = imgs.filter(Boolean);
+  if (!cleanImgs.length) return '';
+
+  const visible = cleanImgs.slice(0, 4);
+  const moreCount = cleanImgs.length - 3;
+  const gridClass = 'img-count-' + Math.min(cleanImgs.length, 4);
+  const galleryJson = escAttr(JSON.stringify(cleanImgs));
+  const items = visible.map((src, index) => {
+    const safeSrc = escAttr(src);
+    if (index === 3 && cleanImgs.length > 4) {
+      return `<button type="button" class="bbl-img-more-g chat-img" data-src="${safeSrc}" onclick="openLightbox(this, ${galleryJson}, 3)" title="View ${cleanImgs.length} images">
+        <span>+${moreCount}</span>
+      </button>`;
+    }
+
+    return `<img src="${safeSrc}" class="chat-img" data-src="${safeSrc}" onclick="openLightbox(this, ${galleryJson}, ${index})" onerror="this.style.display='none'">`;
+  }).join('');
+
+  return `<div class="bbl-imgs-g ${gridClass}" data-lightbox-gallery>${items}</div>`;
+}
+
 // ── Messaging ────────────────────────────────────────────────────────────
 let rendered = [];
 let guestMsgSending = false;
@@ -2128,12 +2166,7 @@ function renderMessages(msgs) {
       catch(e) { imgs = [m.image_path]; }
     }
     const initials = isMine ? (GUEST_NAME.charAt(0).toUpperCase() || 'Y') : 'B';
-    let imgHtml = '';
-    if (imgs.length) {
-      imgHtml = '<div class="bbl-imgs-g">' +
-        imgs.map(src => `<img src="${escAttr(src)}" class="${imgs.length===1?'solo':''}" data-src="${escAttr(src)}" onclick="openLightbox(this)" onerror="this.style.display='none'">`).join('') +
-        '</div>';
-    }
+    const imgHtml = messageImageGridHtml(imgs);
     const row = document.createElement('div');
     row.className = 'msg-row-g' + (isMine ? ' mine' : '');
     row.innerHTML = `
@@ -2214,7 +2247,13 @@ async function sendGuestMsg() {
   }
 }
 
-function escAttr(s) { return s ? s.replace(/"/g, '&quot;') : ''; }
+function escAttr(s) {
+  return s ? String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;') : '';
+}
 
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');

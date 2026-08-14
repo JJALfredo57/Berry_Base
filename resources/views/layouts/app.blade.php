@@ -4304,11 +4304,12 @@ window.BERRY_PUSH_CONTEXT = {
 @@keyframes lbIn { from{opacity:0} to{opacity:1} }
 #imgLightbox.open { display:flex; }
 #lbImg {
-  max-width:90vw;max-height:80vh;
+  max-width:90vw;max-height:calc(100vh - 170px);
   object-fit:contain;border-radius:.75rem;
   transform-origin:center;
   transition:transform .2s ease;
   user-select:none;
+  box-shadow:0 20px 70px rgba(0,0,0,.36);
 }
 #lbToolbar {
   position:fixed;top:0;left:0;right:0;
@@ -4341,6 +4342,41 @@ window.BERRY_PUSH_CONTEXT = {
 .lb-tb-btn:hover { background:rgba(255,255,255,.3); }
 #lbCounter { color:rgba(255,255,255,.7);font-size:.8rem;font-weight:600; }
 #lbZoomLabel { color:rgba(255,255,255,.6);font-size:.75rem;min-width:40px;text-align:center; }
+#lbThumbs {
+  position:fixed;left:50%;bottom:14px;transform:translateX(-50%);
+  width:min(720px,calc(100vw - 24px));
+  display:flex;gap:8px;align-items:center;
+  overflow-x:auto;overflow-y:hidden;
+  padding:9px;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:14px;
+  background:rgba(15,23,42,.68);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  scrollbar-width:thin;
+  z-index:100000;
+}
+.lb-thumb-btn {
+  width:58px;height:58px;flex:0 0 58px;
+  border:2px solid transparent;border-radius:10px;
+  padding:0;overflow:hidden;background:rgba(255,255,255,.08);
+  opacity:.7;cursor:pointer;transition:opacity .16s,border-color .16s,transform .16s;
+}
+.lb-thumb-btn:hover,.lb-thumb-btn.is-active {
+  opacity:1;border-color:var(--primary);transform:translateY(-1px);
+}
+.lb-thumb-btn img {
+  width:100%;height:100%;object-fit:cover;display:block;
+}
+@media(max-width:640px) {
+  #lbToolbar{padding:8px 10px}
+  #lbImg{max-width:94vw;max-height:calc(100dvh - 154px);border-radius:.6rem}
+  #lbNavPrev,#lbNavNext{width:40px;height:40px}
+  #lbNavPrev{left:10px}
+  #lbNavNext{right:10px}
+  #lbThumbs{bottom:8px;width:calc(100vw - 16px);padding:7px;border-radius:12px}
+  .lb-thumb-btn{width:50px;height:50px;flex-basis:50px}
+}
 </style>
 
 <div id="imgLightbox" onclick="lbBgClick(event)">
@@ -4363,6 +4399,7 @@ window.BERRY_PUSH_CONTEXT = {
   <button id="lbNavPrev" onclick="lbNav(-1)"><i class="bi bi-chevron-left"></i></button>
   <img id="lbImg" src="" alt="Image" draggable="false">
   <button id="lbNavNext" onclick="lbNav(1)"><i class="bi bi-chevron-right"></i></button>
+  <div id="lbThumbs" aria-label="Image thumbnails"></div>
 </div>
 
 <script>
@@ -4448,13 +4485,20 @@ if (typeof lbIndex === 'undefined')  { var lbIndex  = 0; }
 if (typeof lbZoomLvl === 'undefined'){ var lbZoomLvl= 1; }
 var LB_ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 
-function openLightbox(imgEl) {
-  // Collect all .chat-img images visible in the page / bubble
-  const scope = imgEl.closest('[data-lightbox-gallery]') || imgEl.closest('#chatBox') || imgEl.closest('#miniChatMessages') || document;
-  const imgs = [...scope.querySelectorAll('.chat-img[data-src]')];
-  lbImages  = imgs.map(i => i.dataset.src || i.src);
-  lbIndex   = imgs.indexOf(imgEl);
-  if (lbIndex < 0) { lbImages = [imgEl.dataset.src || imgEl.src]; lbIndex = 0; }
+function openLightbox(imgEl, gallerySources, startIndex) {
+  if (Array.isArray(gallerySources) && gallerySources.length) {
+    lbImages = gallerySources.filter(Boolean);
+    lbIndex = Number.isInteger(startIndex) ? startIndex : lbImages.indexOf(imgEl.dataset.src || imgEl.src);
+  } else {
+    // Collect images from the nearest gallery first; fallback keeps old calls working.
+    const scope = imgEl.closest('[data-lightbox-gallery]') || imgEl.closest('#chatBox') || imgEl.closest('#miniChatMessages') || document;
+    const imgs = [...scope.querySelectorAll('.chat-img[data-src]')];
+    lbImages  = imgs.map(i => i.dataset.src || i.src);
+    lbIndex   = imgs.indexOf(imgEl);
+  }
+
+  if (!lbImages.length) lbImages = [imgEl.dataset.src || imgEl.src];
+  if (lbIndex < 0 || lbIndex >= lbImages.length) lbIndex = 0;
 
   lbZoomLvl = 1;
   lbRender();
@@ -4483,6 +4527,7 @@ function lbRender() {
   const next = document.getElementById('lbNavNext');
   const ctr  = document.getElementById('lbCounter');
   const dl   = document.getElementById('lbDownload');
+  const thumbs = document.getElementById('lbThumbs');
 
   img.src = lbImages[lbIndex];
   img.style.transform = 'scale(' + lbZoomLvl + ')';
@@ -4495,6 +4540,30 @@ function lbRender() {
   dl.dataset.downloadName = window.BerryBaseDownloads.filenameFromUrl(lbImages[lbIndex], 'berry-base-image.jpg');
   // Hide nav buttons if only 1 image
   prev.style.display = next.style.display = lbImages.length > 1 ? 'flex' : 'none';
+  if (thumbs) {
+    thumbs.style.display = lbImages.length > 1 ? 'flex' : 'none';
+    thumbs.innerHTML = lbImages.map(function(src, index) {
+      return '<button type="button" class="lb-thumb-btn ' + (index === lbIndex ? 'is-active' : '') + '" onclick="lbGoTo(' + index + ')" aria-label="View image ' + (index + 1) + '">' +
+        '<img src="' + lbEscAttr(src) + '" alt="">' +
+        '</button>';
+    }).join('');
+    const active = thumbs.querySelector('.lb-thumb-btn.is-active');
+    if (active) active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
+}
+
+function lbEscAttr(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function lbGoTo(index) {
+  lbIndex = Math.max(0, Math.min(lbImages.length - 1, index));
+  lbZoomLvl = 1;
+  lbRender();
 }
 
 function lbZoom(dir) {
