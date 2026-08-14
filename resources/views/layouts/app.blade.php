@@ -4462,7 +4462,14 @@ window.BERRY_PUSH_CONTEXT = {
 
 <script>
 // ── Lightbox state ────────────────────────────────────────────────────
-window.BerryBaseDownloads = window.BerryBaseDownloads || {
+var berryBaseNativeDownloadBridge = window.BerryBaseDownloads;
+window.BerryBaseDownloads = {
+  nativeBridge: berryBaseNativeDownloadBridge && typeof berryBaseNativeDownloadBridge.download === 'function'
+    ? berryBaseNativeDownloadBridge
+    : null,
+  isNativeApp: function() {
+    return !!window.Capacitor?.isNativePlatform?.();
+  },
   notify: function(message) {
     if (window.bootstrap) {
       var toastWrap = document.getElementById('berryDownloadToastWrap');
@@ -4518,6 +4525,10 @@ window.BerryBaseDownloads = window.BerryBaseDownloads || {
     }
 
     try {
+      if (this.isNativeApp() && this.nativeBridge && !/^blob:/i.test(url)) {
+        this.nativeBridge.download(url, name);
+        return;
+      }
       var parsedForProxy = null;
       try { parsedForProxy = new URL(url, window.location.href); } catch (ignore) {}
       if (parsedForProxy && parsedForProxy.origin !== window.location.origin) {
