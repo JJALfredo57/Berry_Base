@@ -2043,6 +2043,28 @@ document.addEventListener('DOMContentLoaded', function () {
           onmouseout="this.style.background='rgba(255,255,255,.15)'">
     <i class="bi bi-x-lg"></i>
   </button>
+  <button id="csLbPrev" onclick="csLightboxNav(-1)"
+          style="position:absolute;left:14px;top:50%;transform:translateY(-50%);
+                 z-index:3;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.18);
+                 color:#fff;width:44px;height:44px;border-radius:50%;font-size:1.05rem;
+                 cursor:pointer;display:none;align-items:center;justify-content:center">
+    <i class="bi bi-chevron-left"></i>
+  </button>
+  <button id="csLbNext" onclick="csLightboxNav(1)"
+          style="position:absolute;right:14px;top:50%;transform:translateY(-50%);
+                 z-index:3;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.18);
+                 color:#fff;width:44px;height:44px;border-radius:50%;font-size:1.05rem;
+                 cursor:pointer;display:none;align-items:center;justify-content:center">
+    <i class="bi bi-chevron-right"></i>
+  </button>
+  <button id="csLbDownload" onclick="csLightboxDownload(this)"
+          style="position:absolute;top:18px;right:74px;z-index:3;
+                 background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.18);
+                 color:#fff;width:46px;height:46px;border-radius:50%;font-size:1.05rem;
+                 cursor:pointer;display:none;align-items:center;justify-content:center;
+                 transition:background .15s;opacity:0">
+    <i class="bi bi-download"></i>
+  </button>
   <div id="csLbTitle"
        style="position:absolute;top:22px;left:20px;z-index:3;
               color:rgba(255,255,255,.9);font-size:.9rem;font-weight:600;
@@ -2091,6 +2113,10 @@ document.addEventListener('DOMContentLoaded', function () {
               opacity:0;transition:opacity .25s .2s">
     Click image to toggle zoom &bull; Scroll to zoom &bull; ESC to close
   </div>
+  <div id="csLbCounter"
+       style="position:absolute;top:31px;left:50%;transform:translateX(-50%);
+              color:rgba(255,255,255,.78);font-size:.78rem;font-weight:700;
+              z-index:3;display:none;opacity:0;transition:opacity .25s .1s"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -4556,6 +4582,29 @@ function openMessageImageButton(target, event) {
     e.preventDefault();
     e.stopPropagation();
   }
+  if (target && typeof window.csLightboxOpenGallery === 'function') {
+    var gallery = target.closest ? target.closest('[data-lightbox-gallery]') : null;
+    var sources = [];
+    if (gallery && gallery.dataset.gallerySources) {
+      try { sources = JSON.parse(gallery.dataset.gallerySources); } catch(ignore) { sources = []; }
+    }
+    if (!sources.length && gallery) {
+      sources = Array.prototype.slice.call(gallery.querySelectorAll('img.chat-img[data-src]')).map(function(img) {
+        return img.dataset.src || img.src;
+      }).filter(Boolean);
+    }
+    var startIndex = parseInt((target.dataset && target.dataset.galleryIndex) || '0', 10);
+    if (!sources.length) {
+      var onlySrc = target && target.dataset ? target.dataset.src : '';
+      onlySrc = onlySrc || (target && target.src ? target.src : '');
+      sources = onlySrc ? [onlySrc] : [];
+      startIndex = 0;
+    }
+    if (sources.length) {
+      window.csLightboxOpenGallery(sources, isFinite(startIndex) ? startIndex : 0, '');
+      return false;
+    }
+  }
   if (target && document.getElementById('imgLightbox')) {
     openLightboxFromGalleryTarget(target);
     return false;
@@ -4768,7 +4817,32 @@ function pgFilter(param, val) {
 (function() {
   var _lbScale = 1;
   var _lbOpen  = false;
+  var _gallery = [];
+  var _galleryIndex = 0;
   function _lbEl(id) { return document.getElementById(id); }
+  function _setControlsVisible(isPdf) {
+    var hasMany = _gallery.length > 1 && !isPdf;
+    var prev = _lbEl('csLbPrev'), next = _lbEl('csLbNext'), dl = _lbEl('csLbDownload'), ctr = _lbEl('csLbCounter');
+    if (prev) {
+      prev.style.display = hasMany ? 'flex' : 'none';
+      prev.disabled = _galleryIndex <= 0;
+      prev.style.opacity = _galleryIndex <= 0 ? '.35' : '1';
+    }
+    if (next) {
+      next.style.display = hasMany ? 'flex' : 'none';
+      next.disabled = _galleryIndex >= _gallery.length - 1;
+      next.style.opacity = _galleryIndex >= _gallery.length - 1 ? '.35' : '1';
+    }
+    if (dl) {
+      dl.style.display = !isPdf && (_gallery[_galleryIndex] || _lbEl('csLbImg').src) ? 'flex' : 'none';
+      dl.style.opacity = dl.style.display === 'flex' ? '1' : '0';
+    }
+    if (ctr) {
+      ctr.textContent = hasMany ? ((_galleryIndex + 1) + ' / ' + _gallery.length) : '';
+      ctr.style.display = hasMany ? 'block' : 'none';
+      ctr.style.opacity = hasMany ? '1' : '0';
+    }
+  }
   function _applyZoom() {
     var img = _lbEl('csLbImg');
     if (img) { img.style.transform='scale('+_lbScale+')'; img.style.cursor=_lbScale>1?'zoom-out':'zoom-in'; }
@@ -4776,6 +4850,12 @@ function pgFilter(param, val) {
     if (lbl) lbl.textContent = Math.round(_lbScale*100)+'%';
   }
   window.csLightboxOpen = function(src, title) {
+    if (!src) return;
+    _gallery = [src];
+    _galleryIndex = 0;
+    window.csLightboxOpenCurrent(src, title);
+  };
+  window.csLightboxOpenCurrent = function(src, title) {
     if (!src) return;
     var isPdf = /\.pdf(\?.*)?$/i.test(src);
     var lb = _lbEl('csLightbox'); if (!lb) return;
@@ -4791,6 +4871,7 @@ function pgFilter(param, val) {
     pdfWrap.style.transform='scale(0.88)'; pdfWrap.style.opacity='0';
     closeBtn.style.opacity='0'; titleEl.style.opacity='0';
     zoomBar.style.opacity='0'; hint.style.opacity='0';
+    _setControlsVisible(isPdf);
     lb.style.background='rgba(0,0,0,0)';
     if (isPdf) {
       imgWrap.style.display='none'; pdfWrap.style.display='';
@@ -4810,7 +4891,22 @@ function pgFilter(param, val) {
       target.style.transform='scale(1)'; target.style.opacity='1';
       closeBtn.style.opacity='1'; titleEl.style.opacity='1';
       if (!isPdf) { zoomBar.style.opacity='1'; hint.style.opacity='1'; }
+      _setControlsVisible(isPdf);
     });
+  };
+  window.csLightboxOpenGallery = function(sources, index, title) {
+    _gallery = (sources || []).filter(Boolean);
+    _galleryIndex = Math.max(0, Math.min(parseInt(index || 0, 10) || 0, _gallery.length - 1));
+    window.csLightboxOpenCurrent(_gallery[_galleryIndex], title || '');
+  };
+  window.csLightboxNav = function(dir) {
+    if (!_gallery.length) return;
+    _galleryIndex = Math.max(0, Math.min(_gallery.length - 1, _galleryIndex + dir));
+    window.csLightboxOpenCurrent(_gallery[_galleryIndex], '');
+  };
+  window.csLightboxDownload = function(button) {
+    var src = _gallery[_galleryIndex] || (_lbEl('csLbImg') ? _lbEl('csLbImg').src : '');
+    if (src && window.BerryBaseDownloads) window.BerryBaseDownloads.download(src, window.BerryBaseDownloads.filenameFromUrl(src, 'berry-base-image.jpg'), button);
   };
   window.csLightboxClose = function() {
     var lb=_lbEl('csLightbox'); if (!lb||!_lbOpen) return;
@@ -4821,11 +4917,15 @@ function pgFilter(param, val) {
     pdfWrap.style.transform='scale(0.88)'; pdfWrap.style.opacity='0';
     _lbEl('csLbClose').style.opacity='0'; _lbEl('csLbTitle').style.opacity='0';
     _lbEl('csLbZoomBar').style.opacity='0'; _lbEl('csLbHint').style.opacity='0';
+    var dl = _lbEl('csLbDownload'), ctr = _lbEl('csLbCounter');
+    if (dl) dl.style.opacity = '0';
+    if (ctr) ctr.style.opacity = '0';
     setTimeout(function() {
       lb.style.display='none';
       _lbEl('csLbImg').src=''; _lbEl('csLbPdf').src='';
       document.body.style.overflow='';
       _lbScale=1; _applyZoom();
+      _setControlsVisible(false);
     }, 300);
   };
   window.csLbToggleZoom = function() { _lbScale=_lbScale>=2?1:2; _applyZoom(); };
