@@ -4499,6 +4499,15 @@ window.BerryBaseDownloads = window.BerryBaseDownloads || {
     if (filename) params.set('name', filename);
     return '/asset-download?' + params.toString();
   },
+  clickDownloadLink: function(url, filename) {
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = filename || '';
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
   download: async function(url, filename, button) {
     if (!url) return;
     var name = filename || this.filenameFromUrl(url, 'image-download.jpg');
@@ -4512,7 +4521,7 @@ window.BerryBaseDownloads = window.BerryBaseDownloads || {
       var parsedForProxy = null;
       try { parsedForProxy = new URL(url, window.location.href); } catch (ignore) {}
       if (parsedForProxy && parsedForProxy.origin !== window.location.origin) {
-        window.location.href = this.proxyUrl(parsedForProxy.href, name);
+        this.clickDownloadLink(this.proxyUrl(parsedForProxy.href, name), name);
         this.notify('Download started.');
         return;
       }
@@ -5046,6 +5055,17 @@ function pgFilter(param, val) {
   window.catLbBgClick    = function(e)   { if (e&&e.target&&(e.target.id==='lightboxOverlay'||e.target.id==='csLightbox')) window.csLightboxClose(); };
   document.addEventListener('DOMContentLoaded', function() {
     var lb=document.getElementById('csLightbox'); if (!lb) return;
+    var downloadBtn = _lbEl('csLbDownload');
+    if (downloadBtn) {
+      var downloadTap = function(e) {
+        if (!_lbOpen) return;
+        e.preventDefault();
+        e.stopPropagation();
+        window.csLightboxDownload(downloadBtn);
+      };
+      downloadBtn.addEventListener('touchend', downloadTap, { passive:false });
+      downloadBtn.addEventListener('pointerup', downloadTap);
+    }
     lb.addEventListener('wheel', function(e) {
       if (_lbOpen && _lbEl('csLbImgWrap') && _lbEl('csLbImgWrap').style.display!=='none') {
         e.preventDefault(); window.csLbZoom(e.deltaY<0?0.15:-0.15);
