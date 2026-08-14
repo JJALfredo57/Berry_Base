@@ -4511,9 +4511,12 @@ window.BerryBaseDownloads = window.BerryBaseDownloads || {
     try {
       var parsedForProxy = null;
       try { parsedForProxy = new URL(url, window.location.href); } catch (ignore) {}
-      var downloadUrl = parsedForProxy && parsedForProxy.origin !== window.location.origin
-        ? this.proxyUrl(parsedForProxy.href, name)
-        : url;
+      if (parsedForProxy && parsedForProxy.origin !== window.location.origin) {
+        window.location.href = this.proxyUrl(parsedForProxy.href, name);
+        this.notify('Download started.');
+        return;
+      }
+      var downloadUrl = url;
       var response = await fetch(downloadUrl, { cache: 'no-store' });
       if (!response.ok) throw new Error('Download failed');
       var blob = await response.blob();
