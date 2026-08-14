@@ -128,9 +128,11 @@
     .bbl-imgs-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:6px;width:min(304px,100%);max-width:100%}
     .bbl-imgs-g.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
     .bbl-imgs-g.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
-    .bbl-imgs-g img,.bbl-img-more-g{width:100%;aspect-ratio:1/1;border-radius:8px;object-fit:cover;cursor:zoom-in;display:block;min-width:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-    .bbl-imgs-g.img-count-1 img{aspect-ratio:4/3}
-    .bbl-img-more-g{border:0;background:#111827;color:#fff;position:relative;overflow:hidden;padding:0;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
+    .bbl-img-tile-g,.bbl-img-more-g{width:100%;aspect-ratio:1/1;border:0;border-radius:8px;cursor:zoom-in;display:block;min-width:0;overflow:hidden;padding:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+    .bbl-img-tile-g{background:transparent}
+    .bbl-img-tile-g img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+    .bbl-imgs-g.img-count-1 .bbl-img-tile-g{aspect-ratio:4/3}
+    .bbl-img-more-g{background:#111827;color:#fff;position:relative;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
     .bbl-img-more-g:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.16),transparent 34%),linear-gradient(135deg,rgba(17,24,39,.94),rgba(31,41,55,.98))}
     .bbl-img-more-g span{position:relative;z-index:1;text-shadow:0 2px 10px rgba(0,0,0,.35)}
     .bbl-img-more-g:hover span{text-decoration:underline}
@@ -2175,12 +2177,14 @@ function messageImageGridHtml(imgs) {
   const items = visible.map((src, index) => {
     const safeSrc = escAttr(src);
     if (index === 3 && cleanImgs.length > 4) {
-      return `<button type="button" class="bbl-img-more-g chat-img" data-src="${safeSrc}" data-gallery-index="3" onclick="openGuestMessageImage(this)" title="View ${cleanImgs.length} images">
+      return `<button type="button" class="bbl-img-more-g chat-img" data-src="${safeSrc}" data-gallery-index="3" title="View ${cleanImgs.length} images">
         <span>+${moreCount}</span>
       </button>`;
     }
 
-    return `<img src="${safeSrc}" class="chat-img" data-src="${safeSrc}" data-gallery-index="${index}" onclick="openGuestMessageImage(this)" onerror="this.style.display='none'">`;
+    return `<button type="button" class="bbl-img-tile-g chat-img" data-src="${safeSrc}" data-gallery-index="${index}" title="View image ${index + 1}">
+      <img src="${safeSrc}" alt="" onerror="this.closest('button').style.display='none'">
+    </button>`;
   }).join('');
 
   return `<div class="bbl-imgs-g ${gridClass}" data-lightbox-gallery data-gallery-sources="${galleryJson}">${items}</div>`;
@@ -2189,7 +2193,7 @@ function messageImageGridHtml(imgs) {
 function openGuestMessageImage(el) {
   const gallery = el.closest('.bbl-imgs-g');
   let sources = [];
-  if (gallery?.dataset.gallerySources) {
+  if (gallery && gallery.dataset.gallerySources) {
     try { sources = JSON.parse(gallery.dataset.gallerySources); } catch(e) { sources = []; }
   }
   const index = parseInt(el.dataset.galleryIndex || '0', 10);

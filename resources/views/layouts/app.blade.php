@@ -3685,14 +3685,18 @@ function buildMcGalleryGrid(sources, marginBottom) {
       return;
     }
 
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'chat-img';
+    tile.dataset.src = src;
+    tile.dataset.galleryIndex = String(index);
+    tile.style = 'width:100%;aspect-ratio:' + (clean.length === 1 ? '4/3' : '1/1') + ';border:0;padding:0;max-width:100%;border-radius:8px;cursor:zoom-in;overflow:hidden;background:transparent;display:block;touch-action:manipulation;-webkit-tap-highlight-color:transparent';
     const img = document.createElement('img');
     img.src = src;
-    img.className = 'chat-img';
-    img.dataset.src = src;
-    img.dataset.galleryIndex = String(index);
-    img.style = 'width:100%;aspect-ratio:' + (clean.length === 1 ? '4/3' : '1/1') + ';max-width:100%;border-radius:8px;cursor:zoom-in;object-fit:cover;display:block;touch-action:manipulation';
-    img.onerror = function() { img.style.display = 'none'; };
-    grid.appendChild(img);
+    img.style = 'width:100%;height:100%;object-fit:cover;display:block;pointer-events:none';
+    img.onerror = function() { tile.style.display = 'none'; };
+    tile.appendChild(img);
+    grid.appendChild(tile);
   });
 
   return grid;
@@ -4545,7 +4549,7 @@ function openLightboxFromGalleryTarget(target) {
   function handleGalleryTap(event) {
     const target = event.target && event.target.closest ? event.target.closest('[data-lightbox-gallery] .chat-img') : null;
     if (!target) return;
-    if (event.type === 'click' && Date.now() - lastGalleryTap < 450) {
+    if ((event.type === 'click' || event.type === 'touchend') && Date.now() - lastGalleryTap < 450) {
       event.preventDefault();
       event.stopImmediatePropagation();
       return;
@@ -4556,6 +4560,7 @@ function openLightboxFromGalleryTarget(target) {
     openLightboxFromGalleryTarget(target);
   }
   document.addEventListener('pointerup', handleGalleryTap, true);
+  document.addEventListener('touchend', handleGalleryTap, true);
   document.addEventListener('click', handleGalleryTap, true);
 })();
 

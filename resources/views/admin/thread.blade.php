@@ -5,9 +5,11 @@
 .admin-bubble-imgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:.4rem;width:min(304px,100%);max-width:100%}
 .admin-bubble-imgs.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
 .admin-bubble-imgs.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
-.admin-bubble-imgs img,.admin-img-more{width:100%;aspect-ratio:1/1;border-radius:.45rem;object-fit:cover;cursor:zoom-in;display:block;min-width:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.admin-bubble-imgs.img-count-1 img{aspect-ratio:4/3}
-.admin-img-more{border:0;background:#111827;color:#fff;position:relative;overflow:hidden;padding:0;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
+.admin-img-tile,.admin-img-more{width:100%;aspect-ratio:1/1;border:0;border-radius:.45rem;cursor:zoom-in;display:block;min-width:0;overflow:hidden;padding:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.admin-img-tile{background:transparent}
+.admin-img-tile img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.admin-bubble-imgs.img-count-1 .admin-img-tile{aspect-ratio:4/3}
+.admin-img-more{background:#111827;color:#fff;position:relative;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
 .admin-img-more:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.16),transparent 34%),linear-gradient(135deg,rgba(17,24,39,.94),rgba(31,41,55,.98))}
 .admin-img-more span{position:relative;z-index:1;text-shadow:0 2px 10px rgba(0,0,0,.35)}
 #threadImgPreview{max-height:104px;overflow:hidden}
@@ -54,8 +56,9 @@
                         <span>+{{ count($imgs) - 3 }}</span>
                       </button>
                     @else
-                      <img src="{{ $imgSrc }}" class="chat-img" data-src="{{ $imgSrc }}" data-gallery-index="{{ $idx }}"
-                           onerror="this.style.display='none'">
+                      <button type="button" class="admin-img-tile chat-img" data-src="{{ $imgSrc }}" data-gallery-index="{{ $idx }}" title="View image {{ $idx + 1 }}">
+                        <img src="{{ $imgSrc }}" alt="" onerror="this.closest('button').style.display='none'">
+                      </button>
                     @endif
                   @endforeach
                 </div>
