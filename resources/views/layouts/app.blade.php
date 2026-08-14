@@ -4563,21 +4563,19 @@ function openMessageImageButton(target, event) {
 (function() {
   var lastGalleryTap = 0;
   function handleGalleryTap(event) {
+    if (event.defaultPrevented) return;
     var target = event.target && event.target.closest ? event.target.closest('[data-lightbox-gallery] .chat-img') : null;
     if (!target) return;
-    if ((event.type === 'click' || event.type === 'touchend') && Date.now() - lastGalleryTap < 450) {
+    if (Date.now() - lastGalleryTap < 450) {
       event.preventDefault();
-      event.stopImmediatePropagation();
       return;
     }
     lastGalleryTap = Date.now();
     event.preventDefault();
-    event.stopImmediatePropagation();
+    event.stopPropagation();
     openLightboxFromGalleryTarget(target);
   }
-  document.addEventListener('pointerup', handleGalleryTap, true);
-  document.addEventListener('touchend', handleGalleryTap, true);
-  document.addEventListener('click', handleGalleryTap, true);
+  document.addEventListener('click', handleGalleryTap, false);
 })();
 
 function closeLightbox() {
