@@ -266,11 +266,11 @@ class PlatformSettingsController extends Controller
     public function downloadBackup(Request $request)
     {
         try {
-            $path = $this->backups->resolveBackupPath((string) $request->input('file', ''));
+            $file = (string) $request->input('file', '');
             $user = session('user') ?? ['id' => 'system', 'role' => 'superadmin'];
-            CakeshopHelper::logActivity($user['id'], $user['role'], 'Download Backup', basename($path));
+            CakeshopHelper::logActivity($user['id'], $user['role'], 'Download Backup', basename($file));
 
-            return response()->download($path, basename($path));
+            return $this->backups->downloadResponse($file);
         } catch (\Throwable $e) {
             return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Download failed: ' . $e->getMessage());
         }

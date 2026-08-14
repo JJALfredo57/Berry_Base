@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\CakeshopHelper;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -316,6 +317,19 @@ class BackupService
         }
 
         return $realPath;
+    }
+
+    public function downloadResponse(string $file)
+    {
+        if (!$this->usesLocalBackupDisk()) {
+            $key = $this->resolveBackupKey($file);
+
+            return Storage::disk($this->backupDiskName())->download($key, basename($key));
+        }
+
+        $path = $this->resolveBackupPath($file);
+
+        return Response::download($path, basename($path));
     }
 
     public function pruneOldBackups(int $keep): int
