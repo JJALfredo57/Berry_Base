@@ -798,7 +798,7 @@
         </div>
         <div class="backup-actions">
           <a href="{{ route('superadmin.settings.download_backup', ['file'=>$f['name']]) }}"
-             class="btn btn-outline-primary btn-sm">
+             class="btn btn-outline-primary btn-sm" data-cs-no-loading="true" onclick="const html=this.innerHTML;this.classList.add('disabled');this.innerHTML='<i class=&quot;bi bi-hourglass-split me-1&quot;></i>Preparing...';setTimeout(()=>{this.classList.remove('disabled');this.innerHTML=html;window.csLoadingDone?.(true);window.csHideSmartLoading?.();},1800);">
             <i class="bi bi-download me-1"></i>Download
           </a>
           @if($f['is_restorable'])

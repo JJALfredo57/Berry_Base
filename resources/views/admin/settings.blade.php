@@ -779,7 +779,7 @@
           <div class="text-muted small">{{ number_format(($f['size'] ?? 0)/1024, 1) }} KB &bull; {{ date('M d, Y H:i', $f['modified_at']) }}</div>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-          <a href="{{ route('admin.settings.download_backup', ['file'=>$f['name']]) }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-download me-1"></i>Download</a>
+          <a href="{{ route('admin.settings.download_backup', ['file'=>$f['name']]) }}" class="btn btn-outline-primary btn-sm" data-cs-no-loading="true" onclick="const html=this.innerHTML;this.classList.add('disabled');this.innerHTML='<i class=&quot;bi bi-hourglass-split me-1&quot;></i>Preparing...';setTimeout(()=>{this.classList.remove('disabled');this.innerHTML=html;window.csLoadingDone?.(true);window.csHideSmartLoading?.();},1800);"><i class="bi bi-download me-1"></i>Download</a>
           @if($f['is_restorable'])
           <form action="{{ route('admin.settings.restore') }}" method="POST" class="d-inline"
                 data-cs-confirm="Restore this SQL backup? A safety backup will be created first, then current data will be overwritten." data-cs-title="Restore Backup" data-cs-icon="bi-arrow-counterclockwise" data-cs-ok="Restore">
