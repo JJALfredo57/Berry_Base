@@ -4556,17 +4556,14 @@ function openMessageImageButton(target, event) {
     e.preventDefault();
     e.stopPropagation();
   }
+  if (target && document.getElementById('imgLightbox')) {
+    openLightboxFromGalleryTarget(target);
+    return false;
+  }
   var src = target && target.dataset ? target.dataset.src : '';
   src = src || (target && target.src ? target.src : '');
-  if (src && typeof window.csLightboxOpen === 'function') {
-    window.csLightboxOpen(src, '');
-    return false;
-  }
-  if (src && typeof window.catLbOpen === 'function') {
-    window.catLbOpen(src);
-    return false;
-  }
-  openLightboxFromGalleryTarget(target);
+  if (src && typeof window.csLightboxOpen === 'function') window.csLightboxOpen(src, '');
+  else if (src && typeof window.catLbOpen === 'function') window.catLbOpen(src);
   return false;
 }
 
