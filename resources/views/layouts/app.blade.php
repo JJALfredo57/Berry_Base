@@ -3649,19 +3649,7 @@ function renderMcTimeline(container, messages, appendOnly = false) {
       try { const p = JSON.parse(msg.image_path); imgPaths = Array.isArray(p) ? p : [msg.image_path]; }
       catch { imgPaths = [msg.image_path]; }
 
-      const imgGrid = document.createElement('div');
-      imgGrid.style = 'display:flex;flex-wrap:wrap;gap:4px;margin-bottom:' + (msg.message ? '4px' : '0');
-      imgPaths.forEach(src => {
-        const img = document.createElement('img');
-        img.src = src;
-        img.className = 'chat-img';
-        img.dataset.src = src;
-        const sz = imgPaths.length > 1 ? '80px' : '180px';
-        const imgH = imgPaths.length > 1 ? sz : 'auto';
-        img.style = 'width:' + sz + ';height:' + imgH + ';max-width:100%;border-radius:8px;cursor:zoom-in;object-fit:cover;display:block';
-        img.onclick = (event) => { event.stopPropagation(); openLightbox(img); };
-        imgGrid.appendChild(img);
-      });
+      const imgGrid = buildMcGalleryGrid(imgPaths, msg.message ? '4px' : '0');
       bubble.appendChild(imgGrid);
     }
     if (msg.message) bubble.appendChild(document.createTextNode(msg.message));
@@ -3676,6 +3664,40 @@ function renderMcTimeline(container, messages, appendOnly = false) {
 }
 
 // ── Multi-image selected preview ──────────────────────────────────────
+function buildMcGalleryGrid(sources, marginBottom) {
+  const clean = (sources || []).filter(Boolean);
+  const grid = document.createElement('div');
+  grid.dataset.lightboxGallery = '1';
+  grid.dataset.gallerySources = JSON.stringify(clean);
+  grid.style = 'display:grid;grid-template-columns:' + (clean.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))') + ';gap:4px;margin-bottom:' + (marginBottom || '0') + ';width:' + (clean.length === 1 ? 'min(180px,100%)' : 'min(168px,100%)') + ';max-width:100%';
+
+  clean.slice(0, 4).forEach(function(src, index) {
+    if (index === 3 && clean.length > 4) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'chat-img';
+      more.dataset.src = src;
+      more.dataset.galleryIndex = '3';
+      more.title = 'View ' + clean.length + ' images';
+      more.style = 'width:100%;aspect-ratio:1/1;border:0;border-radius:8px;background:#111827;color:#fff;font-size:1.15rem;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:zoom-in;touch-action:manipulation';
+      more.innerHTML = '<span>+' + (clean.length - 3) + '</span>';
+      grid.appendChild(more);
+      return;
+    }
+
+    const img = document.createElement('img');
+    img.src = src;
+    img.className = 'chat-img';
+    img.dataset.src = src;
+    img.dataset.galleryIndex = String(index);
+    img.style = 'width:100%;aspect-ratio:' + (clean.length === 1 ? '4/3' : '1/1') + ';max-width:100%;border-radius:8px;cursor:zoom-in;object-fit:cover;display:block;touch-action:manipulation';
+    img.onerror = function() { img.style.display = 'none'; };
+    grid.appendChild(img);
+  });
+
+  return grid;
+}
+
 function mcImageSelected(input) {
   if (input.files && input.files.length > 0) {
     mcSelectedImages = [...mcSelectedImages, ...Array.from(input.files)];
@@ -3764,17 +3786,8 @@ async function mcSend() {
   bubble.className = 'mc-bubble';
 
   if (images.length > 0) {
-    const grid = document.createElement('div');
-    grid.style = 'display:flex;flex-wrap:wrap;gap:4px;margin-bottom:' + (text ? '4px' : '0');
-    images.forEach(f => {
-      const pi = document.createElement('img');
-      const sz = images.length > 1 ? '80px' : '180px';
-      const piH = images.length > 1 ? sz : 'auto';
-      pi.style = 'width:' + sz + ';height:' + piH + ';border-radius:8px;object-fit:cover;opacity:.7;cursor:zoom-in';
-      pi.className = 'chat-img';
-      pi.src = URL.createObjectURL(f);
-      grid.appendChild(pi);
-    });
+    const grid = buildMcGalleryGrid(images.map(f => URL.createObjectURL(f)), text ? '4px' : '0');
+    grid.style.opacity = '.78';
     bubble.appendChild(grid);
   }
   if (text) bubble.appendChild(document.createTextNode(text));
@@ -4348,11 +4361,12 @@ window.BERRY_PUSH_CONTEXT = {
   display:flex;gap:8px;align-items:center;
   overflow-x:auto;overflow-y:hidden;
   padding:9px;
-  border:1px solid rgba(255,255,255,.12);
+  border:0;
   border-radius:14px;
   background:transparent;
   backdrop-filter:none;
   -webkit-backdrop-filter:none;
+  box-shadow:none;
   scrollbar-width:thin;
   z-index:100000;
 }
@@ -4505,6 +4519,45 @@ function openLightbox(imgEl, gallerySources, startIndex) {
   document.getElementById('imgLightbox').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
+
+function openLightboxFromGalleryTarget(target) {
+  if (!target) return;
+  const gallery = target.closest('[data-lightbox-gallery]');
+  if (!gallery) {
+    openLightbox(target);
+    return;
+  }
+  let sources = [];
+  if (gallery.dataset.gallerySources) {
+    try { sources = JSON.parse(gallery.dataset.gallerySources); } catch(e) { sources = []; }
+  }
+  if (!sources.length) {
+    sources = [...gallery.querySelectorAll('.chat-img[data-src]')].map(function(img) {
+      return img.dataset.src || img.src;
+    }).filter(Boolean);
+  }
+  const index = parseInt(target.dataset.galleryIndex || '0', 10);
+  openLightbox(target, sources, Number.isFinite(index) ? index : 0);
+}
+
+(function() {
+  let lastGalleryTap = 0;
+  function handleGalleryTap(event) {
+    const target = event.target && event.target.closest ? event.target.closest('[data-lightbox-gallery] .chat-img') : null;
+    if (!target) return;
+    if (event.type === 'click' && Date.now() - lastGalleryTap < 450) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    lastGalleryTap = Date.now();
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openLightboxFromGalleryTarget(target);
+  }
+  document.addEventListener('pointerup', handleGalleryTap, true);
+  document.addEventListener('click', handleGalleryTap, true);
+})();
 
 function closeLightbox() {
   document.getElementById('imgLightbox').classList.remove('open');
@@ -4832,8 +4885,11 @@ function pgFilter(param, val) {
   }
 
   function getOrCreatePreview(input) {
-    var id = 'img-size-preview-' + (input.dataset.sizePreviewId || Math.random().toString(36).slice(2));
-    input.dataset.sizePreviewId = id;
+    var id = input.dataset.sizePreviewId;
+    if (!id) {
+      id = 'img-size-preview-' + Math.random().toString(36).slice(2);
+      input.dataset.sizePreviewId = id;
+    }
     var el = document.getElementById(id);
     if (!el) {
       el = document.createElement('div');
@@ -4841,6 +4897,9 @@ function pgFilter(param, val) {
       el.style.cssText = 'font-size:.75rem;margin-top:.3rem;color:#6b7280;display:none';
       var target = input.dataset.sizePreviewTarget ? document.getElementById(input.dataset.sizePreviewTarget) : null;
       if (target) {
+        target.querySelectorAll('[id^="img-size-preview-"]').forEach(function(node) {
+          if (node.id !== id) node.remove();
+        });
         target.appendChild(el);
       } else {
         input.parentNode.insertBefore(el, input.nextSibling);

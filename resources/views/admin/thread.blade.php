@@ -1,5 +1,23 @@
 @extends('layouts.app')
 @section('content')
+<style>
+.admin-msg-bubble{max-width:75%;border-radius:1rem;padding:.6rem 1rem;font-size:.9rem;word-break:break-word}
+.admin-bubble-imgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:.4rem;width:min(304px,100%);max-width:100%}
+.admin-bubble-imgs.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
+.admin-bubble-imgs.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
+.admin-bubble-imgs img,.admin-img-more{width:100%;aspect-ratio:1/1;border-radius:.45rem;object-fit:cover;cursor:zoom-in;display:block;min-width:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.admin-bubble-imgs.img-count-1 img{aspect-ratio:4/3}
+.admin-img-more{border:0;background:#111827;color:#fff;position:relative;overflow:hidden;padding:0;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
+.admin-img-more:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.16),transparent 34%),linear-gradient(135deg,rgba(17,24,39,.94),rgba(31,41,55,.98))}
+.admin-img-more span{position:relative;z-index:1;text-shadow:0 2px 10px rgba(0,0,0,.35)}
+#threadImgPreview{max-height:104px;overflow:hidden}
+#threadPreviewStrip{flex-wrap:nowrap!important;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;scrollbar-width:thin}
+@media(max-width:640px){
+  .admin-msg-bubble{max-width:84%}
+  .admin-bubble-imgs,.admin-bubble-imgs.img-count-2{width:min(244px,100%)}
+  .admin-bubble-imgs.img-count-1{width:min(220px,100%)}
+}
+</style>
 <div>
   <div class="row justify-content-center">
     <div class="col-lg-7">
@@ -26,17 +44,19 @@
                  data-msg-id="{{ $m->id }}"
                  data-sender="{{ $m->sender_role }}"
                  data-read="{{ $m->is_read }}">
-              <div style="max-width:75%;background:{{ $isAdmin ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isAdmin ? '#fff' : '#333' }};border-radius:{{ $isAdmin ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }};padding:.6rem 1rem;font-size:.9rem">
+              <div class="admin-msg-bubble" style="background:{{ $isAdmin ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isAdmin ? '#fff' : '#333' }};border-radius:{{ $isAdmin ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
                 @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
                 @if(count($imgs))
-                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:{{ $m->message ? '.4rem' : '0' }}">
-                  @foreach($imgs as $imgSrc)
-                  <img src="{{ $imgSrc }}"
-                       class="chat-img"
-                       data-src="{{ $imgSrc }}"
-                       style="width:{{ count($imgs) > 1 ? '100px' : '200px' }};height:{{ count($imgs) > 1 ? '100px' : 'auto' }};max-width:100%;border-radius:.4rem;cursor:zoom-in;object-fit:cover;display:block"
-                       onerror="this.style.display='none'"
-                       onclick="openLightbox(this)">
+                <div class="admin-bubble-imgs img-count-{{ min(count($imgs), 4) }}" data-lightbox-gallery data-gallery-sources='@json(array_values($imgs))' style="margin-top:{{ $m->message ? '.4rem' : '0' }}">
+                  @foreach(array_slice($imgs, 0, 4) as $idx => $imgSrc)
+                    @if($idx === 3 && count($imgs) > 4)
+                      <button type="button" class="admin-img-more chat-img" data-src="{{ $imgSrc }}" data-gallery-index="3" title="View {{ count($imgs) }} images">
+                        <span>+{{ count($imgs) - 3 }}</span>
+                      </button>
+                    @else
+                      <img src="{{ $imgSrc }}" class="chat-img" data-src="{{ $imgSrc }}" data-gallery-index="{{ $idx }}"
+                           onerror="this.style.display='none'">
+                    @endif
                   @endforeach
                 </div>
                 @endif

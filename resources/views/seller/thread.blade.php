@@ -16,19 +16,24 @@
 .bubble{padding:9px 13px;border-radius:16px;font-size:.875rem;line-height:1.5;word-break:break-word}
 .bubble.theirs{background:#fff;color:#333;border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .bubble.mine{background:var(--primary);color:#fff;border-radius:16px 4px 16px 16px}
-.bubble-imgs{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.bubble-imgs img{border-radius:8px;object-fit:cover;cursor:zoom-in;max-width:180px;max-height:180px;display:block}
-.bubble-imgs img.solo{max-width:220px;max-height:220px}
+.bubble-imgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:6px;width:min(304px,100%);max-width:100%}
+.bubble-imgs.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
+.bubble-imgs.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
+.bubble-imgs img,.bubble-img-more{width:100%;aspect-ratio:1/1;border-radius:8px;object-fit:cover;cursor:zoom-in;display:block;min-width:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.bubble-imgs.img-count-1 img{aspect-ratio:4/3}
+.bubble-img-more{border:0;background:#111827;color:#fff;position:relative;overflow:hidden;padding:0;font-size:1.35rem;font-weight:900;display:flex;align-items:center;justify-content:center}
+.bubble-img-more:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(255,255,255,.16),transparent 34%),linear-gradient(135deg,rgba(17,24,39,.94),rgba(31,41,55,.98))}
+.bubble-img-more span{position:relative;z-index:1;text-shadow:0 2px 10px rgba(0,0,0,.35)}
 .bubble-time{font-size:.65rem;color:#adb5bd;padding:0 2px}
 .bubble-time.mine{text-align:right}
 .sender-lbl{font-size:.68rem;font-weight:600;color:#6c757d;padding:0 2px;margin-bottom:1px}
 .sender-lbl.mine{text-align:right;color:var(--primary)}
 /* ── Image preview cards ── */
-.img-preview-bar{display:none;padding:10px 14px 6px;border-top:1px solid #f0f0f0;background:#fafafa;max-height:140px;overflow-y:auto}
-.img-cards{display:flex;gap:8px;flex-wrap:wrap}
-.img-card{position:relative;background:#fff;border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;width:96px;flex-shrink:0}
-.img-card img{width:96px;height:72px;object-fit:cover;display:block}
-.img-card-info{padding:3px 5px;font-size:.58rem;line-height:1.3;color:#6c757d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.img-preview-bar{display:none;padding:10px 14px 6px;border-top:1px solid #f0f0f0;background:#fafafa;max-height:126px;overflow:hidden}
+.img-cards{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;scrollbar-width:thin}
+.img-card{position:relative;background:#fff;border:1.5px solid #e9ecef;border-radius:10px;overflow:hidden;width:88px;flex:0 0 88px}
+.img-card img{width:88px;height:64px;object-fit:cover;display:block}
+.img-card-info{padding:3px 5px;font-size:.56rem;line-height:1.3;color:#6c757d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .img-card-size{font-size:.58rem;color:#16a34a;font-weight:600}
 .img-card-rm{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.55);border:none;color:#fff;font-size:.55rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
 .img-compressing{opacity:.5;pointer-events:none}
@@ -42,6 +47,11 @@
 .attach-btn:hover,.attach-btn.active{border-color:var(--primary);color:var(--primary);background:#fce7f3}
 .send-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.95rem;transition:opacity .15s;flex-shrink:0}
 .send-btn:disabled{opacity:.45;cursor:not-allowed}
+#threadUploadSummary{margin-bottom:.4rem}
+#threadUploadSummary .cs-upload-summary{display:flex!important;flex-wrap:nowrap!important;gap:.38rem;width:100%;overflow-x:auto;overflow-y:hidden;margin-top:0;padding-bottom:2px;scrollbar-width:thin}
+#threadUploadSummary .cs-upload-pill{width:auto!important;flex:0 0 auto;max-width:min(260px,78vw);border-radius:999px!important;white-space:nowrap}
+#threadUploadSummary .cs-upload-pill span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#threadUploadSummary .cs-upload-arrow{display:none}
 .status-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:600;background:#e9ecef;color:#555}
 .thread-page{width:100%;max-width:1320px;margin:0 auto;padding:0 clamp(4px,1.5vw,18px)}
 .thread-shell{display:grid;grid-template-columns:1fr;gap:14px}
@@ -82,6 +92,11 @@
   .detail-item{padding:7px 8px}
   .chat-box{height:calc(100vh - 430px);min-height:360px;padding:14px 10px}
   .msg-group{max-width:84%}
+  .bubble-imgs,.bubble-imgs.img-count-2{width:min(244px,100%)}
+  .bubble-imgs.img-count-1{width:min(220px,100%)}
+  .img-preview-bar{max-height:98px;padding:8px 12px 4px}
+  .img-card{width:78px;flex-basis:78px}
+  .img-card img{width:78px;height:58px}
 }
 @media (max-width: 420px){
   .detail-grid{grid-template-columns:1fr}
@@ -256,11 +271,16 @@
             <div class="bubble {{ $isMine ? 'mine' : 'theirs' }}">
               @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
               @if(count($imgs))
-              <div class="bubble-imgs">
-                @foreach($imgs as $src)
-                <img src="{{ $src }}" class="{{ count($imgs) === 1 ? 'solo' : '' }}"
-                     data-src="{{ $src }}" onclick="openLightbox(this)"
-                     onerror="this.style.display='none'">
+              <div class="bubble-imgs img-count-{{ min(count($imgs), 4) }}" data-lightbox-gallery data-gallery-sources='@json(array_values($imgs))'>
+                @foreach(array_slice($imgs, 0, 4) as $idx => $src)
+                  @if($idx === 3 && count($imgs) > 4)
+                    <button type="button" class="bubble-img-more chat-img" data-src="{{ $src }}" data-gallery-index="3" title="View {{ count($imgs) }} images">
+                      <span>+{{ count($imgs) - 3 }}</span>
+                    </button>
+                  @else
+                    <img src="{{ $src }}" class="chat-img" data-src="{{ $src }}" data-gallery-index="{{ $idx }}"
+                         onerror="this.style.display='none'">
+                  @endif
                 @endforeach
               </div>
               @endif
@@ -426,6 +446,42 @@ function fmtSize(bytes) {
 let pickedImages = []; // [{id, file, preview, origSize, newSize, origW, origH, newW, newH}]
 let pickId = 0;
 
+function renderThreadUploadTotalSummary() {
+  const target = document.getElementById('threadUploadSummary');
+  const picker = document.getElementById('imgFilePicker');
+  if (!target || !picker) return;
+
+  if (!pickedImages.length) {
+    if (typeof window.csClearFileUploadPreview === 'function') window.csClearFileUploadPreview(picker);
+    else target.innerHTML = '';
+    return;
+  }
+
+  const ready = pickedImages.filter(x => !x.compressing && x.file);
+  const pending = pickedImages.length - ready.length;
+  const original = ready.reduce((sum, item) => sum + (item.origSize || item.file?.size || 0), 0);
+  const optimized = ready.reduce((sum, item) => sum + (item.newSize || item.file?.size || 0), 0);
+  const label = pickedImages.length + (pickedImages.length === 1 ? ' image' : ' images');
+  const previewId = picker.dataset.sizePreviewId || ('img-size-preview-' + Math.random().toString(36).slice(2));
+  picker.dataset.sizePreviewId = previewId;
+  target.querySelectorAll('[id^="img-size-preview-"]').forEach(node => { if (node.id !== previewId) node.remove(); });
+
+  let preview = document.getElementById(previewId);
+  if (!preview) {
+    preview = document.createElement('div');
+    preview.id = previewId;
+    target.appendChild(preview);
+  }
+
+  preview.style.display = 'block';
+  preview.innerHTML = '<div class="cs-upload-summary">' +
+    '<span class="cs-upload-pill is-muted"><i class="bi bi-images"></i><span>' + label + ': <strong>' + fmtSize(original) + '</strong></span></span>' +
+    '<span class="cs-upload-arrow">-&gt;</span>' +
+    '<span class="cs-upload-pill is-muted"><i class="bi bi-lightning-charge-fill"></i><span>Optimized: <strong>~' + fmtSize(optimized) + '</strong></span></span>' +
+    (pending ? '<span class="cs-upload-pill is-warning"><i class="bi bi-hourglass-split"></i><span>' + pending + ' optimizing</span></span>' : '') +
+    '</div>';
+}
+
 async function onFilePick(input) {
   const files = Array.from(input.files);
   input.value = '';
@@ -451,6 +507,7 @@ async function onFilePick(input) {
       </div>
       <div class="img-card-info">Compressing…</div>`;
     cards.appendChild(card);
+    renderThreadUploadTotalSummary();
 
     // Compress
     const result = await compressImage(file);
@@ -463,6 +520,7 @@ async function onFilePick(input) {
     Object.assign(entry, { file: result.file, preview: previewUrl, compressing: false,
       origSize: result.origSize, newSize: result.newSize,
       origW: result.origW, origH: result.origH, newW: result.newW, newH: result.newH });
+    renderThreadUploadTotalSummary();
 
     // Update card
     const sizeInfo = result.origSize !== result.newSize
@@ -486,6 +544,7 @@ function removeImage(id) {
   const card = document.getElementById('imgcard-' + id);
   if (card) card.remove();
   if (!pickedImages.length) clearImgPicker();
+  else renderThreadUploadTotalSummary();
 }
 
 function clearImgPicker(revoke = true) {
@@ -514,6 +573,31 @@ function openImgPreview(src) {
 }
 
 // ── Send ──────────────────────────────────────────────────────────────────
+function threadEscAttr(s) {
+  return s ? String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;') : '';
+}
+
+function threadImageGridHtml(imgs) {
+  const cleanImgs = imgs.filter(Boolean);
+  if (!cleanImgs.length) return '';
+
+  const galleryJson = threadEscAttr(JSON.stringify(cleanImgs));
+  const gridClass = 'img-count-' + Math.min(cleanImgs.length, 4);
+  const items = cleanImgs.slice(0, 4).map((src, index) => {
+    const safeSrc = threadEscAttr(src);
+    if (index === 3 && cleanImgs.length > 4) {
+      return `<button type="button" class="bubble-img-more chat-img" data-src="${safeSrc}" data-gallery-index="3" title="View ${cleanImgs.length} images"><span>+${cleanImgs.length - 3}</span></button>`;
+    }
+    return `<img src="${safeSrc}" class="chat-img" data-src="${safeSrc}" data-gallery-index="${index}" onerror="this.style.display='none'">`;
+  }).join('');
+
+  return `<div class="bubble-imgs ${gridClass}" data-lightbox-gallery data-gallery-sources="${galleryJson}">${items}</div>`;
+}
+
 document.getElementById('threadForm').addEventListener('submit', async function (e) {
   e.preventDefault();
   const text     = msgInput.innerText.trim();
@@ -567,12 +651,7 @@ document.getElementById('threadForm').addEventListener('submit', async function 
 
 function appendMyBubble(text, imgPreviews) {
   const now = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
-  let imgHtml = '';
-  if (imgPreviews.length) {
-    imgHtml = '<div class="bubble-imgs">' +
-      imgPreviews.map(src => `<img src="${src}" class="${imgPreviews.length===1?'solo':''}" onclick="openImgPreview('${src}')">`).join('') +
-      '</div>';
-  }
+  const imgHtml = threadImageGridHtml(imgPreviews);
   const row = document.createElement('div');
   row.className = 'msg-row mine';
   row.innerHTML = `

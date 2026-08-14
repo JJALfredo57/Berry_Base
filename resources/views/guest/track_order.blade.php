@@ -165,7 +165,7 @@
     #messagePanel .g-img-cards{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;scrollbar-width:thin}
     #messagePanel .g-img-card{width:88px;flex:0 0 88px;border-radius:12px}
     #messagePanel .g-img-card img{width:88px;height:64px}
-    #messagePanel .g-img-card-info{white-space:nowrap}
+    #messagePanel .g-img-card-info{white-space:nowrap;padding:3px 5px;font-size:.56rem}
     #messagePanel .g-compose-wrap{flex:0 0 auto;box-shadow:0 -10px 24px rgba(15,23,42,.05)}
     #messagePanel .g-compose-row{min-width:0}
     #messagePanel .g-compose-box{min-width:0}
@@ -275,7 +275,7 @@
         padding:12px;
       }
       #messagePanel .g-preview-bar {
-        max-height:112px;
+        max-height:98px;
         padding:8px 12px 4px;
       }
       #messagePanel .g-img-card {
@@ -2056,6 +2056,42 @@ function fmtGSize(bytes) {
 let gPicked = [];
 let gPickId = 0;
 
+function renderGuestUploadTotalSummary() {
+  const target = document.getElementById('guestUploadSummary');
+  const picker = document.getElementById('gImgFilePicker');
+  if (!target || !picker) return;
+
+  if (!gPicked.length) {
+    if (typeof window.csClearFileUploadPreview === 'function') window.csClearFileUploadPreview(picker);
+    else target.innerHTML = '';
+    return;
+  }
+
+  const ready = gPicked.filter(x => !x.compressing && x.file);
+  const pending = gPicked.length - ready.length;
+  const original = ready.reduce((sum, item) => sum + (item.origSize || item.file?.size || 0), 0);
+  const optimized = ready.reduce((sum, item) => sum + (item.newSize || item.file?.size || 0), 0);
+  const label = gPicked.length + (gPicked.length === 1 ? ' image' : ' images');
+  const previewId = picker.dataset.sizePreviewId || ('img-size-preview-' + Math.random().toString(36).slice(2));
+  picker.dataset.sizePreviewId = previewId;
+  target.querySelectorAll('[id^="img-size-preview-"]').forEach(node => { if (node.id !== previewId) node.remove(); });
+
+  let preview = document.getElementById(previewId);
+  if (!preview) {
+    preview = document.createElement('div');
+    preview.id = previewId;
+    target.appendChild(preview);
+  }
+
+  preview.style.display = 'block';
+  preview.innerHTML = '<div class="cs-upload-summary">' +
+    '<span class="cs-upload-pill is-muted"><i class="bi bi-images"></i><span>' + label + ': <strong>' + fmtGSize(original) + '</strong></span></span>' +
+    '<span class="cs-upload-arrow">-&gt;</span>' +
+    '<span class="cs-upload-pill is-muted"><i class="bi bi-lightning-charge-fill"></i><span>Optimized: <strong>~' + fmtGSize(optimized) + '</strong></span></span>' +
+    (pending ? '<span class="cs-upload-pill is-warning"><i class="bi bi-hourglass-split"></i><span>' + pending + ' optimizing</span></span>' : '') +
+    '</div>';
+}
+
 async function onGuestFilePick(input) {
   const files = Array.from(input.files);
   input.value = '';
@@ -2073,6 +2109,7 @@ async function onGuestFilePick(input) {
     card.id = 'gcard-' + id;
     card.innerHTML = '<div style="width:96px;height:72px;background:#f0f0f0;display:flex;align-items:center;justify-content:center"><span class="spinner-border spinner-border-sm text-secondary"></span></div><div class="g-img-card-info">Compressing…</div>';
     cards.appendChild(card);
+    renderGuestUploadTotalSummary();
 
     const result     = await compressImage(file);
     const pct        = Math.round((1 - result.newSize / result.origSize) * 100);
@@ -2082,6 +2119,7 @@ async function onGuestFilePick(input) {
     Object.assign(entry, { file: result.file, preview: previewUrl, compressing: false,
       origSize: result.origSize, newSize: result.newSize,
       origW: result.origW, origH: result.origH, newW: result.newW, newH: result.newH });
+    renderGuestUploadTotalSummary();
 
     const sizeInfo = result.origSize !== result.newSize
       ? `${fmtGSize(result.origSize)} → <span class="g-img-card-size">${fmtGSize(result.newSize)}</span> <span style="color:#16a34a">(${pct}% smaller)</span>`
@@ -2097,6 +2135,7 @@ function removeGImg(id) {
   const c = document.getElementById('gcard-' + id);
   if (c) c.remove();
   if (!gPicked.length) clearGPicker();
+  else renderGuestUploadTotalSummary();
 }
 
 function clearGPicker(revoke = true) {
@@ -2156,14 +2195,6 @@ function openGuestMessageImage(el) {
   const index = parseInt(el.dataset.galleryIndex || '0', 10);
   openLightbox(el, sources, Number.isFinite(index) ? index : 0);
 }
-
-document.addEventListener('click', function(e) {
-  const target = e.target.closest('#chatBox .bbl-imgs-g .chat-img');
-  if (!target) return;
-  e.preventDefault();
-  e.stopPropagation();
-  openGuestMessageImage(target);
-}, true);
 
 // ── Messaging ────────────────────────────────────────────────────────────
 let rendered = [];
