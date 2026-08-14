@@ -281,7 +281,7 @@
                     </button>
                   @else
                     <button type="button" class="bubble-img-tile chat-img" data-src="{{ $src }}" data-gallery-index="{{ $idx }}" title="View image {{ $idx + 1 }}" onclick="return openMessageImageButton(this)">
-                      <img src="{{ $src }}" alt="" onclick="return openMessageImageButton(this.closest('button'))" onerror="this.closest('button').style.display='none'">
+                      <img src="{{ $src }}" class="chat-img" data-src="{{ $src }}" data-gallery-index="{{ $idx }}" alt="" onclick="return openMessageImageButton(this)" onerror="this.parentNode.style.display='none'">
                     </button>
                   @endif
                 @endforeach
@@ -596,7 +596,7 @@ function threadImageGridHtml(imgs) {
       return `<button type="button" class="bubble-img-more chat-img" data-src="${safeSrc}" data-gallery-index="3" title="View ${cleanImgs.length} images" onclick="return openMessageImageButton(this)"><span>+${cleanImgs.length - 3}</span></button>`;
     }
     return `<button type="button" class="bubble-img-tile chat-img" data-src="${safeSrc}" data-gallery-index="${index}" title="View image ${index + 1}" onclick="return openMessageImageButton(this)">
-      <img src="${safeSrc}" alt="" onclick="return openMessageImageButton(this.closest('button'))" onerror="this.closest('button').style.display='none'">
+      <img src="${safeSrc}" class="chat-img" data-src="${safeSrc}" data-gallery-index="${index}" alt="" onclick="return openMessageImageButton(this)" onerror="this.parentNode.style.display='none'">
     </button>`;
   }).join('');
 

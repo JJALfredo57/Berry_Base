@@ -2183,7 +2183,7 @@ function messageImageGridHtml(imgs) {
     }
 
     return `<button type="button" class="bbl-img-tile-g chat-img" data-src="${safeSrc}" data-gallery-index="${index}" title="View image ${index + 1}" onclick="return openMessageImageButton(this)">
-      <img src="${safeSrc}" alt="" onclick="return openMessageImageButton(this.closest('button'))" onerror="this.closest('button').style.display='none'">
+      <img src="${safeSrc}" class="chat-img" data-src="${safeSrc}" data-gallery-index="${index}" alt="" onclick="return openMessageImageButton(this)" onerror="this.parentNode.style.display='none'">
     </button>`;
   }).join('');
 

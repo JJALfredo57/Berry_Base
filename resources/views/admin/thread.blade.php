@@ -57,7 +57,7 @@
                       </button>
                     @else
                       <button type="button" class="admin-img-tile chat-img" data-src="{{ $imgSrc }}" data-gallery-index="{{ $idx }}" title="View image {{ $idx + 1 }}" onclick="return openMessageImageButton(this)">
-                        <img src="{{ $imgSrc }}" alt="" onclick="return openMessageImageButton(this.closest('button'))" onerror="this.closest('button').style.display='none'">
+                        <img src="{{ $imgSrc }}" class="chat-img" data-src="{{ $imgSrc }}" data-gallery-index="{{ $idx }}" alt="" onclick="return openMessageImageButton(this)" onerror="this.parentNode.style.display='none'">
                       </button>
                     @endif
                   @endforeach
