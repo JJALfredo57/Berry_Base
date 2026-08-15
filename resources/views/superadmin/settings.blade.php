@@ -771,7 +771,7 @@
           </div>
           <span class="badge {{ $backupAutoOn ? 'bg-success' : 'bg-secondary' }}">{{ $backupAutoOn ? 'Auto On' : 'Auto Off' }}</span>
         </div>
-        <div class="form-text mt-2">Scheduler checks hourly; this shows when the backup becomes eligible.</div>
+        <div id="backupCountdownSub" class="form-text mt-2">Scheduler checks hourly; this shows when the backup becomes eligible.</div>
         <div id="backupCountdownData"
              data-enabled="{{ $backupAutoOn ? '1' : '0' }}"
              data-next="{{ $nextBackupAt ? $nextBackupAt->toIso8601String() : '' }}"
@@ -885,6 +885,7 @@
   (function() {
     const data = document.getElementById('backupCountdownData');
     const label = document.getElementById('backupCountdownLabel');
+    const sub = document.getElementById('backupCountdownSub');
     if (!data || !label) return;
 
     let timer = null;
@@ -893,7 +894,6 @@
     const nextTime = nextRaw ? new Date(nextRaw).getTime() : NaN;
 
     function formatRemaining(ms) {
-      if (ms <= 0) return 'Due now';
       const totalSeconds = Math.floor(ms / 1000);
       const days = Math.floor(totalSeconds / 86400);
       const hours = Math.floor((totalSeconds % 86400) / 3600);
@@ -915,17 +915,25 @@
     function tick() {
       if (!enabled) {
         label.textContent = 'Automation is off';
+        if (sub) sub.textContent = 'Enable Auto Backup to start scheduled backups.';
         stop();
         return;
       }
       if (!Number.isFinite(nextTime)) {
         label.textContent = 'Waiting for first backup';
+        if (sub) sub.textContent = 'A first backup will establish the next schedule.';
         stop();
         return;
       }
       const remaining = nextTime - Date.now();
+      if (remaining <= 0) {
+        label.textContent = 'Eligible now - waiting for next scheduler check';
+        if (sub) sub.textContent = 'Eligible since ' + new Date(nextTime).toLocaleString() + '. Laravel Cloud scheduler checks hourly.';
+        stop();
+        return;
+      }
       label.textContent = formatRemaining(remaining);
-      if (remaining <= 0) stop();
+      if (sub) sub.textContent = 'Eligible at ' + new Date(nextTime).toLocaleString() + '. Scheduler checks hourly.';
     }
 
     tick();
