@@ -73,6 +73,35 @@ class MessageController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    public function readStatuses(Request $request)
+    {
+        $uid = session('user')['id'];
+        $ids = collect($request->input('ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->take(50)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json(['statuses' => []]);
+        }
+
+        $statuses = DB::table('messages as m')
+            ->leftJoin('orders as o', 'o.id', '=', 'm.order_id')
+            ->whereIn('m.id', $ids)
+            ->where('m.sender_role', 'customer')
+            ->where(function ($query) use ($uid) {
+                $query->where('o.user_id', $uid)
+                    ->orWhere('m.user_id', $uid)
+                    ->orWhere('m.sender_id', $uid);
+            })
+            ->pluck('m.is_read', 'm.id')
+            ->map(fn ($read) => (bool) $read);
+
+        return response()->json(['statuses' => $statuses]);
+    }
+
     public function popupData(Request $request)
     {
         $uid  = session('user')['id'];

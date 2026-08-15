@@ -2981,6 +2981,7 @@ document.addEventListener('DOMContentLoaded', function() {
 @php
   $popupDataUrl = $isAdmin ? route('admin.messages.popup_data') : route('seller.messages.popup_data');
   $popupSendUrl = $isAdmin ? route('admin.messages.popup_send') : route('seller.messages.popup_send');
+  $readStatusUrl = $isAdmin ? route('admin.messages.read_statuses') : route('seller.messages.read_statuses');
   $csrfToken    = csrf_token();
   $fullMsgUrl   = $isAdmin ? route('admin.messages.index') : route('seller.messages');
   $threadUrlTpl = $isAdmin
@@ -3080,6 +3081,7 @@ document.addEventListener('DOMContentLoaded', function() {
   word-break:break-word;
   white-space:pre-wrap;
 }
+.mc-bubble.has-media{display:inline-flex;flex-direction:column;width:fit-content;max-width:min(220px,100%)}
 .mc-bubble.image-only {
   padding:3px;
   background:transparent !important;
@@ -3222,6 +3224,7 @@ document.addEventListener('DOMContentLoaded', function() {
 var MC_DATA_URL  = '{{ $popupDataUrl }}';
 var MC_SEND_URL  = '{{ $popupSendUrl }}';
 var MC_CSRF      = '{{ $csrfToken }}';
+var MC_READ_STATUS_URL = '{{ $readStatusUrl }}';
 var MC_ROLE      = '{{ session("user")["role"] ?? "" }}';
 var MC_USER_ID   = '{{ session("user")["id"] ?? "" }}';
 var MC_THREAD_URL_TEMPLATE = '{{ $threadUrlTpl }}';
@@ -3697,18 +3700,51 @@ function renderMcTimeline(container, messages, appendOnly = false) {
       const imgGrid = buildMcGalleryGrid(imgPaths, msg.message ? '4px' : '0');
       bubble.appendChild(imgGrid);
     }
+    if (imgPaths.length > 0) bubble.classList.add('has-media');
     if (!msg.message && imgPaths.length > 0) bubble.classList.add('image-only');
     if (msg.message) bubble.appendChild(document.createTextNode(msg.message));
     wrap.appendChild(bubble);
 
     const time = document.createElement('div');
     time.className = 'mc-time';
-    time.innerHTML = formatMcTime(msg.created_at) + (isMe ? ' <span class="mc-delivery-state">' + (msg.is_read ? 'Seen' : 'Sent') + '</span>' : '');
+    time.innerHTML = formatMcTime(msg.created_at) + (isMe ? ' <span class="mc-delivery-state" data-read-status data-message-id="' + (msg.id || '') + '" data-status="' + (msg.is_read ? 'seen' : 'sent') + '">' + (msg.is_read ? 'Seen' : 'Sent') + '</span>' : '');
     wrap.appendChild(time);
     container.appendChild(wrap);
   });
 }
 
+var mcReadStatusBusy = false;
+async function refreshMcReadStatuses() {
+  if (mcReadStatusBusy || document.hidden || !mcOpen) return;
+  const nodes = Array.from(document.querySelectorAll('#miniChatMessages [data-read-status][data-status="sent"][data-message-id]'))
+    .filter(node => node.dataset.messageId);
+  if (!nodes.length) return;
+
+  mcReadStatusBusy = true;
+  try {
+    const ids = Array.from(new Set(nodes.map(node => node.dataset.messageId))).slice(0, 50);
+    const res = await fetch(MC_READ_STATUS_URL, {
+      method: 'POST',
+      headers: {'X-CSRF-TOKEN': MC_CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: JSON.stringify({ids})
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const statuses = data.statuses || {};
+    nodes.forEach(node => {
+      if (statuses[node.dataset.messageId]) {
+        node.textContent = 'Seen';
+        node.dataset.status = 'seen';
+      }
+    });
+  } catch (e) {
+  } finally {
+    mcReadStatusBusy = false;
+  }
+}
+
+setInterval(refreshMcReadStatuses, 10000);
+document.addEventListener('visibilitychange', refreshMcReadStatuses);
 // ── Multi-image selected preview ──────────────────────────────────────
 function buildMcGalleryGrid(sources, marginBottom) {
   const clean = (sources || []).filter(Boolean);
@@ -3840,6 +3876,7 @@ async function mcSend() {
   }
   const bubble = document.createElement('div');
   bubble.className = 'mc-bubble';
+  if (images.length > 0) bubble.classList.add('has-media');
   if (!text && images.length > 0) bubble.classList.add('image-only');
 
   if (images.length > 0) {
@@ -3873,7 +3910,7 @@ async function mcSend() {
       wrap.title = 'Open full order conversation';
       wrap.onclick = () => openMcFullThread(data.order_id);
     }
-    time.innerHTML = formatMcTime(data.created_at || new Date().toISOString()) + ' <span class="mc-delivery-state">Sent</span>';
+    time.innerHTML = formatMcTime(data.created_at || new Date().toISOString()) + ' <span class="mc-delivery-state" data-read-status data-message-id="' + (data.id || '') + '" data-status="sent">Sent</span>';
     // Tag optimistic bubble with real msg ID so silentRefresh won't duplicate it
     if (data.id) {
       wrap.dataset.msgId = data.id;

@@ -14,6 +14,7 @@
 .msg-group{display:flex;flex-direction:column;max-width:72%;gap:2px}
 .msg-group.mine{align-items:flex-end}
 .bubble{padding:9px 13px;border-radius:16px;font-size:.875rem;line-height:1.5;word-break:break-word}
+.bubble.has-media{display:inline-flex;flex-direction:column;width:fit-content;max-width:min(328px,100%)}
 .bubble.theirs{background:#fff;color:#333;border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .bubble.mine{background:var(--primary);color:#fff;border-radius:16px 4px 16px 16px}
 .bubble.image-only{padding:3px;background:transparent;color:inherit;box-shadow:none;border-radius:10px}
@@ -277,7 +278,7 @@
           <div class="msg-av {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'Me' : strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}</div>
           <div class="msg-group {{ $isMine ? 'mine' : '' }}">
             <div class="sender-lbl {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'You' : ($order->fullname ?? 'Customer') }}</div>
-            <div class="bubble {{ $isMine ? 'mine' : 'theirs' }} {{ $isImageOnly ? 'image-only' : '' }}">
+            <div class="bubble {{ $isMine ? 'mine' : 'theirs' }} {{ count($imgs) ? 'has-media' : '' }} {{ $isImageOnly ? 'image-only' : '' }}">
               @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
               @if(count($imgs))
               <div class="bubble-imgs img-count-{{ min(count($imgs), 4) }}" data-lightbox-gallery data-gallery-sources='@json(array_values($imgs))'>
@@ -297,7 +298,7 @@
             </div>
             <div class="bubble-time {{ $isMine ? 'mine' : '' }}">
               {{ \Carbon\Carbon::parse($m->created_at)->format('M d, g:i A') }}
-              @if($isMine) <span class="delivery-state">{{ $m->is_read ? 'Seen' : 'Sent' }}</span>@endif
+              @if($isMine) <span class="delivery-state" data-read-status data-message-id="{{ $m->id }}" data-status="{{ $m->is_read ? 'seen' : 'sent' }}">{{ $m->is_read ? 'Seen' : 'Sent' }}</span>@endif
             </div>
           </div>
         </div>
@@ -646,7 +647,7 @@ document.getElementById('threadForm').addEventListener('submit', async function 
     }
     const json = await res.json();
     if (json.ok) {
-      appendMyBubble(text, pickedImages.filter(x => x.preview).map(x => x.preview));
+      appendMyBubble(text, pickedImages.filter(x => x.preview).map(x => x.preview), json.id || '');
       msgInput.innerHTML = '';
       clearImgPicker(false); // keep blob URLs alive so optimistic bubble images stay clickable
     } else {
@@ -661,18 +662,19 @@ document.getElementById('threadForm').addEventListener('submit', async function 
   }
 });
 
-function appendMyBubble(text, imgPreviews) {
+function appendMyBubble(text, imgPreviews, msgId = '') {
   const now = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
   const imgHtml = threadImageGridHtml(imgPreviews);
-  const imageOnly = !text && imgPreviews.length > 0;
+  const hasMedia = imgPreviews.length > 0;
+  const imageOnly = !text && hasMedia;
   const row = document.createElement('div');
   row.className = 'msg-row mine';
   row.innerHTML = `
     <div class="msg-av mine">Me</div>
     <div class="msg-group mine">
       <div class="sender-lbl mine">You</div>
-      <div class="bubble mine${imageOnly ? ' image-only' : ''}">${text ? `<div style="white-space:pre-wrap">${escHtml(text)}</div>` : ''}${imgHtml}</div>
-      <div class="bubble-time mine">${now} <span class="delivery-state">Sent</span></div>
+      <div class="bubble mine${hasMedia ? ' has-media' : ''}${imageOnly ? ' image-only' : ''}">${text ? `<div style="white-space:pre-wrap">${escHtml(text)}</div>` : ''}${imgHtml}</div>
+      <div class="bubble-time mine">${now} <span class="delivery-state" data-read-status data-message-id="${msgId || ''}" data-status="sent">Sent</span></div>
     </div>`;
   cb.appendChild(row);
   cb.scrollTop = cb.scrollHeight;
@@ -681,6 +683,44 @@ function appendMyBubble(text, imgPreviews) {
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 }
+
+(function startThreadReadStatusRefresh() {
+  const url = '{{ route("seller.messages.read_statuses") }}';
+  let running = false;
+
+  async function refresh() {
+    if (running || document.hidden) return;
+    const nodes = [...document.querySelectorAll('[data-read-status][data-status="sent"][data-message-id]')]
+      .filter(node => node.dataset.messageId);
+    if (!nodes.length) return;
+
+    running = true;
+    try {
+      const ids = [...new Set(nodes.map(node => node.dataset.messageId))].slice(0, 50);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify({ids})
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const statuses = data.statuses || {};
+      nodes.forEach(node => {
+        if (statuses[node.dataset.messageId]) {
+          node.textContent = 'Seen';
+          node.dataset.status = 'seen';
+        }
+      });
+    } catch (e) {
+    } finally {
+      running = false;
+    }
+  }
+
+  setInterval(refresh, 10000);
+  document.addEventListener('visibilitychange', refresh);
+  setTimeout(refresh, 1500);
+})();
 </script>
 @endpush
 

@@ -216,6 +216,31 @@ class MessageController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    public function readStatuses(Request $request)
+    {
+        $shop = $this->getShop();
+        $ids = collect($request->input('ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->take(50)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json(['statuses' => []]);
+        }
+
+        $statuses = DB::table('messages as m')
+            ->join('orders as o', 'o.id', '=', 'm.order_id')
+            ->where('o.shop_id', $shop->id)
+            ->where('m.sender_role', 'seller')
+            ->whereIn('m.id', $ids)
+            ->pluck('m.is_read', 'm.id')
+            ->map(fn ($read) => (bool) $read);
+
+        return response()->json(['statuses' => $statuses]);
+    }
+
     public function threadOrderData(string $orderId)
     {
         $shop  = $this->getShop();

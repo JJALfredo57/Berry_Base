@@ -219,6 +219,7 @@ Route::get('/track/{trackCode}/refund/{refundId}/receipt-download', [TrackingCon
 // ── Guest Messaging (on tracking page) ───────────────────────────────────
 Route::get('/track/{trackCode}/messages',  [GuestMessage::class, 'poll'])->name('guest.messages.poll');
 Route::post('/track/{trackCode}/messages', [GuestMessage::class, 'send'])->name('guest.messages.send');
+Route::post('/track/{trackCode}/messages/read-statuses', [GuestMessage::class, 'readStatuses'])->name('guest.messages.read_statuses');
 Route::get('/track/{trackCode}/mobile-notifications', [\App\Http\Controllers\MobileNotificationController::class, 'trackIndex'])->name('guest.mobile_notifications');
 Route::post('/track/{trackCode}/mobile-notifications/{id}/read', [\App\Http\Controllers\MobileNotificationController::class, 'trackRead'])->name('guest.mobile_notifications.read');
 Route::post('/track/{trackCode}/mobile-notifications/read-all', [\App\Http\Controllers\MobileNotificationController::class, 'trackReadAll'])->name('guest.mobile_notifications.read_all');
@@ -303,6 +304,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::post('/messages/popup-send',               [CustomerMessage::class, 'popupSend'])->name('messages.popup_send');
     Route::post('/messages/mark-read-msg/{id}',       [CustomerMessage::class, 'markReadMsg'])->name('messages.mark_read_msg');
     Route::post('/messages/mark-order-read/{orderId}',[CustomerMessage::class, 'markOrderRead'])->name('messages.mark_order_read');
+    Route::post('/messages/read-statuses',             [CustomerMessage::class, 'readStatuses'])->name('messages.read_statuses');
 
     Route::get('/profile',         [CustomerProfile::class, 'show'])->name('profile');
     Route::post('/profile/update', [CustomerProfile::class, 'update'])->name('profile.update');
@@ -399,6 +401,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/messages/popup-send',                  [\App\Http\Controllers\Seller\MessageController::class, 'popupSend'])->name('messages.popup_send');
     Route::post('/messages/mark-read-msg/{id}',          [\App\Http\Controllers\Seller\MessageController::class, 'markReadMsg'])->name('messages.mark_read_msg');
     Route::post('/messages/mark-order-read/{orderId}',   [\App\Http\Controllers\Seller\MessageController::class, 'markOrderRead'])->name('messages.mark_order_read');
+    Route::post('/messages/read-statuses',                [\App\Http\Controllers\Seller\MessageController::class, 'readStatuses'])->name('messages.read_statuses');
 
     // Custom Orders
     Route::get('/custom-orders',                   [\App\Http\Controllers\Seller\CustomOrderController::class, 'index'])->name('custom_orders');
@@ -530,6 +533,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/messages/popup-send',                  [AdminMessage::class, 'popupSend'])->name('messages.popup_send');
     Route::post('/messages/mark-read-msg/{id}',          [AdminMessage::class, 'markReadMsg'])->name('messages.mark_read_msg');
     Route::post('/messages/mark-order-read/{order_id}',  [AdminMessage::class, 'markOrderRead'])->name('messages.mark_order_read');
+    Route::post('/messages/read-statuses',                [AdminMessage::class, 'readStatuses'])->name('messages.read_statuses');
     Route::get('/messages/thread/{order_id}',            [AdminMessage::class, 'thread'])->name('messages.thread');
     Route::post('/messages/thread/{order_id}/send',      [AdminMessage::class, 'send'])->name('messages.send');
 
@@ -620,6 +624,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/messages/popup-send',                 [AdminMessage::class, 'popupSend'])->name('messages.popup_send');
     Route::post('/messages/mark-read-msg/{id}',         [AdminMessage::class, 'markReadMsg'])->name('messages.mark_read_msg');
     Route::post('/messages/mark-order-read/{order_id}', [AdminMessage::class, 'markOrderRead'])->name('messages.mark_order_read');
+    Route::post('/messages/read-statuses',               [AdminMessage::class, 'readStatuses'])->name('messages.read_statuses');
     Route::get('/messages/thread/{order_id}',           [AdminMessage::class, 'thread'])->name('messages.thread');
     Route::post('/messages/thread/{order_id}/send',     [AdminMessage::class, 'send'])->name('messages.send');
 

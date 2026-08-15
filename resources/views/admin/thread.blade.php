@@ -2,6 +2,7 @@
 @section('content')
 <style>
 .admin-msg-bubble{max-width:75%;border-radius:1rem;padding:.6rem 1rem;font-size:.9rem;word-break:break-word}
+.admin-msg-bubble.has-media{display:inline-flex;flex-direction:column;width:fit-content;max-width:min(328px,100%)}
 .admin-msg-bubble.image-only{padding:3px;background:transparent!important;color:inherit!important;box-shadow:none;border-radius:10px!important}
 .admin-msg-bubble.image-only.mine{outline:2px solid color-mix(in srgb,var(--primary) 38%,transparent)}
 .admin-msg-bubble.image-only.theirs{outline:1px solid #e5e7eb}
@@ -53,7 +54,7 @@
                  data-msg-id="{{ $m->id }}"
                  data-sender="{{ $m->sender_role }}"
                  data-read="{{ $m->is_read }}">
-              <div class="admin-msg-bubble {{ $isAdmin ? 'mine' : 'theirs' }} {{ $isImageOnly ? 'image-only' : '' }}" style="background:{{ $isAdmin ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isAdmin ? '#fff' : '#333' }};border-radius:{{ $isAdmin ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
+              <div class="admin-msg-bubble {{ $isAdmin ? 'mine' : 'theirs' }} {{ count($imgs) ? 'has-media' : '' }} {{ $isImageOnly ? 'image-only' : '' }}" style="background:{{ $isAdmin ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isAdmin ? '#fff' : '#333' }};border-radius:{{ $isAdmin ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
                 @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
                 @if(count($imgs))
                 <div class="admin-bubble-imgs img-count-{{ min(count($imgs), 4) }}" data-lightbox-gallery data-gallery-sources='@json(array_values($imgs))' style="margin-top:{{ $m->message ? '.4rem' : '0' }}">
@@ -70,7 +71,7 @@
                   @endforeach
                 </div>
                 @endif
-                <div style="font-size:.65rem;opacity:.85;margin-top:.2rem;text-align:right">{{ \Carbon\Carbon::parse($m->created_at)->format('M d g:i A') }}@if($isAdmin) <span class="admin-delivery-state">{{ $m->is_read ? 'Seen' : 'Sent' }}</span>@endif</div>
+                <div style="font-size:.65rem;opacity:.85;margin-top:.2rem;text-align:right">{{ \Carbon\Carbon::parse($m->created_at)->format('M d g:i A') }}@if($isAdmin) <span class="admin-delivery-state" data-read-status data-message-id="{{ $m->id }}" data-status="{{ $m->is_read ? 'seen' : 'sent' }}">{{ $m->is_read ? 'Seen' : 'Sent' }}</span>@endif</div>
               </div>
             </div>
             @empty
@@ -216,5 +217,43 @@ document.getElementById('threadForm')?.addEventListener('submit', function(e) {
     else alert('Please wait for images to finish optimizing.');
   }
 });
+
+(function startThreadReadStatusRefresh() {
+  const url = '{{ route("admin.messages.read_statuses") }}';
+  let running = false;
+
+  async function refresh() {
+    if (running || document.hidden) return;
+    const nodes = [...document.querySelectorAll('[data-read-status][data-status="sent"][data-message-id]')]
+      .filter(node => node.dataset.messageId);
+    if (!nodes.length) return;
+
+    running = true;
+    try {
+      const ids = [...new Set(nodes.map(node => node.dataset.messageId))].slice(0, 50);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify({ids})
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const statuses = data.statuses || {};
+      nodes.forEach(node => {
+        if (statuses[node.dataset.messageId]) {
+          node.textContent = 'Seen';
+          node.dataset.status = 'seen';
+        }
+      });
+    } catch (e) {
+    } finally {
+      running = false;
+    }
+  }
+
+  setInterval(refresh, 10000);
+  document.addEventListener('visibilitychange', refresh);
+  setTimeout(refresh, 1500);
+})();
 </script>
 @endpush

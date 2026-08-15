@@ -46,6 +46,32 @@ class MessageController extends Controller
         return response()->json(['messages' => $messages]);
     }
 
+    public function readStatuses(Request $request, string $trackCode)
+    {
+        $order = DB::table('orders')->where('track_code', strtoupper($trackCode))->first();
+        if (!$order) return response()->json(['statuses' => []]);
+
+        $ids = collect($request->input('ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->take(50)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json(['statuses' => []]);
+        }
+
+        $statuses = DB::table('messages')
+            ->where('order_id', $order->id)
+            ->where('sender_role', 'customer')
+            ->whereIn('id', $ids)
+            ->pluck('is_read', 'id')
+            ->map(fn ($read) => (bool) $read);
+
+        return response()->json(['statuses' => $statuses]);
+    }
+
     /** Send a message from guest */
     public function send(Request $request, string $trackCode)
     {

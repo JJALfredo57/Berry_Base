@@ -123,6 +123,7 @@
     .msg-grp-g{display:flex;flex-direction:column;max-width:72%;gap:2px}
     .msg-grp-g.mine{align-items:flex-end}
     .bbl-g{padding:9px 13px;border-radius:16px;font-size:.875rem;line-height:1.5;word-break:break-word}
+    .bbl-g.has-media{display:inline-flex;flex-direction:column;width:fit-content;max-width:min(328px,100%)}
     .bbl-g.theirs{background:#fff;color:#333;border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
     .bbl-g.mine{background:var(--primary);color:#fff;border-radius:16px 4px 16px 16px}
     .bbl-g.image-only{padding:3px;background:transparent;color:inherit;box-shadow:none;border-radius:10px}
@@ -2233,18 +2234,52 @@ function renderMessages(msgs) {
       <div class="msg-av-g${isMine?' mine':''}">${initials}</div>
       <div class="msg-grp-g${isMine?' mine':''}">
         <div class="sndr-lbl-g${isMine?' mine':''}">${escapeHtml(m.name)}</div>
-        <div class="bbl-g ${isMine?'mine':'theirs'}${imageOnly?' image-only':''}">
+        <div class="bbl-g ${isMine?'mine':'theirs'}${imgs.length ? ' has-media' : ''}${imageOnly?' image-only':''}">
           ${hasText?`<div style="white-space:pre-wrap">${escapeHtml(m.message)}</div>`:''}
           ${imgHtml}
         </div>
         <div class="bbl-time-g${isMine?' mine':''}">
-          ${m.created_at}${isMine ? ' <span class="bbl-delivery-g">' + (m.is_read ? 'Seen' : 'Sent') + '</span>' : ''}
+          ${m.created_at}${isMine ? ' <span class="bbl-delivery-g" data-read-status data-message-id="' + (m.id || '') + '" data-status="' + (m.is_read ? 'seen' : 'sent') + '">' + (m.is_read ? 'Seen' : 'Sent') + '</span>' : ''}
         </div>
       </div>`;
     thread.appendChild(row);
   });
   thread.scrollTop = thread.scrollHeight;
 }
+
+let guestReadStatusBusy = false;
+async function refreshGuestReadStatuses() {
+  if (guestReadStatusBusy || document.hidden) return;
+  const nodes = Array.from(document.querySelectorAll('[data-read-status][data-status="sent"][data-message-id]'))
+    .filter(node => node.dataset.messageId);
+  if (!nodes.length) return;
+
+  guestReadStatusBusy = true;
+  try {
+    const ids = Array.from(new Set(nodes.map(node => node.dataset.messageId))).slice(0, 50);
+    const res = await fetch('/track/' + TRACK_CODE + '/messages/read-statuses', {
+      method: 'POST',
+      headers: {'X-CSRF-TOKEN': csrfToken(), 'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: JSON.stringify({ids})
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const statuses = data.statuses || {};
+    nodes.forEach(node => {
+      if (statuses[node.dataset.messageId]) {
+        node.textContent = 'Seen';
+        node.dataset.status = 'seen';
+      }
+    });
+  } catch (e) {
+  } finally {
+    guestReadStatusBusy = false;
+  }
+}
+
+setInterval(refreshGuestReadStatuses, 10000);
+document.addEventListener('visibilitychange', refreshGuestReadStatuses);
+setTimeout(refreshGuestReadStatuses, 1500);
 
 async function pollMessages() {
   try {

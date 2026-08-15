@@ -73,6 +73,28 @@ class MessageController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    public function readStatuses(Request $request)
+    {
+        $ids = collect($request->input('ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->take(50)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json(['statuses' => []]);
+        }
+
+        $statuses = DB::table('messages')
+            ->whereIn('id', $ids)
+            ->where('sender_role', 'admin')
+            ->pluck('is_read', 'id')
+            ->map(fn ($read) => (bool) $read);
+
+        return response()->json(['statuses' => $statuses]);
+    }
+
     public function popupData(Request $request)
     {
         $limit = (int)$request->input('limit', 40);
