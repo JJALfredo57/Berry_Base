@@ -10,6 +10,7 @@
 .customer-delivery-state{font-weight:700;color:var(--primary)}
 @media(max-width:640px){.customer-msg-bubble{max-width:84%}}
 </style>
+@include('partials.message_interactions')
 <div class="container-fluid py-4">
   <div class="row justify-content-center">
     <div class="col-lg-7">
@@ -38,8 +39,16 @@
             <div class="d-flex {{ $isMe ? 'justify-content-end' : 'justify-content-start' }}"
                  data-msg-id="{{ $m->id }}"
                  data-sender="{{ $m->sender_role }}"
-                 data-read="{{ $m->is_read }}">
+                 data-read="{{ $m->is_read }}"
+                 data-reply-sender="{{ $isMe ? 'You' : ucfirst($m->sender_role) }}"
+                 data-reply-snippet="{{ trim((string) $m->message) !== '' ? Str::limit($m->message, 80) : (count($imgs) ? 'Photo message' : 'Message') }}">
               <div class="customer-msg-bubble {{ $isMe ? 'mine' : 'theirs' }} {{ count($imgs) ? 'has-media' : '' }} {{ $isImageOnly ? 'image-only' : '' }}" style="background:{{ $isMe ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isMe ? '#fff' : '#333' }};border-radius:{{ $isMe ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
+                @if($m->reply_to)
+                  <div class="msg-reply-quote {{ $isMe ? 'mine' : 'theirs' }}">
+                    <div class="msg-reply-name">{{ $m->reply_to['label'] ?? 'Message' }}</div>
+                    <div class="msg-reply-text">{{ $m->reply_to['snippet'] ?? 'Message' }}</div>
+                  </div>
+                @endif
                 @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
                 @if(count($imgs))
                 <div class="customer-img-wrap" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:{{ $m->message ? '.4rem' : '0' }}">
@@ -55,6 +64,15 @@
                 @endif
                 <div style="font-size:.65rem;opacity:.7;margin-top:.2rem;text-align:right">
                   {{ \Carbon\Carbon::parse($m->created_at)->format('M d g:i A') }}@if($isMe) <span class="customer-delivery-state" data-read-status data-message-id="{{ $m->id }}" data-status="{{ $m->is_read ? 'seen' : 'sent' }}">{{ $m->is_read ? 'Seen' : 'Sent' }}</span>@endif
+                </div>
+                <div data-reactions>
+                  @if(!empty($m->reaction_summary))
+                    <div class="message-reactions {{ $isMe ? 'mine' : '' }}">
+                      @foreach($m->reaction_summary as $reaction)
+                        <span class="reaction-pill {{ !empty($reaction['mine']) ? 'mine' : '' }}" title="{{ $reaction['label'] }}"><span>{{ $reaction['icon'] }}</span><strong>{{ $reaction['count'] }}</strong></span>
+                      @endforeach
+                    </div>
+                  @endif
                 </div>
               </div>
             </div>
@@ -73,6 +91,15 @@
             <div id="threadUploadSummary" style="display:flex;align-items:center;flex-wrap:wrap;margin-bottom:.35rem"></div>
             <form action="{{ route('customer.messages.send', $orderId) }}" method="POST" enctype="multipart/form-data" id="threadForm">
               @csrf
+              <input type="hidden" id="replyToInput" data-reply-input name="reply_to_id" value="">
+              <div class="reply-compose-preview" id="replyPreview" data-reply-preview>
+                <div class="reply-compose-bar"></div>
+                <div class="reply-compose-body">
+                  <div class="reply-compose-label">Replying to <span data-reply-preview-name></span></div>
+                  <div class="reply-compose-text" data-reply-preview-text></div>
+                </div>
+                <button type="button" class="reply-compose-close" onclick="BerryMessageInteractions.clearReply()" title="Cancel reply"><i class="bi bi-x-lg"></i></button>
+              </div>
               <div class="d-flex gap-2">
                 <textarea class="form-control" name="message" id="threadMsgInput" placeholder="Type a message…" autocomplete="off" rows="1" maxlength="1000" style="resize:none;max-height:120px;line-height:1.4;overflow-y:auto"></textarea>
                 <label class="btn btn-outline-secondary mb-0" id="threadImgBtn" title="Attach images">
@@ -93,6 +120,15 @@
 <script>
 const cb = document.getElementById('chatBox');
 if (cb) cb.scrollTop = cb.scrollHeight;
+const csrf = '{{ csrf_token() }}';
+
+BerryMessageInteractions.init({
+  csrf,
+  reactUrl: '{{ route("customer.messages.react", [$orderId, "__ID__"]) }}',
+  replyInput: '#replyToInput',
+  replyPreview: '#replyPreview',
+  composer: '#threadMsgInput'
+});
 
 const threadMsgInput = document.getElementById('threadMsgInput');
 if (threadMsgInput) {
@@ -113,7 +149,6 @@ if (threadMsgInput) {
 // Mark unread messages as read via IntersectionObserver
 (function() {
   const markUrl = '{{ url("/customer/messages/mark-read-msg") }}';
-  const csrf    = '{{ csrf_token() }}';
   const obs = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (!entry.isIntersecting) return;

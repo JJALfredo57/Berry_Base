@@ -3,10 +3,12 @@ namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\SmsHelper;
+use App\Services\MessageInteractionService;
 use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class MessageController extends Controller
 {
@@ -17,10 +19,10 @@ class MessageController extends Controller
         $order = DB::table('orders')->where('track_code', strtoupper($trackCode))->first();
         if (!$order) return response()->json(['messages' => []]);
 
-        $messages = DB::table('messages')
+        $messages = app(MessageInteractionService::class)->decorate(DB::table('messages')
             ->where('order_id', $order->id)
             ->orderBy('created_at')
-            ->get()
+            ->get(), 'guest_customer', null, strtoupper($trackCode))
             ->map(function ($m) use ($order) {
                 return [
                     'id'          => $m->id,
@@ -28,6 +30,9 @@ class MessageController extends Controller
                     'message'     => $m->message,
                     'image_path'  => $m->image_path,
                     'is_read'     => (bool) $m->is_read,
+                    'reply_to'    => $m->reply_to,
+                    'reactions'   => $m->reaction_summary,
+                    'my_reaction' => $m->my_reaction,
                     'created_at'  => \Carbon\Carbon::parse($m->created_at)->format('M d, g:i A'),
                     'is_admin'    => in_array($m->sender_role, ['admin', 'seller']),
                     'name'        => in_array($m->sender_role, ['admin', 'seller'])
@@ -79,6 +84,7 @@ class MessageController extends Controller
         if (!$order) return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
 
         $message = trim($request->input('message', ''));
+        $replyToId = app(MessageInteractionService::class)->validateReply((int) $request->input('reply_to_id'), (string) $order->id);
         $imgPath = null;
 
         $files = $request->file('images') ?? [];
@@ -98,7 +104,7 @@ class MessageController extends Controller
         if (!$message && !$imgPath)
             return response()->json(['ok' => false, 'error' => 'Message cannot be empty.'], 422);
 
-        $messageId = DB::table('messages')->insertGetId([
+        $row = [
             'order_id'    => $order->id,
             'sender_role' => 'customer',
             'sender_id'   => null,
@@ -106,7 +112,11 @@ class MessageController extends Controller
             'image_path'  => $imgPath,
             'is_read'     => false,
             'created_at'  => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('messages', 'reply_to_id')) {
+            $row['reply_to_id'] = $replyToId;
+        }
+        $messageId = DB::table('messages')->insertGetId($row);
 
         // Notify admin
         DB::table('notifications')->insert([
@@ -137,10 +147,30 @@ class MessageController extends Controller
                 'message'     => $saved->message,
                 'image_path'  => $saved->image_path,
                 'is_read'     => (bool) $saved->is_read,
+                'reply_to'    => $replyToId ? app(MessageInteractionService::class)->summary(DB::table('messages')->where('id', $replyToId)->first()) : null,
+                'reactions'   => [],
+                'my_reaction' => null,
                 'created_at'  => \Carbon\Carbon::parse($saved->created_at)->format('M d, g:i A'),
                 'is_admin'    => false,
                 'name'        => $order->guest_name ?? 'You',
             ],
         ]);
+    }
+
+    public function react(Request $request, string $trackCode, string $messageId)
+    {
+        $order = DB::table('orders')->where('track_code', strtoupper($trackCode))->first();
+        if (!$order) return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+
+        $result = app(MessageInteractionService::class)->react(
+            (string) $order->id,
+            (int) $messageId,
+            'guest_customer',
+            null,
+            strtoupper($trackCode),
+            (string) $request->input('reaction')
+        );
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
     }
 }

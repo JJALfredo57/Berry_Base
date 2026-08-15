@@ -219,6 +219,7 @@ Route::get('/track/{trackCode}/refund/{refundId}/receipt-download', [TrackingCon
 // ── Guest Messaging (on tracking page) ───────────────────────────────────
 Route::get('/track/{trackCode}/messages',  [GuestMessage::class, 'poll'])->name('guest.messages.poll');
 Route::post('/track/{trackCode}/messages', [GuestMessage::class, 'send'])->name('guest.messages.send');
+Route::post('/track/{trackCode}/messages/{messageId}/react', [GuestMessage::class, 'react'])->name('guest.messages.react');
 Route::post('/track/{trackCode}/messages/read-statuses', [GuestMessage::class, 'readStatuses'])->name('guest.messages.read_statuses');
 Route::get('/track/{trackCode}/mobile-notifications', [\App\Http\Controllers\MobileNotificationController::class, 'trackIndex'])->name('guest.mobile_notifications');
 Route::post('/track/{trackCode}/mobile-notifications/{id}/read', [\App\Http\Controllers\MobileNotificationController::class, 'trackRead'])->name('guest.mobile_notifications.read');
@@ -301,6 +302,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::get('/messages',                           [CustomerMessage::class, 'index'])->name('messages');
     Route::get('/messages/thread/{orderId}',          [CustomerMessage::class, 'thread'])->name('messages.thread');
     Route::post('/messages/thread/{orderId}/send',    [CustomerMessage::class, 'send'])->name('messages.thread.send');
+    Route::post('/messages/thread/{orderId}/messages/{messageId}/react', [CustomerMessage::class, 'react'])->name('messages.react');
     Route::get('/messages/popup-data',                [CustomerMessage::class, 'popupData'])->name('messages.popup_data');
     Route::post('/messages/popup-send',               [CustomerMessage::class, 'popupSend'])->name('messages.popup_send');
     Route::post('/messages/mark-read-msg/{id}',       [CustomerMessage::class, 'markReadMsg'])->name('messages.mark_read_msg');
@@ -400,6 +402,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/messages/thread/{orderId}/order-data',  [\App\Http\Controllers\Seller\MessageController::class, 'threadOrderData'])->name('messages.thread_order_data');
     Route::get('/messages/thread/{orderId}/new-messages',[\App\Http\Controllers\Seller\MessageController::class, 'threadNewMessages'])->name('messages.thread_new_messages');
     Route::post('/messages/thread/{orderId}/send',       [\App\Http\Controllers\Seller\MessageController::class, 'send'])->name('messages.send');
+    Route::post('/messages/thread/{orderId}/messages/{messageId}/react', [\App\Http\Controllers\Seller\MessageController::class, 'react'])->name('messages.react');
     Route::get('/messages/popup-data',                   [\App\Http\Controllers\Seller\MessageController::class, 'popupData'])->name('messages.popup_data');
     Route::post('/messages/popup-send',                  [\App\Http\Controllers\Seller\MessageController::class, 'popupSend'])->name('messages.popup_send');
     Route::post('/messages/mark-read-msg/{id}',          [\App\Http\Controllers\Seller\MessageController::class, 'markReadMsg'])->name('messages.mark_read_msg');
@@ -635,6 +638,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/messages/read-statuses',               [AdminMessage::class, 'readStatuses'])->name('messages.read_statuses');
     Route::get('/messages/thread/{order_id}',           [AdminMessage::class, 'thread'])->name('messages.thread');
     Route::post('/messages/thread/{order_id}/send',     [AdminMessage::class, 'send'])->name('messages.send');
+    Route::post('/messages/thread/{order_id}/messages/{messageId}/react', [AdminMessage::class, 'react'])->name('messages.react');
 
     Route::get('/settings',                              [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings/site',                        [SettingsController::class, 'saveSite'])->name('settings.site');

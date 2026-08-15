@@ -2,10 +2,12 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\MessageInteractionService;
 use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class MessageController extends Controller
 {
@@ -43,7 +45,11 @@ class MessageController extends Controller
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
-        $messages = DB::table('messages')->where('order_id', $orderId)->orderBy('created_at')->get();
+        $messages = app(MessageInteractionService::class)->decorate(
+            DB::table('messages')->where('order_id', $orderId)->orderBy('created_at')->get(),
+            'customer',
+            (string) $uid
+        );
         return view('customer.thread', compact('order','messages','orderId'));
     }
 
@@ -259,6 +265,7 @@ public function popupSend(Request $request)
     {
         $uid   = session('user')['id'];
         $text  = trim($request->input('message', ''));
+        $replyToId = app(MessageInteractionService::class)->validateReply((int) $request->input('reply_to_id'), (string) $orderId);
         $exts  = ['jpg','jpeg','png','webp','gif'];
         $img   = '';
 
@@ -278,7 +285,7 @@ public function popupSend(Request $request)
             return redirect()->route('customer.messages.thread', $orderId)->with('warn', 'Type a message or attach an image.');
         }
 
-        DB::table('messages')->insert([
+        $row = [
             'order_id'    => $orderId,
             'user_id'     => $uid,
             'sender_role' => 'customer',
@@ -287,7 +294,11 @@ public function popupSend(Request $request)
             'image_path'  => $img,
             'is_read' => false,
             'created_at'  => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('messages', 'reply_to_id')) {
+            $row['reply_to_id'] = $replyToId;
+        }
+        DB::table('messages')->insert($row);
 
         DB::table('notifications')->insert([
             'receiver_role'    => 'admin',
@@ -312,5 +323,23 @@ public function popupSend(Request $request)
 
         CakeshopHelper::logActivity($uid, 'customer', 'Send Message', "Order #{$orderId}");
         return redirect()->route('customer.messages.thread', $orderId);
+    }
+
+    public function react(Request $request, string $orderId, string $messageId)
+    {
+        $uid = session('user')['id'];
+        $order = DB::table('orders')->where('id', $orderId)->where('user_id', $uid)->first();
+        if (!$order) return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+
+        $result = app(MessageInteractionService::class)->react(
+            (string) $orderId,
+            (int) $messageId,
+            'customer',
+            (string) $uid,
+            null,
+            (string) $request->input('reaction')
+        );
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
     }
 }

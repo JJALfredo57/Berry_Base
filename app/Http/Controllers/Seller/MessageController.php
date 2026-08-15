@@ -3,11 +3,13 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\MessageInteractionService;
 use App\Services\MobileNotificationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class MessageController extends Controller
 {
@@ -34,18 +36,23 @@ class MessageController extends Controller
             ->first();
     }
 
-    private function insertSellerMessageRows(string $orderId, ?string $senderId, string $text, array $paths, ?string $imgPath): int
+    private function insertSellerMessageRows(string $orderId, ?string $senderId, string $text, array $paths, ?string $imgPath, ?int $replyToId = null): int
     {
+        $row = [
+            'order_id'    => $orderId,
+            'sender_role' => 'seller',
+            'sender_id'   => $senderId,
+            'message'     => $text ?: null,
+            'image_path'  => $imgPath,
+            'is_read'     => false,
+            'created_at'  => now(),
+        ];
+        if (Schema::hasColumn('messages', 'reply_to_id')) {
+            $row['reply_to_id'] = $replyToId;
+        }
+
         try {
-            return DB::table('messages')->insertGetId([
-                'order_id'    => $orderId,
-                'sender_role' => 'seller',
-                'sender_id'   => $senderId,
-                'message'     => $text ?: null,
-                'image_path'  => $imgPath,
-                'is_read'     => false,
-                'created_at'  => now(),
-            ]);
+            return DB::table('messages')->insertGetId($row);
         } catch (\Throwable $e) {
             if (count($paths) <= 1 || strlen((string) $imgPath) <= 240) {
                 throw $e;
@@ -58,7 +65,7 @@ class MessageController extends Controller
 
             $firstId = 0;
             foreach ($paths as $index => $path) {
-                $id = DB::table('messages')->insertGetId([
+                $splitRow = [
                     'order_id'    => $orderId,
                     'sender_role' => 'seller',
                     'sender_id'   => $senderId,
@@ -66,7 +73,11 @@ class MessageController extends Controller
                     'image_path'  => $path,
                     'is_read'     => false,
                     'created_at'  => now(),
-                ]);
+                ];
+                if (Schema::hasColumn('messages', 'reply_to_id')) {
+                    $splitRow['reply_to_id'] = $index === 0 ? $replyToId : null;
+                }
+                $id = DB::table('messages')->insertGetId($splitRow);
                 if ($index === 0) $firstId = $id;
             }
 
@@ -127,7 +138,11 @@ class MessageController extends Controller
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
-        $messages = DB::table('messages')->where('order_id', $orderId)->orderBy('created_at')->get();
+        $messages = app(MessageInteractionService::class)->decorate(
+            DB::table('messages')->where('order_id', $orderId)->orderBy('created_at')->get(),
+            'seller',
+            (string) (session('user')['id'] ?? '')
+        );
         return view('seller.thread', compact('order','messages','orderId','shop','orderAddons','customOrder'));
     }
 
@@ -140,6 +155,7 @@ class MessageController extends Controller
             $orderId = $order->id;
 
             $text  = trim($request->input('message', ''));
+            $replyToId = app(MessageInteractionService::class)->validateReply((int) $request->input('reply_to_id'), (string) $order->id);
             $files = $request->file('images') ?? [];
             if (!is_array($files)) $files = [$files];
 
@@ -159,7 +175,8 @@ class MessageController extends Controller
                 session('user')['id'] ?? null,
                 $text,
                 $paths,
-                $imgPath
+                $imgPath,
+                $replyToId
             );
 
             try {
@@ -296,22 +313,43 @@ class MessageController extends Controller
 
         $afterId = max(0, (int) $request->query('after_id', 0));
 
-        $messages = DB::table('messages')
+        $messages = app(MessageInteractionService::class)->decorate(DB::table('messages')
             ->where('order_id', $order->id)
             ->when($afterId > 0, fn ($query) => $query->where('id', '>', $afterId))
             ->orderBy('id')
             ->limit(30)
-            ->get()
+            ->get(), 'seller', (string) (session('user')['id'] ?? ''))
             ->map(fn ($message) => [
                 'id'          => $message->id,
                 'sender_role' => $message->sender_role,
                 'message'     => $message->message,
                 'image_path'  => $message->image_path,
                 'is_read'     => (bool) $message->is_read,
+                'reply_to'    => $message->reply_to,
+                'reactions'   => $message->reaction_summary,
+                'my_reaction' => $message->my_reaction,
                 'created_at'  => \Carbon\Carbon::parse($message->created_at)->format('M d, g:i A'),
             ]);
 
         return response()->json(['ok' => true, 'messages' => $messages]);
+    }
+
+    public function react(Request $request, string $orderId, string $messageId)
+    {
+        $shop = $this->getShop();
+        $order = $this->findShopOrder($shop, $orderId);
+        if (!$order) return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+
+        $result = app(MessageInteractionService::class)->react(
+            (string) $order->id,
+            (int) $messageId,
+            'seller',
+            (string) (session('user')['id'] ?? ''),
+            null,
+            (string) $request->input('reaction')
+        );
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
     }
 
     public function popupData(Request $request)

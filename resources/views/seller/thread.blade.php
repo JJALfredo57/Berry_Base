@@ -113,6 +113,7 @@
   .order-photo,.order-photo-placeholder{width:100%;max-height:190px}
 }
 </style>
+@include('partials.message_interactions')
 
 <div class="thread-page">
     @php
@@ -274,11 +275,19 @@
         <div class="msg-row {{ $isMine ? 'mine' : '' }}"
              data-msg-id="{{ $m->id }}"
              data-sender="{{ $m->sender_role }}"
-             data-read="{{ $m->is_read ? '1' : '0' }}">
+             data-read="{{ $m->is_read ? '1' : '0' }}"
+             data-reply-sender="{{ $isMine ? 'You' : ($order->fullname ?? 'Customer') }}"
+             data-reply-snippet="{{ trim((string) $m->message) !== '' ? Str::limit($m->message, 80) : (count($imgs) ? 'Photo message' : 'Message') }}">
           <div class="msg-av {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'Me' : strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}</div>
           <div class="msg-group {{ $isMine ? 'mine' : '' }}">
             <div class="sender-lbl {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'You' : ($order->fullname ?? 'Customer') }}</div>
             <div class="bubble {{ $isMine ? 'mine' : 'theirs' }} {{ count($imgs) ? 'has-media' : '' }} {{ $isImageOnly ? 'image-only' : '' }}">
+              @if($m->reply_to)
+                <div class="msg-reply-quote {{ $isMine ? 'mine' : 'theirs' }}">
+                  <div class="msg-reply-name">{{ $m->reply_to['label'] ?? 'Message' }}</div>
+                  <div class="msg-reply-text">{{ $m->reply_to['snippet'] ?? 'Message' }}</div>
+                </div>
+              @endif
               @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
               @if(count($imgs))
               <div class="bubble-imgs img-count-{{ min(count($imgs), 4) }}" data-lightbox-gallery data-gallery-sources='@json(array_values($imgs))'>
@@ -300,6 +309,17 @@
               {{ \Carbon\Carbon::parse($m->created_at)->format('M d, g:i A') }}
               @if($isMine) <span class="delivery-state" data-read-status data-message-id="{{ $m->id }}" data-status="{{ $m->is_read ? 'seen' : 'sent' }}">{{ $m->is_read ? 'Seen' : 'Sent' }}</span>@endif
             </div>
+            <div data-reactions>
+              @if(!empty($m->reaction_summary))
+                <div class="message-reactions {{ $isMine ? 'mine' : '' }}">
+                  @foreach($m->reaction_summary as $reaction)
+                    <span class="reaction-pill {{ !empty($reaction['mine']) ? 'mine' : '' }}" title="{{ $reaction['label'] }}">
+                      <span>{{ $reaction['icon'] }}</span><strong>{{ $reaction['count'] }}</strong>
+                    </span>
+                  @endforeach
+                </div>
+              @endif
+            </div>
           </div>
         </div>
         @empty
@@ -319,6 +339,15 @@
       {{-- Compose --}}
       <div class="compose-wrap">
         <form id="threadForm">@csrf
+          <input type="hidden" id="replyToInput" data-reply-input name="reply_to_id" value="">
+          <div class="reply-compose-preview" id="replyPreview" data-reply-preview>
+            <div class="reply-compose-bar"></div>
+            <div class="reply-compose-body">
+              <div class="reply-compose-label">Replying to <span data-reply-preview-name></span></div>
+              <div class="reply-compose-text" data-reply-preview-text></div>
+            </div>
+            <button type="button" class="reply-compose-close" onclick="BerryMessageInteractions.clearReply()" title="Cancel reply"><i class="bi bi-x-lg"></i></button>
+          </div>
           <div id="threadUploadSummary" style="display:flex;align-items:center;flex-wrap:wrap;margin-bottom:.35rem"></div>
           <div class="compose-row">
             <div contenteditable="true" id="msgInput" class="compose-box" data-placeholder="Type a message…"
@@ -346,7 +375,16 @@ const sendUrl = '{{ route("seller.messages.send", $orderId) }}';
 const orderDataUrl = '{{ route("seller.messages.thread_order_data", $orderId) }}';
 const newMessagesUrl = '{{ route("seller.messages.thread_new_messages", $orderId) }}';
 const customerName = @json($order->fullname ?? 'Customer');
+const reactionUrlTemplate = '{{ route("seller.messages.react", [$orderId, "__ID__"]) }}';
 if (cb) cb.scrollTop = cb.scrollHeight;
+
+BerryMessageInteractions.init({
+  csrf,
+  reactUrl: reactionUrlTemplate,
+  replyInput: '#replyToInput',
+  replyPreview: '#replyPreview',
+  composer: '#msgInput'
+});
 
 let latestThreadMessageId = Math.max(0, ...Array.from(document.querySelectorAll('[data-msg-id]'))
   .map(row => parseInt(row.dataset.msgId || '0', 10))
@@ -642,6 +680,12 @@ document.getElementById('threadForm').addEventListener('submit', async function 
   const fd = new FormData();
   fd.append('_token', csrf);
   if (text) fd.append('message', text);
+  const replyToInput = document.getElementById('replyToInput');
+  const optimisticReply = replyToInput && replyToInput.value ? {
+    label: document.querySelector('[data-reply-preview-name]')?.textContent || 'Message',
+    snippet: document.querySelector('[data-reply-preview-text]')?.textContent || 'Message'
+  } : null;
+  if (replyToInput && replyToInput.value) fd.append('reply_to_id', replyToInput.value);
   pickedImages.filter(x => !x.compressing && x.file).forEach(x => fd.append('images[]', x.file));
 
   try {
@@ -659,7 +703,8 @@ document.getElementById('threadForm').addEventListener('submit', async function 
     }
     const json = await res.json();
     if (json.ok) {
-      appendMyBubble(text, pickedImages.filter(x => x.preview).map(x => x.preview), json.id || '');
+      appendMyBubble(text, pickedImages.filter(x => x.preview).map(x => x.preview), json.id || '', optimisticReply);
+      BerryMessageInteractions.clearReply();
       msgInput.innerHTML = '';
       clearImgPicker(false); // keep blob URLs alive so optimistic bubble images stay clickable
     } else {
@@ -674,7 +719,7 @@ document.getElementById('threadForm').addEventListener('submit', async function 
   }
 });
 
-function appendMyBubble(text, imgPreviews, msgId = '') {
+function appendMyBubble(text, imgPreviews, msgId = '', reply = null) {
   const now = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
   const imgHtml = threadImageGridHtml(imgPreviews);
   const hasMedia = imgPreviews.length > 0;
@@ -691,10 +736,16 @@ function appendMyBubble(text, imgPreviews, msgId = '') {
     <div class="msg-av mine">Me</div>
     <div class="msg-group mine">
       <div class="sender-lbl mine">You</div>
-      <div class="bubble mine${hasMedia ? ' has-media' : ''}${imageOnly ? ' image-only' : ''}">${text ? `<div style="white-space:pre-wrap">${escHtml(text)}</div>` : ''}${imgHtml}</div>
+      <div class="bubble mine${hasMedia ? ' has-media' : ''}${imageOnly ? ' image-only' : ''}">${BerryMessageInteractions.replyHtml(reply, true)}${text ? `<div style="white-space:pre-wrap">${escHtml(text)}</div>` : ''}${imgHtml}</div>
       <div class="bubble-time mine">${now} <span class="delivery-state" data-read-status data-message-id="${msgId || ''}" data-status="sent">Sent</span></div>
+      <div data-reactions></div>
     </div>`;
   cb.appendChild(row);
+  if (msgId) {
+    row.dataset.replySender = 'You';
+    row.dataset.replySnippet = text || (hasMedia ? 'Photo message' : 'Message');
+  }
+  BerryMessageInteractions.bindRow(row);
   cb.scrollTop = cb.scrollHeight;
 }
 
@@ -722,6 +773,8 @@ function renderThreadMessage(message) {
   const hasText = !!(message.message && String(message.message).trim());
   const imageOnly = !hasText && hasMedia;
   const imgHtml = threadImageGridHtml(imgs);
+  const replyHtml = BerryMessageInteractions.replyHtml(message.reply_to, isMine);
+  const reactionHtml = BerryMessageInteractions.reactionsHtml(message.reactions || [], isMine);
   const senderName = isMine ? 'You' : (message.sender_role === 'customer' ? customerName : 'Admin');
   const avatarText = isMine ? 'Me' : threadEscAttr(String(senderName || 'C').slice(0, 1).toUpperCase());
   const row = document.createElement('div');
@@ -729,20 +782,25 @@ function renderThreadMessage(message) {
   row.dataset.msgId = String(id);
   row.dataset.sender = message.sender_role || '';
   row.dataset.read = message.is_read ? '1' : '0';
+  row.dataset.replySender = senderName;
+  row.dataset.replySnippet = hasText ? String(message.message).slice(0, 90) : (hasMedia ? 'Photo message' : 'Message');
   row.innerHTML = `
     <div class="msg-av ${isMine ? 'mine' : ''}">${avatarText}</div>
     <div class="msg-group ${isMine ? 'mine' : ''}">
       <div class="sender-lbl ${isMine ? 'mine' : ''}">${escHtml(senderName)}</div>
       <div class="bubble ${isMine ? 'mine' : 'theirs'}${hasMedia ? ' has-media' : ''}${imageOnly ? ' image-only' : ''}">
+        ${replyHtml}
         ${hasText ? `<div style="white-space:pre-wrap;word-break:break-word">${escHtml(message.message)}</div>` : ''}
         ${imgHtml}
       </div>
       <div class="bubble-time ${isMine ? 'mine' : ''}">
         ${escHtml(message.created_at || '')}${isMine ? ` <span class="delivery-state" data-read-status data-message-id="${id}" data-status="${message.is_read ? 'seen' : 'sent'}">${message.is_read ? 'Seen' : 'Sent'}</span>` : ''}
       </div>
+      <div data-reactions>${reactionHtml}</div>
     </div>`;
   cb.appendChild(row);
   observeSellerMessageRow(row);
+  BerryMessageInteractions.bindRow(row);
   latestThreadMessageId = Math.max(latestThreadMessageId, id);
   return true;
 }

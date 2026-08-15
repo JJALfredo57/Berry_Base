@@ -330,6 +330,7 @@
     html.proof-viewer-open,body.proof-viewer-open{overflow:hidden!important;height:100%!important}
     html.refund-receipt-open,body.refund-receipt-open{overflow:hidden!important;height:100%!important}
   </style>
+  @include('partials.message_interactions')
 
   {{-- Header --}}
   <div class="track-head">
@@ -1375,6 +1376,15 @@
     </div>
     @if(!in_array($order->status, ['Cancelled','Delivered']))
     <div class="g-compose-wrap">
+      <input type="hidden" id="replyToInput" data-reply-input value="">
+      <div class="reply-compose-preview" id="replyPreview" data-reply-preview>
+        <div class="reply-compose-bar"></div>
+        <div class="reply-compose-body">
+          <div class="reply-compose-label">Replying to <span data-reply-preview-name></span></div>
+          <div class="reply-compose-text" data-reply-preview-text></div>
+        </div>
+        <button type="button" class="reply-compose-close" onclick="BerryMessageInteractions.clearReply()" title="Cancel reply"><i class="bi bi-x-lg"></i></button>
+      </div>
       <div id="guestUploadSummary" style="display:flex;align-items:center;flex-wrap:wrap;margin-bottom:.35rem"></div>
       <div class="g-compose-row">
         <label class="g-attach-btn" id="gAttachBtn" title="Attach images">
@@ -2293,6 +2303,14 @@ function openGuestMessageImage(el) {
 let rendered = [];
 let guestMsgSending = false;
 
+BerryMessageInteractions.init({
+  csrf: csrfToken(),
+  reactUrl: '/track/' + TRACK_CODE + '/messages/__ID__/react',
+  replyInput: '#replyToInput',
+  replyPreview: '#replyPreview',
+  composer: '#msgInput'
+});
+
 function renderMessages(msgs) {
   const thread = document.getElementById('chatBox');
   const empty  = document.getElementById('msgEmpty');
@@ -2311,21 +2329,30 @@ function renderMessages(msgs) {
     const imgHtml = messageImageGridHtml(imgs);
     const hasText = !!(m.message && String(m.message).trim());
     const imageOnly = !hasText && imgs.length > 0;
+    const replyHtml = BerryMessageInteractions.replyHtml(m.reply_to, isMine);
+    const reactionHtml = BerryMessageInteractions.reactionsHtml(m.reactions || [], isMine);
     const row = document.createElement('div');
     row.className = 'msg-row-g' + (isMine ? ' mine' : '');
+    row.dataset.msgId = m.id || '';
+    row.dataset.sender = m.role || '';
+    row.dataset.replySender = isMine ? 'You' : (m.name || 'Seller');
+    row.dataset.replySnippet = hasText ? String(m.message).slice(0, 90) : (imgs.length ? 'Photo message' : 'Message');
     row.innerHTML = `
       <div class="msg-av-g${isMine?' mine':''}">${initials}</div>
       <div class="msg-grp-g${isMine?' mine':''}">
         <div class="sndr-lbl-g${isMine?' mine':''}">${escapeHtml(m.name)}</div>
         <div class="bbl-g ${isMine?'mine':'theirs'}${imgs.length ? ' has-media' : ''}${imageOnly?' image-only':''}">
+          ${replyHtml}
           ${hasText?`<div style="white-space:pre-wrap">${escapeHtml(m.message)}</div>`:''}
           ${imgHtml}
         </div>
         <div class="bbl-time-g${isMine?' mine':''}">
           ${m.created_at}${isMine ? ' <span class="bbl-delivery-g" data-read-status data-message-id="' + (m.id || '') + '" data-status="' + (m.is_read ? 'seen' : 'sent') + '">' + (m.is_read ? 'Seen' : 'Sent') + '</span>' : ''}
         </div>
+        <div data-reactions>${reactionHtml}</div>
       </div>`;
     thread.appendChild(row);
+    BerryMessageInteractions.bindRow(row);
   });
   thread.scrollTop = thread.scrollHeight;
 }
@@ -2398,6 +2425,8 @@ async function sendGuestMsg() {
   const fd = new FormData();
   fd.append('_token', '{{ csrf_token() }}');
   if (text) fd.append('message', text);
+  const replyToInput = document.getElementById('replyToInput');
+  if (replyToInput && replyToInput.value) fd.append('reply_to_id', replyToInput.value);
   gPicked.filter(x => !x.compressing && x.file).forEach(x => fd.append('images[]', x.file));
 
   try {
@@ -2412,6 +2441,7 @@ async function sendGuestMsg() {
     if (d.ok) {
       if (d.message) renderMessages([d.message]);
       else await pollMessages();
+      BerryMessageInteractions.clearReply();
       if (input) input.innerHTML = '';
       clearGPicker();
     } else {
