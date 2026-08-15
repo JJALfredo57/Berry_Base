@@ -115,26 +115,33 @@ class PlatformSettingsController extends Controller
         $mode = $request->input('paymongo_mode', 'test');
         if (!in_array($mode, ['test', 'live'])) $mode = 'test';
 
+        $existing = DB::table('platform_settings')->first();
         $testPublic  = trim($request->input('paymongo_test_public', ''));
+        $testSecret  = trim($request->input('paymongo_test_secret', ''));
         $livePublic  = trim($request->input('paymongo_live_public', ''));
+        $liveSecret  = trim($request->input('paymongo_live_secret', ''));
 
-        if ($mode === 'live' && (empty($request->input('paymongo_live_secret')) || empty($livePublic))) {
+        $effectiveTestPublic = $testPublic ?: (string) ($existing->paymongo_test_public ?? '');
+        $effectiveTestSecret = $testSecret ?: (string) ($existing->paymongo_test_secret ?? '');
+        $effectiveLivePublic = $livePublic ?: (string) ($existing->paymongo_live_public ?? '');
+        $effectiveLiveSecret = $liveSecret ?: (string) ($existing->paymongo_live_secret ?? '');
+
+        if ($mode === 'live' && ($effectiveLiveSecret === '' || $effectiveLivePublic === '')) {
             return back()->with('err', 'Cannot switch to Live mode — enter your Live Secret Key and Live Public Key first.');
         }
 
         $updates = ['paymongo_mode' => $mode, 'updated_at' => now()];
 
         if ($testPublic) $updates['paymongo_test_public']  = $testPublic;
-        if (!empty($request->input('paymongo_test_secret'))) $updates['paymongo_test_secret'] = trim($request->input('paymongo_test_secret'));
+        if ($testSecret) $updates['paymongo_test_secret'] = $testSecret;
         if ($livePublic) $updates['paymongo_live_public']  = $livePublic;
-        if (!empty($request->input('paymongo_live_secret'))) $updates['paymongo_live_secret'] = trim($request->input('paymongo_live_secret'));
+        if ($liveSecret) $updates['paymongo_live_secret'] = $liveSecret;
 
-        $activePublic = $mode === 'live' ? $livePublic : $testPublic;
+        $activePublic = $mode === 'live' ? $effectiveLivePublic : $effectiveTestPublic;
         if ($activePublic) $updates['paymongo_public_key'] = $activePublic;
-        $activeSecret = trim($request->input('paymongo_' . $mode . '_secret', ''));
+        $activeSecret = $mode === 'live' ? $effectiveLiveSecret : $effectiveTestSecret;
         if ($activeSecret) $updates['paymongo_secret_key'] = $activeSecret;
 
-        $existing = DB::table('platform_settings')->first();
         if ($existing) {
             DB::table('platform_settings')->where('id', $existing->id)->update($updates);
         } else {

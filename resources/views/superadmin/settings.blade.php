@@ -346,8 +346,8 @@
   @elseif($tab === 'paymongo')
   @php
     $pmMode    = $platform->paymongo_mode ?? 'test';
-    $hasPmTest = !empty($platform->paymongo_test_secret) || !empty($platform->paymongo_test_public);
-    $hasPmLive = !empty($platform->paymongo_live_secret) || !empty($platform->paymongo_live_public);
+    $hasPmTest = !empty($platform->paymongo_test_secret) && !empty($platform->paymongo_test_public);
+    $hasPmLive = !empty($platform->paymongo_live_secret) && !empty($platform->paymongo_live_public);
   @endphp
   <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);overflow:hidden">
     <div style="padding:1.1rem 1.5rem;border-bottom:1.5px solid var(--gray-100);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
