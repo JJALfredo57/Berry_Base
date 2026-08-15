@@ -69,7 +69,7 @@
                   @if(!empty($m->reaction_summary))
                     <div class="message-reactions {{ $isMe ? 'mine' : '' }}">
                       @foreach($m->reaction_summary as $reaction)
-                        <span class="reaction-pill {{ !empty($reaction['mine']) ? 'mine' : '' }}" title="{{ $reaction['label'] }}"><span>{{ $reaction['icon'] }}</span><strong>{{ $reaction['count'] }}</strong></span>
+                        <span class="reaction-pill {{ !empty($reaction['mine']) ? 'mine' : '' }}" title="{{ $reaction['label'] }}"><span class="cake-face {{ $reaction['reaction'] }} tiny" aria-hidden="true"><span class="eye l"></span><span class="eye r"></span><span class="mouth"></span></span><strong>{{ $reaction['count'] }}</strong></span>
                       @endforeach
                     </div>
                   @endif

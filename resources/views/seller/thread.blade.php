@@ -314,7 +314,7 @@
                 <div class="message-reactions {{ $isMine ? 'mine' : '' }}">
                   @foreach($m->reaction_summary as $reaction)
                     <span class="reaction-pill {{ !empty($reaction['mine']) ? 'mine' : '' }}" title="{{ $reaction['label'] }}">
-                      <span>{{ $reaction['icon'] }}</span><strong>{{ $reaction['count'] }}</strong>
+                      <span class="cake-face {{ $reaction['reaction'] }} tiny" aria-hidden="true"><span class="eye l"></span><span class="eye r"></span><span class="mouth"></span></span><strong>{{ $reaction['count'] }}</strong>
                     </span>
                   @endforeach
                 </div>
