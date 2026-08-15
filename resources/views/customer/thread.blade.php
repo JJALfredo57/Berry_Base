@@ -2,8 +2,11 @@
 @section('content')
 <style>
 .customer-msg-bubble{max-width:75%;border-radius:1rem;padding:.6rem 1rem;font-size:.9rem;word-break:break-word}
-.customer-msg-bubble.image-only{padding:0;background:transparent!important;color:inherit!important;border-radius:0!important;box-shadow:none}
+.customer-msg-bubble.image-only{padding:3px;background:transparent!important;color:inherit!important;border-radius:10px!important;box-shadow:none}
+.customer-msg-bubble.image-only.mine{outline:2px solid color-mix(in srgb,var(--primary) 38%,transparent)}
+.customer-msg-bubble.image-only.theirs{outline:1px solid #e5e7eb}
 .customer-msg-bubble.image-only .customer-img-wrap{margin-top:0!important}
+.customer-delivery-state{font-weight:700;color:var(--primary)}
 @media(max-width:640px){.customer-msg-bubble{max-width:84%}}
 </style>
 <div class="container-fluid py-4">
@@ -35,7 +38,7 @@
                  data-msg-id="{{ $m->id }}"
                  data-sender="{{ $m->sender_role }}"
                  data-read="{{ $m->is_read }}">
-              <div class="customer-msg-bubble {{ $isImageOnly ? 'image-only' : '' }}" style="background:{{ $isMe ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isMe ? '#fff' : '#333' }};border-radius:{{ $isMe ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
+              <div class="customer-msg-bubble {{ $isMe ? 'mine' : 'theirs' }} {{ $isImageOnly ? 'image-only' : '' }}" style="background:{{ $isMe ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isMe ? '#fff' : '#333' }};border-radius:{{ $isMe ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
                 @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
                 @if(count($imgs))
                 <div class="customer-img-wrap" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:{{ $m->message ? '.4rem' : '0' }}">
@@ -50,7 +53,7 @@
                 </div>
                 @endif
                 <div style="font-size:.65rem;opacity:.7;margin-top:.2rem;text-align:right">
-                  {{ \Carbon\Carbon::parse($m->created_at)->format('M d g:i A') }}
+                  {{ \Carbon\Carbon::parse($m->created_at)->format('M d g:i A') }}@if($isMe) <span class="customer-delivery-state">{{ $m->is_read ? 'Seen' : 'Sent' }}</span>@endif
                 </div>
               </div>
             </div>

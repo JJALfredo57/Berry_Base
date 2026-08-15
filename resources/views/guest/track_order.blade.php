@@ -125,7 +125,9 @@
     .bbl-g{padding:9px 13px;border-radius:16px;font-size:.875rem;line-height:1.5;word-break:break-word}
     .bbl-g.theirs{background:#fff;color:#333;border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
     .bbl-g.mine{background:var(--primary);color:#fff;border-radius:16px 4px 16px 16px}
-    .bbl-g.image-only{padding:0;background:transparent;color:inherit;box-shadow:none;border-radius:0}
+    .bbl-g.image-only{padding:3px;background:transparent;color:inherit;box-shadow:none;border-radius:10px}
+    .bbl-g.mine.image-only{outline:2px solid color-mix(in srgb,var(--primary) 38%,transparent)}
+    .bbl-g.theirs.image-only{outline:1px solid #e5e7eb}
     .bbl-g.image-only .bbl-imgs-g{margin-top:0}
     .bbl-imgs-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:6px;width:min(304px,100%);max-width:100%}
     .bbl-imgs-g.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
@@ -140,6 +142,7 @@
     .bbl-img-more-g:hover span{text-decoration:underline}
     .bbl-time-g{font-size:.65rem;color:#adb5bd;padding:0 2px}
     .bbl-time-g.mine{text-align:right}
+    .bbl-delivery-g{font-weight:700;color:var(--primary)}
     .sndr-lbl-g{font-size:.68rem;font-weight:600;color:#6c757d;padding:0 2px;margin-bottom:1px}
     .sndr-lbl-g.mine{text-align:right;color:var(--primary)}
     /* preview bar */
@@ -2235,7 +2238,7 @@ function renderMessages(msgs) {
           ${imgHtml}
         </div>
         <div class="bbl-time-g${isMine?' mine':''}">
-          ${m.created_at}${isMine?' <span style="opacity:.65">✓</span>':''}
+          ${m.created_at}${isMine ? ' <span class="bbl-delivery-g">' + (m.is_read ? 'Seen' : 'Sent') + '</span>' : ''}
         </div>
       </div>`;
     thread.appendChild(row);
@@ -2485,3 +2488,4 @@ setRating(5);
 
 
 @endsection
+

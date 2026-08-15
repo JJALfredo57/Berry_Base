@@ -128,7 +128,7 @@
           } else {
               $unreadMessages = (int) \Illuminate\Support\Facades\DB::table('messages as m')
                   ->join('orders as o', 'o.id', '=', 'm.order_id')
-                  ->where('o.user_id', $uid)->where('m.sender_role', 'admin')->where('m.is_read', false)->count();
+                  ->where('o.user_id', $uid)->whereIn('m.sender_role', ['admin', 'seller'])->where('m.is_read', false)->count();
           }
       } catch (\Exception $e) {}
   }
@@ -3053,7 +3053,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .mc-msg-wrap { display:flex; flex-direction:column; animation: msgSlideIn .2s ease; }
 .mc-msg-wrap[data-order-id] { cursor:pointer; }
-.mc-msg-wrap[data-order-id]:hover .mc-bubble { box-shadow:0 2px 10px rgba(233,30,99,.18); }
+.mc-msg-wrap[data-order-id]:hover .mc-bubble { box-shadow:0 2px 10px color-mix(in srgb,var(--primary) 18%,transparent); }
 .mc-msg-wrap[data-order-id]:hover .mc-bubble.image-only { box-shadow:none; }
 .mc-msg-wrap.me { align-items:flex-end; }
 .mc-msg-wrap.them { align-items:flex-start; }
@@ -3070,7 +3070,7 @@ document.addEventListener('DOMContentLoaded', function() {
   padding:3px 9px;
   transition:background .15s,color .15s;
 }
-.mc-order-tag[data-order-id]:hover { background:#fff0f5;color:#e91e63; }
+.mc-order-tag[data-order-id]:hover { background:color-mix(in srgb,var(--primary) 10%,#fff);color:var(--primary); }
 .mc-bubble {
   max-width:220px;
   padding:8px 12px;
@@ -3081,14 +3081,16 @@ document.addEventListener('DOMContentLoaded', function() {
   white-space:pre-wrap;
 }
 .mc-bubble.image-only {
-  padding:0;
+  padding:3px;
   background:transparent !important;
   color:inherit !important;
   box-shadow:none !important;
-  border-radius:0 !important;
+  border-radius:10px !important;
 }
+.mc-msg-wrap.me .mc-bubble.image-only { outline:2px solid color-mix(in srgb,var(--primary) 38%,transparent); }
+.mc-msg-wrap.them .mc-bubble.image-only { outline:1px solid #e5e7eb; }
 .mc-msg-wrap.me .mc-bubble {
-  background:#e91e63;
+  background:var(--primary);
   color:white;
   border-bottom-right-radius:4px;
 }
@@ -3104,6 +3106,7 @@ document.addEventListener('DOMContentLoaded', function() {
   margin-top:2px;
   padding:0 4px;
 }
+.mc-delivery-state{font-weight:700;color:var(--primary)}
 #miniChatInput {
   display:flex;
   align-items:center;
@@ -3700,7 +3703,7 @@ function renderMcTimeline(container, messages, appendOnly = false) {
 
     const time = document.createElement('div');
     time.className = 'mc-time';
-    time.textContent = formatMcTime(msg.created_at);
+    time.innerHTML = formatMcTime(msg.created_at) + (isMe ? ' <span class="mc-delivery-state">' + (msg.is_read ? 'Seen' : 'Sent') + '</span>' : '');
     wrap.appendChild(time);
     container.appendChild(wrap);
   });
@@ -3870,7 +3873,7 @@ async function mcSend() {
       wrap.title = 'Open full order conversation';
       wrap.onclick = () => openMcFullThread(data.order_id);
     }
-    time.textContent = formatMcTime(data.created_at || new Date().toISOString());
+    time.innerHTML = formatMcTime(data.created_at || new Date().toISOString()) + ' <span class="mc-delivery-state">Sent</span>';
     // Tag optimistic bubble with real msg ID so silentRefresh won't duplicate it
     if (data.id) {
       wrap.dataset.msgId = data.id;

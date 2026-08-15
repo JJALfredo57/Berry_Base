@@ -27,6 +27,7 @@ class MessageController extends Controller
                     'role'        => $m->sender_role,
                     'message'     => $m->message,
                     'image_path'  => $m->image_path,
+                    'is_read'     => (bool) $m->is_read,
                     'created_at'  => \Carbon\Carbon::parse($m->created_at)->format('M d, g:i A'),
                     'is_admin'    => in_array($m->sender_role, ['admin', 'seller']),
                     'name'        => in_array($m->sender_role, ['admin', 'seller'])
@@ -109,6 +110,7 @@ class MessageController extends Controller
                 'role'        => $saved->sender_role,
                 'message'     => $saved->message,
                 'image_path'  => $saved->image_path,
+                'is_read'     => (bool) $saved->is_read,
                 'created_at'  => \Carbon\Carbon::parse($saved->created_at)->format('M d, g:i A'),
                 'is_admin'    => false,
                 'name'        => $order->guest_name ?? 'You',

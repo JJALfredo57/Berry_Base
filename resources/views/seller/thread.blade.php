@@ -16,7 +16,9 @@
 .bubble{padding:9px 13px;border-radius:16px;font-size:.875rem;line-height:1.5;word-break:break-word}
 .bubble.theirs{background:#fff;color:#333;border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .bubble.mine{background:var(--primary);color:#fff;border-radius:16px 4px 16px 16px}
-.bubble.image-only{padding:0;background:transparent;color:inherit;box-shadow:none;border-radius:0}
+.bubble.image-only{padding:3px;background:transparent;color:inherit;box-shadow:none;border-radius:10px}
+.bubble.mine.image-only{outline:2px solid color-mix(in srgb,var(--primary) 38%,transparent)}
+.bubble.theirs.image-only{outline:1px solid #e5e7eb}
 .bubble.image-only .bubble-imgs{margin-top:0}
 .bubble-imgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:6px;width:min(304px,100%);max-width:100%}
 .bubble-imgs.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
@@ -30,6 +32,7 @@
 .bubble-img-more span{position:relative;z-index:1;text-shadow:0 2px 10px rgba(0,0,0,.35)}
 .bubble-time{font-size:.65rem;color:#adb5bd;padding:0 2px}
 .bubble-time.mine{text-align:right}
+.delivery-state{font-weight:700;color:var(--primary)}
 .sender-lbl{font-size:.68rem;font-weight:600;color:#6c757d;padding:0 2px;margin-bottom:1px}
 .sender-lbl.mine{text-align:right;color:var(--primary)}
 /* ── Image preview cards ── */
@@ -294,7 +297,7 @@
             </div>
             <div class="bubble-time {{ $isMine ? 'mine' : '' }}">
               {{ \Carbon\Carbon::parse($m->created_at)->format('M d, g:i A') }}
-              @if($isMine) <span style="opacity:.65">✓</span>@endif
+              @if($isMine) <span class="delivery-state">{{ $m->is_read ? 'Seen' : 'Sent' }}</span>@endif
             </div>
           </div>
         </div>
@@ -669,7 +672,7 @@ function appendMyBubble(text, imgPreviews) {
     <div class="msg-group mine">
       <div class="sender-lbl mine">You</div>
       <div class="bubble mine${imageOnly ? ' image-only' : ''}">${text ? `<div style="white-space:pre-wrap">${escHtml(text)}</div>` : ''}${imgHtml}</div>
-      <div class="bubble-time mine">${now} <span style="opacity:.65">✓</span></div>
+      <div class="bubble-time mine">${now} <span class="delivery-state">Sent</span></div>
     </div>`;
   cb.appendChild(row);
   cb.scrollTop = cb.scrollHeight;
@@ -680,3 +683,5 @@ function escHtml(s) {
 }
 </script>
 @endpush
+
+

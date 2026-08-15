@@ -2,8 +2,11 @@
 @section('content')
 <style>
 .admin-msg-bubble{max-width:75%;border-radius:1rem;padding:.6rem 1rem;font-size:.9rem;word-break:break-word}
-.admin-msg-bubble.image-only{padding:0;background:transparent!important;color:inherit!important;box-shadow:none;border-radius:0!important}
+.admin-msg-bubble.image-only{padding:3px;background:transparent!important;color:inherit!important;box-shadow:none;border-radius:10px!important}
+.admin-msg-bubble.image-only.mine{outline:2px solid color-mix(in srgb,var(--primary) 38%,transparent)}
+.admin-msg-bubble.image-only.theirs{outline:1px solid #e5e7eb}
 .admin-msg-bubble.image-only .admin-bubble-imgs{margin-top:0!important}
+.admin-delivery-state{font-weight:700;color:var(--primary)}
 .admin-bubble-imgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:.4rem;width:min(304px,100%);max-width:100%}
 .admin-bubble-imgs.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
 .admin-bubble-imgs.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
@@ -50,7 +53,7 @@
                  data-msg-id="{{ $m->id }}"
                  data-sender="{{ $m->sender_role }}"
                  data-read="{{ $m->is_read }}">
-              <div class="admin-msg-bubble {{ $isImageOnly ? 'image-only' : '' }}" style="background:{{ $isAdmin ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isAdmin ? '#fff' : '#333' }};border-radius:{{ $isAdmin ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
+              <div class="admin-msg-bubble {{ $isAdmin ? 'mine' : 'theirs' }} {{ $isImageOnly ? 'image-only' : '' }}" style="background:{{ $isAdmin ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isAdmin ? '#fff' : '#333' }};border-radius:{{ $isAdmin ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
                 @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
                 @if(count($imgs))
                 <div class="admin-bubble-imgs img-count-{{ min(count($imgs), 4) }}" data-lightbox-gallery data-gallery-sources='@json(array_values($imgs))' style="margin-top:{{ $m->message ? '.4rem' : '0' }}">
@@ -67,7 +70,7 @@
                   @endforeach
                 </div>
                 @endif
-                <div style="font-size:.65rem;opacity:.7;margin-top:.2rem;text-align:right">{{ \Carbon\Carbon::parse($m->created_at)->format('M d g:i A') }}</div>
+                <div style="font-size:.65rem;opacity:.85;margin-top:.2rem;text-align:right">{{ \Carbon\Carbon::parse($m->created_at)->format('M d g:i A') }}@if($isAdmin) <span class="admin-delivery-state">{{ $m->is_read ? 'Seen' : 'Sent' }}</span>@endif</div>
               </div>
             </div>
             @empty

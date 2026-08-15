@@ -17,7 +17,7 @@ class MessageController extends Controller
             SELECT o.id order_id, o.status, p.name product_name,
                 (SELECT message FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_message,
                 (SELECT created_at FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_time,
-                (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role='admin' AND m.is_read=false) unread_count
+                (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role IN ('admin','seller') AND m.is_read=false) unread_count
             FROM orders o
             JOIN products p ON p.id=o.product_id
             WHERE o.user_id=?
@@ -39,7 +39,7 @@ class MessageController extends Controller
 
         DB::table('messages')
             ->where('order_id', $orderId)
-            ->where('sender_role', 'admin')
+            ->whereIn('sender_role', ['admin', 'seller'])
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
@@ -52,12 +52,12 @@ class MessageController extends Controller
         $uid = session('user')['id'];
         DB::table('messages')
             ->where('id', $id)
-            ->where('sender_role', 'admin')
+            ->whereIn('sender_role', ['admin', 'seller'])
             ->update(['is_read' => true]);
         return response()->json(['ok' => true]);
     }
 
-    // Mark all unread admin messages for a specific order as read (called when customer opens conversation in bubble)
+    // Mark all unread shop/admin messages for a specific order as read (called when customer opens conversation in bubble)
     public function markOrderRead(Request $request, string $orderId)
     {
         $uid = session('user')['id'];
@@ -67,7 +67,7 @@ class MessageController extends Controller
 
         DB::table('messages')
             ->where('order_id', $orderId)
-            ->where('sender_role', 'admin')
+            ->whereIn('sender_role', ['admin', 'seller'])
             ->where('is_read', false)
             ->update(['is_read' => true]);
         return response()->json(['ok' => true]);
