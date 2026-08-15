@@ -344,7 +344,13 @@ const cb      = document.getElementById('chatBox');
 const csrf    = '{{ csrf_token() }}';
 const sendUrl = '{{ route("seller.messages.send", $orderId) }}';
 const orderDataUrl = '{{ route("seller.messages.thread_order_data", $orderId) }}';
+const newMessagesUrl = '{{ route("seller.messages.thread_new_messages", $orderId) }}';
+const customerName = @json($order->fullname ?? 'Customer');
 if (cb) cb.scrollTop = cb.scrollHeight;
+
+let latestThreadMessageId = Math.max(0, ...Array.from(document.querySelectorAll('[data-msg-id]'))
+  .map(row => parseInt(row.dataset.msgId || '0', 10))
+  .filter(Number.isFinite));
 
 function setOrderField(name, value) {
   document.querySelectorAll(`[data-order-field="${name}"]`).forEach(el => {
@@ -392,24 +398,30 @@ function handleEnter(e) {
 }
 
 // ── Mark messages as read ─────────────────────────────────────────────────
-(function () {
-  const markUrl = '{{ url("/seller/messages/mark-read-msg") }}';
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (!entry.isIntersecting) return;
-      const row = entry.target;
-      if (row.dataset.read === '1' || row.dataset.sender === 'seller') return;
-      row.dataset.read = '1'; obs.unobserve(row);
-      fetch(markUrl + '/' + row.dataset.msgId, { method:'POST', headers:{'X-CSRF-TOKEN':csrf,'Content-Type':'application/json'} })
-        .then(() => {
-          if (typeof refreshBubbleUnread === 'function') refreshBubbleUnread();
-          if (typeof refreshSellerSidebarBadges === 'function') refreshSellerSidebarBadges();
-        })
-        .catch(()=>{});
-    });
-  }, { threshold: 0.5 });
-  document.querySelectorAll('[data-msg-id]').forEach(el => obs.observe(el));
-})();
+const sellerMarkReadUrl = '{{ url("/seller/messages/mark-read-msg") }}';
+const sellerReadObserver = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const row = entry.target;
+    if (row.dataset.read === '1' || row.dataset.sender === 'seller') return;
+    row.dataset.read = '1';
+    sellerReadObserver.unobserve(row);
+    fetch(sellerMarkReadUrl + '/' + row.dataset.msgId, { method:'POST', headers:{'X-CSRF-TOKEN':csrf,'Content-Type':'application/json'} })
+      .then(() => {
+        if (typeof refreshBubbleUnread === 'function') refreshBubbleUnread();
+        if (typeof refreshSellerSidebarBadges === 'function') refreshSellerSidebarBadges();
+      })
+      .catch(()=>{});
+  });
+}, { threshold: 0.5 });
+
+function observeSellerMessageRow(row) {
+  if (row && row.dataset.sender !== 'seller' && row.dataset.read !== '1') {
+    sellerReadObserver.observe(row);
+  }
+}
+
+document.querySelectorAll('[data-msg-id]').forEach(observeSellerMessageRow);
 
 // ── Image compression ─────────────────────────────────────────────────────
 const MAX_PX  = 1200;
@@ -669,6 +681,12 @@ function appendMyBubble(text, imgPreviews, msgId = '') {
   const imageOnly = !text && hasMedia;
   const row = document.createElement('div');
   row.className = 'msg-row mine';
+  if (msgId) {
+    row.dataset.msgId = msgId;
+    row.dataset.sender = 'seller';
+    row.dataset.read = '0';
+    latestThreadMessageId = Math.max(latestThreadMessageId, parseInt(msgId, 10) || 0);
+  }
   row.innerHTML = `
     <div class="msg-av mine">Me</div>
     <div class="msg-group mine">
@@ -683,6 +701,82 @@ function appendMyBubble(text, imgPreviews, msgId = '') {
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 }
+
+function parseThreadImages(imagePath) {
+  if (!imagePath) return [];
+  try {
+    const decoded = JSON.parse(imagePath);
+    return Array.isArray(decoded) ? decoded.filter(Boolean) : [imagePath];
+  } catch (e) {
+    return [imagePath];
+  }
+}
+
+function renderThreadMessage(message) {
+  const id = parseInt(message.id || '0', 10);
+  if (!id || document.querySelector('[data-msg-id="' + id + '"]')) return false;
+
+  const isMine = message.sender_role === 'seller';
+  const imgs = parseThreadImages(message.image_path);
+  const hasMedia = imgs.length > 0;
+  const hasText = !!(message.message && String(message.message).trim());
+  const imageOnly = !hasText && hasMedia;
+  const imgHtml = threadImageGridHtml(imgs);
+  const senderName = isMine ? 'You' : (message.sender_role === 'customer' ? customerName : 'Admin');
+  const avatarText = isMine ? 'Me' : threadEscAttr(String(senderName || 'C').slice(0, 1).toUpperCase());
+  const row = document.createElement('div');
+  row.className = 'msg-row' + (isMine ? ' mine' : '');
+  row.dataset.msgId = String(id);
+  row.dataset.sender = message.sender_role || '';
+  row.dataset.read = message.is_read ? '1' : '0';
+  row.innerHTML = `
+    <div class="msg-av ${isMine ? 'mine' : ''}">${avatarText}</div>
+    <div class="msg-group ${isMine ? 'mine' : ''}">
+      <div class="sender-lbl ${isMine ? 'mine' : ''}">${escHtml(senderName)}</div>
+      <div class="bubble ${isMine ? 'mine' : 'theirs'}${hasMedia ? ' has-media' : ''}${imageOnly ? ' image-only' : ''}">
+        ${hasText ? `<div style="white-space:pre-wrap;word-break:break-word">${escHtml(message.message)}</div>` : ''}
+        ${imgHtml}
+      </div>
+      <div class="bubble-time ${isMine ? 'mine' : ''}">
+        ${escHtml(message.created_at || '')}${isMine ? ` <span class="delivery-state" data-read-status data-message-id="${id}" data-status="${message.is_read ? 'seen' : 'sent'}">${message.is_read ? 'Seen' : 'Sent'}</span>` : ''}
+      </div>
+    </div>`;
+  cb.appendChild(row);
+  observeSellerMessageRow(row);
+  latestThreadMessageId = Math.max(latestThreadMessageId, id);
+  return true;
+}
+
+let sellerMessagePollBusy = false;
+async function pollSellerThreadMessages() {
+  if (sellerMessagePollBusy || document.hidden || !cb) return;
+  sellerMessagePollBusy = true;
+  try {
+    const wasNearBottom = cb.scrollHeight - cb.scrollTop - cb.clientHeight < 96;
+    const res = await fetch(newMessagesUrl + '?after_id=' + encodeURIComponent(latestThreadMessageId), {
+      headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.messages)) return;
+    let appended = false;
+    data.messages.forEach(message => {
+      if (renderThreadMessage(message)) appended = true;
+    });
+    if (appended) {
+      if (wasNearBottom) cb.scrollTop = cb.scrollHeight;
+      if (typeof refreshBubbleUnread === 'function') refreshBubbleUnread();
+      if (typeof refreshSellerSidebarBadges === 'function') refreshSellerSidebarBadges();
+    }
+  } catch (e) {
+  } finally {
+    sellerMessagePollBusy = false;
+  }
+}
+
+setInterval(pollSellerThreadMessages, 7000);
+document.addEventListener('visibilitychange', pollSellerThreadMessages);
+setTimeout(pollSellerThreadMessages, 1800);
 
 (function startThreadReadStatusRefresh() {
   const url = '{{ route("seller.messages.read_statuses") }}';
@@ -723,5 +817,3 @@ function escHtml(s) {
 })();
 </script>
 @endpush
-
-

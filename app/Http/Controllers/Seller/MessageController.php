@@ -288,6 +288,32 @@ class MessageController extends Controller
         ]);
     }
 
+    public function threadNewMessages(Request $request, string $orderId)
+    {
+        $shop = $this->getShop();
+        $order = $this->findShopOrder($shop, $orderId);
+        if (!$order) return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+
+        $afterId = max(0, (int) $request->query('after_id', 0));
+
+        $messages = DB::table('messages')
+            ->where('order_id', $order->id)
+            ->when($afterId > 0, fn ($query) => $query->where('id', '>', $afterId))
+            ->orderBy('id')
+            ->limit(30)
+            ->get()
+            ->map(fn ($message) => [
+                'id'          => $message->id,
+                'sender_role' => $message->sender_role,
+                'message'     => $message->message,
+                'image_path'  => $message->image_path,
+                'is_read'     => (bool) $message->is_read,
+                'created_at'  => \Carbon\Carbon::parse($message->created_at)->format('M d, g:i A'),
+            ]);
+
+        return response()->json(['ok' => true, 'messages' => $messages]);
+    }
+
     public function popupData(Request $request)
     {
         $shop  = $this->getShop();
