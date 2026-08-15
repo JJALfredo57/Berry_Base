@@ -637,6 +637,14 @@
     $backupRetention = (int) ($platform->backup_retention_count ?? 14);
     $backupIncludeUploads = !empty($platform->backup_include_uploads);
     $lastRun = !empty($platform->backup_last_run_at) ? \Carbon\Carbon::parse($platform->backup_last_run_at) : null;
+    $nextBackupAt = null;
+    if ($backupAutoOn) {
+      $nextBackupAt = match ($backupFrequency) {
+        'weekly' => $lastRun ? $lastRun->copy()->addWeek() : now(),
+        'monthly' => $lastRun ? $lastRun->copy()->addMonth() : now(),
+        default => $lastRun ? $lastRun->copy()->addDay() : now(),
+      };
+    }
     $lastBackupAgeHours = $latestBackup ? floor((time() - ($latestBackup['modified_at'] ?? time())) / 3600) : null;
     $healthColor = !$latestBackup ? '#dc2626' : (($lastBackupAgeHours !== null && $lastBackupAgeHours > 48) ? '#d97706' : '#16a34a');
     $healthText = !$latestBackup ? 'No backup yet' : (($lastBackupAgeHours !== null && $lastBackupAgeHours > 48) ? 'Backup is getting old' : 'Protected');
@@ -703,6 +711,10 @@
         @endif
       </div>
       <div class="text-muted small mt-2">
+        Next eligible backup:
+        <strong>{{ $nextBackupAt ? $nextBackupAt->format('M d, Y H:i') : 'Automation off' }}</strong>
+      </div>
+      <div class="text-muted small mt-2">
         Storage:
         <span class="badge {{ $backupStorage['badge_class'] }}">{{ $backupStorage['persistent'] ? 'Persistent' : 'Temporary' }}</span>
       </div>
@@ -751,6 +763,21 @@
         </div>
         <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-save me-1"></i>Save Automation</button>
       </form>
+      <div class="mt-3 p-3" style="border:1.5px solid var(--gray-100);border-radius:8px;background:#f8fafc">
+        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+          <div>
+            <div class="text-muted small">Countdown</div>
+            <div id="backupCountdownLabel" class="fw-bold" style="color:var(--gray-900)">Preparing...</div>
+          </div>
+          <span class="badge {{ $backupAutoOn ? 'bg-success' : 'bg-secondary' }}">{{ $backupAutoOn ? 'Auto On' : 'Auto Off' }}</span>
+        </div>
+        <div class="form-text mt-2">Scheduler checks hourly; this shows when the backup becomes eligible.</div>
+        <div id="backupCountdownData"
+             data-enabled="{{ $backupAutoOn ? '1' : '0' }}"
+             data-next="{{ $nextBackupAt ? $nextBackupAt->toIso8601String() : '' }}"
+             data-frequency="{{ $backupFrequency }}"
+             hidden></div>
+      </div>
     </div>
 
     <div class="backup-panel backup-action">
@@ -854,6 +881,61 @@
   @else
   <div class="backup-panel"><div class="card-body text-center text-muted py-5">No backups yet.</div></div>
   @endif
+  <script>
+  (function() {
+    const data = document.getElementById('backupCountdownData');
+    const label = document.getElementById('backupCountdownLabel');
+    if (!data || !label) return;
+
+    let timer = null;
+    const enabled = data.dataset.enabled === '1';
+    const nextRaw = data.dataset.next || '';
+    const nextTime = nextRaw ? new Date(nextRaw).getTime() : NaN;
+
+    function formatRemaining(ms) {
+      if (ms <= 0) return 'Due now';
+      const totalSeconds = Math.floor(ms / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      const parts = [];
+      if (days) parts.push(days + 'd');
+      parts.push(String(hours).padStart(2, '0') + 'h');
+      parts.push(String(minutes).padStart(2, '0') + 'm');
+      parts.push(String(seconds).padStart(2, '0') + 's');
+      return parts.join(' ');
+    }
+
+    function stop() {
+      if (timer) clearInterval(timer);
+      timer = null;
+    }
+
+    function tick() {
+      if (!enabled) {
+        label.textContent = 'Automation is off';
+        stop();
+        return;
+      }
+      if (!Number.isFinite(nextTime)) {
+        label.textContent = 'Waiting for first backup';
+        stop();
+        return;
+      }
+      const remaining = nextTime - Date.now();
+      label.textContent = formatRemaining(remaining);
+      if (remaining <= 0) stop();
+    }
+
+    tick();
+    if (enabled && Number.isFinite(nextTime) && nextTime > Date.now()) {
+      timer = setInterval(tick, 1000);
+    }
+    window.addEventListener('pagehide', stop, { once: true });
+    window.addEventListener('beforeunload', stop, { once: true });
+  })();
+  </script>
   @endif
 
 </div>
