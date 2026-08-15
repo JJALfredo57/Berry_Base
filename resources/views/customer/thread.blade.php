@@ -1,5 +1,11 @@
 @extends('layouts.app')
 @section('content')
+<style>
+.customer-msg-bubble{max-width:75%;border-radius:1rem;padding:.6rem 1rem;font-size:.9rem;word-break:break-word}
+.customer-msg-bubble.image-only{padding:0;background:transparent!important;color:inherit!important;border-radius:0!important;box-shadow:none}
+.customer-msg-bubble.image-only .customer-img-wrap{margin-top:0!important}
+@media(max-width:640px){.customer-msg-bubble{max-width:84%}}
+</style>
 <div class="container-fluid py-4">
   <div class="row justify-content-center">
     <div class="col-lg-7">
@@ -22,15 +28,17 @@
                 $decoded = json_decode($m->image_path, true);
                 $imgs = is_array($decoded) ? $decoded : [$m->image_path];
               }
+              $hasText = trim((string) $m->message) !== '';
+              $isImageOnly = !$hasText && count($imgs) > 0;
             @endphp
             <div class="d-flex {{ $isMe ? 'justify-content-end' : 'justify-content-start' }}"
                  data-msg-id="{{ $m->id }}"
                  data-sender="{{ $m->sender_role }}"
                  data-read="{{ $m->is_read }}">
-              <div style="max-width:75%;background:{{ $isMe ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isMe ? '#fff' : '#333' }};border-radius:{{ $isMe ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }};padding:.6rem 1rem;font-size:.9rem">
+              <div class="customer-msg-bubble {{ $isImageOnly ? 'image-only' : '' }}" style="background:{{ $isMe ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isMe ? '#fff' : '#333' }};border-radius:{{ $isMe ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
                 @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
                 @if(count($imgs))
-                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:{{ $m->message ? '.4rem' : '0' }}">
+                <div class="customer-img-wrap" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:{{ $m->message ? '.4rem' : '0' }}">
                   @foreach($imgs as $imgSrc)
                   <img src="{{ $imgSrc }}"
                        class="chat-img"

@@ -3054,6 +3054,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .mc-msg-wrap { display:flex; flex-direction:column; animation: msgSlideIn .2s ease; }
 .mc-msg-wrap[data-order-id] { cursor:pointer; }
 .mc-msg-wrap[data-order-id]:hover .mc-bubble { box-shadow:0 2px 10px rgba(233,30,99,.18); }
+.mc-msg-wrap[data-order-id]:hover .mc-bubble.image-only { box-shadow:none; }
 .mc-msg-wrap.me { align-items:flex-end; }
 .mc-msg-wrap.them { align-items:flex-start; }
 .mc-order-tag {
@@ -3078,6 +3079,13 @@ document.addEventListener('DOMContentLoaded', function() {
   line-height:1.4;
   word-break:break-word;
   white-space:pre-wrap;
+}
+.mc-bubble.image-only {
+  padding:0;
+  background:transparent !important;
+  color:inherit !important;
+  box-shadow:none !important;
+  border-radius:0 !important;
 }
 .mc-msg-wrap.me .mc-bubble {
   background:#e91e63;
@@ -3676,16 +3684,17 @@ function renderMcTimeline(container, messages, appendOnly = false) {
 
     const bubble = document.createElement('div');
     bubble.className = 'mc-bubble';
+    let imgPaths = [];
 
     // Parse image_path — may be single string or JSON array
     if (msg.image_path) {
-      let imgPaths = [];
       try { const p = JSON.parse(msg.image_path); imgPaths = Array.isArray(p) ? p : [msg.image_path]; }
       catch { imgPaths = [msg.image_path]; }
 
       const imgGrid = buildMcGalleryGrid(imgPaths, msg.message ? '4px' : '0');
       bubble.appendChild(imgGrid);
     }
+    if (!msg.message && imgPaths.length > 0) bubble.classList.add('image-only');
     if (msg.message) bubble.appendChild(document.createTextNode(msg.message));
     wrap.appendChild(bubble);
 
@@ -3828,6 +3837,7 @@ async function mcSend() {
   }
   const bubble = document.createElement('div');
   bubble.className = 'mc-bubble';
+  if (!text && images.length > 0) bubble.classList.add('image-only');
 
   if (images.length > 0) {
     const grid = buildMcGalleryGrid(images.map(f => URL.createObjectURL(f)), text ? '4px' : '0');

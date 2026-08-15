@@ -16,6 +16,8 @@
 .bubble{padding:9px 13px;border-radius:16px;font-size:.875rem;line-height:1.5;word-break:break-word}
 .bubble.theirs{background:#fff;color:#333;border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .bubble.mine{background:var(--primary);color:#fff;border-radius:16px 4px 16px 16px}
+.bubble.image-only{padding:0;background:transparent;color:inherit;box-shadow:none;border-radius:0}
+.bubble.image-only .bubble-imgs{margin-top:0}
 .bubble-imgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:6px;width:min(304px,100%);max-width:100%}
 .bubble-imgs.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
 .bubble-imgs.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
@@ -262,6 +264,8 @@
             $d = json_decode($m->image_path, true);
             $imgs = is_array($d) ? $d : [$m->image_path];
           }
+          $hasText = trim((string) $m->message) !== '';
+          $isImageOnly = !$hasText && count($imgs) > 0;
         @endphp
         <div class="msg-row {{ $isMine ? 'mine' : '' }}"
              data-msg-id="{{ $m->id }}"
@@ -270,7 +274,7 @@
           <div class="msg-av {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'Me' : strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}</div>
           <div class="msg-group {{ $isMine ? 'mine' : '' }}">
             <div class="sender-lbl {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'You' : ($order->fullname ?? 'Customer') }}</div>
-            <div class="bubble {{ $isMine ? 'mine' : 'theirs' }}">
+            <div class="bubble {{ $isMine ? 'mine' : 'theirs' }} {{ $isImageOnly ? 'image-only' : '' }}">
               @if($m->message)<div style="white-space:pre-wrap;word-break:break-word">{{ $m->message }}</div>@endif
               @if(count($imgs))
               <div class="bubble-imgs img-count-{{ min(count($imgs), 4) }}" data-lightbox-gallery data-gallery-sources='@json(array_values($imgs))'>
@@ -657,13 +661,14 @@ document.getElementById('threadForm').addEventListener('submit', async function 
 function appendMyBubble(text, imgPreviews) {
   const now = new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
   const imgHtml = threadImageGridHtml(imgPreviews);
+  const imageOnly = !text && imgPreviews.length > 0;
   const row = document.createElement('div');
   row.className = 'msg-row mine';
   row.innerHTML = `
     <div class="msg-av mine">Me</div>
     <div class="msg-group mine">
       <div class="sender-lbl mine">You</div>
-      <div class="bubble mine">${text ? `<div style="white-space:pre-wrap">${escHtml(text)}</div>` : ''}${imgHtml}</div>
+      <div class="bubble mine${imageOnly ? ' image-only' : ''}">${text ? `<div style="white-space:pre-wrap">${escHtml(text)}</div>` : ''}${imgHtml}</div>
       <div class="bubble-time mine">${now} <span style="opacity:.65">✓</span></div>
     </div>`;
   cb.appendChild(row);

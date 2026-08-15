@@ -125,6 +125,8 @@
     .bbl-g{padding:9px 13px;border-radius:16px;font-size:.875rem;line-height:1.5;word-break:break-word}
     .bbl-g.theirs{background:#fff;color:#333;border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
     .bbl-g.mine{background:var(--primary);color:#fff;border-radius:16px 4px 16px 16px}
+    .bbl-g.image-only{padding:0;background:transparent;color:inherit;box-shadow:none;border-radius:0}
+    .bbl-g.image-only .bbl-imgs-g{margin-top:0}
     .bbl-imgs-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin-top:6px;width:min(304px,100%);max-width:100%}
     .bbl-imgs-g.img-count-1{grid-template-columns:1fr;width:min(240px,100%)}
     .bbl-imgs-g.img-count-2{grid-template-columns:repeat(2,minmax(0,1fr));width:min(304px,100%)}
@@ -2220,14 +2222,16 @@ function renderMessages(msgs) {
     }
     const initials = isMine ? (GUEST_NAME.charAt(0).toUpperCase() || 'Y') : 'B';
     const imgHtml = messageImageGridHtml(imgs);
+    const hasText = !!(m.message && String(m.message).trim());
+    const imageOnly = !hasText && imgs.length > 0;
     const row = document.createElement('div');
     row.className = 'msg-row-g' + (isMine ? ' mine' : '');
     row.innerHTML = `
       <div class="msg-av-g${isMine?' mine':''}">${initials}</div>
       <div class="msg-grp-g${isMine?' mine':''}">
         <div class="sndr-lbl-g${isMine?' mine':''}">${escapeHtml(m.name)}</div>
-        <div class="bbl-g ${isMine?'mine':'theirs'}">
-          ${m.message?`<div style="white-space:pre-wrap">${escapeHtml(m.message)}</div>`:''}
+        <div class="bbl-g ${isMine?'mine':'theirs'}${imageOnly?' image-only':''}">
+          ${hasText?`<div style="white-space:pre-wrap">${escapeHtml(m.message)}</div>`:''}
           ${imgHtml}
         </div>
         <div class="bbl-time-g${isMine?' mine':''}">
