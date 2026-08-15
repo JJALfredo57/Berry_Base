@@ -251,19 +251,6 @@ class PlatformSettingsController extends Controller
         }
     }
 
-    public function deleteBackup(Request $request)
-    {
-        try {
-            $info = $this->backups->deleteBackup((string) $request->input('file', ''));
-            $user = session('user') ?? ['id' => 'system', 'role' => 'superadmin'];
-            CakeshopHelper::logActivity($user['id'], $user['role'], 'Delete Backup', $info['name']);
-
-            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', 'Backup deleted.');
-        } catch (\Throwable $e) {
-            return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('err', 'Delete failed: ' . $e->getMessage());
-        }
-    }
-
     public function downloadBackup(Request $request)
     {
         try {

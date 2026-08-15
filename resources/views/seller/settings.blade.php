@@ -33,7 +33,6 @@
 .setting-card-body { padding: 1.5rem; }
 #spane-profile .setting-card,
 #spane-capacity .setting-card,
-#spane-appearance .setting-card,
 #spane-password .setting-card,
 #spane-delivery > .row,
 #spane-upgrade {
@@ -43,14 +42,9 @@
 #spane-profile,
 #spane-capacity,
 #spane-delivery,
-#spane-appearance,
 #spane-password,
 #spane-upgrade {
   width: 100%;
-}
-#spane-appearance input[name="shop_bg_image"],
-#spane-appearance input[type="range"] {
-  max-width: 100% !important;
 }
 .formula-box {
   background: #0f172a; border-radius: 10px; padding: 1.25rem 1.5rem;
@@ -177,9 +171,6 @@
     </button>
     <button onclick="showSettingsTab('delivery')" id="stab-delivery" class="s-tab">
       <i class="bi bi-truck"></i> Delivery Fee
-    </button>
-    <button onclick="showSettingsTab('appearance')" id="stab-appearance" class="s-tab">
-      <i class="bi bi-palette"></i> Appearance
     </button>
     <button onclick="showSettingsTab('password')" id="stab-password" class="s-tab">
       <i class="bi bi-lock"></i> Change Password
@@ -550,102 +541,6 @@
     </div>
   </div>
 
-  {{-- ── PANE: Appearance ──────────────────────────────────── --}}
-  <div id="spane-appearance" style="display:none">
-    <div class="setting-card" style="max-width:780px">
-      <div class="setting-card-header">
-        <i class="bi bi-palette" style="font-size:1.1rem;color:var(--primary)"></i>
-        <div>
-          <div class="title">Shop Page Appearance</div>
-          <div class="subtitle">Customize the background of your public shop page (<code>/shop/{{ $shop->shop_slug }}</code>)</div>
-        </div>
-      </div>
-      <div class="setting-card-body">
-        <form action="{{ route('seller.settings.appearance') }}" method="POST" enctype="multipart/form-data">
-          @csrf
-          @php $curShopBg = $shopSettings->bg_type ?? 'color'; @endphp
-
-          {{-- Background Type --}}
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Background Type</label>
-            <div style="display:flex;gap:.6rem;flex-wrap:wrap">
-              @foreach(['color'=>'Solid Color','gradient'=>'Gradient','image'=>'Image'] as $bv => $bl)
-              <label style="display:flex;align-items:center;gap:.4rem;font-size:.83rem;font-weight:600;cursor:pointer;padding:.45rem .9rem;border:1.5px solid {{ $curShopBg===$bv ? 'var(--primary)' : 'var(--gray-200)' }};border-radius:var(--radius-md);background:{{ $curShopBg===$bv ? 'var(--primary-bg,#fdf8f4)' : '#fff' }};color:{{ $curShopBg===$bv ? 'var(--primary)' : 'var(--gray-700)' }}">
-                <input type="radio" name="shop_bg_type" value="{{ $bv }}" {{ $curShopBg===$bv ? 'checked' : '' }}
-                       style="accent-color:var(--primary)" onchange="switchShopBgType('{{ $bv }}')"> {{ $bl }}
-              </label>
-              @endforeach
-            </div>
-          </div>
-
-          {{-- Solid Color --}}
-          <div id="sbg-color" style="display:{{ $curShopBg==='color' ? 'flex' : 'none' }};align-items:center;gap:.75rem;margin-bottom:1rem">
-            <input type="color" name="shop_bg_color" id="sbgColorPicker"
-                   value="{{ $shopSettings->bg_color ?? '#f9f9f9' }}"
-                   style="width:48px;height:40px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer"
-                   oninput="document.getElementById('sbgColorHex').value=this.value;updateShopBgPreview()">
-            <input type="text" id="sbgColorHex" value="{{ $shopSettings->bg_color ?? '#f9f9f9' }}"
-                   maxlength="7" class="form-control" style="width:110px;font-family:monospace"
-                   oninput="if(/^#[0-9A-Fa-f]{6}$/.test(this.value)){document.getElementById('sbgColorPicker').value=this.value;updateShopBgPreview()}">
-            <div class="form-text">Background color of your shop page.</div>
-          </div>
-
-          {{-- Gradient --}}
-          <div id="sbg-gradient" style="display:{{ $curShopBg==='gradient' ? 'flex' : 'none' }};align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem">
-            <div style="display:flex;align-items:center;gap:.5rem">
-              <span class="form-text" style="white-space:nowrap;margin:0">From</span>
-              <input type="color" name="shop_bg_gradient_start" id="sbgGradStart"
-                     value="{{ $shopSettings->gradient_start ?? '#fff7fb' }}"
-                     style="width:44px;height:38px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer"
-                     oninput="updateShopBgPreview()">
-            </div>
-            <div style="display:flex;align-items:center;gap:.5rem">
-              <span class="form-text" style="white-space:nowrap;margin:0">To</span>
-              <input type="color" name="shop_bg_gradient_end" id="sbgGradEnd"
-                     value="{{ $shopSettings->gradient_end ?? '#ffe3f1' }}"
-                     style="width:44px;height:38px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer"
-                     oninput="updateShopBgPreview()">
-            </div>
-            <div class="form-text">Diagonal gradient on your shop page.</div>
-          </div>
-
-          {{-- Image --}}
-          <div id="sbg-image" style="display:{{ $curShopBg==='image' ? 'block' : 'none' }};margin-bottom:1rem">
-            @if(!empty($shopSettings->bg_image_path))
-              <img src="{{ $shopSettings->bg_image_path }}" alt="Current shop background"
-                   style="display:block;width:100%;max-width:340px;height:96px;object-fit:cover;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);margin-bottom:.6rem">
-            @endif
-            <input type="file" class="form-control" name="shop_bg_image" accept=".jpg,.jpeg,.png,.webp"
-                   onchange="previewShopBgImage(this)" style="font-size:.8rem;max-width:340px">
-            <div class="form-text">JPG, PNG or WebP · Max 5 MB. Leave blank to keep current image.</div>
-            <div style="margin-top:.65rem">
-              <label class="form-label fw-semibold" style="font-size:.8rem">Image Opacity: <span id="sbgOpacityVal">{{ number_format(($shopSettings->bg_image_opacity ?? 1.0) * 100) }}%</span></label>
-              <input type="range" name="shop_bg_opacity" min="0.1" max="1" step="0.05"
-                     value="{{ $shopSettings->bg_image_opacity ?? 1.0 }}"
-                     style="width:100%;max-width:280px;accent-color:var(--primary)"
-                     oninput="document.getElementById('sbgOpacityVal').textContent=Math.round(this.value*100)+'%'">
-            </div>
-          </div>
-
-          {{-- Live Preview --}}
-          <div style="margin-bottom:1.25rem">
-            <div class="form-text mb-1">Preview</div>
-            <div id="sbgPreview" style="height:64px;border-radius:var(--radius-md);border:1.5px solid var(--gray-200);transition:background .2s;
-              @if($curShopBg==='gradient') background:linear-gradient(135deg,{{ $shopSettings->gradient_start ?? '#fff7fb' }} 0%,{{ $shopSettings->gradient_end ?? '#ffe3f1' }} 100%)
-              @elseif($curShopBg==='image' && !empty($shopSettings->bg_image_path)) background:url('{{ $shopSettings->bg_image_path }}') center/cover no-repeat
-              @else background:{{ $shopSettings->bg_color ?? '#f9f9f9' }}
-              @endif
-            "></div>
-          </div>
-
-          <button type="submit" class="btn btn-primary" style="padding:.65rem 2rem;font-weight:600">
-            <i class="bi bi-check-lg me-1"></i> Save Appearance
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-
   {{-- ── PANE: Change Password ───────────────────────────── --}}
   <div id="spane-password" style="display:none">
     <div class="setting-card" style="max-width:480px">
@@ -714,7 +609,8 @@
 <script>
 // ── Tab switching ────────────────────────────────────────
 function showSettingsTab(name) {
-  ['profile','capacity','delivery','appearance','password','upgrade'].forEach(t => {
+  if (name === 'appearance') name = 'profile';
+  ['profile','capacity','delivery','password','upgrade'].forEach(t => {
     const pane = document.getElementById('spane-' + t);
     const tab  = document.getElementById('stab-'  + t);
     if (pane) pane.style.display = t === name ? '' : 'none';
@@ -722,46 +618,6 @@ function showSettingsTab(name) {
   });
   if (name === 'delivery') { updateDeliveryCalc(); runSimulator(document.getElementById('sim_slider').value); }
   if (name === 'capacity') updateCapacityPreview();
-}
-
-// ── Shop Appearance helpers ──────────────────────────────
-function switchShopBgType(type) {
-  ['color','gradient','image'].forEach(t => {
-    const el = document.getElementById('sbg-' + t);
-    if (el) el.style.display = t === type ? (t === 'gradient' ? 'flex' : 'block') : 'none';
-  });
-  updateShopBgPreview();
-}
-function updateShopBgPreview() {
-  const preview = document.getElementById('sbgPreview');
-  if (!preview) return;
-  const type = document.querySelector('[name=shop_bg_type]:checked')?.value || 'color';
-  if (type === 'gradient') {
-    const s = document.getElementById('sbgGradStart')?.value || '#fff7fb';
-    const e = document.getElementById('sbgGradEnd')?.value   || '#ffe3f1';
-    preview.style.background = `linear-gradient(135deg,${s} 0%,${e} 100%)`;
-  } else if (type === 'color') {
-    preview.style.background = document.getElementById('sbgColorPicker')?.value || '#f9f9f9';
-  } else if (type === 'image') {
-    const current = @json($shopSettings->bg_image_path ?? '');
-    if (current) preview.style.background = `url('${current}') center/cover no-repeat`;
-  }
-}
-function previewShopBgImage(input) {
-  const file = input.files && input.files[0];
-  if (!file) return;
-  if (file.size > 5 * 1024 * 1024) {
-    alert('Background image must not exceed 5MB.');
-    input.value = '';
-    return;
-  }
-  const preview = document.getElementById('sbgPreview');
-  if (!preview) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    preview.style.background = `url('${e.target.result}') center/cover no-repeat`;
-  };
-  reader.readAsDataURL(file);
 }
 
 // Restore active tab from URL ?tab= param or old('_section')

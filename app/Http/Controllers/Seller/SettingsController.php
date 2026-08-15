@@ -204,54 +204,6 @@ class SettingsController extends Controller
             ->with('msg', 'Upgrade request submitted! Our team will review your documents within 1-3 business days.');
     }
 
-    public function saveAppearance(Request $request)
-    {
-        try {
-            $shop = $this->getShop();
-
-            $request->validate([
-                'shop_bg_color'          => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
-                'shop_bg_gradient_start' => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
-                'shop_bg_gradient_end'   => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
-                'shop_bg_image'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-            ]);
-
-            $bgType    = $request->input('shop_bg_type', 'color');
-            $bgOpacity = max(0.1, min(1.0, (float) $request->input('shop_bg_opacity', 1.0)));
-
-            $data = [
-                'bg_type'          => $bgType,
-                'bg_color'         => $request->input('shop_bg_color', '#f9f9f9'),
-                'gradient_start'   => $request->input('shop_bg_gradient_start', '#fff7fb'),
-                'gradient_end'     => $request->input('shop_bg_gradient_end', '#ffe3f1'),
-                'bg_image_opacity' => $bgOpacity,
-            ];
-
-            if ($request->hasFile('shop_bg_image') && $request->file('shop_bg_image')->isValid()) {
-                $uploadedPath = $this->uploadFile($request->file('shop_bg_image'), 'uploads/shops');
-                if (!$uploadedPath) {
-                    return back()
-                        ->withInput()
-                        ->with('err', 'Background image upload failed. Please check the upload storage settings or try a smaller JPG/PNG/WebP image.');
-                }
-                $data['bg_image_path'] = $uploadedPath;
-            }
-
-            $existingSettings = DB::table('site_settings')->where('shop_id', $shop->id)->first();
-            $this->upsertSettings($shop->id, $data);
-            if (!empty($data['bg_image_path'] ?? null)) {
-                $this->deleteReplacedUploadedFile($existingSettings->bg_image_path ?? null, $data['bg_image_path']);
-            }
-
-            return redirect()->to(route('seller.settings').'?tab=appearance')->with('msg', 'Shop page appearance saved!');
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            throw $e;
-        } catch (\Throwable $e) {
-            return back()->with('err', '[DEBUG] ' . get_class($e) . ': ' . $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine())->withInput();
-        }
-    }
-
     public function updatePassword(Request $request)
     {
         $user = session('user');

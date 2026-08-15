@@ -788,12 +788,6 @@
             <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
           </form>
           @endif
-          <form action="{{ route('admin.settings.delete_backup') }}" method="POST" class="d-inline"
-                data-cs-confirm="Delete this backup file permanently?" data-cs-title="Delete Backup" data-cs-icon="bi-trash" data-cs-icon-bg="#fff1f2" data-cs-icon-color="#ef4444" data-cs-ok="Delete" data-cs-ok-color="#ef4444">
-            @csrf
-            <input type="hidden" name="file" value="{{ $f['name'] }}">
-            <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1"></i>Delete</button>
-          </form>
         </div>
       </div>
       @endforeach

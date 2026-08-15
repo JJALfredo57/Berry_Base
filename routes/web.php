@@ -382,7 +382,6 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/settings/shop-location',    fn() => redirect()->route('seller.settings'));
     Route::post('/settings/delivery-calc',   [\App\Http\Controllers\Seller\SettingsController::class, 'saveDeliveryCalc'])->name('settings.delivery_calc');
     Route::get('/settings/delivery-calc',    fn() => redirect()->route('seller.settings'));
-    Route::post('/settings/appearance',      [\App\Http\Controllers\Seller\SettingsController::class, 'saveAppearance'])->name('settings.appearance');
     Route::post('/upgrade-request',          [\App\Http\Controllers\Seller\SettingsController::class, 'requestUpgrade'])->name('upgrade_request');
 
     // Kitchen
@@ -487,7 +486,6 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/platform-settings/backup-settings', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveBackupSettings'])->name('settings.backup_settings');
     Route::get('/platform-settings/download-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'downloadBackup'])->name('settings.download_backup');
     Route::post('/platform-settings/restore',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'restore'])->name('settings.restore');
-    Route::post('/platform-settings/delete-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'deleteBackup'])->name('settings.delete_backup');
 });
 
 Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function () {
@@ -550,7 +548,6 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/settings/upload-backup',              [SettingsController::class, 'uploadBackup'])->name('settings.upload_backup');
     Route::get('/settings/download-backup',             [SettingsController::class, 'downloadBackup'])->name('settings.download_backup');
     Route::post('/settings/restore',                    [SettingsController::class, 'restore'])->name('settings.restore');
-    Route::post('/settings/delete-backup',              [SettingsController::class, 'deleteBackup'])->name('settings.delete_backup');
 
     Route::get('/addons',                            [AddonController::class, 'index'])->name('addons.index');
     Route::post('/addons/category',                  [AddonController::class, 'storeCategory'])->name('addons.store_category');
@@ -641,7 +638,6 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/settings/upload-backup',               [SettingsController::class, 'uploadBackup'])->name('settings.upload_backup');
     Route::get('/settings/download-backup',              [SettingsController::class, 'downloadBackup'])->name('settings.download_backup');
     Route::post('/settings/restore',                     [SettingsController::class, 'restore'])->name('settings.restore');
-    Route::post('/settings/delete-backup',               [SettingsController::class, 'deleteBackup'])->name('settings.delete_backup');
 
     Route::get('/addons',                           [AddonController::class, 'index'])->name('addons.index');
     Route::post('/addons/category',                 [AddonController::class, 'storeCategory'])->name('addons.store_category');
