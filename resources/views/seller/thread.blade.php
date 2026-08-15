@@ -376,6 +376,7 @@ const orderDataUrl = '{{ route("seller.messages.thread_order_data", $orderId) }}
 const newMessagesUrl = '{{ route("seller.messages.thread_new_messages", $orderId) }}';
 const customerName = @json($order->fullname ?? 'Customer');
 const reactionUrlTemplate = '{{ route("seller.messages.react", [$orderId, "__ID__"]) }}';
+const reactionSnapshotsUrl = '{{ route("seller.messages.reaction_snapshots", $orderId) }}';
 if (cb) cb.scrollTop = cb.scrollHeight;
 
 BerryMessageInteractions.init({
@@ -835,6 +836,41 @@ async function pollSellerThreadMessages() {
 setInterval(pollSellerThreadMessages, 7000);
 document.addEventListener('visibilitychange', pollSellerThreadMessages);
 setTimeout(pollSellerThreadMessages, 1800);
+
+(function startThreadReactionRefresh() {
+  let running = false;
+
+  async function refresh() {
+    if (running || document.hidden || !cb) return;
+    const ids = Array.from(document.querySelectorAll('#chatBox [data-msg-id]'))
+      .map(row => row.dataset.msgId)
+      .filter(Boolean)
+      .slice(-80);
+    if (!ids.length) return;
+
+    running = true;
+    try {
+      const res = await fetch(reactionSnapshotsUrl, {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify({ids})
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.ok || !data.reactions) return;
+      Object.entries(data.reactions).forEach(([id, items]) => {
+        BerryMessageInteractions.updateReactions(id, Array.isArray(items) ? items : []);
+      });
+    } catch (e) {
+    } finally {
+      running = false;
+    }
+  }
+
+  setInterval(refresh, 9000);
+  document.addEventListener('visibilitychange', refresh);
+  setTimeout(refresh, 2200);
+})();
 
 (function startThreadReadStatusRefresh() {
   const url = '{{ route("seller.messages.read_statuses") }}';

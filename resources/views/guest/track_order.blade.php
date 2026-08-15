@@ -2391,6 +2391,44 @@ setInterval(refreshGuestReadStatuses, 10000);
 document.addEventListener('visibilitychange', refreshGuestReadStatuses);
 setTimeout(refreshGuestReadStatuses, 1500);
 
+let guestReactionSnapshotBusy = false;
+function guestMessagePanelIsActive() {
+  const chat = document.getElementById('chatBox');
+  if (!chat) return false;
+  const panel = chat.closest('.chat-modal,.message-modal,.offcanvas,.modal,[data-message-panel]') || chat;
+  return panel === chat || panel.offsetParent !== null || panel.classList.contains('show') || panel.classList.contains('is-open');
+}
+async function refreshGuestReactionSnapshots() {
+  if (guestReactionSnapshotBusy || document.hidden || !guestMessagePanelIsActive()) return;
+  const ids = Array.from(document.querySelectorAll('#chatBox [data-msg-id]'))
+    .map(row => row.dataset.msgId)
+    .filter(Boolean)
+    .slice(-80);
+  if (!ids.length) return;
+
+  guestReactionSnapshotBusy = true;
+  try {
+    const res = await fetch('/track/' + TRACK_CODE + '/messages/reaction-snapshots', {
+      method: 'POST',
+      headers: {'X-CSRF-TOKEN': csrfToken(), 'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: JSON.stringify({ids})
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.ok || !data.reactions) return;
+    Object.entries(data.reactions).forEach(([id, items]) => {
+      BerryMessageInteractions.updateReactions(id, Array.isArray(items) ? items : []);
+    });
+  } catch (e) {
+  } finally {
+    guestReactionSnapshotBusy = false;
+  }
+}
+
+setInterval(refreshGuestReactionSnapshots, 9000);
+document.addEventListener('visibilitychange', refreshGuestReactionSnapshots);
+setTimeout(refreshGuestReactionSnapshots, 2200);
+
 async function pollMessages() {
   try {
     const r = await fetch('/track/' + TRACK_CODE + '/messages');

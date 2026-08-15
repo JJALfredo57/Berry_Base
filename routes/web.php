@@ -220,6 +220,7 @@ Route::get('/track/{trackCode}/refund/{refundId}/receipt-download', [TrackingCon
 Route::get('/track/{trackCode}/messages',  [GuestMessage::class, 'poll'])->name('guest.messages.poll');
 Route::post('/track/{trackCode}/messages', [GuestMessage::class, 'send'])->name('guest.messages.send');
 Route::post('/track/{trackCode}/messages/{messageId}/react', [GuestMessage::class, 'react'])->name('guest.messages.react');
+Route::post('/track/{trackCode}/messages/reaction-snapshots', [GuestMessage::class, 'reactionSnapshots'])->name('guest.messages.reaction_snapshots');
 Route::post('/track/{trackCode}/messages/read-statuses', [GuestMessage::class, 'readStatuses'])->name('guest.messages.read_statuses');
 Route::get('/track/{trackCode}/mobile-notifications', [\App\Http\Controllers\MobileNotificationController::class, 'trackIndex'])->name('guest.mobile_notifications');
 Route::post('/track/{trackCode}/mobile-notifications/{id}/read', [\App\Http\Controllers\MobileNotificationController::class, 'trackRead'])->name('guest.mobile_notifications.read');
@@ -403,6 +404,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/messages/thread/{orderId}/new-messages',[\App\Http\Controllers\Seller\MessageController::class, 'threadNewMessages'])->name('messages.thread_new_messages');
     Route::post('/messages/thread/{orderId}/send',       [\App\Http\Controllers\Seller\MessageController::class, 'send'])->name('messages.send');
     Route::post('/messages/thread/{orderId}/messages/{messageId}/react', [\App\Http\Controllers\Seller\MessageController::class, 'react'])->name('messages.react');
+    Route::post('/messages/thread/{orderId}/reaction-snapshots', [\App\Http\Controllers\Seller\MessageController::class, 'reactionSnapshots'])->name('messages.reaction_snapshots');
     Route::get('/messages/popup-data',                   [\App\Http\Controllers\Seller\MessageController::class, 'popupData'])->name('messages.popup_data');
     Route::post('/messages/popup-send',                  [\App\Http\Controllers\Seller\MessageController::class, 'popupSend'])->name('messages.popup_send');
     Route::post('/messages/mark-read-msg/{id}',          [\App\Http\Controllers\Seller\MessageController::class, 'markReadMsg'])->name('messages.mark_read_msg');

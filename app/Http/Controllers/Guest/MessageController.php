@@ -173,4 +173,38 @@ class MessageController extends Controller
 
         return response()->json($result, $result['ok'] ? 200 : 422);
     }
+
+    public function reactionSnapshots(Request $request, string $trackCode)
+    {
+        $trackCode = strtoupper($trackCode);
+        $order = DB::table('orders')->where('track_code', $trackCode)->first();
+        if (!$order) return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+
+        $ids = collect($request->input('ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->take(80)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json(['ok' => true, 'reactions' => []]);
+        }
+
+        $allowedIds = DB::table('messages')
+            ->where('order_id', $order->id)
+            ->whereIn('id', $ids)
+            ->pluck('id')
+            ->all();
+
+        return response()->json([
+            'ok' => true,
+            'reactions' => app(MessageInteractionService::class)->reactionSnapshots(
+                $allowedIds,
+                'guest_customer',
+                null,
+                $trackCode
+            ),
+        ]);
+    }
 }

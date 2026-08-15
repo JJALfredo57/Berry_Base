@@ -3161,6 +3161,8 @@ document.addEventListener('DOMContentLoaded', function() {
 .mc-fullscreen-reminder i { color:#e91e63;line-height:1.35;flex-shrink:0; }
 </style>
 
+@include('partials.message_interactions')
+
 <div id="miniChat">
   {{-- Header --}}
   <div id="miniChatHeader">
@@ -3246,6 +3248,20 @@ var mcPollTimer      = null;
 var mcSelectedImages = [];
 var mcSending        = false;
 var mcBadgePollTimer = null;
+
+if (window.BerryMessageInteractions) {
+  BerryMessageInteractions.init({ csrf: MC_CSRF });
+}
+
+function mcReactionUrl(message) {
+  if (!message || !message.id || !message.order_id) return '';
+  const orderId = encodeURIComponent(message.order_id);
+  const messageId = encodeURIComponent(message.id);
+  if (MC_ROLE === 'seller') return '/seller/messages/thread/' + orderId + '/messages/' + messageId + '/react';
+  if (MC_ROLE === 'admin') return '/admin/messages/thread/' + orderId + '/messages/' + messageId + '/react';
+  if (MC_ROLE === 'customer') return '/customer/messages/thread/' + orderId + '/messages/' + messageId + '/react';
+  return '';
+}
 
 function sellerBadgeLabel(count) {
   const next = Math.max(0, parseInt(count, 10) || 0);
@@ -3676,6 +3692,11 @@ function renderMcTimeline(container, messages, appendOnly = false) {
     const wrap = document.createElement('div');
     wrap.className = 'mc-msg-wrap ' + (isMe ? 'me' : 'them');
     if (msg.id) wrap.dataset.msgId = msg.id;
+    wrap.dataset.sender = msg.sender_role || '';
+    wrap.dataset.replySender = isMe ? 'You' : (msg.sender_role === 'seller' ? 'Seller' : (msg.customer_name || 'Customer'));
+    wrap.dataset.replySnippet = msg.message ? String(msg.message).slice(0, 90) : (msg.image_path ? 'Photo message' : 'Message');
+    const reactUrl = mcReactionUrl(msg);
+    if (reactUrl) wrap.dataset.reactUrl = reactUrl;
     if (msg.order_id) {
       wrap.dataset.orderId = msg.order_id;
       wrap.title = 'Open full order conversation';
@@ -3691,6 +3712,9 @@ function renderMcTimeline(container, messages, appendOnly = false) {
     const bubble = document.createElement('div');
     bubble.className = 'mc-bubble';
     let imgPaths = [];
+    if (window.BerryMessageInteractions && msg.reply_to) {
+      bubble.insertAdjacentHTML('beforeend', BerryMessageInteractions.replyHtml(msg.reply_to, isMe));
+    }
 
     // Parse image_path — may be single string or JSON array
     if (msg.image_path) {
@@ -3709,6 +3733,13 @@ function renderMcTimeline(container, messages, appendOnly = false) {
     time.className = 'mc-time';
     time.innerHTML = formatMcTime(msg.created_at) + (isMe ? ' <span class="mc-delivery-state" data-read-status data-message-id="' + (msg.id || '') + '" data-status="' + (msg.is_read ? 'seen' : 'sent') + '">' + (msg.is_read ? 'Seen' : 'Sent') + '</span>' : '');
     wrap.appendChild(time);
+    if (window.BerryMessageInteractions) {
+      const reactionWrap = document.createElement('div');
+      reactionWrap.dataset.reactions = '1';
+      reactionWrap.innerHTML = BerryMessageInteractions.reactionsHtml(msg.reactions || msg.reaction_summary || [], isMe);
+      wrap.appendChild(reactionWrap);
+      BerryMessageInteractions.bindRow(wrap);
+    }
     container.appendChild(wrap);
   });
 }
@@ -3745,6 +3776,45 @@ async function refreshMcReadStatuses() {
 
 setInterval(refreshMcReadStatuses, 10000);
 document.addEventListener('visibilitychange', refreshMcReadStatuses);
+
+var mcReactionSnapshotBusy = false;
+async function refreshMcReactionSnapshots() {
+  if (mcReactionSnapshotBusy || document.hidden || !mcOpen || MC_ROLE !== 'seller') return;
+  const rows = Array.from(document.querySelectorAll('#miniChatMessages [data-msg-id][data-order-id]')).slice(-80);
+  if (!rows.length || !window.BerryMessageInteractions) return;
+
+  const groups = rows.reduce((carry, row) => {
+    const orderId = row.dataset.orderId;
+    const msgId = row.dataset.msgId;
+    if (!orderId || !msgId) return carry;
+    if (!carry[orderId]) carry[orderId] = [];
+    carry[orderId].push(msgId);
+    return carry;
+  }, {});
+
+  mcReactionSnapshotBusy = true;
+  try {
+    await Promise.all(Object.entries(groups).map(async ([orderId, ids]) => {
+      const res = await fetch('/seller/messages/thread/' + encodeURIComponent(orderId) + '/reaction-snapshots', {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': MC_CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify({ids: Array.from(new Set(ids)).slice(-80)})
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.ok || !data.reactions) return;
+      Object.entries(data.reactions).forEach(([id, items]) => {
+        BerryMessageInteractions.updateReactions(id, Array.isArray(items) ? items : []);
+      });
+    }));
+  } catch(e) {
+  } finally {
+    mcReactionSnapshotBusy = false;
+  }
+}
+
+setInterval(refreshMcReactionSnapshots, 9000);
+document.addEventListener('visibilitychange', refreshMcReactionSnapshots);
 // ── Multi-image selected preview ──────────────────────────────────────
 function buildMcGalleryGrid(sources, marginBottom) {
   const clean = (sources || []).filter(Boolean);

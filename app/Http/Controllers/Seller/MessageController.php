@@ -352,6 +352,40 @@ class MessageController extends Controller
         return response()->json($result, $result['ok'] ? 200 : 422);
     }
 
+    public function reactionSnapshots(Request $request, string $orderId)
+    {
+        $shop = $this->getShop();
+        $order = $this->findShopOrder($shop, $orderId);
+        if (!$order) return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+
+        $ids = collect($request->input('ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->take(80)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json(['ok' => true, 'reactions' => []]);
+        }
+
+        $allowedIds = DB::table('messages')
+            ->where('order_id', $order->id)
+            ->whereIn('id', $ids)
+            ->pluck('id')
+            ->all();
+
+        return response()->json([
+            'ok' => true,
+            'reactions' => app(MessageInteractionService::class)->reactionSnapshots(
+                $allowedIds,
+                'seller',
+                (string) (session('user')['id'] ?? ''),
+                null
+            ),
+        ]);
+    }
+
     public function popupData(Request $request)
     {
         $shop  = $this->getShop();
@@ -371,6 +405,12 @@ class MessageController extends Controller
             ->where('m.sender_role', 'customer')
             ->where('m.is_read', false)
             ->count();
+        $messages = app(MessageInteractionService::class)->decorate(
+            $messages,
+            'seller',
+            (string) (session('user')['id'] ?? '')
+        );
+
         return response()->json(['messages'=>$messages,'unread'=>$unread]);
     }
 

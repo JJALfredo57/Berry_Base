@@ -134,6 +134,36 @@ class MessageInteractionService
         ];
     }
 
+    public function reactionSnapshots(array $messageIds, string $actorRole, ?string $actorId = null, ?string $guestKey = null): array
+    {
+        if (!Schema::hasTable('message_reactions')) {
+            return [];
+        }
+
+        $ids = collect($messageIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->take(80)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        $actorKey = $this->actorKey($actorRole, $actorId, $guestKey);
+        $rows = DB::table('message_reactions')
+            ->whereIn('message_id', $ids)
+            ->get()
+            ->groupBy('message_id');
+
+        return $ids
+            ->mapWithKeys(fn ($id) => [
+                (string) $id => $this->reactionSummary($rows->get($id, collect()), $actorKey),
+            ])
+            ->all();
+    }
+
     public function summary(object $message): array
     {
         $text = trim((string) ($message->message ?? ''));
