@@ -276,6 +276,7 @@ Route::get('/register/back',        [RegisterController::class, 'back'])->name('
 
 Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group(function () {
     Route::get('/dashboard',   [CustomerDashboard::class, 'index'])->name('dashboard');
+    Route::get('/notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::get('/feedback',    [\App\Http\Controllers\Customer\FeedbackController::class, 'create'])->name('feedback');
     Route::post('/feedback',   [\App\Http\Controllers\Customer\FeedbackController::class, 'store'])->name('feedback.store');
 
@@ -348,6 +349,7 @@ Route::get('/admin/forgot-password/back',        [ForgotPasswordController::clas
 Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(function () {
     // Dashboard
     Route::get('/dashboard', [\App\Http\Controllers\Seller\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::get('/payouts',   [\App\Http\Controllers\Seller\PayoutController::class, 'index'])->name('payouts');
     Route::post('/payouts/details', [\App\Http\Controllers\Seller\PayoutController::class, 'saveDetails'])->name('payouts.details');
     Route::post('/payouts/request', [\App\Http\Controllers\Seller\PayoutController::class, 'requestManual'])->name('payouts.request');
@@ -455,6 +457,10 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
 });
 
 // ── Super Admin Routes ───────────────────────────────────────────────────────
+Route::prefix('superadmin')->name('superadmin.')->middleware('auth.superadmin')->group(function () {
+    Route::get('/notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
+});
+
 Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->group(function () {
     Route::get('/sellers',                     [\App\Http\Controllers\SuperAdmin\SellerController::class, 'index'])->name('sellers');
     Route::post('/sellers/{id}/approve',              [\App\Http\Controllers\SuperAdmin\SellerController::class, 'approve'])->name('sellers.approve');
@@ -494,6 +500,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
 
 Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function () {
     Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
+    Route::get('/notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
 
     Route::get('/products',                        [ProductController::class, 'index'])->name('products.index');
     Route::post('/products',                       [ProductController::class, 'store'])->name('products.store');

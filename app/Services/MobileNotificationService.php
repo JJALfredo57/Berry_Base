@@ -16,9 +16,7 @@ class MobileNotificationService
     public function notifyOrderCustomer(object $order, string $title, string $message, array $data = [], ?string $smsMessage = null): array
     {
         $trackCode = strtoupper(trim((string) ($order->track_code ?? '')));
-        $url = !empty($order->user_id)
-            ? route('customer.orders', [], false)
-            : ($trackCode ? route('track.order', $trackCode, false) : null);
+        $url = $this->orderCustomerUrl($order, $data);
 
         $recordId = $this->record([
             'role' => !empty($order->user_id) ? 'customer' : 'guest_customer',
@@ -45,6 +43,7 @@ class MobileNotificationService
     public function notifyGuestTrackCode(?string $trackCode, ?string $phone, string $title, string $message, array $data = [], ?string $smsMessage = null): array
     {
         $trackCode = strtoupper(trim((string) $trackCode));
+        $url = $trackCode ? route('track.order', $trackCode, false) . $this->eventHash($data['event'] ?? null) : null;
         $recordId = $this->record([
             'role' => 'guest_customer',
             'guest_track_code' => $trackCode ?: null,
@@ -52,12 +51,13 @@ class MobileNotificationService
             'event_type' => $data['event'] ?? 'order_update',
             'title' => $title,
             'message' => $message,
-            'url' => $trackCode ? route('track.order', $trackCode, false) : null,
+            'url' => $url,
             'data' => $data,
         ]);
 
         $sent = $this->push->sendToGuestTrackCode($trackCode, $title, $message, $data + [
             'notification_id' => (string) $recordId,
+            'url' => $url ?? '',
         ]);
 
         return $this->finish($recordId, $sent, $phone, $smsMessage);
@@ -91,10 +91,12 @@ class MobileNotificationService
             : null;
         $phone = $sellerId ? DB::table('users')->where('id', $sellerId)->value('phone') : null;
 
-        return $this->notifyUser('seller', $sellerId ? (string) $sellerId : null, $phone, $title, $message, $data + [
+        $payload = $data + [
             'order_id' => (string) ($order->id ?? ''),
             'track_code' => (string) ($order->track_code ?? ''),
-        ], $smsMessage, route('seller.orders', [], false));
+        ];
+
+        return $this->notifyUser('seller', $sellerId ? (string) $sellerId : null, $phone, $title, $message, $payload, $smsMessage, $this->orderSellerUrl($order, $payload));
     }
 
     public function notifyPaymentComplete(object $order, ?string $customerSmsMessage = null): array
@@ -206,5 +208,45 @@ class MobileNotificationService
             Log::warning('Mobile notification record failed: ' . $e->getMessage());
             return null;
         }
+    }
+
+    private function orderCustomerUrl(object $order, array $data = []): ?string
+    {
+        $event = (string) ($data['event'] ?? '');
+        if (!empty($order->user_id)) {
+            if ($event === 'message' && !empty($order->id)) {
+                return route('customer.messages.thread', $order->id, false);
+            }
+
+            return route('customer.orders', [], false) . $this->eventHash($event);
+        }
+
+        $trackCode = strtoupper(trim((string) ($order->track_code ?? '')));
+        return $trackCode ? route('track.order', $trackCode, false) . $this->eventHash($event) : null;
+    }
+
+    private function orderSellerUrl(object $order, array $data = []): string
+    {
+        $event = (string) ($data['event'] ?? '');
+        if ($event === 'message' && !empty($order->id)) {
+            return route('seller.messages.thread', $order->id, false);
+        }
+
+        if (in_array($event, ['payment_complete', 'refund_request', 'cancel_request', 'order_cancelled'], true)) {
+            return route('seller.orders', [], false) . '#order-' . rawurlencode((string) ($order->id ?? ''));
+        }
+
+        return route('seller.orders', [], false);
+    }
+
+    private function eventHash(?string $event): string
+    {
+        return match ((string) $event) {
+            'message' => '#messages',
+            'payment_complete', 'payment_request', 'deposit_request' => '#payment',
+            'refund_sent', 'refund_request', 'cancel_request', 'order_cancelled' => '#refund',
+            'review_request' => '#review',
+            default => '',
+        };
     }
 }

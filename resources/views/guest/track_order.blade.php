@@ -252,6 +252,8 @@
     .track-notif-detail-title{font-size:1rem;font-weight:900;color:#111827;margin-right:38px}
     .track-notif-detail-message{white-space:pre-wrap;color:#374151;font-size:.86rem;line-height:1.55;margin-top:10px}
     .track-notif-detail-time{color:#9ca3af;font-size:.72rem;font-weight:800;margin-top:12px}
+    .track-notif-detail-action{margin-top:14px;width:100%;border:0;border-radius:12px;background:var(--primary);color:#fff;padding:.72rem .9rem;font-size:.82rem;font-weight:900;display:none;align-items:center;justify-content:center;gap:.45rem}
+    .track-notif-detail-action.is-visible{display:flex}
     @media (max-width:640px){
       .track-fab-wrap{right:14px;bottom:16px}
       .track-head{padding-top:4px}
@@ -363,6 +365,9 @@
     <div class="track-notif-detail-title" id="trackNotifDetailTitle"></div>
     <div class="track-notif-detail-message" id="trackNotifDetailMessage"></div>
     <div class="track-notif-detail-time" id="trackNotifDetailTime"></div>
+    <button type="button" class="track-notif-detail-action" id="trackNotifDetailAction" onclick="openTrackNotificationTarget()">
+      <i class="bi bi-box-arrow-up-right"></i>Open update
+    </button>
   </div>
 
   {{-- Status Badge --}}
@@ -600,7 +605,8 @@
             </div>
           </div>
         </div>
-        <div class="col-12">
+        <div class="col-12" id="payment">
+          <span id="refund" style="position:relative;top:-80px"></span>
           <div class="p-2 rounded-2 track-payment-summary">
             <div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Total Amount</div>
             <div class="fw-bold" style="color:var(--primary);font-size:clamp(.9rem,2.2vw,1.1rem)">&#8369;{{ number_format($paymentTotalAmount, 2) }}</div>
@@ -1545,6 +1551,18 @@ let trackNotifications = [];
 let trackNotificationsOffset = 0;
 let trackNotificationsHasMore = false;
 let trackNotificationsLoading = false;
+let trackActiveNotificationTarget = '';
+const trackSeenNotificationIds = new Set();
+
+const trackNotificationSeenObserver = 'IntersectionObserver' in window
+  ? new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          markTrackNotificationSeen(entry.target.dataset.notificationId);
+        }
+      });
+    }, { threshold: 0.65 })
+  : null;
 
 function csrfToken() {
   return document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -1572,12 +1590,18 @@ function renderTrackNotifications(reset = true) {
     list.innerHTML = '<div class="track-notif-empty"><i class="bi bi-bell me-1"></i>No notifications yet.</div>';
   } else if (reset) {
     list.innerHTML = trackNotifications.map(function (item) {
-      return '<button type="button" class="track-notif-item ' + (!item.is_read ? 'unread' : '') + '" onclick="openTrackNotificationDetail(' + item.id + ')">'
+      return '<button type="button" class="track-notif-item ' + (!item.is_read ? 'unread' : '') + '" data-notification-id="' + item.id + '" onclick="openTrackNotification(' + item.id + ')">'
         + '<div class="track-notif-item-title">' + escapeTrackText(item.title) + '</div>'
         + '<div class="track-notif-item-msg">' + escapeTrackText(item.message || '') + '</div>'
         + '<div class="track-notif-time">' + escapeTrackText(item.created_label || item.created_at || '') + '</div>'
         + '</button>';
     }).join('');
+    list.querySelectorAll('[data-notification-id]').forEach(function (el) {
+      const item = trackNotifications.find(n => String(n.id) === String(el.dataset.notificationId));
+      if (item && !item.is_read && trackNotificationSeenObserver) {
+        trackNotificationSeenObserver.observe(el);
+      }
+    });
   }
   if (more) more.style.display = trackNotificationsHasMore ? 'block' : 'none';
 }
@@ -1623,33 +1647,79 @@ function loadMoreTrackNotifications() {
   fetchTrackNotifications(false);
 }
 
+async function markTrackNotificationSeen(id) {
+  if (!id || trackSeenNotificationIds.has(String(id))) return;
+  const item = trackNotifications.find(n => String(n.id) === String(id));
+  if (!item || item.is_read) return;
+  trackSeenNotificationIds.add(String(id));
+  item.is_read = true;
+  updateTrackBell(trackNotifications.filter(n => !n.is_read).length);
+  renderTrackNotifications(true);
+  try {
+    await fetch(TRACK_NOTIFICATION_READ_URL.replace('__ID__', encodeURIComponent(id)), {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': csrfToken(),
+      },
+    });
+    fetchTrackNotifications(true);
+  } catch (e) {}
+}
+
+async function openTrackNotification(id) {
+  const item = trackNotifications.find(n => String(n.id) === String(id));
+  if (!item) return;
+  await markTrackNotificationSeen(id);
+  if (item.url && navigateTrackNotificationTarget(item.url)) return;
+  openTrackNotificationDetail(id);
+}
+
 async function openTrackNotificationDetail(id) {
   const item = trackNotifications.find(n => String(n.id) === String(id));
   if (!item) return;
+  trackActiveNotificationTarget = item.url || '';
   document.getElementById('trackNotifDetailTitle').textContent = item.title || 'Notification';
   document.getElementById('trackNotifDetailMessage').textContent = item.message || '';
   document.getElementById('trackNotifDetailTime').textContent = item.created_at || '';
+  const action = document.getElementById('trackNotifDetailAction');
+  if (action) action.classList.toggle('is-visible', !!trackActiveNotificationTarget);
   document.getElementById('trackNotifDetail')?.classList.add('is-open');
 
-  if (!item.is_read) {
-    item.is_read = true;
-    renderTrackNotifications(true);
-    try {
-      await fetch(TRACK_NOTIFICATION_READ_URL.replace('__ID__', encodeURIComponent(id)), {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-TOKEN': csrfToken(),
-        },
-      });
-      fetchTrackNotifications(true);
-    } catch (e) {}
-  }
+  markTrackNotificationSeen(id);
 }
 
 function closeTrackNotificationDetail() {
   document.getElementById('trackNotifDetail')?.classList.remove('is-open');
+}
+
+function openTrackNotificationTarget() {
+  if (trackActiveNotificationTarget) navigateTrackNotificationTarget(trackActiveNotificationTarget);
+}
+
+function navigateTrackNotificationTarget(url) {
+  if (!url) return false;
+  const target = new URL(url, window.location.origin);
+  if (target.origin === window.location.origin && target.pathname === window.location.pathname) {
+    closeTrackNotifications();
+    if (target.hash === '#messages') {
+      openTrackPanel('messagePanel');
+      return true;
+    }
+    if (target.hash === '#review') {
+      openTrackPanel('ratePanel');
+      return true;
+    }
+    if (target.hash) {
+      document.querySelector(target.hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return true;
+    }
+    return false;
+  }
+
+  window.location.href = target.href;
+  return true;
 }
 
 async function markAllTrackNotificationsRead() {
@@ -1938,6 +2008,19 @@ function closeTrackPanel(id) {
     document.getElementById('trackActionBackdrop')?.classList.remove('is-open');
   }
 }
+
+function openTrackHashTarget() {
+  if (window.location.hash === '#messages') {
+    openTrackPanel('messagePanel');
+  } else if (window.location.hash === '#review') {
+    openTrackPanel('ratePanel');
+  } else if (window.location.hash) {
+    document.querySelector(window.location.hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+window.addEventListener('hashchange', openTrackHashTarget);
+setTimeout(openTrackHashTarget, 350);
 
 function openReceiptDrawer() {
   mountTrackFloatingUi();

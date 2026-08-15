@@ -58,12 +58,12 @@ class PushNotificationService
         $payload = $this->orderData($order, $data);
         if (!empty($order->user_id)) {
             return $this->sendToUser('customer', (string) $order->user_id, $title, $body, $payload + [
-                'url' => route('customer.orders', [], false),
+                'url' => $this->customerOrderUrl($order, $payload),
             ]);
         }
 
         return $this->sendToGuestTrackCode($order->track_code ?? null, $title, $body, $payload + [
-            'url' => route('track.order', $order->track_code ?? '', false),
+            'url' => $this->guestTrackUrl($order, $payload),
         ]);
     }
 
@@ -75,7 +75,7 @@ class PushNotificationService
         }
 
         return $this->sendToUser('seller', $sellerId ? (string) $sellerId : null, $title, $body, $this->orderData($order, $data) + [
-            'url' => route('seller.orders', [], false),
+            'url' => $this->sellerOrderUrl($order, $data),
         ]);
     }
 
@@ -274,5 +274,43 @@ class PushNotificationService
             'order_id' => (string) ($order->id ?? ''),
             'track_code' => (string) ($order->track_code ?? ''),
         ];
+    }
+
+    private function customerOrderUrl(object $order, array $data): string
+    {
+        if (($data['event'] ?? '') === 'message' && !empty($order->id)) {
+            return route('customer.messages.thread', $order->id, false);
+        }
+
+        return route('customer.orders', [], false) . $this->eventHash($data['event'] ?? null);
+    }
+
+    private function guestTrackUrl(object $order, array $data): string
+    {
+        return route('track.order', $order->track_code ?? '', false) . $this->eventHash($data['event'] ?? null);
+    }
+
+    private function sellerOrderUrl(object $order, array $data): string
+    {
+        if (($data['event'] ?? '') === 'message' && !empty($order->id)) {
+            return route('seller.messages.thread', $order->id, false);
+        }
+
+        if (in_array(($data['event'] ?? ''), ['payment_complete', 'refund_request', 'cancel_request', 'order_cancelled'], true)) {
+            return route('seller.orders', [], false) . '#order-' . rawurlencode((string) ($order->id ?? ''));
+        }
+
+        return route('seller.orders', [], false);
+    }
+
+    private function eventHash(?string $event): string
+    {
+        return match ((string) $event) {
+            'message' => '#messages',
+            'payment_complete', 'payment_request', 'deposit_request' => '#payment',
+            'refund_sent', 'refund_request', 'cancel_request', 'order_cancelled' => '#refund',
+            'review_request' => '#review',
+            default => '',
+        };
     }
 }

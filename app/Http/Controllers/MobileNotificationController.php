@@ -39,7 +39,7 @@ class MobileNotificationController extends Controller
                 'title' => $row->title,
                 'message' => $row->message,
                 'event_type' => $row->event_type,
-                'url' => $row->url,
+                'url' => $row->url ?: $this->trackUrl($trackCode, $row->event_type),
                 'is_read' => (bool) $row->is_read,
                 'created_at' => (string) $row->created_at,
                 'created_label' => $row->created_at ? \Carbon\Carbon::parse($row->created_at)->diffForHumans() : '',
@@ -76,5 +76,16 @@ class MobileNotificationController extends Controller
     private function trackExists(string $trackCode): bool
     {
         return DB::table('orders')->where('track_code', strtoupper($trackCode))->exists();
+    }
+
+    private function trackUrl(string $trackCode, ?string $event): string
+    {
+        return route('track.order', strtoupper($trackCode), false) . match ((string) $event) {
+            'message' => '#messages',
+            'payment_complete', 'payment_request', 'deposit_request' => '#payment',
+            'refund_sent', 'refund_request', 'cancel_request', 'order_cancelled' => '#refund',
+            'review_request' => '#review',
+            default => '',
+        };
     }
 }
