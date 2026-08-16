@@ -2311,14 +2311,18 @@ BerryMessageInteractions.init({
   composer: '#msgInput'
 });
 
-function renderMessages(msgs) {
+function renderMessages(msgs, options = {}) {
   const thread = document.getElementById('chatBox');
   const empty  = document.getElementById('msgEmpty');
   if (!msgs.length) return;
   if (empty) empty.style.display = 'none';
+  const wasEmpty = rendered.length === 0;
+  const wasNearBottom = !thread || (thread.scrollHeight - thread.scrollTop - thread.clientHeight) < 64;
+  let appended = false;
 
   msgs.filter(m => !rendered.includes(m.id)).forEach(m => {
     rendered.push(m.id);
+    appended = true;
     const isMine = !m.is_admin;
     let imgs = [];
     if (m.image_path) {
@@ -2354,7 +2358,9 @@ function renderMessages(msgs) {
     thread.appendChild(row);
     BerryMessageInteractions.bindRow(row);
   });
-  thread.scrollTop = thread.scrollHeight;
+  if (thread && appended && (options.stickToBottom || wasEmpty || wasNearBottom)) {
+    thread.scrollTop = thread.scrollHeight;
+  }
 }
 
 let guestReadStatusBusy = false;
@@ -2477,7 +2483,7 @@ async function sendGuestMsg() {
     }
     const d = await r.json();
     if (d.ok) {
-      if (d.message) renderMessages([d.message]);
+      if (d.message) renderMessages([d.message], {stickToBottom:true});
       else await pollMessages();
       BerryMessageInteractions.clearReply();
       if (input) input.innerHTML = '';

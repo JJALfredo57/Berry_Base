@@ -98,6 +98,9 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   function shouldIgnoreBubbleAction(target) {
     return !!target.closest('.msg-reply-quote,[data-lightbox-gallery],.chat-img,a,input,textarea,select,label,.reply-compose-close');
   }
+  function hasCoarsePointer() {
+    return window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  }
   function setReply(row) {
     const input = document.querySelector(cfg.replyInput || '[data-reply-input]');
     const preview = document.querySelector(cfg.replyPreview || '[data-reply-preview]');
@@ -500,6 +503,12 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     bubble.appendChild(btn);
     bubble.addEventListener('contextmenu', e => {
       if (shouldIgnoreBubbleAction(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openTray(row);
+    });
+    bubble.addEventListener('click', e => {
+      if (!hasCoarsePointer() || shouldIgnoreBubbleAction(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
       openTray(row);
