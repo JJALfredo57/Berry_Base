@@ -280,7 +280,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       { left: centeredLeft, top: anchorRect.bottom + gap }
     ];
 
-    const placement = candidates.map(candidate => {
+    const placements = candidates.map(candidate => {
       const left = clamp(candidate.left, minLeft, maxLeft);
       const top = clamp(candidate.top, minTop, maxTop);
       return {
@@ -288,12 +288,13 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
         top,
         rect: { left, top, right: left + trayRect.width, bottom: top + trayRect.height }
       };
-    }).find(candidate => !rectsOverlap(candidate.rect, anchorRect, 4));
-
-    if (!placement) {
-      shelveTray(tray, animate);
-      return true;
-    }
+    });
+    const placement = placements.find(candidate => !rectsOverlap(candidate.rect, anchorRect, 4))
+      || placements.find(candidate => candidate.top + trayRect.height <= viewportRect.bottom - innerMargin)
+      || {
+        left: clamp(centeredLeft, minLeft, maxLeft),
+        top: clamp(viewportRect.bottom - trayRect.height - innerMargin, minTop, maxTop),
+      };
 
     setTrayPosition(tray, placement.left, placement.top);
     unshelveTray(tray, animate);
