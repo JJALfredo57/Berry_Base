@@ -18,8 +18,10 @@
 .cake-reaction-tray{position:fixed;left:0;top:0;transform:scale(.94);transform-origin:center;z-index:9500;background:linear-gradient(180deg,#fff,#fffaf5);border:1px solid rgba(226,232,240,.95);border-radius:18px;padding:8px;display:none;gap:6px;box-shadow:0 24px 70px rgba(15,23,42,.26),inset 0 1px 0 rgba(255,255,255,.9);max-width:calc(100vw - 16px);overflow-x:auto;opacity:0;pointer-events:none;will-change:transform,opacity}
 .cake-reaction-tray:before{content:"";position:absolute;inset:2px 2px auto 2px;height:45%;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,255,255,0));pointer-events:none}
 .cake-reaction-tray.is-open{display:flex;opacity:1;pointer-events:auto;animation:trayIn .18s cubic-bezier(.18,1.45,.36,1) forwards}
+.cake-reaction-tray.is-open.is-ready{pointer-events:auto}
 .cake-reaction-tray.is-bursting{display:flex;pointer-events:none;animation:trayBurst .24s ease forwards}
-.cake-reaction-tray.is-shelved{display:flex;opacity:0;pointer-events:none;transform:scale(.94)}
+.cake-reaction-tray.is-shelved{display:none!important;opacity:0;pointer-events:none;transform:scale(.94)}
+.cake-reaction-tray.is-measuring{display:flex!important;opacity:0!important;pointer-events:none!important;animation:none!important}
 .cake-reaction-tray.is-floating-back{animation:trayInflate .24s cubic-bezier(.18,1.55,.36,1) forwards}
 .cake-react-btn{width:52px;height:58px;border:0;border-radius:14px;background:#f8fafc;color:#111827;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:transform .15s,background .15s}
 .cake-react-btn:hover{transform:translateY(-4px);background:var(--primary-bg,#fff7ed)}.cake-react-label{font-size:.54rem;font-weight:900;line-height:1;color:#64748b}
@@ -187,6 +189,13 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     tray.style.setProperty('right', 'auto', 'important');
     tray.style.setProperty('bottom', 'auto', 'important');
   }
+  function prepareTrayForMeasurement(tray) {
+    if (!tray.classList.contains('is-open')) {
+      tray.classList.remove('is-shelved','is-bursting','is-floating-back','is-ready');
+      tray.classList.add('is-measuring');
+      tray.style.pointerEvents = 'none';
+    }
+  }
   function positionInsideMessageViewport(row, tray, anchor, gap, margin) {
     const viewport = messageViewport(row);
     const viewportRect = visibleRect(viewport);
@@ -195,6 +204,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     const innerMargin = Math.max(6, margin);
     const maxWidth = Math.max(180, viewportRect.width - (innerMargin * 2));
     tray.style.maxWidth = Math.min(window.innerWidth - 16, maxWidth) + 'px';
+    prepareTrayForMeasurement(tray);
 
     const anchorRect = anchor.getBoundingClientRect();
     if (!rectsOverlap(anchorRect, viewportRect, 0)) {
@@ -266,26 +276,41 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       .filter(Boolean);
   }
   function shelveTray(tray) {
-    if (trayShelved || !tray) return;
+    if (!tray) return;
+    if (trayShelved) {
+      tray.classList.remove('is-open','is-ready','is-floating-back','is-measuring','is-bursting');
+      tray.classList.add('is-shelved');
+      tray.setAttribute('aria-hidden','true');
+      tray.style.pointerEvents = 'none';
+      return;
+    }
     trayShelved = true;
     window.clearTimeout(trayBurstTimer);
-    tray.classList.remove('is-floating-back');
+    tray.classList.remove('is-open','is-floating-back','is-ready','is-measuring');
+    tray.style.pointerEvents = 'none';
     tray.classList.add('is-bursting');
     tray.setAttribute('aria-hidden','true');
     trayBurstTimer = window.setTimeout(() => {
       if (!trayShelved) return;
-      tray.classList.remove('is-bursting');
+      tray.classList.remove('is-open','is-bursting','is-ready','is-floating-back','is-measuring');
       tray.classList.add('is-shelved');
+      tray.style.pointerEvents = 'none';
     }, 230);
   }
   function unshelveTray(tray) {
-    if (!trayShelved || !tray) return;
+    if (!tray) return;
     trayShelved = false;
     window.clearTimeout(trayBurstTimer);
-    tray.classList.remove('is-bursting','is-shelved');
+    tray.classList.remove('is-bursting','is-shelved','is-measuring');
     tray.classList.add('is-open','is-floating-back');
+    tray.style.pointerEvents = 'auto';
     tray.setAttribute('aria-hidden','false');
-    window.setTimeout(() => tray.classList.remove('is-floating-back'), 260);
+    window.setTimeout(() => {
+      if (trayShelved) return;
+      tray.classList.remove('is-floating-back');
+      tray.classList.add('is-ready');
+      tray.style.pointerEvents = 'auto';
+    }, 260);
   }
   function positionTray(row, tray) {
     if (!row || !tray) return;
@@ -339,7 +364,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     trayFrame = window.requestAnimationFrame(() => {
       trayFrame = null;
       const tray = document.getElementById('cakeReactionTray');
-      if (!activeRow || !tray || !tray.classList.contains('is-open')) return;
+      if (!activeRow || !tray) return;
       if (!activeVisible) {
         shelveTray(tray);
         return;
@@ -365,8 +390,8 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     tray.classList.add('is-open');
     tray.setAttribute('aria-hidden','false');
     activeVisible ? positionTray(row, tray) : shelveTray(tray);
-    tray.querySelector('[data-reply-action]')?.addEventListener('click', () => setReply(row));
-    tray.querySelectorAll('[data-reaction]').forEach(btn => btn.addEventListener('click', () => react(btn.dataset.reaction)));
+    tray.querySelector('[data-reply-action]')?.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setReply(row); });
+    tray.querySelectorAll('[data-reaction]').forEach(btn => btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); react(btn.dataset.reaction); }));
   }
   function closeTray() {
     const tray = document.getElementById('cakeReactionTray');
@@ -374,8 +399,9 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     if (trayFrame) window.cancelAnimationFrame(trayFrame);
     trayFrame = null;
     resetActiveObserver();
-    tray?.classList.remove('is-open','is-bursting','is-shelved','is-floating-back');
+    tray?.classList.remove('is-open','is-bursting','is-shelved','is-floating-back','is-ready','is-measuring');
     tray?.setAttribute('aria-hidden','true');
+    if (tray) tray.style.pointerEvents = '';
     trayShelved = false;
     activeRow = null;
     activeBubble = null;
