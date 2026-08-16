@@ -133,9 +133,15 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   }
   function bubbleVisibleEnough(anchorRect, viewportRect) {
     const visible = intersectionRect(anchorRect, viewportRect);
-    const requiredHeight = Math.min(Math.max(anchorRect.height * 0.55, 24), 96);
-    const requiredWidth = Math.min(Math.max(anchorRect.width * 0.5, 36), 120);
-    return visible.height >= requiredHeight && visible.width >= requiredWidth;
+    const centerX = anchorRect.left + (anchorRect.width / 2);
+    const centerY = anchorRect.top + (anchorRect.height / 2);
+    const centerVisible = centerX >= viewportRect.left
+      && centerX <= viewportRect.right
+      && centerY >= viewportRect.top
+      && centerY <= viewportRect.bottom;
+    const requiredHeight = Math.min(Math.max(anchorRect.height * 0.72, 34), 140);
+    const requiredWidth = Math.min(Math.max(anchorRect.width * 0.68, 48), 160);
+    return centerVisible && visible.height >= requiredHeight && visible.width >= requiredWidth;
   }
   function setTrayPosition(tray, left, top) {
     tray.style.setProperty('left', left + 'px', 'important');
