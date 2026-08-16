@@ -46,7 +46,8 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     ['sweet','Sweet'], ['yummy','Yummy'], ['love','Love'],
     ['wow','Wow'], ['sad','Sad'], ['burnt','Angry'], ['nope','Nope']
   ];
-  let activeRow = null, cfg = {}, pressTimer = null, trayShelved = false, trayBurstTimer = null;
+  let activeRow = null, activeBubble = null, activeViewport = null, activeVisible = false, activeObserver = null;
+  let cfg = {}, pressTimer = null, trayShelved = false, trayBurstTimer = null, trayFrame = null;
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   function cakeFace(type, tiny = false) {
     const safe = String(type || 'sweet').replace(/[^a-z0-9_-]/gi, '');
@@ -142,6 +143,43 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     const requiredHeight = Math.min(Math.max(anchorRect.height * 0.72, 34), 140);
     const requiredWidth = Math.min(Math.max(anchorRect.width * 0.68, 48), 160);
     return centerVisible && visible.height >= requiredHeight && visible.width >= requiredWidth;
+  }
+  function isBubbleVisibleForTray(anchor, viewport) {
+    const viewportRect = visibleRect(viewport);
+    if (!anchor || !viewportRect) return false;
+    return bubbleVisibleEnough(anchor.getBoundingClientRect(), viewportRect);
+  }
+  function resetActiveObserver() {
+    if (activeObserver) activeObserver.disconnect();
+    activeObserver = null;
+  }
+  function observeActiveBubble(row, bubble) {
+    resetActiveObserver();
+    activeBubble = bubble;
+    activeViewport = messageViewport(row);
+    activeVisible = isBubbleVisibleForTray(activeBubble, activeViewport);
+    if (!activeBubble || !activeViewport || typeof IntersectionObserver !== 'function') return;
+
+    activeObserver = new IntersectionObserver(() => {
+      const nextVisible = isBubbleVisibleForTray(activeBubble, activeViewport);
+      if (nextVisible === activeVisible) {
+        scheduleTrayPosition();
+        return;
+      }
+
+      activeVisible = nextVisible;
+      const tray = document.getElementById('cakeReactionTray');
+      if (!tray) return;
+      if (!activeVisible) {
+        shelveTray(tray);
+        return;
+      }
+      scheduleTrayPosition();
+    }, {
+      root: activeViewport,
+      threshold: [0, .25, .55, .72, .9, 1]
+    });
+    activeObserver.observe(activeBubble);
   }
   function setTrayPosition(tray, left, top) {
     tray.style.setProperty('left', left + 'px', 'important');
@@ -253,6 +291,13 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     if (!row || !tray) return;
     const anchor = messageBubble(row);
     if (!anchor) return;
+    if (activeBubble && anchor !== activeBubble) return;
+    if (activeViewport && !isBubbleVisibleForTray(anchor, activeViewport)) {
+      activeVisible = false;
+      shelveTray(tray);
+      return;
+    }
+    activeVisible = true;
     const gap = 8;
     const margin = 8;
     if (positionInsideMessageViewport(row, tray, anchor, gap, margin)) return;
@@ -289,14 +334,29 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     const unsafe = rectsOverlap(placedRect, rect, 4) || bottomBlockerRects().some(blocker => rectsOverlap(placedRect, blocker, 6));
     unsafe ? shelveTray(tray) : unshelveTray(tray);
   }
+  function scheduleTrayPosition() {
+    if (trayFrame) return;
+    trayFrame = window.requestAnimationFrame(() => {
+      trayFrame = null;
+      const tray = document.getElementById('cakeReactionTray');
+      if (!activeRow || !tray || !tray.classList.contains('is-open')) return;
+      if (!activeVisible) {
+        shelveTray(tray);
+        return;
+      }
+      positionTray(activeRow, tray);
+    });
+  }
   function positionOpenTray() {
-    const tray = document.getElementById('cakeReactionTray');
-    if (activeRow && tray?.classList.contains('is-open')) positionTray(activeRow, tray);
+    scheduleTrayPosition();
   }
   function openTray(row) {
     activeRow = row;
     const tray = document.getElementById('cakeReactionTray');
     if (!tray) return;
+    const bubble = messageBubble(row);
+    if (!bubble) return;
+    observeActiveBubble(row, bubble);
     tray.innerHTML = `<div class="cake-action-row"><button type="button" class="cake-action-btn" data-reply-action><i class="bi bi-reply-fill"></i><span>Reply</span></button></div>` +
       reactions.map(r => `<button type="button" class="cake-react-btn" data-reaction="${r[0]}" title="${r[1]}">${cakeFace(r[0])}<span class="cake-react-label">${r[1]}</span></button>`).join('');
     trayShelved = false;
@@ -304,17 +364,23 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     tray.classList.remove('is-bursting','is-shelved','is-floating-back');
     tray.classList.add('is-open');
     tray.setAttribute('aria-hidden','false');
-    positionTray(row, tray);
+    activeVisible ? positionTray(row, tray) : shelveTray(tray);
     tray.querySelector('[data-reply-action]')?.addEventListener('click', () => setReply(row));
     tray.querySelectorAll('[data-reaction]').forEach(btn => btn.addEventListener('click', () => react(btn.dataset.reaction)));
   }
   function closeTray() {
     const tray = document.getElementById('cakeReactionTray');
     window.clearTimeout(trayBurstTimer);
+    if (trayFrame) window.cancelAnimationFrame(trayFrame);
+    trayFrame = null;
+    resetActiveObserver();
     tray?.classList.remove('is-open','is-bursting','is-shelved','is-floating-back');
     tray?.setAttribute('aria-hidden','true');
     trayShelved = false;
     activeRow = null;
+    activeBubble = null;
+    activeViewport = null;
+    activeVisible = false;
   }
   function bindRow(row) {
     if (!row || row.dataset.interactionsBound === '1') return;
