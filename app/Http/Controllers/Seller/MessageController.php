@@ -423,6 +423,7 @@ class MessageController extends Controller
         $orderId = $order->id;
 
         $text  = trim($request->input('message',''));
+        $replyToId = app(MessageInteractionService::class)->validateReply((int) $request->input('reply_to_id'), (string) $order->id);
         $files = $request->file('images') ?? [];
         if (!is_array($files)) $files = [$files];
 
@@ -445,7 +446,8 @@ class MessageController extends Controller
             session('user')['id'] ?? null,
             $text,
             $paths,
-            $imgPath
+            $imgPath,
+            $replyToId
         );
         try {
             app(MobileNotificationService::class)->notifyOrderCustomer(
@@ -464,6 +466,7 @@ class MessageController extends Controller
             'sender_role'  => 'seller',
             'message'      => $text,
             'image_path'   => $imgPath,
+            'reply_to'     => $replyToId ? app(MessageInteractionService::class)->summary(DB::table('messages')->where('id', $replyToId)->first()) : null,
             'created_at'   => now(),
         ]);
     }

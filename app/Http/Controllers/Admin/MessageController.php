@@ -117,6 +117,7 @@ class MessageController extends Controller
                 'm.message',
                 'm.image_path',
                 'm.is_read',
+                'm.reply_to_id',
                 'm.created_at',
                 'p.name as product_name',
                 DB::raw("COALESCE(o.guest_name, u.fullname, 'Customer') as customer_name"),
@@ -128,6 +129,12 @@ class MessageController extends Controller
             ->orderByDesc('m.created_at')
             ->limit($limit)
             ->get();
+
+        $messages = app(MessageInteractionService::class)->decorate(
+            $messages,
+            'admin',
+            (string) (session('user')['id'] ?? '')
+        );
 
         $admin = DB::table('users')
             ->where('id', session('user')['id'])
@@ -172,8 +179,9 @@ public function popupSend(Request $request)
 
         $order  = $orderId ? DB::table('orders')->where('id', $orderId)->first() : null;
         $custId = $request->input('user_id', $order?->user_id ?? null);
+        $replyToId = app(MessageInteractionService::class)->validateReply((int) $request->input('reply_to_id'), (string) $orderId);
 
-        $id = DB::table('messages')->insertGetId([
+        $row = [
             'order_id'    => $orderId ?: null,
             'user_id'     => $custId,
             'sender_role' => 'admin',
@@ -182,7 +190,11 @@ public function popupSend(Request $request)
             'image_path'  => $imgPath,
             'is_read' => false,
             'created_at'  => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('messages', 'reply_to_id')) {
+            $row['reply_to_id'] = $replyToId;
+        }
+        $id = DB::table('messages')->insertGetId($row);
 
         if ($custId) {
             DB::table('notifications')->insert([
@@ -198,9 +210,10 @@ public function popupSend(Request $request)
         $product = $order ? DB::table('products')->where('id', $order->product_id)->value('name') : null;
         return response()->json([
             'id'           => $id,
-                        'sender_role'  => 'admin',
+            'sender_role'  => 'admin',
             'message'      => $text,
             'image_path'   => $imgPath,
+            'reply_to'     => $replyToId ? app(MessageInteractionService::class)->summary(DB::table('messages')->where('id', $replyToId)->first()) : null,
             'created_at'   => now(),
             'product_name' => $product ?? 'General Inquiry',
         ]);

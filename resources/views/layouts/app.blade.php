@@ -3160,6 +3160,8 @@ document.addEventListener('DOMContentLoaded', function() {
   align-items:flex-start;
 }
 .mc-fullscreen-reminder i { color:#e91e63;line-height:1.35;flex-shrink:0; }
+#mcReplyPreview{margin:0;border-left:0;border-right:0;border-radius:0;padding:8px 12px;background:#fff7fb}
+#mcReplyPreview .reply-compose-close{width:26px;height:26px}
 </style>
 
 @include('partials.message_interactions')
@@ -3209,6 +3211,15 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 
   {{-- Input --}}
+  <input type="hidden" id="mcReplyToInput" data-reply-input value="">
+  <div class="reply-compose-preview" id="mcReplyPreview" data-reply-preview>
+    <div class="reply-compose-bar"></div>
+    <div class="reply-compose-body">
+      <div class="reply-compose-label">Replying to <span data-reply-preview-name></span></div>
+      <div class="reply-compose-text" data-reply-preview-text></div>
+    </div>
+    <button type="button" class="reply-compose-close" onclick="BerryMessageInteractions.clearReply()" title="Cancel reply"><i class="bi bi-x-lg"></i></button>
+  </div>
   <div id="miniChatInput" style="display:none">
     <label for="mcImageInput" id="mcImgBtn" style="width:32px;height:32px;border-radius:50%;background:#f5f5f5;border:none;color:#aaa;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;margin:0" title="Attach images">
       <i class="bi bi-paperclip" style="font-size:.85rem"></i>
@@ -3251,7 +3262,12 @@ var mcSending        = false;
 var mcBadgePollTimer = null;
 
 if (window.BerryMessageInteractions) {
-  BerryMessageInteractions.init({ csrf: MC_CSRF });
+  BerryMessageInteractions.init({
+    csrf: MC_CSRF,
+    replyInput: '#mcReplyToInput',
+    replyPreview: '#mcReplyPreview',
+    composer: '#mcInput'
+  });
 }
 
 function mcReactionUrl(message) {
@@ -3580,7 +3596,11 @@ function setMcInput(show) {
   const bar     = document.getElementById('miniChatInput');
   const preBar  = document.getElementById('mcImgPreviewBar');
   if (bar) bar.style.display = show ? 'flex' : 'none';
-  if (!show && preBar) { preBar.style.display = 'none'; mcClearImage(); }
+  if (!show && preBar) {
+    preBar.style.display = 'none';
+    mcClearImage();
+    if (window.BerryMessageInteractions) BerryMessageInteractions.clearReply();
+  }
 }
 
 function autoGrowMcInput(input) {
@@ -3927,6 +3947,11 @@ async function mcSend() {
   const text   = input.value.trim();
   const images = [...mcSelectedImages];
   if (!text && images.length === 0) return;
+  const replyToInput = document.getElementById('mcReplyToInput');
+  const optimisticReply = replyToInput && replyToInput.value ? {
+    label: document.querySelector('#mcReplyPreview [data-reply-preview-name]')?.textContent || 'Message',
+    snippet: document.querySelector('#mcReplyPreview [data-reply-preview-text]')?.textContent || 'Message'
+  } : null;
 
   mcSending = true;
   if (sendBtn) {
@@ -3951,6 +3976,9 @@ async function mcSend() {
   bubble.className = 'mc-bubble';
   if (images.length > 0) bubble.classList.add('has-media');
   if (!text && images.length > 0) bubble.classList.add('image-only');
+  if (window.BerryMessageInteractions && optimisticReply) {
+    bubble.insertAdjacentHTML('beforeend', BerryMessageInteractions.replyHtml(optimisticReply, true));
+  }
 
   if (images.length > 0) {
     const grid = buildMcGalleryGrid(images.map(f => URL.createObjectURL(f)), text ? '4px' : '0');
@@ -3971,6 +3999,7 @@ async function mcSend() {
     fd.append('order_id', mcLatestOrderId || 0);
     fd.append('user_id',  mcActiveUserId || MC_USER_ID);
     fd.append('_token',   MC_CSRF);
+    if (replyToInput && replyToInput.value) fd.append('reply_to_id', replyToInput.value);
     images.forEach(f => fd.append('images[]', f));
 
     const res  = await fetch(MC_SEND_URL, { method: 'POST', body: fd, headers: { 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest' } });
@@ -3989,6 +4018,7 @@ async function mcSend() {
       wrap.dataset.msgId = data.id;
       if (mcActiveCustomer && mcActiveCustomer.knownIds) mcActiveCustomer.knownIds.add(data.id);
     }
+    if (window.BerryMessageInteractions) BerryMessageInteractions.clearReply();
 
     // Update optimistic images with real paths
     if (data.image_path) {
