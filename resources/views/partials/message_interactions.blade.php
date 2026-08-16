@@ -18,6 +18,7 @@
 .reaction-pill.mine{border-color:rgba(var(--primary-rgb),.35);background:var(--primary-bg,#fff7ed)}
 .mc-bubble .msg-reply-quote{padding:5px 7px 5px 9px;margin-bottom:5px;font-size:.66rem;border-radius:8px}.mc-bubble .msg-reply-name{font-size:.62rem}.mc-bubble .msg-reply-text{font-size:.66rem;max-width:150px}.mc-bubble .message-reactions{margin-top:5px;gap:3px}.mc-bubble .reaction-pill{padding:1px 5px;font-size:.66rem}.bbl-g .message-reactions,.bubble .message-reactions{width:100%}.msg-interaction-bubble.is-reply-target{animation:replyTargetPulse 1.08s cubic-bezier(.18,1.2,.28,1) both}
 .cake-reaction-tray{position:fixed;left:0;top:0;transform:scale(.94);transform-origin:center;z-index:9500;background:linear-gradient(180deg,#fff,#fffaf5);border:1px solid rgba(226,232,240,.95);border-radius:18px;padding:8px;display:none;gap:6px;box-shadow:0 24px 70px rgba(15,23,42,.26),inset 0 1px 0 rgba(255,255,255,.9);max-width:calc(100vw - 16px);overflow-x:auto;opacity:0;pointer-events:none;will-change:transform,opacity}
+.cake-reaction-tray.is-panel-contained{position:absolute;z-index:5}
 .cake-reaction-tray:before{content:"";position:absolute;inset:2px 2px auto 2px;height:45%;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,255,255,0));pointer-events:none}
 .cake-reaction-tray.is-open{display:flex;opacity:1;pointer-events:auto;animation:trayIn .18s cubic-bezier(.18,1.45,.36,1) forwards}
 .cake-reaction-tray.is-open.is-ready{pointer-events:auto}
@@ -226,7 +227,18 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     });
     activeObserver.observe(activeBubble);
   }
+  function ensureTrayHost(row, tray) {
+    const panel = row?.closest('#messagePanel.track-action-panel');
+    const target = panel || document.body;
+    if (tray.parentElement !== target) target.appendChild(tray);
+    tray.classList.toggle('is-panel-contained', !!panel);
+  }
   function setTrayPosition(tray, left, top) {
+    if (tray.classList.contains('is-panel-contained') && tray.parentElement) {
+      const hostRect = tray.parentElement.getBoundingClientRect();
+      left = left - hostRect.left + tray.parentElement.scrollLeft;
+      top = top - hostRect.top + tray.parentElement.scrollTop;
+    }
     tray.style.setProperty('left', left + 'px', 'important');
     tray.style.setProperty('top', top + 'px', 'important');
     tray.style.setProperty('right', 'auto', 'important');
@@ -451,6 +463,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     if (!tray) return;
     const bubble = messageBubble(row);
     if (!bubble) return;
+    ensureTrayHost(row, tray);
     observeActiveBubble(row, bubble);
     tray.innerHTML = `<div class="cake-action-row"><button type="button" class="cake-action-btn" data-reply-action><i class="bi bi-reply-fill"></i><span>Reply</span></button></div>` +
       reactions.map(r => `<button type="button" class="cake-react-btn" data-reaction="${r[0]}" title="${r[1]}">${cakeFace(r[0])}<span class="cake-react-label">${r[1]}</span></button>`).join('');
@@ -535,7 +548,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       openTrayFromBubbleEvent(row, e);
     });
   }
-  document.addEventListener('click', e => { if (!e.target.closest('#cakeReactionTray,.msg-action-btn')) closeTray(); });
+  document.addEventListener('click', e => { if (!e.target.closest('#cakeReactionTray,.msg-action-btn,.msg-interaction-bubble')) closeTray(); });
   window.addEventListener('resize', positionOpenTray, {passive:true});
   document.addEventListener('scroll', onTrayScroll, {passive:true, capture:true});
   return {
