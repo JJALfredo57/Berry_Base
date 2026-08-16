@@ -51,7 +51,8 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     ['wow','Wow'], ['sad','Sad'], ['burnt','Angry'], ['nope','Nope']
   ];
   let activeRow = null, activeBubble = null, activeViewport = null, activeVisible = false, activeObserver = null;
-  let cfg = {}, pressTimer = null, trayShelved = false, trayBurstTimer = null, trayFrame = null;
+  let cfg = {}, trayShelved = false, trayBurstTimer = null, trayFrame = null;
+  let lastBubbleTap = {row: null, time: 0};
   let trayScrolling = false, trayScrollTimer = null;
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   function cakeFace(type, tiny = false) {
@@ -100,6 +101,13 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   }
   function hasCoarsePointer() {
     return window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  }
+  function openTrayFromBubbleEvent(row, e) {
+    if (shouldIgnoreBubbleAction(e.target)) return false;
+    e.preventDefault();
+    e.stopPropagation();
+    openTray(row);
+    return true;
   }
   function setReply(row) {
     const input = document.querySelector(cfg.replyInput || '[data-reply-input]');
@@ -478,6 +486,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     row.dataset.interactionsBound = '1';
     row.classList.add('msg-interaction-wrap');
     bubble.classList.add('msg-interaction-bubble');
+    bubble.style.touchAction = 'manipulation';
     const mine = row.classList.contains('mine') || row.classList.contains('me') || row.classList.contains('justify-content-end');
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -505,19 +514,25 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       if (shouldIgnoreBubbleAction(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
+      if (hasCoarsePointer()) return;
       openTray(row);
     });
     bubble.addEventListener('click', e => {
-      if (!hasCoarsePointer() || shouldIgnoreBubbleAction(e.target)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      openTray(row);
+      if ((e.detail || 0) < 2) return;
+      openTrayFromBubbleEvent(row, e);
     });
-    bubble.addEventListener('touchstart', e => {
-      if (shouldIgnoreBubbleAction(e.target)) return;
-      pressTimer = setTimeout(() => openTray(row), 420);
-    }, {passive:true});
-    ['touchend','touchmove','touchcancel'].forEach(ev => row.addEventListener(ev, () => clearTimeout(pressTimer), {passive:true}));
+    bubble.addEventListener('dblclick', e => {
+      openTrayFromBubbleEvent(row, e);
+    });
+    bubble.addEventListener('pointerdown', e => {
+      if (!hasCoarsePointer() || !['touch','pen'].includes(e.pointerType || '') || shouldIgnoreBubbleAction(e.target)) return;
+      const now = Date.now();
+      const isDoubleTap = lastBubbleTap.row === row && now - lastBubbleTap.time < 360;
+      lastBubbleTap = {row, time: now};
+      if (!isDoubleTap) return;
+      lastBubbleTap = {row: null, time: 0};
+      openTrayFromBubbleEvent(row, e);
+    });
   }
   document.addEventListener('click', e => { if (!e.target.closest('#cakeReactionTray,.msg-action-btn')) closeTray(); });
   window.addEventListener('resize', positionOpenTray, {passive:true});
