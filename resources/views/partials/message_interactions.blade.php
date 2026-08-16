@@ -15,8 +15,12 @@
 .reaction-pill{border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:2px 6px;font-size:.72rem;line-height:1;display:inline-flex;align-items:center;gap:4px;box-shadow:0 2px 8px rgba(15,23,42,.06);animation:reactionPop .26s cubic-bezier(.2,1.5,.4,1)}
 .reaction-pill.mine{border-color:rgba(var(--primary-rgb),.35);background:var(--primary-bg,#fff7ed)}
 .mc-bubble .msg-reply-quote{padding:5px 7px;margin-bottom:5px;font-size:.66rem;border-radius:8px}.mc-bubble .msg-reply-name{font-size:.62rem}.mc-bubble .msg-reply-text{font-size:.66rem;max-width:150px}.mc-bubble .message-reactions{margin-top:5px;gap:3px}.mc-bubble .reaction-pill{padding:1px 5px;font-size:.66rem}.bbl-g .message-reactions,.bubble .message-reactions{width:100%}
-.cake-reaction-tray{position:fixed;left:0;top:0;transform:scale(.94);transform-origin:center;z-index:9500;background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:8px;display:none;gap:6px;box-shadow:0 24px 70px rgba(15,23,42,.26);max-width:calc(100vw - 16px);overflow-x:auto}
-.cake-reaction-tray.is-open{display:flex;animation:trayIn .16s ease forwards}
+.cake-reaction-tray{position:fixed;left:0;top:0;transform:scale(.94);transform-origin:center;z-index:9500;background:linear-gradient(180deg,#fff,#fffaf5);border:1px solid rgba(226,232,240,.95);border-radius:18px;padding:8px;display:none;gap:6px;box-shadow:0 24px 70px rgba(15,23,42,.26),inset 0 1px 0 rgba(255,255,255,.9);max-width:calc(100vw - 16px);overflow-x:auto;opacity:0;pointer-events:none;will-change:transform,opacity}
+.cake-reaction-tray:before{content:"";position:absolute;inset:2px 2px auto 2px;height:45%;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,255,255,0));pointer-events:none}
+.cake-reaction-tray.is-open{display:flex;opacity:1;pointer-events:auto;animation:trayIn .18s cubic-bezier(.18,1.45,.36,1) forwards}
+.cake-reaction-tray.is-bursting{display:flex;pointer-events:none;animation:trayBurst .24s ease forwards}
+.cake-reaction-tray.is-shelved{display:flex;opacity:0;pointer-events:none;transform:scale(.94)}
+.cake-reaction-tray.is-floating-back{animation:trayInflate .24s cubic-bezier(.18,1.55,.36,1) forwards}
 .cake-react-btn{width:52px;height:58px;border:0;border-radius:14px;background:#f8fafc;color:#111827;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:transform .15s,background .15s}
 .cake-react-btn:hover{transform:translateY(-4px);background:var(--primary-bg,#fff7ed)}.cake-react-label{font-size:.54rem;font-weight:900;line-height:1;color:#64748b}
 .cake-face{--cake:#f9a8d4;--frost:#fff7ed;--eye:#3f2a1d;--mouth:#3f2a1d;position:relative;width:30px;height:27px;border-radius:8px 8px 10px 10px;background:linear-gradient(180deg,var(--frost) 0 30%,var(--cake) 31% 100%);box-shadow:inset 0 -3px rgba(0,0,0,.08),0 2px 7px rgba(15,23,42,.16);animation:cakeFloat 1.6s ease-in-out infinite}
@@ -32,8 +36,8 @@
 .cake-face.tiny{width:18px;height:16px;border-radius:5px 5px 6px 6px;animation:none}.cake-face.tiny:before{left:3px;right:3px;top:-3px;height:6px}.cake-face.tiny .eye{top:7px;width:2.5px;height:3px}.cake-face.tiny .eye.l{left:5px}.cake-face.tiny .eye.r{right:5px}.cake-face.tiny .mouth{top:11px;width:6px;height:3px;border-width:1.5px}.cake-face.tiny.wow:after,.cake-face.tiny.burnt:after,.cake-face.tiny.nope:after,.cake-face.tiny.sad:after{display:none}
 .cake-react-btn[data-reaction="burnt"] .cake-face{animation:cakeAngry .55s ease-in-out infinite}.cake-react-btn[data-reaction="sad"] .cake-face{animation:cakeSad 1.1s ease-in-out infinite}.cake-react-btn[data-reaction="nope"] .cake-face{animation:cakeShake .42s ease-in-out infinite}.cake-react-btn[data-reaction="wow"] .cake-face{animation:candlePop .85s ease-in-out infinite}
 .cake-action-row{display:flex;gap:6px;border-right:1px solid #e5e7eb;padding-right:6px;margin-right:2px}.cake-action-btn{width:46px;height:50px;border:0;border-radius:14px;background:#fff7ed;color:var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.72rem;font-weight:900}
-@keyframes trayIn{to{transform:scale(1)}}@keyframes reactionPop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}@keyframes cakeFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-4px) rotate(2deg)}}@keyframes cakeAngry{0%,100%{transform:translateX(0) rotate(0)}25%{transform:translateX(-2px) rotate(-8deg)}75%{transform:translateX(2px) rotate(8deg)}}@keyframes cakeSad{0%,100%{transform:translateY(0);filter:saturate(.8)}50%{transform:translateY(3px);filter:saturate(.45)}}@keyframes cakeShake{0%,100%{transform:rotate(0)}25%{transform:rotate(-10deg)}75%{transform:rotate(10deg)}}@keyframes candlePop{0%,100%{transform:scale(1)}50%{transform:scale(1.18);filter:drop-shadow(0 0 6px #f59e0b)}}@keyframes tearDrop{0%,45%{opacity:0;transform:translateY(-2px)}55%{opacity:1}100%{opacity:0;transform:translateY(5px)}}@keyframes flameFlicker{0%,100%{transform:rotate(-8deg) scale(1)}50%{transform:rotate(8deg) scale(1.12)}}
-@media(max-width:640px){.msg-action-btn{display:none!important}.cake-reaction-tray{left:8px!important;right:8px!important;bottom:18px!important;top:auto!important;transform:translateY(12px);justify-content:center;overflow-x:auto}.cake-reaction-tray.is-open{animation:trayMobileIn .16s ease forwards}@keyframes trayMobileIn{to{transform:translateY(0)}}}
+@keyframes trayIn{0%{opacity:0;transform:scale(.82)}70%{opacity:1;transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}@keyframes trayInflate{0%{opacity:0;transform:scale(.62)}65%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}@keyframes trayBurst{0%{opacity:1;transform:scale(1)}45%{opacity:.9;transform:scale(1.1)}100%{opacity:0;transform:scale(.22)}}@keyframes reactionPop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}@keyframes cakeFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-4px) rotate(2deg)}}@keyframes cakeAngry{0%,100%{transform:translateX(0) rotate(0)}25%{transform:translateX(-2px) rotate(-8deg)}75%{transform:translateX(2px) rotate(8deg)}}@keyframes cakeSad{0%,100%{transform:translateY(0);filter:saturate(.8)}50%{transform:translateY(3px);filter:saturate(.45)}}@keyframes cakeShake{0%,100%{transform:rotate(0)}25%{transform:rotate(-10deg)}75%{transform:rotate(10deg)}}@keyframes candlePop{0%,100%{transform:scale(1)}50%{transform:scale(1.18);filter:drop-shadow(0 0 6px #f59e0b)}}@keyframes tearDrop{0%,45%{opacity:0;transform:translateY(-2px)}55%{opacity:1}100%{opacity:0;transform:translateY(5px)}}@keyframes flameFlicker{0%,100%{transform:rotate(-8deg) scale(1)}50%{transform:rotate(8deg) scale(1.12)}}
+@media(max-width:640px){.msg-action-btn{display:none!important}.cake-reaction-tray{left:8px!important;right:8px!important;top:auto!important;transform:translateY(12px) scale(.98);justify-content:center;overflow-x:auto}.cake-reaction-tray.is-open{animation:trayMobileIn .18s cubic-bezier(.18,1.45,.36,1) forwards}.cake-reaction-tray.is-floating-back{animation:trayMobileInflate .24s cubic-bezier(.18,1.55,.36,1) forwards}@keyframes trayMobileIn{0%{opacity:0;transform:translateY(16px) scale(.86)}70%{opacity:1;transform:translateY(-2px) scale(1.02)}100%{opacity:1;transform:translateY(0) scale(1)}}@keyframes trayMobileInflate{0%{opacity:0;transform:translateY(18px) scale(.62)}65%{opacity:1;transform:translateY(-2px) scale(1.04)}100%{opacity:1;transform:translateY(0) scale(1)}}}
 </style>
 <div class="cake-reaction-tray" id="cakeReactionTray" aria-hidden="true"></div>
 <script>
@@ -42,7 +46,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     ['sweet','Sweet'], ['yummy','Yummy'], ['love','Love'],
     ['wow','Wow'], ['sad','Sad'], ['burnt','Angry'], ['nope','Nope']
   ];
-  let activeRow = null, cfg = {}, pressTimer = null;
+  let activeRow = null, cfg = {}, pressTimer = null, trayShelved = false, trayBurstTimer = null;
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   function cakeFace(type, tiny = false) {
     const safe = String(type || 'sweet').replace(/[^a-z0-9_-]/gi, '');
@@ -104,22 +108,81 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
+  function rectsOverlap(a, b, pad = 0) {
+    return a.left < b.right + pad && a.right > b.left - pad && a.top < b.bottom + pad && a.bottom > b.top - pad;
+  }
+  function visibleRect(el) {
+    if (!el) return null;
+    const styles = window.getComputedStyle(el);
+    if (styles.display === 'none' || styles.visibility === 'hidden') return null;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 ? rect : null;
+  }
+  function bottomBlockerRects() {
+    const selectors = [
+      cfg.replyPreview || '[data-reply-preview]',
+      cfg.composer || 'textarea,[contenteditable="true"]',
+      '#threadForm',
+      '.compose-wrap',
+      '.g-compose-wrap',
+      '#threadImgPreview',
+      '#imgPreviewBar',
+      '#gImgPreviewBar',
+      '#threadUploadSummary',
+      '#guestUploadSummary'
+    ];
+    return [...new Set(selectors)]
+      .flatMap(selector => selector ? [...document.querySelectorAll(selector)] : [])
+      .map(visibleRect)
+      .filter(Boolean);
+  }
+  function shelveTray(tray) {
+    if (trayShelved || !tray) return;
+    trayShelved = true;
+    window.clearTimeout(trayBurstTimer);
+    tray.classList.remove('is-floating-back');
+    tray.classList.add('is-bursting');
+    tray.setAttribute('aria-hidden','true');
+    trayBurstTimer = window.setTimeout(() => {
+      if (!trayShelved) return;
+      tray.classList.remove('is-bursting');
+      tray.classList.add('is-shelved');
+    }, 230);
+  }
+  function unshelveTray(tray) {
+    if (!trayShelved || !tray) return;
+    trayShelved = false;
+    window.clearTimeout(trayBurstTimer);
+    tray.classList.remove('is-bursting','is-shelved');
+    tray.classList.add('is-open','is-floating-back');
+    tray.setAttribute('aria-hidden','false');
+    window.setTimeout(() => tray.classList.remove('is-floating-back'), 260);
+  }
   function positionTray(row, tray) {
     if (!row || !tray) return;
+    const anchor = messageBubble(row);
+    if (!anchor) return;
+    const gap = 8;
+    const margin = 8;
     if (window.matchMedia('(max-width: 640px)').matches) {
       tray.style.left = '';
       tray.style.top = '';
       tray.style.right = '';
-      tray.style.bottom = '';
+      const blockers = bottomBlockerRects();
+      const firstBottomBlockerTop = blockers.length
+        ? Math.min(...blockers.map(rect => rect.top))
+        : window.innerHeight;
+      tray.style.bottom = Math.max(18, window.innerHeight - firstBottomBlockerTop + gap) + 'px';
+      const trayRect = tray.getBoundingClientRect();
+      const anchorRect = anchor.getBoundingClientRect();
+      const unsafe = rectsOverlap(trayRect, anchorRect, 4) || trayRect.top < margin;
+      unsafe ? shelveTray(tray) : unshelveTray(tray);
       return;
     }
     tray.style.right = 'auto';
     tray.style.bottom = 'auto';
-    const anchor = messageBubble(row);
     const rect = anchor.getBoundingClientRect();
     const trayRect = tray.getBoundingClientRect();
-    const gap = 8;
-    const margin = 8;
     const isMine = row.classList.contains('mine') || row.classList.contains('me') || row.classList.contains('justify-content-end');
     let left = isMine ? rect.left - trayRect.width - gap : rect.right + gap;
     if (left < margin || left + trayRect.width > window.innerWidth - margin) {
@@ -128,6 +191,9 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     const top = rect.top + (rect.height / 2) - (trayRect.height / 2);
     tray.style.left = clamp(left, margin, window.innerWidth - trayRect.width - margin) + 'px';
     tray.style.top = clamp(top, margin, window.innerHeight - trayRect.height - margin) + 'px';
+    const placedRect = tray.getBoundingClientRect();
+    const unsafe = rectsOverlap(placedRect, rect, 4) || bottomBlockerRects().some(blocker => rectsOverlap(placedRect, blocker, 6));
+    unsafe ? shelveTray(tray) : unshelveTray(tray);
   }
   function positionOpenTray() {
     const tray = document.getElementById('cakeReactionTray');
@@ -139,6 +205,9 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     if (!tray) return;
     tray.innerHTML = `<div class="cake-action-row"><button type="button" class="cake-action-btn" data-reply-action><i class="bi bi-reply-fill"></i><span>Reply</span></button></div>` +
       reactions.map(r => `<button type="button" class="cake-react-btn" data-reaction="${r[0]}" title="${r[1]}">${cakeFace(r[0])}<span class="cake-react-label">${r[1]}</span></button>`).join('');
+    trayShelved = false;
+    window.clearTimeout(trayBurstTimer);
+    tray.classList.remove('is-bursting','is-shelved','is-floating-back');
     tray.classList.add('is-open');
     tray.setAttribute('aria-hidden','false');
     positionTray(row, tray);
@@ -146,7 +215,11 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     tray.querySelectorAll('[data-reaction]').forEach(btn => btn.addEventListener('click', () => react(btn.dataset.reaction)));
   }
   function closeTray() {
-    document.getElementById('cakeReactionTray')?.classList.remove('is-open');
+    const tray = document.getElementById('cakeReactionTray');
+    window.clearTimeout(trayBurstTimer);
+    tray?.classList.remove('is-open','is-bursting','is-shelved','is-floating-back');
+    tray?.setAttribute('aria-hidden','true');
+    trayShelved = false;
     activeRow = null;
   }
   function bindRow(row) {
