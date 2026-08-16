@@ -3727,6 +3727,12 @@ function renderMcTimeline(container, messages, appendOnly = false) {
     if (imgPaths.length > 0) bubble.classList.add('has-media');
     if (!msg.message && imgPaths.length > 0) bubble.classList.add('image-only');
     if (msg.message) bubble.appendChild(document.createTextNode(msg.message));
+    if (window.BerryMessageInteractions) {
+      const reactionWrap = document.createElement('div');
+      reactionWrap.dataset.reactions = '1';
+      reactionWrap.innerHTML = BerryMessageInteractions.reactionsHtml(msg.reactions || msg.reaction_summary || [], isMe);
+      bubble.appendChild(reactionWrap);
+    }
     wrap.appendChild(bubble);
 
     const time = document.createElement('div');
@@ -3734,10 +3740,6 @@ function renderMcTimeline(container, messages, appendOnly = false) {
     time.innerHTML = formatMcTime(msg.created_at) + (isMe ? ' <span class="mc-delivery-state" data-read-status data-message-id="' + (msg.id || '') + '" data-status="' + (msg.is_read ? 'seen' : 'sent') + '">' + (msg.is_read ? 'Seen' : 'Sent') + '</span>' : '');
     wrap.appendChild(time);
     if (window.BerryMessageInteractions) {
-      const reactionWrap = document.createElement('div');
-      reactionWrap.dataset.reactions = '1';
-      reactionWrap.innerHTML = BerryMessageInteractions.reactionsHtml(msg.reactions || msg.reaction_summary || [], isMe);
-      wrap.appendChild(reactionWrap);
       BerryMessageInteractions.bindRow(wrap);
     }
     container.appendChild(wrap);

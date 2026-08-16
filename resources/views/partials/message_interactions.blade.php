@@ -4,15 +4,16 @@
 .msg-action-btn{position:absolute;top:8px;width:30px;height:30px;border:0;border-radius:50%;background:#fff;color:#64748b;box-shadow:0 8px 24px rgba(15,23,42,.16);display:none;align-items:center;justify-content:center;z-index:2}
 .msg-interaction-wrap:hover .msg-action-btn,.msg-interaction-wrap.is-actions-open .msg-action-btn{display:flex}
 .msg-action-btn.mine{left:8px}.msg-action-btn.theirs{right:8px}
-.msg-reply-quote{border-left:3px solid currentColor;background:rgba(255,255,255,.18);border-radius:9px;padding:6px 8px;margin-bottom:6px;font-size:.72rem;line-height:1.3;opacity:.92;max-width:100%}
-.msg-reply-quote.theirs{background:#f8fafc;color:#475569}.msg-reply-name{font-weight:900;font-size:.68rem}.msg-reply-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px}
+.msg-reply-quote{border-left:3px solid currentColor;background:rgba(255,255,255,.18);border-radius:9px;padding:6px 8px;margin-bottom:6px;font-size:.72rem;line-height:1.3;opacity:.92;max-width:100%;min-width:0}
+.msg-reply-quote.theirs{background:#f8fafc;color:#475569}.msg-reply-name{font-weight:900;font-size:.68rem}.msg-reply-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:min(240px,100%)}
 .reply-compose-preview{display:none;align-items:center;gap:10px;border:1px solid rgba(var(--primary-rgb),.2);background:var(--primary-bg,#fff7ed);border-radius:12px;padding:8px 10px;margin-bottom:8px;color:#334155}
 .reply-compose-preview.is-visible{display:flex}.reply-compose-bar{width:3px;align-self:stretch;border-radius:999px;background:var(--primary)}
 .reply-compose-body{min-width:0;flex:1}.reply-compose-label{font-size:.68rem;font-weight:900;color:var(--primary);text-transform:uppercase}.reply-compose-text{font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .reply-compose-close{width:28px;height:28px;border:0;border-radius:50%;background:#fff;color:#64748b;display:flex;align-items:center;justify-content:center}
-.message-reactions{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}.message-reactions.mine{justify-content:flex-end}
+.message-reactions{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;max-width:100%}.message-reactions.mine{justify-content:flex-end}
 .reaction-pill{border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:2px 6px;font-size:.72rem;line-height:1;display:inline-flex;align-items:center;gap:4px;box-shadow:0 2px 8px rgba(15,23,42,.06);animation:reactionPop .26s cubic-bezier(.2,1.5,.4,1)}
 .reaction-pill.mine{border-color:rgba(var(--primary-rgb),.35);background:var(--primary-bg,#fff7ed)}
+.mc-bubble .msg-reply-quote{padding:5px 7px;margin-bottom:5px;font-size:.66rem;border-radius:8px}.mc-bubble .msg-reply-name{font-size:.62rem}.mc-bubble .msg-reply-text{font-size:.66rem;max-width:150px}.mc-bubble .message-reactions{margin-top:5px;gap:3px}.mc-bubble .reaction-pill{padding:1px 5px;font-size:.66rem}.bbl-g .message-reactions,.bubble .message-reactions{width:100%}
 .cake-reaction-tray{position:fixed;left:0;top:0;transform:scale(.94);transform-origin:center;z-index:1100;background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:8px;display:none;gap:6px;box-shadow:0 24px 70px rgba(15,23,42,.26);max-width:calc(100vw - 16px);overflow-x:auto}
 .cake-reaction-tray.is-open{display:flex;animation:trayIn .16s ease forwards}
 .cake-react-btn{width:52px;height:58px;border:0;border-radius:14px;background:#f8fafc;color:#111827;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:transform .15s,background .15s}
@@ -54,6 +55,9 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     if (!Array.isArray(items) || !items.length) return '';
     return `<div class="message-reactions ${mine ? 'mine' : ''}">` + items.map(r => `<span class="reaction-pill ${r.mine ? 'mine' : ''}" title="${esc(r.label)}">${cakeFace(r.reaction, true)}<strong>${Number(r.count||0)}</strong></span>`).join('') + `</div>`;
   }
+  function messageBubble(row) {
+    return row?.querySelector('.bubble,.bbl-g,.mc-bubble,.customer-msg-bubble,.admin-msg-bubble,.msg-group') || row;
+  }
   function setReply(row) {
     const input = document.querySelector(cfg.replyInput || '[data-reply-input]');
     const preview = document.querySelector(cfg.replyPreview || '[data-reply-preview]');
@@ -86,11 +90,12 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   function updateReactions(id, items) {
     document.querySelectorAll(`[data-msg-id="${CSS.escape(String(id))}"]`).forEach(row => {
       let target = row.querySelector('[data-reactions]');
+      const bubble = messageBubble(row);
       if (!target) {
         target = document.createElement('div');
         target.dataset.reactions = '1';
-        row.querySelector('.msg-group,.customer-msg-bubble,.admin-msg-bubble,.bubble,.mc-bubble')?.appendChild(target);
       }
+      if (bubble && target.parentElement !== bubble) bubble.appendChild(target);
       target.innerHTML = reactionsHtml(items, row.classList.contains('mine') || row.classList.contains('justify-content-end') || row.classList.contains('me'));
     });
   }
@@ -108,7 +113,8 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     }
     tray.style.right = 'auto';
     tray.style.bottom = 'auto';
-    const rect = row.getBoundingClientRect();
+    const anchor = messageBubble(row);
+    const rect = anchor.getBoundingClientRect();
     const trayRect = tray.getBoundingClientRect();
     const gap = 8;
     const margin = 8;

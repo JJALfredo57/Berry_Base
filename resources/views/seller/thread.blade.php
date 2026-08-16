@@ -304,21 +304,21 @@
                 @endforeach
               </div>
               @endif
+              <div data-reactions>
+                @if(!empty($m->reaction_summary))
+                  <div class="message-reactions {{ $isMine ? 'mine' : '' }}">
+                    @foreach($m->reaction_summary as $reaction)
+                      <span class="reaction-pill {{ !empty($reaction['mine']) ? 'mine' : '' }}" title="{{ $reaction['label'] }}">
+                        <span class="cake-face {{ $reaction['reaction'] }} tiny" aria-hidden="true"><span class="eye l"></span><span class="eye r"></span><span class="mouth"></span></span><strong>{{ $reaction['count'] }}</strong>
+                      </span>
+                    @endforeach
+                  </div>
+                @endif
+              </div>
             </div>
             <div class="bubble-time {{ $isMine ? 'mine' : '' }}">
               {{ \Carbon\Carbon::parse($m->created_at)->format('M d, g:i A') }}
               @if($isMine) <span class="delivery-state" data-read-status data-message-id="{{ $m->id }}" data-status="{{ $m->is_read ? 'seen' : 'sent' }}">{{ $m->is_read ? 'Seen' : 'Sent' }}</span>@endif
-            </div>
-            <div data-reactions>
-              @if(!empty($m->reaction_summary))
-                <div class="message-reactions {{ $isMine ? 'mine' : '' }}">
-                  @foreach($m->reaction_summary as $reaction)
-                    <span class="reaction-pill {{ !empty($reaction['mine']) ? 'mine' : '' }}" title="{{ $reaction['label'] }}">
-                      <span class="cake-face {{ $reaction['reaction'] }} tiny" aria-hidden="true"><span class="eye l"></span><span class="eye r"></span><span class="mouth"></span></span><strong>{{ $reaction['count'] }}</strong>
-                    </span>
-                  @endforeach
-                </div>
-              @endif
             </div>
           </div>
         </div>
@@ -737,9 +737,8 @@ function appendMyBubble(text, imgPreviews, msgId = '', reply = null) {
     <div class="msg-av mine">Me</div>
     <div class="msg-group mine">
       <div class="sender-lbl mine">You</div>
-      <div class="bubble mine${hasMedia ? ' has-media' : ''}${imageOnly ? ' image-only' : ''}">${BerryMessageInteractions.replyHtml(reply, true)}${text ? `<div style="white-space:pre-wrap">${escHtml(text)}</div>` : ''}${imgHtml}</div>
+      <div class="bubble mine${hasMedia ? ' has-media' : ''}${imageOnly ? ' image-only' : ''}">${BerryMessageInteractions.replyHtml(reply, true)}${text ? `<div style="white-space:pre-wrap">${escHtml(text)}</div>` : ''}${imgHtml}<div data-reactions></div></div>
       <div class="bubble-time mine">${now} <span class="delivery-state" data-read-status data-message-id="${msgId || ''}" data-status="sent">Sent</span></div>
-      <div data-reactions></div>
     </div>`;
   cb.appendChild(row);
   if (msgId) {
@@ -793,11 +792,11 @@ function renderThreadMessage(message) {
         ${replyHtml}
         ${hasText ? `<div style="white-space:pre-wrap;word-break:break-word">${escHtml(message.message)}</div>` : ''}
         ${imgHtml}
+        <div data-reactions>${reactionHtml}</div>
       </div>
       <div class="bubble-time ${isMine ? 'mine' : ''}">
         ${escHtml(message.created_at || '')}${isMine ? ` <span class="delivery-state" data-read-status data-message-id="${id}" data-status="${message.is_read ? 'seen' : 'sent'}">${message.is_read ? 'Seen' : 'Sent'}</span>` : ''}
       </div>
-      <div data-reactions>${reactionHtml}</div>
     </div>`;
   cb.appendChild(row);
   observeSellerMessageRow(row);

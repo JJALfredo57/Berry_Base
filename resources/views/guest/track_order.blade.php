@@ -2345,11 +2345,11 @@ function renderMessages(msgs) {
           ${replyHtml}
           ${hasText?`<div style="white-space:pre-wrap">${escapeHtml(m.message)}</div>`:''}
           ${imgHtml}
+          <div data-reactions>${reactionHtml}</div>
         </div>
         <div class="bbl-time-g${isMine?' mine':''}">
           ${m.created_at}${isMine ? ' <span class="bbl-delivery-g" data-read-status data-message-id="' + (m.id || '') + '" data-status="' + (m.is_read ? 'seen' : 'sent') + '">' + (m.is_read ? 'Seen' : 'Sent') + '</span>' : ''}
         </div>
-        <div data-reactions>${reactionHtml}</div>
       </div>`;
     thread.appendChild(row);
     BerryMessageInteractions.bindRow(row);
