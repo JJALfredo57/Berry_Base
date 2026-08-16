@@ -118,6 +118,69 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     const rect = el.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0 ? rect : null;
   }
+  function messageViewport(row) {
+    return row?.closest('#miniChatMessages,#chatBox,.chat-box,.chat-box-g') || null;
+  }
+  function setTrayPosition(tray, left, top) {
+    tray.style.setProperty('left', left + 'px', 'important');
+    tray.style.setProperty('top', top + 'px', 'important');
+    tray.style.setProperty('right', 'auto', 'important');
+    tray.style.setProperty('bottom', 'auto', 'important');
+  }
+  function positionInsideMessageViewport(row, tray, anchor, gap, margin) {
+    const viewport = messageViewport(row);
+    const viewportRect = visibleRect(viewport);
+    if (!viewportRect) return false;
+
+    const innerMargin = Math.max(6, margin);
+    const maxWidth = Math.max(180, viewportRect.width - (innerMargin * 2));
+    tray.style.maxWidth = Math.min(window.innerWidth - 16, maxWidth) + 'px';
+
+    const anchorRect = anchor.getBoundingClientRect();
+    if (!rectsOverlap(anchorRect, viewportRect, 0)) {
+      shelveTray(tray);
+      return true;
+    }
+
+    const trayRect = tray.getBoundingClientRect();
+    const minLeft = viewportRect.left + innerMargin;
+    const maxLeft = viewportRect.right - trayRect.width - innerMargin;
+    const minTop = viewportRect.top + innerMargin;
+    const maxTop = viewportRect.bottom - trayRect.height - innerMargin;
+
+    if (maxLeft < minLeft || maxTop < minTop) {
+      shelveTray(tray);
+      return true;
+    }
+
+    const isMine = row.classList.contains('mine') || row.classList.contains('me') || row.classList.contains('justify-content-end');
+    const centeredLeft = anchorRect.left + (anchorRect.width / 2) - (trayRect.width / 2);
+    const centeredTop = anchorRect.top + (anchorRect.height / 2) - (trayRect.height / 2);
+    const candidates = [
+      { left: isMine ? anchorRect.left - trayRect.width - gap : anchorRect.right + gap, top: centeredTop },
+      { left: centeredLeft, top: anchorRect.top - trayRect.height - gap },
+      { left: centeredLeft, top: anchorRect.bottom + gap }
+    ];
+
+    const placement = candidates.map(candidate => {
+      const left = clamp(candidate.left, minLeft, maxLeft);
+      const top = clamp(candidate.top, minTop, maxTop);
+      return {
+        left,
+        top,
+        rect: { left, top, right: left + trayRect.width, bottom: top + trayRect.height }
+      };
+    }).find(candidate => !rectsOverlap(candidate.rect, anchorRect, 4));
+
+    if (!placement) {
+      shelveTray(tray);
+      return true;
+    }
+
+    setTrayPosition(tray, placement.left, placement.top);
+    unshelveTray(tray);
+    return true;
+  }
   function bottomBlockerRects() {
     const selectors = [
       cfg.replyPreview || '[data-reply-preview]',
@@ -165,6 +228,9 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     if (!anchor) return;
     const gap = 8;
     const margin = 8;
+    if (positionInsideMessageViewport(row, tray, anchor, gap, margin)) return;
+
+    tray.style.maxWidth = 'calc(100vw - 16px)';
     if (window.matchMedia('(max-width: 640px)').matches) {
       tray.style.left = '';
       tray.style.top = '';
