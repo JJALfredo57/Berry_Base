@@ -283,7 +283,7 @@
             <div class="sender-lbl {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'You' : ($order->fullname ?? 'Customer') }}</div>
             <div class="bubble {{ $isMine ? 'mine' : 'theirs' }} {{ count($imgs) ? 'has-media' : '' }} {{ $isImageOnly ? 'image-only' : '' }}">
               @if($m->reply_to)
-                <div class="msg-reply-quote {{ $isMine ? 'mine' : 'theirs' }}">
+                <div class="msg-reply-quote {{ $isMine ? 'mine' : 'theirs' }}" @if(!empty($m->reply_to['id'])) data-reply-target-id="{{ $m->reply_to['id'] }}" role="button" tabindex="0" @endif>
                   <div class="msg-reply-name">{{ $m->reply_to['label'] ?? 'Message' }}</div>
                   <div class="msg-reply-text">{{ $m->reply_to['snippet'] ?? 'Message' }}</div>
                 </div>
@@ -683,6 +683,7 @@ document.getElementById('threadForm').addEventListener('submit', async function 
   if (text) fd.append('message', text);
   const replyToInput = document.getElementById('replyToInput');
   const optimisticReply = replyToInput && replyToInput.value ? {
+    id: replyToInput.value,
     label: document.querySelector('[data-reply-preview-name]')?.textContent || 'Message',
     snippet: document.querySelector('[data-reply-preview-text]')?.textContent || 'Message'
   } : null;

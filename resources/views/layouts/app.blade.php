@@ -3949,6 +3949,7 @@ async function mcSend() {
   if (!text && images.length === 0) return;
   const replyToInput = document.getElementById('mcReplyToInput');
   const optimisticReply = replyToInput && replyToInput.value ? {
+    id: replyToInput.value,
     label: document.querySelector('#mcReplyPreview [data-reply-preview-name]')?.textContent || 'Message',
     snippet: document.querySelector('#mcReplyPreview [data-reply-preview-text]')?.textContent || 'Message'
   } : null;

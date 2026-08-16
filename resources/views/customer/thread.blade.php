@@ -44,7 +44,7 @@
                  data-reply-snippet="{{ trim((string) $m->message) !== '' ? Str::limit($m->message, 80) : (count($imgs) ? 'Photo message' : 'Message') }}">
               <div class="customer-msg-bubble {{ $isMe ? 'mine' : 'theirs' }} {{ count($imgs) ? 'has-media' : '' }} {{ $isImageOnly ? 'image-only' : '' }}" style="background:{{ $isMe ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isMe ? '#fff' : '#333' }};border-radius:{{ $isMe ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
                 @if($m->reply_to)
-                  <div class="msg-reply-quote {{ $isMe ? 'mine' : 'theirs' }}">
+                  <div class="msg-reply-quote {{ $isMe ? 'mine' : 'theirs' }}" @if(!empty($m->reply_to['id'])) data-reply-target-id="{{ $m->reply_to['id'] }}" role="button" tabindex="0" @endif>
                     <div class="msg-reply-name">{{ $m->reply_to['label'] ?? 'Message' }}</div>
                     <div class="msg-reply-text">{{ $m->reply_to['snippet'] ?? 'Message' }}</div>
                   </div>

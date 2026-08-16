@@ -59,7 +59,7 @@
                  data-reply-snippet="{{ trim((string) $m->message) !== '' ? Str::limit($m->message, 80) : (count($imgs) ? 'Photo message' : 'Message') }}">
               <div class="admin-msg-bubble {{ $isAdmin ? 'mine' : 'theirs' }} {{ count($imgs) ? 'has-media' : '' }} {{ $isImageOnly ? 'image-only' : '' }}" style="background:{{ $isAdmin ? 'var(--primary)' : '#f1f3f5' }};color:{{ $isAdmin ? '#fff' : '#333' }};border-radius:{{ $isAdmin ? '1rem 1rem 0 1rem' : '1rem 1rem 1rem 0' }}">
                 @if($m->reply_to)
-                  <div class="msg-reply-quote {{ $isAdmin ? 'mine' : 'theirs' }}">
+                  <div class="msg-reply-quote {{ $isAdmin ? 'mine' : 'theirs' }}" @if(!empty($m->reply_to['id'])) data-reply-target-id="{{ $m->reply_to['id'] }}" role="button" tabindex="0" @endif>
                     <div class="msg-reply-name">{{ $m->reply_to['label'] ?? 'Message' }}</div>
                     <div class="msg-reply-text">{{ $m->reply_to['snippet'] ?? 'Message' }}</div>
                   </div>
