@@ -1,6 +1,7 @@
 @once
 <style>
 .msg-interaction-wrap{position:relative}
+.msg-interaction-bubble{position:relative}
 .msg-action-btn{position:absolute;top:8px;width:30px;height:30px;border:0;border-radius:50%;background:#fff;color:#64748b;box-shadow:0 8px 24px rgba(15,23,42,.16);display:none;align-items:center;justify-content:center;z-index:2}
 .msg-interaction-wrap:hover .msg-action-btn,.msg-interaction-wrap.is-actions-open .msg-action-btn{display:flex}
 .msg-action-btn.mine{left:8px}.msg-action-btn.theirs{right:8px}
@@ -56,7 +57,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     return `<div class="message-reactions ${mine ? 'mine' : ''}">` + items.map(r => `<span class="reaction-pill ${r.mine ? 'mine' : ''}" title="${esc(r.label)}">${cakeFace(r.reaction, true)}<strong>${Number(r.count||0)}</strong></span>`).join('') + `</div>`;
   }
   function messageBubble(row) {
-    return row?.querySelector('.bubble,.bbl-g,.mc-bubble,.customer-msg-bubble,.admin-msg-bubble,.msg-group') || row;
+    return row?.querySelector('.bubble,.bbl-g,.mc-bubble,.customer-msg-bubble,.admin-msg-bubble') || null;
   }
   function setReply(row) {
     const input = document.querySelector(cfg.replyInput || '[data-reply-input]');
@@ -95,7 +96,8 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
         target = document.createElement('div');
         target.dataset.reactions = '1';
       }
-      if (bubble && target.parentElement !== bubble) bubble.appendChild(target);
+      if (!bubble) return;
+      if (target.parentElement !== bubble) bubble.appendChild(target);
       target.innerHTML = reactionsHtml(items, row.classList.contains('mine') || row.classList.contains('justify-content-end') || row.classList.contains('me'));
     });
   }
@@ -149,8 +151,11 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   }
   function bindRow(row) {
     if (!row || row.dataset.interactionsBound === '1') return;
+    const bubble = messageBubble(row);
+    if (!bubble) return;
     row.dataset.interactionsBound = '1';
     row.classList.add('msg-interaction-wrap');
+    bubble.classList.add('msg-interaction-bubble');
     const mine = row.classList.contains('mine') || row.classList.contains('me') || row.classList.contains('justify-content-end');
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -158,7 +163,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     btn.innerHTML = '<i class="bi bi-reply"></i>';
     btn.title = 'Reply or react';
     btn.addEventListener('click', e => { e.stopPropagation(); openTray(row); });
-    row.appendChild(btn);
+    bubble.appendChild(btn);
     row.addEventListener('contextmenu', e => { e.preventDefault(); openTray(row); });
     row.addEventListener('touchstart', () => { pressTimer = setTimeout(() => openTray(row), 420); }, {passive:true});
     ['touchend','touchmove','touchcancel'].forEach(ev => row.addEventListener(ev, () => clearTimeout(pressTimer), {passive:true}));
