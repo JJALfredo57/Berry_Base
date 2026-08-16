@@ -19,6 +19,7 @@
   // This prevents sellers from showing admin layout when redirected to admin routes
   $isAdmin  = in_array($sessionRole, ['admin', 'superadmin']);
   $isSeller = ($sessionRole === 'seller');
+  $hideSellerMiniChat = $isSeller && $currentRoute === 'seller.messages.thread';
 
   // Load platform_settings for ALL users (needed for global theme color + superadmin branding)
   $platformBrand = null;
@@ -2977,7 +2978,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 {{-- ── Mini Chat Popup ─────────────────────────────────────────── --}}
-@if($isAdmin || $isSeller)
+@if(($isAdmin || $isSeller) && !$hideSellerMiniChat)
 @php
   $popupDataUrl = $isAdmin ? route('admin.messages.popup_data') : route('seller.messages.popup_data');
   $popupSendUrl = $isAdmin ? route('admin.messages.popup_send') : route('seller.messages.popup_send');
@@ -4025,7 +4026,7 @@ function formatMcTime(dateStr) {
 @endif
 
 {{-- ── Floating Cake Messenger Bubble (Seller only) ─────────────── --}}
-@if($isSeller)
+@if($isSeller && !$hideSellerMiniChat)
 @php
   $msgRoute    = route('seller.messages');
   $unreadCount = max((int)($unreadMessages ?? 0), (int)($sellerSidebarCounts['messages'] ?? 0));
