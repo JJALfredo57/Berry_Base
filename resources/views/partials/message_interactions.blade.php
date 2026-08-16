@@ -121,6 +121,22 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   function messageViewport(row) {
     return row?.closest('#miniChatMessages,#chatBox,.chat-box,.chat-box-g') || null;
   }
+  function intersectionRect(a, b) {
+    const left = Math.max(a.left, b.left);
+    const right = Math.min(a.right, b.right);
+    const top = Math.max(a.top, b.top);
+    const bottom = Math.min(a.bottom, b.bottom);
+    return {
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top)
+    };
+  }
+  function bubbleVisibleEnough(anchorRect, viewportRect) {
+    const visible = intersectionRect(anchorRect, viewportRect);
+    const requiredHeight = Math.min(Math.max(anchorRect.height * 0.55, 24), 96);
+    const requiredWidth = Math.min(Math.max(anchorRect.width * 0.5, 36), 120);
+    return visible.height >= requiredHeight && visible.width >= requiredWidth;
+  }
   function setTrayPosition(tray, left, top) {
     tray.style.setProperty('left', left + 'px', 'important');
     tray.style.setProperty('top', top + 'px', 'important');
@@ -149,6 +165,11 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     const maxTop = viewportRect.bottom - trayRect.height - innerMargin;
 
     if (maxLeft < minLeft || maxTop < minTop) {
+      shelveTray(tray);
+      return true;
+    }
+
+    if (!bubbleVisibleEnough(anchorRect, viewportRect)) {
       shelveTray(tray);
       return true;
     }
