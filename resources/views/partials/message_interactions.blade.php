@@ -129,7 +129,8 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       '#imgPreviewBar',
       '#gImgPreviewBar',
       '#threadUploadSummary',
-      '#guestUploadSummary'
+      '#guestUploadSummary',
+      '.mc-fullscreen-reminder'
     ];
     return [...new Set(selectors)]
       .flatMap(selector => selector ? [...document.querySelectorAll(selector)] : [])
