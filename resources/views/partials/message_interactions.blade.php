@@ -67,7 +67,28 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   }
   function reactionsHtml(items, mine) {
     if (!Array.isArray(items) || !items.length) return '';
-    return `<div class="message-reactions ${mine ? 'mine' : ''}">` + items.map(r => `<span class="reaction-pill ${r.mine ? 'mine' : ''}" title="${esc(r.label)}">${cakeFace(r.reaction, true)}<strong>${Number(r.count||0)}</strong></span>`).join('') + `</div>`;
+    return `<div class="message-reactions ${mine ? 'mine' : ''}">` + items.map(r => `<span class="reaction-pill ${r.mine ? 'mine' : ''}" data-reaction="${esc(r.reaction)}" data-count="${Number(r.count||0)}" data-mine="${r.mine ? '1' : '0'}" title="${esc(r.label)}">${cakeFace(r.reaction, true)}<strong>${Number(r.count||0)}</strong></span>`).join('') + `</div>`;
+  }
+  function reactionSignature(items, mine) {
+    if (!Array.isArray(items) || !items.length) return 'empty|' + (mine ? 'mine' : 'theirs');
+    const normalized = items.map(r => [
+      String(r.reaction || ''),
+      Number(r.count || 0),
+      r.mine ? 1 : 0
+    ]);
+    return (mine ? 'mine' : 'theirs') + '|' + JSON.stringify(normalized);
+  }
+  function reactionSignatureFromDom(target, mine) {
+    const pills = [...(target?.querySelectorAll('.reaction-pill') || [])];
+    if (!pills.length) return 'empty|' + (mine ? 'mine' : 'theirs');
+    const normalized = pills.map(pill => {
+      const face = pill.querySelector('.cake-face');
+      const reaction = pill.dataset.reaction || [...(face?.classList || [])].find(cls => !['cake-face','tiny'].includes(cls)) || '';
+      const count = Number(pill.dataset.count || pill.querySelector('strong')?.textContent || 0);
+      const isMine = pill.dataset.mine ? pill.dataset.mine === '1' : pill.classList.contains('mine');
+      return [reaction, count, isMine ? 1 : 0];
+    });
+    return (mine ? 'mine' : 'theirs') + '|' + JSON.stringify(normalized);
   }
   function messageBubble(row) {
     return row?.querySelector('.bubble,.bbl-g,.mc-bubble,.customer-msg-bubble,.admin-msg-bubble') || null;
@@ -140,7 +161,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     closeTray();
   }
   function updateReactions(id, items) {
-    document.querySelectorAll(`[data-msg-id="${CSS.escape(String(id))}"]`).forEach(row => {
+    document.querySelectorAll(`[data-msg-id="${cssId(id)}"]`).forEach(row => {
       let target = row.querySelector('[data-reactions]');
       const bubble = messageBubble(row);
       if (!target) {
@@ -149,7 +170,15 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       }
       if (!bubble) return;
       if (target.parentElement !== bubble) bubble.appendChild(target);
-      target.innerHTML = reactionsHtml(items, row.classList.contains('mine') || row.classList.contains('justify-content-end') || row.classList.contains('me'));
+      const mine = row.classList.contains('mine') || row.classList.contains('justify-content-end') || row.classList.contains('me');
+      const nextSignature = reactionSignature(items, mine);
+      const currentSignature = target.dataset.reactionSignature || reactionSignatureFromDom(target, mine);
+      if (currentSignature === nextSignature) {
+        target.dataset.reactionSignature = nextSignature;
+        return;
+      }
+      target.innerHTML = reactionsHtml(items, mine);
+      target.dataset.reactionSignature = nextSignature;
     });
   }
   function clamp(value, min, max) {
