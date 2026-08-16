@@ -50,6 +50,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   ];
   let activeRow = null, activeBubble = null, activeViewport = null, activeVisible = false, activeObserver = null;
   let cfg = {}, pressTimer = null, trayShelved = false, trayBurstTimer = null, trayFrame = null;
+  let trayScrolling = false, trayScrollTimer = null;
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   function cakeFace(type, tiny = false) {
     const safe = String(type || 'sweet').replace(/[^a-z0-9_-]/gi, '');
@@ -173,7 +174,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       const tray = document.getElementById('cakeReactionTray');
       if (!tray) return;
       if (!activeVisible) {
-        shelveTray(tray);
+        shelveTray(tray, !trayScrolling);
         return;
       }
       scheduleTrayPosition();
@@ -196,7 +197,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       tray.style.pointerEvents = 'none';
     }
   }
-  function positionInsideMessageViewport(row, tray, anchor, gap, margin) {
+  function positionInsideMessageViewport(row, tray, anchor, gap, margin, animate = true) {
     const viewport = messageViewport(row);
     const viewportRect = visibleRect(viewport);
     if (!viewportRect) return false;
@@ -208,7 +209,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
 
     const anchorRect = anchor.getBoundingClientRect();
     if (!rectsOverlap(anchorRect, viewportRect, 0)) {
-      shelveTray(tray);
+      shelveTray(tray, animate);
       return true;
     }
 
@@ -219,12 +220,12 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     const maxTop = viewportRect.bottom - trayRect.height - innerMargin;
 
     if (maxLeft < minLeft || maxTop < minTop) {
-      shelveTray(tray);
+      shelveTray(tray, animate);
       return true;
     }
 
     if (!bubbleVisibleEnough(anchorRect, viewportRect)) {
-      shelveTray(tray);
+      shelveTray(tray, animate);
       return true;
     }
 
@@ -248,12 +249,12 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     }).find(candidate => !rectsOverlap(candidate.rect, anchorRect, 4));
 
     if (!placement) {
-      shelveTray(tray);
+      shelveTray(tray, animate);
       return true;
     }
 
     setTrayPosition(tray, placement.left, placement.top);
-    unshelveTray(tray);
+    unshelveTray(tray, animate);
     return true;
   }
   function bottomBlockerRects() {
@@ -275,13 +276,23 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       .map(visibleRect)
       .filter(Boolean);
   }
-  function shelveTray(tray) {
+  function hideTrayNow(tray) {
     if (!tray) return;
+    trayShelved = true;
+    window.clearTimeout(trayBurstTimer);
+    tray.classList.remove('is-open','is-ready','is-floating-back','is-measuring','is-bursting');
+    tray.classList.add('is-shelved');
+    tray.setAttribute('aria-hidden','true');
+    tray.style.pointerEvents = 'none';
+  }
+  function shelveTray(tray, animate = true) {
+    if (!tray) return;
+    if (!animate) {
+      hideTrayNow(tray);
+      return;
+    }
     if (trayShelved) {
-      tray.classList.remove('is-open','is-ready','is-floating-back','is-measuring','is-bursting');
-      tray.classList.add('is-shelved');
-      tray.setAttribute('aria-hidden','true');
-      tray.style.pointerEvents = 'none';
+      hideTrayNow(tray);
       return;
     }
     trayShelved = true;
@@ -297,11 +308,18 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       tray.style.pointerEvents = 'none';
     }, 230);
   }
-  function unshelveTray(tray) {
+  function unshelveTray(tray, animate = true) {
     if (!tray) return;
     trayShelved = false;
     window.clearTimeout(trayBurstTimer);
-    tray.classList.remove('is-bursting','is-shelved','is-measuring');
+    if (!animate || (tray.classList.contains('is-open') && !tray.classList.contains('is-bursting'))) {
+      tray.classList.remove('is-bursting','is-shelved','is-measuring','is-floating-back');
+      tray.classList.add('is-open','is-ready');
+      tray.style.pointerEvents = 'auto';
+      tray.setAttribute('aria-hidden','false');
+      return;
+    }
+    tray.classList.remove('is-bursting','is-shelved','is-measuring','is-ready');
     tray.classList.add('is-open','is-floating-back');
     tray.style.pointerEvents = 'auto';
     tray.setAttribute('aria-hidden','false');
@@ -312,20 +330,20 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       tray.style.pointerEvents = 'auto';
     }, 260);
   }
-  function positionTray(row, tray) {
+  function positionTray(row, tray, animate = true) {
     if (!row || !tray) return;
     const anchor = messageBubble(row);
     if (!anchor) return;
     if (activeBubble && anchor !== activeBubble) return;
     if (activeViewport && !isBubbleVisibleForTray(anchor, activeViewport)) {
       activeVisible = false;
-      shelveTray(tray);
+      shelveTray(tray, animate);
       return;
     }
     activeVisible = true;
     const gap = 8;
     const margin = 8;
-    if (positionInsideMessageViewport(row, tray, anchor, gap, margin)) return;
+    if (positionInsideMessageViewport(row, tray, anchor, gap, margin, animate)) return;
 
     tray.style.maxWidth = 'calc(100vw - 16px)';
     if (window.matchMedia('(max-width: 640px)').matches) {
@@ -340,7 +358,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       const trayRect = tray.getBoundingClientRect();
       const anchorRect = anchor.getBoundingClientRect();
       const unsafe = rectsOverlap(trayRect, anchorRect, 4) || trayRect.top < margin;
-      unsafe ? shelveTray(tray) : unshelveTray(tray);
+      unsafe ? shelveTray(tray, animate) : unshelveTray(tray, animate);
       return;
     }
     tray.style.right = 'auto';
@@ -357,7 +375,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     tray.style.top = clamp(top, margin, window.innerHeight - trayRect.height - margin) + 'px';
     const placedRect = tray.getBoundingClientRect();
     const unsafe = rectsOverlap(placedRect, rect, 4) || bottomBlockerRects().some(blocker => rectsOverlap(placedRect, blocker, 6));
-    unsafe ? shelveTray(tray) : unshelveTray(tray);
+    unsafe ? shelveTray(tray, animate) : unshelveTray(tray, animate);
   }
   function scheduleTrayPosition() {
     if (trayFrame) return;
@@ -366,14 +384,23 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
       const tray = document.getElementById('cakeReactionTray');
       if (!activeRow || !tray) return;
       if (!activeVisible) {
-        shelveTray(tray);
+        shelveTray(tray, !trayScrolling);
         return;
       }
-      positionTray(activeRow, tray);
+      positionTray(activeRow, tray, !trayScrolling);
     });
   }
   function positionOpenTray() {
     scheduleTrayPosition();
+  }
+  function onTrayScroll() {
+    trayScrolling = true;
+    window.clearTimeout(trayScrollTimer);
+    scheduleTrayPosition();
+    trayScrollTimer = window.setTimeout(() => {
+      trayScrolling = false;
+      scheduleTrayPosition();
+    }, 140);
   }
   function openTray(row) {
     activeRow = row;
@@ -396,6 +423,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   function closeTray() {
     const tray = document.getElementById('cakeReactionTray');
     window.clearTimeout(trayBurstTimer);
+    window.clearTimeout(trayScrollTimer);
     if (trayFrame) window.cancelAnimationFrame(trayFrame);
     trayFrame = null;
     resetActiveObserver();
@@ -407,6 +435,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
     activeBubble = null;
     activeViewport = null;
     activeVisible = false;
+    trayScrolling = false;
   }
   function bindRow(row) {
     if (!row || row.dataset.interactionsBound === '1') return;
@@ -429,7 +458,7 @@ window.BerryMessageInteractions = window.BerryMessageInteractions || (function()
   }
   document.addEventListener('click', e => { if (!e.target.closest('#cakeReactionTray,.msg-action-btn')) closeTray(); });
   window.addEventListener('resize', positionOpenTray, {passive:true});
-  document.addEventListener('scroll', positionOpenTray, {passive:true, capture:true});
+  document.addEventListener('scroll', onTrayScroll, {passive:true, capture:true});
   return {
     init(options){ cfg = options || {}; document.querySelectorAll('[data-msg-id]').forEach(bindRow); },
     bindRow, clearReply, replyHtml, reactionsHtml, updateReactions
