@@ -108,7 +108,7 @@
     $tabs = [
       'platform' => '🏢 Platform',
       'paymongo' => '💳 PayMongo',
-      'sms'      => '📱 UniSMS',
+      'sms'      => '📱 PhilSMS',
       'logs'     => '📋 Activity Logs',
       'backup'   => '💾 Backup',
     ];
@@ -457,7 +457,7 @@
   <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);overflow:hidden">
     <div style="padding:1.1rem 1.5rem;border-bottom:1.5px solid var(--gray-100);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
       <span style="font-size:.95rem;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:.6rem">
-        <i class="bi bi-chat-dots" style="color:var(--primary)"></i> UniSMS (SMS Notifications)
+        <i class="bi bi-chat-dots" style="color:var(--primary)"></i> PhilSMS (SMS Notifications)
       </span>
       @if($hasSms)
         <span class="badge" style="background:#e8f5e9;color:#2e7d32;font-size:.72rem"><i class="bi bi-check-circle me-1"></i>CONFIGURED</span>
@@ -465,34 +465,41 @@
         <span class="badge bg-secondary" style="font-size:.72rem">NOT CONFIGURED</span>
       @endif
     </div>
-    <form action="{{ route('superadmin.settings.unisms') }}" method="POST" style="padding:1.5rem">
+    <form action="{{ route('superadmin.settings.philsms') }}" method="POST" style="padding:1.5rem">
       @csrf
       <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label fw-semibold">Secret API Key</label>
+        <div class="col-md-5">
+          <label class="form-label fw-semibold">API Token</label>
           <div class="input-group">
             <input type="password" class="form-control" name="philsms_token" id="smsToken"
-                   placeholder="{{ $hasSms ? 'API key is set — leave blank to keep' : 'Enter your UniSMS secret API key' }}">
+                   placeholder="{{ $hasSms ? 'API token is set - leave blank to keep' : 'Enter your PhilSMS API token' }}">
             <button type="button" class="btn btn-secondary" onclick="toggleKey('smsToken',this)"
                     style="border:1.5px solid var(--gray-200);border-left:0;background:var(--gray-50);padding:.6rem .875rem">
               <i class="bi bi-eye" style="color:var(--gray-500)"></i>
             </button>
           </div>
           @if($hasSms)
-            <div class="form-text text-success"><i class="bi bi-check-circle me-1"></i>API key is configured. Leave blank to keep existing.</div>
+            <div class="form-text text-success"><i class="bi bi-check-circle me-1"></i>API token is configured. Leave blank to keep existing.</div>
           @else
-            <div class="form-text">Get your secret key from <strong>unismsapi.com/api_keys</strong></div>
+            <div class="form-text">Get your token from <strong>PhilSMS Dashboard &gt; Developers</strong>.</div>
           @endif
         </div>
         <div class="col-md-3">
-          <label class="form-label fw-semibold">Sender ID <span class="text-muted fw-normal">(optional)</span></label>
+          <label class="form-label fw-semibold">Sender ID</label>
           <input type="text" class="form-control" name="philsms_sender"
                  value="{{ $platform->philsms_sender ?? '' }}"
-                 placeholder="Leave blank to use account default" maxlength="20">
-          <div class="form-text">Use only if the Sender ID is active in UniSMS. Leave blank if your account uses the default sender.</div>
+                 placeholder="YourName" maxlength="11" required>
+          <div class="form-text">Required by PhilSMS. Use an active sender ID, max 11 characters.</div>
         </div>
-        <div class="col-md-3">
-          <div style="background:var(--gray-50);border-radius:var(--radius-md);padding:.875rem 1rem;font-size:.82rem;color:var(--gray-600);margin-top:1.75rem">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">API Endpoint</label>
+          <input type="url" class="form-control" name="philsms_endpoint"
+                 value="{{ $platform->philsms_endpoint ?? config('philsms.endpoint', 'https://dashboard.philsms.com/api/v3/sms/send') }}"
+                 placeholder="https://dashboard.philsms.com/api/v3/sms/send" required>
+          <div class="form-text">You may paste the base endpoint from PhilSMS; the app will use /sms/send for sending.</div>
+        </div>
+        <div class="col-md-12">
+          <div style="background:var(--gray-50);border-radius:var(--radius-md);padding:.875rem 1rem;font-size:.82rem;color:var(--gray-600);margin-top:.25rem">
             <div style="font-weight:600;margin-bottom:.3rem">SMS is used for:</div>
             <div><i class="bi bi-dot"></i>OTP verification</div>
             <div><i class="bi bi-dot"></i>Order status updates</div>
@@ -501,17 +508,17 @@
         </div>
       </div>
       <button type="submit" class="btn btn-primary mt-4" style="padding:.65rem 2rem;font-weight:600">
-        <i class="bi bi-save me-1"></i> Save UniSMS Settings
+        <i class="bi bi-save me-1"></i> Save PhilSMS Settings
       </button>
     </form>
     <div style="border-top:1.5px solid var(--gray-100);padding:1.5rem;background:#fbfdff">
-      <form action="{{ route('superadmin.settings.unisms_test') }}" method="POST" data-prevent-double-submit>
+      <form action="{{ route('superadmin.settings.philsms_test') }}" method="POST" data-prevent-double-submit>
         @csrf
         <div class="row g-3 align-items-end">
           <div class="col-md-6">
             <label class="form-label fw-semibold">Test SMS Number</label>
             <input type="tel" class="form-control" name="test_phone" placeholder="09XXXXXXXXX" inputmode="tel" required>
-            <div class="form-text">Send a live test message using the saved UniSMS API key and optional Sender ID.</div>
+            <div class="form-text">Send a live test message using the saved PhilSMS token, endpoint, and Sender ID.</div>
           </div>
           <div class="col-md-3">
             <button type="submit" class="btn btn-outline-primary w-100" style="padding:.65rem 1rem;font-weight:600">
@@ -520,7 +527,7 @@
           </div>
           <div class="col-md-3">
             <div style="font-size:.76rem;color:var(--gray-600);background:#fff;border:1px solid var(--gray-100);border-radius:var(--radius-md);padding:.75rem">
-              If this fails, the exact UniSMS gateway error will appear at the top of this page.
+              If this fails, the exact PhilSMS gateway error will appear at the top of this page.
             </div>
           </div>
         </div>

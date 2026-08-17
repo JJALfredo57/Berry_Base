@@ -167,12 +167,23 @@ class PlatformSettingsController extends Controller
         return redirect()->route('superadmin.settings', ['tab' => 'platform'])->with('msg', "Developer Mode {$status}");
     }
 
-    public function saveUnisms(Request $request)
+    public function savePhilsms(Request $request)
     {
-        $token  = trim($request->input('philsms_token', ''));
-        $sender = trim($request->input('philsms_sender', ''));
+        $request->validate([
+            'philsms_token'    => 'nullable|string|max:500',
+            'philsms_sender'   => 'required|string|max:11',
+            'philsms_endpoint' => 'required|url|max:255',
+        ]);
 
-        $updates = ['updated_at' => now(), 'philsms_sender' => $sender ?: null];
+        $token    = trim($request->input('philsms_token', ''));
+        $sender   = trim($request->input('philsms_sender', ''));
+        $endpoint = $this->normalizePhilsmsEndpoint($request->input('philsms_endpoint', ''));
+
+        $updates = [
+            'updated_at'       => now(),
+            'philsms_sender'   => $sender,
+            'philsms_endpoint' => $endpoint,
+        ];
         if (!empty($token)) $updates['philsms_token'] = $token;
 
         $existing = DB::table('platform_settings')->first();
@@ -184,10 +195,15 @@ class PlatformSettingsController extends Controller
             DB::table('platform_settings')->insert($updates);
         }
 
-        return redirect()->route('superadmin.settings', ['tab' => 'sms'])->with('msg', 'UniSMS settings saved!');
+        return redirect()->route('superadmin.settings', ['tab' => 'sms'])->with('msg', 'PhilSMS settings saved!');
     }
 
-    public function testUnisms(Request $request)
+    public function saveUnisms(Request $request)
+    {
+        return $this->savePhilsms($request);
+    }
+
+    public function testPhilsms(Request $request)
     {
         $phone = trim($request->input('test_phone', ''));
         $digits = preg_replace('/\D/', '', $phone);
@@ -204,11 +220,25 @@ class PlatformSettingsController extends Controller
 
         if (!$result['ok']) {
             return redirect()->route('superadmin.settings', ['tab' => 'sms'])
-                ->with('err', $result['error'] ?? 'Test SMS failed. Please check UniSMS settings.');
+                ->with('err', $result['error'] ?? 'Test SMS failed. Please check PhilSMS settings.');
         }
 
         return redirect()->route('superadmin.settings', ['tab' => 'sms'])
             ->with('msg', 'Test SMS sent successfully to ' . $phone . '.');
+    }
+
+    public function testUnisms(Request $request)
+    {
+        return $this->testPhilsms($request);
+    }
+
+    private function normalizePhilsmsEndpoint(string $endpoint): string
+    {
+        $endpoint = rtrim(trim($endpoint), '/');
+        if (preg_match('~/api/v3$~', $endpoint)) {
+            return $endpoint . '/sms/send';
+        }
+        return $endpoint;
     }
 
     public function createBackup()

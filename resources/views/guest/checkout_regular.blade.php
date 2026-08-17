@@ -1186,7 +1186,7 @@ function renderDevOtpHint(dev) {
       '<div style="background:linear-gradient(135deg,#fffbeb,#fefce8);padding:.85rem 1rem">' +
         '<div style="font-size:.72rem;color:#b45309;margin-bottom:.65rem;font-style:italic">This is what the customer receives when SMS is working:</div>' +
         '<div style="background:#fff;border-radius:12px;padding:.75rem .9rem;border:1px solid #fde68a;margin-bottom:.85rem">' +
-          '<div style="font-size:.64rem;font-weight:700;color:#92400e;letter-spacing:.05em;margin-bottom:.3rem;text-transform:uppercase"><i class="bi bi-phone-fill" style="font-size:.7rem"></i> SMS from UniSMS</div>' +
+          '<div style="font-size:.64rem;font-weight:700;color:#92400e;letter-spacing:.05em;margin-bottom:.3rem;text-transform:uppercase"><i class="bi bi-phone-fill" style="font-size:.7rem"></i> SMS from PhilSMS</div>' +
           '<div style="font-size:.8rem;color:#1c1917;line-height:1.6;font-family:monospace;word-break:break-word">' + esc(dev.message) + '</div>' +
           '<div style="font-size:.62rem;color:#a8a29e;text-align:right;margin-top:.35rem">' + esc(dev.time) + ' &nbsp;&middot;&nbsp; Delivered</div>' +
         '</div>' +

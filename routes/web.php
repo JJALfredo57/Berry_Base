@@ -492,6 +492,8 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::get('/platform-settings',           [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'index'])->name('settings');
     Route::post('/platform-settings',                     [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'update'])->name('settings.update');
     Route::post('/platform-settings/paymongo',  [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'savePaymongo'])->name('settings.paymongo');
+    Route::post('/platform-settings/philsms',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'savePhilsms'])->name('settings.philsms');
+    Route::post('/platform-settings/philsms/test', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'testPhilsms'])->name('settings.philsms_test');
     Route::post('/platform-settings/unisms',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveUnisms'])->name('settings.unisms');
     Route::post('/platform-settings/unisms/test', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'testUnisms'])->name('settings.unisms_test');
     Route::post('/platform-settings/dev-mode',  [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveDevMode'])->name('settings.dev_mode');

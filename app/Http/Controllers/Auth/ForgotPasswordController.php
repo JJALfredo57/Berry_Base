@@ -54,7 +54,7 @@ class ForgotPasswordController extends Controller
                 $msg = "OTP sent via SMS to {$maskedPhone}. Check your messages. Valid for 10 minutes.";
             } else {
                 // No fallback — show exact error so we can debug
-                $msg = "⚠️ SMS failed to send. Check your UniSMS API key, Sender ID setup, or account credits. (No email fallback during testing)";
+                $msg = "⚠️ SMS failed to send. Check your PhilSMS API token, Sender ID setup, endpoint, or account credits. (No email fallback during testing)";
             }
         } else {
             $sent = CakeshopHelper::sendOtpEmail($user->email, $otp, 'Password Reset');

@@ -7,20 +7,22 @@ use Illuminate\Support\Facades\DB;
 class SmsHelper
 {
     /**
-     * Send an SMS via UniSMS.
+     * Send an SMS via PhilSMS.
      * Returns ['ok' => bool, 'error' => string|null].
      */
     public static function sendWithResult(string $phone, string $message, bool $isOtpCall = false): array
     {
-        $apiKey   = config('unisms.api_key', '');
-        $senderId = config('unisms.sender_id', '');
+        $apiKey   = config('philsms.api_key', config('unisms.api_key', ''));
+        $senderId = config('philsms.sender_id', config('unisms.sender_id', ''));
+        $endpoint = self::normalizeEndpoint(config('philsms.endpoint', config('unisms.endpoint', 'https://dashboard.philsms.com/api/v3/sms/send')));
         $devMode  = false;
 
         try {
             $p = DB::table('platform_settings')->first();
-            if (!empty($p->philsms_token))  $apiKey   = $p->philsms_token;
-            if (!empty($p->philsms_sender)) $senderId = $p->philsms_sender;
-            if (!empty($p->dev_mode))       $devMode  = true;
+            if (!empty($p->philsms_token))    $apiKey   = $p->philsms_token;
+            if (!empty($p->philsms_sender))   $senderId = $p->philsms_sender;
+            if (!empty($p->philsms_endpoint)) $endpoint = self::normalizeEndpoint($p->philsms_endpoint);
+            if (!empty($p->dev_mode))         $devMode  = true;
         } catch (\Throwable $e) {}
 
         $cleanPhone = preg_replace('/\D/', '', $phone);
@@ -40,24 +42,33 @@ class SmsHelper
         }
 
         if (empty($apiKey)) {
-            Log::warning('UniSMS: API key not configured.', ['to' => $cleanPhone]);
+            Log::warning('PhilSMS: API token not configured.', ['to' => $cleanPhone]);
             return ['ok' => false, 'error' => 'SMS service is not configured. Please contact the platform administrator.'];
+        }
+
+        if (empty($senderId)) {
+            Log::warning('PhilSMS: sender ID not configured.', ['to' => $cleanPhone]);
+            return ['ok' => false, 'error' => 'PhilSMS Sender ID is required. Please update the SMS settings.'];
         }
 
         try {
             $ch = curl_init();
-            $payload = ['recipient' => '+' . $cleanPhone, 'content' => self::clean($message)];
-            if (!empty($senderId)) $payload['sender_id'] = $senderId;
+            $payload = [
+                'recipient' => $cleanPhone,
+                'sender_id' => $senderId,
+                'type'      => 'plain',
+                'message'   => self::clean($message),
+            ];
 
             curl_setopt_array($ch, [
-                CURLOPT_URL            => 'https://unismsapi.com/api/sms',
+                CURLOPT_URL            => $endpoint,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_POST           => true,
                 CURLOPT_POSTFIELDS     => json_encode($payload),
                 CURLOPT_HTTPHEADER     => [
                     'Content-Type: application/json',
                     'Accept: application/json',
-                    'Authorization: Basic ' . base64_encode($apiKey . ':'),
+                    'Authorization: Bearer ' . $apiKey,
                 ],
                 CURLOPT_TIMEOUT => 15,
             ]);
@@ -69,24 +80,28 @@ class SmsHelper
             curl_close($ch);
 
             if ($curlErr) {
-                Log::error('UniSMS cURL error.', ['to' => $cleanPhone, 'curl_error' => $curlErr]);
+                Log::error('PhilSMS cURL error.', ['to' => $cleanPhone, 'curl_error' => $curlErr]);
                 return ['ok' => false, 'error' => 'Network error while contacting SMS gateway. Please try again.'];
             }
 
-            Log::info('UniSMS response.', [
+            Log::info('PhilSMS response.', [
                 'http_code' => $httpCode,
                 'to'        => $cleanPhone,
                 'sender_id' => $senderId,
+                'endpoint'  => $endpoint,
                 'body'      => $data ?? $response,
             ]);
 
             if ($httpCode < 200 || $httpCode >= 300) {
                 $apiMsg = self::extractApiError($data);
-                Log::warning('UniSMS rejected request.', ['http_code' => $httpCode, 'to' => $cleanPhone, 'api_error' => $apiMsg]);
+                Log::warning('PhilSMS rejected request.', ['http_code' => $httpCode, 'to' => $cleanPhone, 'api_error' => $apiMsg]);
                 return ['ok' => false, 'error' => 'SMS gateway rejected the request' . ($apiMsg ? ': ' . $apiMsg : '.') . ' Please check the SMS settings.'];
             }
 
             if (is_array($data)) {
+                if (isset($data['status']) && strtolower((string) $data['status']) === 'success') {
+                    return ['ok' => true, 'error' => null];
+                }
                 if (array_key_exists('success', $data) && !$data['success']) {
                     $apiMsg = self::extractApiError($data);
                     return ['ok' => false, 'error' => 'SMS gateway reported a failure' . ($apiMsg ? ': ' . $apiMsg : '.') ];
@@ -99,7 +114,7 @@ class SmsHelper
             return ['ok' => true, 'error' => null];
 
         } catch (\Throwable $e) {
-            Log::error('UniSMS unexpected error.', ['message' => $e->getMessage(), 'to' => $cleanPhone]);
+            Log::error('PhilSMS unexpected error.', ['message' => $e->getMessage(), 'to' => $cleanPhone]);
             return ['ok' => false, 'error' => 'An unexpected error occurred while sending SMS. Please try again.'];
         }
     }
@@ -221,7 +236,7 @@ class SmsHelper
         }
     }
 
-    /** Extract a readable error string from a UniSMS error payload. */
+    /** Extract a readable error string from a PhilSMS error payload. */
     private static function extractApiError(?array $data): string
     {
         if (!$data) return '';
@@ -235,6 +250,15 @@ class SmsHelper
     {
         $message = strtolower(self::extractApiError($data));
         return str_contains($message, 'sender_id') && str_contains($message, 'inactive');
+    }
+
+    private static function normalizeEndpoint(string $endpoint): string
+    {
+        $endpoint = rtrim(trim($endpoint), '/');
+        if (preg_match('~/api/v3$~', $endpoint)) {
+            return $endpoint . '/sms/send';
+        }
+        return $endpoint;
     }
 
     private static function clean(string $text): string
