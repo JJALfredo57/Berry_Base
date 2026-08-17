@@ -9,6 +9,7 @@ use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class PlatformSettingsController extends Controller
 {
@@ -182,8 +183,10 @@ class PlatformSettingsController extends Controller
         $updates = [
             'updated_at'       => now(),
             'philsms_sender'   => $sender,
-            'philsms_endpoint' => $endpoint,
         ];
+        if (Schema::hasColumn('platform_settings', 'philsms_endpoint')) {
+            $updates['philsms_endpoint'] = $endpoint;
+        }
         if (!empty($token)) $updates['philsms_token'] = $token;
 
         $existing = DB::table('platform_settings')->first();
