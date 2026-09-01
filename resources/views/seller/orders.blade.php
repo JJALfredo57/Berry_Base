@@ -160,6 +160,8 @@
                 'submitted' => 'COD remittance for review',
                 'confirmed' => 'COD remitted',
                 'rejected' => 'COD remittance rejected',
+                'awaiting_payment' => 'GCash QR awaiting payment',
+                'qr_expired' => 'GCash QR expired',
                 default => 'COD remittance pending',
               };
             @endphp
@@ -353,13 +355,17 @@
         $remitBg = match($remitStatus) {
           'confirmed' => '#ecfdf5',
           'submitted' => '#eff6ff',
+          'awaiting_payment' => '#eff6ff',
           'rejected' => '#fef2f2',
+          'qr_expired' => '#f8fafc',
           default => '#fffbeb',
         };
         $remitBorder = match($remitStatus) {
           'confirmed' => '#bbf7d0',
           'submitted' => '#bfdbfe',
+          'awaiting_payment' => '#bfdbfe',
           'rejected' => '#fecaca',
+          'qr_expired' => '#e5e7eb',
           default => '#fde68a',
         };
       @endphp
@@ -369,8 +375,10 @@
             <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#334155;margin-bottom:.25rem">Rider COD Remittance</div>
             <div><strong>Amount collected:</strong> PHP {{ number_format((float)$remittance->amount, 2) }}</div>
             <div><strong>Status:</strong> {{ ucfirst(str_replace('_', ' ', $remitStatus)) }}</div>
-            @if($remittance->remittance_method)<div><strong>Method:</strong> {{ $remittance->remittance_method === 'gcash' ? 'GCash transfer' : 'Cash handover' }}</div>@endif
+            @if($remittance->remittance_method)<div><strong>Method:</strong> {{ $remittance->remittance_method === 'gcash_paymongo' ? 'GCash QR via PayMongo' : ($remittance->remittance_method === 'gcash' ? 'GCash transfer' : 'Cash handover') }}</div>@endif
             @if($remittance->reference_number)<div><strong>Reference:</strong> {{ $remittance->reference_number }}</div>@endif
+            @if(!empty($remittance->paymongo_payment_intent_id))<div><strong>PayMongo ID:</strong> {{ $remittance->paymongo_payment_intent_id }}</div>@endif
+            @if(!empty($remittance->paymongo_paid_at))<div><strong>Verified at:</strong> {{ \Carbon\Carbon::parse($remittance->paymongo_paid_at)->format('M d, Y g:i A') }}</div>@endif
             @if($remittance->rider_note)<div><strong>Rider note:</strong> {{ $remittance->rider_note }}</div>@endif
             @if($remittance->seller_note)<div><strong>Seller note:</strong> {{ $remittance->seller_note }}</div>@endif
           </div>

@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             '/logout',
             '/device/register',
             '/device/unregister',
+            '/webhooks/paymongo/remittance',
         ]);
     })
     ->withProviders([

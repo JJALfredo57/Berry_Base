@@ -110,6 +110,11 @@
     .photo-preview { width: 100%; border-radius: 10px; margin-top: 10px; display: none; object-fit: cover; max-height: clamp(180px, 45vw, 260px); }
     .note-input { width: 100%; padding: clamp(12px, 3vw, 16px); border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: clamp(14px, 3.5vw, 18px); font-family: inherit; resize: none; margin-top: 10px; }
     .note-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent); }
+    .qr-box { background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; padding:14px; margin-top:12px; text-align:center; }
+    .qr-img { display:block; width:min(260px, 86vw); aspect-ratio:1/1; object-fit:contain; margin:10px auto; border:8px solid #fff; border-radius:10px; box-shadow:0 8px 24px rgba(15,23,42,.10); }
+    .qr-actions { display:grid; grid-template-columns:1fr; gap:8px; margin-top:10px; }
+    .btn-remit-alt { width:100%; padding:clamp(12px,3.2vw,16px); border:1.5px solid #bfdbfe; border-radius:12px; background:#fff; color:#1d4ed8; font-size:clamp(13px,3.4vw,16px); font-weight:700; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .btn-remit-alt:active { background:#eff6ff; }
 
     /* ── Action buttons ──────── */
     .actions { padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 20px); display: flex; flex-direction: column; gap: clamp(8px, 2.5vw, 12px); }
@@ -361,17 +366,60 @@
   </div>
   @if(($remittance->status ?? '') !== 'confirmed')
   <div class="photo-section">
+    @php
+      $qrActive = ($remittance->status ?? '') === 'awaiting_payment'
+        && !empty($remittance->paymongo_qr_image)
+        && (empty($remittance->paymongo_expires_at) || now()->lt($remittance->paymongo_expires_at));
+      $qrExpired = ($remittance->status ?? '') === 'qr_expired'
+        || (!empty($remittance->paymongo_expires_at) && now()->gte($remittance->paymongo_expires_at) && ($remittance->status ?? '') !== 'confirmed');
+    @endphp
+
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;color:#1d4ed8;font-weight:800;text-transform:uppercase;letter-spacing:.04em">Online Remittance</div>
+      <div style="font-size:14px;color:#1e3a8a;font-weight:650;line-height:1.45">Use GCash to scan the PayMongo QR. The system verifies the payment automatically after PayMongo confirms it.</div>
+    </div>
+
+    @if($qrActive)
+      <div class="qr-box">
+        <div class="row-label">Scan with GCash</div>
+        <div class="row-value">&#8369;{{ number_format((float)$remittance->amount, 2) }}</div>
+        <img class="qr-img" src="{{ $remittance->paymongo_qr_image }}" alt="PayMongo GCash QR for remittance">
+        @if(!empty($remittance->paymongo_expires_at))
+          <div class="row-sub">Expires {{ \Carbon\Carbon::parse($remittance->paymongo_expires_at)->diffForHumans() }}</div>
+        @endif
+        <div class="qr-actions">
+          @if(!empty($remittance->paymongo_action_url))
+            <a class="btn-remit-alt" href="{{ $remittance->paymongo_action_url }}" target="_blank" rel="noopener">
+              <i class="bi bi-phone"></i> Open Payment Link
+            </a>
+          @endif
+          <form method="POST" action="{{ route('rider.remittance.check', [$order->id, $order->rider_token]) }}">
+            @csrf
+            <button class="btn-remit-alt" type="submit"><i class="bi bi-arrow-repeat"></i> Check Payment Status</button>
+          </form>
+        </div>
+      </div>
+    @endif
+
+    <form method="POST" action="{{ route('rider.remittance.qr', [$order->id, $order->rider_token]) }}">
+      @csrf
+      <button class="btn-deliver" type="submit" style="margin-top:12px">
+        <i class="bi bi-qr-code"></i> {{ $qrExpired ? 'Generate New GCash QR' : 'Generate GCash QR' }}
+      </button>
+    </form>
+
     @if(!empty($shopPayout?->payout_account_name) || !empty($shopPayout?->payout_account_number))
-      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Seller GCash</div>
+      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin:12px 0">
+        <div style="font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Manual fallback seller GCash</div>
         <div style="font-weight:700;color:#111827">{{ $shopPayout->payout_account_name ?? 'Account name not set' }}</div>
         <div style="font-size:14px;color:#374151">{{ $shopPayout->payout_account_number ?? 'Number not set' }}</div>
       </div>
     @endif
+
     <form method="POST" action="{{ route('rider.remittance', [$order->id, $order->rider_token]) }}" enctype="multipart/form-data">
       @csrf
       <input type="hidden" name="amount" value="{{ number_format((float)$remittance->amount, 2, '.', '') }}">
-      <label class="row-label" for="remittanceMethod">How did you remit the cash?</label>
+      <label class="row-label" for="remittanceMethod">Manual remittance fallback</label>
       <select id="remittanceMethod" name="remittance_method" class="note-input" required onchange="toggleRemittanceReceipt(this.value)">
         <option value="">Choose method</option>
         <option value="gcash" @selected(old('remittance_method', $remittance->remittance_method ?? '') === 'gcash')>GCash transfer to seller</option>

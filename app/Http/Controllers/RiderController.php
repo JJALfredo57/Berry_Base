@@ -155,7 +155,7 @@ class RiderController extends Controller
 
         if (!in_array($order->status, ['Out for Delivery'], true)) {
             $needsRemittance = $remittance
-                && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected'], true);
+                && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired'], true);
 
             return view('rider.delivery', [
                 'order' => $order,
@@ -450,6 +450,377 @@ class RiderController extends Controller
         }
 
         return back()->with('msg', 'Remittance submitted. The seller will confirm once received.');
+    }
+
+    public function generateRemittanceQr(Request $request, string $orderId, string $token)
+    {
+        $context = $this->validatedRemittanceContext($orderId, $token);
+        if ($context instanceof \Illuminate\Http\RedirectResponse) return $context;
+
+        [$order, $remittance] = $context;
+        if (($remittance->status ?? '') === 'confirmed') {
+            return back()->with('msg', 'This remittance was already verified.');
+        }
+
+        if (!Schema::hasColumn('rider_remittances', 'paymongo_payment_intent_id')
+            || !Schema::hasColumn('rider_remittances', 'paymongo_qr_image')) {
+            return back()->with('err', 'GCash QR remittance setup is not ready yet. Please run the latest database migration.');
+        }
+
+        if (($remittance->status ?? '') === 'awaiting_payment'
+            && !empty($remittance->paymongo_qr_image)
+            && !empty($remittance->paymongo_expires_at)
+            && now()->lt($remittance->paymongo_expires_at)) {
+            return back()->with('msg', 'GCash QR is still active. Scan it or tap Check Payment Status after paying.');
+        }
+
+        $secretKey = CakeshopHelper::getPaymongoSecretKey();
+        $publicKey = CakeshopHelper::getPaymongoPublicKey();
+        if (!$secretKey || !$publicKey || str_contains($secretKey, 'YOUR_SECRET_KEY') || str_contains($publicKey, 'YOUR_PUBLIC_KEY')) {
+            return back()->with('err', 'GCash QR remittance is not configured yet. Please ask the admin to set PayMongo keys.');
+        }
+
+        $amount = round((float) ($remittance->amount ?? 0), 2);
+        $amountCentavos = (int) round($amount * 100);
+        if ($amountCentavos < 100) {
+            return back()->with('err', 'Remittance amount must be at least PHP 1.00 for PayMongo QR.');
+        }
+
+        $reference = 'REMIT-' . $remittance->id . '-' . $order->id;
+        $description = 'Rider COD remittance for Order #' . $order->id;
+
+        try {
+            $intent = $this->paymongoRequest('POST', 'https://api.paymongo.com/v1/payment_intents', $secretKey, [
+                'data' => [
+                    'attributes' => [
+                        'amount' => $amountCentavos,
+                        'currency' => 'PHP',
+                        'payment_method_allowed' => ['qrph'],
+                        'description' => $description,
+                        'metadata' => [
+                            'type' => 'rider_cod_remittance',
+                            'order_id' => (string) $order->id,
+                            'remittance_id' => (string) $remittance->id,
+                            'reference_number' => $reference,
+                        ],
+                    ],
+                ],
+            ]);
+
+            $intentId = data_get($intent, 'data.id');
+            $clientKey = data_get($intent, 'data.attributes.client_key');
+            if (!$intentId || !$clientKey) {
+                throw new \RuntimeException(data_get($intent, 'errors.0.detail', 'Could not create PayMongo payment intent.'));
+            }
+
+            $method = $this->paymongoRequest('POST', 'https://api.paymongo.com/v1/payment_methods', $publicKey, [
+                'data' => [
+                    'attributes' => [
+                        'type' => 'qrph',
+                        'billing' => [
+                            'name' => 'Rider COD Remittance',
+                        ],
+                    ],
+                ],
+            ]);
+
+            $methodId = data_get($method, 'data.id');
+            if (!$methodId) {
+                throw new \RuntimeException(data_get($method, 'errors.0.detail', 'Could not create PayMongo QR method.'));
+            }
+
+            $attached = $this->paymongoRequest('POST', "https://api.paymongo.com/v1/payment_intents/{$intentId}/attach", $publicKey, [
+                'data' => [
+                    'attributes' => [
+                        'payment_method' => $methodId,
+                        'client_key' => $clientKey,
+                    ],
+                ],
+            ]);
+
+            $qrImage = data_get($attached, 'data.attributes.next_action.code.image_url');
+            $actionUrl = data_get($attached, 'data.attributes.next_action.redirect.url')
+                ?: data_get($attached, 'data.attributes.next_action.url');
+            $paymongoStatus = data_get($attached, 'data.attributes.status', 'awaiting_next_action');
+            if (!$qrImage) {
+                throw new \RuntimeException(data_get($attached, 'errors.0.detail', 'PayMongo did not return a QR image.'));
+            }
+
+            DB::table('rider_remittances')->where('id', $remittance->id)->update($this->filterExistingColumns('rider_remittances', [
+                'remittance_method' => 'gcash_paymongo',
+                'status' => 'awaiting_payment',
+                'reference_number' => $reference,
+                'paymongo_payment_intent_id' => $intentId,
+                'paymongo_payment_method_id' => $methodId,
+                'paymongo_client_key' => $clientKey,
+                'paymongo_qr_image' => $qrImage,
+                'paymongo_action_url' => $actionUrl,
+                'paymongo_status' => $paymongoStatus,
+                'paymongo_reference' => $reference,
+                'paymongo_expires_at' => now()->addMinutes(30),
+                'rejected_at' => null,
+                'seller_note' => null,
+                'updated_at' => now(),
+            ]));
+
+            $this->addOrderTrackingSafe($order->id, 'GCash QR Remittance Created', 'Rider generated a PayMongo QR Ph code for COD remittance.');
+            $this->notifySellerSafe($order, 'COD Remittance QR Generated', "Rider generated a GCash QR remittance for Order #{$order->id}. Waiting for PayMongo confirmation.", 'rider_remittance_qr_created');
+
+            return back()->with('msg', 'GCash QR generated. Scan it using GCash, then tap Check Payment Status.');
+        } catch (\Throwable $e) {
+            Log::error('PayMongo rider remittance QR failed', [
+                'order_id' => $order->id,
+                'remittance_id' => $remittance->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('err', 'Could not generate GCash QR right now. Please try again or use manual remittance.');
+        }
+    }
+
+    public function checkRemittanceQr(Request $request, string $orderId, string $token)
+    {
+        $context = $this->validatedRemittanceContext($orderId, $token);
+        if ($context instanceof \Illuminate\Http\RedirectResponse) return $context;
+
+        [$order, $remittance] = $context;
+        if (($remittance->status ?? '') === 'confirmed') {
+            return back()->with('msg', 'This remittance was already verified.');
+        }
+        if (empty($remittance->paymongo_payment_intent_id)) {
+            return back()->with('err', 'Generate a GCash QR first before checking payment status.');
+        }
+
+        try {
+            $result = $this->syncPaymongoRemittance($remittance, $order);
+            return back()->with($result['ok'] ? 'msg' : 'err', $result['message']);
+        } catch (\Throwable $e) {
+            Log::error('PayMongo rider remittance status check failed', [
+                'order_id' => $order->id,
+                'remittance_id' => $remittance->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('err', 'Could not check PayMongo payment status right now.');
+        }
+    }
+
+    public function paymongoRemittanceWebhook(Request $request)
+    {
+        $payload = $request->all();
+        $eventType = data_get($payload, 'data.attributes.type') ?: data_get($payload, 'data.type') ?: data_get($payload, 'type');
+        $paymentIntentId = data_get($payload, 'data.attributes.data.attributes.payment_intent_id')
+            ?: data_get($payload, 'data.attributes.data.relationships.payment_intent.data.id')
+            ?: data_get($payload, 'data.attributes.data.id');
+        $remittanceId = data_get($payload, 'data.attributes.data.attributes.metadata.remittance_id')
+            ?: data_get($payload, 'data.attributes.data.attributes.metadata.remittanceId');
+
+        if (!$paymentIntentId && !$remittanceId) {
+            Log::info('PayMongo remittance webhook ignored', ['event' => $eventType]);
+            return response()->json(['ok' => true]);
+        }
+
+        $remittance = null;
+        if (Schema::hasTable('rider_remittances')) {
+            $query = DB::table('rider_remittances');
+            if ($paymentIntentId) {
+                $query->where('paymongo_payment_intent_id', $paymentIntentId);
+            } elseif ($remittanceId) {
+                $query->where('id', $remittanceId);
+            }
+            $remittance = $query->first();
+        }
+        if (!$remittance) {
+            return response()->json(['ok' => true]);
+        }
+
+        $order = DB::table('orders')->where('id', $remittance->order_id)->first();
+        if ($order) {
+            $this->syncPaymongoRemittance($remittance, $order);
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function validatedRemittanceContext(string $orderId, string $token): array|\Illuminate\Http\RedirectResponse
+    {
+        $order = DB::table('orders')
+            ->where('id', $orderId)
+            ->where('rider_token', $token)
+            ->first();
+
+        if (!$order || !in_array(($order->status ?? ''), ['Delivered', 'Picked Up'], true)) {
+            return back()->with('err', 'Remittance is only available after a completed delivery.');
+        }
+
+        if (!Schema::hasTable('rider_remittances')) {
+            return back()->with('err', 'Remittance tracking is not ready yet. Please contact the seller.');
+        }
+
+        $remittance = DB::table('rider_remittances')
+            ->where('order_id', $orderId)
+            ->where('rider_id', $order->rider_id)
+            ->first();
+
+        if (!$remittance) {
+            return back()->with('err', 'No cash remittance is required for this order.');
+        }
+
+        return [$order, $remittance];
+    }
+
+    private function paymongoRequest(string $method, string $url, string $key, array $payload = []): array
+    {
+        $ch = curl_init($url);
+        $options = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'accept: application/json',
+                'Authorization: Basic ' . base64_encode($key . ':'),
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_TIMEOUT => 30,
+        ];
+
+        if ($method === 'POST') {
+            $options[CURLOPT_POST] = true;
+            $options[CURLOPT_POSTFIELDS] = json_encode($payload);
+        }
+
+        curl_setopt_array($ch, $options);
+        $raw = curl_exec($ch);
+        $errno = curl_errno($ch);
+        $error = curl_error($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($errno) {
+            throw new \RuntimeException('PayMongo network error: ' . $error);
+        }
+
+        $data = $raw ? json_decode($raw, true) : [];
+        if ($httpCode >= 400) {
+            throw new \RuntimeException(data_get($data, 'errors.0.detail', 'PayMongo returned HTTP ' . $httpCode));
+        }
+
+        return is_array($data) ? $data : [];
+    }
+
+    private function syncPaymongoRemittance(object $remittance, object $order): array
+    {
+        $secretKey = CakeshopHelper::getPaymongoSecretKey();
+        if (!$secretKey) {
+            return ['ok' => false, 'message' => 'PayMongo keys are not configured.'];
+        }
+
+        $intent = $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/payment_intents/' . $remittance->paymongo_payment_intent_id, $secretKey);
+        $status = data_get($intent, 'data.attributes.status', '');
+        $paid = $status === 'succeeded';
+
+        $updates = [
+            'paymongo_status' => $status ?: null,
+            'updated_at' => now(),
+        ];
+
+        if ($paid) {
+            $reference = data_get($intent, 'data.attributes.payments.0.attributes.reference_number')
+                ?: ($remittance->paymongo_reference ?? $remittance->reference_number ?? null);
+
+            $updates = array_merge($updates, [
+                'status' => 'confirmed',
+                'remittance_method' => 'gcash_paymongo',
+                'reference_number' => $reference,
+                'paymongo_reference' => $reference,
+                'paymongo_paid_at' => now(),
+                'confirmed_at' => now(),
+                'submitted_at' => now(),
+                'rejected_at' => null,
+                'seller_note' => 'Auto-verified via PayMongo GCash QR.',
+            ]);
+        } elseif (!empty($remittance->paymongo_expires_at) && now()->gte($remittance->paymongo_expires_at)) {
+            $updates['status'] = 'qr_expired';
+        }
+
+        DB::table('rider_remittances')->where('id', $remittance->id)->update($this->filterExistingColumns('rider_remittances', $updates));
+
+        if ($paid) {
+            $orderUpdates = $this->filterExistingColumns('orders', [
+                'settled_at' => now(),
+                'updated_at' => now(),
+            ]);
+            if (!empty($orderUpdates)) {
+                DB::table('orders')->where('id', $order->id)->update($orderUpdates);
+            }
+            $this->addOrderTrackingSafe($order->id, 'GCash Remittance Verified', 'COD remittance was auto-verified by PayMongo QR payment.');
+            $this->notifySellerSafe($order, 'COD Remittance Paid via GCash', "PayMongo verified the GCash remittance for Order #{$order->id}.", 'rider_remittance_paid');
+
+            return ['ok' => true, 'message' => 'GCash remittance verified by PayMongo.'];
+        }
+
+        if (($updates['status'] ?? null) === 'qr_expired') {
+            return ['ok' => false, 'message' => 'This GCash QR expired. Generate a new QR and try again.'];
+        }
+
+        return ['ok' => false, 'message' => 'Payment is not completed yet. Scan the QR in GCash, then check again.'];
+    }
+
+    private function filterExistingColumns(string $table, array $values): array
+    {
+        if (!Schema::hasTable($table)) return [];
+
+        return collect($values)
+            ->filter(fn ($value, $column) => Schema::hasColumn($table, $column))
+            ->all();
+    }
+
+    private function addOrderTrackingSafe(string $orderId, string $status, ?string $notes = null): void
+    {
+        try {
+            if (!Schema::hasTable('order_tracking')) return;
+
+            $tracking = $this->filterExistingColumns('order_tracking', [
+                'order_id' => $orderId,
+                'status' => $status,
+                'notes' => $notes,
+                'created_at' => now(),
+            ]);
+
+            if (!empty($tracking)) {
+                DB::table('order_tracking')->insert($tracking);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Rider remittance tracking insert failed: ' . $e->getMessage());
+        }
+    }
+
+    private function notifySellerSafe(object $order, string $title, string $message, string $event): void
+    {
+        try {
+            $sellerId = !empty($order->shop_id)
+                ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id')
+                : null;
+
+            if ($sellerId && Schema::hasTable('notifications')) {
+                $notification = $this->filterExistingColumns('notifications', [
+                    'receiver_role' => 'seller',
+                    'receiver_user_id' => $sellerId,
+                    'order_id' => $order->id,
+                    'title' => $title,
+                    'message' => $message,
+                    'is_read' => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                if (!empty($notification)) {
+                    DB::table('notifications')->insert($notification);
+                }
+            }
+
+            app(MobileNotificationService::class)->notifyOrderSeller($order, $title, $message, ['event' => $event]);
+        } catch (\Throwable $e) {
+            Log::warning('Rider remittance seller notification failed: ' . $e->getMessage());
+        }
     }
 
     private function createCashRemittanceIfNeeded(object $order): ?object

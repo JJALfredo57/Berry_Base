@@ -254,8 +254,11 @@ Route::post('/rider/access', [\App\Http\Controllers\RiderController::class, 'acc
 Route::get('/rider/{orderId}/{token}',           [\App\Http\Controllers\RiderController::class, 'show'])->name('rider.show');
 Route::get('/rider/{orderId}/{token}/payment-status', [\App\Http\Controllers\RiderController::class, 'paymentStatus'])->name('rider.payment_status');
 Route::post('/rider/{orderId}/{token}/delivered', [\App\Http\Controllers\RiderController::class, 'markDelivered'])->name('rider.delivered');
+Route::post('/rider/{orderId}/{token}/remittance/paymongo-qr', [\App\Http\Controllers\RiderController::class, 'generateRemittanceQr'])->name('rider.remittance.qr');
+Route::post('/rider/{orderId}/{token}/remittance/check-paymongo', [\App\Http\Controllers\RiderController::class, 'checkRemittanceQr'])->name('rider.remittance.check');
 Route::post('/rider/{orderId}/{token}/remittance', [\App\Http\Controllers\RiderController::class, 'submitRemittance'])->name('rider.remittance');
 Route::post('/rider/{orderId}/{token}/issue',     [\App\Http\Controllers\RiderController::class, 'reportIssue'])->name('rider.issue');
+Route::post('/webhooks/paymongo/remittance', [\App\Http\Controllers\RiderController::class, 'paymongoRemittanceWebhook'])->name('paymongo.remittance_webhook');
 
 // ── Customer Panel ────────────────────────────────────────────────────────
 use App\Http\Controllers\Customer\CatalogController as CustomerCatalog;
