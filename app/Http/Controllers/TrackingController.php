@@ -315,7 +315,7 @@ class TrackingController extends Controller
                         'o.fulfillment_type',
                         'o.schedule_date',
                         'o.schedule_time',
-                        'o.address',
+                        'o.delivery_address as address',
                         'o.quantity',
                         'o.selected_size',
                         'o.custom_note',
