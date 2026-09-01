@@ -476,9 +476,10 @@ class RiderController extends Controller
 
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
         $publicKey = CakeshopHelper::getPaymongoPublicKey();
-        if (!$secretKey || !$publicKey || str_contains($secretKey, 'YOUR_SECRET_KEY') || str_contains($publicKey, 'YOUR_PUBLIC_KEY')) {
-            return back()->with('err', 'GCash QR remittance is not configured yet. Please ask the admin to set PayMongo keys.');
+        if (!$secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY')) {
+            return back()->with('err', 'GCash QR remittance is not configured yet. Please ask the admin to set PayMongo secret key.');
         }
+        $clientApiKey = ($publicKey && !str_contains($publicKey, 'YOUR_PUBLIC_KEY')) ? $publicKey : $secretKey;
 
         $amount = round((float) ($remittance->amount ?? 0), 2);
         $amountCentavos = (int) round($amount * 100);
@@ -497,12 +498,6 @@ class RiderController extends Controller
                         'currency' => 'PHP',
                         'payment_method_allowed' => ['qrph'],
                         'description' => $description,
-                        'metadata' => [
-                            'type' => 'rider_cod_remittance',
-                            'order_id' => (string) $order->id,
-                            'remittance_id' => (string) $remittance->id,
-                            'reference_number' => $reference,
-                        ],
                     ],
                 ],
             ]);
@@ -513,13 +508,11 @@ class RiderController extends Controller
                 throw new \RuntimeException(data_get($intent, 'errors.0.detail', 'Could not create PayMongo payment intent.'));
             }
 
-            $method = $this->paymongoRequest('POST', 'https://api.paymongo.com/v1/payment_methods', $publicKey, [
+            $method = $this->paymongoRequest('POST', 'https://api.paymongo.com/v1/payment_methods', $clientApiKey, [
                 'data' => [
                     'attributes' => [
                         'type' => 'qrph',
-                        'billing' => [
-                            'name' => 'Rider COD Remittance',
-                        ],
+                        'expiry_seconds' => 1800,
                     ],
                 ],
             ]);
@@ -529,7 +522,7 @@ class RiderController extends Controller
                 throw new \RuntimeException(data_get($method, 'errors.0.detail', 'Could not create PayMongo QR method.'));
             }
 
-            $attached = $this->paymongoRequest('POST', "https://api.paymongo.com/v1/payment_intents/{$intentId}/attach", $publicKey, [
+            $attached = $this->paymongoRequest('POST', "https://api.paymongo.com/v1/payment_intents/{$intentId}/attach", $clientApiKey, [
                 'data' => [
                     'attributes' => [
                         'payment_method' => $methodId,
@@ -574,7 +567,7 @@ class RiderController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return back()->with('err', 'Could not generate GCash QR right now. Please try again or use manual remittance.');
+            return back()->with('err', 'Could not generate GCash QR. PayMongo: ' . $e->getMessage());
         }
     }
 
