@@ -376,6 +376,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
     Route::get('/orders/{id}/realtime-status', [\App\Http\Controllers\Seller\OrderController::class, 'realtimeStatus'])->name('orders.realtime_status');
     Route::get('/orders/{id}/receipt/{transactionId}', [\App\Http\Controllers\Seller\OrderController::class, 'receipt'])->name('orders.receipt');
+    Route::get('/orders/{id}/remittance/{remittanceId}/confirm', [\App\Http\Controllers\Seller\OrderController::class, 'remittanceActionRedirect'])->name('orders.remittance_confirm_get');
+    Route::get('/orders/{id}/remittance/{remittanceId}/reject', [\App\Http\Controllers\Seller\OrderController::class, 'remittanceActionRedirect'])->name('orders.remittance_reject_get');
     Route::post('/orders/{id}/status',       [\App\Http\Controllers\Seller\OrderController::class, 'updateStatus'])->name('orders.status');
     Route::post('/orders/{id}/remittance/{remittanceId}/confirm', [\App\Http\Controllers\Seller\OrderController::class, 'confirmRemittance'])->name('orders.remittance_confirm');
     Route::post('/orders/{id}/remittance/{remittanceId}/reject', [\App\Http\Controllers\Seller\OrderController::class, 'rejectRemittance'])->name('orders.remittance_reject');

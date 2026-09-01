@@ -429,6 +429,21 @@ class RiderController extends Controller
                     "Rider submitted cash remittance for Order #{$orderId}. Please review and confirm.",
                     ['event' => 'rider_remittance_submitted']
                 );
+                $sellerId = !empty($freshOrder->shop_id)
+                    ? DB::table('shops')->where('id', $freshOrder->shop_id)->value('seller_id')
+                    : null;
+                if ($sellerId) {
+                    DB::table('notifications')->insert([
+                        'receiver_role' => 'seller',
+                        'receiver_user_id' => $sellerId,
+                        'order_id' => $orderId,
+                        'title' => 'COD Remittance Review Needed',
+                        'message' => "Rider submitted remittance proof for Order #{$orderId}. Please confirm after checking the transfer or cash handover.",
+                        'is_read' => false,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
             }
         } catch (\Throwable $e) {
             Log::warning('Rider remittance seller notification failed: ' . $e->getMessage());
@@ -470,6 +485,31 @@ class RiderController extends Controller
                 'updated_at' => now(),
             ]
         );
+
+        try {
+            $sellerId = DB::table('shops')->where('id', $order->shop_id)->value('seller_id');
+            $alreadyNotified = DB::table('notifications')
+                ->where('receiver_role', 'seller')
+                ->where('receiver_user_id', $sellerId)
+                ->where('order_id', $order->id)
+                ->where('title', 'COD Remittance Pending')
+                ->exists();
+
+            if ($sellerId && !$alreadyNotified) {
+                DB::table('notifications')->insert([
+                    'receiver_role' => 'seller',
+                    'receiver_user_id' => $sellerId,
+                    'order_id' => $order->id,
+                    'title' => 'COD Remittance Pending',
+                    'message' => 'Rider collected cash for Order #' . $order->id . '. Confirm after the rider remits the cash to the seller.',
+                    'is_read' => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('COD remittance pending notification failed: ' . $e->getMessage());
+        }
 
         return DB::table('rider_remittances')->where('order_id', $order->id)->first();
     }

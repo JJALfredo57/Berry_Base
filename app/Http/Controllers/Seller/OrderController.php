@@ -30,6 +30,7 @@ class OrderController extends Controller
         $shop   = $this->getShop();
         $search = trim($request->input('search', ''));
         $status = $request->input('status', 'All');
+        $hasRemittanceTable = Schema::hasTable('rider_remittances');
 
         try {
             $orders = DB::table('orders as o')
@@ -43,14 +44,23 @@ class OrderController extends Controller
                     'p.name as product_name',
                     'p.image_path as product_image_path'
                 )
-                ->when($search, fn($q) => $q->where(fn($sq) => $sq
-                    ->whereRaw("o.track_code ilike ?", ["%$search%"])
-                    ->orWhereRaw("COALESCE(o.guest_name, o.fullname, u.fullname) ilike ?", ["%$search%"])
-                    ->orWhereRaw("p.name ilike ?", ["%$search%"])
-                    ->orWhereRaw("o.payment_status ilike ?", ["%$search%"])
-                    ->orWhereRaw("o.payment_method ilike ?", ["%$search%"])
-                    ->orWhereRaw("o.status ilike ?", ["%$search%"])
-                ))
+                ->when($search, fn($q) => $q->where(function ($sq) use ($search, $hasRemittanceTable) {
+                    $sq->whereRaw("o.track_code ilike ?", ["%$search%"])
+                        ->orWhereRaw("COALESCE(o.guest_name, o.fullname, u.fullname) ilike ?", ["%$search%"])
+                        ->orWhereRaw("p.name ilike ?", ["%$search%"])
+                        ->orWhereRaw("o.payment_status ilike ?", ["%$search%"])
+                        ->orWhereRaw("o.payment_method ilike ?", ["%$search%"])
+                        ->orWhereRaw("o.status ilike ?", ["%$search%"]);
+
+                    if ($hasRemittanceTable) {
+                        $sq->orWhereExists(function ($rq) use ($search) {
+                            $rq->select(DB::raw(1))
+                                ->from('rider_remittances as rr')
+                                ->whereColumn('rr.order_id', 'o.id')
+                                ->whereRaw("rr.status ilike ?", ["%$search%"]);
+                        });
+                    }
+                }))
                 ->when($status && $status !== 'All', fn($q) =>
                     $status === 'Cancel Requests'
                         ? $q->where('o.cancel_status', 'pending')
@@ -105,7 +115,7 @@ class OrderController extends Controller
                         ->get();
                     foreach ($receiptRows as $receipt) $paymentReceipts[$receipt->order_id][] = $receipt;
                 }
-                if (Schema::hasTable('rider_remittances')) {
+                if ($hasRemittanceTable) {
                     $remittanceRows = DB::table('rider_remittances')
                         ->whereIn('order_id', $orderIds)
                         ->orderByDesc('id')
@@ -349,7 +359,9 @@ class OrderController extends Controller
         $remittance = $this->sellerRemittance($shop->id, $id, $remittanceId);
         if (!$remittance) return back()->with('err', 'Remittance record not found.');
         if (($remittance->status ?? '') === 'confirmed') return back()->with('msg', 'This remittance is already confirmed.');
-        if (($remittance->status ?? '') !== 'submitted') return back()->with('err', 'Rider must submit remittance details before confirmation.');
+        if (!in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected'], true)) {
+            return back()->with('err', 'This remittance cannot be confirmed from its current status.');
+        }
 
         $validated = $request->validate([
             'seller_note' => ['nullable', 'string', 'max:500'],
@@ -358,6 +370,7 @@ class OrderController extends Controller
         DB::transaction(function () use ($remittance, $id, $validated) {
             DB::table('rider_remittances')->where('id', $remittance->id)->update([
                 'status' => 'confirmed',
+                'remittance_method' => $remittance->remittance_method ?: 'cash_handover',
                 'seller_note' => trim((string) ($validated['seller_note'] ?? '')) ?: null,
                 'confirmed_at' => now(),
                 'rejected_at' => null,
@@ -372,13 +385,28 @@ class OrderController extends Controller
             DB::table('order_tracking')->insert([
                 'order_id' => $id,
                 'status' => 'Cash Remittance Confirmed',
-                'notes' => 'Seller confirmed rider cash remittance.',
+                'notes' => ($remittance->status ?? '') === 'pending'
+                    ? 'Seller confirmed COD cash received directly.'
+                    : 'Seller confirmed rider cash remittance.',
                 'created_at' => now(),
             ]);
         });
 
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Confirm Rider Remittance', "Order #{$id}");
         return back()->with('msg', "Cash remittance for Order #{$id} confirmed.");
+    }
+
+    public function remittanceActionRedirect(string $id, int $remittanceId)
+    {
+        $shop = $this->getShop();
+        $remittance = $this->sellerRemittance($shop->id, $id, $remittanceId);
+        if (!$remittance) {
+            return redirect()->route('seller.orders')->with('err', 'Remittance record not found.');
+        }
+
+        return redirect()
+            ->route('seller.orders', ['search' => $id])
+            ->with('err', 'For safety, confirm or reject COD remittance using the buttons on the Orders page.');
     }
 
     public function rejectRemittance(Request $request, string $id, int $remittanceId)

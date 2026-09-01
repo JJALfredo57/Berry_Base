@@ -100,6 +100,13 @@ class ViewServiceProvider extends ServiceProvider
                                 $feedback = (int) $feedbackQuery->count();
                             }
 
+                            $remittanceActions = Schema::hasTable('rider_remittances')
+                                ? (int) DB::table('rider_remittances')
+                                    ->where('shop_id', $shop->id)
+                                    ->whereIn('status', ['pending', 'submitted', 'rejected'])
+                                    ->count()
+                                : 0;
+
                             $payouts = Schema::hasTable('mobile_notifications')
                                 ? (int) DB::table('mobile_notifications')
                                     ->where('role', 'seller')
@@ -110,7 +117,7 @@ class ViewServiceProvider extends ServiceProvider
                                 : 0;
 
                             $sellerSidebarCounts = [
-                                'orders' => $pendingOrders + $pickupReady,
+                                'orders' => $pendingOrders + $pickupReady + $remittanceActions,
                                 'kitchen' => $kitchenPending + $kitchenPreparing,
                                 'messages' => $messages,
                                 'payouts' => $payouts,
@@ -119,6 +126,7 @@ class ViewServiceProvider extends ServiceProvider
                                 'feedback' => $feedback,
                                 'pickup_ready' => $pickupReady,
                                 'pending_orders' => $pendingOrders,
+                                'remittance_actions' => $remittanceActions,
                                 'kitchen_pending' => $kitchenPending,
                                 'kitchen_preparing' => $kitchenPreparing,
                             ];

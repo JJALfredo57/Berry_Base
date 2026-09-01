@@ -94,7 +94,7 @@
     $remittance = $riderRemittances[$o->id] ?? null;
     $hasPaidCancelRequest = $refund && ($refund->status ?? '') === 'pending';
     $isCancelledOrder = ($o->status ?? '') === 'Cancelled' || ($o->cancel_status ?? '') === 'accepted';
-    $needsRemittanceAction = $remittance && ($remittance->status ?? '') === 'submitted';
+    $needsRemittanceAction = $remittance && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected'], true);
     $needsPickupAction = ($o->status ?? '') === 'Pickup' || $hasPaidCancelRequest || $needsRemittanceAction;
     $sc = match($o->status) {
       'Awaiting Deposit'         => 'background:#FCE4EC;color:#880E4F',
@@ -446,7 +446,13 @@
         <div style="flex:1;min-width:260px">
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">COD REMITTANCE REVIEW</div>
           <div style="font-size:.82rem;color:#1e40af;line-height:1.5;font-weight:600">
-            Rider submitted PHP {{ number_format((float)$remittance->amount, 2) }}. Confirm only after you received the GCash transfer or cash handover.
+            @if(($remittance->status ?? '') === 'submitted')
+              Rider submitted PHP {{ number_format((float)$remittance->amount, 2) }}. Confirm only after you received the GCash transfer or cash handover.
+            @elseif(($remittance->status ?? '') === 'rejected')
+              This remittance was rejected. You can confirm if the rider has already corrected it, or reject again with a clearer note.
+            @else
+              Rider collected PHP {{ number_format((float)$remittance->amount, 2) }} COD. Confirm if the cash was already handed over to you, or reject to require rider submission/correction.
+            @endif
           </div>
         </div>
       </div>

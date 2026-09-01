@@ -106,6 +106,7 @@ class DashboardController extends Controller
             'feedback' => 0,
             'pickup_ready' => 0,
             'pending_orders' => 0,
+            'remittance_actions' => 0,
             'kitchen_pending' => 0,
             'kitchen_preparing' => 0,
         ];
@@ -119,7 +120,13 @@ class DashboardController extends Controller
                 ->where('shop_id', $shopId)
                 ->where('status', 'Pickup')
                 ->count();
-            $counts['orders'] = $counts['pending_orders'] + $counts['pickup_ready'];
+            if (Schema::hasTable('rider_remittances')) {
+                $counts['remittance_actions'] = (int) DB::table('rider_remittances')
+                    ->where('shop_id', $shopId)
+                    ->whereIn('status', ['pending', 'submitted', 'rejected'])
+                    ->count();
+            }
+            $counts['orders'] = $counts['pending_orders'] + $counts['pickup_ready'] + $counts['remittance_actions'];
 
             $counts['messages'] = (int) DB::table('messages as m')
                 ->join('orders as o', 'o.id', '=', 'm.order_id')

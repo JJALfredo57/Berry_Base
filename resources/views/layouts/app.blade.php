@@ -1371,7 +1371,7 @@
     </a>
     <a href="{{ route('seller.orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.orders') ? 'active' : '' }}">
       <i class="bi bi-bag-check"></i><span class="sb-link-text">Orders</span>
-      <span class="sb-badge warn" data-seller-badge="orders" title="{{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending" style="{{ $sbCount('orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('orders')) }}</span>
+      <span class="sb-badge warn" data-seller-badge="orders" title="{{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending, {{ $sbCount('remittance_actions') }} COD remittance action" style="{{ $sbCount('orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('orders')) }}</span>
     </a>
     <a href="{{ route('seller.kitchen') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.kitchen') ? 'active' : '' }}">
       <i class="bi bi-fire"></i><span class="sb-link-text">Kitchen</span>
