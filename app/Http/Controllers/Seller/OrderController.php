@@ -367,30 +367,48 @@ class OrderController extends Controller
             'seller_note' => ['nullable', 'string', 'max:500'],
         ]);
 
-        DB::transaction(function () use ($remittance, $id, $validated) {
-            DB::table('rider_remittances')->where('id', $remittance->id)->update([
-                'status' => 'confirmed',
-                'remittance_method' => $remittance->remittance_method ?: 'cash_handover',
-                'seller_note' => trim((string) ($validated['seller_note'] ?? '')) ?: null,
-                'confirmed_at' => now(),
-                'rejected_at' => null,
-                'updated_at' => now(),
-            ]);
+        try {
+            DB::transaction(function () use ($remittance, $id, $validated) {
+                $updates = $this->filterExistingColumns('rider_remittances', [
+                    'status' => 'confirmed',
+                    'remittance_method' => $remittance->remittance_method ?: 'cash_handover',
+                    'seller_note' => trim((string) ($validated['seller_note'] ?? '')) ?: null,
+                    'confirmed_at' => now(),
+                    'rejected_at' => null,
+                    'updated_at' => now(),
+                ]);
+                if (empty($updates)) {
+                    throw new \RuntimeException('No matching rider_remittances columns available for confirmation.');
+                }
 
-            DB::table('orders')->where('id', $id)->update([
-                'settled_at' => now(),
-                'updated_at' => now(),
-            ]);
+                DB::table('rider_remittances')->where('id', $remittance->id)->update($updates);
 
-            DB::table('order_tracking')->insert([
+                $orderUpdates = $this->filterExistingColumns('orders', [
+                    'settled_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                if (!empty($orderUpdates)) {
+                    DB::table('orders')->where('id', $id)->update($orderUpdates);
+                }
+
+                $this->addOrderTrackingSafe(
+                    $id,
+                    'Cash Remittance Confirmed',
+                    ($remittance->status ?? '') === 'pending'
+                        ? 'Seller confirmed COD cash received directly.'
+                        : 'Seller confirmed rider cash remittance.'
+                );
+            });
+        } catch (\Throwable $e) {
+            Log::error('Seller confirm remittance failed', [
                 'order_id' => $id,
-                'status' => 'Cash Remittance Confirmed',
-                'notes' => ($remittance->status ?? '') === 'pending'
-                    ? 'Seller confirmed COD cash received directly.'
-                    : 'Seller confirmed rider cash remittance.',
-                'created_at' => now(),
+                'remittance_id' => $remittanceId,
+                'shop_id' => $shop->id,
+                'error' => $e->getMessage(),
             ]);
-        });
+
+            return back()->with('err', 'Unable to confirm remittance right now. Please try again or contact admin.');
+        }
 
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Confirm Rider Remittance', "Order #{$id}");
         return back()->with('msg', "Cash remittance for Order #{$id} confirmed.");
@@ -422,22 +440,59 @@ class OrderController extends Controller
             'seller_note.required' => 'Please explain what the rider needs to correct.',
         ]);
 
-        DB::table('rider_remittances')->where('id', $remittance->id)->update([
-            'status' => 'rejected',
-            'seller_note' => trim($validated['seller_note']),
-            'rejected_at' => now(),
-            'updated_at' => now(),
-        ]);
+        try {
+            DB::transaction(function () use ($remittance, $id, $validated) {
+                $updates = $this->filterExistingColumns('rider_remittances', [
+                    'status' => 'rejected',
+                    'seller_note' => trim($validated['seller_note']),
+                    'rejected_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                if (empty($updates)) {
+                    throw new \RuntimeException('No matching rider_remittances columns available for rejection.');
+                }
 
-        DB::table('order_tracking')->insert([
-            'order_id' => $id,
-            'status' => 'Cash Remittance Rejected',
-            'notes' => trim($validated['seller_note']),
-            'created_at' => now(),
-        ]);
+                DB::table('rider_remittances')->where('id', $remittance->id)->update($updates);
+                $this->addOrderTrackingSafe($id, 'Cash Remittance Rejected', trim($validated['seller_note']));
+            });
+        } catch (\Throwable $e) {
+            Log::error('Seller reject remittance failed', [
+                'order_id' => $id,
+                'remittance_id' => $remittanceId,
+                'shop_id' => $shop->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('err', 'Unable to reject remittance right now. Please try again or contact admin.');
+        }
 
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Reject Rider Remittance', "Order #{$id}");
         return back()->with('msg', "Remittance for Order #{$id} rejected. Rider can resubmit corrected details.");
+    }
+
+    private function filterExistingColumns(string $table, array $values): array
+    {
+        if (!Schema::hasTable($table)) return [];
+
+        return collect($values)
+            ->filter(fn ($value, $column) => Schema::hasColumn($table, $column))
+            ->all();
+    }
+
+    private function addOrderTrackingSafe(string $orderId, string $status, ?string $notes = null): void
+    {
+        if (!Schema::hasTable('order_tracking')) return;
+
+        $tracking = $this->filterExistingColumns('order_tracking', [
+            'order_id' => $orderId,
+            'status' => $status,
+            'notes' => $notes,
+            'created_at' => now(),
+        ]);
+
+        if (!empty($tracking)) {
+            DB::table('order_tracking')->insert($tracking);
+        }
     }
 
     private function sellerRemittance(string $shopId, string $orderId, int $remittanceId): ?object
