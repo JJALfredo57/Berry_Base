@@ -405,7 +405,7 @@ class RiderController extends Controller
             'updated_at' => now(),
         ]));
 
-        $this->addOrderTrackingSafe($orderId, 'Cash Handover Submitted', 'Rider marked COD cash as handed directly to the shop.');
+        $this->addOrderTrackingSafe($orderId, 'Cash Handover Submitted', 'Rider marked COD cash as handed directly to the shop.', 'seller');
 
         try {
             $freshOrder = DB::table('orders')->where('id', $orderId)->first();
@@ -558,7 +558,7 @@ class RiderController extends Controller
                 'updated_at' => now(),
             ]));
 
-            $this->addOrderTrackingSafe($order->id, 'GCash QR Remittance Created', 'Rider generated a PayMongo QR Ph code for COD remittance.');
+            $this->addOrderTrackingSafe($order->id, 'GCash QR Remittance Created', 'Rider generated a PayMongo QR Ph code for COD remittance.', 'seller');
             $this->notifySellerSafe($order, 'COD Remittance QR Generated', "Rider generated a GCash QR remittance for Order #{$order->id}. Waiting for PayMongo confirmation.", 'rider_remittance_qr_created');
 
             return back()->with('msg', 'GCash QR generated. Scan it using GCash, then tap Check Payment Status.');
@@ -785,7 +785,7 @@ class RiderController extends Controller
             if (!empty($orderUpdates)) {
                 DB::table('orders')->where('id', $order->id)->update($orderUpdates);
             }
-            $this->addOrderTrackingSafe($order->id, 'GCash Remittance Verified', 'COD remittance was auto-verified by PayMongo QR payment.');
+            $this->addOrderTrackingSafe($order->id, 'GCash Remittance Verified', 'COD remittance was auto-verified by PayMongo QR payment.', 'seller');
             $this->notifySellerSafe($order, 'COD Remittance Paid via GCash', "PayMongo verified the GCash remittance for Order #{$order->id}.", 'rider_remittance_paid');
 
             return ['ok' => true, 'message' => 'GCash remittance verified by PayMongo.'];
@@ -807,7 +807,7 @@ class RiderController extends Controller
             ->all();
     }
 
-    private function addOrderTrackingSafe(string $orderId, string $status, ?string $notes = null): void
+    private function addOrderTrackingSafe(string $orderId, string $status, ?string $notes = null, ?string $receiverRole = null): void
     {
         try {
             if (!Schema::hasTable('order_tracking')) return;
@@ -816,6 +816,8 @@ class RiderController extends Controller
                 'order_id' => $orderId,
                 'status' => $status,
                 'notes' => $notes,
+                'sender_role' => $receiverRole ? 'rider' : null,
+                'receiver_role' => $receiverRole,
                 'created_at' => now(),
             ]);
 

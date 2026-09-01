@@ -7,6 +7,14 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    private const CUSTOMER_HIDDEN_TRACKING_STATUSES = [
+        'GCash QR Remittance Created',
+        'GCash Remittance Verified',
+        'Cash Handover Submitted',
+        'Cash Remittance Confirmed',
+        'Cash Remittance Rejected',
+    ];
+
     public function index(Request $request)
     {
         $uid    = session('user')['id'];
@@ -33,7 +41,11 @@ class OrderController extends Controller
         $customOrderData = [];
 
         if ($orderIds) {
-            $rows = DB::table('order_tracking')->whereIn('order_id', $orderIds)->orderBy('created_at')->get();
+            $rows = DB::table('order_tracking')
+                ->whereIn('order_id', $orderIds)
+                ->whereNotIn('status', self::CUSTOMER_HIDDEN_TRACKING_STATUSES)
+                ->orderBy('created_at')
+                ->get();
             foreach ($rows as $t) $tracking[$t->order_id][] = $t;
             try {
                 $addonRows = DB::table('order_addons')->whereIn('order_id', $orderIds)->orderBy('id')->get();

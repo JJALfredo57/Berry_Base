@@ -396,7 +396,8 @@ class OrderController extends Controller
                     'Cash Remittance Confirmed',
                     ($remittance->status ?? '') === 'pending'
                         ? 'Seller confirmed COD cash received directly.'
-                        : 'Seller confirmed rider cash remittance.'
+                        : 'Seller confirmed rider cash remittance.',
+                    'seller'
                 );
             });
         } catch (\Throwable $e) {
@@ -453,7 +454,7 @@ class OrderController extends Controller
                 }
 
                 DB::table('rider_remittances')->where('id', $remittance->id)->update($updates);
-                $this->addOrderTrackingSafe($id, 'Cash Remittance Rejected', trim($validated['seller_note']));
+                $this->addOrderTrackingSafe($id, 'Cash Remittance Rejected', trim($validated['seller_note']), 'seller');
             });
         } catch (\Throwable $e) {
             Log::error('Seller reject remittance failed', [
@@ -495,7 +496,7 @@ class OrderController extends Controller
             ->all();
     }
 
-    private function addOrderTrackingSafe(string $orderId, string $status, ?string $notes = null): void
+    private function addOrderTrackingSafe(string $orderId, string $status, ?string $notes = null, ?string $receiverRole = null): void
     {
         if (!Schema::hasTable('order_tracking')) return;
 
@@ -503,6 +504,8 @@ class OrderController extends Controller
             'order_id' => $orderId,
             'status' => $status,
             'notes' => $notes,
+            'sender_role' => 'seller',
+            'receiver_role' => $receiverRole,
             'created_at' => now(),
         ]);
 

@@ -13,6 +13,14 @@ use Illuminate\Support\Facades\Schema;
 
 class TrackingController extends Controller
 {
+    private const CUSTOMER_HIDDEN_TRACKING_STATUSES = [
+        'GCash QR Remittance Created',
+        'GCash Remittance Verified',
+        'Cash Handover Submitted',
+        'Cash Remittance Confirmed',
+        'Cash Remittance Rejected',
+    ];
+
     public function recoverForm()
     {
         $recovery = session('track_recovery', []);
@@ -192,8 +200,7 @@ class TrackingController extends Controller
         // even when the guest arrives via direct link (SMS/email) with no prior session
         session(['guest_track_code' => strtoupper($trackCode)]);
 
-        $tracking = DB::table('order_tracking')
-            ->where('order_id', $order->id)
+        $tracking = $this->customerTrackingQuery((string) $order->id)
             ->orderBy('created_at')->get();
 
         $addons = DB::table('order_addons')->where('order_id', $order->id)->get();
@@ -264,8 +271,9 @@ class TrackingController extends Controller
             return response()->json(['ok' => false, 'message' => 'Order not found.'], 404);
         }
 
-        $trackingCount = DB::table('order_tracking')->where('order_id', $order->id)->count();
-        $latestTrackingAt = DB::table('order_tracking')->where('order_id', $order->id)->max('created_at');
+        $trackingQuery = $this->customerTrackingQuery((string) $order->id);
+        $trackingCount = (clone $trackingQuery)->count();
+        $latestTrackingAt = (clone $trackingQuery)->max('created_at');
         $receiptCount = 0;
 
         try {
@@ -388,6 +396,13 @@ class TrackingController extends Controller
             'vatSettings' => $vatSettings,
             'pmReference' => null,
         ]);
+    }
+
+    private function customerTrackingQuery(string $orderId)
+    {
+        return DB::table('order_tracking')
+            ->where('order_id', $orderId)
+            ->whereNotIn('status', self::CUSTOMER_HIDDEN_TRACKING_STATUSES);
     }
 
     private function receiptQueryForPhone(?string $phone)
