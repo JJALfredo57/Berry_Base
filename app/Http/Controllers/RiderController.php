@@ -371,14 +371,11 @@ class RiderController extends Controller
 
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:1'],
-            'remittance_method' => ['required', 'in:gcash,cash_handover'],
-            'reference_number' => ['nullable', 'string', 'min:3', 'max:120'],
-            'receipt' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'remittance_method' => ['required', 'in:cash_handover'],
             'rider_note' => ['nullable', 'string', 'max:500'],
         ], [
-            'remittance_method.required' => 'Choose how you remitted the cash to the seller.',
-            'remittance_method.in' => 'Choose either GCash transfer or cash handover.',
-            'receipt.image' => 'Upload a valid receipt screenshot image.',
+            'remittance_method.required' => 'Choose cash handover if you gave the money directly to the shop.',
+            'remittance_method.in' => 'GCash remittance must use the PayMongo QR option.',
         ]);
 
         $expected = round((float) $remittance->amount, 2);
@@ -387,47 +384,28 @@ class RiderController extends Controller
             return back()->withErrors(['amount' => 'Amount must match the collected cash: PHP ' . number_format($expected, 2) . '.'])->withInput();
         }
 
-        if ($validated['remittance_method'] === 'gcash' && !$request->hasFile('receipt') && empty($remittance->receipt_path)) {
-            return back()->withErrors(['receipt' => 'Upload the GCash transfer receipt screenshot.'])->withInput();
-        }
-
-        $receiptPath = $remittance->receipt_path;
-        if ($request->hasFile('receipt')) {
-            $receiptPath = $this->uploadFile($request->file('receipt'), 'uploads/rider_remittances');
-            if (!$receiptPath) {
-                return back()->with('err', 'Receipt upload failed. Please try a smaller JPG/PNG/WebP image.')->withInput();
-            }
-        }
-
-        DB::table('rider_remittances')->where('id', $remittance->id)->update([
+        DB::table('rider_remittances')->where('id', $remittance->id)->update($this->filterExistingColumns('rider_remittances', [
             'remittance_method' => $validated['remittance_method'],
             'status' => 'submitted',
-            'reference_number' => trim((string) ($validated['reference_number'] ?? '')) ?: null,
-            'receipt_path' => $receiptPath,
+            'reference_number' => null,
+            'receipt_path' => null,
             'rider_note' => trim((string) ($validated['rider_note'] ?? '')) ?: null,
             'submitted_at' => now(),
             'rejected_at' => null,
             'seller_note' => null,
             'updated_at' => now(),
-        ]);
+        ]));
 
-        DB::table('order_tracking')->insert([
-            'order_id' => $orderId,
-            'status' => 'Cash Remittance Submitted',
-            'notes' => $validated['remittance_method'] === 'gcash'
-                ? 'Rider submitted GCash remittance proof.'
-                : 'Rider marked cash handover to seller.',
-            'created_at' => now(),
-        ]);
+        $this->addOrderTrackingSafe($orderId, 'Cash Handover Submitted', 'Rider marked COD cash as handed directly to the shop.');
 
         try {
             $freshOrder = DB::table('orders')->where('id', $orderId)->first();
             if ($freshOrder) {
                 app(MobileNotificationService::class)->notifyOrderSeller(
                     $freshOrder,
-                    'COD Remittance Submitted',
-                    "Rider submitted cash remittance for Order #{$orderId}. Please review and confirm.",
-                    ['event' => 'rider_remittance_submitted']
+                    'Cash Handover Confirmation Needed',
+                    "Rider marked COD cash as handed to the shop for Order #{$orderId}. Please confirm only if received.",
+                    ['event' => 'rider_cash_handover_submitted']
                 );
                 $sellerId = !empty($freshOrder->shop_id)
                     ? DB::table('shops')->where('id', $freshOrder->shop_id)->value('seller_id')
@@ -437,8 +415,8 @@ class RiderController extends Controller
                         'receiver_role' => 'seller',
                         'receiver_user_id' => $sellerId,
                         'order_id' => $orderId,
-                        'title' => 'COD Remittance Review Needed',
-                        'message' => "Rider submitted remittance proof for Order #{$orderId}. Please confirm after checking the transfer or cash handover.",
+                        'title' => 'Cash Handover Confirmation Needed',
+                        'message' => "Rider marked COD cash as handed to the shop for Order #{$orderId}. Confirm only if the cash was received.",
                         'is_read' => false,
                         'created_at' => now(),
                         'updated_at' => now(),
@@ -449,7 +427,7 @@ class RiderController extends Controller
             Log::warning('Rider remittance seller notification failed: ' . $e->getMessage());
         }
 
-        return back()->with('msg', 'Remittance submitted. The seller will confirm once received.');
+        return back()->with('msg', 'Cash handover submitted. The seller will confirm once received.');
     }
 
     public function generateRemittanceQr(Request $request, string $orderId, string $token)

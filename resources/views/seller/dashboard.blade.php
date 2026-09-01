@@ -80,6 +80,7 @@
     ['bi-bag-check',  'Total Orders',  number_format($stats['total']),     '#424242', '#f5f5f5', route('seller.orders')],
     ['bi-cash-stack', 'Revenue',       '₱'.number_format($stats['revenue'],2), '#2E7D32','#e8f5e9','#'],
     ['bi-wallet2',    'Net Earnings',  '₱'.number_format($netRevenue,2),  'var(--primary)', 'var(--primary-bg)', '#'],
+    ['bi-hourglass-split', 'Pending COD Remit', '&#8369;'.number_format($stats['pending_remittance'] ?? 0,2), '#B45309','#fffbeb', route('seller.orders')],
     ['bi-bank',       'Available Payout', '&#8369;'.number_format($payoutSummary['available'] ?? 0,2), '#166534', '#ecfdf5', route('seller.payouts')],
   ] as [$icon, $label, $val, $color, $bg, $link])
   <div class="col-6 col-md-4 col-xl">

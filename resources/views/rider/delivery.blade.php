@@ -115,6 +115,12 @@
     .qr-actions { display:grid; grid-template-columns:1fr; gap:8px; margin-top:10px; }
     .btn-remit-alt { width:100%; padding:clamp(12px,3.2vw,16px); border:1.5px solid #bfdbfe; border-radius:12px; background:#fff; color:#1d4ed8; font-size:clamp(13px,3.4vw,16px); font-weight:700; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; }
     .btn-remit-alt:active { background:#eff6ff; }
+    .remit-choice-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+    .remit-choice { border:1.5px solid #e5e7eb; border-radius:12px; background:#fff; color:#374151; padding:12px 8px; font:inherit; font-size:clamp(13px,3.2vw,16px); font-weight:750; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; min-height:48px; }
+    .remit-choice.active { border-color:#2563eb; background:#eff6ff; color:#1d4ed8; }
+    .remit-method-panel { display:none; }
+    .remit-method-panel.active { display:block; }
+    @media(max-width:360px){ .remit-choice-grid { grid-template-columns:1fr; } }
 
     /* ── Action buttons ──────── */
     .actions { padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 20px); display: flex; flex-direction: column; gap: clamp(8px, 2.5vw, 12px); }
@@ -374,69 +380,66 @@
         || (!empty($remittance->paymongo_expires_at) && now()->gte($remittance->paymongo_expires_at) && ($remittance->status ?? '') !== 'confirmed');
     @endphp
 
-    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px">
-      <div style="font-size:12px;color:#1d4ed8;font-weight:800;text-transform:uppercase;letter-spacing:.04em">Online Remittance</div>
-      <div style="font-size:14px;color:#1e3a8a;font-weight:650;line-height:1.45">Use GCash to scan the PayMongo QR. The system verifies the payment automatically after PayMongo confirms it.</div>
+    <div class="remit-choice-grid" role="group" aria-label="Choose remittance method">
+      <button class="remit-choice active" type="button" data-remit-tab="gcash" onclick="showRemitMethod('gcash')">
+        <i class="bi bi-qr-code"></i> GCash
+      </button>
+      <button class="remit-choice" type="button" data-remit-tab="cash" onclick="showRemitMethod('cash')">
+        <i class="bi bi-shop"></i> Cash to Shop
+      </button>
     </div>
 
-    @if($qrActive)
-      <div class="qr-box">
-        <div class="row-label">Scan with GCash</div>
-        <div class="row-value">&#8369;{{ number_format((float)$remittance->amount, 2) }}</div>
-        <img class="qr-img" src="{{ $remittance->paymongo_qr_image }}" alt="PayMongo GCash QR for remittance">
-        @if(!empty($remittance->paymongo_expires_at))
-          <div class="row-sub">Expires {{ \Carbon\Carbon::parse($remittance->paymongo_expires_at)->diffForHumans() }}</div>
-        @endif
-        <div class="qr-actions">
-          @if(!empty($remittance->paymongo_action_url))
-            <a class="btn-remit-alt" href="{{ $remittance->paymongo_action_url }}" target="_blank" rel="noopener">
-              <i class="bi bi-phone"></i> Open Payment Link
-            </a>
+    <div class="remit-method-panel active" id="remitPanelGcash">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;color:#1d4ed8;font-weight:800;text-transform:uppercase;letter-spacing:.04em">GCash via PayMongo</div>
+        <div style="font-size:14px;color:#1e3a8a;font-weight:650;line-height:1.45">Scan the QR with GCash or open the payment link on this device. The system verifies it after PayMongo confirms payment.</div>
+      </div>
+
+      @if($qrActive)
+        <div class="qr-box">
+          <div class="row-label">Scan with GCash</div>
+          <div class="row-value">&#8369;{{ number_format((float)$remittance->amount, 2) }}</div>
+          <img class="qr-img" src="{{ $remittance->paymongo_qr_image }}" alt="PayMongo GCash QR for remittance">
+          @if(!empty($remittance->paymongo_expires_at))
+            <div class="row-sub">Expires {{ \Carbon\Carbon::parse($remittance->paymongo_expires_at)->diffForHumans() }}</div>
           @endif
-          <form method="POST" action="{{ route('rider.remittance.check', [$order->id, $order->rider_token]) }}">
-            @csrf
-            <button class="btn-remit-alt" type="submit"><i class="bi bi-arrow-repeat"></i> Check Payment Status</button>
-          </form>
+          <div class="qr-actions">
+            @if(!empty($remittance->paymongo_action_url))
+              <a class="btn-remit-alt" href="{{ $remittance->paymongo_action_url }}" target="_blank" rel="noopener">
+                <i class="bi bi-phone"></i> Open GCash Payment
+              </a>
+            @endif
+            <form method="POST" action="{{ route('rider.remittance.check', [$order->id, $order->rider_token]) }}">
+              @csrf
+              <button class="btn-remit-alt" type="submit"><i class="bi bi-arrow-repeat"></i> Check Payment Status</button>
+            </form>
+          </div>
         </div>
+      @endif
+
+      <form method="POST" action="{{ route('rider.remittance.qr', [$order->id, $order->rider_token]) }}">
+        @csrf
+        <button class="btn-deliver" type="submit" style="margin-top:12px">
+          <i class="bi bi-qr-code"></i> {{ $qrExpired ? 'Generate New QR Code' : 'Generate QR Code' }}
+        </button>
+      </form>
+    </div>
+
+    <div class="remit-method-panel" id="remitPanelCash">
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;color:#c2410c;font-weight:800;text-transform:uppercase;letter-spacing:.04em">Cash Handover</div>
+        <div style="font-size:14px;color:#7c2d12;font-weight:650;line-height:1.45">Use this only after you physically gave the COD cash to the shop. This will not be added to online payout.</div>
       </div>
-    @endif
-
-    <form method="POST" action="{{ route('rider.remittance.qr', [$order->id, $order->rider_token]) }}">
-      @csrf
-      <button class="btn-deliver" type="submit" style="margin-top:12px">
-        <i class="bi bi-qr-code"></i> {{ $qrExpired ? 'Generate New GCash QR' : 'Generate GCash QR' }}
-      </button>
-    </form>
-
-    @if(!empty($shopPayout?->payout_account_name) || !empty($shopPayout?->payout_account_number))
-      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin:12px 0">
-        <div style="font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Manual fallback seller GCash</div>
-        <div style="font-weight:700;color:#111827">{{ $shopPayout->payout_account_name ?? 'Account name not set' }}</div>
-        <div style="font-size:14px;color:#374151">{{ $shopPayout->payout_account_number ?? 'Number not set' }}</div>
-      </div>
-    @endif
-
-    <form method="POST" action="{{ route('rider.remittance', [$order->id, $order->rider_token]) }}" enctype="multipart/form-data">
-      @csrf
-      <input type="hidden" name="amount" value="{{ number_format((float)$remittance->amount, 2, '.', '') }}">
-      <label class="row-label" for="remittanceMethod">Manual remittance fallback</label>
-      <select id="remittanceMethod" name="remittance_method" class="note-input" required onchange="toggleRemittanceReceipt(this.value)">
-        <option value="">Choose method</option>
-        <option value="gcash" @selected(old('remittance_method', $remittance->remittance_method ?? '') === 'gcash')>GCash transfer to seller</option>
-        <option value="cash_handover" @selected(old('remittance_method', $remittance->remittance_method ?? '') === 'cash_handover')>Cash handover to seller</option>
-      </select>
-      <input class="note-input" name="reference_number" value="{{ old('reference_number', $remittance->reference_number ?? '') }}" maxlength="120" placeholder="GCash reference number (if applicable)">
-      <label for="remittanceReceipt" class="photo-label" id="remittanceReceiptLabelWrap" style="margin-top:10px">
-        <i class="bi bi-receipt"></i>
-        <span id="remittanceReceiptLabel">Upload GCash receipt screenshot</span>
-      </label>
-      <input type="file" id="remittanceReceipt" name="receipt" accept="image/*" capture="environment" style="display:none" onchange="previewPhoto(this,'remittanceReceiptPreview','remittanceReceiptLabel')">
-      <img id="remittanceReceiptPreview" class="photo-preview" src="">
-      <textarea class="note-input" name="rider_note" rows="2" maxlength="500" placeholder="Optional note to seller">{{ old('rider_note', $remittance->rider_note ?? '') }}</textarea>
-      <button class="btn-deliver" type="submit" style="margin-top:12px">
-        <i class="bi bi-send-check"></i> Submit Remittance
-      </button>
-    </form>
+      <form method="POST" action="{{ route('rider.remittance', [$order->id, $order->rider_token]) }}">
+        @csrf
+        <input type="hidden" name="amount" value="{{ number_format((float)$remittance->amount, 2, '.', '') }}">
+        <input type="hidden" name="remittance_method" value="cash_handover">
+        <textarea class="note-input" name="rider_note" rows="2" maxlength="500" placeholder="Optional note to seller">{{ old('rider_note', $remittance->rider_note ?? '') }}</textarea>
+        <button class="btn-deliver" type="submit" style="margin-top:12px;background:#c2410c">
+          <i class="bi bi-shop"></i> Mark Cash Handed to Shop
+        </button>
+      </form>
+    </div>
   </div>
   @endif
 </div>
@@ -634,6 +637,13 @@ function toggleRemittanceReceipt(method) {
   input.required = needsReceipt;
 }
 toggleRemittanceReceipt(document.getElementById('remittanceMethod')?.value || '');
+function showRemitMethod(method) {
+  document.querySelectorAll('[data-remit-tab]').forEach(button => {
+    button.classList.toggle('active', button.dataset.remitTab === method);
+  });
+  document.getElementById('remitPanelGcash')?.classList.toggle('active', method === 'gcash');
+  document.getElementById('remitPanelCash')?.classList.toggle('active', method === 'cash');
+}
 function selectIssue(type, el) {
   selectedIssue = type;
   document.querySelectorAll('.issue-opt').forEach(o => o.classList.remove('sel'));

@@ -28,16 +28,46 @@ class DashboardController extends Controller
 
         // Stats — wrapped in try/catch in case shop_id columns not yet migrated
         try {
+            $revenueQuery = DB::table('orders as o')
+                ->where('o.shop_id', $shopId)
+                ->where('o.payment_status', 'Paid')
+                ->whereNotIn('o.status', ['Cancelled']);
+
+            if (Schema::hasTable('rider_remittances')) {
+                $revenueQuery->leftJoin('rider_remittances as rr', 'rr.order_id', '=', 'o.id')
+                    ->where(function ($q) {
+                        $q->where(function ($nonCodDelivery) {
+                            $nonCodDelivery
+                                ->where(function ($method) {
+                                    $method->whereNull('o.payment_method')
+                                        ->orWhereRaw('UPPER(o.payment_method) <> ?', ['COD']);
+                                })
+                                ->orWhere(function ($fulfillment) {
+                                    $fulfillment->whereNull('o.fulfillment_type')
+                                        ->orWhere('o.fulfillment_type', '<>', 'Delivery');
+                                });
+                        })->orWhere('rr.status', 'confirmed');
+                    });
+            }
+
+            $pendingRemittance = Schema::hasTable('rider_remittances')
+                ? (float) DB::table('rider_remittances')
+                    ->where('shop_id', $shopId)
+                    ->whereIn('status', ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired'])
+                    ->sum('amount')
+                : 0;
+
             $stats = [
                 'pending'    => DB::table('orders')->where('shop_id',$shopId)->where('status','Pending')->count(),
                 'confirmed'  => DB::table('orders')->where('shop_id',$shopId)->where('status','Confirmed')->count(),
                 'preparing'  => DB::table('orders')->where('shop_id',$shopId)->where('status','Preparing')->count(),
                 'total'      => DB::table('orders')->where('shop_id',$shopId)->whereNotIn('status',['Cancelled'])->count(),
-                'revenue'    => DB::table('orders')->where('shop_id',$shopId)->where('payment_status','Paid')->sum('total_price'),
+                'revenue'    => (float) $revenueQuery->sum('o.total_price'),
+                'pending_remittance' => $pendingRemittance,
                 'products'   => DB::table('products')->where('shop_id',$shopId)->where('is_available', true)->count(),
             ];
         } catch (\Exception $e) {
-            $stats = ['pending'=>0,'confirmed'=>0,'preparing'=>0,'total'=>0,'revenue'=>0,'products'=>0];
+            $stats = ['pending'=>0,'confirmed'=>0,'preparing'=>0,'total'=>0,'revenue'=>0,'pending_remittance'=>0,'products'=>0];
         }
 
         $commissionEnabled = (bool)($shop->commission_enabled ?? 1);

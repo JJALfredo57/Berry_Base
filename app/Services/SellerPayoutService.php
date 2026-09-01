@@ -41,6 +41,7 @@ class SellerPayoutService
         $hasSettledAt = Schema::hasColumn('orders', 'settled_at');
         $hasRiderRemittances = Schema::hasTable('rider_remittances');
         $this->recalculateClearingReleaseDates($holdDays, $hasDeliveredAt, $hasSettledAt);
+        $this->excludeDirectCashHandoverLedgers();
 
         $orders = DB::table('orders as o')
             ->join('shops as s', 's.id', '=', 'o.shop_id');
@@ -65,7 +66,15 @@ class SellerPayoutService
                                 $fulfillment->whereNull('o.fulfillment_type')
                                     ->orWhere('o.fulfillment_type', '<>', 'Delivery');
                             });
-                    })->orWhere('rr.status', 'confirmed');
+                    })->orWhere(function ($onlineDeposit) {
+                        $onlineDeposit
+                            ->where('o.deposit_status', 'paid')
+                            ->where('o.deposit_amount', '>', 0);
+                    })->orWhere(function ($onlineRemittance) {
+                        $onlineRemittance
+                            ->where('rr.status', 'confirmed')
+                            ->where('rr.remittance_method', 'gcash_paymongo');
+                    });
                 });
             })
             ->where(function ($q) use ($hasDeliveredAt, $hasSettledAt) {
@@ -88,6 +97,13 @@ class SellerPayoutService
                 's.commission_rate',
                 's.commission_enabled'
             )
+            ->when($hasRiderRemittances, function ($q) {
+                $q->addSelect(
+                    'rr.status as remittance_status',
+                    'rr.remittance_method as remittance_method',
+                    'rr.amount as remittance_amount'
+                );
+            })
             ->limit(250)
             ->get();
 
@@ -119,7 +135,7 @@ class SellerPayoutService
                 'seller_net_amount' => $net,
                 'status' => $status,
                 'release_at' => $releaseAt,
-                'notes' => 'Generated after paid delivered order. Delivery/service fees are excluded from commission base.',
+                'notes' => $this->ledgerNote($order),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -168,6 +184,67 @@ class SellerPayoutService
             DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update([
                 'release_at' => $releaseAt,
                 'status' => $status,
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    private function excludeDirectCashHandoverLedgers(): void
+    {
+        if (!Schema::hasTable('seller_payout_ledgers') || !Schema::hasTable('rider_remittances')) {
+            return;
+        }
+
+        $ledgers = DB::table('seller_payout_ledgers as l')
+            ->join('orders as o', 'o.id', '=', 'l.order_id')
+            ->join('rider_remittances as rr', 'rr.order_id', '=', 'o.id')
+            ->join('shops as s', 's.id', '=', 'l.shop_id')
+            ->whereIn('l.status', ['pending', 'clearing', 'available'])
+            ->whereNull('l.payout_id')
+            ->where('o.fulfillment_type', 'Delivery')
+            ->whereRaw('UPPER(o.payment_method) = ?', ['COD'])
+            ->where('rr.status', 'confirmed')
+            ->where(function ($q) {
+                $q->whereNull('rr.remittance_method')
+                    ->orWhere('rr.remittance_method', '<>', 'gcash_paymongo');
+            })
+            ->select(
+                'l.id',
+                'o.deposit_status',
+                'o.deposit_amount',
+                'o.delivery_fee',
+                'o.service_charge',
+                's.commission_rate',
+                's.commission_enabled'
+            )
+            ->limit(500)
+            ->get();
+
+        foreach ($ledgers as $ledger) {
+            $gross = ($ledger->deposit_status ?? '') === 'paid'
+                ? round((float) ($ledger->deposit_amount ?? 0), 2)
+                : 0.0;
+
+            if ($gross <= 0) {
+                DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update([
+                    'status' => 'cash_settled',
+                    'notes' => 'Excluded from payout because COD cash was handed directly to seller.',
+                    'updated_at' => now(),
+                ]);
+                continue;
+            }
+
+            $commissionBase = max(0, $gross - (float) ($ledger->delivery_fee ?? 0) - (float) ($ledger->service_charge ?? 0));
+            $rate = !empty($ledger->commission_enabled) ? (float) ($ledger->commission_rate ?? 0) : 0;
+            $commission = round($commissionBase * $rate / 100, 2);
+
+            DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update([
+                'gross_amount' => $gross,
+                'commission_base' => $commissionBase,
+                'commission_rate' => $rate,
+                'commission_amount' => $commission,
+                'seller_net_amount' => max(0, round($gross - $commission, 2)),
+                'notes' => 'Adjusted to online customer deposit only. Direct COD cash was handed to seller.',
                 'updated_at' => now(),
             ]);
         }
@@ -327,6 +404,23 @@ class SellerPayoutService
 
     private function collectedAmount(object $order): float
     {
+        $isCodDelivery = strtoupper((string) ($order->payment_method ?? '')) === 'COD'
+            && ($order->fulfillment_type ?? '') === 'Delivery';
+
+        if ($isCodDelivery) {
+            $amount = ($order->deposit_status ?? '') === 'paid'
+                ? round((float) ($order->deposit_amount ?? 0), 2)
+                : 0.0;
+
+            if (($order->remittance_status ?? '') === 'confirmed'
+                && ($order->remittance_method ?? '') === 'gcash_paymongo') {
+                $amount += round((float) ($order->remittance_amount ?? 0), 2);
+            }
+
+            $total = round((float) ($order->total_price ?? 0), 2);
+            return round(min(max(0, $amount), max(0, $total)), 2);
+        }
+
         if (($order->payment_status ?? '') === 'Paid') {
             return round((float) $order->total_price, 2);
         }
@@ -336,5 +430,20 @@ class SellerPayoutService
         }
 
         return 0.0;
+    }
+
+    private function ledgerNote(object $order): string
+    {
+        if (strtoupper((string) ($order->payment_method ?? '')) === 'COD'
+            && ($order->fulfillment_type ?? '') === 'Delivery') {
+            if (($order->remittance_status ?? '') === 'confirmed'
+                && ($order->remittance_method ?? '') === 'gcash_paymongo') {
+                return 'Generated from online customer deposit plus PayMongo QR COD remittance. Direct cash handover is excluded from payout.';
+            }
+
+            return 'Generated from online customer deposit only. Direct COD cash is excluded from payout.';
+        }
+
+        return 'Generated after paid delivered order. Delivery/service fees are excluded from commission base.';
     }
 }
