@@ -39,13 +39,35 @@ class SellerPayoutService
         $holdDays = max(0, (int) ($settings->payout_hold_days ?? 3));
         $hasDeliveredAt = Schema::hasColumn('orders', 'delivered_at');
         $hasSettledAt = Schema::hasColumn('orders', 'settled_at');
+        $hasRiderRemittances = Schema::hasTable('rider_remittances');
         $this->recalculateClearingReleaseDates($holdDays, $hasDeliveredAt, $hasSettledAt);
 
         $orders = DB::table('orders as o')
-            ->join('shops as s', 's.id', '=', 'o.shop_id')
+            ->join('shops as s', 's.id', '=', 'o.shop_id');
+
+        if ($hasRiderRemittances) {
+            $orders->leftJoin('rider_remittances as rr', 'rr.order_id', '=', 'o.id');
+        }
+
+        $orders = $orders
             ->whereNotNull('o.shop_id')
             ->whereIn('o.payment_status', ['Paid', 'Partial Payment'])
             ->whereNotIn('o.status', ['Cancelled'])
+            ->when($hasRiderRemittances, function ($q) {
+                $q->where(function ($sq) {
+                    $sq->where(function ($nonCodDelivery) {
+                        $nonCodDelivery
+                            ->where(function ($method) {
+                                $method->whereNull('o.payment_method')
+                                    ->orWhereRaw('UPPER(o.payment_method) <> ?', ['COD']);
+                            })
+                            ->orWhere(function ($fulfillment) {
+                                $fulfillment->whereNull('o.fulfillment_type')
+                                    ->orWhere('o.fulfillment_type', '<>', 'Delivery');
+                            });
+                    })->orWhere('rr.status', 'confirmed');
+                });
+            })
             ->where(function ($q) use ($hasDeliveredAt, $hasSettledAt) {
                 $q->where('o.status', 'Delivered');
                 if ($hasDeliveredAt) {

@@ -254,6 +254,7 @@ Route::post('/rider/access', [\App\Http\Controllers\RiderController::class, 'acc
 Route::get('/rider/{orderId}/{token}',           [\App\Http\Controllers\RiderController::class, 'show'])->name('rider.show');
 Route::get('/rider/{orderId}/{token}/payment-status', [\App\Http\Controllers\RiderController::class, 'paymentStatus'])->name('rider.payment_status');
 Route::post('/rider/{orderId}/{token}/delivered', [\App\Http\Controllers\RiderController::class, 'markDelivered'])->name('rider.delivered');
+Route::post('/rider/{orderId}/{token}/remittance', [\App\Http\Controllers\RiderController::class, 'submitRemittance'])->name('rider.remittance');
 Route::post('/rider/{orderId}/{token}/issue',     [\App\Http\Controllers\RiderController::class, 'reportIssue'])->name('rider.issue');
 
 // ── Customer Panel ────────────────────────────────────────────────────────
@@ -374,7 +375,10 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/sidebar-counts',            [\App\Http\Controllers\Seller\DashboardController::class, 'sidebarCounts'])->name('sidebar_counts');
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
     Route::get('/orders/{id}/realtime-status', [\App\Http\Controllers\Seller\OrderController::class, 'realtimeStatus'])->name('orders.realtime_status');
+    Route::get('/orders/{id}/receipt/{transactionId}', [\App\Http\Controllers\Seller\OrderController::class, 'receipt'])->name('orders.receipt');
     Route::post('/orders/{id}/status',       [\App\Http\Controllers\Seller\OrderController::class, 'updateStatus'])->name('orders.status');
+    Route::post('/orders/{id}/remittance/{remittanceId}/confirm', [\App\Http\Controllers\Seller\OrderController::class, 'confirmRemittance'])->name('orders.remittance_confirm');
+    Route::post('/orders/{id}/remittance/{remittanceId}/reject', [\App\Http\Controllers\Seller\OrderController::class, 'rejectRemittance'])->name('orders.remittance_reject');
     Route::post('/orders/{id}/accept-cancel', [\App\Http\Controllers\Seller\OrderController::class, 'approveCancel'])->name('orders.accept_cancel');
     Route::post('/orders/{id}/reject-cancel', [\App\Http\Controllers\Seller\OrderController::class, 'rejectCancel'])->name('orders.reject_cancel');
     Route::post('/orders/{id}/assign-rider', [\App\Http\Controllers\Seller\OrderController::class, 'assignRider'])->name('orders.assign_rider');

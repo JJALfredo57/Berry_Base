@@ -11,6 +11,7 @@ use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class OrderController extends Controller
 {
@@ -82,6 +83,8 @@ class OrderController extends Controller
         $orderAddons = [];
         $customData  = [];
         $orderRefunds = [];
+        $paymentReceipts = [];
+        $riderRemittances = [];
         if ($orderIds) {
             try {
                 $addons = DB::table('order_addons')->whereIn('order_id', $orderIds)->get();
@@ -93,6 +96,21 @@ class OrderController extends Controller
                     foreach ($refundRows as $r) {
                         if (!isset($orderRefunds[$r->order_id])) $orderRefunds[$r->order_id] = $r;
                     }
+                }
+                if (Schema::hasTable('payment_transactions')) {
+                    $receiptRows = DB::table('payment_transactions')
+                        ->whereIn('order_id', $orderIds)
+                        ->orderByDesc('paid_at')
+                        ->orderByDesc('id')
+                        ->get();
+                    foreach ($receiptRows as $receipt) $paymentReceipts[$receipt->order_id][] = $receipt;
+                }
+                if (Schema::hasTable('rider_remittances')) {
+                    $remittanceRows = DB::table('rider_remittances')
+                        ->whereIn('order_id', $orderIds)
+                        ->orderByDesc('id')
+                        ->get();
+                    foreach ($remittanceRows as $remittance) $riderRemittances[$remittance->order_id] = $remittance;
                 }
             } catch (\Throwable $e) {
                 Log::error('Seller orders addons/customs failed: ' . $e->getMessage());
@@ -111,7 +129,7 @@ class OrderController extends Controller
 
         try {
             return response(
-                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'orderRefunds', 'customerRiskMap', 'pendingCancelCount', 'search', 'status'))->render()
+                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'orderRefunds', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'pendingCancelCount', 'search', 'status'))->render()
             );
         } catch (\Throwable $e) {
             Log::error('Seller orders VIEW render failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
@@ -281,6 +299,132 @@ class OrderController extends Controller
             'paid_at'            => (string) ($order->paid_at ?? ''),
             'updated_at'         => (string) ($order->updated_at ?? ''),
         ]);
+    }
+
+    public function receipt(string $id, int $transactionId)
+    {
+        $shop = $this->getShop();
+        $transaction = DB::table('payment_transactions as pt')
+            ->join('orders as o', 'o.id', '=', 'pt.order_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->where('pt.id', $transactionId)
+            ->where('pt.order_id', $id)
+            ->where('o.shop_id', $shop->id)
+            ->select(
+                'pt.*',
+                'o.guest_name',
+                'o.guest_phone',
+                'o.fulfillment_type',
+                'o.schedule_date',
+                'o.schedule_time',
+                'o.address',
+                'o.delivery_address',
+                'o.quantity',
+                'o.selected_size',
+                'o.custom_note',
+                DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"),
+                'p.image_path as product_image'
+            )
+            ->first();
+
+        if (!$transaction) abort(404, 'Receipt not found.');
+
+        $transaction->type_label = PaymentTransactionHelper::typeLabel($transaction->type);
+        $receiptAddons = DB::table('order_addons')->where('order_id', $transaction->order_id)->get();
+        $vatSettings = DB::table('site_settings')->where('shop_id', $shop->id)->select('vat_enabled','vat_rate','tin_number','site_title')->first()
+            ?: DB::table('site_settings')->select('vat_enabled','vat_rate','tin_number','site_title')->first();
+
+        return view('guest.payment_transaction_receipt', [
+            'trackCode' => $transaction->track_code,
+            'transaction' => $transaction,
+            'receiptAddons' => $receiptAddons,
+            'vatSettings' => $vatSettings,
+            'backUrl' => route('seller.orders'),
+            'backLabel' => 'Back to Seller Orders',
+        ]);
+    }
+
+    public function confirmRemittance(Request $request, string $id, int $remittanceId)
+    {
+        $shop = $this->getShop();
+        $remittance = $this->sellerRemittance($shop->id, $id, $remittanceId);
+        if (!$remittance) return back()->with('err', 'Remittance record not found.');
+        if (($remittance->status ?? '') === 'confirmed') return back()->with('msg', 'This remittance is already confirmed.');
+        if (($remittance->status ?? '') !== 'submitted') return back()->with('err', 'Rider must submit remittance details before confirmation.');
+
+        $validated = $request->validate([
+            'seller_note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        DB::transaction(function () use ($remittance, $id, $validated) {
+            DB::table('rider_remittances')->where('id', $remittance->id)->update([
+                'status' => 'confirmed',
+                'seller_note' => trim((string) ($validated['seller_note'] ?? '')) ?: null,
+                'confirmed_at' => now(),
+                'rejected_at' => null,
+                'updated_at' => now(),
+            ]);
+
+            DB::table('orders')->where('id', $id)->update([
+                'settled_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::table('order_tracking')->insert([
+                'order_id' => $id,
+                'status' => 'Cash Remittance Confirmed',
+                'notes' => 'Seller confirmed rider cash remittance.',
+                'created_at' => now(),
+            ]);
+        });
+
+        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Confirm Rider Remittance', "Order #{$id}");
+        return back()->with('msg', "Cash remittance for Order #{$id} confirmed.");
+    }
+
+    public function rejectRemittance(Request $request, string $id, int $remittanceId)
+    {
+        $shop = $this->getShop();
+        $remittance = $this->sellerRemittance($shop->id, $id, $remittanceId);
+        if (!$remittance) return back()->with('err', 'Remittance record not found.');
+        if (($remittance->status ?? '') === 'confirmed') return back()->with('err', 'Confirmed remittance cannot be rejected.');
+
+        $validated = $request->validate([
+            'seller_note' => ['required', 'string', 'min:5', 'max:500'],
+        ], [
+            'seller_note.required' => 'Please explain what the rider needs to correct.',
+        ]);
+
+        DB::table('rider_remittances')->where('id', $remittance->id)->update([
+            'status' => 'rejected',
+            'seller_note' => trim($validated['seller_note']),
+            'rejected_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('order_tracking')->insert([
+            'order_id' => $id,
+            'status' => 'Cash Remittance Rejected',
+            'notes' => trim($validated['seller_note']),
+            'created_at' => now(),
+        ]);
+
+        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Reject Rider Remittance', "Order #{$id}");
+        return back()->with('msg', "Remittance for Order #{$id} rejected. Rider can resubmit corrected details.");
+    }
+
+    private function sellerRemittance(string $shopId, string $orderId, int $remittanceId): ?object
+    {
+        if (!Schema::hasTable('rider_remittances')) return null;
+
+        return DB::table('rider_remittances as rr')
+            ->join('orders as o', 'o.id', '=', 'rr.order_id')
+            ->where('rr.id', $remittanceId)
+            ->where('rr.order_id', $orderId)
+            ->where('rr.shop_id', $shopId)
+            ->where('o.shop_id', $shopId)
+            ->select('rr.*')
+            ->first();
     }
 
     public function approveCancel(Request $request, string $id, OrderRefundService $refunds)

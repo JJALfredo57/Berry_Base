@@ -10,8 +10,8 @@
 @endphp
 <div class="container py-4" style="max-width:860px">
   <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3 no-print">
-    <a href="{{ route('track.order', $trackCode) }}" class="btn btn-outline-secondary">
-      <i class="bi bi-arrow-left me-1"></i>Back to Tracking
+    <a href="{{ $backUrl ?? route('track.order', $trackCode) }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>{{ $backLabel ?? 'Back to Tracking' }}
     </a>
     <button type="button" class="btn btn-primary" onclick="window.print()">
       <i class="bi bi-download me-1"></i>Print / Save PDF

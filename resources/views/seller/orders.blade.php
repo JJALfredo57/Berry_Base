@@ -19,8 +19,22 @@
     border-radius:99px;
     white-space:nowrap;
   }
+  .seller-remit-pill {
+    display:inline-flex;
+    align-items:center;
+    gap:.35rem;
+    border:1px solid #bae6fd;
+    background:#f0f9ff;
+    color:#075985;
+    font-size:.68rem;
+    font-weight:800;
+    padding:.2rem .55rem;
+    border-radius:99px;
+    white-space:nowrap;
+  }
   @media (max-width:575px) {
-    .seller-action-pill {
+    .seller-action-pill,
+    .seller-remit-pill {
       white-space:normal;
       line-height:1.2;
     }
@@ -76,9 +90,12 @@
     $custom = $customData[$o->id] ?? null;
     $addons = $orderAddons[$o->id] ?? [];
     $refund = $orderRefunds[$o->id] ?? null;
+    $receipts = $paymentReceipts[$o->id] ?? [];
+    $remittance = $riderRemittances[$o->id] ?? null;
     $hasPaidCancelRequest = $refund && ($refund->status ?? '') === 'pending';
     $isCancelledOrder = ($o->status ?? '') === 'Cancelled' || ($o->cancel_status ?? '') === 'accepted';
-    $needsPickupAction = ($o->status ?? '') === 'Pickup' || $hasPaidCancelRequest;
+    $needsRemittanceAction = $remittance && ($remittance->status ?? '') === 'submitted';
+    $needsPickupAction = ($o->status ?? '') === 'Pickup' || $hasPaidCancelRequest || $needsRemittanceAction;
     $sc = match($o->status) {
       'Awaiting Deposit'         => 'background:#FCE4EC;color:#880E4F',
       'Pending','Pending Review' => 'background:#FFF3E0;color:#E65100',
@@ -93,7 +110,7 @@
   @endphp
 
   <div class="seller-order-item {{ $needsPickupAction ? 'action-needed' : '' }}"
-       data-search="{{ strtolower(trim(($o->track_code ?? '') . ' ' . ($o->order_customer_name ?? 'customer') . ' ' . ($o->product_name ?? ($custom->cake_name ?? 'custom cake')) . ' ' . ($o->payment_status ?? '') . ' ' . ($o->payment_method ?? '') . ' ' . ($o->status ?? ''))) }}"
+       data-search="{{ strtolower(trim(($o->track_code ?? '') . ' ' . ($o->order_customer_name ?? 'customer') . ' ' . ($o->product_name ?? ($custom->cake_name ?? 'custom cake')) . ' ' . ($o->payment_status ?? '') . ' ' . ($o->payment_method ?? '') . ' ' . ($o->status ?? '') . ' ' . ($remittance->status ?? ''))) }}"
        data-status="{{ strtolower($o->status ?? '') }}"
        data-fulfillment="{{ strtolower($o->fulfillment_type ?? 'pickup') }}"
        data-order-id="{{ $o->id }}"
@@ -135,7 +152,18 @@
           <span style="font-size:.875rem;font-weight:700;color:var(--gray-900);font-family:monospace">{{ strtoupper($o->track_code) }}</span>
           <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $o->status === 'Pickup' ? 'Ready for Pickup' : $o->status }}</span>
           @if($needsPickupAction)
-            <span class="seller-action-pill"><i class="bi bi-exclamation-circle-fill"></i>Action needed: mark as picked up</span>
+            <span class="seller-action-pill"><i class="bi bi-exclamation-circle-fill"></i>Action needed</span>
+          @endif
+          @if($remittance)
+            @php
+              $remitLabel = match($remittance->status ?? 'pending') {
+                'submitted' => 'COD remittance for review',
+                'confirmed' => 'COD remitted',
+                'rejected' => 'COD remittance rejected',
+                default => 'COD remittance pending',
+              };
+            @endphp
+            <span class="seller-remit-pill"><i class="bi bi-cash-stack"></i>{{ $remitLabel }}</span>
           @endif
           @if($custom)
             <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Custom</span>
@@ -286,6 +314,75 @@
         @endif
       </div>
 
+      {{-- Payment receipts --}}
+      <div style="margin-top:.95rem;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:.75rem .9rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:.5rem">
+          <div style="font-size:.72rem;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:.06em">
+            <i class="bi bi-receipt me-1"></i>Payment Receipts
+          </div>
+          <span class="badge text-bg-light">{{ count($receipts) }} transaction{{ count($receipts) === 1 ? '' : 's' }}</span>
+        </div>
+        @forelse($receipts as $receipt)
+          @php
+            $receiptLabel = \App\Helpers\PaymentTransactionHelper::typeLabel($receipt->type ?? null);
+            $receiptDate = $receipt->paid_at ?? $receipt->created_at ?? null;
+          @endphp
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;padding:.5rem 0;border-top:{{ $loop->first ? '0' : '1px solid #e5e7eb' }}">
+            <div style="min-width:190px">
+              <div style="font-size:.82rem;font-weight:700;color:#111827">{{ $receiptLabel }}</div>
+              <div style="font-size:.74rem;color:#64748b">
+                {{ $receipt->method ?? 'Payment' }}{{ $receipt->provider_reference ? ' / Ref: '.$receipt->provider_reference : '' }}
+                @if($receiptDate) &bull; {{ \Carbon\Carbon::parse($receiptDate)->format('M d, Y g:i A') }} @endif
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-left:auto">
+              <strong style="font-size:.85rem;color:#16a34a">PHP {{ number_format((float)($receipt->amount ?? 0), 2) }}</strong>
+              <a href="{{ route('seller.orders.receipt', ['id' => $o->id, 'transactionId' => $receipt->id]) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-eye me-1"></i>View
+              </a>
+            </div>
+          </div>
+        @empty
+          <div style="font-size:.8rem;color:#64748b">No payment receipt has been recorded yet.</div>
+        @endforelse
+      </div>
+
+      @if($remittance)
+      @php
+        $remitStatus = $remittance->status ?? 'pending';
+        $remitBg = match($remitStatus) {
+          'confirmed' => '#ecfdf5',
+          'submitted' => '#eff6ff',
+          'rejected' => '#fef2f2',
+          default => '#fffbeb',
+        };
+        $remitBorder = match($remitStatus) {
+          'confirmed' => '#bbf7d0',
+          'submitted' => '#bfdbfe',
+          'rejected' => '#fecaca',
+          default => '#fde68a',
+        };
+      @endphp
+      <div style="margin-top:.75rem;background:{{ $remitBg }};border:1px solid {{ $remitBorder }};border-radius:10px;padding:.75rem .9rem;font-size:.81rem;color:#111827">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap">
+          <div>
+            <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#334155;margin-bottom:.25rem">Rider COD Remittance</div>
+            <div><strong>Amount collected:</strong> PHP {{ number_format((float)$remittance->amount, 2) }}</div>
+            <div><strong>Status:</strong> {{ ucfirst(str_replace('_', ' ', $remitStatus)) }}</div>
+            @if($remittance->remittance_method)<div><strong>Method:</strong> {{ $remittance->remittance_method === 'gcash' ? 'GCash transfer' : 'Cash handover' }}</div>@endif
+            @if($remittance->reference_number)<div><strong>Reference:</strong> {{ $remittance->reference_number }}</div>@endif
+            @if($remittance->rider_note)<div><strong>Rider note:</strong> {{ $remittance->rider_note }}</div>@endif
+            @if($remittance->seller_note)<div><strong>Seller note:</strong> {{ $remittance->seller_note }}</div>@endif
+          </div>
+          @if($remittance->receipt_path)
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="window.open(@js($remittance->receipt_path), '_blank', 'noopener')">
+              <i class="bi bi-image me-1"></i>Proof
+            </button>
+          @endif
+        </div>
+      </div>
+      @endif
+
       {{-- Add-ons --}}
       @if(!empty($addons))
       <div style="margin-top:.85rem">
@@ -339,6 +436,50 @@
       </div>
       @endif
     </div>
+
+    @if($needsRemittanceAction)
+    <div style="border-top:1px solid var(--gray-100);padding:.95rem 1.25rem;background:#eff6ff">
+      <div style="display:flex;align-items:flex-start;gap:.75rem;flex-wrap:wrap">
+        <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="bi bi-cash-stack"></i>
+        </div>
+        <div style="flex:1;min-width:260px">
+          <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">COD REMITTANCE REVIEW</div>
+          <div style="font-size:.82rem;color:#1e40af;line-height:1.5;font-weight:600">
+            Rider submitted PHP {{ number_format((float)$remittance->amount, 2) }}. Confirm only after you received the GCash transfer or cash handover.
+          </div>
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-lg-6">
+          <form action="{{ route('seller.orders.remittance_confirm', ['id' => $o->id, 'remittanceId' => $remittance->id]) }}" method="POST" data-prevent-double-submit>
+            @csrf
+            <label class="form-label small fw-bold">Confirmation note</label>
+            <input name="seller_note" class="form-control form-control-sm mb-2" maxlength="500" placeholder="Optional note">
+            <button class="btn btn-success btn-sm" type="submit"
+                    data-cs-confirm="Confirm that this COD money was received by the seller?"
+                    data-cs-title="Confirm COD Remittance"
+                    data-cs-ok="Confirm Received"
+                    data-cs-icon="bi-check2-circle"
+                    data-cs-icon-bg="#dcfce7"
+                    data-cs-icon-color="#16a34a">
+              <i class="bi bi-check2-circle me-1"></i>Confirm Received
+            </button>
+          </form>
+        </div>
+        <div class="col-lg-6">
+          <form action="{{ route('seller.orders.remittance_reject', ['id' => $o->id, 'remittanceId' => $remittance->id]) }}" method="POST" data-prevent-double-submit>
+            @csrf
+            <label class="form-label small fw-bold">Correction reason <span class="text-danger">*</span></label>
+            <input name="seller_note" class="form-control form-control-sm mb-2" minlength="5" maxlength="500" required placeholder="e.g. amount/reference does not match">
+            <button class="btn btn-outline-danger btn-sm" type="submit">
+              <i class="bi bi-x-circle me-1"></i>Reject
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    @endif
 
     @if($hasPaidCancelRequest)
     <div style="border-top:1px solid var(--gray-100);padding:.95rem 1.25rem;background:#fff7ed">

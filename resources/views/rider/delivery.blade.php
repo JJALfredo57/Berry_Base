@@ -180,7 +180,26 @@
   </div>
 </div>
 
-@if(isset($done) && $done)
+@if(session('msg'))
+<div class="pay-banner pay-ok">
+  <div class="pay-icon"><i class="bi bi-check-circle-fill"></i></div>
+  <div class="pay-body">
+    <div class="pay-label">Success</div>
+    <div class="pay-note">{{ session('msg') }}</div>
+  </div>
+</div>
+@endif
+@if(session('err') || $errors->any())
+<div class="pay-banner pay-cod">
+  <div class="pay-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+  <div class="pay-body">
+    <div class="pay-label">Please Check</div>
+    <div class="pay-note">{{ session('err') ?: $errors->first() }}</div>
+  </div>
+</div>
+@endif
+
+@if(isset($done) && $done && empty($remittanceOnly))
 {{-- Already done --}}
 <div class="result">
   <span class="result-icon">
@@ -307,6 +326,7 @@
 @endif
 
 {{-- Photo + Note --}}
+@if(empty($remittanceOnly))
 <div class="section">
   <div class="section-title">Proof of Delivery</div>
   <div class="photo-section">
@@ -321,8 +341,61 @@
               placeholder="Optional note (e.g. left at gate, customer received it)"></textarea>
   </div>
 </div>
+@endif
+
+@if(!empty($remittance))
+<div class="section" id="remittancePanel">
+  <div class="section-title">Cash Remittance</div>
+  <div class="row">
+    <div class="row-icon" style="background:#eff6ff;color:#1d4ed8"><i class="bi bi-cash-stack"></i></div>
+    <div class="row-body">
+      <div class="row-label">Amount to remit to seller</div>
+      <div class="row-value">&#8369;{{ number_format((float)$remittance->amount, 2) }}</div>
+      <div class="row-sub">Status: {{ ucfirst(str_replace('_', ' ', $remittance->status ?? 'pending')) }}</div>
+      @if(($remittance->status ?? '') === 'rejected' && $remittance->seller_note)
+        <div class="row-sub" style="color:#b91c1c">Seller note: {{ $remittance->seller_note }}</div>
+      @elseif(($remittance->status ?? '') === 'submitted')
+        <div class="row-sub" style="color:#1d4ed8">Waiting for seller confirmation.</div>
+      @endif
+    </div>
+  </div>
+  @if(($remittance->status ?? '') !== 'confirmed')
+  <div class="photo-section">
+    @if(!empty($shopPayout?->payout_account_name) || !empty($shopPayout?->payout_account_number))
+      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Seller GCash</div>
+        <div style="font-weight:700;color:#111827">{{ $shopPayout->payout_account_name ?? 'Account name not set' }}</div>
+        <div style="font-size:14px;color:#374151">{{ $shopPayout->payout_account_number ?? 'Number not set' }}</div>
+      </div>
+    @endif
+    <form method="POST" action="{{ route('rider.remittance', [$order->id, $order->rider_token]) }}" enctype="multipart/form-data">
+      @csrf
+      <input type="hidden" name="amount" value="{{ number_format((float)$remittance->amount, 2, '.', '') }}">
+      <label class="row-label" for="remittanceMethod">How did you remit the cash?</label>
+      <select id="remittanceMethod" name="remittance_method" class="note-input" required onchange="toggleRemittanceReceipt(this.value)">
+        <option value="">Choose method</option>
+        <option value="gcash" @selected(old('remittance_method', $remittance->remittance_method ?? '') === 'gcash')>GCash transfer to seller</option>
+        <option value="cash_handover" @selected(old('remittance_method', $remittance->remittance_method ?? '') === 'cash_handover')>Cash handover to seller</option>
+      </select>
+      <input class="note-input" name="reference_number" value="{{ old('reference_number', $remittance->reference_number ?? '') }}" maxlength="120" placeholder="GCash reference number (if applicable)">
+      <label for="remittanceReceipt" class="photo-label" id="remittanceReceiptLabelWrap" style="margin-top:10px">
+        <i class="bi bi-receipt"></i>
+        <span id="remittanceReceiptLabel">Upload GCash receipt screenshot</span>
+      </label>
+      <input type="file" id="remittanceReceipt" name="receipt" accept="image/*" capture="environment" style="display:none" onchange="previewPhoto(this,'remittanceReceiptPreview','remittanceReceiptLabel')">
+      <img id="remittanceReceiptPreview" class="photo-preview" src="">
+      <textarea class="note-input" name="rider_note" rows="2" maxlength="500" placeholder="Optional note to seller">{{ old('rider_note', $remittance->rider_note ?? '') }}</textarea>
+      <button class="btn-deliver" type="submit" style="margin-top:12px">
+        <i class="bi bi-send-check"></i> Submit Remittance
+      </button>
+    </form>
+  </div>
+  @endif
+</div>
+@endif
 
 {{-- Buttons --}}
+@if(empty($remittanceOnly))
 <div class="actions" id="actionSection">
   <button class="btn-deliver" onclick="confirmDeliver()">
     <i class="bi bi-check-circle-fill" style="font-size:20px"></i> Mark as Delivered ✓
@@ -331,8 +404,10 @@
     <i class="bi bi-exclamation-triangle" style="font-size:17px"></i> Report an Issue
   </button>
 </div>
+@endif
 
 {{-- Issue Form --}}
+@if(empty($remittanceOnly))
 <div class="issue-section" id="issueSection">
   <div class="issue-title"><i class="bi bi-exclamation-triangle me-1"></i>What happened?</div>
   <div class="issue-opts">
@@ -359,6 +434,7 @@
   <button class="btn-submit" onclick="submitIssue()"><i class="bi bi-send me-1"></i>Submit Report</button>
   <button class="btn-cancel" onclick="hideIssueForm()">Cancel</button>
 </div>
+@endif
 
 {{-- Success --}}
 <div class="result" id="successScreen" style="display:none">
@@ -501,6 +577,15 @@ function previewPhoto(input, imgId, lblId) {
     document.getElementById(lblId).textContent = '✓ Photo selected';
   }
 }
+function toggleRemittanceReceipt(method) {
+  const wrap = document.getElementById('remittanceReceiptLabelWrap');
+  const input = document.getElementById('remittanceReceipt');
+  if (!wrap || !input) return;
+  const needsReceipt = method === 'gcash';
+  wrap.style.display = needsReceipt ? 'flex' : 'none';
+  input.required = needsReceipt;
+}
+toggleRemittanceReceipt(document.getElementById('remittanceMethod')?.value || '');
 function selectIssue(type, el) {
   selectedIssue = type;
   document.querySelectorAll('.issue-opt').forEach(o => o.classList.remove('sel'));
@@ -546,7 +631,14 @@ function confirmDeliver() {
         note: document.getElementById('deliveryNote').value,
         photo: document.getElementById('deliveryPhoto').files[0],
       }, document.querySelector('.btn-deliver'), '<i class="bi bi-check-circle-fill" style="font-size:20px"></i> Mark as Delivered ✓',
-      () => { hide(); document.getElementById('successScreen').style.display = 'block'; });
+      (data) => {
+        if (data && data.needs_remittance) {
+          window.location.reload();
+          return;
+        }
+        hide();
+        document.getElementById('successScreen').style.display = 'block';
+      });
     }
   });
 }
@@ -573,7 +665,7 @@ async function doFetch(url, fields, btn, originalHtml, onSuccess) {
   try {
     const res = await fetch(url, { method:'POST', body:fd });
     const data = await res.json();
-    if (data.ok) { onSuccess(); }
+    if (data.ok) { onSuccess(data); }
     else {
       if (data.payment_blocked) {
         latestRemainingAmount = Number(data.remaining_amount || latestRemainingAmount || 0);

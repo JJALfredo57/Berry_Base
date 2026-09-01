@@ -9,6 +9,7 @@ use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class RiderController extends Controller
 {
@@ -143,14 +144,31 @@ class RiderController extends Controller
 
         if (!$order) abort(404, 'Invalid delivery link.');
 
-        if (!in_array($order->status, ['Out for Delivery'])) {
-            return view('rider.delivery', ['order' => $order, 'done' => true]);
-        }
-
         $addons = DB::table('order_addons')->where('order_id', $orderId)->get();
         $settings = CakeshopHelper::getSettings();
+        $remittance = Schema::hasTable('rider_remittances')
+            ? DB::table('rider_remittances')->where('order_id', $orderId)->first()
+            : null;
+        $shopPayout = !empty($order->shop_id)
+            ? DB::table('shops')->where('id', $order->shop_id)->select('payout_account_name', 'payout_account_number')->first()
+            : null;
 
-        return view('rider.delivery', compact('order','addons','settings'));
+        if (!in_array($order->status, ['Out for Delivery'], true)) {
+            $needsRemittance = $remittance
+                && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected'], true);
+
+            return view('rider.delivery', [
+                'order' => $order,
+                'addons' => $addons,
+                'settings' => $settings,
+                'remittance' => $remittance,
+                'shopPayout' => $shopPayout,
+                'done' => !$needsRemittance,
+                'remittanceOnly' => $needsRemittance,
+            ]);
+        }
+
+        return view('rider.delivery', compact('order','addons','settings','remittance','shopPayout'));
     }
 
     public function paymentStatus(string $orderId, string $token)
@@ -266,6 +284,7 @@ class RiderController extends Controller
 
             DB::table('orders')->where('id',$orderId)->update($upd);
             PaymentTransactionHelper::recordFinalCashIfNeeded($order, 'Delivered');
+            $remittance = $this->createCashRemittanceIfNeeded($order);
 
             $trackingNotes = 'Marked as delivered by rider.';
             if ($photoPath)   $trackingNotes .= ' Proof of delivery photo uploaded.';
@@ -310,12 +329,149 @@ class RiderController extends Controller
                 Log::warning('Rider delivered push failed: ' . $e->getMessage());
             }
 
-            return response()->json(['ok'=>true]);
+            return response()->json([
+                'ok' => true,
+                'needs_remittance' => (bool) $remittance,
+                'remittance_amount' => $remittance ? (float) $remittance->amount : 0,
+            ]);
 
         } catch (\Throwable $e) {
             Log::error('Rider markDelivered: ' . $e->getMessage());
             return response()->json(['ok'=>false,'error'=>'Server error: '.$e->getMessage()]);
         }
+    }
+
+    public function submitRemittance(Request $request, string $orderId, string $token)
+    {
+        $order = DB::table('orders')
+            ->where('id', $orderId)
+            ->where('rider_token', $token)
+            ->first();
+
+        if (!$order || !in_array(($order->status ?? ''), ['Delivered', 'Picked Up'], true)) {
+            return back()->with('err', 'Remittance is only available after a completed delivery.');
+        }
+
+        if (!Schema::hasTable('rider_remittances')) {
+            return back()->with('err', 'Remittance tracking is not ready yet. Please contact the seller.');
+        }
+
+        $remittance = DB::table('rider_remittances')
+            ->where('order_id', $orderId)
+            ->where('rider_id', $order->rider_id)
+            ->first();
+
+        if (!$remittance) {
+            return back()->with('err', 'No cash remittance is required for this order.');
+        }
+
+        if (($remittance->status ?? '') === 'confirmed') {
+            return back()->with('msg', 'This remittance was already confirmed by the seller.');
+        }
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:1'],
+            'remittance_method' => ['required', 'in:gcash,cash_handover'],
+            'reference_number' => ['nullable', 'string', 'min:3', 'max:120'],
+            'receipt' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'rider_note' => ['nullable', 'string', 'max:500'],
+        ], [
+            'remittance_method.required' => 'Choose how you remitted the cash to the seller.',
+            'remittance_method.in' => 'Choose either GCash transfer or cash handover.',
+            'receipt.image' => 'Upload a valid receipt screenshot image.',
+        ]);
+
+        $expected = round((float) $remittance->amount, 2);
+        $submitted = round((float) $validated['amount'], 2);
+        if (abs($expected - $submitted) > 0.009) {
+            return back()->withErrors(['amount' => 'Amount must match the collected cash: PHP ' . number_format($expected, 2) . '.'])->withInput();
+        }
+
+        if ($validated['remittance_method'] === 'gcash' && !$request->hasFile('receipt') && empty($remittance->receipt_path)) {
+            return back()->withErrors(['receipt' => 'Upload the GCash transfer receipt screenshot.'])->withInput();
+        }
+
+        $receiptPath = $remittance->receipt_path;
+        if ($request->hasFile('receipt')) {
+            $receiptPath = $this->uploadFile($request->file('receipt'), 'uploads/rider_remittances');
+            if (!$receiptPath) {
+                return back()->with('err', 'Receipt upload failed. Please try a smaller JPG/PNG/WebP image.')->withInput();
+            }
+        }
+
+        DB::table('rider_remittances')->where('id', $remittance->id)->update([
+            'remittance_method' => $validated['remittance_method'],
+            'status' => 'submitted',
+            'reference_number' => trim((string) ($validated['reference_number'] ?? '')) ?: null,
+            'receipt_path' => $receiptPath,
+            'rider_note' => trim((string) ($validated['rider_note'] ?? '')) ?: null,
+            'submitted_at' => now(),
+            'rejected_at' => null,
+            'seller_note' => null,
+            'updated_at' => now(),
+        ]);
+
+        DB::table('order_tracking')->insert([
+            'order_id' => $orderId,
+            'status' => 'Cash Remittance Submitted',
+            'notes' => $validated['remittance_method'] === 'gcash'
+                ? 'Rider submitted GCash remittance proof.'
+                : 'Rider marked cash handover to seller.',
+            'created_at' => now(),
+        ]);
+
+        try {
+            $freshOrder = DB::table('orders')->where('id', $orderId)->first();
+            if ($freshOrder) {
+                app(MobileNotificationService::class)->notifyOrderSeller(
+                    $freshOrder,
+                    'COD Remittance Submitted',
+                    "Rider submitted cash remittance for Order #{$orderId}. Please review and confirm.",
+                    ['event' => 'rider_remittance_submitted']
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Rider remittance seller notification failed: ' . $e->getMessage());
+        }
+
+        return back()->with('msg', 'Remittance submitted. The seller will confirm once received.');
+    }
+
+    private function createCashRemittanceIfNeeded(object $order): ?object
+    {
+        if (!Schema::hasTable('rider_remittances')) {
+            return null;
+        }
+
+        $isCashDelivery = ($order->fulfillment_type ?? '') === 'Delivery'
+            && strtoupper((string) ($order->payment_method ?? '')) === 'COD';
+        if (!$isCashDelivery || empty($order->shop_id)) {
+            return null;
+        }
+
+        $total = (float) ($order->total_price ?? 0);
+        $depositPaid = ($order->deposit_status ?? '') === 'paid';
+        $deposit = $depositPaid ? (float) ($order->deposit_amount ?? 0) : 0;
+        $amount = round(max(0, $total - $deposit), 2);
+        if ($amount <= 0) {
+            return null;
+        }
+
+        DB::table('rider_remittances')->updateOrInsert(
+            ['order_id' => $order->id],
+            [
+                'shop_id' => $order->shop_id,
+                'rider_id' => $order->rider_id,
+                'amount' => $amount,
+                'collection_method' => 'Cash',
+                'status' => 'pending',
+                'collected_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
+        return DB::table('rider_remittances')->where('order_id', $order->id)->first();
     }
 
     /** Rider reports an issue */
