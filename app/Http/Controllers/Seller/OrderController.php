@@ -410,7 +410,7 @@ class OrderController extends Controller
             return back()->with('err', 'Unable to confirm remittance right now. Please try again or contact admin.');
         }
 
-        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Confirm Rider Remittance', "Order #{$id}");
+        $this->logSellerActivitySafe('Confirm Rider Remittance', "Order #{$id}");
         return back()->with('msg', "Cash remittance for Order #{$id} confirmed.");
     }
 
@@ -466,8 +466,24 @@ class OrderController extends Controller
             return back()->with('err', 'Unable to reject remittance right now. Please try again or contact admin.');
         }
 
-        CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Reject Rider Remittance', "Order #{$id}");
+        $this->logSellerActivitySafe('Reject Rider Remittance', "Order #{$id}");
         return back()->with('msg', "Remittance for Order #{$id} rejected. Rider can resubmit corrected details.");
+    }
+
+    private function logSellerActivitySafe(string $action, string $description = ''): void
+    {
+        $userId = data_get(session('user'), 'id');
+        if (!$userId) return;
+
+        try {
+            CakeshopHelper::logActivity($userId, 'seller', $action, $description);
+        } catch (\Throwable $e) {
+            Log::warning('Seller activity log failed', [
+                'action' => $action,
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function filterExistingColumns(string $table, array $values): array
