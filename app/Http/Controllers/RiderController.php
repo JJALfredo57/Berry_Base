@@ -153,6 +153,15 @@ class RiderController extends Controller
             ? DB::table('shops')->where('id', $order->shop_id)->select('payout_account_name', 'payout_account_number')->first()
             : null;
 
+        if (request('remittance_payment') === 'success' && $remittance && !empty($remittance->paymongo_checkout_session_id)) {
+            try {
+                $this->syncPaymongoRemittance($remittance, $order);
+                $remittance = DB::table('rider_remittances')->where('order_id', $orderId)->first();
+            } catch (\Throwable $e) {
+                Log::warning('Rider remittance return sync failed: ' . $e->getMessage());
+            }
+        }
+
         if (!in_array($order->status, ['Out for Delivery'], true)) {
             $needsRemittance = $remittance
                 && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired'], true);
@@ -517,15 +526,30 @@ class RiderController extends Controller
                 throw new \RuntimeException(data_get($attached, 'errors.0.detail', 'PayMongo did not return a QR image.'));
             }
 
+            $checkoutSessionId = null;
+            $checkoutUrl = null;
+            try {
+                $checkout = $this->createRemittanceCheckoutSession($order, $remittance, $amountCentavos, $reference, $description, $secretKey);
+                $checkoutSessionId = data_get($checkout, 'data.id');
+                $checkoutUrl = data_get($checkout, 'data.attributes.checkout_url');
+            } catch (\Throwable $checkoutError) {
+                Log::warning('PayMongo remittance checkout fallback failed', [
+                    'order_id' => $order->id,
+                    'remittance_id' => $remittance->id,
+                    'error' => $checkoutError->getMessage(),
+                ]);
+            }
+
             DB::table('rider_remittances')->where('id', $remittance->id)->update($this->filterExistingColumns('rider_remittances', [
                 'remittance_method' => 'gcash_paymongo',
                 'status' => 'awaiting_payment',
                 'reference_number' => $reference,
                 'paymongo_payment_intent_id' => $intentId,
                 'paymongo_payment_method_id' => $methodId,
+                'paymongo_checkout_session_id' => $checkoutSessionId,
                 'paymongo_client_key' => $clientKey,
                 'paymongo_qr_image' => $qrImage,
-                'paymongo_action_url' => $actionUrl,
+                'paymongo_action_url' => $actionUrl ?: $checkoutUrl,
                 'paymongo_status' => $paymongoStatus,
                 'paymongo_reference' => $reference,
                 'paymongo_expires_at' => now()->addMinutes(30),
@@ -678,6 +702,32 @@ class RiderController extends Controller
         return is_array($data) ? $data : [];
     }
 
+    private function createRemittanceCheckoutSession(object $order, object $remittance, int $amountCentavos, string $reference, string $description, string $secretKey): array
+    {
+        $returnUrl = route('rider.show', [$order->id, $order->rider_token]);
+
+        return $this->paymongoRequest('POST', 'https://api.paymongo.com/v2/checkout_sessions', $secretKey, [
+            'data' => [
+                'attributes' => [
+                    'line_items' => [[
+                        'currency' => 'PHP',
+                        'amount' => $amountCentavos,
+                        'name' => 'COD Remittance - Order #' . $order->id,
+                        'quantity' => 1,
+                    ]],
+                    'payment_method_types' => ['gcash'],
+                    'success_url' => $returnUrl . '?remittance_payment=success',
+                    'cancel_url' => $returnUrl . '?remittance_payment=cancelled',
+                    'description' => $description,
+                    'reference_number' => $reference,
+                    'send_email_receipt' => false,
+                    'show_description' => true,
+                    'show_line_items' => true,
+                ],
+            ],
+        ]);
+    }
+
     private function syncPaymongoRemittance(object $remittance, object $order): array
     {
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
@@ -685,9 +735,24 @@ class RiderController extends Controller
             return ['ok' => false, 'message' => 'PayMongo keys are not configured.'];
         }
 
-        $intent = $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/payment_intents/' . $remittance->paymongo_payment_intent_id, $secretKey);
+        $intent = !empty($remittance->paymongo_payment_intent_id)
+            ? $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/payment_intents/' . $remittance->paymongo_payment_intent_id, $secretKey)
+            : [];
         $status = data_get($intent, 'data.attributes.status', '');
+        $reference = data_get($intent, 'data.attributes.payments.0.attributes.reference_number')
+            ?: ($remittance->paymongo_reference ?? $remittance->reference_number ?? null);
         $paid = $status === 'succeeded';
+
+        if (!$paid && !empty($remittance->paymongo_checkout_session_id)) {
+            $checkout = $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/checkout_sessions/' . $remittance->paymongo_checkout_session_id, $secretKey);
+            $checkoutStatus = data_get($checkout, 'data.attributes.status', '');
+            $checkoutPaymentStatus = data_get($checkout, 'data.attributes.payment_intent.attributes.status', '');
+            $paid = $checkoutStatus === 'completed' || $checkoutPaymentStatus === 'succeeded';
+            $status = $paid ? 'succeeded' : ($status ?: $checkoutPaymentStatus ?: $checkoutStatus);
+            $reference = data_get($checkout, 'data.attributes.payments.0.attributes.reference_number')
+                ?: data_get($checkout, 'data.attributes.reference_number')
+                ?: $reference;
+        }
 
         $updates = [
             'paymongo_status' => $status ?: null,
@@ -695,9 +760,6 @@ class RiderController extends Controller
         ];
 
         if ($paid) {
-            $reference = data_get($intent, 'data.attributes.payments.0.attributes.reference_number')
-                ?: ($remittance->paymongo_reference ?? $remittance->reference_number ?? null);
-
             $updates = array_merge($updates, [
                 'status' => 'confirmed',
                 'remittance_method' => 'gcash_paymongo',

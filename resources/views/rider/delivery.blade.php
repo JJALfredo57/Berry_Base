@@ -115,6 +115,9 @@
     .qr-actions { display:grid; grid-template-columns:1fr; gap:8px; margin-top:10px; }
     .btn-remit-alt { width:100%; padding:clamp(12px,3.2vw,16px); border:1.5px solid #bfdbfe; border-radius:12px; background:#fff; color:#1d4ed8; font-size:clamp(13px,3.4vw,16px); font-weight:700; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; }
     .btn-remit-alt:active { background:#eff6ff; }
+    .btn-remit-alt[disabled] { opacity:.6; cursor:not-allowed; }
+    .qr-countdown { font-size:clamp(13px,3.2vw,16px); color:#1d4ed8; font-weight:800; margin-top:8px; }
+    .qr-countdown.expired { color:#b91c1c; }
     .remit-choice-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
     .remit-choice { border:1.5px solid #e5e7eb; border-radius:12px; background:#fff; color:#374151; padding:12px 8px; font:inherit; font-size:clamp(13px,3.2vw,16px); font-weight:750; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; min-height:48px; }
     .remit-choice.active { border-color:#2563eb; background:#eff6ff; color:#1d4ed8; }
@@ -399,16 +402,17 @@
         <div class="qr-box">
           <div class="row-label">Scan with GCash</div>
           <div class="row-value">&#8369;{{ number_format((float)$remittance->amount, 2) }}</div>
-          <img class="qr-img" src="{{ $remittance->paymongo_qr_image }}" alt="PayMongo GCash QR for remittance">
-          @if(!empty($remittance->paymongo_expires_at))
-            <div class="row-sub">Expires {{ \Carbon\Carbon::parse($remittance->paymongo_expires_at)->diffForHumans() }}</div>
+        <img class="qr-img" src="{{ $remittance->paymongo_qr_image }}" alt="PayMongo GCash QR for remittance">
+        @if(!empty($remittance->paymongo_expires_at))
+          <div class="row-sub">Expires {{ \Carbon\Carbon::parse($remittance->paymongo_expires_at)->diffForHumans() }}</div>
+          <div class="qr-countdown" id="remitQrCountdown" data-expires-at="{{ \Carbon\Carbon::parse($remittance->paymongo_expires_at)->toIso8601String() }}">Expires in --:--</div>
+        @endif
+        <div class="qr-actions">
+          @if(!empty($remittance->paymongo_action_url))
+            <a class="btn-remit-alt" id="openGcashPaymentLink" href="{{ $remittance->paymongo_action_url }}" target="_blank" rel="noopener">
+              <i class="bi bi-phone"></i> Open GCash Payment
+            </a>
           @endif
-          <div class="qr-actions">
-            @if(!empty($remittance->paymongo_action_url))
-              <a class="btn-remit-alt" href="{{ $remittance->paymongo_action_url }}" target="_blank" rel="noopener">
-                <i class="bi bi-phone"></i> Open GCash Payment
-              </a>
-            @endif
             <form method="POST" action="{{ route('rider.remittance.check', [$order->id, $order->rider_token]) }}">
               @csrf
               <button class="btn-remit-alt" type="submit"><i class="bi bi-arrow-repeat"></i> Check Payment Status</button>
@@ -417,9 +421,9 @@
         </div>
       @endif
 
-      <form method="POST" action="{{ route('rider.remittance.qr', [$order->id, $order->rider_token]) }}">
+      <form method="POST" action="{{ route('rider.remittance.qr', [$order->id, $order->rider_token]) }}" id="remitQrGenerateForm">
         @csrf
-        <button class="btn-deliver" type="submit" style="margin-top:12px">
+        <button class="btn-deliver" type="submit" style="margin-top:12px" id="remitQrGenerateButton">
           <i class="bi bi-qr-code"></i> {{ $qrExpired ? 'Generate New QR Code' : 'Generate QR Code' }}
         </button>
       </form>
@@ -644,6 +648,50 @@ function showRemitMethod(method) {
   document.getElementById('remitPanelGcash')?.classList.toggle('active', method === 'gcash');
   document.getElementById('remitPanelCash')?.classList.toggle('active', method === 'cash');
 }
+
+function startRemittanceQrCountdown() {
+  const countdown = document.getElementById('remitQrCountdown');
+  const form = document.getElementById('remitQrGenerateForm');
+  const generateButton = document.getElementById('remitQrGenerateButton');
+  if (!countdown || !form || !countdown.dataset.expiresAt) return;
+
+  const expiresAt = new Date(countdown.dataset.expiresAt).getTime();
+  if (!Number.isFinite(expiresAt)) return;
+
+  const autoKey = 'remit_qr_regenerated_' + ORDER_ID + '_' + expiresAt;
+  let timer = null;
+  const tick = () => {
+    const remaining = Math.max(0, expiresAt - Date.now());
+    const totalSeconds = Math.ceil(remaining / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    countdown.textContent = remaining > 0
+      ? 'Expires in ' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0')
+      : 'QR expired. Generating a new QR...';
+
+    if (remaining > 0) return;
+
+    countdown.classList.add('expired');
+    document.getElementById('openGcashPaymentLink')?.setAttribute('aria-disabled', 'true');
+    if (generateButton) {
+      generateButton.disabled = true;
+      generateButton.innerHTML = '<span class="spin"></span> Generating new QR...';
+    }
+
+    if (!sessionStorage.getItem(autoKey)) {
+      sessionStorage.setItem(autoKey, '1');
+      form.submit();
+    } else if (generateButton) {
+      generateButton.disabled = false;
+      generateButton.innerHTML = '<i class="bi bi-qr-code"></i> Generate New QR Code';
+    }
+    if (timer) clearInterval(timer);
+  };
+
+  tick();
+  timer = setInterval(tick, 1000);
+}
+startRemittanceQrCountdown();
 function selectIssue(type, el) {
   selectedIssue = type;
   document.querySelectorAll('.issue-opt').forEach(o => o.classList.remove('sel'));
