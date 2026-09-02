@@ -239,6 +239,8 @@ Route::get('/track/{trackCode}/pay-deposit',     [\App\Http\Controllers\Guest\Pa
 Route::get('/track/{trackCode}/deposit-return',  [\App\Http\Controllers\Guest\PaymentController::class, 'depositReturn'])->name('guest.deposit_return');
 Route::get('/track/{trackCode}/pay-remaining',   [\App\Http\Controllers\Guest\PaymentController::class, 'payRemaining'])->name('guest.pay_remaining');
 Route::get('/track/{trackCode}/remaining-return',[\App\Http\Controllers\Guest\PaymentController::class, 'remainingReturn'])->name('guest.remaining_return');
+Route::post('/track/{trackCode}/payment-qr', [\App\Http\Controllers\Guest\PaymentController::class, 'generatePaymentQr'])->name('guest.payment_qr.generate');
+Route::post('/track/{trackCode}/payment-qr/check', [\App\Http\Controllers\Guest\PaymentController::class, 'checkPaymentQr'])->name('guest.payment_qr.check');
 
 // ── Rider Portal (login with phone + PIN) ─────────────────────────────────
 Route::get('/rider/login',  [\App\Http\Controllers\RiderController::class, 'loginPage'])->name('rider.login');

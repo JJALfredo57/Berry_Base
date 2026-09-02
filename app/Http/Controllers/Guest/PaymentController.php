@@ -8,6 +8,7 @@ use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class PaymentController extends Controller
 {
@@ -779,6 +780,174 @@ class PaymentController extends Controller
         return redirect()->route('track.order', $trackCode)->with('error', 'Payment was not completed. Please try again.');
     }
 
+    public function generatePaymentQr(Request $request, string $trackCode)
+    {
+        if (!Schema::hasTable('customer_payment_qrs')) {
+            return response()->json(['ok' => false, 'error' => 'QR payment is not ready yet. Please try the GCash payment button.'], 503);
+        }
+
+        $order = $this->qrOrder($trackCode);
+        if (!$order) {
+            return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+        }
+
+        $resolved = $this->resolveQrPayment($request, $order);
+        if (!$resolved['ok']) {
+            return response()->json(['ok' => false, 'error' => $resolved['error']], 422);
+        }
+
+        $active = $this->activeCustomerQr($order, $resolved['payment_type'], (float) $resolved['amount']);
+        if ($active) {
+            $sync = $this->syncCustomerPaymentQr($active);
+            if ($sync['paid']) {
+                return response()->json($this->customerQrPayload($active, true, $sync['message']));
+            }
+
+            $fresh = DB::table('customer_payment_qrs')->where('id', $active->id)->first();
+            if ($fresh && ($fresh->status ?? '') === 'awaiting_payment' && (empty($fresh->paymongo_expires_at) || now()->lt($fresh->paymongo_expires_at))) {
+                return response()->json($this->customerQrPayload($fresh, false, 'QR is still active.'));
+            }
+        }
+
+        $secretKey = CakeshopHelper::getPaymongoSecretKey();
+        $publicKey = CakeshopHelper::getPaymongoPublicKey();
+        if (!$secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY')) {
+            return response()->json(['ok' => false, 'error' => 'GCash payment is not configured yet. Please contact the shop.'], 422);
+        }
+
+        $amountCentavos = (int) round((float) $resolved['amount'] * 100);
+        if ($amountCentavos < 10000) {
+            return response()->json(['ok' => false, 'error' => 'Minimum GCash payment is PHP 100.00.'], 422);
+        }
+
+        $clientApiKey = ($publicKey && !str_contains($publicKey, 'YOUR_PUBLIC_KEY')) ? $publicKey : $secretKey;
+        $reference = strtoupper($resolved['payment_type']) . '-QR-' . $order->id . '-' . now()->format('His');
+        $description = $resolved['label'] . ' for Order #' . $order->id;
+
+        try {
+            $intent = $this->paymongoRequest('POST', 'https://api.paymongo.com/v1/payment_intents', $secretKey, [
+                'data' => [
+                    'attributes' => [
+                        'amount' => $amountCentavos,
+                        'currency' => 'PHP',
+                        'payment_method_allowed' => ['qrph'],
+                        'description' => $description,
+                    ],
+                ],
+            ]);
+
+            $intentId = data_get($intent, 'data.id');
+            $clientKey = data_get($intent, 'data.attributes.client_key');
+            if (!$intentId || !$clientKey) {
+                throw new \RuntimeException(data_get($intent, 'errors.0.detail', 'Could not create PayMongo payment intent.'));
+            }
+
+            $method = $this->paymongoRequest('POST', 'https://api.paymongo.com/v1/payment_methods', $clientApiKey, [
+                'data' => [
+                    'attributes' => [
+                        'type' => 'qrph',
+                        'expiry_seconds' => 1800,
+                    ],
+                ],
+            ]);
+
+            $methodId = data_get($method, 'data.id');
+            if (!$methodId) {
+                throw new \RuntimeException(data_get($method, 'errors.0.detail', 'Could not create PayMongo QR method.'));
+            }
+
+            $attached = $this->paymongoRequest('POST', "https://api.paymongo.com/v1/payment_intents/{$intentId}/attach", $clientApiKey, [
+                'data' => [
+                    'attributes' => [
+                        'payment_method' => $methodId,
+                        'client_key' => $clientKey,
+                    ],
+                ],
+            ]);
+
+            $qrImage = data_get($attached, 'data.attributes.next_action.code.image_url');
+            $actionUrl = data_get($attached, 'data.attributes.next_action.redirect.url')
+                ?: data_get($attached, 'data.attributes.next_action.url');
+            $paymongoStatus = data_get($attached, 'data.attributes.status', 'awaiting_next_action');
+            if (!$qrImage) {
+                throw new \RuntimeException(data_get($attached, 'errors.0.detail', 'PayMongo did not return a QR image.'));
+            }
+
+            DB::table('customer_payment_qrs')
+                ->where('order_id', $order->id)
+                ->where('payment_type', $resolved['payment_type'])
+                ->whereIn('status', ['awaiting_payment', 'expired'])
+                ->update(['status' => 'expired', 'updated_at' => now()]);
+
+            $qrId = DB::table('customer_payment_qrs')->insertGetId([
+                'order_id' => $order->id,
+                'track_code' => strtoupper($trackCode),
+                'payment_type' => $resolved['payment_type'],
+                'amount' => $resolved['amount'],
+                'status' => 'awaiting_payment',
+                'reference_number' => $reference,
+                'paymongo_payment_intent_id' => $intentId,
+                'paymongo_payment_method_id' => $methodId,
+                'paymongo_client_key' => $clientKey,
+                'paymongo_qr_image' => $qrImage,
+                'paymongo_action_url' => $actionUrl,
+                'paymongo_status' => $paymongoStatus,
+                'paymongo_reference' => $reference,
+                'paymongo_expires_at' => now()->addMinutes(30),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $qr = DB::table('customer_payment_qrs')->where('id', $qrId)->first();
+            return response()->json($this->customerQrPayload($qr, false, 'Scan this QR with GCash.'));
+        } catch (\Throwable $e) {
+            Log::error('Customer QR payment generation failed', [
+                'track_code' => $trackCode,
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['ok' => false, 'error' => 'Could not generate QR. PayMongo: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function checkPaymentQr(Request $request, string $trackCode)
+    {
+        if (!Schema::hasTable('customer_payment_qrs')) {
+            return response()->json(['ok' => false, 'error' => 'QR payment is not ready yet.'], 503);
+        }
+
+        $order = $this->qrOrder($trackCode);
+        if (!$order) {
+            return response()->json(['ok' => false, 'error' => 'Order not found.'], 404);
+        }
+
+        $qrId = (int) $request->input('qr_id', 0);
+        $qr = DB::table('customer_payment_qrs')
+            ->where('order_id', $order->id)
+            ->when($qrId > 0, fn ($q) => $q->where('id', $qrId))
+            ->when($qrId <= 0, fn ($q) => $q->where('status', 'awaiting_payment')->orderByDesc('id'))
+            ->first();
+
+        if (!$qr) {
+            return response()->json(['ok' => false, 'error' => 'No active QR payment found.'], 404);
+        }
+
+        try {
+            $sync = $this->syncCustomerPaymentQr($qr);
+            $fresh = DB::table('customer_payment_qrs')->where('id', $qr->id)->first() ?: $qr;
+            return response()->json($this->customerQrPayload($fresh, $sync['paid'], $sync['message']));
+        } catch (\Throwable $e) {
+            Log::error('Customer QR payment check failed', [
+                'track_code' => $trackCode,
+                'qr_id' => $qr->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['ok' => false, 'error' => 'Could not check payment status right now.'], 500);
+        }
+    }
+
     public function paymentReturn(Request $request, string $trackCode)
     {
         $status = $request->input('status', '');
@@ -947,6 +1116,275 @@ class PaymentController extends Controller
 
         return redirect()->route('track.order', $trackCode)
             ->with('error', 'Payment was not completed. Please try again.');
+    }
+
+    private function qrOrder(string $trackCode): ?object
+    {
+        return DB::table('orders as o')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->where('o.track_code', strtoupper($trackCode))
+            ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"), 'p.image_path as product_image')
+            ->first();
+    }
+
+    private function resolveQrPayment(Request $request, object $order): array
+    {
+        if (($order->payment_method ?? '') !== 'GCash') {
+            return ['ok' => false, 'error' => 'QR payment is only available for GCash orders.'];
+        }
+        if (($order->payment_status ?? '') === 'Paid') {
+            return ['ok' => false, 'error' => 'This order has already been paid.'];
+        }
+        if (($order->status ?? '') === 'Cancelled' || in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true)) {
+            return ['ok' => false, 'error' => 'Payment is no longer available for this order.'];
+        }
+
+        $type = $request->input('payment_type', 'remaining');
+        $total = round((float) ($order->total_price ?? 0), 2);
+        $depositPaid = ($order->deposit_status ?? '') === 'paid';
+
+        if ($type === 'deposit') {
+            if (!($order->deposit_required ?? false) && !in_array(($order->status ?? ''), ['Pending', 'Pending Review'], true)) {
+                return ['ok' => false, 'error' => 'Deposit is not available at this stage.'];
+            }
+            if (($order->deposit_status ?? '') === 'paid') {
+                return ['ok' => false, 'error' => 'Deposit has already been paid.'];
+            }
+            $min = max(100, round($total * 0.5, 2));
+            $amount = round((float) $request->input('amount', $order->deposit_amount ?: $min), 2);
+            if ($amount < $min) {
+                return ['ok' => false, 'error' => 'Minimum deposit is PHP ' . number_format($min, 2) . '.'];
+            }
+            if ($amount > $total) {
+                return ['ok' => false, 'error' => 'Payment cannot exceed the order total.'];
+            }
+            return ['ok' => true, 'payment_type' => 'deposit', 'amount' => $amount, 'label' => abs($amount - $total) < 0.01 ? 'Full Payment' : 'Deposit'];
+        }
+
+        $isPickup = ($order->fulfillment_type ?? '') === 'Pickup';
+        $payStatus = $isPickup ? 'Pickup' : 'Out for Delivery';
+        if (!in_array($type, ['full', 'remaining'], true)) {
+            return ['ok' => false, 'error' => 'Invalid QR payment type.'];
+        }
+        if (($order->status ?? '') !== $payStatus && !in_array(($order->status ?? ''), ['Pending', 'Pending Review'], true)) {
+            return ['ok' => false, 'error' => 'Payment is not available at this stage yet.'];
+        }
+
+        $amount = $depositPaid ? max(0, $total - (float) ($order->deposit_amount ?? 0)) : $total;
+        return ['ok' => true, 'payment_type' => $depositPaid ? 'remaining' : 'full', 'amount' => round($amount, 2), 'label' => $depositPaid ? 'Remaining Balance' : 'Full Payment'];
+    }
+
+    private function activeCustomerQr(object $order, string $type, float $amount): ?object
+    {
+        if (!Schema::hasTable('customer_payment_qrs')) return null;
+
+        return DB::table('customer_payment_qrs')
+            ->where('order_id', $order->id)
+            ->where('payment_type', $type)
+            ->where('amount', round($amount, 2))
+            ->where('status', 'awaiting_payment')
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    private function customerQrPayload(object $qr, bool $paid = false, string $message = ''): array
+    {
+        $qrData = [
+            'id' => $qr->id,
+            'status' => $qr->status,
+            'amount' => (float) $qr->amount,
+            'payment_type' => $qr->payment_type,
+            'qr_image' => $qr->paymongo_qr_image,
+            'action_url' => $qr->paymongo_action_url,
+            'expires_at' => $qr->paymongo_expires_at ? \Carbon\Carbon::parse($qr->paymongo_expires_at)->toIso8601String() : null,
+            'reference_number' => $qr->paymongo_reference ?: $qr->reference_number,
+        ];
+
+        return [
+            'ok' => true,
+            'paid' => $paid,
+            'message' => $message,
+            'qr' => $qrData,
+            'qr_id' => $qr->id,
+            'status' => $qr->status,
+            'amount' => (float) $qr->amount,
+            'payment_type' => $qr->payment_type,
+            'qr_image' => $qr->paymongo_qr_image,
+            'action_url' => $qr->paymongo_action_url,
+            'expires_at' => $qr->paymongo_expires_at ? \Carbon\Carbon::parse($qr->paymongo_expires_at)->toIso8601String() : null,
+            'reference' => $qr->paymongo_reference ?: $qr->reference_number,
+            'redirect_url' => route('track.order', $qr->track_code),
+        ];
+    }
+
+    private function syncCustomerPaymentQr(object $qr): array
+    {
+        $secretKey = CakeshopHelper::getPaymongoSecretKey();
+        if (!$secretKey) {
+            return ['paid' => false, 'message' => 'PayMongo keys are not configured.'];
+        }
+
+        $intent = $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/payment_intents/' . $qr->paymongo_payment_intent_id, $secretKey);
+        $status = data_get($intent, 'data.attributes.status', '');
+        $reference = data_get($intent, 'data.attributes.payments.0.attributes.reference_number')
+            ?: ($qr->paymongo_reference ?? $qr->reference_number ?? null);
+        $paid = $status === 'succeeded';
+
+        $updates = [
+            'paymongo_status' => $status ?: null,
+            'updated_at' => now(),
+        ];
+
+        if ($paid) {
+            $updates = array_merge($updates, [
+                'status' => 'paid',
+                'paymongo_reference' => $reference,
+                'paymongo_paid_at' => now(),
+            ]);
+        } elseif (!empty($qr->paymongo_expires_at) && now()->gte($qr->paymongo_expires_at)) {
+            $updates['status'] = 'expired';
+        }
+
+        DB::table('customer_payment_qrs')->where('id', $qr->id)->update($updates);
+
+        if ($paid) {
+            $order = $this->qrOrder($qr->track_code);
+            if ($order && ($order->payment_status ?? '') !== 'Paid') {
+                $this->applyCustomerQrPayment($order, $qr, $reference);
+            }
+            return ['paid' => true, 'message' => 'Payment received. Your order has been updated.'];
+        }
+
+        if (($updates['status'] ?? null) === 'expired') {
+            return ['paid' => false, 'message' => 'QR expired. Generating a new QR...'];
+        }
+
+        return ['paid' => false, 'message' => 'Payment is not completed yet.'];
+    }
+
+    private function applyCustomerQrPayment(object $order, object $qr, ?string $reference): void
+    {
+        $type = (string) $qr->payment_type;
+        $amount = (float) $qr->amount;
+        $freshOrder = $this->qrOrder($qr->track_code) ?: $order;
+        $total = (float) ($freshOrder->total_price ?? $order->total_price ?? 0);
+        $isFull = $type === 'full' || abs($amount - $total) < 0.01;
+
+        if ($isFull && ($freshOrder->payment_status ?? '') === 'Paid') {
+            return;
+        }
+        if (!$isFull && $type === 'deposit' && ($freshOrder->deposit_status ?? '') === 'paid') {
+            return;
+        }
+
+        $order = $freshOrder;
+
+        if ($type === 'deposit' && !$isFull) {
+            DB::table('orders')->where('id', $order->id)->update([
+                'deposit_required' => 1,
+                'deposit_amount' => $amount,
+                'deposit_status' => 'paid',
+                'deposit_paid_at' => now(),
+                'payment_status' => 'Partial Payment',
+            ]);
+            PaymentTransactionHelper::record($order, 'downpayment_gcash', 'GCash', $amount, $reference);
+            $trackingStatus = 'Deposit Paid';
+            $trackingNotes = 'Deposit of PHP ' . number_format($amount, 2) . ' paid via GCash QR.';
+        } else {
+            DB::table('orders')->where('id', $order->id)->update([
+                'deposit_required' => $type === 'deposit' ? 1 : ($order->deposit_required ?? 0),
+                'deposit_amount' => $type === 'deposit' ? $amount : ($order->deposit_amount ?? null),
+                'deposit_status' => $type === 'deposit' ? 'paid' : ($order->deposit_status ?? null),
+                'deposit_paid_at' => $type === 'deposit' ? now() : ($order->deposit_paid_at ?? null),
+                'payment_status' => 'Paid',
+                'paid_at' => now(),
+            ]);
+            $recordType = (($order->deposit_status ?? '') === 'paid' && $type === 'remaining') ? 'remaining_gcash' : 'full_gcash';
+            PaymentTransactionHelper::record($order, $recordType, 'GCash', $amount, $reference);
+            $trackingStatus = 'Payment Paid';
+            $trackingNotes = 'GCash QR payment of PHP ' . number_format($amount, 2) . ' received.';
+        }
+
+        try {
+            DB::table('order_tracking')->insert([
+                'order_id' => $order->id,
+                'status' => $trackingStatus,
+                'notes' => $trackingNotes,
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {}
+
+        if (in_array(($order->status ?? ''), ['Awaiting Deposit', 'Pending', 'Pending Review'], true)) {
+            DB::table('orders')->where('id', $order->id)->update(['status' => 'Confirmed']);
+            try {
+                DB::table('order_tracking')->insert([
+                    'order_id' => $order->id,
+                    'status' => 'Confirmed',
+                    'notes' => 'Auto-confirmed after GCash QR payment.',
+                    'created_at' => now(),
+                ]);
+            } catch (\Throwable $e) {}
+
+            $fresh = $this->qrOrder($qr->track_code);
+            if ($fresh && !$fresh->kitchen_sent) {
+                $this->sendToKitchen($fresh, $isFull);
+            }
+        }
+
+        try {
+            $fresh = DB::table('orders')->where('id', $order->id)->first();
+            if ($fresh) {
+                app(MobileNotificationService::class)->notifyPaymentComplete($fresh);
+            }
+            DB::table('notifications')->insert([
+                'receiver_role' => 'admin',
+                'receiver_user_id' => null,
+                'title' => 'GCash QR Payment Received - Order #' . $order->id,
+                'message' => ($order->guest_name ?? 'Guest') . ' paid PHP ' . number_format($amount, 2) . ' via GCash QR for Order #' . $order->id . '.',
+                'is_read' => false,
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Customer QR payment notification failed: ' . $e->getMessage());
+        }
+    }
+
+    private function paymongoRequest(string $method, string $url, string $key, array $payload = []): array
+    {
+        $ch = curl_init($url);
+        $options = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'accept: application/json',
+                'Authorization: Basic ' . base64_encode($key . ':'),
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_TIMEOUT => 30,
+        ];
+        if ($method === 'POST') {
+            $options[CURLOPT_POST] = true;
+            $options[CURLOPT_POSTFIELDS] = json_encode($payload);
+        } else {
+            $options[CURLOPT_CUSTOMREQUEST] = $method;
+        }
+        curl_setopt_array($ch, $options);
+        $raw = curl_exec($ch);
+        $errno = curl_errno($ch);
+        $error = curl_error($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($errno) {
+            throw new \RuntimeException('PayMongo network error: ' . $error);
+        }
+
+        $data = $raw ? json_decode($raw, true) : [];
+        if ($httpCode >= 400) {
+            throw new \RuntimeException(data_get($data, 'errors.0.detail', 'PayMongo returned HTTP ' . $httpCode));
+        }
+
+        return is_array($data) ? $data : [];
     }
 
     private function getPaymongoCheckoutMethods(): array
