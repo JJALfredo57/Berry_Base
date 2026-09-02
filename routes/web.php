@@ -351,11 +351,12 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 // ── Old admin login → redirect to secret portal ───────────────────────────
 Route::get('/admin/login', fn() => redirect()->route('superadmin.login'));
 
-Route::get('/admin/forgot-password',             [ForgotPasswordController::class, 'show'])->name('forgot.show');
-Route::post('/admin/forgot-password/send-otp',   [ForgotPasswordController::class, 'sendOtp'])->name('forgot.send_otp');
-Route::post('/admin/forgot-password/verify-otp', [ForgotPasswordController::class, 'verifyOtp'])->name('forgot.verify_otp');
-Route::post('/admin/forgot-password/reset',      [ForgotPasswordController::class, 'reset'])->name('forgot.reset');
-Route::get('/admin/forgot-password/back',        [ForgotPasswordController::class, 'back'])->name('forgot.back');
+Route::get('/forgot-password',             [ForgotPasswordController::class, 'show'])->name('forgot.show');
+Route::post('/forgot-password/send-otp',   [ForgotPasswordController::class, 'sendOtp'])->name('forgot.send_otp');
+Route::post('/forgot-password/verify-otp', [ForgotPasswordController::class, 'verifyOtp'])->name('forgot.verify_otp');
+Route::post('/forgot-password/reset',      [ForgotPasswordController::class, 'reset'])->name('forgot.reset');
+Route::get('/forgot-password/back',        [ForgotPasswordController::class, 'back'])->name('forgot.back');
+Route::get('/admin/forgot-password', fn() => redirect()->route('forgot.show'));
 
 // ── Admin Panel ───────────────────────────────────────────────────────────
 // ── Seller Routes ────────────────────────────────────────────────────────────

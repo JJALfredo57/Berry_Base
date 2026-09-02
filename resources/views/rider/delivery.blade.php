@@ -113,6 +113,9 @@
     .qr-box { background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px; padding:14px; margin-top:12px; text-align:center; }
     .qr-img { display:block; width:min(260px, 86vw); aspect-ratio:1/1; object-fit:contain; margin:10px auto; border:8px solid #fff; border-radius:10px; box-shadow:0 8px 24px rgba(15,23,42,.10); }
     .qr-actions { display:grid; grid-template-columns:1fr; gap:8px; margin-top:10px; }
+    .remit-primary-actions { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:8px; align-items:stretch; margin-top:12px; }
+    .remit-primary-actions .btn-deliver,
+    .remit-primary-actions .btn-remit-alt { height:100%; min-height:54px; margin-top:0 !important; }
     .btn-remit-alt { width:100%; padding:clamp(12px,3.2vw,16px); border:1.5px solid #bfdbfe; border-radius:12px; background:#fff; color:#1d4ed8; font-size:clamp(13px,3.4vw,16px); font-weight:700; cursor:pointer; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; }
     .btn-remit-alt:active { background:#eff6ff; }
     .btn-remit-alt[disabled] { opacity:.6; cursor:not-allowed; }
@@ -123,7 +126,7 @@
     .remit-choice.active { border-color:#2563eb; background:#eff6ff; color:#1d4ed8; }
     .remit-method-panel { display:none; }
     .remit-method-panel.active { display:block; }
-    @media(max-width:360px){ .remit-choice-grid { grid-template-columns:1fr; } }
+    @media(max-width:360px){ .remit-choice-grid, .remit-primary-actions { grid-template-columns:1fr; } }
 
     /* ── Action buttons ──────── */
     .actions { padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 20px); display: flex; flex-direction: column; gap: clamp(8px, 2.5vw, 12px); }
@@ -443,11 +446,6 @@
           <div class="qr-countdown" id="remitQrCountdown" data-expires-at="{{ \Carbon\Carbon::parse($remittance->paymongo_expires_at)->toIso8601String() }}">Expires in --:--</div>
         @endif
         <div class="qr-actions">
-          @if(!empty($remittance->paymongo_action_url))
-            <a class="btn-remit-alt" id="openGcashPaymentLink" href="{{ $remittance->paymongo_action_url }}" target="_blank" rel="noopener">
-              <i class="bi bi-phone"></i> Open GCash Payment
-            </a>
-          @endif
             <form method="POST" action="{{ route('rider.remittance.check', [$order->id, $order->rider_token]) }}">
               @csrf
               <button class="btn-remit-alt" type="submit"><i class="bi bi-arrow-repeat"></i> Check Payment Status</button>
@@ -456,12 +454,19 @@
         </div>
       @endif
 
-      <form method="POST" action="{{ route('rider.remittance.qr', [$order->id, $order->rider_token]) }}" id="remitQrGenerateForm">
-        @csrf
-        <button class="btn-deliver" type="submit" style="margin-top:12px" id="remitQrGenerateButton">
-          <i class="bi bi-qr-code"></i> {{ $qrExpired ? 'Generate New QR Code' : 'Generate QR Code' }}
-        </button>
-      </form>
+      <div class="remit-primary-actions">
+        <form method="POST" action="{{ route('rider.remittance.qr', [$order->id, $order->rider_token]) }}" id="remitQrGenerateForm">
+          @csrf
+          <button class="btn-deliver" type="submit" id="remitQrGenerateButton">
+            <i class="bi bi-qr-code"></i> {{ $qrExpired ? 'Generate New QR Code' : 'Generate QR Code' }}
+          </button>
+        </form>
+        @if(!empty($remittance->paymongo_action_url))
+          <a class="btn-remit-alt" id="openGcashPaymentLink" href="{{ $remittance->paymongo_action_url }}" target="_blank" rel="noopener">
+            <i class="bi bi-phone"></i> Open GCash Payment
+          </a>
+        @endif
+      </div>
     </div>
 
     <div class="remit-method-panel" id="remitPanelCash">
