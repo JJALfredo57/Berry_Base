@@ -592,6 +592,7 @@ class RiderController extends Controller
         if ($context instanceof \Illuminate\Http\RedirectResponse) return $context;
 
         [$order, $remittance] = $context;
+        $openPayment = $request->boolean('open_payment');
         if (($remittance->status ?? '') === 'confirmed') {
             return back()->with('msg', 'This remittance was already verified.');
         }
@@ -605,6 +606,10 @@ class RiderController extends Controller
             && !empty($remittance->paymongo_qr_image)
             && !empty($remittance->paymongo_expires_at)
             && now()->lt($remittance->paymongo_expires_at)) {
+            if ($openPayment && !empty($remittance->paymongo_action_url)) {
+                return redirect()->away($remittance->paymongo_action_url);
+            }
+
             return back()->with('msg', 'GCash QR is still active. Scan it or tap Check Payment Status after paying.');
         }
 
@@ -707,6 +712,10 @@ class RiderController extends Controller
 
             $this->addOrderTrackingSafe($order->id, 'GCash QR Remittance Created', 'Rider generated a PayMongo QR Ph code for COD remittance.', 'seller');
             $this->notifySellerSafe($order, 'COD Remittance QR Generated', "Rider generated a GCash QR remittance for Order #{$order->id}. Waiting for PayMongo confirmation.", 'rider_remittance_qr_created');
+
+            if ($openPayment && ($actionUrl || $checkoutUrl)) {
+                return redirect()->away($actionUrl ?: $checkoutUrl);
+            }
 
             return back()->with('msg', 'GCash QR generated. Scan it using GCash, then tap Check Payment Status.');
         } catch (\Throwable $e) {

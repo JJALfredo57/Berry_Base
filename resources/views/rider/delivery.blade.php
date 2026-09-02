@@ -461,11 +461,13 @@
             <i class="bi bi-qr-code"></i> {{ $qrExpired ? 'Generate New QR Code' : 'Generate QR Code' }}
           </button>
         </form>
-        @if(!empty($remittance->paymongo_action_url))
-          <a class="btn-remit-alt" id="openGcashPaymentLink" href="{{ $remittance->paymongo_action_url }}" target="_blank" rel="noopener">
+        <form method="POST" action="{{ route('rider.remittance.qr', [$order->id, $order->rider_token]) }}">
+          @csrf
+          <input type="hidden" name="open_payment" value="1">
+          <button class="btn-remit-alt" id="openGcashPaymentLink" type="submit">
             <i class="bi bi-phone"></i> Open GCash Payment
-          </a>
-        @endif
+          </button>
+        </form>
       </div>
     </div>
 
