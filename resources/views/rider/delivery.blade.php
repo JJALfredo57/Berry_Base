@@ -568,11 +568,7 @@ const ORDER_ID = '{{ $order->id }}', TOKEN = '{{ $order->rider_token }}';
 let selectedIssue = null, _rcCb = null;
 
 function goBack() {
-  if (window.history.length > 1) {
-    window.history.back();
-    return;
-  }
-  window.location.href = '{{ route('rider.login') }}';
+  window.location.href = '{{ route('rider.dashboard') }}';
 }
 
 function formatPeso(amount) {
