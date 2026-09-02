@@ -5,9 +5,11 @@ use App\Helpers\SmsHelper;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
 use App\Services\MobileNotificationService;
+use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -26,13 +28,13 @@ class RiderController extends Controller
 
         $order = DB::table('orders')
             ->where('rider_pin', $pin)
-            ->whereIn('status', ['Out for Delivery', 'Attempted Delivery'])
             ->whereNotNull('rider_token')
             ->orderByDesc('id')
-            ->first();
+            ->get()
+            ->first(fn ($candidate) => $this->isRiderAccessibleOrder($candidate));
 
         if (!$order) {
-            return back()->with('rider_err', 'PIN not found or delivery already completed. Check your SMS and try again.');
+            return back()->with('rider_err', 'PIN not found or no rider action is needed for this order.');
         }
 
         return redirect()->route('rider.show', [$order->id, $order->rider_token]);
@@ -51,13 +53,10 @@ class RiderController extends Controller
         $pin   = trim($request->input('pin', ''));
 
         if (!$phone || !$pin) {
-            return back()->with('err', 'Please enter both your phone number and PIN.')->withInput();
+            return back()->with('err', 'Please enter your phone number and rider PIN.')->withInput();
         }
 
-        $clean = preg_replace('/\D/', '', $phone);
-        if (str_starts_with($clean, '0'))   $clean = '63' . substr($clean, 1);
-        if (!str_starts_with($clean, '63')) $clean = '63' . $clean;
-        $formats = [$phone, '+' . $clean, $clean, '0' . substr($clean, 2)];
+        $formats = $this->phoneFormats($phone);
 
         $rider = DB::table('riders')
             ->where('is_active', true)
@@ -69,19 +68,55 @@ class RiderController extends Controller
             return back()->with('err', 'Phone number not found. Please check and try again.')->withInput();
         }
 
+        if (!empty($rider->login_pin_hash) && Hash::check($pin, $rider->login_pin_hash)) {
+            session([
+                'rider' => [
+                    'id' => (int) $rider->id,
+                    'name' => $rider->name,
+                    'phone' => $rider->phone,
+                    'shop_id' => $rider->shop_id,
+                ],
+            ]);
+
+            return redirect()->route('rider.dashboard');
+        }
+
         $order = DB::table('orders')
             ->where('rider_id', $rider->id)
             ->where('rider_pin', $pin)
-            ->whereIn('status', ['Out for Delivery', 'Attempted Delivery'])
             ->whereNotNull('rider_token')
             ->orderByDesc('id')
-            ->first();
+            ->get()
+            ->first(fn ($candidate) => $this->isRiderAccessibleOrder($candidate));
 
         if (!$order) {
-            return back()->with('err', 'No active delivery found for this PIN. It may have expired or already been completed.')->withInput();
+            return back()->with('err', 'PIN is not valid for this rider account, or no action is needed anymore.')->withInput();
         }
 
         return redirect()->route('rider.show', [$order->id, $order->rider_token]);
+    }
+
+    public function dashboard(Request $request, RiderAssignmentService $assignments)
+    {
+        $rider = $this->sessionRider();
+        if (!$rider) {
+            return redirect()->route('rider.login')->with('err', 'Please log in to view your rider dashboard.');
+        }
+
+        $assignments->expirePendingAssignments(null, (int) $rider->id);
+        $lat = $request->filled('lat') ? (float) $request->query('lat') : null;
+        $lng = $request->filled('lng') ? (float) $request->query('lng') : null;
+        $orders = $this->riderDashboardOrders((int) $rider->id, $lat, $lng);
+        $unremitted = $this->riderUnremittedSummary((int) $rider->id);
+        $settings = CakeshopHelper::getSettings();
+
+        return view('rider.dashboard', compact('rider', 'orders', 'unremitted', 'settings', 'lat', 'lng'));
+    }
+
+    public function logout(Request $request)
+    {
+        $request->session()->forget('rider');
+        return redirect()->route('rider.login')->with('msg', 'Rider logged out.');
     }
 
     /** Resolve a pasted PHONE|PIN access code from the catalog sidebar */
@@ -101,10 +136,7 @@ class RiderController extends Controller
             return back()->with('rider_err', 'Incomplete code. Make sure you copied the full delivery code.');
         }
 
-        $clean = preg_replace('/\D/', '', $phone);
-        if (str_starts_with($clean, '0'))   $clean = '63' . substr($clean, 1);
-        if (!str_starts_with($clean, '63')) $clean = '63' . $clean;
-        $formats = [$phone, '+' . $clean, $clean, '0' . substr($clean, 2)];
+        $formats = $this->phoneFormats($phone);
 
         $rider = DB::table('riders')
             ->where('is_active', true)
@@ -119,10 +151,10 @@ class RiderController extends Controller
         $order = DB::table('orders')
             ->where('rider_id', $rider->id)
             ->where('rider_pin', $pin)
-            ->whereIn('status', ['Out for Delivery', 'Attempted Delivery'])
             ->whereNotNull('rider_token')
             ->orderByDesc('id')
-            ->first();
+            ->get()
+            ->first(fn ($candidate) => $this->isRiderAccessibleOrder($candidate));
 
         if (!$order) {
             return back()->with('rider_err', 'No active delivery found. The code may have expired or already been used.');
@@ -144,6 +176,16 @@ class RiderController extends Controller
 
         if (!$order) abort(404, 'Invalid delivery link.');
 
+        app(RiderAssignmentService::class)->expirePendingAssignments(null, (int) ($order->rider_id ?? 0));
+        $order = DB::table('orders as o')
+            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('riders as r', 'r.id', '=', 'o.rider_id')
+            ->where('o.id', $orderId)
+            ->where('o.rider_token', $token)
+            ->select('o.*', 'p.name as product_name', 'r.name as rider_name')
+            ->first();
+        if (!$order) abort(404, 'Invalid delivery link.');
+
         $addons = DB::table('order_addons')->where('order_id', $orderId)->get();
         $settings = CakeshopHelper::getSettings();
         $remittance = Schema::hasTable('rider_remittances')
@@ -160,6 +202,24 @@ class RiderController extends Controller
             } catch (\Throwable $e) {
                 Log::warning('Rider remittance return sync failed: ' . $e->getMessage());
             }
+        }
+
+        $assignmentPending = ($order->rider_assignment_status ?? '') === 'pending';
+        $assignmentExpired = ($order->rider_assignment_status ?? '') === 'expired';
+        $assignmentDeclined = ($order->rider_assignment_status ?? '') === 'declined';
+
+        if ($assignmentPending || $assignmentExpired || $assignmentDeclined) {
+            return view('rider.delivery', [
+                'order' => $order,
+                'addons' => $addons,
+                'settings' => $settings,
+                'remittance' => $remittance,
+                'shopPayout' => $shopPayout,
+                'done' => false,
+                'assignmentPending' => $assignmentPending,
+                'assignmentExpired' => $assignmentExpired,
+                'assignmentDeclined' => $assignmentDeclined,
+            ]);
         }
 
         if (!in_array($order->status, ['Out for Delivery'], true)) {
@@ -250,6 +310,9 @@ class RiderController extends Controller
         $order = DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first();
         if (!$order || $order->status !== 'Out for Delivery')
             return response()->json(['ok'=>false,'error'=>'Invalid or already updated.']);
+        if (($order->rider_assignment_status ?? '') === 'pending') {
+            return response()->json(['ok' => false, 'error' => 'Please accept this delivery before marking it delivered.'], 422);
+        }
 
         try {
             $totalAmount = (float) ($order->total_price ?? 0);
@@ -437,6 +500,39 @@ class RiderController extends Controller
         }
 
         return back()->with('msg', 'Cash handover submitted. The seller will confirm once received.');
+    }
+
+    public function acceptAssignment(string $orderId, string $token, RiderAssignmentService $assignments)
+    {
+        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
+        if (!$order || ($order->rider_assignment_status ?? '') !== 'pending') {
+            return back()->with('err', 'This assignment is no longer pending.');
+        }
+
+        if (!empty($order->rider_assignment_expires_at) && now()->gte(\Carbon\Carbon::parse($order->rider_assignment_expires_at))) {
+            $assignments->expirePendingAssignments(null, (int) ($order->rider_id ?? 0));
+            return back()->with('err', 'This assignment already expired. Please wait for the seller to assign again.');
+        }
+
+        $assignments->accept($order);
+        return redirect()->route('rider.show', [$orderId, $token])->with('msg', 'Delivery accepted. You can now proceed.');
+    }
+
+    public function declineAssignment(Request $request, string $orderId, string $token, RiderAssignmentService $assignments)
+    {
+        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
+        if (!$order || ($order->rider_assignment_status ?? '') !== 'pending') {
+            return back()->with('err', 'This assignment is no longer pending.');
+        }
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:300'],
+        ], [
+            'reason.required' => 'Please tell the seller why you cannot accept this delivery.',
+        ]);
+
+        $assignments->decline($order, trim($validated['reason']));
+        return redirect()->route('rider.dashboard')->with('msg', 'Delivery declined. Seller has been notified.');
     }
 
     public function generateRemittanceQr(Request $request, string $orderId, string $token)
@@ -805,6 +901,167 @@ class RiderController extends Controller
         return collect($values)
             ->filter(fn ($value, $column) => Schema::hasColumn($table, $column))
             ->all();
+    }
+
+    private function phoneFormats(string $phone): array
+    {
+        $clean = preg_replace('/\D/', '', $phone);
+        if (str_starts_with($clean, '0')) {
+            $clean = '63' . substr($clean, 1);
+        }
+        if ($clean !== '' && !str_starts_with($clean, '63')) {
+            $clean = '63' . $clean;
+        }
+
+        return array_values(array_unique(array_filter([
+            $phone,
+            $clean ? '+' . $clean : null,
+            $clean ?: null,
+            strlen($clean) > 2 ? '0' . substr($clean, 2) : null,
+        ])));
+    }
+
+    private function sessionRider(): ?object
+    {
+        $session = session('rider');
+        if (!is_array($session) || empty($session['id'])) {
+            return null;
+        }
+
+        return DB::table('riders')->where('id', $session['id'])->where('is_active', true)->first();
+    }
+
+    private function isRiderAccessibleOrder(object $order): bool
+    {
+        if (in_array(($order->status ?? ''), ['Out for Delivery', 'Attempted Delivery'], true)) {
+            return true;
+        }
+
+        return in_array(($order->status ?? ''), ['Delivered', 'Picked Up'], true)
+            && $this->orderNeedsRemittance($order);
+    }
+
+    private function orderNeedsRemittance(object $order): bool
+    {
+        if (!Schema::hasTable('rider_remittances')) {
+            return false;
+        }
+
+        return DB::table('rider_remittances')
+            ->where('order_id', $order->id)
+            ->whereIn('status', ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired'])
+            ->exists();
+    }
+
+    private function riderDashboardOrders(int $riderId, ?float $lat, ?float $lng)
+    {
+        $query = DB::table('orders as o')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('rider_remittances as rr', 'rr.order_id', '=', 'o.id')
+            ->where('o.rider_id', $riderId)
+            ->whereNotIn('o.status', ['Cancelled'])
+            ->select(
+                'o.*',
+                DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"),
+                'p.image_path',
+                'rr.amount as remittance_amount',
+                'rr.status as remittance_status',
+                'rr.remittance_method'
+            );
+
+        $orders = $query->get()->filter(fn ($order) => $this->isDashboardVisibleOrder($order));
+        $orders->each(function ($order) use ($lat, $lng) {
+            $order->distance_km = null;
+            if ($lat !== null && $lng !== null && isset($order->latitude, $order->longitude) && $order->latitude && $order->longitude) {
+                $order->distance_km = $this->haversineKm($lat, $lng, (float) $order->latitude, (float) $order->longitude);
+            }
+            $order->rider_bucket = $this->riderOrderBucket($order);
+        });
+
+        return $orders->sortBy([
+            fn ($a, $b) => $this->bucketRank($a->rider_bucket) <=> $this->bucketRank($b->rider_bucket),
+            fn ($a, $b) => ($a->distance_km ?? 999999) <=> ($b->distance_km ?? 999999),
+            fn ($a, $b) => strcmp((string) ($a->schedule_date ?? ''), (string) ($b->schedule_date ?? '')),
+            fn ($a, $b) => strcmp((string) ($a->schedule_time ?? ''), (string) ($b->schedule_time ?? '')),
+        ])->values();
+    }
+
+    private function riderUnremittedSummary(int $riderId): array
+    {
+        if (!Schema::hasTable('rider_remittances')) {
+            return ['total' => 0, 'count' => 0, 'needs_action' => 0, 'waiting_seller' => 0, 'waiting_paymongo' => 0, 'rejected' => 0];
+        }
+
+        $rows = DB::table('rider_remittances')
+            ->where('rider_id', $riderId)
+            ->whereIn('status', ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired'])
+            ->get();
+
+        return [
+            'total' => round((float) $rows->sum('amount'), 2),
+            'count' => $rows->count(),
+            'needs_action' => $rows->whereIn('status', ['pending', 'qr_expired'])->count(),
+            'waiting_seller' => $rows->where('status', 'submitted')->count(),
+            'waiting_paymongo' => $rows->where('status', 'awaiting_payment')->count(),
+            'rejected' => $rows->where('status', 'rejected')->count(),
+        ];
+    }
+
+    private function isDashboardVisibleOrder(object $order): bool
+    {
+        if (($order->rider_assignment_status ?? '') === 'pending') {
+            return true;
+        }
+
+        if (in_array(($order->status ?? ''), ['Out for Delivery', 'Attempted Delivery'], true)) {
+            return true;
+        }
+
+        return in_array(($order->remittance_status ?? ''), ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired'], true);
+    }
+
+    private function riderOrderBucket(object $order): string
+    {
+        if (($order->rider_assignment_status ?? '') === 'pending') {
+            return 'Pending Acceptance';
+        }
+        if (($order->remittance_status ?? '') === 'rejected') {
+            return 'Remittance Rejected';
+        }
+        if (in_array(($order->remittance_status ?? ''), ['pending', 'qr_expired'], true)) {
+            return 'Delivered - Remit Needed';
+        }
+        if (($order->remittance_status ?? '') === 'awaiting_payment') {
+            return 'GCash Waiting Payment';
+        }
+        if (($order->remittance_status ?? '') === 'submitted') {
+            return 'Cash Waiting Seller';
+        }
+
+        return 'Active Delivery';
+    }
+
+    private function bucketRank(string $bucket): int
+    {
+        return match ($bucket) {
+            'Pending Acceptance' => 0,
+            'Remittance Rejected' => 1,
+            'Delivered - Remit Needed' => 2,
+            'GCash Waiting Payment' => 3,
+            'Cash Waiting Seller' => 4,
+            default => 5,
+        };
+    }
+
+    private function haversineKm(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earth = 6371;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+
+        return round($earth * 2 * atan2(sqrt($a), sqrt(1 - $a)), 2);
     }
 
     private function addOrderTrackingSafe(string $orderId, string $status, ?string $notes = null, ?string $receiverRole = null): void

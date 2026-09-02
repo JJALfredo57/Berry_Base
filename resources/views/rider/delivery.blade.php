@@ -176,6 +176,8 @@
     .rc-btns { display:flex;flex-direction:column;gap:10px; }
     .rc-ok { width:100%;padding:clamp(14px,4vw,18px);border:none;border-radius:13px;font-size:clamp(15px,4vw,18px);font-weight:700;color:#fff;cursor:pointer; }
     .rc-cancel { width:100%;padding:clamp(12px,3.5vw,15px);border:none;border-radius:13px;font-size:clamp(13px,3.5vw,16px);font-weight:600;color:#6b7280;background:#f3f4f6;cursor:pointer; }
+    .assignment-actions { display:grid; grid-template-columns:1fr; gap:10px; padding:clamp(14px,4vw,20px); }
+    .assignment-actions textarea { width:100%; border:1.5px solid #e5e7eb; border-radius:10px; padding:12px; font:inherit; resize:vertical; min-height:76px; }
   </style>
 </head>
 <body>
@@ -212,6 +214,39 @@
   </div>
 </div>
 @endif
+
+@if(!empty($assignmentPending))
+<div class="section">
+  <div class="section-title">Delivery Confirmation</div>
+  <div class="row">
+    <div class="row-icon" style="background:#fff7ed;color:#c2410c"><i class="bi bi-hourglass-split"></i></div>
+    <div class="row-body">
+      <div class="row-label">Seller assigned this order to you</div>
+      <div class="row-value">Accept before starting the delivery</div>
+      @if(!empty($order->rider_assignment_expires_at))
+        <div class="row-sub">Respond before {{ \Carbon\Carbon::parse($order->rider_assignment_expires_at)->format('M d, Y h:i A') }}.</div>
+      @endif
+    </div>
+  </div>
+  <div class="assignment-actions">
+    <form action="{{ route('rider.assignment.accept', [$order->id, $order->rider_token]) }}" method="POST">
+      @csrf
+      <button class="btn-deliver" type="submit"><i class="bi bi-check2-circle"></i> Accept Delivery</button>
+    </form>
+    <form action="{{ route('rider.assignment.decline', [$order->id, $order->rider_token]) }}" method="POST">
+      @csrf
+      <textarea name="reason" maxlength="300" required placeholder="Reason if you cannot accept this delivery"></textarea>
+      <button class="btn-issue" type="submit" style="margin-top:10px"><i class="bi bi-x-circle"></i> Decline Delivery</button>
+    </form>
+  </div>
+</div>
+@elseif(!empty($assignmentExpired) || !empty($assignmentDeclined))
+<div class="result">
+  <span class="result-icon"><i class="bi bi-info-circle"></i></span>
+  <div class="result-title">Assignment Closed</div>
+  <div class="result-msg">This delivery assignment is no longer active. Please wait for the seller if this order will be assigned again.</div>
+</div>
+@else
 
 @if(isset($done) && $done && empty($remittanceOnly))
 {{-- Already done --}}
@@ -503,6 +538,8 @@
   <div class="result-title" style="color:#ef4444">Issue Reported</div>
   <div class="result-msg" id="issueSuccessMsg">Admin has been notified and will contact the customer.</div>
 </div>
+
+@endif
 
 @endif
 

@@ -7,6 +7,7 @@ use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use App\Services\OrderRefundService;
+use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -600,67 +601,13 @@ class OrderController extends Controller
             ->where('shop_id', $shop->id)->first();
         if (!$rider) return back()->with('err', 'Rider not found.');
 
-        DB::table('orders')->where('id', $id)->update([
-            'rider_id'   => $rider->id,
-            'status'     => 'Out for Delivery',
-            'updated_at' => now(),
-        ]);
-        DB::table('order_tracking')->insert([
-            'order_id'   => $id,
-            'status'     => 'Out for Delivery',
-            'notes'      => "Assigned to rider: {$rider->name}",
-            'created_at' => now(),
-        ]);
-
-        // SMS rider
-        $riderSmsSent = null;
-        if ($rider->phone) {
-            try {
-                $riderToken = $order->rider_token;
-                if (!$riderToken) {
-                    $riderToken = bin2hex(random_bytes(16));
-                    DB::table('orders')->where('id', $id)->update(['rider_token' => $riderToken]);
-                }
-                $siteName  = config('app.name', 'Cake Shop');
-                $shopName  = SmsHelper::getShopName($shop->id ?? null);
-                $header    = SmsHelper::header($siteName, $shopName);
-                $custName  = $order->guest_name
-                    ?? DB::table('users')->where('id', $order->user_id)->value('fullname')
-                    ?? 'Customer';
-                $custPhone = $order->guest_phone
-                    ?? DB::table('users')->where('id', $order->user_id)->value('phone')
-                    ?? '';
-                $addr      = $order->delivery_address ?? 'N/A';
-
-                $riderPin = SmsHelper::generateRiderPin();
-                DB::table('orders')->where('id', $id)->update(['rider_pin' => $riderPin]);
-
-                $riderSms = SmsHelper::buildRiderSms(
-                    $header, $id, $custName, $custPhone, $addr,
-                    SmsHelper::paymentLine($order), $riderPin, $rider->phone, $riderToken
-                );
-                $riderUrl = route('rider.show', [$id, $riderToken], false);
-                $riderNotice = app(MobileNotificationService::class)->notifyRider(
-                    (int) $rider->id,
-                    $rider->phone,
-                    'New Delivery Assigned',
-                    "Order #{$id} is assigned to you. Open the delivery page for details.",
-                    ['event' => 'rider_assigned', 'order_id' => (string) $id, 'url' => $riderUrl],
-                    $riderSms,
-                    $riderUrl
-                );
-                $riderSmsSent = (int) ($riderNotice['push_sent'] ?? 0) > 0 || (bool) ($riderNotice['sms_sent'] ?? false);
-                DB::table('orders')->where('id', $id)
-                    ->update(['rider_sms_sent' => (bool) $riderSmsSent]);
-            } catch (\Exception $e) {
-                $riderSmsSent = false;
-                DB::table('orders')->where('id', $id)->update(['rider_sms_sent' => false]);
-            }
-        }
-
-        $smsNote = $rider->phone === null
-            ? ' Warning: This rider has no phone number on record.'
-            : ($riderSmsSent === false ? ' Warning: SMS to rider was not delivered. The message may have been flagged or the number is unreachable.' : ' SMS sent to rider.');
+        $assignment = app(RiderAssignmentService::class)->assign($order, $rider, $shop, 'seller');
+        $channel = $assignment['notice']['channel'] ?? 'none';
+        $noticeNote = match ($channel) {
+            'push' => ' App notification sent to rider.',
+            'sms' => ' SMS fallback sent to rider.',
+            default => ' Warning: rider was assigned but no app/SMS channel was reached.',
+        };
 
         try {
             $pushOrder = DB::table('orders')->where('id', $id)->first();
@@ -676,6 +623,6 @@ class OrderController extends Controller
             Log::warning('Seller rider assignment push failed: ' . $e->getMessage());
         }
 
-        return back()->with('msg', "Rider assigned. Order is now Out for Delivery.{$smsNote}");
+        return back()->with('msg', "Rider assigned. Waiting for rider confirmation.{$noticeNote}");
     }
 }

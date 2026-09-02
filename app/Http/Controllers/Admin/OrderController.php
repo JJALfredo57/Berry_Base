@@ -7,6 +7,7 @@ use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use App\Services\OrderRefundService;
+use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -163,14 +164,34 @@ class OrderController extends Controller
         $order   = DB::table('orders')->where('id',$id)->first();
         if (!$order) return back()->with('err','Order not found.');
         if ($order->fulfillment_type !== 'Delivery')
-            return back()->with('err','This is a Pickup order — no rider needed.');
+            return back()->with('err','This is a Pickup order - no rider needed.');
 
-        DB::table('orders')->where('id',$id)->update(['rider_id' => $riderId ?: null]);
-        $riderName = $riderId ? DB::table('riders')->where('id',$riderId)->value('name') : 'None';
-        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Assign Rider', "Order #{$id} → Rider: {$riderName}");
-        return back()->with('msg', $riderId ? "Rider {$riderName} assigned to Order #{$id}. ✅" : "Rider unassigned from Order #{$id}.");
+        if (!$riderId) {
+            DB::table('orders')->where('id',$id)->update([
+                'rider_id' => null,
+                'rider_assignment_status' => null,
+                'rider_assignment_expires_at' => null,
+                'updated_at' => now(),
+            ]);
+            $riderName = 'None';
+            CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Assign Rider', "Order #{$id} -> Rider: {$riderName}");
+            return back()->with('msg', "Rider unassigned from Order #{$id}.");
+        }
+
+        $rider = DB::table('riders')->where('id', $riderId)->where('is_active', true)->first();
+        if (!$rider) return back()->with('err', 'Rider not found or inactive.');
+
+        $assignment = app(RiderAssignmentService::class)->assign($order, $rider, null, 'admin');
+        $channel = $assignment['notice']['channel'] ?? 'none';
+        $noticeNote = match ($channel) {
+            'push' => ' App notification sent to rider.',
+            'sms' => ' SMS fallback sent to rider.',
+            default => ' Warning: rider was assigned but no app/SMS channel was reached.',
+        };
+        $riderName = $rider->name;
+        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Assign Rider', "Order #{$id} -> Rider: {$riderName}");
+        return back()->with('msg', "Rider {$riderName} assigned to Order #{$id}. Waiting for rider confirmation.{$noticeNote}");
     }
-
     /** Admin requests deposit from guest before confirming */
     public function requestDeposit(Request $request, string $id)
     {

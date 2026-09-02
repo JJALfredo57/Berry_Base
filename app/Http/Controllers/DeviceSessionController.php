@@ -92,6 +92,11 @@ class DeviceSessionController extends Controller
             return [(string) $sessionUser['role'], (string) $sessionUser['id'], null, null];
         }
 
+        $sessionRider = $request->session()->get('rider');
+        if (is_array($sessionRider) && !empty($sessionRider['id'])) {
+            return ['rider', null, (int) $sessionRider['id'], null];
+        }
+
         $riderOrderId = trim((string) ($data['rider_order_id'] ?? ''));
         $riderToken   = trim((string) ($data['rider_token'] ?? ''));
         if ($riderOrderId !== '' && $riderToken !== '') {

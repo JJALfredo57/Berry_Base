@@ -13,6 +13,10 @@ class OrderController extends Controller
         'Cash Handover Submitted',
         'Cash Remittance Confirmed',
         'Cash Remittance Rejected',
+        'Rider Assignment Pending',
+        'Rider Accepted Delivery',
+        'Rider Declined Delivery',
+        'Rider No Response',
     ];
 
     public function index(Request $request)

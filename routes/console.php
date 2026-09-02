@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 use App\Helpers\CakeshopHelper;
 use App\Services\BackupService;
+use App\Services\RiderAssignmentService;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -74,6 +75,14 @@ Artisan::command('backup:run {--force : Run even when automation is disabled or 
         return 1;
     }
 })->purpose('Run the smart platform backup job');
+
+Artisan::command('rider-assignments:expire', function (RiderAssignmentService $assignments) {
+    $count = $assignments->expirePendingAssignments();
+    $this->info("Expired {$count} pending rider assignment(s).");
+    return 0;
+})->purpose('Expire rider assignments that were not accepted in time');
+
+Schedule::command('rider-assignments:expire')->everyMinute();
 
 Artisan::command('cleanup:customer-data {--force : Actually delete customer accounts and customer activity data}', function () {
     $tables = [

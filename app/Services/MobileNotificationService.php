@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Helpers\SmsHelper;
+use App\Helpers\CakeshopHelper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 
 class MobileNotificationService
@@ -99,6 +101,59 @@ class MobileNotificationService
         return $this->notifyUser('seller', $sellerId ? (string) $sellerId : null, $phone, $title, $message, $payload, $smsMessage, $this->orderSellerUrl($order, $payload));
     }
 
+    public function notifyOrderSellerByPriority(object $order, string $title, string $message, array $data = [], ?string $smsMessage = null): array
+    {
+        $sellerId = !empty($order->shop_id)
+            ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id')
+            : null;
+        $seller = $sellerId ? DB::table('users')->where('id', $sellerId)->select('id', 'email', 'phone', 'fullname')->first() : null;
+
+        $payload = $data + [
+            'order_id' => (string) ($order->id ?? ''),
+            'track_code' => (string) ($order->track_code ?? ''),
+        ];
+        $url = $this->orderSellerUrl($order, $payload);
+
+        $recordId = $this->record([
+            'role' => 'seller',
+            'user_id' => $sellerId ? (string) $sellerId : null,
+            'order_id' => (string) ($order->id ?? ''),
+            'event_type' => $payload['event'] ?? 'seller_update',
+            'title' => $title,
+            'message' => $message,
+            'url' => $url,
+            'data' => $payload,
+        ]);
+
+        $sent = $this->push->sendToUser('seller', $sellerId ? (string) $sellerId : null, $title, $message, $payload + [
+            'notification_id' => (string) $recordId,
+            'url' => $url ?? '',
+        ]);
+
+        if ($sent > 0) {
+            $this->updateChannel($recordId, 'push');
+            return ['push_sent' => $sent, 'email_sent' => null, 'sms_sent' => null, 'channel' => 'push', 'notification_id' => $recordId];
+        }
+
+        if ($seller && filter_var((string) $seller->email, FILTER_VALIDATE_EMAIL)) {
+            $emailSent = $this->sendNotificationEmail((string) $seller->email, $title, $message, $url);
+            if ($emailSent) {
+                $this->updateChannel($recordId, 'email');
+                return ['push_sent' => 0, 'email_sent' => true, 'sms_sent' => null, 'channel' => 'email', 'notification_id' => $recordId];
+            }
+        }
+
+        $phone = $seller->phone ?? null;
+        $smsSent = null;
+        if ($phone) {
+            $smsSent = SmsHelper::send($phone, $smsMessage ?: $message);
+        }
+
+        $channel = $smsSent ? 'sms' : 'none';
+        $this->updateChannel($recordId, $channel);
+        return ['push_sent' => 0, 'email_sent' => false, 'sms_sent' => $smsSent, 'channel' => $channel, 'notification_id' => $recordId];
+    }
+
     public function notifyPaymentComplete(object $order, ?string $customerSmsMessage = null): array
     {
         $isFull = ($order->payment_status ?? '') === 'Paid';
@@ -167,6 +222,13 @@ class MobileNotificationService
             $channel = $smsSent ? 'sms' : 'sms_failed';
         }
 
+        $this->updateChannel($recordId, $channel);
+
+        return ['push_sent' => $pushSent, 'sms_sent' => $smsSent, 'channel' => $channel, 'notification_id' => $recordId];
+    }
+
+    private function updateChannel(?int $recordId, string $channel): void
+    {
         if ($recordId && Schema::hasTable('mobile_notifications')) {
             try {
                 DB::table('mobile_notifications')->where('id', $recordId)->update([
@@ -177,8 +239,39 @@ class MobileNotificationService
                 Log::warning('Mobile notification channel update failed: ' . $e->getMessage());
             }
         }
+    }
 
-        return ['push_sent' => $pushSent, 'sms_sent' => $smsSent, 'channel' => $channel, 'notification_id' => $recordId];
+    private function sendNotificationEmail(string $email, string $title, string $message, ?string $url = null): bool
+    {
+        try {
+            $settings = CakeshopHelper::getSettings();
+            $siteName = $settings['site_title'] ?? config('app.name', 'Cake Shop');
+            $fromAddr = config('mail.from.address', 'no-reply@cakeshop.com');
+            $fromName = config('mail.from.name', $siteName);
+
+            $button = $url
+                ? '<p style="margin:24px 0"><a href="' . e(url($url)) . '" style="display:inline-block;background:#7B3A0F;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700">Open in Dashboard</a></p>'
+                : '';
+            $html = '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;border:1px solid #eee;border-radius:12px;overflow:hidden">'
+                . '<div style="background:#7B3A0F;padding:20px 24px;color:#fff"><h2 style="margin:0;font-size:20px">' . e($siteName) . '</h2></div>'
+                . '<div style="padding:24px;background:#fff"><h3 style="margin-top:0;color:#111827">' . e($title) . '</h3>'
+                . '<p style="color:#374151;font-size:15px;line-height:1.55">' . nl2br(e($message)) . '</p>'
+                . $button
+                . '<p style="color:#9ca3af;font-size:12px;margin-top:24px">This notification was sent because no active seller app session was available.</p>'
+                . '</div></div>';
+
+            Mail::send([], [], function ($mail) use ($email, $siteName, $fromAddr, $fromName, $html, $title) {
+                $mail->to($email)
+                    ->from($fromAddr, $fromName)
+                    ->subject($siteName . ' - ' . $title)
+                    ->html($html);
+            });
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Seller notification email failed: ' . $e->getMessage());
+            return false;
+        }
     }
 
     private function record(array $data): ?int

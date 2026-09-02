@@ -5,6 +5,8 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class RiderController extends Controller
 {
@@ -42,35 +44,47 @@ class RiderController extends Controller
         $plate   = trim($request->input('license_plate',''));
         $ecName  = trim($request->input('emergency_contact_name',''));
 
-        if (!$name)  return back()->with('err','Full name is required.')->withInput();
+        if (!$name) return back()->with('err','Full name is required.')->withInput();
+
+        $loginPin = preg_replace('/\D/', '', (string) $request->input('login_pin', ''));
+        if ($loginPin !== '' && (strlen($loginPin) < 4 || strlen($loginPin) > 12)) {
+            return back()->with('err', 'Rider login PIN must be 4 to 12 digits.')->withInput();
+        }
+        if ($loginPin === '') {
+            $loginPin = (string) random_int(100000, 999999);
+        }
 
         $phone = preg_replace('/\D/', '', $phone);
         if (strlen($phone) === 10) $phone = '+63' . $phone;
         elseif (strlen($phone) === 11 && $phone[0] === '0') $phone = '+63' . substr($phone, 1);
         elseif ($phone === '') $phone = '';
 
-        // Duplicate checks
         if (DB::table('riders')->whereRaw('LOWER(name) = ?',[strtolower($name)])->exists())
             return back()->with('err',"Rider named \"{$name}\" already exists.")->withInput();
         if ($phone !== '' && DB::table('riders')->where('phone',$phone)->exists())
             return back()->with('err',"Phone {$phone} is already used by another rider.")->withInput();
 
-        DB::table('riders')->insert([
+        $data = [
             'name'                   => $name,
             'nickname'               => $nick ?: null,
             'phone'                  => $phone,
             'vehicle_type'           => $vtype,
             'license_plate'          => $plate ?: null,
             'emergency_contact_name' => $ecName ?: null,
-            'is_active' => true,
+            'is_active'              => true,
             'created_at'             => now(),
             'updated_at'             => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('riders', 'login_pin_hash')) {
+            $data['login_pin_hash'] = Hash::make($loginPin);
+            $data['login_pin_set_at'] = now();
+        }
+
+        DB::table('riders')->insert($data);
 
         CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Add Rider', "Added: {$name}");
-        return back()->with('msg', "Rider {$name} added! ✅");
+        return back()->with('msg', "Rider {$name} added. Login PIN: {$loginPin}");
     }
-
     public function update(Request $request, int $id)
     {
         $rider = DB::table('riders')->where('id',$id)->first();
@@ -83,20 +97,24 @@ class RiderController extends Controller
         $plate   = trim($request->input('license_plate',''));
         $ecName  = trim($request->input('emergency_contact_name',''));
 
-        if (!$name)  return back()->with('err','Full name is required.')->withInput();
+        if (!$name) return back()->with('err','Full name is required.')->withInput();
+
+        $loginPin = preg_replace('/\D/', '', (string) $request->input('login_pin', ''));
+        if ($loginPin !== '' && (strlen($loginPin) < 4 || strlen($loginPin) > 12)) {
+            return back()->with('err', 'Rider login PIN must be 4 to 12 digits.')->withInput();
+        }
 
         $phone = preg_replace('/\D/', '', $phone);
         if (strlen($phone) === 10) $phone = '+63' . $phone;
         elseif (strlen($phone) === 11 && $phone[0] === '0') $phone = '+63' . substr($phone, 1);
         elseif ($phone === '') $phone = '';
 
-        // Duplicate checks (exclude self)
         if (DB::table('riders')->whereRaw('LOWER(name) = ?',[strtolower($name)])->where('id','!=',$id)->exists())
             return back()->with('err',"Rider named \"{$name}\" already exists.")->withInput();
         if ($phone !== '' && DB::table('riders')->where('phone',$phone)->where('id','!=',$id)->exists())
             return back()->with('err',"Phone {$phone} is already used by another rider.")->withInput();
 
-        DB::table('riders')->where('id',$id)->update([
+        $data = [
             'name'                   => $name,
             'nickname'               => $nick ?: null,
             'phone'                  => $phone,
@@ -104,12 +122,17 @@ class RiderController extends Controller
             'license_plate'          => $plate ?: null,
             'emergency_contact_name' => $ecName ?: null,
             'updated_at'             => now(),
-        ]);
+        ];
+        if ($loginPin !== '' && Schema::hasColumn('riders', 'login_pin_hash')) {
+            $data['login_pin_hash'] = Hash::make($loginPin);
+            $data['login_pin_set_at'] = now();
+        }
+
+        DB::table('riders')->where('id',$id)->update($data);
 
         CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Update Rider', "Updated: {$name}");
-        return back()->with('msg', "Rider {$name} updated! ✅");
+        return back()->with('msg', "Rider {$name} updated.");
     }
-
     public function toggle(int $id)
     {
         $rider = DB::table('riders')->where('id',$id)->first();

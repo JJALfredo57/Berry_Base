@@ -243,6 +243,8 @@ Route::get('/track/{trackCode}/remaining-return',[\App\Http\Controllers\Guest\Pa
 // ── Rider Portal (login with phone + PIN) ─────────────────────────────────
 Route::get('/rider/login',  [\App\Http\Controllers\RiderController::class, 'loginPage'])->name('rider.login');
 Route::post('/rider/login', [\App\Http\Controllers\RiderController::class, 'loginVerify'])->name('rider.login.verify');
+Route::get('/rider/dashboard', [\App\Http\Controllers\RiderController::class, 'dashboard'])->name('rider.dashboard');
+Route::post('/rider/logout', [\App\Http\Controllers\RiderController::class, 'logout'])->name('rider.logout');
 
 // ── Rider PIN access from catalog sidebar ─────────────────────────────────
 Route::post('/rider/pin',    [\App\Http\Controllers\RiderController::class, 'accessByPin'])->name('rider.pin');
@@ -253,6 +255,8 @@ Route::post('/rider/access', [\App\Http\Controllers\RiderController::class, 'acc
 // ── Rider Delivery Page (no login) ────────────────────────────────────────
 Route::get('/rider/{orderId}/{token}',           [\App\Http\Controllers\RiderController::class, 'show'])->name('rider.show');
 Route::get('/rider/{orderId}/{token}/payment-status', [\App\Http\Controllers\RiderController::class, 'paymentStatus'])->name('rider.payment_status');
+Route::post('/rider/{orderId}/{token}/accept', [\App\Http\Controllers\RiderController::class, 'acceptAssignment'])->name('rider.assignment.accept');
+Route::post('/rider/{orderId}/{token}/decline', [\App\Http\Controllers\RiderController::class, 'declineAssignment'])->name('rider.assignment.decline');
 Route::post('/rider/{orderId}/{token}/delivered', [\App\Http\Controllers\RiderController::class, 'markDelivered'])->name('rider.delivered');
 Route::post('/rider/{orderId}/{token}/remittance/paymongo-qr', [\App\Http\Controllers\RiderController::class, 'generateRemittanceQr'])->name('rider.remittance.qr');
 Route::post('/rider/{orderId}/{token}/remittance/check-paymongo', [\App\Http\Controllers\RiderController::class, 'checkRemittanceQr'])->name('rider.remittance.check');

@@ -4,6 +4,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
 use App\Services\MobileNotificationService;
+use App\Services\RiderAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -186,47 +187,10 @@ class KitchenController extends Controller
 
                 // ── Send SMS to Rider (Delivery orders only) ─────────────
                 if ($order->fulfillment_type === 'Delivery' && $order->rider_id) {
-                    $rider = DB::table('riders')->where('id', $order->rider_id)->first();
-                    if ($rider && $rider->phone) {
-                        // Generate rider token if not yet set
-                        $riderToken = $order->rider_token;
-                        if (!$riderToken) {
-                            $riderToken = bin2hex(random_bytes(16));
-                            DB::table('orders')->where('id', $orderId)->update(['rider_token' => $riderToken]);
-                        }
-
-                        $siteName  = config('app.name', 'Cake Shop');
-                        $shopName  = SmsHelper::getShopName($order->shop_id ?? null);
-                        $header    = SmsHelper::header($siteName, $shopName);
-                        $custName  = $order->guest_name
-                            ?? DB::table('users')->where('id', $order->user_id)->value('fullname')
-                            ?? 'Customer';
-                        $custPhone = $order->guest_phone
-                            ?? DB::table('users')->where('id', $order->user_id)->value('phone')
-                            ?? '';
-                        $addr      = $order->delivery_address ?? 'N/A';
-
-                        $riderPin = SmsHelper::generateRiderPin();
-                        DB::table('orders')->where('id', $orderId)
-                            ->update(['rider_pin' => $riderPin]);
-
-                        $riderSms = SmsHelper::buildRiderSms(
-                            $header, $orderId, $custName, $custPhone, $addr,
-                            SmsHelper::paymentLine($order), $riderPin, $rider->phone, $riderToken
-                        );
-                        $riderUrl = route('rider.show', [$orderId, $riderToken], false);
-                        $riderNotice = app(MobileNotificationService::class)->notifyRider(
-                            (int) $rider->id,
-                            $rider->phone,
-                            'Delivery Ready',
-                            "Order #{$orderId} is ready for delivery.",
-                            ['event' => 'rider_assigned', 'order_id' => (string) $orderId, 'url' => $riderUrl],
-                            $riderSms,
-                            $riderUrl
-                        );
-                        $riderSmsSent = (int) ($riderNotice['push_sent'] ?? 0) > 0 || (bool) ($riderNotice['sms_sent'] ?? false);
-                        DB::table('orders')->where('id', $orderId)
-                            ->update(['rider_sms_sent' => (bool) $riderSmsSent]);
+                    $rider = DB::table('riders')->where('id', $order->rider_id)->where('is_active', true)->first();
+                    if ($rider) {
+                        $assignment = app(RiderAssignmentService::class)->assign($order, $rider, $shop, 'seller');
+                        $riderNotifyChannel = $assignment['notice']['channel'] ?? 'none';
                     }
                 }
             }
@@ -236,12 +200,13 @@ class KitchenController extends Controller
         $labels = ['in_progress' => 'In Progress (Preparing)', 'done' => 'Done (Out for Delivery)'];
         $baseMsg = "Kitchen ticket updated to: " . ($labels[$new] ?? $new);
 
-        if ($new === 'done' && isset($riderSmsSent)) {
-            $baseMsg .= $riderSmsSent
-                ? ' — SMS sent to rider.'
-                : ' — Warning: SMS to rider was not delivered. The message may have been flagged or the number is unreachable.';
+        if ($new === 'done' && isset($riderNotifyChannel)) {
+            $baseMsg .= match ($riderNotifyChannel) {
+                'push' => ' - app notification sent to rider.',
+                'sms' => ' - SMS fallback sent to rider.',
+                default => ' - warning: no rider notification channel was reached.',
+            };
         }
-
         return back()->with('msg', $baseMsg);
     }
 

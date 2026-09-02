@@ -5,6 +5,8 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class RiderController extends Controller
 {
@@ -59,8 +61,15 @@ class RiderController extends Controller
         $phone = trim($request->input('phone', ''));
         if (!$name) return back()->with('err', 'Rider name is required.');
         $phone = $this->normalizePhone($phone);
+        $loginPin = preg_replace('/\D/', '', (string) $request->input('login_pin', ''));
+        if ($loginPin !== '' && (strlen($loginPin) < 4 || strlen($loginPin) > 12)) {
+            return back()->with('err', 'Rider login PIN must be 4 to 12 digits.')->withInput();
+        }
+        if ($loginPin === '') {
+            $loginPin = (string) random_int(100000, 999999);
+        }
         $emergencyPhone = $this->normalizePhone($request->input('emergency_contact_phone', ''));
-        DB::table('riders')->insert([
+        $data = [
             'shop_id'                => $shop->id,
             'name'                   => $name,
             'nickname'               => trim($request->input('nickname', '')) ?: null,
@@ -72,9 +81,14 @@ class RiderController extends Controller
             'is_active' => true,
 
             'created_at'             => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('riders', 'login_pin_hash')) {
+            $data['login_pin_hash'] = Hash::make($loginPin);
+            $data['login_pin_set_at'] = now();
+        }
+        DB::table('riders')->insert($data);
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Add Rider', $name);
-        return back()->with('msg', "Rider '{$name}' added.");
+        return back()->with('msg', "Rider '{$name}' added. Login PIN: {$loginPin}");
     }
 
     public function update(Request $request, string $id)
@@ -84,7 +98,11 @@ class RiderController extends Controller
         if (!$rider) return back()->with('err', 'Rider not found.');
         $phone = $this->normalizePhone($request->input('phone', ''));
         $emergencyPhone = $this->normalizePhone($request->input('emergency_contact_phone', ''));
-        DB::table('riders')->where('id', $id)->update([
+        $loginPin = preg_replace('/\D/', '', (string) $request->input('login_pin', ''));
+        if ($loginPin !== '' && (strlen($loginPin) < 4 || strlen($loginPin) > 12)) {
+            return back()->with('err', 'Rider login PIN must be 4 to 12 digits.')->withInput();
+        }
+        $data = [
             'name'                   => trim($request->input('name', $rider->name)),
             'nickname'               => trim($request->input('nickname', '')) ?: null,
             'phone'                  => $phone ?: $rider->phone,
@@ -92,7 +110,12 @@ class RiderController extends Controller
             'license_plate'          => trim($request->input('license_plate', '')) ?: null,
             'emergency_contact_name'  => trim($request->input('emergency_contact_name', '')) ?: null,
             'emergency_contact_phone' => $emergencyPhone,
-        ]);
+        ];
+        if ($loginPin !== '' && Schema::hasColumn('riders', 'login_pin_hash')) {
+            $data['login_pin_hash'] = Hash::make($loginPin);
+            $data['login_pin_set_at'] = now();
+        }
+        DB::table('riders')->where('id', $id)->update($data);
         return back()->with('msg', 'Rider updated.');
     }
 

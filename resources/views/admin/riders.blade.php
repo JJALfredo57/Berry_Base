@@ -203,6 +203,14 @@
                   <div class="field-msg"></div>
                 </div>
                 <div class="col-sm-6">
+                  <label class="form-label fw-semibold small">Reset Login PIN</label>
+                  <input type="password" class="form-control input-validated" name="login_pin"
+                         inputmode="numeric" autocomplete="new-password" maxlength="12"
+                         placeholder="Leave blank to keep current PIN"
+                         data-rule="pin" data-label="Login PIN" oninput="liveValidate(this)">
+                  <div class="field-msg"></div>
+                </div>
+                <div class="col-sm-6">
                   <label class="form-label fw-semibold small">Vehicle Type</label>
                   <select class="form-select" name="vehicle_type">
                     <option value="Motorcycle" {{ $r->vehicle_type==='Motorcycle'?'selected':'' }}>🏍️ Motorcycle</option>
@@ -271,6 +279,13 @@
               <div class="field-msg"></div>
             </div>
             <div class="col-sm-6">
+              <label class="form-label fw-semibold small">Login PIN</label>
+              <input type="password" class="form-control input-validated" name="login_pin" placeholder="Auto-generate if blank"
+                     inputmode="numeric" autocomplete="new-password" maxlength="12"
+                     data-rule="pin" data-label="Login PIN" oninput="liveValidate(this)">
+              <div class="field-msg"></div>
+            </div>
+            <div class="col-sm-6">
               <label class="form-label fw-semibold small">Vehicle Type</label>
               <select class="form-select" name="vehicle_type">
                 <option value="Motorcycle">🏍️ Motorcycle</option>
@@ -328,6 +343,13 @@ const rules = {
     maxLen:  20,
     hint:    'Letters and numbers only (e.g. ABC 1234)',
     errChar: 'License plate: letters and numbers only.',
+  },
+  pin: {
+    pattern: /^\d+$/,
+    minLen:  4,
+    maxLen:  12,
+    hint:    '4 to 12 digits',
+    errChar: 'PIN must contain numbers only.',
   },
 };
 

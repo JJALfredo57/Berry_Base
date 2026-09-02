@@ -1,17 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  @php
+    $platformBrand = null;
+    try { $platformBrand = \Illuminate\Support\Facades\DB::table('platform_settings')->first(); } catch (\Throwable $e) {}
+    $rawPrimary = $platformBrand->platform_primary_color ?? '#7B3A0F';
+    if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $rawPrimary)) $rawPrimary = '#7B3A0F';
+    $hexAdjust = function(string $hex, float $factor): string {
+        $hex = ltrim($hex, '#');
+        $r = hexdec(substr($hex, 0, 2)); $g = hexdec(substr($hex, 2, 2)); $b = hexdec(substr($hex, 4, 2));
+        if ($factor >= 0) {
+            $r = (int) min(255, $r + (255 - $r) * $factor);
+            $g = (int) min(255, $g + (255 - $g) * $factor);
+            $b = (int) min(255, $b + (255 - $b) * $factor);
+        } else {
+            $f = 1 + $factor;
+            $r = (int) max(0, $r * $f); $g = (int) max(0, $g * $f); $b = (int) max(0, $b * $f);
+        }
+        return sprintf('#%02x%02x%02x', $r, $g, $b);
+    };
+    $primaryDark = $hexAdjust($rawPrimary, -0.30);
+    $pbgColor = $platformBrand->platform_bg_color ?? '#FFF8F8';
+  @endphp
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rider Portal — {{ config('app.name', 'Cake Shop') }}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
-    :root { --primary: #e91e8c; --primary-dark: #c2185b; }
+    :root { --primary: {{ $rawPrimary }}; --primary-dark: {{ $primaryDark }}; }
     * { box-sizing: border-box; }
     body {
       min-height: 100dvh;
-      background: linear-gradient(135deg, #fce4ec 0%, #f8bbd0 40%, #fce4ec 100%);
+      background: {{ $pbgColor }};
       display: flex;
       align-items: center;
       justify-content: center;
@@ -148,7 +169,7 @@
   <div class="portal-header">
     <div class="icon-wrap"><i class="bi bi-bicycle"></i></div>
     <h1>Rider Portal</h1>
-    <p>Enter your phone number and delivery PIN to continue</p>
+    <p>Enter your phone number and rider PIN to continue</p>
   </div>
 
   {{-- Body --}}
@@ -177,24 +198,24 @@
       </div>
 
       {{-- PIN --}}
-      <label class="form-label">Delivery PIN</label>
+      <label class="form-label">Rider PIN</label>
       <div class="input-wrap">
         <input type="text" name="pin" id="pinInput"
                class="pin-input"
                placeholder="● ● ● ● ● ●"
                inputmode="numeric"
-               pattern="[0-9]{6}"
-               maxlength="6"
+               pattern="[0-9]{4,12}"
+               maxlength="12"
                autocomplete="one-time-code"
                required>
       </div>
       <p class="pin-hint">
-        <i class="bi bi-info-circle me-1"></i>6-digit PIN from your assignment SMS
+        <i class="bi bi-info-circle me-1"></i>Use your rider account PIN. Delivery SMS PIN still works as backup.
       </p>
 
       <button type="submit" class="btn-login" id="submitBtn">
         <i class="bi bi-box-arrow-in-right"></i>
-        Access My Delivery
+        Open Rider Dashboard
       </button>
     </form>
   </div>
@@ -203,7 +224,7 @@
   <div class="portal-footer">
     <i class="bi bi-shield-check me-1"></i>
     Secured by <strong>{{ config('app.name', 'Cake Shop') }}</strong>
-    &nbsp;&bull;&nbsp;PIN is single-use per delivery
+    &nbsp;&bull;&nbsp;App notifications are used before SMS fallback
   </div>
 
 </div>
@@ -211,7 +232,7 @@
 <script>
 // Auto-format PIN input: digits only, max 6
 document.getElementById('pinInput').addEventListener('input', function () {
-  this.value = this.value.replace(/\D/g, '').slice(0, 6);
+  this.value = this.value.replace(/\D/g, '').slice(0, 12);
 });
 
 // Loading state on submit
