@@ -78,6 +78,10 @@ class RiderController extends Controller
                 ],
             ]);
 
+            if (Schema::hasColumn('riders', 'password_must_change') && (bool) ($rider->password_must_change ?? false)) {
+                return redirect()->route('rider.password.setup');
+            }
+
             return redirect()->route('rider.dashboard');
         }
 
@@ -102,6 +106,9 @@ class RiderController extends Controller
         if (!$rider) {
             return redirect()->route('login')->with('error', 'Please log in to view your rider dashboard.');
         }
+        if (Schema::hasColumn('riders', 'password_must_change') && (bool) ($rider->password_must_change ?? false)) {
+            return redirect()->route('rider.password.setup');
+        }
 
         $assignments->expirePendingAssignments(null, (int) $rider->id);
         $lat = $request->filled('lat') ? (float) $request->query('lat') : null;
@@ -117,6 +124,50 @@ class RiderController extends Controller
     {
         $request->session()->forget('rider');
         return redirect()->route('login')->with('msg', 'Rider logged out.');
+    }
+
+    public function passwordSetup()
+    {
+        $rider = $this->sessionRider();
+        if (!$rider) {
+            return redirect()->route('login')->with('error', 'Please log in with your rider phone and temporary PIN first.');
+        }
+
+        if (Schema::hasColumn('riders', 'password_must_change') && !(bool) ($rider->password_must_change ?? false)) {
+            return redirect()->route('rider.dashboard');
+        }
+
+        return view('rider.password_setup', compact('rider'));
+    }
+
+    public function passwordSetupUpdate(Request $request)
+    {
+        $rider = $this->sessionRider();
+        if (!$rider) {
+            return redirect()->route('login')->with('error', 'Please log in with your rider phone and temporary PIN first.');
+        }
+
+        $password = (string) $request->input('password', '');
+        $confirm = (string) $request->input('confirm_password', '');
+        $error = $this->passwordValidationError($password, $confirm);
+        if ($error) {
+            return back()->with('err', $error);
+        }
+
+        $updates = $this->filterExistingColumns('riders', [
+            'login_pin_hash' => Hash::make($password),
+            'login_pin_set_at' => now(),
+            'password_must_change' => false,
+            'password_changed_at' => now(),
+            'password_reset_otp' => null,
+            'password_reset_expires_at' => null,
+            'updated_at' => now(),
+        ]);
+
+        DB::table('riders')->where('id', $rider->id)->update($updates);
+        CakeshopHelper::logActivity($rider->id, 'rider', 'Set Password', 'Rider created a personal password');
+
+        return redirect()->route('rider.dashboard')->with('msg', 'Your rider password has been updated.');
     }
 
     /** Resolve a pasted PHONE|PIN access code from the catalog sidebar */
@@ -1264,5 +1315,16 @@ class RiderController extends Controller
             Log::error('Rider reportIssue: ' . $e->getMessage());
             return response()->json(['ok'=>false,'error'=>'Server error: '.$e->getMessage()]);
         }
+    }
+
+    private function passwordValidationError(string $password, string $confirm): ?string
+    {
+        if (strlen($password) < 8) return 'Password must be at least 8 characters.';
+        if ($password !== $confirm) return 'Passwords do not match.';
+        if (!preg_match('/[A-Z]/', $password)) return 'Password must contain at least 1 uppercase letter.';
+        if (!preg_match('/[0-9]/', $password)) return 'Password must contain at least 1 number.';
+        if (!preg_match('/[!@#$%^&*()_+\-=\[\]{};\':"\\\\|,.<>\/?`~]/', $password)) return 'Password must contain at least 1 special character.';
+
+        return null;
     }
 }

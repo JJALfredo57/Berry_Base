@@ -86,6 +86,9 @@ class RiderController extends Controller
             $data['login_pin_hash'] = Hash::make($loginPin);
             $data['login_pin_set_at'] = now();
         }
+        if (Schema::hasColumn('riders', 'password_must_change')) {
+            $data['password_must_change'] = true;
+        }
         DB::table('riders')->insert($data);
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Add Rider', $name);
         return back()->with('msg', "Rider '{$name}' added. Login PIN: {$loginPin}");
@@ -114,6 +117,9 @@ class RiderController extends Controller
         if ($loginPin !== '' && Schema::hasColumn('riders', 'login_pin_hash')) {
             $data['login_pin_hash'] = Hash::make($loginPin);
             $data['login_pin_set_at'] = now();
+            if (Schema::hasColumn('riders', 'password_must_change')) {
+                $data['password_must_change'] = true;
+            }
         }
         DB::table('riders')->where('id', $id)->update($data);
         return back()->with('msg', 'Rider updated.');

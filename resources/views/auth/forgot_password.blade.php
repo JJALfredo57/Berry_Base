@@ -9,7 +9,7 @@
         </div>
         <h4 class="fw-bold mb-1">Forgot Password</h4>
         <p class="text-muted small">
-          @if($step==1) Enter your registered email address
+          @if($step==1) Enter your account email or rider phone
           @elseif($step==2) Enter the 6-digit OTP sent to you
           @else Create a new secure password
           @endif
@@ -18,7 +18,7 @@
 
       {{-- Step indicator --}}
       <div class="d-flex justify-content-center align-items-center gap-2 mb-4">
-        @foreach(['Email','OTP','New Password'] as $i=>$label)
+        @foreach(['Account','OTP','New Password'] as $i=>$label)
           <div class="d-flex align-items-center gap-1">
             <span style="width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;
                   background:{{ $step > $i ? 'var(--primary)' : ($step === $i+1 ? 'var(--primary)' : '#dee2e6') }};
@@ -41,18 +41,35 @@
           @endif
 
           @if($step == 1)
-          <form action="{{ route('forgot.send_otp') }}" method="POST">
+          @php($selectedType = old('account_type', 'user'))
+          <form action="{{ route('forgot.send_otp') }}" method="POST" id="forgotStartForm">
             @csrf
             <div class="mb-3">
-              <label class="form-label fw-semibold small">Email Address</label>
+              <label class="form-label fw-semibold small">Account Type</label>
+              <div class="d-flex gap-3 flex-wrap">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="account_type" value="user" id="fpUser" {{ $selectedType === 'rider' ? '' : 'checked' }}>
+                  <label class="form-check-label" for="fpUser"><i class="bi bi-person me-1"></i>Seller / Customer / Admin</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="account_type" value="rider" id="fpRider" {{ $selectedType === 'rider' ? 'checked' : '' }}>
+                  <label class="form-check-label" for="fpRider"><i class="bi bi-bicycle me-1"></i>Rider</label>
+                </div>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold small" id="fpIdentifierLabel">Email Address</label>
               <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                <span class="input-group-text"><i class="bi bi-envelope" id="fpIdentifierIcon"></i></span>
                 <input type="email" class="form-control" name="email" value="{{ old('email') }}"
-                       placeholder="your@email.com" required autofocus>
+                       placeholder="your@email.com" required autofocus id="fpEmailInput">
+                <input type="text" class="form-control" name="phone" value="{{ old('phone') }}"
+                       placeholder="09XXXXXXXXX" inputmode="tel" autocomplete="tel" id="fpPhoneInput"
+                       style="display:none" oninput="this.value=this.value.replace(/[^\d+]/g,'').replace(/\+(?!^)/g,'')">
               </div>
             </div>
             {{-- OTP Channel --}}
-            <div class="mb-3">
+            <div class="mb-3" id="fpOtpChannelWrap">
               <label class="form-label fw-semibold small">Send OTP Via</label>
               <div class="d-flex gap-3">
                 <div class="form-check">
@@ -97,7 +114,9 @@
             </span>
             <form action="{{ route('forgot.send_otp') }}" method="POST" id="resendForm" style="display:none">
               @csrf
+              <input type="hidden" name="account_type" value="{{ session('fp_account_type','user') }}">
               <input type="hidden" name="email" value="{{ session('fp_email') }}">
+              <input type="hidden" name="phone" value="{{ session('fp_phone') }}">
               <input type="hidden" name="otp_channel" value="{{ session('fp_channel','email') }}">
               <button type="submit" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-clockwise me-1"></i>Resend OTP
@@ -151,6 +170,34 @@ function togglePwd(id, btn) {
   if (input.type === 'password') { input.type = 'text'; btn.innerHTML = '<i class="bi bi-eye-slash"></i>'; }
   else { input.type = 'password'; btn.innerHTML = '<i class="bi bi-eye"></i>'; }
 }
+
+@if($step == 1)
+(function() {
+  const userRadio = document.getElementById('fpUser');
+  const riderRadio = document.getElementById('fpRider');
+  const emailInput = document.getElementById('fpEmailInput');
+  const phoneInput = document.getElementById('fpPhoneInput');
+  const channelWrap = document.getElementById('fpOtpChannelWrap');
+  const label = document.getElementById('fpIdentifierLabel');
+  const icon = document.getElementById('fpIdentifierIcon');
+  if (!userRadio || !riderRadio || !emailInput || !phoneInput || !channelWrap || !label || !icon) return;
+
+  function syncResetMode() {
+    const isRider = riderRadio.checked;
+    emailInput.style.display = isRider ? 'none' : '';
+    phoneInput.style.display = isRider ? '' : 'none';
+    emailInput.required = !isRider;
+    phoneInput.required = isRider;
+    label.textContent = isRider ? 'Rider Phone Number' : 'Email Address';
+    icon.className = isRider ? 'bi bi-phone' : 'bi bi-envelope';
+    channelWrap.style.display = isRider ? 'none' : '';
+  }
+
+  userRadio.addEventListener('change', syncResetMode);
+  riderRadio.addEventListener('change', syncResetMode);
+  syncResetMode();
+})();
+@endif
 
 // ── Resend OTP Countdown (1 minute) ──────────────────────────
 @if($step == 2)

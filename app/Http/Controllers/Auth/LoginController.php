@@ -150,6 +150,10 @@ class LoginController extends Controller
 
             CakeshopHelper::logActivity($rider->id, 'rider', 'Login', 'Rider logged in');
 
+            if (Schema::hasColumn('riders', 'password_must_change') && (bool) ($rider->password_must_change ?? false)) {
+                return redirect()->route('rider.password.setup');
+            }
+
             return redirect()->route('rider.dashboard');
         }
 

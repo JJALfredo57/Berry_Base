@@ -243,6 +243,8 @@ Route::get('/track/{trackCode}/remaining-return',[\App\Http\Controllers\Guest\Pa
 // ── Rider Portal (login with phone + PIN) ─────────────────────────────────
 Route::get('/rider/login',  [\App\Http\Controllers\RiderController::class, 'loginPage'])->name('rider.login');
 Route::post('/rider/login', [\App\Http\Controllers\RiderController::class, 'loginVerify'])->name('rider.login.verify');
+Route::get('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetup'])->name('rider.password.setup');
+Route::post('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetupUpdate'])->name('rider.password.setup.update');
 Route::get('/rider/dashboard', [\App\Http\Controllers\RiderController::class, 'dashboard'])->name('rider.dashboard');
 Route::post('/rider/logout', [\App\Http\Controllers\RiderController::class, 'logout'])->name('rider.logout');
 

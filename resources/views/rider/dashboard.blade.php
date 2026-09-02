@@ -45,6 +45,7 @@
     .metric { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:12px; min-width:0; }
     .metric .label { color:#6b7280; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
     .metric .value { font-size:clamp(18px,4vw,26px); font-weight:850; margin-top:4px; color:#111827; overflow-wrap:anywhere; }
+    .metric .hint { color:#6b7280; font-size:12px; line-height:1.35; margin-top:5px; }
     .metric.primary { background:var(--primary-bg); border-color:color-mix(in srgb,var(--primary) 28%,#fff); }
     .metric.primary .value { color:var(--primary-dark); }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0; flex-wrap:wrap; }
@@ -96,11 +97,11 @@
     @if(session('err') || $errors->any())<div class="notice err">{{ session('err') ?: $errors->first() }}</div>@endif
 
     <section class="summary" aria-label="Remittance summary">
-      <div class="metric primary"><div class="label">Unremitted COD</div><div class="value">PHP {{ number_format($unremitted['total'], 2) }}</div></div>
-      <div class="metric"><div class="label">Orders</div><div class="value">{{ $unremitted['count'] }}</div></div>
-      <div class="metric"><div class="label">Needs Action</div><div class="value">{{ $unremitted['needs_action'] }}</div></div>
-      <div class="metric"><div class="label">Waiting</div><div class="value">{{ $unremitted['waiting_seller'] + $unremitted['waiting_paymongo'] }}</div></div>
-      <div class="metric"><div class="label">Rejected</div><div class="value">{{ $unremitted['rejected'] }}</div></div>
+      <div class="metric primary"><div class="label">COD Cash Not Confirmed</div><div class="value">PHP {{ number_format($unremitted['total'], 2) }}</div><div class="hint">Cash collected from delivered COD orders that still needs seller confirmation.</div></div>
+      <div class="metric"><div class="label">COD Orders to Settle</div><div class="value">{{ $unremitted['count'] }}</div><div class="hint">Delivered COD orders still open for remittance.</div></div>
+      <div class="metric"><div class="label">Remit Now / Retry</div><div class="value">{{ $unremitted['needs_action'] }}</div><div class="hint">Open these orders and submit cash handover or generate a new GCash QR.</div></div>
+      <div class="metric"><div class="label">Waiting for Check</div><div class="value">{{ $unremitted['waiting_seller'] + $unremitted['waiting_paymongo'] }}</div><div class="hint">Waiting for seller confirmation or PayMongo GCash payment verification.</div></div>
+      <div class="metric"><div class="label">Rejected by Seller</div><div class="value">{{ $unremitted['rejected'] }}</div><div class="hint">Seller rejected the remittance. Open the order and follow the seller note.</div></div>
     </section>
 
     <div class="toolbar">
