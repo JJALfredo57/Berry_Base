@@ -837,6 +837,9 @@
     <a href="{{ route('track.recover') }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;color:#7B3A0F;text-decoration:none;font-size:.82rem;font-weight:700">
       <i class="bi bi-key-fill"></i>Forgot tracking code?
     </a>
+    <a href="{{ route('rider.login') }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;color:#7B3A0F;text-decoration:none;font-size:.82rem;font-weight:700">
+      <i class="bi bi-bicycle"></i>Rider Login
+    </a>
     <div class="ms-hint">
       <div class="ms-hint-line"></div>
       Freshly baked with love
@@ -904,6 +907,10 @@
       <a class="btn-secondary" href="{{ route('track.recover') }}">
         <i class="bi bi-key-fill"></i>
         Forgot tracking code?
+      </a>
+      <a class="btn-secondary" href="{{ route('rider.login') }}">
+        <i class="bi bi-bicycle"></i>
+        Rider Login
       </a>
 
     </div>
