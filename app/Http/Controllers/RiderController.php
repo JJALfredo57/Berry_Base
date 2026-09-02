@@ -43,7 +43,7 @@ class RiderController extends Controller
     /** Show the rider portal login page */
     public function loginPage()
     {
-        return view('rider.login');
+        return redirect()->route('login');
     }
 
     /** Verify phone + PIN submitted from the rider portal login page */
@@ -100,7 +100,7 @@ class RiderController extends Controller
     {
         $rider = $this->sessionRider();
         if (!$rider) {
-            return redirect()->route('rider.login')->with('err', 'Please log in to view your rider dashboard.');
+            return redirect()->route('login')->with('error', 'Please log in to view your rider dashboard.');
         }
 
         $assignments->expirePendingAssignments(null, (int) $rider->id);
@@ -116,7 +116,7 @@ class RiderController extends Controller
     public function logout(Request $request)
     {
         $request->session()->forget('rider');
-        return redirect()->route('rider.login')->with('msg', 'Rider logged out.');
+        return redirect()->route('login')->with('msg', 'Rider logged out.');
     }
 
     /** Resolve a pasted PHONE|PIN access code from the catalog sidebar */

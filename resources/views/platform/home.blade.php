@@ -219,7 +219,6 @@
       <div class="nav-links">
         <a href="{{ route('platform.shops') }}" class="nav-link-item">Browse Shops</a>
         <a href="{{ route('catalog') }}" class="nav-link-item">All Products</a>
-        <a href="{{ route('rider.login') }}" class="nav-link-item">Rider Login</a>
         <a href="{{ route('seller.apply') }}" class="nav-link-item">Sell on Platform</a>
       </div>
 
@@ -243,7 +242,6 @@
     <div id="mobileNav" style="display:none;padding:1rem 0 .5rem;border-top:1px solid var(--gray-200);margin-top:.875rem">
       <a href="{{ route('platform.shops') }}" style="display:block;padding:.6rem 0;font-size:.9rem;font-weight:500;color:var(--gray-700);border-bottom:1px solid var(--gray-100)">Browse Shops</a>
       <a href="{{ route('catalog') }}" style="display:block;padding:.6rem 0;font-size:.9rem;font-weight:500;color:var(--gray-700);border-bottom:1px solid var(--gray-100)">All Products</a>
-      <a href="{{ route('rider.login') }}" style="display:block;padding:.6rem 0;font-size:.9rem;font-weight:500;color:var(--gray-700);border-bottom:1px solid var(--gray-100)">Rider Login</a>
       <a href="{{ route('seller.apply') }}" style="display:block;padding:.6rem 0;font-size:.9rem;font-weight:500;color:var(--gray-700);border-bottom:1px solid var(--gray-100)">Sell on Platform</a>
       <a href="{{ route('login') }}" style="display:block;padding:.6rem 0;font-size:.9rem;font-weight:500;color:var(--primary)">Sign In</a>
     </div>

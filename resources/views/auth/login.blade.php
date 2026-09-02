@@ -150,8 +150,8 @@ document.body.classList.add('seller-login-page');
           <i class="bi bi-shop" style="font-size:2rem;color:#fff"></i>
         </div>
       @endif
-      <h1 class="login-title">Seller Sign In</h1>
-      <p class="login-sub">Sign in to manage your cake shop</p>
+      <h1 class="login-title">BerryBase Login</h1>
+      <p class="login-sub">Sign in as seller, customer, admin, or rider</p>
     </div>
 
     {{-- Card --}}
@@ -173,25 +173,25 @@ document.body.classList.add('seller-login-page');
         @csrf
 
         <div class="mb-3">
-          <label class="form-label" for="username">Username or Email</label>
+          <label class="form-label" for="username">Username, Email, or Rider Phone</label>
           <div class="input-group">
             <span class="input-group-text"><i class="bi bi-person" style="color:var(--primary)"></i></span>
             <input type="text" class="form-control @error('username') is-invalid @enderror"
                    id="username" name="username" value="{{ old('username') }}"
-                   placeholder="Enter your username or email" required autofocus autocomplete="username">
+                   placeholder="Username, email, or rider phone" required autofocus autocomplete="username">
             @error('username')<div class="invalid-feedback">{{ $message }}</div>@enderror
           </div>
         </div>
 
         <div class="mb-4">
           <label class="form-label d-flex justify-content-between align-items-center" for="loginPwd">
-            <span>Password</span>
+            <span>Password or Rider PIN</span>
             <a href="{{ route('forgot.show') }}" style="font-size:.8rem;font-weight:400;color:var(--primary)">Forgot password?</a>
           </label>
           <div class="input-group">
             <span class="input-group-text"><i class="bi bi-lock" style="color:var(--primary)"></i></span>
             <input type="password" class="form-control @error('password') is-invalid @enderror"
-                   id="loginPwd" name="password" placeholder="Enter your password"
+                   id="loginPwd" name="password" placeholder="Password or rider PIN"
                    required autocomplete="current-password">
             <button type="button" class="btn btn-secondary" onclick="csTogglePwd('loginPwd',this)" tabindex="-1"
                     style="border:1.5px solid var(--gray-200);border-left:0;border-radius:0 var(--radius-md) var(--radius-md) 0;background:var(--gray-50);padding:.6rem .875rem">

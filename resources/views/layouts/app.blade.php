@@ -1764,7 +1764,7 @@
     <div class="csb-divider"></div>
     <div class="csb-section-label">Sellers</div>
     <a href="{{ route('login') }}" class="csb-link" onclick="BerryAppTracking.clear(); closeCustSidebar()" style="color:#e53935;font-weight:600">
-      <i class="bi bi-person-badge"></i> Seller Login
+      <i class="bi bi-person-badge"></i> Login
     </a>
     <button onclick="BerryAppTracking.clear(); openBecomeSellerModal()"
             class="csb-link" style="color:#e53935;font-weight:600;background:none;border:none;cursor:pointer;width:100%;text-align:left;padding:0">
@@ -1898,7 +1898,7 @@
           <i class="bi bi-shop-window"></i> Sell Here
         </a>
         <a href="{{ route('login') }}" class="bsm-secondary" onclick="BerryAppTracking.clear()">
-          <i class="bi bi-person-badge"></i> Seller Login
+          <i class="bi bi-person-badge"></i> Login
         </a>
       </div>
     </div>
