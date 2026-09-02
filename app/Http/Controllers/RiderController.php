@@ -113,11 +113,16 @@ class RiderController extends Controller
         $assignments->expirePendingAssignments(null, (int) $rider->id);
         $lat = $request->filled('lat') ? (float) $request->query('lat') : null;
         $lng = $request->filled('lng') ? (float) $request->query('lng') : null;
+        $this->expireRiderBatches((int) $rider->id);
+        if ($request->query('remittance_payment') === 'success') {
+            $this->syncRiderActiveBatch((int) $rider->id);
+        }
         $orders = $this->riderDashboardOrders((int) $rider->id, $lat, $lng);
         $unremitted = $this->riderUnremittedSummary((int) $rider->id);
+        $bulkRemittance = $this->riderBulkRemittanceSummary((int) $rider->id);
         $settings = CakeshopHelper::getSettings();
 
-        return view('rider.dashboard', compact('rider', 'orders', 'unremitted', 'settings', 'lat', 'lng'));
+        return view('rider.dashboard', compact('rider', 'orders', 'unremitted', 'bulkRemittance', 'settings', 'lat', 'lng'));
     }
 
     public function logout(Request $request)
@@ -239,21 +244,10 @@ class RiderController extends Controller
 
         $addons = DB::table('order_addons')->where('order_id', $orderId)->get();
         $settings = CakeshopHelper::getSettings();
-        $remittance = Schema::hasTable('rider_remittances')
-            ? DB::table('rider_remittances')->where('order_id', $orderId)->first()
-            : null;
+        $remittance = null;
         $shopPayout = !empty($order->shop_id)
             ? DB::table('shops')->where('id', $order->shop_id)->select('payout_account_name', 'payout_account_number')->first()
             : null;
-
-        if (request('remittance_payment') === 'success' && $remittance && !empty($remittance->paymongo_checkout_session_id)) {
-            try {
-                $this->syncPaymongoRemittance($remittance, $order);
-                $remittance = DB::table('rider_remittances')->where('order_id', $orderId)->first();
-            } catch (\Throwable $e) {
-                Log::warning('Rider remittance return sync failed: ' . $e->getMessage());
-            }
-        }
 
         $assignmentPending = ($order->rider_assignment_status ?? '') === 'pending';
         $assignmentExpired = ($order->rider_assignment_status ?? '') === 'expired';
@@ -274,18 +268,7 @@ class RiderController extends Controller
         }
 
         if (!in_array($order->status, ['Out for Delivery'], true)) {
-            $needsRemittance = $remittance
-                && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired'], true);
-
-            return view('rider.delivery', [
-                'order' => $order,
-                'addons' => $addons,
-                'settings' => $settings,
-                'remittance' => $remittance,
-                'shopPayout' => $shopPayout,
-                'done' => !$needsRemittance,
-                'remittanceOnly' => $needsRemittance,
-            ]);
+            return $this->closedDeliveryAttemptRedirect($order);
         }
 
         return view('rider.delivery', compact('order','addons','settings','remittance','shopPayout'));
@@ -397,6 +380,7 @@ class RiderController extends Controller
                 'delivered_at'     => now()->format('Y-m-d H:i:s'),
                 'review_requested' => 1,
                 'delivery_photo'   => $photoPath,
+                'rider_pin'        => null,
             ];
 
             // COD → auto Paid
@@ -456,6 +440,7 @@ class RiderController extends Controller
                 'ok' => true,
                 'needs_remittance' => (bool) $remittance,
                 'remittance_amount' => $remittance ? (float) $remittance->amount : 0,
+                'redirect_url' => route('rider.dashboard'),
             ]);
 
         } catch (\Throwable $e) {
@@ -466,151 +451,37 @@ class RiderController extends Controller
 
     public function submitRemittance(Request $request, string $orderId, string $token)
     {
-        $order = DB::table('orders')
-            ->where('id', $orderId)
-            ->where('rider_token', $token)
-            ->first();
-
-        if (!$order || !in_array(($order->status ?? ''), ['Delivered', 'Picked Up'], true)) {
-            return back()->with('err', 'Remittance is only available after a completed delivery.');
-        }
-
-        if (!Schema::hasTable('rider_remittances')) {
-            return back()->with('err', 'Remittance tracking is not ready yet. Please contact the seller.');
-        }
-
-        $remittance = DB::table('rider_remittances')
-            ->where('order_id', $orderId)
-            ->where('rider_id', $order->rider_id)
-            ->first();
-
-        if (!$remittance) {
-            return back()->with('err', 'No cash remittance is required for this order.');
-        }
-
-        if (($remittance->status ?? '') === 'confirmed') {
-            return back()->with('msg', 'This remittance was already confirmed by the seller.');
-        }
-
-        $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:1'],
-            'remittance_method' => ['required', 'in:cash_handover'],
-            'rider_note' => ['nullable', 'string', 'max:500'],
-        ], [
-            'remittance_method.required' => 'Choose cash handover if you gave the money directly to the shop.',
-            'remittance_method.in' => 'GCash remittance must use the PayMongo QR option.',
-        ]);
-
-        $expected = round((float) $remittance->amount, 2);
-        $submitted = round((float) $validated['amount'], 2);
-        if (abs($expected - $submitted) > 0.009) {
-            return back()->withErrors(['amount' => 'Amount must match the collected cash: PHP ' . number_format($expected, 2) . '.'])->withInput();
-        }
-
-        DB::table('rider_remittances')->where('id', $remittance->id)->update($this->filterExistingColumns('rider_remittances', [
-            'remittance_method' => $validated['remittance_method'],
-            'status' => 'submitted',
-            'reference_number' => null,
-            'receipt_path' => null,
-            'rider_note' => trim((string) ($validated['rider_note'] ?? '')) ?: null,
-            'submitted_at' => now(),
-            'rejected_at' => null,
-            'seller_note' => null,
-            'updated_at' => now(),
-        ]));
-
-        $this->addOrderTrackingSafe($orderId, 'Cash Handover Submitted', 'Rider marked COD cash as handed directly to the shop.', 'seller');
-
-        try {
-            $freshOrder = DB::table('orders')->where('id', $orderId)->first();
-            if ($freshOrder) {
-                app(MobileNotificationService::class)->notifyOrderSeller(
-                    $freshOrder,
-                    'Cash Handover Confirmation Needed',
-                    "Rider marked COD cash as handed to the shop for Order #{$orderId}. Please confirm only if received.",
-                    ['event' => 'rider_cash_handover_submitted']
-                );
-                $sellerId = !empty($freshOrder->shop_id)
-                    ? DB::table('shops')->where('id', $freshOrder->shop_id)->value('seller_id')
-                    : null;
-                if ($sellerId) {
-                    DB::table('notifications')->insert([
-                        'receiver_role' => 'seller',
-                        'receiver_user_id' => $sellerId,
-                        'order_id' => $orderId,
-                        'title' => 'Cash Handover Confirmation Needed',
-                        'message' => "Rider marked COD cash as handed to the shop for Order #{$orderId}. Confirm only if the cash was received.",
-                        'is_read' => false,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Rider remittance seller notification failed: ' . $e->getMessage());
-        }
-
-        return back()->with('msg', 'Cash handover submitted. The seller will confirm once received.');
+        return redirect()->route('rider.dashboard')->with('err', 'Per-order remittance has moved to the rider dashboard. Please remit your COD total there.');
     }
 
-    public function acceptAssignment(string $orderId, string $token, RiderAssignmentService $assignments)
+    public function generateBulkRemittanceQr(Request $request)
     {
-        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
-        if (!$order || ($order->rider_assignment_status ?? '') !== 'pending') {
-            return back()->with('err', 'This assignment is no longer pending.');
+        $rider = $this->sessionRider();
+        if (!$rider) {
+            return redirect()->route('login')->with('error', 'Please log in to remit COD cash.');
         }
 
-        if (!empty($order->rider_assignment_expires_at) && now()->gte(\Carbon\Carbon::parse($order->rider_assignment_expires_at))) {
-            $assignments->expirePendingAssignments(null, (int) ($order->rider_id ?? 0));
-            return back()->with('err', 'This assignment already expired. Please wait for the seller to assign again.');
+        if (!Schema::hasTable('rider_remittances') || !Schema::hasTable('rider_remittance_batches')) {
+            return back()->with('err', 'Bulk remittance is not ready yet. Please run the latest database migration.');
         }
 
-        $assignments->accept($order);
-        return redirect()->route('rider.show', [$orderId, $token])->with('msg', 'Delivery accepted. You can now proceed.');
-    }
-
-    public function declineAssignment(Request $request, string $orderId, string $token, RiderAssignmentService $assignments)
-    {
-        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
-        if (!$order || ($order->rider_assignment_status ?? '') !== 'pending') {
-            return back()->with('err', 'This assignment is no longer pending.');
+        if (!Schema::hasColumn('rider_remittances', 'batch_id')) {
+            return back()->with('err', 'Bulk remittance needs the latest database migration.');
         }
 
-        $validated = $request->validate([
-            'reason' => ['required', 'string', 'min:3', 'max:300'],
-        ], [
-            'reason.required' => 'Please tell the seller why you cannot accept this delivery.',
-        ]);
-
-        $assignments->decline($order, trim($validated['reason']));
-        return redirect()->route('rider.dashboard')->with('msg', 'Delivery declined. Seller has been notified.');
-    }
-
-    public function generateRemittanceQr(Request $request, string $orderId, string $token)
-    {
-        $context = $this->validatedRemittanceContext($orderId, $token);
-        if ($context instanceof \Illuminate\Http\RedirectResponse) return $context;
-
-        [$order, $remittance] = $context;
-        $openPayment = $request->boolean('open_payment');
-        if (($remittance->status ?? '') === 'confirmed') {
-            return back()->with('msg', 'This remittance was already verified.');
-        }
-
-        if (!Schema::hasColumn('rider_remittances', 'paymongo_payment_intent_id')
-            || !Schema::hasColumn('rider_remittances', 'paymongo_qr_image')) {
-            return back()->with('err', 'GCash QR remittance setup is not ready yet. Please run the latest database migration.');
-        }
-
-        if (($remittance->status ?? '') === 'awaiting_payment'
-            && !empty($remittance->paymongo_qr_image)
-            && !empty($remittance->paymongo_expires_at)
-            && now()->lt($remittance->paymongo_expires_at)) {
-            if ($openPayment && !empty($remittance->paymongo_action_url)) {
-                return redirect()->away($remittance->paymongo_action_url);
+        $openPayment = $request->boolean('open_payment', true);
+        $activeBatch = $this->activeRiderBatch((int) $rider->id);
+        if ($activeBatch) {
+            if ($openPayment && !empty($activeBatch->paymongo_action_url)) {
+                return redirect()->away($activeBatch->paymongo_action_url);
             }
 
-            return back()->with('msg', 'GCash QR is still active. Scan it or tap Check Payment Status after paying.');
+            return back()->with('msg', 'Your GCash bulk remittance payment is still active. Please check its payment status before creating another one.');
+        }
+
+        $rows = $this->eligibleBulkRemittanceRows((int) $rider->id);
+        if ($rows->isEmpty()) {
+            return back()->with('err', 'No COD cash is ready for bulk remittance.');
         }
 
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
@@ -618,18 +489,42 @@ class RiderController extends Controller
         if (!$secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY')) {
             return back()->with('err', 'GCash QR remittance is not configured yet. Please ask the admin to set PayMongo secret key.');
         }
-        $clientApiKey = ($publicKey && !str_contains($publicKey, 'YOUR_PUBLIC_KEY')) ? $publicKey : $secretKey;
 
-        $amount = round((float) ($remittance->amount ?? 0), 2);
-        $amountCentavos = (int) round($amount * 100);
+        $clientApiKey = ($publicKey && !str_contains($publicKey, 'YOUR_PUBLIC_KEY')) ? $publicKey : $secretKey;
+        $total = round((float) $rows->sum('amount'), 2);
+        $amountCentavos = (int) round($total * 100);
         if ($amountCentavos < 100) {
-            return back()->with('err', 'Remittance amount must be at least PHP 1.00 for PayMongo QR.');
+            return back()->with('err', 'Bulk remittance amount must be at least PHP 1.00.');
         }
 
-        $reference = 'REMIT-' . $remittance->id . '-' . $order->id;
-        $description = 'Rider COD remittance for Order #' . $order->id;
+        $shopId = (string) ($rider->shop_id ?? $rows->first()->shop_id);
+        $batchId = null;
 
         try {
+            $batchId = DB::transaction(function () use ($rows, $rider, $shopId, $total) {
+                $id = DB::table('rider_remittance_batches')->insertGetId([
+                    'shop_id' => $shopId,
+                    'rider_id' => $rider->id,
+                    'total_amount' => $total,
+                    'order_count' => $rows->count(),
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                DB::table('rider_remittances')
+                    ->whereIn('id', $rows->pluck('id')->all())
+                    ->whereIn('status', ['pending', 'rejected', 'qr_expired'])
+                    ->update($this->filterExistingColumns('rider_remittances', [
+                        'batch_id' => $id,
+                        'updated_at' => now(),
+                    ]));
+
+                return $id;
+            });
+
+            $reference = 'REMIT-BATCH-' . $batchId;
+            $description = 'Rider COD bulk remittance for ' . $rows->count() . ' order(s)';
             $intent = $this->paymongoRequest('POST', 'https://api.paymongo.com/v1/payment_intents', $secretKey, [
                 'data' => [
                     'attributes' => [
@@ -681,20 +576,19 @@ class RiderController extends Controller
             $checkoutSessionId = null;
             $checkoutUrl = null;
             try {
-                $checkout = $this->createRemittanceCheckoutSession($order, $remittance, $amountCentavos, $reference, $description, $secretKey);
+                $checkout = $this->createBulkRemittanceCheckoutSession($batchId, $rows, $amountCentavos, $reference, $description, $secretKey);
                 $checkoutSessionId = data_get($checkout, 'data.id');
                 $checkoutUrl = data_get($checkout, 'data.attributes.checkout_url');
             } catch (\Throwable $checkoutError) {
-                Log::warning('PayMongo remittance checkout fallback failed', [
-                    'order_id' => $order->id,
-                    'remittance_id' => $remittance->id,
+                Log::warning('PayMongo bulk remittance checkout fallback failed', [
+                    'batch_id' => $batchId,
                     'error' => $checkoutError->getMessage(),
                 ]);
             }
 
-            DB::table('rider_remittances')->where('id', $remittance->id)->update($this->filterExistingColumns('rider_remittances', [
-                'remittance_method' => 'gcash_paymongo',
+            DB::table('rider_remittance_batches')->where('id', $batchId)->update([
                 'status' => 'awaiting_payment',
+                'remittance_method' => 'gcash_paymongo',
                 'reference_number' => $reference,
                 'paymongo_payment_intent_id' => $intentId,
                 'paymongo_payment_method_id' => $methodId,
@@ -705,55 +599,120 @@ class RiderController extends Controller
                 'paymongo_status' => $paymongoStatus,
                 'paymongo_reference' => $reference,
                 'paymongo_expires_at' => now()->addMinutes(30),
-                'rejected_at' => null,
-                'seller_note' => null,
+                'updated_at' => now(),
+            ]);
+
+            DB::table('rider_remittances')->whereIn('id', $rows->pluck('id')->all())->update($this->filterExistingColumns('rider_remittances', [
+                'status' => 'awaiting_payment',
+                'remittance_method' => 'gcash_paymongo',
+                'reference_number' => $reference,
+                'paymongo_payment_intent_id' => $intentId,
+                'paymongo_payment_method_id' => $methodId,
+                'paymongo_checkout_session_id' => $checkoutSessionId,
+                'paymongo_client_key' => $clientKey,
+                'paymongo_qr_image' => $qrImage,
+                'paymongo_action_url' => $actionUrl ?: $checkoutUrl,
+                'paymongo_status' => $paymongoStatus,
+                'paymongo_reference' => $reference,
+                'paymongo_expires_at' => now()->addMinutes(30),
                 'updated_at' => now(),
             ]));
-
-            $this->addOrderTrackingSafe($order->id, 'GCash QR Remittance Created', 'Rider generated a PayMongo QR Ph code for COD remittance.', 'seller');
-            $this->notifySellerSafe($order, 'COD Remittance QR Generated', "Rider generated a GCash QR remittance for Order #{$order->id}. Waiting for PayMongo confirmation.", 'rider_remittance_qr_created');
 
             if ($openPayment && ($actionUrl || $checkoutUrl)) {
                 return redirect()->away($actionUrl ?: $checkoutUrl);
             }
 
-            return back()->with('msg', 'GCash QR generated. Scan it using GCash, then tap Check Payment Status.');
+            return back()->with('msg', 'Bulk GCash QR generated. Pay the total amount, then tap Check Payment Status.');
         } catch (\Throwable $e) {
-            Log::error('PayMongo rider remittance QR failed', [
-                'order_id' => $order->id,
-                'remittance_id' => $remittance->id,
+            if ($batchId) {
+                DB::table('rider_remittances')->where('batch_id', $batchId)->update($this->filterExistingColumns('rider_remittances', [
+                    'batch_id' => null,
+                    'status' => 'pending',
+                    'updated_at' => now(),
+                ]));
+                DB::table('rider_remittance_batches')->where('id', $batchId)->update([
+                    'status' => 'failed',
+                    'seller_note' => $e->getMessage(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            Log::error('PayMongo bulk rider remittance QR failed', [
+                'rider_id' => $rider->id,
                 'error' => $e->getMessage(),
             ]);
 
-            return back()->with('err', 'Could not generate GCash QR. PayMongo: ' . $e->getMessage());
+            return back()->with('err', 'Could not generate bulk GCash QR. PayMongo: ' . $e->getMessage());
         }
     }
 
-    public function checkRemittanceQr(Request $request, string $orderId, string $token)
+    public function checkBulkRemittanceQr(Request $request)
     {
-        $context = $this->validatedRemittanceContext($orderId, $token);
-        if ($context instanceof \Illuminate\Http\RedirectResponse) return $context;
-
-        [$order, $remittance] = $context;
-        if (($remittance->status ?? '') === 'confirmed') {
-            return back()->with('msg', 'This remittance was already verified.');
+        $rider = $this->sessionRider();
+        if (!$rider) {
+            return redirect()->route('login')->with('error', 'Please log in to check remittance payment.');
         }
-        if (empty($remittance->paymongo_payment_intent_id)) {
-            return back()->with('err', 'Generate a GCash QR first before checking payment status.');
+
+        $batch = $this->activeRiderBatch((int) $rider->id);
+        if (!$batch) {
+            return back()->with('err', 'No active bulk GCash remittance payment found.');
         }
 
         try {
-            $result = $this->syncPaymongoRemittance($remittance, $order);
+            $result = $this->syncPaymongoBatchRemittance($batch);
             return back()->with($result['ok'] ? 'msg' : 'err', $result['message']);
         } catch (\Throwable $e) {
-            Log::error('PayMongo rider remittance status check failed', [
-                'order_id' => $order->id,
-                'remittance_id' => $remittance->id,
+            Log::error('PayMongo bulk rider remittance status check failed', [
+                'rider_id' => $rider->id,
+                'batch_id' => $batch->id,
                 'error' => $e->getMessage(),
             ]);
 
             return back()->with('err', 'Could not check PayMongo payment status right now.');
         }
+    }
+
+    public function acceptAssignment(string $orderId, string $token, RiderAssignmentService $assignments)
+    {
+        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
+        if (!$order || ($order->rider_assignment_status ?? '') !== 'pending') {
+            return back()->with('err', 'This assignment is no longer pending.');
+        }
+
+        if (!empty($order->rider_assignment_expires_at) && now()->gte(\Carbon\Carbon::parse($order->rider_assignment_expires_at))) {
+            $assignments->expirePendingAssignments(null, (int) ($order->rider_id ?? 0));
+            return back()->with('err', 'This assignment already expired. Please wait for the seller to assign again.');
+        }
+
+        $assignments->accept($order);
+        return redirect()->route('rider.show', [$orderId, $token])->with('msg', 'Delivery accepted. You can now proceed.');
+    }
+
+    public function declineAssignment(Request $request, string $orderId, string $token, RiderAssignmentService $assignments)
+    {
+        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
+        if (!$order || ($order->rider_assignment_status ?? '') !== 'pending') {
+            return back()->with('err', 'This assignment is no longer pending.');
+        }
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:300'],
+        ], [
+            'reason.required' => 'Please tell the seller why you cannot accept this delivery.',
+        ]);
+
+        $assignments->decline($order, trim($validated['reason']));
+        return redirect()->route('rider.dashboard')->with('msg', 'Delivery declined. Seller has been notified.');
+    }
+
+    public function generateRemittanceQr(Request $request, string $orderId, string $token)
+    {
+        return redirect()->route('rider.dashboard')->with('err', 'Per-order GCash remittance has moved to the rider dashboard. Please pay your COD total there.');
+    }
+
+    public function checkRemittanceQr(Request $request, string $orderId, string $token)
+    {
+        return redirect()->route('rider.dashboard')->with('err', 'Per-order GCash remittance checks have moved to the rider dashboard.');
     }
 
     public function paymongoRemittanceWebhook(Request $request)
@@ -763,8 +722,27 @@ class RiderController extends Controller
         $paymentIntentId = data_get($payload, 'data.attributes.data.attributes.payment_intent_id')
             ?: data_get($payload, 'data.attributes.data.relationships.payment_intent.data.id')
             ?: data_get($payload, 'data.attributes.data.id');
+        $batchId = data_get($payload, 'data.attributes.data.attributes.metadata.batch_id')
+            ?: data_get($payload, 'data.attributes.data.attributes.metadata.batchId');
         $remittanceId = data_get($payload, 'data.attributes.data.attributes.metadata.remittance_id')
             ?: data_get($payload, 'data.attributes.data.attributes.metadata.remittanceId');
+
+        if (Schema::hasTable('rider_remittance_batches')) {
+            $batch = null;
+            $batchQuery = DB::table('rider_remittance_batches');
+            if ($paymentIntentId) {
+                $batchQuery->where('paymongo_payment_intent_id', $paymentIntentId);
+            } elseif ($batchId) {
+                $batchQuery->where('id', $batchId);
+            }
+            if ($paymentIntentId || $batchId) {
+                $batch = $batchQuery->first();
+            }
+            if ($batch) {
+                $this->syncPaymongoBatchRemittance($batch);
+                return response()->json(['ok' => true]);
+            }
+        }
 
         if (!$paymentIntentId && !$remittanceId) {
             Log::info('PayMongo remittance webhook ignored', ['event' => $eventType]);
@@ -856,6 +834,168 @@ class RiderController extends Controller
         }
 
         return is_array($data) ? $data : [];
+    }
+
+    private function createBulkRemittanceCheckoutSession(int $batchId, $rows, int $amountCentavos, string $reference, string $description, string $secretKey): array
+    {
+        $returnUrl = route('rider.dashboard');
+
+        return $this->paymongoRequest('POST', 'https://api.paymongo.com/v2/checkout_sessions', $secretKey, [
+            'data' => [
+                'attributes' => [
+                    'line_items' => [[
+                        'currency' => 'PHP',
+                        'amount' => $amountCentavos,
+                        'name' => 'COD Bulk Remittance',
+                        'quantity' => 1,
+                    ]],
+                    'payment_method_types' => ['gcash'],
+                    'success_url' => $returnUrl . '?remittance_payment=success',
+                    'cancel_url' => $returnUrl . '?remittance_payment=cancelled',
+                    'description' => $description,
+                    'reference_number' => $reference,
+                    'send_email_receipt' => false,
+                    'show_description' => true,
+                    'show_line_items' => true,
+                    'metadata' => [
+                        'batch_id' => (string) $batchId,
+                        'rider_id' => (string) $rows->first()->rider_id,
+                        'shop_id' => (string) $rows->first()->shop_id,
+                        'order_ids' => $rows->pluck('order_id')->implode(','),
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    private function syncRiderActiveBatch(int $riderId): void
+    {
+        $batch = $this->activeRiderBatch($riderId);
+        if (!$batch) return;
+
+        try {
+            $this->syncPaymongoBatchRemittance($batch);
+        } catch (\Throwable $e) {
+            Log::warning('Rider bulk remittance return sync failed: ' . $e->getMessage());
+        }
+    }
+
+    private function expireRiderBatches(int $riderId): void
+    {
+        if (!Schema::hasTable('rider_remittance_batches')) return;
+
+        $expired = DB::table('rider_remittance_batches')
+            ->where('rider_id', $riderId)
+            ->where('status', 'awaiting_payment')
+            ->whereNotNull('paymongo_expires_at')
+            ->where('paymongo_expires_at', '<=', now())
+            ->pluck('id');
+
+        if ($expired->isEmpty()) return;
+
+        DB::table('rider_remittance_batches')->whereIn('id', $expired)->update([
+            'status' => 'qr_expired',
+            'updated_at' => now(),
+        ]);
+
+        DB::table('rider_remittances')->whereIn('batch_id', $expired)->where('status', 'awaiting_payment')->update($this->filterExistingColumns('rider_remittances', [
+            'status' => 'qr_expired',
+            'updated_at' => now(),
+        ]));
+    }
+
+    private function syncPaymongoBatchRemittance(object $batch): array
+    {
+        $secretKey = CakeshopHelper::getPaymongoSecretKey();
+        if (!$secretKey) {
+            return ['ok' => false, 'message' => 'PayMongo keys are not configured.'];
+        }
+
+        $intent = !empty($batch->paymongo_payment_intent_id)
+            ? $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/payment_intents/' . $batch->paymongo_payment_intent_id, $secretKey)
+            : [];
+        $status = data_get($intent, 'data.attributes.status', '');
+        $reference = data_get($intent, 'data.attributes.payments.0.attributes.reference_number')
+            ?: ($batch->paymongo_reference ?? $batch->reference_number ?? null);
+        $paid = $status === 'succeeded';
+
+        if (!$paid && !empty($batch->paymongo_checkout_session_id)) {
+            $checkout = $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/checkout_sessions/' . $batch->paymongo_checkout_session_id, $secretKey);
+            $checkoutStatus = data_get($checkout, 'data.attributes.status', '');
+            $checkoutPaymentStatus = data_get($checkout, 'data.attributes.payment_intent.attributes.status', '');
+            $paid = $checkoutStatus === 'completed' || $checkoutPaymentStatus === 'succeeded';
+            $status = $paid ? 'succeeded' : ($status ?: $checkoutPaymentStatus ?: $checkoutStatus);
+            $reference = data_get($checkout, 'data.attributes.payments.0.attributes.reference_number')
+                ?: data_get($checkout, 'data.attributes.reference_number')
+                ?: $reference;
+        }
+
+        $batchUpdates = [
+            'paymongo_status' => $status ?: null,
+            'updated_at' => now(),
+        ];
+        $rowUpdates = [
+            'paymongo_status' => $status ?: null,
+            'updated_at' => now(),
+        ];
+
+        if ($paid) {
+            $batchUpdates = array_merge($batchUpdates, [
+                'status' => 'confirmed',
+                'remittance_method' => 'gcash_paymongo',
+                'reference_number' => $reference,
+                'paymongo_reference' => $reference,
+                'paymongo_paid_at' => now(),
+                'confirmed_at' => now(),
+                'submitted_at' => now(),
+                'rejected_at' => null,
+                'seller_note' => 'Auto-verified via PayMongo bulk GCash remittance.',
+            ]);
+            $rowUpdates = array_merge($rowUpdates, [
+                'status' => 'confirmed',
+                'remittance_method' => 'gcash_paymongo',
+                'reference_number' => $reference,
+                'paymongo_reference' => $reference,
+                'paymongo_paid_at' => now(),
+                'confirmed_at' => now(),
+                'submitted_at' => now(),
+                'rejected_at' => null,
+                'seller_note' => 'Auto-verified via PayMongo bulk remittance #' . $batch->id . '.',
+            ]);
+        } elseif (!empty($batch->paymongo_expires_at) && now()->gte($batch->paymongo_expires_at)) {
+            $batchUpdates['status'] = 'qr_expired';
+            $rowUpdates['status'] = 'qr_expired';
+        }
+
+        DB::transaction(function () use ($batch, $batchUpdates, $rowUpdates, $paid) {
+            DB::table('rider_remittance_batches')->where('id', $batch->id)->update($batchUpdates);
+            DB::table('rider_remittances')->where('batch_id', $batch->id)->update($this->filterExistingColumns('rider_remittances', $rowUpdates));
+
+            if ($paid) {
+                $orderIds = DB::table('rider_remittances')->where('batch_id', $batch->id)->pluck('order_id')->all();
+                $orderUpdates = $this->filterExistingColumns('orders', [
+                    'settled_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                if (!empty($orderIds) && !empty($orderUpdates)) {
+                    DB::table('orders')->whereIn('id', $orderIds)->update($orderUpdates);
+                }
+
+                foreach ($orderIds as $orderId) {
+                    $this->addOrderTrackingSafe((string) $orderId, 'Bulk GCash Remittance Verified', 'COD remittance was auto-verified by PayMongo bulk payment #' . $batch->id . '.', 'seller');
+                }
+            }
+        });
+
+        if ($paid) {
+            return ['ok' => true, 'message' => 'Bulk GCash remittance verified by PayMongo.'];
+        }
+
+        if (($batchUpdates['status'] ?? null) === 'qr_expired') {
+            return ['ok' => false, 'message' => 'This bulk GCash QR expired. Generate a new payment and try again.'];
+        }
+
+        return ['ok' => false, 'message' => 'Payment is not completed yet. Open GCash payment, then check again.'];
     }
 
     private function createRemittanceCheckoutSession(object $order, object $remittance, int $amountCentavos, string $reference, string $description, string $secretKey): array
@@ -991,14 +1131,19 @@ class RiderController extends Controller
         return DB::table('riders')->where('id', $session['id'])->where('is_active', true)->first();
     }
 
-    private function isRiderAccessibleOrder(object $order): bool
+    private function closedDeliveryAttemptRedirect(object $order): \Illuminate\Http\RedirectResponse
     {
-        if (in_array(($order->status ?? ''), ['Out for Delivery', 'Attempted Delivery'], true)) {
-            return true;
+        $rider = $this->sessionRider();
+        if ($rider && (int) $rider->id === (int) ($order->rider_id ?? 0)) {
+            return redirect()->route('rider.dashboard')->with('msg', 'This delivery attempt is already closed. Continue from your rider dashboard.');
         }
 
-        return in_array(($order->status ?? ''), ['Delivered', 'Picked Up'], true)
-            && $this->orderNeedsRemittance($order);
+        return redirect()->route('login')->with('error', 'This delivery link has expired. Please log in to your rider account.');
+    }
+
+    private function isRiderAccessibleOrder(object $order): bool
+    {
+        return ($order->status ?? '') === 'Out for Delivery';
     }
 
     private function orderNeedsRemittance(object $order): bool
@@ -1026,7 +1171,8 @@ class RiderController extends Controller
                 'p.image_path',
                 'rr.amount as remittance_amount',
                 'rr.status as remittance_status',
-                'rr.remittance_method'
+                'rr.remittance_method',
+                'rr.batch_id'
             );
 
         $orders = $query->get()->filter(fn ($order) => $this->isDashboardVisibleOrder($order));
@@ -1065,6 +1211,98 @@ class RiderController extends Controller
             'waiting_paymongo' => $rows->where('status', 'awaiting_payment')->count(),
             'rejected' => $rows->where('status', 'rejected')->count(),
         ];
+    }
+
+    private function riderBulkRemittanceSummary(int $riderId): array
+    {
+        $empty = [
+            'ready_total' => 0,
+            'ready_count' => 0,
+            'waiting_total' => 0,
+            'waiting_count' => 0,
+            'confirmed_total' => 0,
+            'confirmed_count' => 0,
+            'orders' => collect(),
+            'active_batch' => null,
+        ];
+
+        if (!Schema::hasTable('rider_remittances')) {
+            return $empty;
+        }
+
+        $readyRows = $this->eligibleBulkRemittanceRows($riderId);
+        $waitingRows = DB::table('rider_remittances')
+            ->where('rider_id', $riderId)
+            ->whereIn('status', ['awaiting_payment', 'submitted'])
+            ->get();
+        $confirmedRows = DB::table('rider_remittances')
+            ->where('rider_id', $riderId)
+            ->where('status', 'confirmed')
+            ->where('updated_at', '>=', now()->subDays(7))
+            ->get();
+
+        return [
+            'ready_total' => round((float) $readyRows->sum('amount'), 2),
+            'ready_count' => $readyRows->count(),
+            'waiting_total' => round((float) $waitingRows->sum('amount'), 2),
+            'waiting_count' => $waitingRows->count(),
+            'confirmed_total' => round((float) $confirmedRows->sum('amount'), 2),
+            'confirmed_count' => $confirmedRows->count(),
+            'orders' => $readyRows,
+            'active_batch' => $this->activeRiderBatch($riderId),
+        ];
+    }
+
+    private function eligibleBulkRemittanceRows(int $riderId)
+    {
+        if (!Schema::hasTable('rider_remittances')) {
+            return collect();
+        }
+
+        $query = DB::table('rider_remittances as rr')
+            ->join('orders as o', 'o.id', '=', 'rr.order_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->where('rr.rider_id', $riderId)
+            ->whereIn('rr.status', ['pending', 'rejected', 'qr_expired'])
+            ->whereNotIn('o.status', ['Cancelled', 'Issue Reported', 'Attempted Delivery'])
+            ->select(
+                'rr.*',
+                DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"),
+                'o.guest_name',
+                'o.schedule_date',
+                'o.schedule_time'
+            );
+
+        if (Schema::hasColumn('rider_remittances', 'batch_id') && Schema::hasTable('rider_remittance_batches')) {
+            $query->where(function ($q) {
+                $q->whereNull('rr.batch_id')
+                    ->orWhereExists(function ($batchQuery) {
+                        $batchQuery->select(DB::raw(1))
+                            ->from('rider_remittance_batches as rb')
+                            ->whereColumn('rb.id', 'rr.batch_id')
+                            ->whereIn('rb.status', ['qr_expired', 'failed', 'rejected']);
+                    });
+            });
+        }
+
+        return $query->orderBy('rr.collected_at')->orderBy('rr.id')->get();
+    }
+
+    private function activeRiderBatch(int $riderId): ?object
+    {
+        if (!Schema::hasTable('rider_remittance_batches')) {
+            return null;
+        }
+
+        return DB::table('rider_remittance_batches')
+            ->where('rider_id', $riderId)
+            ->where('status', 'awaiting_payment')
+            ->where(function ($q) {
+                $q->whereNull('paymongo_expires_at')
+                    ->orWhere('paymongo_expires_at', '>', now());
+            })
+            ->orderByDesc('id')
+            ->first();
     }
 
     private function isDashboardVisibleOrder(object $order): bool
@@ -1266,6 +1504,7 @@ class RiderController extends Controller
                 'issue_note'        => $note ?: null,
                 'issue_status'      => 'pending',
                 'issue_reported_at' => now(),
+                'rider_pin'         => null,
             ]);
 
             DB::table('order_tracking')->insert([
@@ -1318,7 +1557,11 @@ class RiderController extends Controller
                 Log::warning('Rider issue push failed: ' . $e->getMessage());
             }
 
-            return response()->json(['ok'=>true,'status'=>$newStatus]);
+            return response()->json([
+                'ok' => true,
+                'status' => $newStatus,
+                'redirect_url' => route('rider.dashboard'),
+            ]);
 
         } catch (\Throwable $e) {
             Log::error('Rider reportIssue: ' . $e->getMessage());

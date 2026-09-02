@@ -395,102 +395,6 @@
 </div>
 @endif
 
-@if(!empty($remittance))
-<div class="section" id="remittancePanel">
-  <div class="section-title">Cash Remittance</div>
-  <div class="row">
-    <div class="row-icon" style="background:#eff6ff;color:#1d4ed8"><i class="bi bi-cash-stack"></i></div>
-    <div class="row-body">
-      <div class="row-label">Amount to remit to seller</div>
-      <div class="row-value">&#8369;{{ number_format((float)$remittance->amount, 2) }}</div>
-      <div class="row-sub">Status: {{ ucfirst(str_replace('_', ' ', $remittance->status ?? 'pending')) }}</div>
-      @if(($remittance->status ?? '') === 'rejected' && $remittance->seller_note)
-        <div class="row-sub" style="color:#b91c1c">Seller note: {{ $remittance->seller_note }}</div>
-      @elseif(($remittance->status ?? '') === 'submitted')
-        <div class="row-sub" style="color:#1d4ed8">Waiting for seller confirmation.</div>
-      @endif
-    </div>
-  </div>
-  @if(($remittance->status ?? '') !== 'confirmed')
-  <div class="photo-section">
-    @php
-      $qrActive = ($remittance->status ?? '') === 'awaiting_payment'
-        && !empty($remittance->paymongo_qr_image)
-        && (empty($remittance->paymongo_expires_at) || now()->lt($remittance->paymongo_expires_at));
-      $qrExpired = ($remittance->status ?? '') === 'qr_expired'
-        || (!empty($remittance->paymongo_expires_at) && now()->gte($remittance->paymongo_expires_at) && ($remittance->status ?? '') !== 'confirmed');
-    @endphp
-
-    <div class="remit-choice-grid" role="group" aria-label="Choose remittance method">
-      <button class="remit-choice active" type="button" data-remit-tab="gcash" onclick="showRemitMethod('gcash')">
-        <i class="bi bi-qr-code"></i> GCash
-      </button>
-      <button class="remit-choice" type="button" data-remit-tab="cash" onclick="showRemitMethod('cash')">
-        <i class="bi bi-shop"></i> Cash to Shop
-      </button>
-    </div>
-
-    <div class="remit-method-panel active" id="remitPanelGcash">
-      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="font-size:12px;color:#1d4ed8;font-weight:800;text-transform:uppercase;letter-spacing:.04em">GCash via PayMongo</div>
-        <div style="font-size:14px;color:#1e3a8a;font-weight:650;line-height:1.45">Scan the QR with GCash or open the payment link on this device. The system verifies it after PayMongo confirms payment.</div>
-      </div>
-
-      @if($qrActive)
-        <div class="qr-box">
-          <div class="row-label">Scan with GCash</div>
-          <div class="row-value">&#8369;{{ number_format((float)$remittance->amount, 2) }}</div>
-        <img class="qr-img" src="{{ $remittance->paymongo_qr_image }}" alt="PayMongo GCash QR for remittance">
-        @if(!empty($remittance->paymongo_expires_at))
-          <div class="row-sub">Expires {{ \Carbon\Carbon::parse($remittance->paymongo_expires_at)->diffForHumans() }}</div>
-          <div class="qr-countdown" id="remitQrCountdown" data-expires-at="{{ \Carbon\Carbon::parse($remittance->paymongo_expires_at)->toIso8601String() }}">Expires in --:--</div>
-        @endif
-        <div class="qr-actions">
-            <form method="POST" action="{{ route('rider.remittance.check', [$order->id, $order->rider_token]) }}">
-              @csrf
-              <button class="btn-remit-alt" type="submit"><i class="bi bi-arrow-repeat"></i> Check Payment Status</button>
-            </form>
-          </div>
-        </div>
-      @endif
-
-      <div class="remit-primary-actions">
-        <form method="POST" action="{{ route('rider.remittance.qr', [$order->id, $order->rider_token]) }}" id="remitQrGenerateForm">
-          @csrf
-          <button class="btn-deliver" type="submit" id="remitQrGenerateButton">
-            <i class="bi bi-qr-code"></i> {{ $qrExpired ? 'Generate New QR Code' : 'Generate QR Code' }}
-          </button>
-        </form>
-        <form method="POST" action="{{ route('rider.remittance.qr', [$order->id, $order->rider_token]) }}">
-          @csrf
-          <input type="hidden" name="open_payment" value="1">
-          <button class="btn-remit-alt" id="openGcashPaymentLink" type="submit">
-            <i class="bi bi-phone"></i> Open GCash Payment
-          </button>
-        </form>
-      </div>
-    </div>
-
-    <div class="remit-method-panel" id="remitPanelCash">
-      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="font-size:12px;color:#c2410c;font-weight:800;text-transform:uppercase;letter-spacing:.04em">Cash Handover</div>
-        <div style="font-size:14px;color:#7c2d12;font-weight:650;line-height:1.45">Use this only after you physically gave the COD cash to the shop. This will not be added to online payout.</div>
-      </div>
-      <form method="POST" action="{{ route('rider.remittance', [$order->id, $order->rider_token]) }}">
-        @csrf
-        <input type="hidden" name="amount" value="{{ number_format((float)$remittance->amount, 2, '.', '') }}">
-        <input type="hidden" name="remittance_method" value="cash_handover">
-        <textarea class="note-input" name="rider_note" rows="2" maxlength="500" placeholder="Optional note to seller">{{ old('rider_note', $remittance->rider_note ?? '') }}</textarea>
-        <button class="btn-deliver" type="submit" style="margin-top:12px;background:#c2410c">
-          <i class="bi bi-shop"></i> Mark Cash Handed to Shop
-        </button>
-      </form>
-    </div>
-  </div>
-  @endif
-</div>
-@endif
-
 {{-- Buttons --}}
 @if(empty($remittanceOnly))
 <div class="actions" id="actionSection">
@@ -778,12 +682,7 @@ function confirmDeliver() {
         photo: document.getElementById('deliveryPhoto').files[0],
       }, document.querySelector('.btn-deliver'), '<i class="bi bi-check-circle-fill" style="font-size:20px"></i> Mark as Delivered ✓',
       (data) => {
-        if (data && data.needs_remittance) {
-          window.location.reload();
-          return;
-        }
-        hide();
-        document.getElementById('successScreen').style.display = 'block';
+        window.location.href = (data && data.redirect_url) ? data.redirect_url : '{{ route('rider.dashboard') }}';
       });
     }
   });
@@ -795,11 +694,8 @@ function submitIssue() {
     note: document.getElementById('issueNote').value,
     photo: document.getElementById('issuePhoto').files[0],
   }, document.querySelector('.btn-submit'), '<i class="bi bi-send me-1"></i>Submit Report',
-  () => {
-    hide();
-    document.getElementById('issueSuccessScreen').style.display = 'block';
-    if (selectedIssue === 'not_home')
-      document.getElementById('issueSuccessMsg').textContent = 'Customer Not Home reported. Admin will contact the customer to reschedule.';
+  (data) => {
+    window.location.href = (data && data.redirect_url) ? data.redirect_url : '{{ route('rider.dashboard') }}';
   });
 }
 async function doFetch(url, fields, btn, originalHtml, onSuccess) {

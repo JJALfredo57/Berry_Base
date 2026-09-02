@@ -376,6 +376,7 @@
             <div><strong>Amount collected:</strong> PHP {{ number_format((float)$remittance->amount, 2) }}</div>
             <div><strong>Status:</strong> {{ ucfirst(str_replace('_', ' ', $remitStatus)) }}</div>
             @if($remittance->remittance_method)<div><strong>Method:</strong> {{ $remittance->remittance_method === 'gcash_paymongo' ? 'GCash QR via PayMongo' : ($remittance->remittance_method === 'gcash' ? 'GCash transfer' : 'Cash handover') }}</div>@endif
+            @if(!empty($remittance->batch_id))<div><strong>Batch:</strong> Bulk remittance #{{ $remittance->batch_id }}</div>@endif
             @if($remittance->reference_number)<div><strong>Reference:</strong> {{ $remittance->reference_number }}</div>@endif
             @if(!empty($remittance->paymongo_payment_intent_id))<div><strong>PayMongo ID:</strong> {{ $remittance->paymongo_payment_intent_id }}</div>@endif
             @if(!empty($remittance->paymongo_paid_at))<div><strong>Verified at:</strong> {{ \Carbon\Carbon::parse($remittance->paymongo_paid_at)->format('M d, Y g:i A') }}</div>@endif

@@ -247,6 +247,8 @@ Route::get('/rider/password/setup', [\App\Http\Controllers\RiderController::clas
 Route::post('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetupUpdate'])->name('rider.password.setup.update');
 Route::get('/rider/dashboard', [\App\Http\Controllers\RiderController::class, 'dashboard'])->name('rider.dashboard');
 Route::post('/rider/logout', [\App\Http\Controllers\RiderController::class, 'logout'])->name('rider.logout');
+Route::post('/rider/remittance/bulk/paymongo-qr', [\App\Http\Controllers\RiderController::class, 'generateBulkRemittanceQr'])->name('rider.remittance.bulk.qr');
+Route::post('/rider/remittance/bulk/check-paymongo', [\App\Http\Controllers\RiderController::class, 'checkBulkRemittanceQr'])->name('rider.remittance.bulk.check');
 
 // ── Rider PIN access from catalog sidebar ─────────────────────────────────
 Route::post('/rider/pin',    [\App\Http\Controllers\RiderController::class, 'accessByPin'])->name('rider.pin');

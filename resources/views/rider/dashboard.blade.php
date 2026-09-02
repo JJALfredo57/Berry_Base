@@ -72,12 +72,33 @@
     .decline { display:grid; gap:8px; }
     .decline textarea { width:100%; min-height:64px; resize:vertical; border:1px solid #e5e7eb; border-radius:8px; padding:10px; font:inherit; }
     .empty { background:#fff; border:1px dashed #d1d5db; border-radius:8px; padding:32px 16px; text-align:center; color:#6b7280; }
+    .remit-hub { background:#fff; border:1px solid #e5e7eb; border-radius:8px; margin:0 0 16px; overflow:hidden; }
+    .remit-head { display:grid; grid-template-columns:1fr auto; gap:14px; padding:16px; border-bottom:1px solid #f3f4f6; align-items:center; }
+    .remit-kicker { color:#6b7280; font-size:12px; font-weight:850; text-transform:uppercase; letter-spacing:.05em; }
+    .remit-total { color:#111827; font-size:clamp(26px,7vw,42px); font-weight:900; line-height:1.05; margin-top:4px; overflow-wrap:anywhere; }
+    .remit-copy { color:#4b5563; font-size:13px; line-height:1.45; margin-top:6px; max-width:720px; }
+    .remit-actions { display:grid; gap:8px; min-width:min(260px,100%); }
+    .btn-pay { background:#1d4ed8; color:#fff; }
+    .btn-soft { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+    .remit-breakdown { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px; background:#f3f4f6; }
+    .remit-stat { background:#fff; padding:13px 16px; min-width:0; }
+    .remit-stat .label { color:#6b7280; font-size:12px; font-weight:800; }
+    .remit-stat .value { color:#111827; font-size:18px; font-weight:900; margin-top:2px; }
+    .remit-orders { padding:12px 16px 16px; display:grid; gap:8px; }
+    .remit-order { display:flex; justify-content:space-between; gap:12px; border:1px solid #f3f4f6; border-radius:8px; padding:10px 12px; font-size:13px; }
+    .remit-order strong { color:#111827; }
+    .remit-order span { color:#6b7280; }
+    .order-note { color:#6b7280; font-size:13px; font-weight:750; text-align:center; padding:10px; border:1px solid #e5e7eb; border-radius:8px; }
     @media (max-width:760px) {
       .summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .summary .primary { grid-column:1 / -1; }
       .order-body { grid-template-columns:1fr; }
       .order-head { flex-direction:column; }
       .badge { white-space:normal; }
+      .remit-head { grid-template-columns:1fr; }
+      .remit-actions { min-width:0; }
+      .remit-breakdown { grid-template-columns:1fr; }
+      .remit-order { flex-direction:column; }
     }
   </style>
 </head>
@@ -99,9 +120,62 @@
     <section class="summary" aria-label="Remittance summary">
       <div class="metric primary"><div class="label">COD Cash Not Confirmed</div><div class="value">PHP {{ number_format($unremitted['total'], 2) }}</div><div class="hint">Cash collected from delivered COD orders that still needs seller confirmation.</div></div>
       <div class="metric"><div class="label">COD Orders to Settle</div><div class="value">{{ $unremitted['count'] }}</div><div class="hint">Delivered COD orders still open for remittance.</div></div>
-      <div class="metric"><div class="label">Remit Now / Retry</div><div class="value">{{ $unremitted['needs_action'] }}</div><div class="hint">Open these orders and submit cash handover or generate a new GCash QR.</div></div>
-      <div class="metric"><div class="label">Waiting for Check</div><div class="value">{{ $unremitted['waiting_seller'] + $unremitted['waiting_paymongo'] }}</div><div class="hint">Waiting for seller confirmation or PayMongo GCash payment verification.</div></div>
-      <div class="metric"><div class="label">Rejected by Seller</div><div class="value">{{ $unremitted['rejected'] }}</div><div class="hint">Seller rejected the remittance. Open the order and follow the seller note.</div></div>
+      <div class="metric"><div class="label">Ready for Bulk Pay</div><div class="value">{{ $bulkRemittance['ready_count'] }}</div><div class="hint">Orders included in your next single GCash remittance.</div></div>
+      <div class="metric"><div class="label">Waiting for Check</div><div class="value">{{ $unremitted['waiting_seller'] + $unremitted['waiting_paymongo'] }}</div><div class="hint">Waiting for seller confirmation or PayMongo verification.</div></div>
+      <div class="metric"><div class="label">Rejected / Retry</div><div class="value">{{ $unremitted['rejected'] }}</div><div class="hint">Rejected COD rows are included again when you pay the bulk total.</div></div>
+    </section>
+
+    <section class="remit-hub" aria-label="Bulk COD remittance">
+      <div class="remit-head">
+        <div>
+          <div class="remit-kicker">Bulk COD Remittance</div>
+          <div class="remit-total">PHP {{ number_format($bulkRemittance['active_batch']->total_amount ?? $bulkRemittance['ready_total'], 2) }}</div>
+          <div class="remit-copy">
+            @if($bulkRemittance['active_batch'])
+              A GCash payment is already active for this total. Open it again or check after payment.
+            @elseif($bulkRemittance['ready_count'] > 0)
+              Pay once for all delivered COD cash instead of sending separate payments per order.
+            @else
+              Delivered COD orders that need remittance will appear here.
+            @endif
+          </div>
+        </div>
+        <div class="remit-actions">
+          @if($bulkRemittance['active_batch'])
+            @if(!empty($bulkRemittance['active_batch']->paymongo_action_url))
+              <a class="btn btn-pay" href="{{ $bulkRemittance['active_batch']->paymongo_action_url }}" target="_blank" rel="noopener"><i class="bi bi-phone"></i>Open GCash Payment</a>
+            @endif
+            <form method="POST" action="{{ route('rider.remittance.bulk.check') }}">@csrf
+              <button class="btn btn-soft" type="submit"><i class="bi bi-arrow-repeat"></i>Check Payment Status</button>
+            </form>
+          @elseif($bulkRemittance['ready_count'] > 0)
+            <form method="POST" action="{{ route('rider.remittance.bulk.qr') }}">@csrf
+              <input type="hidden" name="open_payment" value="1">
+              <button class="btn btn-pay" type="submit"><i class="bi bi-qr-code"></i>Pay Total via GCash</button>
+            </form>
+          @else
+            <button class="btn btn-soft" type="button" disabled><i class="bi bi-check2-circle"></i>No COD to Remit</button>
+          @endif
+        </div>
+      </div>
+      <div class="remit-breakdown">
+        <div class="remit-stat"><div class="label">Ready Orders</div><div class="value">{{ $bulkRemittance['ready_count'] }}</div></div>
+        <div class="remit-stat"><div class="label">Waiting Amount</div><div class="value">PHP {{ number_format($bulkRemittance['waiting_total'], 2) }}</div></div>
+        <div class="remit-stat"><div class="label">Confirmed This Week</div><div class="value">PHP {{ number_format($bulkRemittance['confirmed_total'], 2) }}</div></div>
+      </div>
+      @if($bulkRemittance['orders']->count())
+        <div class="remit-orders">
+          @foreach($bulkRemittance['orders']->take(6) as $remitOrder)
+            <div class="remit-order">
+              <div><strong>Order #{{ $remitOrder->order_id }}</strong> <span>{{ $remitOrder->product_name }}</span></div>
+              <strong>PHP {{ number_format((float) $remitOrder->amount, 2) }}</strong>
+            </div>
+          @endforeach
+          @if($bulkRemittance['orders']->count() > 6)
+            <div class="order-note">{{ $bulkRemittance['orders']->count() - 6 }} more order(s) included in this total.</div>
+          @endif
+        </div>
+      @endif
     </section>
 
     <div class="toolbar">
@@ -140,11 +214,15 @@
                   <textarea name="reason" maxlength="300" required placeholder="Reason if declining"></textarea>
                   <button class="btn btn-danger" type="submit"><i class="bi bi-x-circle"></i>Decline</button>
                 </form>
-              @else
+              @elseif(($order->status ?? '') === 'Out for Delivery')
                 <a class="btn btn-primary" href="{{ route('rider.show', [$order->id, $order->rider_token]) }}"><i class="bi bi-arrow-right-circle"></i>Open</a>
                 @if($order->latitude && $order->longitude)
                   <a class="btn btn-outline" href="https://www.google.com/maps/dir/?api=1&destination={{ $order->latitude }},{{ $order->longitude }}&travelmode=driving" target="_blank" rel="noopener"><i class="bi bi-map"></i>Directions</a>
                 @endif
+              @elseif($order->remittance_amount)
+                <div class="order-note"><i class="bi bi-cash-stack"></i> Included in dashboard COD remittance</div>
+              @else
+                <div class="order-note"><i class="bi bi-info-circle"></i> Waiting for seller action</div>
               @endif
             </div>
           </div>
