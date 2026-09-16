@@ -2,124 +2,35 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\CatalogDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CatalogController extends Controller
 {
-    public function index()
+    public function __construct(private CatalogDataService $catalogData)
     {
-        $products = DB::table('products')
-            ->leftJoin('shops', 'shops.id', '=', 'products.shop_id')
-            ->where('products.classification', '!=', 'Custom')
-            ->select('products.*', 'shops.shop_name', 'shops.shop_slug', 'shops.shop_logo')
-            ->orderByDesc('products.id')
-            ->get();
-
-        $discountMap = CakeshopHelper::getActiveDiscountMap($products->pluck('id')->toArray());
-        foreach ($products as $product) {
-            $product->active_discount = $discountMap[$product->id] ?? null;
-            $product->discount_snapshot = CakeshopHelper::calculateDiscountSnapshot(
-                (float) $product->price,
-                $product->active_discount
-            );
-        }
-
-        // Load sizes per product
-        $productSizes = [];
-        try {
-            $sizes = DB::table('product_sizes')
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->get();
-            foreach ($sizes as $s) {
-                $productSizes[$s->product_id][] = $s;
-            }
-        } catch (\Exception $e) {}
-
-        // Load average ratings per product
-        $productRatings = [];
-        try {
-            $ratings = DB::table('order_reviews as r')
-                ->join('orders as o', 'o.id', '=', 'r.order_id')
-                ->select('o.product_id', DB::raw('AVG(r.rating) as avg_rating'), DB::raw('COUNT(*) as review_count'))
-                ->groupBy('o.product_id')
-                ->get();
-            foreach ($ratings as $r) {
-                $productRatings[$r->product_id] = $r->avg_rating;
-            }
-        } catch (\Exception $e) {}
-
-        // Load only a small preview per product; fetch more on demand from the public reviews endpoint.
-        $productReviews = [];
-        try {
-            $previewReviews = $this->reviewPreviewRowsForProducts($products->pluck('id')->toArray(), 3);
-            foreach ($previewReviews as $rv) {
-                $productReviews[$rv->product_id][] = $rv;
-            }
-        } catch (\Exception $e) {}
-
-        // Load review counts per product
-        $productReviewCounts = [];
-        try {
-            $counts = DB::table('order_reviews as r')
-                ->join('orders as o', 'o.id', '=', 'r.order_id')
-                ->select('o.product_id', DB::raw('COUNT(*) as count'))
-                ->groupBy('o.product_id')
-                ->get();
-            foreach ($counts as $cnt) {
-                $productReviewCounts[$cnt->product_id] = $cnt->count;
-            }
-        } catch (\Exception $e) {}
-
-        // Load shop settings
-        $shopSettings = \App\Helpers\CakeshopHelper::getSettings();
-
-        // Load daily capacity map
-        $capacityMap = [];
-        try {
-            $pids = $products->pluck('id')->toArray();
-            $tomorrow = date('Y-m-d', strtotime('+1 day'));
-            $dailyOrders = DB::table('product_daily_orders')
-                ->whereIn('product_id', $pids)
-                ->where('delivery_date', '>=', $tomorrow)
-                ->get();
-            foreach ($dailyOrders as $d) {
-                if (!isset($capacityMap[$d->product_id])) $capacityMap[$d->product_id] = [];
-                $capacityMap[$d->product_id][$d->delivery_date] = (int)$d->total_ordered;
-            }
-        } catch (\Exception $e) {}
-
-        return view('customer.catalog', compact('products','productSizes','productRatings','productReviews','productReviewCounts','shopSettings','capacityMap'));
     }
 
-    private function reviewPreviewRowsForProducts(array $productIds, int $limitPerProduct)
+    public function index()
     {
-        if (empty($productIds)) {
-            return collect();
-        }
+        $data = $this->catalogData->catalogData();
 
-        return DB::query()
-            ->fromSub(function ($query) use ($productIds) {
-                $query->from('order_reviews as r')
-                    ->join('orders as o', 'o.id', '=', 'r.order_id')
-                    ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
-                    ->whereIn('o.product_id', $productIds)
-                    ->select(
-                        'o.product_id',
-                        'r.rating',
-                        'r.review',
-                        'r.image_path',
-                        'r.created_at',
-                        DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as fullname"),
-                        'u.profile_photo',
-                        DB::raw('ROW_NUMBER() OVER (PARTITION BY o.product_id ORDER BY r.created_at DESC, r.id DESC) as review_rank')
-                    );
-            }, 'ranked_reviews')
-            ->where('review_rank', '<=', $limitPerProduct)
-            ->orderBy('product_id')
-            ->orderBy('review_rank')
-            ->get();
+        $products = $data['products'];
+        $bestSellers = $data['bestSellers'];
+        $productSizes = $data['productSizes'];
+        $reviewsMap = $data['reviewsMap'];
+        $productRatings = $data['productRatings'];
+        $productReviews = $data['productReviews'];
+        $productReviewCounts = $data['productReviewCounts'];
+        $capacityMap = $data['capacityMap'];
+        $barangayOptions = $data['barangayOptions'];
+        $shopSettings = \App\Helpers\CakeshopHelper::getSettings();
+
+        return view('customer.catalog', compact(
+            'products','bestSellers','productSizes','reviewsMap','productRatings',
+            'productReviews','productReviewCounts','shopSettings','capacityMap','barangayOptions'
+        ));
     }
 
     public function order(Request $request)

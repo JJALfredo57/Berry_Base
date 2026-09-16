@@ -3,114 +3,27 @@ namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\CatalogDataService;
 use App\Services\DailyCapacityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CatalogController extends Controller
 {
-    public function index()
+    public function __construct(private CatalogDataService $catalogData)
     {
-        $bestSellerStats = collect();
-        try {
-            $bestSellerStats = DB::table('orders')
-                ->select(
-                    'product_id',
-                    'shop_id',
-                    DB::raw('COUNT(DISTINCT id) as total_sold'),
-                    DB::raw('COUNT(*) as total_orders')
-                )
-                ->whereNotNull('product_id')
-                ->whereNotNull('shop_id')
-                ->whereNotIn('status', ['Cancelled', 'Rejected'])
-                ->groupBy('product_id', 'shop_id')
-                ->orderByDesc('total_sold')
-                ->orderByDesc('total_orders')
-                ->get()
-                ->keyBy(fn ($row) => (string) $row->product_id . '|' . (string) $row->shop_id);
-        } catch (\Exception $e) {}
+    }
 
-        $products = DB::table('products')
-            ->leftJoin('shops', 'shops.id', '=', 'products.shop_id')
-            ->where('products.is_available', true)
-            ->where('products.classification', '!=', 'Custom')
-            ->select('products.*', 'shops.shop_name', 'shops.shop_slug', 'shops.shop_logo')
-            ->orderBy('products.classification')
-            ->orderBy('products.name')
-            ->get();
-
-        $zonesByShop = collect();
-        $barangayOptions = collect();
-        try {
-            $deliveryZones = DB::table('delivery_zones')
-                ->where('is_active', true)
-                ->whereNotNull('shop_id')
-                ->where('barangay', '<>', '')
-                ->select('shop_id', 'barangay')
-                ->orderBy('barangay')
-                ->get();
-
-            $zonesByShop = $deliveryZones->groupBy(fn ($zone) => (string) $zone->shop_id);
-            $barangayOptions = $deliveryZones->pluck('barangay')->filter()->unique()->sort()->values();
-        } catch (\Exception $e) {}
-
-        $discountMap = CakeshopHelper::getActiveDiscountMap($products->pluck('id')->toArray());
-
-        foreach ($products as $product) {
-            $bestSellerKey = (string) $product->id . '|' . (string) ($product->shop_id ?? '');
-            $bestSeller = $bestSellerStats[$bestSellerKey] ?? null;
-            $shopZones = $zonesByShop->get((string)($product->shop_id ?? ''), collect());
-            $product->total_sold = (int)($bestSeller->total_sold ?? 0);
-            $product->total_orders = (int)($bestSeller->total_orders ?? 0);
-            $product->delivery_barangays = $shopZones->pluck('barangay')->filter()->unique()->sort()->values();
-            $product->delivery_barangays_text = $product->delivery_barangays->implode(' ');
-            $product->delivery_barangays_filter = '|' . $product->delivery_barangays->map(fn ($barangay) => strtolower(trim($barangay)))->implode('|') . '|';
-            $product->active_discount = $discountMap[$product->id] ?? null;
-            $product->discount_snapshot = CakeshopHelper::calculateDiscountSnapshot(
-                (float) $product->price,
-                $product->active_discount
-            );
-        }
-
-        $bestSellers = $products
-            ->filter(fn ($product) => (int)($product->total_sold ?? 0) > 0)
-            ->sortByDesc('total_sold')
-            ->take(4)
-            ->values();
-
-        $productIds = $products->pluck('id')->toArray();
-        $sizesMap   = [];
-        $reviewsMap = [];
-
-        // Per-product individual reviews (with comments, photos, names)
-        $productReviews = [];
-
-        if ($productIds) {
-            try {
-                $sizes = DB::table('product_sizes')
-                    ->whereIn('product_id', $productIds)
-                    ->where('is_active', true)
-                    ->orderBy('sort_order')->get();
-                foreach ($sizes as $s) $sizesMap[$s->product_id][] = $s;
-            } catch (\Exception $e) {}
-
-            try {
-                $reviews = DB::table('order_reviews as r')
-                    ->join('orders as o', 'o.id', '=', 'r.order_id')
-                    ->whereIn('o.product_id', $productIds)
-                    ->select('o.product_id', DB::raw('AVG(r.rating) as avg_rating'), DB::raw('COUNT(*) as total'))
-                    ->groupBy('o.product_id')->get();
-                foreach ($reviews as $r) $reviewsMap[$r->product_id] = $r;
-            } catch (\Exception $e) {}
-
-            // Load only a small preview per product; fetch more on demand from reviews().
-            try {
-                $previewReviews = $this->reviewPreviewRowsForProducts($productIds, 3);
-                foreach ($previewReviews as $rv) {
-                    $productReviews[$rv->product_id][] = $rv;
-                }
-            } catch (\Exception $e) {}
-        }
+    public function index(?Request $request = null)
+    {
+        $data = $this->catalogData->catalogData();
+        $products = $data['products'];
+        $bestSellers = $data['bestSellers'];
+        $sizesMap = $data['sizesMap'];
+        $reviewsMap = $data['reviewsMap'];
+        $productReviews = $data['productReviews'];
+        $capacityMap = $data['capacityMap'];
+        $barangayOptions = $data['barangayOptions'];
 
         $addonCategories = collect();
         $addonsByCategory = collect();
@@ -123,20 +36,6 @@ class CatalogController extends Controller
                 ->select('a.*', 'c.name as category_name', 'c.icon as category_icon')
                 ->orderBy('a.category_id')->orderBy('a.sort_order')
                 ->get()->groupBy('category_id');
-        } catch (\Exception $e) {}
-
-        // Load daily capacity (max_per_day) and total ordered per product per date
-        $capacityMap = [];
-        try {
-            $today2 = date('Y-m-d');
-            $dailyOrders = DB::table('product_daily_orders')
-                ->whereIn('product_id', $productIds)
-                ->where('date', '>=', $today2)
-                ->get();
-            foreach ($dailyOrders as $d) {
-                if (!isset($capacityMap[$d->product_id])) $capacityMap[$d->product_id] = [];
-                $capacityMap[$d->product_id][$d->date] = (int)$d->total_ordered;
-            }
         } catch (\Exception $e) {}
 
         return view('guest.catalog', compact(
@@ -159,7 +58,7 @@ class CatalogController extends Controller
             return response()->json(['ok' => false, 'message' => 'Product not found.'], 404);
         }
 
-        $rows = $this->reviewRowsForProduct($productId, $limit + 1, $offset)->get();
+        $rows = $this->catalogData->reviewsForProduct($productId, $limit + 1, $offset)->get();
         $hasMore = $rows->count() > $limit;
         $reviews = $rows->take($limit)->map(fn ($review) => [
             'rating' => (int) $review->rating,
@@ -177,55 +76,6 @@ class CatalogController extends Controller
             'next_offset' => $offset + $reviews->count(),
             'has_more' => $hasMore,
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    }
-
-    private function reviewRowsForProduct(string $productId, int $limit, int $offset = 0)
-    {
-        return DB::table('order_reviews as r')
-            ->join('orders as o', 'o.id', '=', 'r.order_id')
-            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
-            ->where('o.product_id', $productId)
-            ->select(
-                'o.product_id',
-                'r.rating',
-                'r.review',
-                'r.image_path',
-                'r.created_at',
-                DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as fullname"),
-                'u.profile_photo'
-            )
-            ->orderByDesc('r.created_at')
-            ->offset($offset)
-            ->limit($limit);
-    }
-
-    private function reviewPreviewRowsForProducts(array $productIds, int $limitPerProduct)
-    {
-        if (empty($productIds)) {
-            return collect();
-        }
-
-        return DB::query()
-            ->fromSub(function ($query) use ($productIds) {
-                $query->from('order_reviews as r')
-                    ->join('orders as o', 'o.id', '=', 'r.order_id')
-                    ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
-                    ->whereIn('o.product_id', $productIds)
-                    ->select(
-                        'o.product_id',
-                        'r.rating',
-                        'r.review',
-                        'r.image_path',
-                        'r.created_at',
-                        DB::raw("COALESCE(u.fullname, o.guest_name, 'Customer') as fullname"),
-                        'u.profile_photo',
-                        DB::raw('ROW_NUMBER() OVER (PARTITION BY o.product_id ORDER BY r.created_at DESC, r.id DESC) as review_rank')
-                    );
-            }, 'ranked_reviews')
-            ->where('review_rank', '<=', $limitPerProduct)
-            ->orderBy('product_id')
-            ->orderBy('review_rank')
-            ->get();
     }
 
     public function checkAvailability(Request $request)

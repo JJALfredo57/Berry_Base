@@ -7,6 +7,11 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap:1.25rem;
 }
+.best-seller-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap:1rem;
+}
 .catalog-item{ transition: all .3s ease; }
 @media (hover: hover) {
   .catalog-card:hover {
@@ -16,7 +21,18 @@
 }
 @media(max-width:600px){
   .catalog-grid{ grid-template-columns: 1fr; gap:.75rem; }
+  .best-seller-grid{ grid-template-columns:1fr; }
   .catalog-img-wrap{ height:200px !important; }
+}
+.filter-fab{display:none}
+.filter-overlay{display:none}
+.filter-panel{transition:transform .25s ease, box-shadow .25s ease}
+@media(max-width:768px){
+  .filter-fab{display:inline-flex;position:fixed;right:14px;bottom:82px;z-index:1041;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.2)}
+  .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1040}
+  .filter-overlay.show{display:block}
+  .filter-panel{position:fixed;top:0;right:0;bottom:0;width:min(88vw,360px);z-index:1042;overflow:auto;border-radius:0!important;transform:translateX(105%);margin:0!important}
+  .filter-panel.show{transform:translateX(0);box-shadow:-18px 0 40px rgba(15,23,42,.2)}
 }
 </style>
 
@@ -31,13 +47,111 @@
     <div class="alert alert-success border-0"><i class="bi bi-check-circle me-2"></i>{{ session('msg') }}</div>
   @endif
 
-  
-<div class="mb-4 d-flex justify-content-center">
-  <div style="width:100%;">
-    <input type="text" id="catalogSearch" class="form-control form-control-lg"
-      placeholder="Search cakes..."
-      oninput="filterCatalog()">
+  @if(($bestSellers ?? collect())->count() > 0)
+  <div class="mb-5" id="bestSellerSection">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+      <div>
+        <h5 class="fw-bold mb-1" style="color:#9d174d"><i class="bi bi-fire me-2"></i>Best Seller Cakes</h5>
+        <p class="text-muted small mb-0">Most ordered favorites from customers</p>
+      </div>
+      <span class="badge rounded-pill" style="background:#fff1f2;color:#be123c;font-size:.78rem">Live ranking from completed and active orders</span>
+    </div>
+    <div class="best-seller-grid" id="bestSellerGrid">
+      @foreach($bestSellers as $p)
+      @php
+        $avgRating   = isset($reviewsMap[$p->id]) ? $reviewsMap[$p->id]->avg_rating : null ?? null;
+        $reviewCount = isset($reviewsMap[$p->id]) ? $reviewsMap[$p->id]->total : 0 ?? 0;
+      @endphp
+      <button type="button" class="best-seller-item text-start border-0 p-0"
+              data-name="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? '') . ' ' . ($p->shop_name ?? '') . ' ' . ($p->delivery_barangays_text ?? ''))) }}"
+              data-classification="{{ strtolower($p->classification ?? '') }}"
+              data-seller="{{ strtolower($p->shop_name ?? '') }}"
+              data-barangays="{{ $p->delivery_barangays_filter ?? '||' }}"
+              data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}"
+              style="background:#fff;border-radius:1.15rem;overflow:hidden;box-shadow:0 12px 30px rgba(15,23,42,.08)">
+        <div class="position-relative" style="height:180px">
+          <img src="{{ $p->image_path }}" alt="{{ $p->name }}" style="width:100%;height:100%;object-fit:cover"
+               onerror="this.src='https://placehold.co/480x320/fce4ec/e91e63?text=Cake'">
+          <span class="position-absolute top-0 start-0 m-2 badge best-seller-rank" style="background:#be123c;color:#fff">
+            <i class="bi bi-trophy-fill me-1"></i>Top {{ $loop->iteration }}
+          </span>
+        </div>
+        <div class="p-3">
+          <div class="fw-bold mb-1">{{ $p->name }}</div>
+          <div class="small text-muted mb-2">{{ $p->shop_name ?? 'Cake Shop' }}</div>
+          <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+            <div class="small" style="color:#f59e0b">
+              <i class="bi bi-star-fill me-1"></i>{{ $avgRating ? number_format($avgRating, 1) : 'New' }}
+              <span class="text-muted ms-1">({{ $reviewCount }} review{{ $reviewCount != 1 ? 's' : '' }})</span>
+            </div>
+            <div class="small fw-semibold" style="color:#be123c">{{ number_format($p->total_sold) }} sold</div>
+          </div>
+        </div>
+      </button>
+      @endforeach
+    </div>
   </div>
+  @endif
+
+<button type="button" class="btn btn-primary filter-fab" onclick="toggleCatalogFilters(true)">
+  <i class="bi bi-funnel me-1"></i>Filters
+</button>
+<div id="catalogFilterOverlay" class="filter-overlay" onclick="toggleCatalogFilters(false)"></div>
+<div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel" style="border-radius:1.25rem;background:#fff">
+  <div class="card-body p-3 p-md-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+      <div>
+        <h5 class="fw-bold mb-1" style="color:var(--primary)"><i class="bi bi-funnel me-2"></i>Smart Product Filters</h5>
+        <p class="text-muted small mb-0">Search by cake name, flavor, seller, category, or covered barangay</p>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetCatalogFilters()">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm d-md-none" onclick="toggleCatalogFilters(false)">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="row g-2">
+      <div class="col-lg-4">
+        <input type="text" id="catalogSearch" class="form-control form-control-lg"
+          placeholder="Search cakes, flavors, shops, barangays..."
+          oninput="filterCatalog()">
+      </div>
+      <div class="col-sm-6 col-lg-2">
+        <input id="catalogClassFilter" list="catalogClassOptions" class="form-control form-control-lg" placeholder="All categories" oninput="filterCatalog()">
+        <datalist id="catalogClassOptions">
+          @foreach($products->pluck('classification')->filter()->unique()->sort()->values() as $classificationOption)
+          <option value="{{ $classificationOption }}"></option>
+          @endforeach
+        </datalist>
+      </div>
+      <div class="col-sm-6 col-lg-2">
+        <input id="catalogSellerFilter" list="catalogSellerOptions" class="form-control form-control-lg" placeholder="All sellers" oninput="filterCatalog()">
+        <datalist id="catalogSellerOptions">
+          @foreach($products->pluck('shop_name')->filter()->unique()->sort()->values() as $shopName)
+          <option value="{{ $shopName }}"></option>
+          @endforeach
+        </datalist>
+      </div>
+      <div class="col-sm-6 col-lg-2">
+        <input id="catalogBarangayFilter" list="catalogBarangayOptions" class="form-control form-control-lg" placeholder="All barangays" oninput="filterCatalog()">
+        <datalist id="catalogBarangayOptions">
+          @foreach(($barangayOptions ?? collect()) as $barangay)
+          <option value="{{ $barangay }}"></option>
+          @endforeach
+        </datalist>
+      </div>
+    </div>
+    <div class="small text-muted mt-2" id="catalogFilterSummary">Showing {{ $products->count() }} cake options</div>
+  </div>
+</div>
+
+<div id="catalogEmptyState" class="text-center py-5" style="display:none">
+  <i class="bi bi-search" style="font-size:2.5rem;color:#d1d5db"></i>
+  <p class="text-muted mt-3 mb-1">No cakes match your filters.</p>
+  <button type="button" class="btn btn-outline-primary btn-sm" onclick="resetCatalogFilters()">Clear filters</button>
 </div>
 
 <div class="catalog-grid" id="catalogGrid">
@@ -58,7 +172,14 @@
       $isArchived  = !empty($p->archived_at);
       $pricing     = $p->discount_snapshot ?? null;
     @endphp
-    <div class="catalog-item"  data-name="{{ strtolower($p->name . ' ' . ($p->description ?? '')) }}">
+    @php
+      $latestReview = $reviews[0] ?? null;
+    @endphp
+    <div class="catalog-item"
+         data-name="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? '') . ' ' . ($p->shop_name ?? '') . ' ' . ($p->delivery_barangays_text ?? '') . ' ' . ($latestReview->review ?? ''))) }}"
+         data-classification="{{ strtolower($p->classification ?? '') }}"
+         data-seller="{{ strtolower($p->shop_name ?? '') }}"
+         data-barangays="{{ $p->delivery_barangays_filter ?? '||' }}">
       <div class="catalog-card card h-100" style="{{ ($isArchived || !$isAvailable) ? 'opacity:.72' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
 
         {{-- Image --}}
@@ -618,15 +739,71 @@ document.addEventListener('click', function(e) {
 
 <script>
 function filterCatalog(){
-  let q = document.getElementById('catalogSearch').value.toLowerCase();
-  document.querySelectorAll('.catalog-item').forEach(el=>{
-    let name = el.getAttribute('data-name');
-    if(name.includes(q)){
-      el.style.display='';
-    }else{
-      el.style.display='none';
+  const q = (document.getElementById('catalogSearch')?.value || '').toLowerCase().trim();
+  const classification = (document.getElementById('catalogClassFilter')?.value || '').toLowerCase();
+  const seller = (document.getElementById('catalogSellerFilter')?.value || '').toLowerCase();
+  const barangay = (document.getElementById('catalogBarangayFilter')?.value || '').toLowerCase();
+  let visibleCount = 0;
+  let visibleBestSellerCount = 0;
+
+  const matchesCatalogFilters = (el) => {
+    const haystack = (el.getAttribute('data-name') || '').toLowerCase();
+    const elClass = (el.getAttribute('data-classification') || '').toLowerCase();
+    const elSeller = (el.getAttribute('data-seller') || '').toLowerCase();
+    const elBarangays = (el.getAttribute('data-barangays') || '').toLowerCase();
+
+    return (!q || haystack.includes(q))
+      && (!classification || elClass.includes(classification))
+      && (!seller || elSeller.includes(seller))
+      && (!barangay || elBarangays.includes(barangay));
+  };
+
+  document.querySelectorAll('.catalog-item').forEach(el => {
+    const matches = matchesCatalogFilters(el);
+    el.style.display = matches ? '' : 'none';
+    if (matches) visibleCount++;
+  });
+
+  document.querySelectorAll('.best-seller-item').forEach(el => {
+    const matches = matchesCatalogFilters(el);
+    el.style.display = matches ? '' : 'none';
+    if (matches) {
+      visibleBestSellerCount++;
+      const rank = el.querySelector('.best-seller-rank');
+      if (rank) rank.innerHTML = '<i class="bi bi-trophy-fill me-1"></i>Top ' + visibleBestSellerCount;
     }
   });
+
+  const bestSellerSection = document.getElementById('bestSellerSection');
+  if (bestSellerSection) {
+    bestSellerSection.style.display = visibleBestSellerCount === 0 ? 'none' : '';
+  }
+
+  const emptyState = document.getElementById('catalogEmptyState');
+  if (emptyState) emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+
+  const summary = document.getElementById('catalogFilterSummary');
+  if (summary) {
+    const suffixParts = [];
+    if (seller) suffixParts.push('seller "' + document.getElementById('catalogSellerFilter').value + '"');
+    if (barangay) suffixParts.push('barangay "' + document.getElementById('catalogBarangayFilter').value + '"');
+    const suffix = suffixParts.length ? ' for ' + suffixParts.join(' and ') : '';
+    summary.textContent = 'Showing ' + visibleCount + ' of ' + document.querySelectorAll('.catalog-item').length + ' cake options' + suffix;
+  }
+}
+
+function resetCatalogFilters() {
+  ['catalogSearch','catalogClassFilter','catalogSellerFilter','catalogBarangayFilter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  filterCatalog();
+}
+
+function toggleCatalogFilters(open) {
+  document.getElementById('catalogFilterPanel')?.classList.toggle('show', open);
+  document.getElementById('catalogFilterOverlay')?.classList.toggle('show', open);
+  document.body.style.overflow = open ? 'hidden' : '';
 }
 </script>
 
