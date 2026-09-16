@@ -1726,6 +1726,7 @@
       <i class="bi bi-search"></i> Track My Order
     </a>
 
+    @if($role !== 'customer')
     <div class="csb-divider"></div>
     <div class="csb-section-label">For Riders</div>
     <div style="padding:2px 8px 10px">
@@ -1770,6 +1771,7 @@
             class="csb-link" style="color:#e53935;font-weight:600;background:none;border:none;cursor:pointer;width:100%;text-align:left;padding:0">
       <i class="bi bi-stars"></i> Become a Seller
     </button>
+    @endif
 
     @if($role === 'admin')
     <div class="csb-divider"></div>

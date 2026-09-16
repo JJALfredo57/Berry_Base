@@ -15,6 +15,16 @@ class CustomOrderController extends Controller
 {
     use UploadsFiles;
 
+    private function generateTrackCode(): string
+    {
+        $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        do {
+            $code = '';
+            for ($i = 0; $i < 8; $i++) $code .= $chars[random_int(0, strlen($chars)-1)];
+        } while (DB::table('orders')->where('track_code', $code)->exists());
+        return $code;
+    }
+
     private function submissionKey(Request $request, string $scope): ?string
     {
         $token = trim((string) $request->input('_submit_token', ''));
@@ -325,6 +335,7 @@ class CustomOrderController extends Controller
         }
 
         $oid = CakeshopHelper::generateId('orders');
+        $trackCode = $this->generateTrackCode();
         $submitKey = $this->submissionKey($request, 'customer_custom_order_store');
         if ($submitKey && !Cache::add($submitKey . ':lock', true, now()->addMinutes(10))) {
             $existing = Cache::get($submitKey . ':result');
@@ -340,6 +351,7 @@ class CustomOrderController extends Controller
             'shop_id'          => $shopId,
             'user_id'          => $uid,
             'product_id'       => $customPid,
+            'track_code'       => $trackCode,
             'quantity'         => $qty,
             'custom_note'      => $fullNote,
             'total_price'      => $total,

@@ -10,6 +10,16 @@ use Illuminate\Support\Facades\DB;
 
 class CheckoutController extends Controller
 {
+    private function generateTrackCode(): string
+    {
+        $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        do {
+            $code = '';
+            for ($i = 0; $i < 8; $i++) $code .= $chars[random_int(0, strlen($chars)-1)];
+        } while (DB::table('orders')->where('track_code', $code)->exists());
+        return $code;
+    }
+
     public function show(Request $request)
     {
         $checkout = $request->session()->get('checkout');
@@ -264,6 +274,7 @@ class CheckoutController extends Controller
         $baseTotal = $pricing['final_unit_price'] * $qty;
         $total     = $baseTotal + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
         $oid       = CakeshopHelper::generateId('orders');
+        $trackCode = $this->generateTrackCode();
 
         $needsDeposit  = ($payment === 'COD');
         $depositAmount = $needsDeposit ? round($total * 0.5, 2) : null;
@@ -283,6 +294,7 @@ class CheckoutController extends Controller
             'shop_id'          => $product->shop_id ?? null,
             'user_id'          => $uid,
             'product_id'       => $pid,
+            'track_code'       => $trackCode,
             'quantity'         => $qty,
             'custom_note'      => $note,
             'total_price'      => $total,

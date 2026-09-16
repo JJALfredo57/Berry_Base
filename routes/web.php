@@ -326,6 +326,11 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
 
     Route::get('/profile',         [CustomerProfile::class, 'show'])->name('profile');
     Route::post('/profile/update', [CustomerProfile::class, 'update'])->name('profile.update');
+    Route::get('/profile/password',               [CustomerProfile::class, 'changePasswordShow'])->name('profile.password.show');
+    Route::post('/profile/password/send-otp',     [CustomerProfile::class, 'changePasswordSendOtp'])->name('profile.password.send_otp');
+    Route::post('/profile/password/verify-otp',   [CustomerProfile::class, 'changePasswordVerifyOtp'])->name('profile.password.verify_otp');
+    Route::post('/profile/password',              [CustomerProfile::class, 'changePassword'])->name('profile.password');
+    Route::get('/profile/password/back',          [CustomerProfile::class, 'changePasswordBack'])->name('profile.password.back');
 
     Route::get('/addresses',          [CustomerAddress::class, 'index'])->name('addresses');
     Route::post('/addresses',         [CustomerAddress::class, 'store'])->name('addresses.store');

@@ -316,6 +316,16 @@ class CakeshopHelper
     public static function sendOtpEmail(string $toEmail, string $otp, string $purpose = 'OTP Verification'): bool
     {
         try {
+            $mailer = (string) config('mail.default', 'log');
+            if (in_array($mailer, ['log', 'array'], true)) {
+                Log::warning('OTP Email not sent because mailer is not configured for delivery.', [
+                    'mailer' => $mailer,
+                    'to' => $toEmail,
+                    'purpose' => $purpose,
+                ]);
+                return false;
+            }
+
             $settings = self::getSettings();
             $siteName = $settings['site_title'] ?? 'Cake Shop';
             $fromAddr = config('mail.from.address', 'no-reply@cakeshop.com');

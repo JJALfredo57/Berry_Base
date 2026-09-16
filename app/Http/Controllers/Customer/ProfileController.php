@@ -121,7 +121,12 @@ class ProfileController extends Controller
                 : "Email not configured. Please ask the administrator to set up Gmail SMTP.";
         }
 
-        return redirect()->route('profile.password.show')->with('msg', $msg);
+        if (!$sent) {
+            $request->session()->forget(['cp_otp','cp_expires','cp_sent_at','cp_channel','cp_step']);
+            return redirect()->route('customer.profile')->with('error', $msg);
+        }
+
+        return redirect()->route('customer.profile.password.show')->with('msg', $msg);
     }
 
     // ── Change Password — Step 2 POST: Verify OTP ────────────────
@@ -132,19 +137,19 @@ class ProfileController extends Controller
 
         if (!$session->get('cp_otp')) {
             $session->forget(['cp_otp','cp_expires','cp_sent_at','cp_channel','cp_step']);
-            return redirect()->route('profile.password.show')->with('error', 'Session expired. Please try again.');
+            return redirect()->route('customer.profile.password.show')->with('error', 'Session expired. Please try again.');
         }
         if (time() > (int)$session->get('cp_expires')) {
             $session->forget(['cp_otp','cp_expires','cp_sent_at','cp_channel','cp_step']);
-            return redirect()->route('profile.password.show')->with('error', 'OTP expired. Please request a new one.');
+            return redirect()->route('customer.profile.password.show')->with('error', 'OTP expired. Please request a new one.');
         }
         if ($otpIn !== (string)$session->get('cp_otp')) {
-            return redirect()->route('profile.password.show')->with('error', 'Incorrect OTP. Please try again.');
+            return redirect()->route('customer.profile.password.show')->with('error', 'Incorrect OTP. Please try again.');
         }
 
         $session->put('cp_step', 3);
         $session->forget(['cp_otp','cp_expires','cp_sent_at','cp_channel']);
-        return redirect()->route('profile.password.show')->with('msg', 'OTP verified! Please set your new password.');
+        return redirect()->route('customer.profile.password.show')->with('msg', 'OTP verified! Please set your new password.');
     }
 
     // ── Change Password — Step 3 POST: Save new password ─────────
@@ -156,7 +161,7 @@ class ProfileController extends Controller
 
         // Must have completed OTP step
         if ($request->session()->get('cp_step') !== 3) {
-            return redirect()->route('profile.password.show')->with('error', 'Please verify OTP first.');
+            return redirect()->route('customer.profile.password.show')->with('error', 'Please verify OTP first.');
         }
 
         if (strlen($new) < 8) return back()->with('error', 'Password must be at least 8 characters.');

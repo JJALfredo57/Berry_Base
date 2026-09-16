@@ -69,6 +69,11 @@ class RegisterController extends Controller
                 : "Email not yet configured. Please ask the administrator to set up Gmail SMTP.";
         }
 
+        if (!$sent) {
+            $request->session()->forget(['reg_pending','reg_step']);
+            return redirect()->route('register')->with('error', $msg)->withInput();
+        }
+
         return redirect()->route('register')->with('msg', $msg);
     }
 

@@ -195,6 +195,9 @@
               <div>
             <div class="fw-bold">{{ $o->product_name }}</div>
             <div class="text-muted small">Order #{{ $o->id }} &bull; {{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y') }}</div>
+            @if(!empty($o->track_code))
+              <div class="text-muted small">Tracking Code: <strong>{{ $o->track_code }}</strong></div>
+            @endif
           </div>
         </div>
         <div class="text-end mt-2 mt-sm-0">
@@ -923,6 +926,12 @@
 
       {{-- Actions --}}
       <div class="px-3 pb-3 d-flex gap-2 flex-wrap align-items-center">
+        @if(!empty($o->track_code))
+          <a href="{{ route('track.order', $o->track_code) }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-search me-1"></i>Track
+          </a>
+        @endif
+
         <a href="{{ route('customer.messages.thread', $o->id) }}" class="btn btn-outline-primary btn-sm">
           <i class="bi bi-chat-dots me-1"></i>Message Admin
         </a>
