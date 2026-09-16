@@ -1158,6 +1158,9 @@ function sendGuestOtp() {
       if (otpInput) otpInput.required = true;
       otpSent = true;
       document.getElementById('checkoutForm')?.dispatchEvent(new Event('change', { bubbles:true }));
+      if (data.account_message) {
+        cakeToast(data.account_message, data.account_found ? 'warning' : 'success');
+      }
       cakeToast('✅ OTP sent! Check your SMS.', 'success');
       btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Resend';
       btn.disabled = false;

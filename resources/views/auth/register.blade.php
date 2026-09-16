@@ -171,7 +171,7 @@
 
           <div class="col-12" style="text-align:center">
             <p style="font-size:.875rem;color:var(--gray-600);margin-bottom:1.25rem">
-              We sent a 6-digit OTP to <strong>{{ session('reg_pending.otp_channel') === 'sms' ? '+63'.session('reg_pending.phone') : session('reg_pending.email') }}</strong>
+              We sent a 6-digit OTP to <strong>{{ session('reg_pending.otp_channel') === 'sms' ? session('reg_pending.phone') : session('reg_pending.email') }}</strong>
             </p>
             <input type="text" class="form-control @error('otp') is-invalid @enderror"
                    name="otp"

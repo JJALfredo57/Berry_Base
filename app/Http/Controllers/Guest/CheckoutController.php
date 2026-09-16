@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
+use App\Services\CustomerIdentityService;
 use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
@@ -136,10 +137,10 @@ class CheckoutController extends Controller
             $phone = trim($request->input('phone',''));
             if (!$phone) return response()->json(['ok'=>false,'error'=>'Please enter your phone number.']);
 
-            $phone = preg_replace('/\D/','',$phone);
-            if (strlen($phone) === 10) $phone = '0'.$phone;
-            if (strlen($phone) === 11 && substr($phone,0,1)==='0') $phone = '+63'.substr($phone,1);
-            elseif (strlen($phone) === 12 && substr($phone,0,2)==='63') $phone = '+'.$phone;
+            $identity = app(CustomerIdentityService::class);
+            $phone = $identity->normalizePhone($phone);
+            if (!$phone) return response()->json(['ok'=>false,'error'=>'Please enter a valid Philippine mobile number.']);
+            $linkedCustomer = $identity->customerByPhone($phone);
 
             $otp          = str_pad(random_int(0,999999),6,'0',STR_PAD_LEFT);
             $expires      = now()->addMinutes(10)->format('Y-m-d H:i:s');
@@ -151,6 +152,7 @@ class CheckoutController extends Controller
             $request->session()->put('guest_otp_exp',      $expires);
             $request->session()->put('guest_phone',        $phone);
             $request->session()->put('guest_pre_track',    $preTrackCode);
+            $request->session()->put('guest_phone_customer_id', $linkedCustomer->id ?? null);
 
             // Get shop name from session checkout product
             $checkout = $request->session()->get('guest_checkout');
@@ -186,7 +188,14 @@ class CheckoutController extends Controller
                 }
             } catch (\Throwable $e) {}
 
-            return response()->json(['ok' => true, 'dev' => $devPayload]);
+            return response()->json([
+                'ok' => true,
+                'dev' => $devPayload,
+                'account_found' => (bool) $linkedCustomer,
+                'account_message' => $linkedCustomer
+                    ? 'This phone is linked to an existing account. After OTP verification, this order will be saved to that customer account.'
+                    : 'No account was found for this phone. You can still order as a guest and create an account after checkout.',
+            ]);
 
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('sendOtp error: ' . $e->getMessage());
@@ -203,6 +212,8 @@ class CheckoutController extends Controller
         $storedOtp = $request->session()->get('guest_otp');
         $otpExp    = $request->session()->get('guest_otp_exp');
         $phone     = $request->session()->get('guest_phone');
+        $linkedCustomer = app(CustomerIdentityService::class)->customerByPhone($phone);
+        $linkedCustomerId = $linkedCustomer ? (string) $linkedCustomer->id : null;
 
         if (!$otp || !$storedOtp || $otp !== $storedOtp)
             return back()->with('error','Invalid verification code.')->withInput();
@@ -339,7 +350,7 @@ class CheckoutController extends Controller
             'guest_name'          => $guestName,
             'guest_phone'         => $phone,
             'track_code'          => $trackCode,
-            'user_id'             => null,
+            'user_id'             => $linkedCustomerId,
             'product_id'          => $pid,
             'quantity'            => $qty,
             'custom_note'         => $note ?: null,
@@ -406,7 +417,7 @@ class CheckoutController extends Controller
             }
         } catch (\Throwable $e) {}
 
-        $request->session()->forget(['guest_checkout','guest_otp','guest_otp_exp','guest_phone','guest_pre_track']);
+        $request->session()->forget(['guest_checkout','guest_otp','guest_otp_exp','guest_phone','guest_pre_track','guest_phone_customer_id']);
 
         // Customer confirmation: push first for mobile app, SMS fallback when no mobile session exists.
         $siteName = config('app.name','Cake Shop');

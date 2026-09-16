@@ -3,18 +3,23 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
+use App\Services\CustomerIdentityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class RegisterController extends Controller
 {
+    public function __construct(private CustomerIdentityService $identity)
+    {
+    }
+
     public function show(Request $request)
     {
         $step = $request->session()->get('reg_step', 1);
         return view('auth.register', compact('step'));
     }
 
-    public function sendOtp(Request $request)
+    public function store(Request $request)
     {
         $fullname = trim($request->input('fullname', ''));
         $email    = strtolower(trim($request->input('email', '')));
@@ -29,15 +34,14 @@ class RegisterController extends Controller
             return back()->with('error', 'Invalid email address.')->withInput();
         }
 
-        $exists = DB::table('users')
-            ->where(function($q) use ($username, $email, $phone) {
-                $q->where('username', $username)
-                  ->orWhereRaw('LOWER(email) = ?', [$email])
-                  ->orWhere('phone', $phone);
-            })->first();
+        $phone = $this->identity->normalizePhone($phone);
+        if (!$phone) {
+            return back()->with('error', 'Please enter a valid Philippine mobile number.')->withInput();
+        }
 
+        $exists = $this->identity->userConflict($username, $email, $phone);
         if ($exists) {
-            return back()->with('error', 'Username, email, or phone number already exists.')->withInput();
+            return back()->with('error', $this->identity->conflictMessage($exists, $username, $email, $phone))->withInput();
         }
 
         $otp     = (string) random_int(100000, 999999);
@@ -68,7 +72,18 @@ class RegisterController extends Controller
         return redirect()->route('register')->with('msg', $msg);
     }
 
-    public function verify(Request $request)
+    public function showVerify(Request $request)
+    {
+        if (!$request->session()->has('reg_pending')) {
+            $request->session()->put('reg_step', 1);
+            return redirect()->route('register')->with('error', 'Please complete your account details first.');
+        }
+
+        $request->session()->put('reg_step', 2);
+        return $this->show($request);
+    }
+
+    public function verifyOtp(Request $request)
     {
         $otpIn    = trim($request->input('otp', ''));
         $password = $request->input('password', '');
@@ -104,6 +119,12 @@ class RegisterController extends Controller
             return redirect()->route('register')->with('error', 'Password must contain at least 1 special character.');
         }
 
+        $exists = $this->identity->userConflict($pending['username'], $pending['email'], $pending['phone']);
+        if ($exists) {
+            $request->session()->forget(['reg_pending','reg_step']);
+            return redirect()->route('register')->with('error', $this->identity->conflictMessage($exists, $pending['username'], $pending['email'], $pending['phone']));
+        }
+
         $newId = CakeshopHelper::generateId('users');
         DB::table('users')->insert([
             'id'          => $newId,
@@ -120,5 +141,21 @@ class RegisterController extends Controller
         CakeshopHelper::logActivity($newId, 'customer', 'Register', 'New customer registered');
         $request->session()->forget(['reg_pending','reg_step']);
         return redirect()->route('login')->with('msg', 'Registration successful! You can now login.');
+    }
+
+    public function back(Request $request)
+    {
+        $request->session()->forget(['reg_pending','reg_step']);
+        return redirect()->route('register');
+    }
+
+    public function sendOtp(Request $request)
+    {
+        return $this->store($request);
+    }
+
+    public function verify(Request $request)
+    {
+        return $this->verifyOtp($request);
     }
 }

@@ -1387,6 +1387,9 @@ function sendCoGuestOtp() {
       document.querySelector('[name="otp_code"]').required=true;
       otpSent = true;
       document.getElementById('customOrderForm')?.dispatchEvent(new Event('change', { bubbles:true }));
+      if (data.account_message) {
+        cakeToast(data.account_message, data.account_found ? 'warning' : 'success');
+      }
       var badge = document.getElementById('otpStatusBadge');
       if (data.dev) renderCoDevOtpHint(data.dev);
       if (badge) { badge.style.background='#dcfce7'; badge.style.color='#166534'; badge.innerHTML='<i class="bi bi-check-circle-fill me-1"></i>OTP sent — enter code below'; }
