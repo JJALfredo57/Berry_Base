@@ -5,7 +5,9 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Facades\Schema;
 use App\Helpers\CakeshopHelper;
+use App\Services\CustomerIdentityService;
 use App\Services\BackupService;
 use App\Services\RiderAssignmentService;
 
@@ -179,6 +181,207 @@ Artisan::command('orders:expire-unpaid-deposits {--hours=24 : Hours before unpai
     $this->info('Expired ' . $orders->count() . ' unpaid deposit order(s).');
     return 0;
 })->purpose('Cancel unpaid Awaiting Deposit orders after the configured timeout');
+
+Artisan::command('customer:link-orders-by-phone {phone : Customer phone number to match} {--user-id= : Specific customer user id to receive the orders} {--name= : Expected customer full name, used as a safety check} {--apply : Actually update matching records}', function () {
+    /** @var CustomerIdentityService $identity */
+    $identity = app(CustomerIdentityService::class);
+    $phone = (string) $this->argument('phone');
+    $normalizedPhone = $identity->normalizePhone($phone);
+    $variants = $identity->phoneVariants($phone);
+    $expectedName = trim((string) $this->option('name'));
+    $selectedUserId = trim((string) $this->option('user-id'));
+    $apply = (bool) $this->option('apply');
+
+    if (!$normalizedPhone || !$variants) {
+        $this->error('Invalid Philippine mobile number. Example: 09278460673');
+        return 1;
+    }
+
+    foreach (['users', 'orders'] as $table) {
+        if (!Schema::hasTable($table)) {
+            $this->error("Missing required table: {$table}");
+            return 1;
+        }
+    }
+
+    $customerQuery = DB::table('users')
+        ->where('role', 'customer')
+        ->whereIn('phone', $variants)
+        ->select('id', 'fullname', 'email', 'phone', 'role', 'created_at')
+        ->orderByDesc('created_at');
+
+    if ($selectedUserId !== '') {
+        $customerQuery->where('id', $selectedUserId);
+    }
+
+    $customers = $customerQuery->get();
+
+    if ($expectedName !== '') {
+        $matchingByName = $customers->filter(fn ($user) => strcasecmp((string) $user->fullname, $expectedName) === 0)->values();
+        if ($matchingByName->isNotEmpty()) {
+            $customers = $matchingByName;
+        }
+    }
+
+    if ($customers->isEmpty()) {
+        $this->error('No customer account found with this phone number' . ($expectedName ? " and name {$expectedName}." : '.'));
+        $this->line('Phone variants checked: ' . implode(', ', $variants));
+        return 1;
+    }
+
+    if ($customers->count() > 1) {
+        $this->error('More than one customer account matched. Re-run with --user-id=<id> to choose exactly one.');
+        $this->table(['ID', 'Full Name', 'Email', 'Phone', 'Created'], $customers->map(fn ($user) => [
+            $user->id,
+            $user->fullname,
+            $user->email,
+            $user->phone,
+            $user->created_at,
+        ])->all());
+        return 1;
+    }
+
+    $customer = $customers->first();
+    $customerName = $expectedName !== '' ? $expectedName : (string) $customer->fullname;
+
+    $orders = DB::table('orders')
+        ->whereIn('guest_phone', $variants)
+        ->select('id', 'guest_name', 'guest_phone', 'user_id', 'status', 'track_code', 'created_at')
+        ->orderBy('created_at')
+        ->get();
+
+    $conflicts = $orders->filter(fn ($order) => filled($order->user_id) && (string) $order->user_id !== (string) $customer->id)->values();
+    $linkable = $orders->reject(fn ($order) => filled($order->user_id) && (string) $order->user_id !== (string) $customer->id)->values();
+    $orderIds = $linkable->pluck('id')->values()->all();
+
+    $customOrderCount = 0;
+    if (Schema::hasTable('custom_orders') && $orderIds) {
+        $customOrderCount = DB::table('custom_orders')
+            ->whereIn('order_id', $orderIds)
+            ->count();
+    }
+
+    $reviewCount = 0;
+    if (Schema::hasTable('order_reviews') && $orderIds) {
+        $reviewCount = DB::table('order_reviews')
+            ->whereIn('order_id', $orderIds)
+            ->count();
+    }
+
+    $mobileNotificationCount = 0;
+    if (Schema::hasTable('mobile_notifications') && $orderIds) {
+        $mobileNotificationCount = DB::table('mobile_notifications')
+            ->whereIn('order_id', $orderIds)
+            ->count();
+    }
+
+    $this->info(($apply ? 'APPLY' : 'DRY RUN') . ' - link historical orders to customer');
+    $this->line('Phone input: ' . $phone);
+    $this->line('Normalized phone: ' . $normalizedPhone);
+    $this->line('Variants checked: ' . implode(', ', $variants));
+    $this->newLine();
+    $this->table(['Customer ID', 'Full Name', 'Email', 'Phone'], [[
+        $customer->id,
+        $customer->fullname,
+        $customer->email,
+        $customer->phone,
+    ]]);
+
+    $this->line('Matching orders: ' . $orders->count());
+    $this->line('Linkable orders: ' . $linkable->count());
+    $this->line('Conflicting orders skipped: ' . $conflicts->count());
+    $this->line('Related custom orders: ' . $customOrderCount);
+    $this->line('Related reviews: ' . $reviewCount);
+    $this->line('Related mobile notifications: ' . $mobileNotificationCount);
+
+    if ($linkable->isNotEmpty()) {
+        $this->newLine();
+        $this->table(['Order ID', 'Current Name', 'Phone', 'Current User', 'Status', 'Track Code', 'Created'], $linkable->map(fn ($order) => [
+            $order->id,
+            $order->guest_name,
+            $order->guest_phone,
+            $order->user_id ?: '(guest)',
+            $order->status,
+            $order->track_code,
+            $order->created_at,
+        ])->all());
+    }
+
+    if ($conflicts->isNotEmpty()) {
+        $this->newLine();
+        $this->warn('Skipped orders already linked to a different account:');
+        $this->table(['Order ID', 'Name', 'Phone', 'Existing User', 'Status', 'Track Code'], $conflicts->map(fn ($order) => [
+            $order->id,
+            $order->guest_name,
+            $order->guest_phone,
+            $order->user_id,
+            $order->status,
+            $order->track_code,
+        ])->all());
+    }
+
+    if (!$apply) {
+        $this->warn('Dry run only. Re-run with --apply to update these records.');
+        return 0;
+    }
+
+    if (empty($orderIds)) {
+        $this->info('No linkable orders to update.');
+        return 0;
+    }
+
+    DB::transaction(function () use ($orderIds, $customer, $customerName, $normalizedPhone) {
+        DB::table('orders')->whereIn('id', $orderIds)->update([
+            'user_id' => (string) $customer->id,
+            'guest_name' => $customerName,
+            'guest_phone' => $normalizedPhone,
+            'updated_at' => now(),
+        ]);
+
+        if (Schema::hasTable('custom_orders')) {
+            DB::table('custom_orders')->whereIn('order_id', $orderIds)->update([
+                'user_id' => (string) $customer->id,
+                'guest_name' => $customerName,
+                'guest_phone' => $normalizedPhone,
+                'updated_at' => now(),
+            ]);
+        }
+
+        if (Schema::hasTable('order_reviews')) {
+            $reviewUpdate = ['user_id' => (string) $customer->id];
+            if (Schema::hasColumn('order_reviews', 'guest_name')) {
+                $reviewUpdate['guest_name'] = $customerName;
+            }
+            if (Schema::hasColumn('order_reviews', 'updated_at')) {
+                $reviewUpdate['updated_at'] = now();
+            }
+            DB::table('order_reviews')->whereIn('order_id', $orderIds)->update($reviewUpdate);
+        }
+
+        if (Schema::hasTable('mobile_notifications')) {
+            DB::table('mobile_notifications')->whereIn('order_id', $orderIds)->update([
+                'role' => 'customer',
+                'user_id' => (string) $customer->id,
+                'updated_at' => now(),
+            ]);
+        }
+
+        if (Schema::hasTable('activity_logs')) {
+            DB::table('activity_logs')->insert([
+                'user_id' => (string) $customer->id,
+                'role' => 'customer',
+                'action' => 'Link Historical Orders',
+                'details' => 'Linked historical guest orders by phone ' . $normalizedPhone . ': ' . implode(', ', $orderIds),
+                'ip_address' => null,
+                'created_at' => now(),
+            ]);
+        }
+    });
+
+    $this->info('Updated ' . count($orderIds) . ' order(s). Antonio/customer account should now see them in My Orders.');
+    $this->warn('Tracking codes were preserved.');
+    return 0;
+})->purpose('Safely link historical guest orders to a customer account by phone');
 
 Schedule::command('backup:run')->hourly();
 Schedule::command('orders:expire-unpaid-deposits')->hourly();
