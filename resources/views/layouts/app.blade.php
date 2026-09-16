@@ -1720,11 +1720,13 @@
       <i class="bi bi-chat-square-heart"></i> Feedback
     </a>
     @endif
+    @if($role !== 'customer')
     <div class="csb-divider"></div>
     <div class="csb-section-label">Track</div>
     <a href="#" class="csb-link" onclick="closeCustSidebar(); csTrackPrompt(); return false;">
       <i class="bi bi-search"></i> Track My Order
     </a>
+    @endif
 
     @if($role !== 'customer')
     <div class="csb-divider"></div>

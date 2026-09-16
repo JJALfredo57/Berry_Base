@@ -196,7 +196,13 @@
             <div class="fw-bold">{{ $o->product_name }}</div>
             <div class="text-muted small">Order #{{ $o->id }} &bull; {{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y') }}</div>
             @if(!empty($o->track_code))
-              <div class="text-muted small">Tracking Code: <strong>{{ $o->track_code }}</strong></div>
+              <div class="text-muted small d-flex align-items-center gap-1 flex-wrap">
+                <span>Tracking Code: <strong>{{ $o->track_code }}</strong></span>
+                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
+                        onclick="copyTrackingCode('{{ $o->track_code }}')">
+                  <i class="bi bi-clipboard me-1"></i>Copy
+                </button>
+              </div>
             @endif
           </div>
         </div>
@@ -930,6 +936,14 @@
           <a href="{{ route('track.order', $o->track_code) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-search me-1"></i>Track
           </a>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  onclick="copyTrackingCode('{{ $o->track_code }}')">
+            <i class="bi bi-clipboard me-1"></i>Copy Code
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  onclick="shareTrackingLink('{{ $o->track_code }}', '{{ route('track.order', $o->track_code) }}')">
+            <i class="bi bi-share me-1"></i>Share
+          </button>
         @endif
 
         <a href="{{ route('customer.messages.thread', $o->id) }}" class="btn btn-outline-primary btn-sm">
@@ -1120,6 +1134,52 @@ function previewReviewImage(input, orderId) {
     const reader = new FileReader();
     reader.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
     reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function trackingToast(message, type = 'success') {
+  if (typeof cakeToast === 'function') {
+    cakeToast(message, type);
+  } else if (typeof showToast === 'function') {
+    showToast(message, type);
+  }
+}
+
+async function copyTrackingCode(code) {
+  const value = String(code || '').trim();
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    trackingToast('Tracking code copied.', 'success');
+  } catch (e) {
+    const input = document.createElement('input');
+    input.value = value;
+    input.style.position = 'fixed';
+    input.style.left = '-9999px';
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    input.remove();
+    trackingToast('Tracking code copied.', 'success');
+  }
+}
+
+async function shareTrackingLink(code, url) {
+  const shareUrl = String(url || '').trim();
+  const shareText = 'Track my BerryBase order: ' + shareUrl + ' Code: ' + String(code || '').trim();
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'BerryBase Order Tracking', text: shareText, url: shareUrl });
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(shareText);
+    trackingToast('Tracking link copied.', 'success');
+  } catch (e) {
+    trackingToast('Unable to share right now.', 'warning');
   }
 }
 

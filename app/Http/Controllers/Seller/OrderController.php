@@ -225,9 +225,12 @@ class OrderController extends Controller
             $custName  = $order->guest_name
                 ?? DB::table('users')->where('id', $order->user_id)->value('fullname')
                 ?? 'Customer';
+            $trackingLine = empty($order->user_id) && !empty($order->track_code)
+                ? "\n\nYour Tracking Code: {$order->track_code}"
+                : '';
             $smsMsgs = [
-                'Pickup'           => "{$header}\nHi {$custName}! Your order is ready!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Ready for Pickup\n\nYour cake is now ready for pickup. Please visit our shop at your earliest convenience.\n\nYour Tracking Code: {$order->track_code}",
-                'Out for Delivery' => "{$header}\nHi {$custName}! Your order is on its way!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Out for Delivery\n\nOur rider is now heading to your location. Please make sure someone is available to receive your order.\n\nYour Tracking Code: {$order->track_code}",
+                'Pickup'           => "{$header}\nHi {$custName}! Your order is ready!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Ready for Pickup\n\nYour cake is now ready for pickup. Please visit our shop at your earliest convenience.{$trackingLine}",
+                'Out for Delivery' => "{$header}\nHi {$custName}! Your order is on its way!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Out for Delivery\n\nOur rider is now heading to your location. Please make sure someone is available to receive your order.{$trackingLine}",
                 'Cancelled'        => "{$header}\nHi {$custName}, your order has been cancelled.\n\nOrder No.: #{$id}{$shopLine}\nStatus: Cancelled\n\nIf you have questions or concerns, please contact us through our shop page. We hope to serve you again soon.",
             ];
             $phone = $order->guest_phone ?? DB::table('users')->where('id', $order->user_id)->value('phone');
