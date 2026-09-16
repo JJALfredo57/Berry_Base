@@ -26,12 +26,14 @@ class OrderController extends Controller
         $status = $request->input('status', 'All');
 
         $orders = DB::table('orders as o')
-            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('custom_orders as co_name', 'co_name.order_id', '=', 'o.id')
             ->where('o.user_id', $uid)
-            ->select('o.*', 'p.name as product_name', 'p.image_path')
+            ->select('o.*', DB::raw("COALESCE(p.name, co_name.cake_name, 'Custom Cake') as product_name"), 'p.image_path')
             ->when($search, fn($q) => $q->where(fn($sq) => $sq
                 ->where('o.id', 'like', "%$search%")
                 ->orWhere('p.name', 'like', "%$search%")
+                ->orWhere('co_name.cake_name', 'like', "%$search%")
             ))
             ->when($status && $status !== 'All', fn($q) => $q->where('o.status', $status))
             ->orderByDesc('o.id')
@@ -61,7 +63,32 @@ class OrderController extends Controller
             } catch (\Exception $e) {}
             try {
                 $coRows = DB::table('custom_orders')->whereIn('order_id', $orderIds)->get();
-                foreach ($coRows as $co) $customOrderData[$co->order_id] = $co;
+                foreach ($coRows as $co) {
+                    foreach ([
+                        'review_status' => 'pending',
+                        'cake_name' => 'Custom Cake',
+                        'flavor' => null,
+                        'size' => null,
+                        'size_label' => null,
+                        'layers' => null,
+                        'design_complexity' => null,
+                        'admin_price' => null,
+                        'price_confirmed' => null,
+                        'admin_comment' => null,
+                        'progress_image' => null,
+                        'progress_message' => null,
+                        'time_slot' => null,
+                        'dedication' => null,
+                        'custom_note' => null,
+                        'reference_images' => null,
+                    ] as $key => $value) {
+                        if (!property_exists($co, $key)) {
+                            $co->{$key} = $value;
+                        }
+                    }
+                    $co->size_label = $co->size_label ?? $co->size ?? null;
+                    $customOrderData[$co->order_id] = $co;
+                }
             } catch (\Exception $e) {}
         }
 

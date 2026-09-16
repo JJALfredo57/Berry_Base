@@ -16,12 +16,13 @@ class MessageController extends Controller
     {
         $uid = session('user')['id'];
         $threads = DB::select("
-            SELECT o.id order_id, o.status, p.name product_name,
+            SELECT o.id order_id, o.status, COALESCE(p.name, co.cake_name, 'Custom Cake') product_name,
                 (SELECT message FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_message,
                 (SELECT created_at FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_time,
                 (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role IN ('admin','seller') AND m.is_read=false) unread_count
             FROM orders o
-            JOIN products p ON p.id=o.product_id
+            LEFT JOIN products p ON p.id=o.product_id
+            LEFT JOIN custom_orders co ON co.order_id=o.id
             WHERE o.user_id=?
             AND EXISTS (SELECT 1 FROM messages m WHERE m.order_id=o.id)
             ORDER BY last_time DESC
@@ -33,9 +34,10 @@ class MessageController extends Controller
     {
         $uid = session('user')['id'];
         $order = DB::table('orders as o')
-            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
             ->where('o.id', $orderId)->where('o.user_id', $uid)
-            ->select('o.*', 'p.name as product_name', 'p.image_path')
+            ->select('o.*', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"), 'p.image_path')
             ->first();
         if (!$order) return redirect()->route('customer.messages');
 
@@ -99,8 +101,11 @@ class MessageController extends Controller
             ->where('m.sender_role', 'customer')
             ->where(function ($query) use ($uid) {
                 $query->where('o.user_id', $uid)
-                    ->orWhere('m.user_id', $uid)
                     ->orWhere('m.sender_id', $uid);
+
+                if (Schema::hasColumn('messages', 'user_id')) {
+                    $query->orWhere('m.user_id', $uid);
+                }
             })
             ->pluck('m.is_read', 'm.id')
             ->map(fn ($read) => (bool) $read);
@@ -117,12 +122,13 @@ class MessageController extends Controller
         // Get messages with order context
         $withOrder = DB::table('messages as m')
             ->join('orders as o', 'o.id', '=', 'm.order_id')
-            ->join('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
             ->where('o.user_id', $uid)
             ->select(
                 'm.id', 'm.order_id', 'm.sender_role', 'm.message',
                 'm.image_path', 'm.is_read', 'm.created_at',
-                'p.name as product_name'
+                DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name")
             )
             ->orderByDesc('m.created_at')
             ->limit($limit)
@@ -146,22 +152,22 @@ class MessageController extends Controller
 
         // Also get general admin replies to this user
         $adminGeneral = collect();
-        try {
-            $adminGeneral = DB::table('messages as m')
-                ->whereNull('m.order_id')
-                ->where('m.sender_role', 'admin')
-                ->where(function($q) use ($uid) {
-                    $q->where('m.user_id', $uid);
-                })
-                ->select(
-                    'm.id', 'm.order_id', 'm.sender_role', 'm.message',
-                    'm.image_path', 'm.is_read', 'm.created_at',
-                    DB::raw("'General Inquiry' as product_name")
-                )
-                ->orderByDesc('m.created_at')
-                ->limit($limit)
-                ->get();
-        } catch (\Exception $e) {}
+        if (Schema::hasColumn('messages', 'user_id')) {
+            try {
+                $adminGeneral = DB::table('messages as m')
+                    ->whereNull('m.order_id')
+                    ->where('m.sender_role', 'admin')
+                    ->where('m.user_id', $uid)
+                    ->select(
+                        'm.id', 'm.order_id', 'm.sender_role', 'm.message',
+                        'm.image_path', 'm.is_read', 'm.created_at',
+                        DB::raw("'General Inquiry' as product_name")
+                    )
+                    ->orderByDesc('m.created_at')
+                    ->limit($limit)
+                    ->get();
+            } catch (\Exception $e) {}
+        }
 
         $messages = $withOrder
             ->concat($general)
@@ -185,7 +191,7 @@ public function popupSend(Request $request)
     {
         $uid     = session('user')['id'];
         $text    = trim($request->input('message', ''));
-        $orderId = (int)$request->input('order_id', 0);
+        $orderId = trim((string) $request->input('order_id', ''));
         $exts    = ['jpg','jpeg','png','webp','gif'];
 
         // Handle multiple images
@@ -205,7 +211,7 @@ public function popupSend(Request $request)
         if ($text === '' && !$imgPath) return response()->json(['error' => 'Empty message.'], 422);
 
         $order = null;
-        if ($orderId) {
+        if ($orderId !== '') {
             $order   = DB::table('orders')->where('id', $orderId)->where('user_id', $uid)->first();
             $orderId = $order ? $order->id : null;
         } else {
@@ -215,16 +221,20 @@ public function popupSend(Request $request)
 
         $user = DB::table('users')->where('id', $uid)->first();
 
-        $id = DB::table('messages')->insertGetId([
+        $row = [
             'order_id'    => $orderId,
-            'user_id'     => $uid,
             'sender_role' => 'customer',
             'sender_id'   => $uid,
             'message'     => $text,
             'image_path'  => $imgPath,
             'is_read' => false,
             'created_at'  => now(),
-        ]);
+        ];
+        if (Schema::hasColumn('messages', 'user_id')) {
+            $row['user_id'] = $uid;
+        }
+
+        $id = DB::table('messages')->insertGetId($row);
 
         $notifMsg = $orderId
             ? "New message from customer (Order #{$orderId})."
@@ -287,7 +297,6 @@ public function popupSend(Request $request)
 
         $row = [
             'order_id'    => $orderId,
-            'user_id'     => $uid,
             'sender_role' => 'customer',
             'sender_id'   => $uid,
             'message'     => $text,
@@ -297,6 +306,9 @@ public function popupSend(Request $request)
         ];
         if (Schema::hasColumn('messages', 'reply_to_id')) {
             $row['reply_to_id'] = $replyToId;
+        }
+        if (Schema::hasColumn('messages', 'user_id')) {
+            $row['user_id'] = $uid;
         }
         DB::table('messages')->insert($row);
 

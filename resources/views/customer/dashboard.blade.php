@@ -12,9 +12,10 @@
       $openFeedback = DB::table('customer_feedback')->where('user_id',$uid)->where('status','open')->count();
     } catch (\Exception $e) {}
     $recentOrders   = DB::table('orders as o')
-      ->join('products as p','p.id','=','o.product_id')
+      ->leftJoin('products as p','p.id','=','o.product_id')
+      ->leftJoin('custom_orders as co','co.order_id','=','o.id')
       ->where('o.user_id',$uid)
-      ->select('o.*','p.name as product_name','p.image_path')
+      ->select('o.*', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"), 'p.image_path')
       ->orderByDesc('o.id')->limit(5)->get();
   @endphp
 
