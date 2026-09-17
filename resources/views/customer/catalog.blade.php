@@ -1,11 +1,11 @@
 @extends('layouts.app')
 @section('content')
-<div class="container-fluid py-4">
+<div class="container-fluid py-4" style="padding-left:clamp(12px,3vw,32px);padding-right:clamp(12px,3vw,32px)">
 <style>
 .catalog-grid{
   display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap:1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap:1.5rem;
 }
 .best-seller-grid{
   display:grid;
@@ -32,8 +32,20 @@
   .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1040}
   .filter-overlay.show{display:block}
   .filter-panel{position:fixed;top:0;right:0;bottom:0;width:min(88vw,360px);z-index:1042;overflow:auto;border-radius:0!important;transform:translateX(105%);margin:0!important}
-  .filter-panel.show{transform:translateX(0);box-shadow:-18px 0 40px rgba(15,23,42,.2)}
+.filter-panel.show{transform:translateX(0);box-shadow:-18px 0 40px rgba(15,23,42,.2)}
 }
+.customer-wrap { animation: none !important; transform: none !important; }
+.size-choice-btn{
+  border-color:var(--primary)!important;
+  font-size:.78rem;
+  color:#111827;
+  transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease;
+}
+.size-choice-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(233,30,99,.12)}
+.size-choice-btn.is-selected{background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important;box-shadow:0 8px 20px rgba(233,30,99,.24)}
+.size-choice-btn.is-selected .text-muted{color:rgba(255,255,255,.78)!important}
+.size-choice-btn:focus{box-shadow:0 0 0 .16rem rgba(233,30,99,.18)}
+.size-view-more-btn{font-size:.78rem;font-weight:700;color:var(--primary);background:#fff;border:1px dashed var(--primary);border-radius:999px;padding:.25rem .75rem}
 </style>
 
   <div class="text-center mb-5">
@@ -183,7 +195,7 @@
       <div class="catalog-card card h-100" style="{{ ($isArchived || !$isAvailable) ? 'opacity:.72' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
 
         {{-- Image --}}
-        <div class="catalog-img-wrap img-zoom-wrap position-relative overflow-hidden" style="border-radius:1.1rem 1.1rem 0 0;height:220px">
+        <div class="catalog-img-wrap img-zoom-wrap position-relative overflow-hidden" style="border-radius:1.1rem 1.1rem 0 0;height:260px">
           <img src="{{ $p->image_path }}" alt="{{ $p->name }}"
                class="img-zoom-target"
                style="width:100%;height:100%;object-fit:cover;transition:transform .4s ease;cursor:zoom-in;user-select:none;-webkit-user-drag:none"
@@ -295,7 +307,7 @@
     </div>
 
     {{-- ── PRODUCT DETAIL MODAL ──────────────────────────────────────── --}}
-    <div class="modal fade" id="detailModal{{ $p->id }}" tabindex="-1">
+    <div class="modal fade catalog-detail-modal" id="detailModal{{ $p->id }}" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="true">
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
         <div class="modal-content border-0" style="border-radius:1.4rem;overflow:hidden">
 
@@ -394,6 +406,7 @@
                 @endif
               </div>
 
+              @if(false)
               {{-- Sizes --}}
               @if(count($sizes) > 0)
               <div class="mb-3">
@@ -407,6 +420,8 @@
                   @endforeach
                 </div>
               </div>
+              @endif
+
               @endif
 
               {{-- Shop Info --}}
@@ -461,6 +476,44 @@
                 {{-- Size Selection --}}
                 @if(count($sizes) > 0)
                 <div class="mb-3">
+                  <div class="fw-semibold small mb-2"><i class="bi bi-rulers me-1" style="color:var(--primary)"></i>Sizes <span class="text-danger">*</span></div>
+                  <input type="hidden" name="selected_size" id="selectedSize{{ $p->id }}">
+                  <div class="d-flex flex-wrap gap-2" data-size-picker id="sizeOptions{{ $p->id }}"
+                       data-discount-type="{{ $pricing['discount_type'] ?? '' }}"
+                       data-discount-value="{{ $pricing['discount_value'] ?? 0 }}">
+                    @foreach($sizes as $sz)
+                      <button type="button"
+                              class="size-choice-btn px-3 py-1 rounded-pill border bg-white {{ $loop->iteration > 4 ? 'd-none is-extra-size' : '' }}"
+                              data-product-id="{{ $p->id }}"
+                              data-base-price="{{ $p->price }}"
+                              data-size-label="{{ $sz->label }}"
+                              data-price="{{ $sz->price }}"
+                              onclick="selectModalSize(this)">
+                        <span class="fw-semibold">{{ $sz->label }}</span>
+                        <span class="text-muted ms-1">- ₱{{ number_format($sz->price,2) }}</span>
+                      </button>
+                    @endforeach
+                    @if(count($sizes) > 4)
+                      <button type="button" class="size-view-more-btn" data-size-toggle data-product-id="{{ $p->id }}" onclick="toggleSizeOptions(this)">
+                        View more
+                      </button>
+                    @endif
+                  </div>
+                  <div class="small text-danger mt-1 d-none" data-size-error>Please select a size.</div>
+                  <div class="mt-2 p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:#fff0f5">
+                    <span class="small text-muted">Total Price:</span>
+                    <span class="fw-bold" style="color:{{ !empty($pricing['has_discount']) ? '#dc2626' : 'var(--primary)' }};font-size:1.05rem" id="modalPrice{{ $p->id }}"
+                          data-base-price="{{ $p->price }}"
+                          data-discount-type="{{ $pricing['discount_type'] ?? '' }}"
+                          data-discount-value="{{ $pricing['discount_value'] ?? 0 }}">
+                      ₱{{ number_format($pricing['final_unit_price'] ?? $p->price,2) }}
+                    </span>
+                  </div>
+                </div>
+                @endif
+                @if(false)
+                @if(count($sizes) > 0)
+                <div class="mb-3">
                   <label class="form-label fw-semibold small">Select Size <span class="text-danger">*</span></label>
                   <select class="form-select" name="selected_size"
                           onchange="updateModalPrice('{{ $p->id }}', {{ $p->price }}, this)" required
@@ -480,6 +533,7 @@
                     </span>
                   </div>
                 </div>
+                @endif
                 @endif
 
                 {{-- Quantity --}}
@@ -601,7 +655,82 @@
 </div>
 
 <script>
+function forceCleanModals() {
+  document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+  document.querySelectorAll('.modal.show').forEach(el => {
+    el.classList.remove('show');
+    el.style.display = 'none';
+  });
+  document.body.classList.remove('modal-open');
+  document.body.style.overflow = '';
+  document.body.style.paddingRight = '';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.catalog-detail-modal').forEach(modal => {
+    if (modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+  });
+});
+
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) forceCleanModals();
+});
+document.addEventListener('hidden.bs.modal', forceCleanModals);
+
+function validateSizeSelection(form) {
+  const input = form.querySelector('input[name="selected_size"]');
+  const selected = form.querySelector('.size-choice-btn.is-selected');
+  if (input && !input.value && selected) {
+    input.value = selected.dataset.sizeLabel || '';
+  }
+  if (!input || input.value) return true;
+
+  const error = form.querySelector('[data-size-error]');
+  const picker = form.querySelector('[data-size-picker]');
+  if (error) error.classList.remove('d-none');
+  if (picker) picker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return false;
+}
+
+function selectModalSize(button) {
+  const productId = button.dataset.productId || '';
+  const basePrice = parseFloat(button.dataset.basePrice || '0');
+  const form = button.closest('form');
+  const picker = button.closest('[data-size-picker]');
+  const input = form ? form.querySelector('input[name="selected_size"]') : null;
+  const error = form ? form.querySelector('[data-size-error]') : null;
+
+  if (input) input.value = button.dataset.sizeLabel || '';
+  if (error) error.classList.add('d-none');
+  if (picker) {
+    picker.querySelectorAll('.size-choice-btn').forEach(btn => {
+      btn.classList.remove('is-selected');
+      btn.setAttribute('aria-pressed', 'false');
+    });
+  }
+  button.classList.add('is-selected');
+  button.setAttribute('aria-pressed', 'true');
+  updateModalPrice(productId, basePrice, button);
+}
+
+function toggleSizeOptions(button) {
+  const productId = button.dataset.productId || '';
+  const picker = document.getElementById('sizeOptions' + productId);
+  if (!picker) return;
+
+  const expanded = picker.dataset.expanded === '1';
+  picker.querySelectorAll('.is-extra-size').forEach(btn => btn.classList.toggle('d-none', expanded));
+  picker.dataset.expanded = expanded ? '0' : '1';
+  button.textContent = expanded ? 'View more' : 'View less';
+}
+
 function confirmOrder(form) {
+  if (!validateSizeSelection(form)) {
+    form.dataset.cartSubmit = '';
+    return false;
+  }
   if (form.dataset.cartSubmit === '1') {
     form.dataset.cartSubmit = '';
     return true;
@@ -619,11 +748,15 @@ function confirmOrder(form) {
   return false;
 }
 
-function updateModalPrice(productId, basePrice, select) {
-  const opt   = select.options[select.selectedIndex];
-  const price = opt.dataset.price ? parseFloat(opt.dataset.price) : basePrice;
-  const discountType = select.dataset.discountType || '';
-  const discountValue = parseFloat(select.dataset.discountValue || '0');
+function updateModalPrice(productId, basePrice, priceSource) {
+  const selectedOption = priceSource && priceSource.options ? priceSource.options[priceSource.selectedIndex] : null;
+  const priceDataset = priceSource && priceSource.dataset ? priceSource.dataset.price : null;
+  const optionDataset = selectedOption && selectedOption.dataset ? selectedOption.dataset.price : null;
+  const price = priceDataset ? parseFloat(priceDataset) : (optionDataset ? parseFloat(optionDataset) : basePrice);
+  const picker = priceSource && priceSource.closest ? priceSource.closest('[data-size-picker]') : null;
+  const priceEl = document.getElementById('modalPrice' + productId);
+  const discountType = (picker && picker.dataset.discountType) || (priceEl && priceEl.dataset.discountType) || (priceSource && priceSource.dataset ? priceSource.dataset.discountType : '') || '';
+  const discountValue = parseFloat((picker && picker.dataset.discountValue) || (priceEl && priceEl.dataset.discountValue) || (priceSource && priceSource.dataset ? priceSource.dataset.discountValue : '0') || '0');
   let finalPrice = price;
 
   if (discountType === 'percent' && discountValue > 0) {
