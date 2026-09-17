@@ -26,7 +26,9 @@ class ProfileController extends Controller
         $user = DB::table('users')->where('id', $uid)->first();
         $orderCount   = DB::table('orders')->where('user_id', $uid)->count();
         $pendingCount = DB::table('orders')->where('user_id', $uid)->where('status','Pending')->count();
-        return view('customer.profile', compact('user','orderCount','pendingCount'));
+        $verificationStatus = app(\App\Services\CustomerVerificationService::class)->status($uid);
+        $loyalty = app(\App\Services\LoyaltyService::class)->account($uid);
+        return view('customer.profile', compact('user','orderCount','pendingCount','verificationStatus','loyalty'));
     }
 
     public function update(Request $request)
@@ -77,7 +79,9 @@ class ProfileController extends Controller
         $user = DB::table('users')->where('id', $uid)->first();
         $orderCount   = DB::table('orders')->where('user_id', $uid)->count();
         $pendingCount = DB::table('orders')->where('user_id', $uid)->where('status','Pending')->count();
-        return view('customer.profile', compact('user','orderCount','pendingCount','step'));
+        $verificationStatus = app(\App\Services\CustomerVerificationService::class)->status($uid);
+        $loyalty = app(\App\Services\LoyaltyService::class)->account($uid);
+        return view('customer.profile', compact('user','orderCount','pendingCount','step','verificationStatus','loyalty'));
     }
 
     // ── Change Password — Back to Step 1 ────────────────────────

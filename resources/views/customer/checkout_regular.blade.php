@@ -248,6 +248,18 @@ document.body.style.paddingRight = '';
           </div>
         </div>
 
+        {{-- Promo / Voucher --}}
+        <div class="card mb-3">
+          <div class="card-body p-4">
+            <h6 class="fw-bold mb-2"><i class="bi bi-ticket-perforated me-2" style="color:var(--primary)"></i>Promo Code</h6>
+            <div class="input-group">
+              <input type="text" class="form-control text-uppercase" name="voucher_code" maxlength="40" placeholder="Enter voucher code">
+              <span class="input-group-text"><i class="bi bi-stars"></i></span>
+            </div>
+            <div class="form-text">Verified-only vouchers require an approved valid ID. The discount is checked securely when you place the order.</div>
+          </div>
+        </div>
+
         {{-- Payment --}}
         <div class="card mb-3">
           <div class="card-body p-4">
@@ -299,6 +311,7 @@ document.body.style.paddingRight = '';
           </div>
           @endif
           <div id="addonSummary"></div>
+          <div class="small text-muted mb-2"><i class="bi bi-ticket-perforated me-1"></i>Promo codes are applied after validation on submit.</div>
           <div class="d-flex justify-content-between small mb-1" id="feeRow" style="display:none!important">
             <span class="text-muted">Delivery Fee</span>
             <span id="feeDisplay">₱0.00</span>

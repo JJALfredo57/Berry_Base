@@ -571,9 +571,14 @@
               You'll choose pickup/delivery on the next step.
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
-              <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
-            </button>
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary py-2 fw-semibold">
+                <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
+              </button>
+              <button type="submit" class="btn btn-outline-primary py-2 fw-semibold" formaction="{{ route('cart.add') }}">
+                <i class="bi bi-cart-plus me-1"></i>Add to Cart
+              </button>
+            </div>
           </form>
           @else
           <div class="alert alert-danger text-center border-0">

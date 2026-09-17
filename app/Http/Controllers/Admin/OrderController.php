@@ -6,6 +6,7 @@ use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
+use App\Services\LoyaltyService;
 use App\Services\OrderRefundService;
 use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
@@ -320,7 +321,9 @@ class OrderController extends Controller
 
         DB::table('orders')->where('id', $id)->update($upd);
         if (in_array($status, $finalStatuses, true)) {
-            PaymentTransactionHelper::recordFinalCashIfNeeded($order, $status);
+            $freshOrder = DB::table('orders')->where('id', $id)->first() ?? $order;
+            PaymentTransactionHelper::recordFinalCashIfNeeded($freshOrder, $status);
+            app(LoyaltyService::class)->awardForCompletedOrder($freshOrder);
         }
 
         DB::table('order_tracking')->insert([

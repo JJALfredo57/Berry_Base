@@ -8,6 +8,7 @@ use App\Services\CustomerRiskService;
 use App\Services\CustomerIdentityService;
 use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
+use App\Services\VoucherService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -325,7 +326,14 @@ class CheckoutController extends Controller
         $addonTotal  = 0;
         $validAddons = [];
 
-        $total     = ($pricing['final_unit_price'] * $qty) + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee + $serviceCharge : 0);
+        $baseTotal = ($pricing['final_unit_price'] * $qty) + $addonTotal;
+        $voucherCode = strtoupper(trim((string) $request->input('voucher_code', '')));
+        $voucherResult = app(VoucherService::class)->validate($voucherCode, $baseTotal, $product->shop_id ?? null, $linkedCustomerId, $phone);
+        if (!$voucherResult['ok']) {
+            return back()->with('error', $voucherResult['message'])->withInput();
+        }
+        $voucherDiscount = (float) ($voucherResult['discount'] ?? 0);
+        $total     = max(0, $baseTotal - $voucherDiscount) + ($fulfillment === 'Delivery' ? $deliveryFee + $serviceCharge : 0);
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $request->session()->get('guest_pre_track') ?: $this->generateTrackCode();
 
@@ -346,6 +354,7 @@ class CheckoutController extends Controller
 
         DB::table('orders')->insert([
             'id'                  => $oid,
+            'cart_id'             => $checkout['cart_id'] ?? null,
             'shop_id'             => $product->shop_id ?? null,
             'guest_name'          => $guestName,
             'guest_phone'         => $phone,
@@ -370,6 +379,8 @@ class CheckoutController extends Controller
             'discount_type'       => $pricing['discount_type'],
             'discount_value'      => $pricing['discount_value'],
             'discount_amount'     => $pricing['discount_amount'],
+            'voucher_code'         => $voucherResult['voucher']->code ?? null,
+            'voucher_discount_amount' => $voucherDiscount,
             'final_unit_price'    => $pricing['final_unit_price'],
             'delivery_address'    => $address ?? '',
             'schedule_date'       => $sdate,
@@ -378,6 +389,21 @@ class CheckoutController extends Controller
             'payment_status'      => 'Unpaid',
             'created_at'          => now(),
         ]);
+
+        $createdOrder = DB::table('orders')->where('id', $oid)->first();
+        if (!empty($voucherResult['voucher']) && $voucherDiscount > 0 && $createdOrder) {
+            app(VoucherService::class)->recordRedemption($voucherResult['voucher'], $createdOrder, $voucherDiscount);
+            DB::table('order_discounts')->insert([
+                'order_id' => $oid,
+                'source_type' => 'voucher',
+                'source_id' => $voucherResult['voucher']->id,
+                'label' => $voucherResult['voucher']->name,
+                'code' => $voucherResult['voucher']->code,
+                'amount' => $voucherDiscount,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         foreach ($validAddons as $addon) {
             DB::table('order_addons')->insert([
@@ -416,6 +442,13 @@ class CheckoutController extends Controller
                 );
             }
         } catch (\Throwable $e) {}
+
+        if (!empty($checkout['cart_item_id'])) {
+            DB::table('customer_cart_items')->where('id', $checkout['cart_item_id'])->delete();
+            if (!empty($checkout['cart_id'])) {
+                app(\App\Services\CartService::class)->removeEmptyShop((int) $checkout['cart_id']);
+            }
+        }
 
         $request->session()->forget(['guest_checkout','guest_otp','guest_otp_exp','guest_phone','guest_pre_track','guest_phone_customer_id']);
 

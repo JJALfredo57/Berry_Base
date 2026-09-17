@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Helpers\SmsHelper;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
+use App\Services\LoyaltyService;
 use App\Services\MobileNotificationService;
 use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
@@ -390,7 +391,9 @@ class RiderController extends Controller
             }
 
             DB::table('orders')->where('id',$orderId)->update($upd);
-            PaymentTransactionHelper::recordFinalCashIfNeeded($order, 'Delivered');
+            $freshOrder = DB::table('orders')->where('id', $orderId)->first() ?? $order;
+            PaymentTransactionHelper::recordFinalCashIfNeeded($freshOrder, 'Delivered');
+            app(LoyaltyService::class)->awardForCompletedOrder($freshOrder);
             $remittance = $this->createCashRemittanceIfNeeded($order);
 
             $trackingNotes = 'Marked as delivered by rider.';

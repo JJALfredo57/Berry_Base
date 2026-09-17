@@ -316,6 +316,18 @@ document.body.style.paddingRight = '';
               </div>
             </div>
 
+            {{-- Promo / Voucher --}}
+            <div class="card mb-3">
+              <div class="card-body p-4">
+                <h6 class="fw-bold mb-2"><i class="bi bi-ticket-perforated me-2" style="color:var(--primary)"></i>Promo Code</h6>
+                <div class="input-group">
+                  <input type="text" class="form-control text-uppercase" name="voucher_code" maxlength="40" placeholder="Enter voucher code">
+                  <span class="input-group-text"><i class="bi bi-stars"></i></span>
+                </div>
+                <div class="form-text">Some vouchers require a verified account. Login if you want to use verified-only rewards.</div>
+              </div>
+            </div>
+
             {{-- Payment --}}
             <div class="card mb-3">
               <div class="card-body p-4">
@@ -381,6 +393,7 @@ document.body.style.paddingRight = '';
 
               {{-- Add-ons summary (dynamic) --}}
               <div id="addonSummary"></div>
+              <div class="small text-muted mb-2"><i class="bi bi-ticket-perforated me-1"></i>Promo codes are applied after validation on submit.</div>
 
               {{-- Fee breakdown --}}
               <div class="d-flex justify-content-between small mb-1" id="feeRow" style="display:none!important">

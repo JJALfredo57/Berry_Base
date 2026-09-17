@@ -502,9 +502,16 @@
                 </div>
 
                 {{-- ── Date Availability Check ─────────────────────────────── --}}
-                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
-                  <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
-                </button>
+                <div class="d-grid gap-2">
+                  <button type="submit" class="btn btn-primary py-2 fw-semibold" onclick="this.form.dataset.cartSubmit=''">
+                    <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
+                  </button>
+                  <button type="submit" class="btn btn-outline-primary py-2 fw-semibold"
+                          formaction="{{ route('customer.cart.add') }}"
+                          onclick="this.form.dataset.cartSubmit='1'">
+                    <i class="bi bi-cart-plus me-1"></i>Add to Cart
+                  </button>
+                </div>
               </form>
               @else
               <div class="alert alert-danger text-center border-0">
@@ -595,6 +602,10 @@
 
 <script>
 function confirmOrder(form) {
+  if (form.dataset.cartSubmit === '1') {
+    form.dataset.cartSubmit = '';
+    return true;
+  }
   const openModal = document.querySelector('.modal.show');
   if (openModal && typeof bootstrap !== 'undefined') {
     const bsModal = bootstrap.Modal.getInstance(openModal);

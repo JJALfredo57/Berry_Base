@@ -4,6 +4,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
+use App\Services\VoucherService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -86,10 +87,13 @@ class CheckoutController extends Controller
                 ->get()->groupBy('category_id');
         } catch (\Exception $e) {}
 
+        $loyalty = app(\App\Services\LoyaltyService::class)->account($uid);
+        $verificationStatus = app(\App\Services\CustomerVerificationService::class)->status($uid);
+
         return view('customer.checkout_regular', compact(
             'product', 'checkout', 'defaultAddr', 'customer',
             'sizes', 'deliveryZones', 'shop', 'shopSettings', 'pricing',
-            'addonCategories', 'addonsByCategory'
+            'addonCategories', 'addonsByCategory', 'loyalty', 'verificationStatus'
         ));
     }
 
@@ -272,7 +276,13 @@ class CheckoutController extends Controller
         $validAddons = [];
 
         $baseTotal = $pricing['final_unit_price'] * $qty;
-        $total     = $baseTotal + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
+        $voucherCode = strtoupper(trim((string) $request->input('voucher_code', '')));
+        $voucherResult = app(VoucherService::class)->validate($voucherCode, $baseTotal + $addonTotal, $product->shop_id ?? null, $uid);
+        if (!$voucherResult['ok']) {
+            return back()->with('error', $voucherResult['message'])->withInput();
+        }
+        $voucherDiscount = (float) ($voucherResult['discount'] ?? 0);
+        $total     = max(0, $baseTotal + $addonTotal - $voucherDiscount) + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $this->generateTrackCode();
 
@@ -291,6 +301,7 @@ class CheckoutController extends Controller
 
         DB::table('orders')->insert([
             'id'               => $oid,
+            'cart_id'           => $checkout['cart_id'] ?? null,
             'shop_id'          => $product->shop_id ?? null,
             'user_id'          => $uid,
             'product_id'       => $pid,
@@ -313,6 +324,8 @@ class CheckoutController extends Controller
             'discount_type'    => $pricing['discount_type'],
             'discount_value'   => $pricing['discount_value'],
             'discount_amount'  => $pricing['discount_amount'],
+            'voucher_code'      => $voucherResult['voucher']->code ?? null,
+            'voucher_discount_amount' => $voucherDiscount,
             'final_unit_price' => $pricing['final_unit_price'],
             'delivery_address' => $address ?? '',
             'schedule_date'    => $sdate,
@@ -321,6 +334,21 @@ class CheckoutController extends Controller
             'payment_status'   => 'Unpaid',
             'created_at'       => now(),
         ]);
+
+        $createdOrder = DB::table('orders')->where('id', $oid)->first();
+        if (!empty($voucherResult['voucher']) && $voucherDiscount > 0 && $createdOrder) {
+            app(VoucherService::class)->recordRedemption($voucherResult['voucher'], $createdOrder, $voucherDiscount);
+            DB::table('order_discounts')->insert([
+                'order_id' => $oid,
+                'source_type' => 'voucher',
+                'source_id' => $voucherResult['voucher']->id,
+                'label' => $voucherResult['voucher']->name,
+                'code' => $voucherResult['voucher']->code,
+                'amount' => $voucherDiscount,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         foreach ($validAddons as $addon) {
             DB::table('order_addons')->insert([
@@ -370,6 +398,13 @@ class CheckoutController extends Controller
                 );
             }
         } catch (\Throwable $e) {}
+
+        if (!empty($checkout['cart_item_id'])) {
+            DB::table('customer_cart_items')->where('id', $checkout['cart_item_id'])->delete();
+            if (!empty($checkout['cart_id'])) {
+                app(\App\Services\CartService::class)->removeEmptyShop((int) $checkout['cart_id']);
+            }
+        }
 
         $request->session()->forget('checkout');
 

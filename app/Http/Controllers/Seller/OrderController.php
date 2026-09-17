@@ -6,6 +6,7 @@ use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
+use App\Services\LoyaltyService;
 use App\Services\OrderRefundService;
 use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
@@ -192,6 +193,7 @@ class OrderController extends Controller
         if ($newStatus === 'Picked Up') {
             $freshOrder = DB::table('orders')->where('id', $id)->first();
             PaymentTransactionHelper::recordFinalCashIfNeeded($freshOrder ?? $order, $newStatus);
+            app(LoyaltyService::class)->awardForCompletedOrder($freshOrder ?? $order);
         }
 
         DB::table('order_tracking')->insert([

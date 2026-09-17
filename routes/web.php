@@ -116,6 +116,11 @@ Route::get('/catalog', function (\Illuminate\Http\Request $request) {
 })->name('catalog');
 Route::get('/catalog/products/{productId}/reviews', [GuestCatalog::class, 'reviews'])->name('catalog.reviews');
 Route::post('/catalog/select',  [GuestCatalog::class, 'selectProduct'])->name('catalog.select');
+Route::get('/cart', [\App\Http\Controllers\Guest\CartController::class, 'index'])->name('cart');
+Route::post('/cart/add', [\App\Http\Controllers\Guest\CartController::class, 'store'])->name('cart.add');
+Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Guest\CartController::class, 'update'])->name('cart.items.update');
+Route::post('/cart/items/{id}/remove', [\App\Http\Controllers\Guest\CartController::class, 'destroy'])->name('cart.items.remove');
+Route::post('/cart/items/{id}/checkout', [\App\Http\Controllers\Guest\CartController::class, 'checkoutItem'])->name('cart.items.checkout');
 Route::get('/feedback',         [GuestFeedback::class, 'create'])->name('guest.feedback');
 Route::post('/feedback',        [GuestFeedback::class, 'store'])->name('guest.feedback.store');
 
@@ -298,6 +303,11 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
 
     Route::get('/catalog',          [CustomerCatalog::class, 'index'])->name('catalog');
     Route::post('/catalog/order',   [CustomerCatalog::class, 'order'])->name('catalog.order');
+    Route::get('/cart',             [\App\Http\Controllers\Customer\CartController::class, 'index'])->name('cart');
+    Route::post('/cart/add',        [\App\Http\Controllers\Customer\CartController::class, 'store'])->name('cart.add');
+    Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Customer\CartController::class, 'update'])->name('cart.items.update');
+    Route::post('/cart/items/{id}/remove', [\App\Http\Controllers\Customer\CartController::class, 'destroy'])->name('cart.items.remove');
+    Route::post('/cart/items/{id}/checkout', [\App\Http\Controllers\Customer\CartController::class, 'checkoutItem'])->name('cart.items.checkout');
 
     Route::get('/checkout',         [CustomerCheckout::class, 'show'])->name('checkout');
     Route::post('/checkout/place',  [CustomerCheckout::class, 'placeOrder'])->name('checkout.place');
@@ -327,6 +337,8 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
 
     Route::get('/profile',         [CustomerProfile::class, 'show'])->name('profile');
     Route::post('/profile/update', [CustomerProfile::class, 'update'])->name('profile.update');
+    Route::get('/verification',    [\App\Http\Controllers\Customer\VerificationController::class, 'show'])->name('verification');
+    Route::post('/verification',   [\App\Http\Controllers\Customer\VerificationController::class, 'store'])->name('verification.store');
     Route::get('/profile/password',               [CustomerProfile::class, 'changePasswordShow'])->name('profile.password.show');
     Route::post('/profile/password/send-otp',     [CustomerProfile::class, 'changePasswordSendOtp'])->name('profile.password.send_otp');
     Route::post('/profile/password/verify-otp',   [CustomerProfile::class, 'changePasswordVerifyOtp'])->name('profile.password.verify_otp');
@@ -490,6 +502,9 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
 // ── Super Admin Routes ───────────────────────────────────────────────────────
 Route::prefix('superadmin')->name('superadmin.')->middleware('auth.superadmin')->group(function () {
     Route::get('/notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
+    Route::get('/customer-verifications', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'index'])->name('customer_verifications.index');
+    Route::post('/customer-verifications/{id}/approve', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'approve'])->name('customer_verifications.approve');
+    Route::post('/customer-verifications/{id}/reject', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'reject'])->name('customer_verifications.reject');
 });
 
 Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->group(function () {
@@ -529,6 +544,9 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/platform-settings/backup-settings', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveBackupSettings'])->name('settings.backup_settings');
     Route::get('/platform-settings/download-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'downloadBackup'])->name('settings.download_backup');
     Route::post('/platform-settings/restore',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'restore'])->name('settings.restore');
+    Route::get('/customer-verifications', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'index'])->name('customer_verifications.index');
+    Route::post('/customer-verifications/{id}/approve', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'approve'])->name('customer_verifications.approve');
+    Route::post('/customer-verifications/{id}/reject', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'reject'])->name('customer_verifications.reject');
 });
 
 Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function () {
@@ -563,6 +581,9 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/orders/{id}/send-to-kitchen',[AdminOrder::class, 'sendToKitchen'])->name('orders.send_to_kitchen');
     Route::post('/orders/{id}/resolve-issue', [\App\Http\Controllers\Admin\RiderController::class, 'resolveIssue'])->name('orders.resolve_issue');
     Route::post('/orders/{id}/mark-settled',  [\App\Http\Controllers\Admin\RiderController::class, 'markSettled'])->name('orders.mark_settled');
+    Route::get('/customer-verifications', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'index'])->name('customer_verifications.index');
+    Route::post('/customer-verifications/{id}/approve', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'approve'])->name('customer_verifications.approve');
+    Route::post('/customer-verifications/{id}/reject', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'reject'])->name('customer_verifications.reject');
 
     Route::get('/riders',              [\App\Http\Controllers\Admin\RiderController::class, 'index'])->name('riders.index');
     Route::post('/riders',             [\App\Http\Controllers\Admin\RiderController::class, 'store'])->name('riders.store');
@@ -654,6 +675,9 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/orders/{id}/send-to-kitchen',[AdminOrder::class, 'sendToKitchen'])->name('orders.send_to_kitchen');
     Route::post('/orders/{id}/resolve-issue',  [AdminRider::class, 'resolveIssue'])->name('orders.resolve_issue');
     Route::post('/orders/{id}/mark-settled',   [AdminRider::class, 'markSettled'])->name('orders.mark_settled');
+    Route::get('/customer-verifications', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'index'])->name('customer_verifications.index');
+    Route::post('/customer-verifications/{id}/approve', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'approve'])->name('customer_verifications.approve');
+    Route::post('/customer-verifications/{id}/reject', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'reject'])->name('customer_verifications.reject');
 
     Route::get('/riders',              [AdminRider::class, 'index'])->name('riders.index');
     Route::post('/riders',             [AdminRider::class, 'store'])->name('riders.store');

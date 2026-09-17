@@ -1232,6 +1232,9 @@
     <a href="{{ route('superadmin.settings', ['tab' => 'backup']) }}" class="sb-link {{ ($currentRoute==='superadmin.settings' && request()->input('tab') === 'backup') ? 'active' : '' }}">
       <i class="bi bi-cloud-arrow-up"></i><span class="sb-link-text">Backup</span>
     </a>
+    <a href="{{ route('superadmin.customer_verifications.index') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.customer_verifications') ? 'active' : '' }}">
+      <i class="bi bi-shield-check"></i><span class="sb-link-text">Customer IDs</span>
+    </a>
 
     @else
     {{-- ═══════════════════════════════════════════ --}}
@@ -1252,6 +1255,11 @@
     <a href="{{ route('admin.messages.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.messages') ? 'active' : '' }}">
       <i class="bi bi-chat-dots"></i><span class="sb-link-text">Messages</span>
       @if($unreadMessages > 0)<span class="sb-badge">{{ $unreadMessages > 9 ? '9+' : $unreadMessages }}</span>@endif
+    </a>
+    <a href="{{ route('admin.customer_verifications.index') }}" class="sb-link {{ str_starts_with($currentRoute,'admin.customer_verifications') ? 'active' : '' }}">
+      <i class="bi bi-shield-check"></i><span class="sb-link-text">Customer IDs</span>
+      @php try { $pendingIdsSb = (int)\Illuminate\Support\Facades\DB::table('customer_verifications')->where('status','pending')->count(); } catch(\Exception $e) { $pendingIdsSb=0; } @endphp
+      @if($pendingIdsSb > 0)<span class="sb-badge warn">{{ $pendingIdsSb }}</span>@endif
     </a>
 
     <div class="sb-label">Catalog</div>
@@ -1696,6 +1704,9 @@
     <a href="{{ route('customer.catalog') }}" class="csb-link {{ $currentRoute==='customer.catalog' ? 'active' : '' }}" onclick="BerryAppTracking.clear(); closeCustSidebar()">
       <i class="bi bi-shop"></i> Catalog
     </a>
+    <a href="{{ route('customer.cart') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.cart') ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-cart3"></i> Cart
+    </a>
     <a href="{{ route('customer.orders') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.orders') || str_starts_with($currentRoute,'customer.custom_orders') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-bag-check"></i> Orders
     </a>
@@ -1709,12 +1720,18 @@
     <a href="{{ route('customer.profile') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.profile') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-person"></i> Profile
     </a>
+    <a href="{{ route('customer.verification') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.verification') ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-shield-check"></i> Verification
+    </a>
     <form method="POST" action="{{ route('logout') }}" style="margin:0">@csrf<button type="submit" class="csb-link" style="color:#ef4444;background:none;border:none;cursor:pointer;width:100%;text-align:left">
       <i class="bi bi-box-arrow-right"></i> Logout
     </button></form>
     @else
     <a href="{{ route('catalog') }}" class="csb-link {{ $currentRoute==='catalog' ? 'active' : '' }}" onclick="BerryAppTracking.clear(); closeCustSidebar()">
       <i class="bi bi-shop"></i> Catalog
+    </a>
+    <a href="{{ route('cart') }}" class="csb-link {{ $currentRoute==='cart' ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-cart3"></i> Cart
     </a>
     <a href="{{ route('guest.feedback') }}" class="csb-link {{ $currentRoute==='guest.feedback' ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-chat-square-heart"></i> Feedback

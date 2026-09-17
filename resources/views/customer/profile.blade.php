@@ -22,6 +22,42 @@
         </div>
       </div>
 
+      <div class="card mb-4">
+        <div class="card-body p-4">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+              <h6 class="fw-bold mb-1"><i class="bi bi-shield-check me-2" style="color:var(--primary)"></i>Verification & Rewards</h6>
+              <div class="text-muted small">
+                {{ ($verificationStatus ?? 'not_submitted') === 'approved' ? 'Verified benefits are active.' : 'Verify your account to unlock rewards redemption, verified-only vouchers, and higher trust limits.' }}
+              </div>
+            </div>
+            <a href="{{ route('customer.verification') }}" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-arrow-right-circle me-1"></i>{{ ($verificationStatus ?? 'not_submitted') === 'approved' ? 'View Benefits' : 'Verify Account' }}
+            </a>
+          </div>
+          <div class="row g-2 mt-3">
+            <div class="col-sm-4">
+              <div class="rounded-3 p-3" style="background:#f8fafc;border:1px solid #e5e7eb">
+                <div class="small text-muted">Status</div>
+                <div class="fw-bold">{{ ($verificationStatus ?? 'not_submitted') === 'approved' ? 'Verified' : ucwords(str_replace('_',' ', $verificationStatus ?? 'not_submitted')) }}</div>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="rounded-3 p-3" style="background:#f8fafc;border:1px solid #e5e7eb">
+                <div class="small text-muted">Membership</div>
+                <div class="fw-bold">{{ $loyalty->tier ?? 'Bronze' }}</div>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="rounded-3 p-3" style="background:#f8fafc;border:1px solid #e5e7eb">
+                <div class="small text-muted">Points</div>
+                <div class="fw-bold">{{ (int)($loyalty->points_balance ?? 0) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {{-- Profile Photo + Info --}}
       <div class="card mb-4">
         <div class="card-body p-4">
