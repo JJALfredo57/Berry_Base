@@ -453,6 +453,7 @@ const HAS_PRODUCT_DISCOUNT = {{ !empty($pricing['has_discount']) ? 'true' : 'fal
 let deliveryFee = 0;
 let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
+let addressLookupSeq = 0;
 
 function getThemeColor() {
   return getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#e91e63';
@@ -495,6 +496,44 @@ function updateDeliveryRoute(lat, lng) {
     }).addTo(map);
   }
   routeLine.bringToFront();
+}
+
+function cleanAddressParts(parts) {
+  const seen = new Set();
+  return parts
+    .map(part => String(part || '').replace(/\s+/g, ' ').trim())
+    .filter(part => {
+      if (!part) return false;
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function formatNominatimAddress(data) {
+  const a = data?.address || {};
+  const street = cleanAddressParts([
+    a.house_number && a.road ? a.house_number + ' ' + a.road : null,
+    !a.house_number ? a.road : null,
+    a.building || a.amenity || a.shop
+  ]);
+  const area = a.suburb || a.village || a.neighbourhood || a.quarter || a.hamlet || a.city_district;
+  const city = a.city || a.town || a.municipality;
+  const parts = cleanAddressParts([
+    ...street,
+    area,
+    city,
+    a.state || a.province,
+    a.postcode,
+    a.country
+  ]);
+  return parts.length ? parts.join(', ') : String(data?.display_name || '').replace(/\s+/g, ' ').trim();
+}
+
+function getDetectedAreaName(data) {
+  const a = data?.address || {};
+  return a.suburb || a.village || a.neighbourhood || a.quarter || a.hamlet || a.city_district || '';
 }
 
 // ── Haversine ─────────────────────────────────────────
@@ -777,6 +816,7 @@ function detectMyLocation() {
 
 // ── Reverse geocode ───────────────────────────────────
 async function reverseGeocode(lat, lng) {
+  const lookupId = ++addressLookupSeq;
   const field = document.getElementById('addressField');
   const ind   = document.getElementById('addressLoading');
   if (ind) ind.style.display = 'inline';
@@ -784,22 +824,16 @@ async function reverseGeocode(lat, lng) {
     const _ctrl = new AbortController(); setTimeout(() => _ctrl.abort(), 6000);
     const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl.signal });
     const data = await res.json();
-    if (data && data.display_name) {
-      const a = data.address || {};
-      const parts = [
-        a.house_number ? (a.house_number + ' ' + (a.road || '')) : a.road,
-        a.suburb || a.village || a.neighbourhood,
-        a.city_district || a.county,
-        a.city || a.town || a.municipality,
-        a.state,
-      ].filter(Boolean);
-      field.value = parts.length > 0 ? parts.join(', ') : data.display_name;
+    if (lookupId === addressLookupSeq && data && data.display_name) {
+      field.value = formatNominatimAddress(data);
       // Also store area name as delivery zone
-      const brgy = a.village || a.suburb || a.neighbourhood || a.quarter || a.hamlet || '';
-      document.getElementById('deliveryZoneInput').value = brgy || parts[0] || '';
+      const area = getDetectedAreaName(data);
+      document.getElementById('deliveryZoneInput').value = area || field.value.split(',')[0] || '';
     }
+    return data;
   } catch (e) {}
-  finally { if (ind) ind.style.display = 'none'; }
+  finally { if (lookupId === addressLookupSeq && ind) ind.style.display = 'none'; }
+  return null;
 }
 
 // ── Fulfillment toggle ────────────────────────────────

@@ -550,6 +550,7 @@ const COVERAGE_RADIUS = Math.max(1000, SHOP_META.coverageRadius || 5000);
 let deliveryFee   = 0;
 let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
+let addressLookupSeq = 0;
 
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -617,6 +618,39 @@ function updateDeliveryRoute(lat, lng) {
     }).addTo(map);
   }
   routeLine.bringToFront();
+}
+
+function cleanAddressParts(parts) {
+  const seen = new Set();
+  return parts
+    .map(part => String(part || '').replace(/\s+/g, ' ').trim())
+    .filter(part => {
+      if (!part) return false;
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function formatNominatimAddress(data) {
+  const a = data?.address || {};
+  const street = cleanAddressParts([
+    a.house_number && a.road ? a.house_number + ' ' + a.road : null,
+    !a.house_number ? a.road : null,
+    a.building || a.amenity || a.shop
+  ]);
+  const area = a.suburb || a.village || a.neighbourhood || a.quarter || a.hamlet || a.city_district;
+  const city = a.city || a.town || a.municipality;
+  const parts = cleanAddressParts([
+    ...street,
+    area,
+    city,
+    a.state || a.province,
+    a.postcode,
+    a.country
+  ]);
+  return parts.length ? parts.join(', ') : String(data?.display_name || '').replace(/\s+/g, ' ').trim();
 }
 
 function formatCoverageDistance(distance) {
@@ -835,30 +869,31 @@ function clearDetectedDeliveryZone(message = '') {
 }
 
 // ── Reverse Geocoding via OpenStreetMap Nominatim ─────────────
-async function reverseGeocode(lat, lng) {
+async function reverseGeocode(lat, lng, lookupId = null) {
   const field = document.getElementById('addressField');
   const indicator = document.getElementById('addressLoading');
   if (indicator) indicator.style.display = 'inline';
   try {
     const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
     const data = await res.json();
-    if (data && data.display_name) {
-      // Build a clean readable address
-      const a    = data.address || {};
-      const parts = [
-        a.house_number ? (a.house_number + ' ' + (a.road || '')) : a.road,
-        a.suburb || a.village || a.neighbourhood,
-        a.city_district || a.county,
-        a.city || a.town || a.municipality,
-        a.state,
-      ].filter(Boolean);
-      field.value = parts.length > 0 ? parts.join(', ') : data.display_name;
+    if ((lookupId === null || lookupId === addressLookupSeq) && data && data.display_name) {
+      field.value = formatNominatimAddress(data);
     }
+    return data;
   } catch (e) {
     // Silent fail — user can type manually
   } finally {
-    if (indicator) indicator.style.display = 'none';
+    if ((lookupId === null || lookupId === addressLookupSeq) && indicator) indicator.style.display = 'none';
   }
+  return null;
+}
+
+function fillAddressAndZoneFromPin(lat, lng) {
+  const lookupId = ++addressLookupSeq;
+  reverseGeocode(lat, lng, lookupId).then(data => {
+    if (lookupId !== addressLookupSeq) return;
+    autoSelectBarangayFromCoords(lat, lng, data);
+  });
 }
 
 function markPinned() {
@@ -886,16 +921,14 @@ function setMarkerAt(latlng) {
       document.getElementById('lat').value = ll.lat;
       document.getElementById('lng').value = ll.lng;
       updateDeliveryRoute(ll.lat, ll.lng);
-      reverseGeocode(ll.lat, ll.lng);
-      autoSelectBarangayFromCoords(ll.lat, ll.lng);
+      fillAddressAndZoneFromPin(ll.lat, ll.lng);
     });
   }
   document.getElementById('lat').value = latlng.lat;
   document.getElementById('lng').value = latlng.lng;
   updateDeliveryRoute(latlng.lat, latlng.lng);
   markPinned();
-  reverseGeocode(latlng.lat, latlng.lng);
-  autoSelectBarangayFromCoords(latlng.lat, latlng.lng);
+  fillAddressAndZoneFromPin(latlng.lat, latlng.lng);
 }
 
 function drawCoverageAreas() {
@@ -1047,12 +1080,15 @@ function useMyLocation() {
 }
 
 // ── Auto-select barangay from pinned coords via Nominatim ──────────────
-async function autoSelectBarangayFromCoords(lat, lng) {
+async function autoSelectBarangayFromCoords(lat, lng, geocodeData) {
   clearDetectedDeliveryZone();
   try {
-    const _ctrl2 = new AbortController(); setTimeout(() => _ctrl2.abort(), 6000);
-    const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl2.signal });
-    const data = await res.json();
+    let data = geocodeData;
+    if (arguments.length < 3) {
+      const _ctrl2 = new AbortController(); setTimeout(() => _ctrl2.abort(), 6000);
+      const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl2.signal });
+      data = await res.json();
+    }
     if (!data || !data.address) {
       const nearest = findNearestZoneOption(lat, lng);
       if (nearest) selectDetectedZone(nearest.index, ' (nearest coverage)');
