@@ -1524,6 +1524,25 @@
   cursor:pointer;font-size:1.1rem;flex-shrink:0;
 }
 .cust-menu-btn:hover { background:var(--primary);color:#fff; }
+.cust-topbar-cart {
+  width:38px;height:38px;border-radius:10px;border:none;
+  background:#fff;color:var(--primary);
+  border:1px solid rgba(233,30,99,.18);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:1.05rem;flex-shrink:0;
+  text-decoration:none;position:relative;
+  box-shadow:0 6px 16px rgba(15,23,42,.06);
+}
+.cust-topbar-cart:hover { background:var(--primary-light);color:var(--primary); }
+.cust-topbar-cart.active { background:var(--primary);color:#fff; }
+.cust-topbar-cart-badge {
+  position:absolute;top:-6px;right:-6px;
+  min-width:19px;height:19px;padding:0 5px;
+  border-radius:99px;background:#ef4444;color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;font-weight:800;line-height:1;
+  border:2px solid #fff;
+}
 
 /* ── Sidebar ── */
 .cust-sidebar {
@@ -1899,6 +1918,20 @@
       <div class="brand-icon"><i class="bi bi-cake2-fill text-white" style="font-size:.9rem"></i></div>
     @endif
     <span>{{ $brandTitle }}</span>
+  </a>
+  @php
+    $topbarCartRoute = $role === 'customer' ? route('customer.cart') : route('cart');
+    $topbarCartActive = $role === 'customer'
+      ? str_starts_with($currentRoute, 'customer.cart')
+      : $currentRoute === 'cart';
+  @endphp
+  <a href="{{ $topbarCartRoute }}"
+     class="cust-topbar-cart {{ $topbarCartActive ? 'active' : '' }}"
+     aria-label="Cart with {{ (int)($topbarCartCount ?? 0) }} item{{ (int)($topbarCartCount ?? 0) === 1 ? '' : 's' }}">
+    <i class="bi bi-cart3"></i>
+    @if((int)($topbarCartCount ?? 0) > 0)
+      <span class="cust-topbar-cart-badge">{{ (int)$topbarCartCount > 99 ? '99+' : $topbarCartCount }}</span>
+    @endif
   </a>
 </div>
 

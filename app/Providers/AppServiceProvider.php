@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\View;
 use Carbon\Carbon;
 
 class AppServiceProvider extends ServiceProvider
@@ -41,5 +43,39 @@ class AppServiceProvider extends ServiceProvider
             config(['app.timezone' => 'Asia/Manila']);
             date_default_timezone_set('Asia/Manila');
         }
+
+        View::composer('layouts.app', function ($view) {
+            $count = 0;
+            try {
+                if (!Schema::hasTable('customer_carts') || !Schema::hasTable('customer_cart_items')) {
+                    $view->with('topbarCartCount', 0);
+                    return;
+                }
+
+                $user = session('user');
+                $role = $user['role'] ?? null;
+
+                if ($role && $role !== 'customer') {
+                    $view->with('topbarCartCount', 0);
+                    return;
+                }
+
+                $cartQuery = DB::table('customer_carts')->where('status', 'active');
+                if ($role === 'customer') {
+                    $cartQuery->where('user_id', $user['id'] ?? '');
+                } else {
+                    $cartQuery->where('session_id', request()->session()->getId())->whereNull('user_id');
+                }
+
+                $cart = $cartQuery->orderByDesc('id')->first();
+                if ($cart) {
+                    $count = (int) DB::table('customer_cart_items')->where('cart_id', $cart->id)->sum('quantity');
+                }
+            } catch (\Throwable $e) {
+                $count = 0;
+            }
+
+            $view->with('topbarCartCount', $count);
+        });
     }
 }
