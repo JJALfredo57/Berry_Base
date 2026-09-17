@@ -16,13 +16,10 @@
 @endphp
 @push('styles')
 <style>
-.checkout-branded-shell{position:relative;min-height:calc(100vh - var(--topbar-h,60px));padding:clamp(8px,1.8vw,20px)}
-.checkout-branded-shell::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(135deg,var(--primary-bg,#fff7fb),#fff)}
-.checkout-branded-shell.has-cover::before{background-image:linear-gradient(135deg,rgba(255,247,251,.9),rgba(255,255,255,.84)),var(--checkout-cover);background-position:center;background-size:cover;background-repeat:no-repeat;filter:saturate(1.02)}
-.checkout-branded-shell.has-cover::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);background:rgba(255,255,255,.2)}
-.checkout-branded-content{position:relative;z-index:1;width:100%;max-width:1600px;margin:0 auto}
-.checkout-branded-content>.row>.col-lg-8 .card,.checkout-branded-content>.row>.col-lg-4 .card{background:rgba(255,255,255,.96);box-shadow:0 18px 48px rgba(15,23,42,.08);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-@media(max-width:575.98px){.checkout-branded-shell{padding:8px 0}.checkout-branded-content{padding-left:12px;padding-right:12px}.checkout-branded-shell.has-cover::after{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}}
+.checkout-branded-shell{position:relative;min-height:auto;padding:8px clamp(8px,1.4vw,18px) 12px;background:transparent}
+.checkout-branded-content{position:relative;width:100%;max-width:none;margin:0}
+.checkout-branded-content>.row>.col-lg-8 .card,.checkout-branded-content>.row>.col-lg-4 .card{background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+@media(max-width:575.98px){.checkout-branded-shell{padding:6px 0 10px}.checkout-branded-content{padding-left:8px;padding-right:8px}}
 </style>
 @endpush
 <script>
@@ -31,7 +28,7 @@ document.body.classList.remove('modal-open');
 document.body.style.overflow = '';
 document.body.style.paddingRight = '';
 </script>
-<div class="checkout-branded-shell {{ $checkoutCover ? 'has-cover' : '' }}" style="{{ $checkoutCover ? "--checkout-cover:url('{$checkoutCover}')" : '' }}">
+<div class="checkout-branded-shell">
 <div class="checkout-branded-content py-2 py-md-3">
   <h4 class="fw-bold mb-3 text-center"><i class="bi bi-bag-check me-2" style="color:var(--primary)"></i>Checkout</h4>
 
