@@ -829,44 +829,6 @@
         </div>
       </div>
       @endif
-              <div class="px-3 py-3">
-        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-          <p class="small fw-semibold text-muted mb-0"><i class="bi bi-geo-alt me-1"></i>Order Tracking</p>
-          @if(!in_array($o->status, ['Delivered', 'Picked Up', 'Cancelled']))
-            <span class="badge bg-light text-dark border" style="font-size:.68rem"><i class="bi bi-arrow-repeat me-1"></i>Live updates</span>
-          @endif
-        </div>
-        <div class="d-flex align-items-start overflow-auto pb-1">
-          @php
-            $statusOrder = array_flip($steps);
-            $currentIdx  = $statusOrder[$effectiveStatus] ?? 0;
-            $icons = $isPickupFlow
-              ? ['bi-clock','bi-check-circle','bi-egg-fried','bi-shop','bi-bag-check']
-              : ['bi-clock','bi-check-circle','bi-egg-fried','bi-bicycle','bi-house-check'];
-          @endphp
-          @foreach($steps as $si => $step)
-          @php $done = $si <= $currentIdx; $active = $si === $currentIdx; @endphp
-          <div class="text-center flex-shrink-0" style="min-width:80px">
-            <div style="width:36px;height:36px;border-radius:50%;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;
-              background:{{ $done ? 'var(--primary)' : '#e9ecef' }};border:2px solid {{ $done ? 'var(--primary)' : '#dee2e6' }}">
-              <i class="bi {{ $icons[$si] }} {{ $done ? 'text-white' : 'text-muted' }}" style="font-size:.8rem"></i>
-            </div>
-            <div class="small fw-{{ $active ? 'bold' : 'normal' }}"
-                 style="color:{{ $done ? 'var(--primary)' : '#aaa' }};font-size:.68rem;line-height:1.2">{{ $step }}</div>
-            @if(isset($tracking[$o->id]))
-              @foreach($tracking[$o->id] as $t)
-                @if($t->status === $step)
-                  <div class="text-muted" style="font-size:.6rem">{{ \Carbon\Carbon::parse($t->created_at)->format('M d H:i') }}</div>
-                @endif
-              @endforeach
-            @endif
-          </div>
-          @if($si < count($steps)-1)
-          <div class="flex-grow-1" style="height:2px;background:{{ $si < $currentIdx ? 'var(--primary)' : '#dee2e6' }};margin-top:17px;min-width:20px"></div>
-          @endif
-          @endforeach
-        </div>
-      </div>
       @else
       <div class="px-3 py-2">
         <span class="badge status-Cancelled px-3 py-2"><i class="bi bi-x-circle me-1"></i>Order Cancelled</span>
