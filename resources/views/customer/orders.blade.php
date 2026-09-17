@@ -153,7 +153,19 @@
     $wasRejected = $o->cancel_status === 'rejected';
     $co          = $customOrderData[$o->id] ?? null;  // custom order record if exists
     $isCustom    = !is_null($co);
-    $displayStatus = (($o->payment_status ?? '') === 'Paid' && ($o->status ?? '') === 'Awaiting Deposit') ? 'Confirmed' : $o->status;
+    $orderTrackingRows = collect($tracking[$o->id] ?? []);
+    $latestTrackingStatus = (string) optional($orderTrackingRows->last())->status;
+    $latestTrackingAt = (string) optional($orderTrackingRows->last())->created_at;
+    $isPickupFlow = ($o->fulfillment_type ?? '') === 'Pickup';
+    $steps = $isPickupFlow
+      ? ['Pending','Confirmed','Preparing','Pickup','Picked Up']
+      : ['Pending','Confirmed','Preparing','Out for Delivery','Delivered'];
+    $statusOrder = array_flip($steps);
+    $effectiveStatus = $o->status;
+    if (isset($statusOrder[$latestTrackingStatus]) && ($statusOrder[$latestTrackingStatus] ?? -1) > ($statusOrder[$effectiveStatus] ?? -1)) {
+      $effectiveStatus = $latestTrackingStatus;
+    }
+    $displayStatus = (($o->payment_status ?? '') === 'Paid' && ($effectiveStatus ?? '') === 'Awaiting Deposit') ? 'Confirmed' : $effectiveStatus;
     $coRefImgs = [];
     if ($co && !empty($co->reference_images)) {
       $dec = json_decode($co->reference_images, true);
@@ -164,19 +176,13 @@
     $canReviewThisOrder = in_array($o->status, ['Delivered', 'Picked Up']) && !$hasReview;
     $shouldAutoPromptReview = $canReviewThisOrder && !$autoReviewPrompted;
     if ($shouldAutoPromptReview) $autoReviewPrompted = true;
-    $orderTrackingRows = collect($tracking[$o->id] ?? []);
-    $latestTrackingAt = (string) optional($orderTrackingRows->last())->created_at;
-    $isPickupFlow = ($o->fulfillment_type ?? '') === 'Pickup';
-    $steps = $isPickupFlow
-      ? ['Pending','Confirmed','Preparing','Pickup','Picked Up']
-      : ['Pending','Confirmed','Preparing','Out for Delivery','Delivered'];
   @endphp
 
   <div class="cust-order-item"
        data-status="{{ $displayStatus }}"
        data-search="{{ strtolower($o->product_name . ' ' . $o->id) }}"
        data-status-url="{{ route('customer.orders.status', $o->id) }}"
-       data-order-status="{{ $o->status }}"
+       data-order-status="{{ $effectiveStatus }}"
        data-payment-status="{{ $o->payment_status }}"
        data-deposit-status="{{ $o->deposit_status }}"
        data-tracking-count="{{ $orderTrackingRows->count() }}"
@@ -833,7 +839,7 @@
         <div class="d-flex align-items-start overflow-auto pb-1">
           @php
             $statusOrder = array_flip($steps);
-            $currentIdx  = $statusOrder[$o->status] ?? 0;
+            $currentIdx  = $statusOrder[$effectiveStatus] ?? 0;
             $icons = $isPickupFlow
               ? ['bi-clock','bi-check-circle','bi-egg-fried','bi-shop','bi-bag-check']
               : ['bi-clock','bi-check-circle','bi-egg-fried','bi-bicycle','bi-house-check'];
@@ -860,22 +866,6 @@
           @endif
           @endforeach
         </div>
-        @if($orderTrackingRows->isNotEmpty())
-        <div class="mt-3 rounded-3 border bg-light p-2">
-          @foreach($orderTrackingRows->sortByDesc('created_at')->take(3) as $t)
-          <div class="d-flex gap-2 {{ !$loop->last ? 'mb-2 pb-2 border-bottom' : '' }}">
-            <span style="width:8px;height:8px;border-radius:50%;background:var(--primary);margin-top:.45rem;flex-shrink:0"></span>
-            <div class="small">
-              <div class="fw-semibold">{{ $t->status }}</div>
-              @if(!empty($t->notes))
-                <div class="text-muted">{{ $t->notes }}</div>
-              @endif
-              <div class="text-muted" style="font-size:.68rem">{{ \Carbon\Carbon::parse($t->created_at)->format('M d, Y g:i A') }}</div>
-            </div>
-          </div>
-          @endforeach
-        </div>
-        @endif
       </div>
       @else
       <div class="px-3 py-2">
