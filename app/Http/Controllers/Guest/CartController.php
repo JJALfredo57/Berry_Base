@@ -73,4 +73,34 @@ class CartController extends Controller
 
         return redirect()->route('guest.checkout');
     }
+
+    public function checkoutShop(Request $request, string $shopId, CartService $cartService)
+    {
+        $cart = $cartService->cart($request, null);
+        if (!$cart) return redirect()->route('cart')->with('error', 'Cart not found.');
+
+        $shopKey = $shopId === 'platform' ? null : $shopId;
+        $items = DB::table('customer_cart_items')
+            ->where('cart_id', $cart->id)
+            ->when($shopKey, fn ($q) => $q->where('shop_id', $shopKey), fn ($q) => $q->whereNull('shop_id'))
+            ->orderBy('id')
+            ->get();
+        if ($items->isEmpty()) {
+            return redirect()->route('cart')->with('error', 'No cart items found for that seller.');
+        }
+
+        $first = $items->first();
+        $request->session()->put('guest_checkout', [
+            'cart_id' => $cart->id,
+            'cart_shop_id' => $shopKey,
+            'cart_item_ids' => $items->pluck('id')->map(fn ($id) => (int) $id)->values()->all(),
+            'product_id' => $first->product_id,
+            'quantity' => (int) $items->sum('quantity'),
+            'custom_note' => '',
+            'selected_size' => '',
+            'is_group' => true,
+        ]);
+
+        return redirect()->route('guest.checkout');
+    }
 }

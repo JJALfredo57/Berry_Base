@@ -121,6 +121,7 @@ Route::post('/cart/add', [\App\Http\Controllers\Guest\CartController::class, 'st
 Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Guest\CartController::class, 'update'])->name('cart.items.update');
 Route::post('/cart/items/{id}/remove', [\App\Http\Controllers\Guest\CartController::class, 'destroy'])->name('cart.items.remove');
 Route::post('/cart/items/{id}/checkout', [\App\Http\Controllers\Guest\CartController::class, 'checkoutItem'])->name('cart.items.checkout');
+Route::post('/cart/shops/{shopId}/checkout', [\App\Http\Controllers\Guest\CartController::class, 'checkoutShop'])->name('cart.shops.checkout');
 Route::get('/feedback',         [GuestFeedback::class, 'create'])->name('guest.feedback');
 Route::post('/feedback',        [GuestFeedback::class, 'store'])->name('guest.feedback.store');
 
@@ -308,6 +309,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Customer\CartController::class, 'update'])->name('cart.items.update');
     Route::post('/cart/items/{id}/remove', [\App\Http\Controllers\Customer\CartController::class, 'destroy'])->name('cart.items.remove');
     Route::post('/cart/items/{id}/checkout', [\App\Http\Controllers\Customer\CartController::class, 'checkoutItem'])->name('cart.items.checkout');
+    Route::post('/cart/shops/{shopId}/checkout', [\App\Http\Controllers\Customer\CartController::class, 'checkoutShop'])->name('cart.shops.checkout');
 
     Route::get('/checkout',         [CustomerCheckout::class, 'show'])->name('checkout');
     Route::post('/checkout/place',  [CustomerCheckout::class, 'placeOrder'])->name('checkout.place');

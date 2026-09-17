@@ -4,6 +4,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class OrderController extends Controller
 {
@@ -43,6 +44,7 @@ class OrderController extends Controller
         $orderIds = collect($orders->items())->pluck('id')->toArray();
         $tracking = [];
         $orderAddons = [];
+        $orderItems = [];
         $orderReviews = [];
         $customOrderData = [];
 
@@ -56,6 +58,12 @@ class OrderController extends Controller
             try {
                 $addonRows = DB::table('order_addons')->whereIn('order_id', $orderIds)->orderBy('id')->get();
                 foreach ($addonRows as $a) $orderAddons[$a->order_id][] = $a;
+            } catch (\Exception $e) {}
+            try {
+                if (Schema::hasTable('order_items')) {
+                    $itemRows = DB::table('order_items')->whereIn('order_id', $orderIds)->orderBy('id')->get();
+                    foreach ($itemRows as $item) $orderItems[$item->order_id][] = $item;
+                }
             } catch (\Exception $e) {}
             try {
                 $reviewRows = DB::table('order_reviews')->whereIn('order_id', $orderIds)->get();
@@ -92,7 +100,7 @@ class OrderController extends Controller
             } catch (\Exception $e) {}
         }
 
-        return view('customer.orders', compact('orders','tracking','orderAddons','orderReviews','customOrderData','search','status'));
+        return view('customer.orders', compact('orders','tracking','orderAddons','orderItems','orderReviews','customOrderData','search','status'));
     }
 
     public function status(string $id)

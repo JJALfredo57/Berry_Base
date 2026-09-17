@@ -576,6 +576,16 @@
         </div>
         <div>
           <div class="fw-bold">{{ $order->product_name }}</div>
+          @if(($orderItems ?? collect())->count() > 1)
+            <div class="small" style="color:var(--primary);font-weight:700">
+              <i class="bi bi-link-45deg me-1"></i>{{ $orderItems->count() }} cakes checked out together
+            </div>
+            <div class="small text-muted mt-1">
+              @foreach($orderItems as $item)
+                <div>{{ $item->product_name }} x{{ $item->quantity }}@if($item->selected_size) ({{ $item->selected_size }})@endif</div>
+              @endforeach
+            </div>
+          @endif
           <div class="text-muted small">Qty: {{ $order->quantity }}
             @if($order->selected_size) &bull; {{ $order->selected_size }} @endif
           </div>

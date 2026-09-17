@@ -152,6 +152,7 @@
     $wasAccepted = $o->cancel_status === 'accepted';
     $wasRejected = $o->cancel_status === 'rejected';
     $co          = $customOrderData[$o->id] ?? null;  // custom order record if exists
+    $items       = $orderItems[$o->id] ?? [];
     $isCustom    = !is_null($co);
     $orderTrackingRows = collect($tracking[$o->id] ?? []);
     $latestTrackingStatus = (string) optional($orderTrackingRows->last())->status;
@@ -215,6 +216,11 @@
           @endif
               <div>
             <div class="fw-bold">{{ $o->product_name }}</div>
+            @if(count($items) > 1)
+              <div class="small" style="color:var(--primary);font-weight:700">
+                <i class="bi bi-link-45deg me-1"></i>{{ count($items) }} cakes checked out together
+              </div>
+            @endif
             <div class="text-muted small">Order #{{ $o->id }} &bull; {{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y') }}</div>
             @if(!empty($o->track_code))
               <div class="text-muted small d-flex align-items-center gap-1 flex-wrap">
@@ -265,6 +271,14 @@
         <div class="row g-2">
           <div class="col-6 col-md-3"><i class="bi bi-box me-1"></i>Qty: <strong class="text-dark">{{ $o->quantity }}</strong></div>
           <div class="col-6 col-md-3"><i class="bi bi-truck me-1"></i>{{ $o->fulfillment_type }}</div>
+          @if(count($items) > 1)
+          <div class="col-12">
+            <i class="bi bi-list-check me-1"></i>
+            @foreach($items as $item)
+              <span class="me-2"><strong class="text-dark">{{ $item->product_name }}</strong> x{{ $item->quantity }}@if($item->selected_size) ({{ $item->selected_size }})@endif</span>
+            @endforeach
+          </div>
+          @endif
           @if(!empty($o->discount_type) && (float)($o->discount_amount ?? 0) > 0)
           <div class="col-6 col-md-3">
             <i class="bi bi-tags me-1"></i>{{ \App\Helpers\CakeshopHelper::discountBadgeText($o->discount_type, $o->discount_value) ?? 'Product Discount' }}

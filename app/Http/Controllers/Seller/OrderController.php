@@ -93,6 +93,7 @@ class OrderController extends Controller
 
         $orderIds    = collect($orders->items())->pluck('id')->toArray();
         $orderAddons = [];
+        $orderItems = [];
         $customData  = [];
         $orderRefunds = [];
         $paymentReceipts = [];
@@ -101,6 +102,10 @@ class OrderController extends Controller
             try {
                 $addons = DB::table('order_addons')->whereIn('order_id', $orderIds)->get();
                 foreach ($addons as $a) $orderAddons[$a->order_id][] = $a;
+                if (Schema::hasTable('order_items')) {
+                    $items = DB::table('order_items')->whereIn('order_id', $orderIds)->orderBy('id')->get();
+                    foreach ($items as $item) $orderItems[$item->order_id][] = $item;
+                }
                 $customs = DB::table('custom_orders')->whereIn('order_id', $orderIds)->get();
                 foreach ($customs as $c) $customData[$c->order_id] = $c;
                 if (\Illuminate\Support\Facades\Schema::hasTable('order_refunds')) {
@@ -141,7 +146,7 @@ class OrderController extends Controller
 
         try {
             return response(
-                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'customData', 'orderRefunds', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'pendingCancelCount', 'search', 'status'))->render()
+                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'orderItems', 'customData', 'orderRefunds', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'pendingCancelCount', 'search', 'status'))->render()
             );
         } catch (\Throwable $e) {
             Log::error('Seller orders VIEW render failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);

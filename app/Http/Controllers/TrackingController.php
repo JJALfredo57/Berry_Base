@@ -208,6 +208,9 @@ class TrackingController extends Controller
             ->orderBy('created_at')->get();
 
         $addons = DB::table('order_addons')->where('order_id', $order->id)->get();
+        $orderItems = Schema::hasTable('order_items')
+            ? DB::table('order_items')->where('order_id', $order->id)->orderBy('id')->get()
+            : collect();
 
         $customOrder = null;
         try {
@@ -229,7 +232,7 @@ class TrackingController extends Controller
         $refund = app(OrderRefundService::class)->latestForOrder((string) $order->id);
 
         return view('guest.track_order', compact(
-            'order','tracking','addons','customOrder','statusSteps','currentStep','recentReceipts','receiptCount','refund'
+            'order','tracking','addons','orderItems','customOrder','statusSteps','currentStep','recentReceipts','receiptCount','refund'
         ));
     }
 

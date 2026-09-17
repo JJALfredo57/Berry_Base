@@ -1,9 +1,17 @@
 @extends('layouts.app')
 @section('content')
 @php
-  $originalSubtotal = $pricing['original_unit_price'] * $checkout['quantity'];
-  $discountedSubtotal = $pricing['final_unit_price'] * $checkout['quantity'];
-  $productDiscountTotal = $pricing['discount_amount'] * $checkout['quantity'];
+  $checkoutItems = $checkoutItems ?? collect();
+  $isGroupCheckout = $checkoutItems->count() > 0;
+  $originalSubtotal = $isGroupCheckout
+      ? $checkoutItems->sum(fn($item) => (float)$item->unit_price_snapshot * (int)$item->quantity)
+      : $pricing['original_unit_price'] * $checkout['quantity'];
+  $discountedSubtotal = $isGroupCheckout
+      ? $checkoutItems->sum(fn($item) => (float)$item->final_unit_price_snapshot * (int)$item->quantity)
+      : $pricing['final_unit_price'] * $checkout['quantity'];
+  $productDiscountTotal = $isGroupCheckout
+      ? $checkoutItems->sum(fn($item) => (float)$item->discount_amount_snapshot * (int)$item->quantity)
+      : $pricing['discount_amount'] * $checkout['quantity'];
 @endphp
 @push('styles')
 <style>
@@ -44,12 +52,22 @@ document.body.style.paddingRight = '';
                        style="width:72px;height:72px;object-fit:cover;border-radius:.75rem;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.12)"
                        onerror="this.src='https://placehold.co/72x72/fce4ec/e91e63?text=🎂'">
                   <div class="flex-grow-1 min-width-0">
-                    <div class="fw-bold" style="font-size:1rem;color:var(--gray-900)">{{ $product->name }}</div>
+                    <div class="fw-bold" style="font-size:1rem;color:var(--gray-900)">{{ $isGroupCheckout ? 'Seller group checkout' : $product->name }}</div>
                     <div class="text-muted small mt-1">
                       <i class="bi bi-box me-1"></i>Qty: <strong>{{ $checkout['quantity'] }}</strong>
-                      @if(!empty($checkout['selected_size'])) &ensp;<i class="bi bi-rulers me-1"></i>{{ $checkout['selected_size'] }} @endif
-                      @if($checkout['custom_note']) <br><i class="bi bi-chat-left-text me-1"></i>{{ $checkout['custom_note'] }} @endif
+                      @if(!$isGroupCheckout && !empty($checkout['selected_size'])) &ensp;<i class="bi bi-rulers me-1"></i>{{ $checkout['selected_size'] }} @endif
+                      @if(!$isGroupCheckout && $checkout['custom_note']) <br><i class="bi bi-chat-left-text me-1"></i>{{ $checkout['custom_note'] }} @endif
                     </div>
+                    @if($isGroupCheckout)
+                      <div class="mt-2 d-grid gap-1">
+                        @foreach($checkoutItems as $ci)
+                          <div class="small d-flex justify-content-between gap-2">
+                            <span>{{ $ci->product_name }} <span class="text-muted">x{{ $ci->quantity }}{{ $ci->selected_size ? ' · '.$ci->selected_size : '' }}</span></span>
+                            <span class="fw-semibold">PHP {{ number_format($ci->final_unit_price_snapshot * $ci->quantity, 2) }}</span>
+                          </div>
+                        @endforeach
+                      </div>
+                    @endif
                   </div>
                   <div class="text-end flex-shrink-0">
                     @if(!empty($pricing['has_discount']))
@@ -384,6 +402,14 @@ document.body.style.paddingRight = '';
                 <span>{{ $product->name }} × {{ $checkout['quantity'] }}</span>
                 <span>₱{{ number_format($originalSubtotal,2) }}</span>
               </div>
+              @if($isGroupCheckout)
+                @foreach($checkoutItems as $ci)
+                  <div class="d-flex justify-content-between small mb-2 text-muted">
+                    <span>{{ $ci->product_name }} x{{ $ci->quantity }}</span>
+                    <span>PHP {{ number_format($ci->final_unit_price_snapshot * $ci->quantity, 2) }}</span>
+                  </div>
+                @endforeach
+              @endif
               @if(!empty($pricing['has_discount']))
               <div class="d-flex justify-content-between small mb-2">
                 <span class="text-muted">{{ $pricing['badge_text'] }} Product Discount</span>

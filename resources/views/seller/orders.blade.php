@@ -89,6 +89,7 @@
   @php
     $custom = $customData[$o->id] ?? null;
     $addons = $orderAddons[$o->id] ?? [];
+    $items = $orderItems[$o->id] ?? [];
     $refund = $orderRefunds[$o->id] ?? null;
     $receipts = $paymentReceipts[$o->id] ?? [];
     $remittance = $riderRemittances[$o->id] ?? null;
@@ -177,6 +178,11 @@
           &bull; {{ $o->fulfillment_type ?? 'Pickup' }}
           @if($o->schedule_date) &bull; {{ \Carbon\Carbon::parse($o->schedule_date)->format('M d, Y') }} @endif
         </div>
+        @if(count($items) > 1)
+          <div class="small mt-1" style="color:var(--primary);font-weight:700">
+            <i class="bi bi-link-45deg me-1"></i>{{ count($items) }} cakes in this seller checkout
+          </div>
+        @endif
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0">
         <div style="font-size:1rem;font-weight:700;color:var(--primary)">₱{{ number_format((float)($o->total_price ?? 0),2) }}</div>
@@ -287,6 +293,14 @@
           @include('shared.customer_risk_badge', ['risk' => $customerRiskMap[$o->id] ?? null, 'compact' => true])
         </div>
         <div><span style="color:var(--gray-500)">Product</span><br><strong>{{ $o->product_name ?? ($custom->cake_name ?? 'Custom Cake') }}</strong></div>
+        @if(count($items) > 1)
+          <div style="grid-column:1/-1">
+            <span style="color:var(--gray-500)">Grouped Items</span><br>
+            @foreach($items as $item)
+              <div class="small">• <strong>{{ $item->product_name }}</strong> x{{ $item->quantity }} @if($item->selected_size) ({{ $item->selected_size }}) @endif</div>
+            @endforeach
+          </div>
+        @endif
         <div><span style="color:var(--gray-500)">Qty / Size</span><br><strong>{{ $o->quantity ?? 1 }}x {{ $o->selected_size ?? ($custom->size_label ?? '—') }}</strong></div>
         <div><span style="color:var(--gray-500)">Fulfillment</span><br><strong>{{ $o->fulfillment_type ?? 'Pickup' }}</strong></div>
         <div><span style="color:var(--gray-500)">Schedule</span><br><strong>{{ $o->schedule_date ? \Carbon\Carbon::parse($o->schedule_date)->format('M d, Y') : '—' }}{{ $o->schedule_time ? ' '.$o->schedule_time : '' }}</strong></div>

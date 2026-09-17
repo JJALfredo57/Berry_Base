@@ -52,13 +52,30 @@ class CartService
             ->where('ci.cart_id', $cart->id)
             ->where('p.is_available', true)
             ->whereNull('p.archived_at')
-            ->select('ci.*', 'p.name as product_name', 'p.image_path', 'p.price as product_price', 's.shop_name as shop_name')
+            ->select('ci.*', 'p.name as product_name', 'p.image_path', 'p.price as product_price', 'p.classification', 's.shop_name as shop_name', 's.shop_slug', 's.shop_logo')
+            ->orderBy('s.shop_name')
             ->orderByDesc('ci.id')
             ->get();
 
         $subtotal = $items->sum(fn ($item) => (float) $item->final_unit_price_snapshot * (int) $item->quantity);
+        $groups = $items->groupBy(fn ($item) => $item->shop_id ?: 'platform')->map(function ($group, $key) {
+            $first = $group->first();
+            return (object) [
+                'key' => $key,
+                'shop_id' => $first->shop_id,
+                'shop_name' => $first->shop_name ?: 'BerryBase Seller',
+                'shop_slug' => $first->shop_slug ?? null,
+                'shop_logo' => $first->shop_logo ?? null,
+                'items' => $group->values(),
+                'quantity' => (int) $group->sum('quantity'),
+                'subtotal' => round($group->sum(fn ($item) => (float) $item->final_unit_price_snapshot * (int) $item->quantity), 2),
+                'original_subtotal' => round($group->sum(fn ($item) => (float) $item->unit_price_snapshot * (int) $item->quantity), 2),
+                'discount_total' => round($group->sum(fn ($item) => (float) $item->discount_amount_snapshot * (int) $item->quantity), 2),
+                'item_count' => $group->count(),
+            ];
+        })->values();
 
-        return ['cart' => $cart, 'items' => $items, 'subtotal' => round($subtotal, 2)];
+        return ['cart' => $cart, 'items' => $items, 'groups' => $groups, 'subtotal' => round($subtotal, 2)];
     }
 
     public function add(Request $request, ?string $userId, string $productId, int $quantity, ?string $selectedSize, ?string $customNote): array
@@ -68,10 +85,6 @@ class CartService
 
         $cart = $this->cart($request, $userId);
         if (!$cart) return ['ok' => false, 'message' => 'Cart is not ready yet.'];
-
-        if (!empty($cart->shop_id) && !empty($product->shop_id) && $cart->shop_id !== $product->shop_id) {
-            return ['ok' => false, 'message' => 'Your cart currently has items from another seller. Please checkout or clear it first.'];
-        }
 
         $selectedSize = trim((string) $selectedSize);
         $customNote = trim((string) $customNote);
@@ -108,8 +121,13 @@ class CartService
             ]);
         }
 
+        $shopIds = DB::table('customer_cart_items')
+            ->where('cart_id', $cart->id)
+            ->whereNotNull('shop_id')
+            ->distinct()
+            ->pluck('shop_id');
         DB::table('customer_carts')->where('id', $cart->id)->update([
-            'shop_id' => $cart->shop_id ?: ($product->shop_id ?? null),
+            'shop_id' => $shopIds->count() === 1 ? $shopIds->first() : null,
             'updated_at' => now(),
         ]);
 
@@ -118,8 +136,15 @@ class CartService
 
     public function removeEmptyShop(int $cartId): void
     {
-        if (!DB::table('customer_cart_items')->where('cart_id', $cartId)->exists()) {
-            DB::table('customer_carts')->where('id', $cartId)->update(['shop_id' => null, 'updated_at' => now()]);
-        }
+        $shopIds = DB::table('customer_cart_items')
+            ->where('cart_id', $cartId)
+            ->whereNotNull('shop_id')
+            ->distinct()
+            ->pluck('shop_id');
+
+        DB::table('customer_carts')->where('id', $cartId)->update([
+            'shop_id' => $shopIds->count() === 1 ? $shopIds->first() : null,
+            'updated_at' => now(),
+        ]);
     }
 }

@@ -12,6 +12,7 @@ use App\Services\VoucherService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CheckoutController extends Controller
 {
@@ -73,6 +74,20 @@ class CheckoutController extends Controller
         return $nearest;
     }
 
+    private function checkoutItems(array $checkout)
+    {
+        $ids = collect($checkout['cart_item_ids'] ?? [])->map(fn ($id) => (int) $id)->filter()->values();
+        if ($ids->isEmpty()) return collect();
+
+        return DB::table('customer_cart_items as ci')
+            ->join('products as p', 'p.id', '=', 'ci.product_id')
+            ->whereIn('ci.id', $ids)
+            ->where('ci.cart_id', $checkout['cart_id'] ?? 0)
+            ->select('ci.*', 'p.name as product_name', 'p.image_path', 'p.classification')
+            ->orderBy('ci.id')
+            ->get();
+    }
+
     public function show(Request $request)
     {
         $checkout = $request->session()->get('guest_checkout');
@@ -112,6 +127,7 @@ class CheckoutController extends Controller
             : \Illuminate\Support\Facades\DB::table('site_settings')->first();
         $shopLat = $shopSettings->shop_lat ?? 15.8107127;
         $shopLng = $shopSettings->shop_lng ?? 120.4716710;
+        $checkoutItems = $this->checkoutItems($checkout);
         $selectedSize = trim((string) ($checkout['selected_size'] ?? ''));
         $originalUnitPrice = CakeshopHelper::resolveProductUnitPrice($product->id, (float) $product->price, $selectedSize);
         $discount = CakeshopHelper::getActiveProductDiscount($product->id);
@@ -129,7 +145,7 @@ class CheckoutController extends Controller
                 ->get()->groupBy('category_id');
         } catch (\Exception $e) {}
 
-        return view('guest.checkout_regular', compact('product','checkout','sizes','deliveryZones','defaultAddr','shopLat','shopLng','pricing','addonCategories','addonsByCategory','shop','shopSettings'));
+        return view('guest.checkout_regular', compact('product','checkout','sizes','deliveryZones','defaultAddr','shopLat','shopLng','pricing','addonCategories','addonsByCategory','shop','shopSettings','checkoutItems'));
     }
 
     public function sendOtp(Request $request)
@@ -231,6 +247,14 @@ class CheckoutController extends Controller
 
         $product = DB::table('products')->where('id', $pid)->first();
         if (!$product) return redirect()->route('catalog');
+        $checkoutItems = $this->checkoutItems($checkout);
+        $isGroupCheckout = $checkoutItems->isNotEmpty();
+        if (!empty($checkout['cart_item_ids']) && !$isGroupCheckout) {
+            return redirect()->route('cart')->with('error', 'Those cart items are no longer available.');
+        }
+        if ($isGroupCheckout) {
+            $qty = max(1, (int) $checkoutItems->sum('quantity'));
+        }
 
         $risk = app(CustomerRiskService::class)->evaluateOrder($phone, $product->shop_id ?? null, 'regular');
         if (!$risk['allowed']) {
@@ -326,7 +350,9 @@ class CheckoutController extends Controller
         $addonTotal  = 0;
         $validAddons = [];
 
-        $baseTotal = ($pricing['final_unit_price'] * $qty) + $addonTotal;
+        $baseTotal = ($isGroupCheckout
+            ? (float) $checkoutItems->sum(fn ($item) => (float) $item->final_unit_price_snapshot * (int) $item->quantity)
+            : $pricing['final_unit_price'] * $qty) + $addonTotal;
         $voucherCode = strtoupper(trim((string) $request->input('voucher_code', '')));
         $voucherResult = app(VoucherService::class)->validate($voucherCode, $baseTotal, $product->shop_id ?? null, $linkedCustomerId, $phone);
         if (!$voucherResult['ok']) {
@@ -390,6 +416,43 @@ class CheckoutController extends Controller
             'created_at'          => now(),
         ]);
 
+        if (Schema::hasTable('order_items')) {
+            $rows = $isGroupCheckout
+                ? $checkoutItems->map(fn ($item) => [
+                    'order_id' => $oid,
+                    'shop_id' => $item->shop_id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name,
+                    'image_path' => $item->image_path,
+                    'quantity' => max(1, (int) $item->quantity),
+                    'selected_size' => $item->selected_size,
+                    'unit_price_snapshot' => $item->unit_price_snapshot,
+                    'final_unit_price_snapshot' => $item->final_unit_price_snapshot,
+                    'discount_amount_snapshot' => $item->discount_amount_snapshot,
+                    'discount_label_snapshot' => $item->discount_label_snapshot,
+                    'custom_note' => $item->custom_note,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])->all()
+                : [[
+                    'order_id' => $oid,
+                    'shop_id' => $product->shop_id ?? null,
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'image_path' => $product->image_path ?? null,
+                    'quantity' => max(1, (int) $qty),
+                    'selected_size' => $selectedSize ?: null,
+                    'unit_price_snapshot' => $pricing['original_unit_price'],
+                    'final_unit_price_snapshot' => $pricing['final_unit_price'],
+                    'discount_amount_snapshot' => $pricing['discount_amount'],
+                    'discount_label_snapshot' => $pricing['discount_label'],
+                    'custom_note' => $note ?: null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]];
+            DB::table('order_items')->insert($rows);
+        }
+
         $createdOrder = DB::table('orders')->where('id', $oid)->first();
         if (!empty($voucherResult['voucher']) && $voucherDiscount > 0 && $createdOrder) {
             app(VoucherService::class)->recordRedemption($voucherResult['voucher'], $createdOrder, $voucherDiscount);
@@ -443,7 +506,15 @@ class CheckoutController extends Controller
             }
         } catch (\Throwable $e) {}
 
-        if (!empty($checkout['cart_item_id'])) {
+        if (!empty($checkout['cart_item_ids'])) {
+            DB::table('customer_cart_items')
+                ->where('cart_id', $checkout['cart_id'] ?? 0)
+                ->whereIn('id', $checkout['cart_item_ids'])
+                ->delete();
+            if (!empty($checkout['cart_id'])) {
+                app(\App\Services\CartService::class)->removeEmptyShop((int) $checkout['cart_id']);
+            }
+        } elseif (!empty($checkout['cart_item_id'])) {
             DB::table('customer_cart_items')->where('id', $checkout['cart_item_id'])->delete();
             if (!empty($checkout['cart_id'])) {
                 app(\App\Services\CartService::class)->removeEmptyShop((int) $checkout['cart_id']);
