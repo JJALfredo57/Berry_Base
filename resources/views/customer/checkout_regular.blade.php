@@ -104,6 +104,7 @@ document.body.style.paddingRight = '';
                   <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e5e7eb">
                     <label class="form-label fw-semibold small mb-1" for="itemNote{{ $ci->id }}">
                       {{ $ci->product_name }}
+                      <span class="text-muted fw-normal">(optional)</span>
                       <span class="text-muted fw-normal">x{{ $ci->quantity }}{{ $ci->selected_size ? ' · '.$ci->selected_size : '' }}</span>
                     </label>
                     <textarea class="form-control" name="item_notes[{{ $ci->id }}]" id="itemNote{{ $ci->id }}" rows="2" maxlength="160"
@@ -206,8 +207,8 @@ document.body.style.paddingRight = '';
 
               {{-- Fee + ETA display --}}
               <div id="deliveryCalcBox" style="display:none" class="mb-3">
-                <div style="border-radius:.9rem;overflow:hidden;border:1.5px solid #ddd6fe;box-shadow:0 4px 16px rgba(99,102,241,.1)">
-                  <div id="deliveryCalcHeader" style="padding:.7rem 1.1rem;background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)">
+                <div style="border-radius:.9rem;overflow:hidden;border:1.5px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb);box-shadow:0 4px 16px color-mix(in srgb,var(--primary) 12%,transparent)">
+                  <div id="deliveryCalcHeader" style="padding:.7rem 1.1rem;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark,var(--primary)) 100%)">
                     <div class="d-flex align-items-center justify-content-between">
                       <span class="fw-semibold text-white" style="font-size:.85rem">
                         <i class="bi bi-bicycle me-2"></i>Delivery Quote
@@ -217,18 +218,18 @@ document.body.style.paddingRight = '';
                       </span>
                     </div>
                   </div>
-                  <div style="background:#f5f3ff;padding:.9rem 1rem">
+                  <div style="background:var(--primary-light,#fff0f6);padding:.9rem 1rem">
                     <div class="row g-0 text-center mb-2">
-                      <div class="col-4" style="border-right:1px solid #ddd6fe">
-                        <div class="fw-bold" id="distDisplay" style="font-size:1.05rem;color:#6366f1;line-height:1.2">—</div>
+                      <div class="col-4" style="border-right:1px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb)">
+                        <div class="fw-bold" id="distDisplay" style="font-size:1.05rem;color:var(--primary);line-height:1.2">—</div>
                         <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Distance</div>
                       </div>
-                      <div class="col-4" style="border-right:1px solid #ddd6fe">
-                        <div class="fw-bold" id="calcFeeDisplay" style="font-size:1.05rem;color:#1e40af;line-height:1.2">₱0.00</div>
+                      <div class="col-4" style="border-right:1px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb)">
+                        <div class="fw-bold" id="calcFeeDisplay" style="font-size:1.05rem;color:var(--primary-dark,var(--primary));line-height:1.2">₱0.00</div>
                         <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Delivery Fee</div>
                       </div>
                       <div class="col-4">
-                        <div class="fw-bold" id="calcEtaDisplay" style="font-size:1.05rem;color:#059669;line-height:1.2">—</div>
+                        <div class="fw-bold" id="calcEtaDisplay" style="font-size:1.05rem;color:var(--primary);line-height:1.2">—</div>
                         <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Est. Arrival</div>
                       </div>
                     </div>
@@ -549,14 +550,14 @@ function onPinSet(lat, lng) {
     const freeEl = document.getElementById('deliveryFreeTag');
     if (fee === 0) {
       feeEl.textContent  = 'FREE';
-      feeEl.style.color  = '#059669';
+      feeEl.style.color  = 'var(--primary)';
       freeEl.style.display = '';
-      hdrEl.style.background = 'linear-gradient(135deg,#059669 0%,#047857 100%)';
+      hdrEl.style.background = 'linear-gradient(135deg,var(--primary) 0%,var(--primary-dark,var(--primary)) 100%)';
     } else {
       feeEl.textContent  = '₱' + fee.toFixed(2);
-      feeEl.style.color  = '#1e40af';
+      feeEl.style.color  = 'var(--primary-dark,var(--primary))';
       freeEl.style.display = 'none';
-      hdrEl.style.background = 'linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)';
+      hdrEl.style.background = 'linear-gradient(135deg,var(--primary) 0%,var(--primary-dark,var(--primary)) 100%)';
     }
 
     // ETA
@@ -567,15 +568,15 @@ function onPinSet(lat, lng) {
     if (fee === 0 && SHOP_META.freeRadius > 0) {
       const freeLabel = SHOP_META.freeRadius >= 1000
         ? (SHOP_META.freeRadius / 1000).toFixed(1) + ' km' : SHOP_META.freeRadius + ' m';
-      bd.innerHTML = `<i class="bi bi-gift me-1" style="color:#059669"></i>Free delivery within ${freeLabel} from shop`;
+      bd.innerHTML = `<i class="bi bi-gift me-1" style="color:var(--primary)"></i>Free delivery within ${freeLabel} from shop`;
     } else if (fee > 0) {
       const freeKm = Math.max(0, (SHOP_META.freeRadius || 0) / 1000);
       const chargeKm = Math.max(0, km - freeKm);
       const kmPart = SHOP_META.feePerKm * chargeKm;
       bd.innerHTML =
-        `<div class="d-flex justify-content-between"><span><i class="bi bi-gift me-1" style="color:#059669"></i>Free distance</span><span class="fw-semibold">${freeKm.toFixed(1)} km</span></div>` +
-        `<div class="d-flex justify-content-between"><span><i class="bi bi-truck me-1 text-indigo"></i>Base delivery fee</span><span class="fw-semibold">₱${SHOP_META.baseFee.toFixed(2)}</span></div>` +
-        `<div class="d-flex justify-content-between"><span><i class="bi bi-geo-alt me-1 text-indigo"></i>₱${SHOP_META.feePerKm.toFixed(2)}/km × ${chargeKm.toFixed(2)} km excess</span><span class="fw-semibold">₱${kmPart.toFixed(2)}</span></div>`;
+        `<div class="d-flex justify-content-between"><span><i class="bi bi-gift me-1" style="color:var(--primary)"></i>Free distance</span><span class="fw-semibold">${freeKm.toFixed(1)} km</span></div>` +
+        `<div class="d-flex justify-content-between"><span><i class="bi bi-truck me-1" style="color:var(--primary)"></i>Base delivery fee</span><span class="fw-semibold">₱${SHOP_META.baseFee.toFixed(2)}</span></div>` +
+        `<div class="d-flex justify-content-between"><span><i class="bi bi-geo-alt me-1" style="color:var(--primary)"></i>₱${SHOP_META.feePerKm.toFixed(2)}/km × ${chargeKm.toFixed(2)} km excess</span><span class="fw-semibold">₱${kmPart.toFixed(2)}</span></div>`;
     } else {
       bd.innerHTML = '';
     }
@@ -587,7 +588,7 @@ function onPinSet(lat, lng) {
       const pts = [[SHOP_META.lat, SHOP_META.lng], [lat, lng]];
       if (routeLine) routeLine.setLatLngs(pts);
       else routeLine = L.polyline(pts, {
-        color: '#6366f1', weight: 2, dashArray: '7 5', opacity: .65
+        color: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#e91e63', weight: 2, dashArray: '7 5', opacity: .65
       }).addTo(map);
     }
 
@@ -619,7 +620,7 @@ function initMap() {
   // Shop marker
   if (SHOP_META.lat && SHOP_META.lng) {
     const shopIcon = L.divIcon({
-      html: `<div style="background:#6366f1;width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 12px rgba(99,102,241,.55);display:flex;align-items:center;justify-content:center">
+      html: `<div style="background:var(--primary);width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 12px color-mix(in srgb,var(--primary) 45%,transparent);display:flex;align-items:center;justify-content:center">
                <span style="transform:rotate(45deg);font-size:15px;line-height:1">🏪</span>
              </div>`,
       className: '', iconSize: [36,36], iconAnchor: [18,36]
