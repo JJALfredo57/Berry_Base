@@ -98,10 +98,26 @@ document.body.style.paddingRight = '';
         <div class="card mb-3">
           <div class="card-body p-4">
             <h6 class="fw-bold mb-3"><i class="bi bi-chat-left-quote me-2" style="color:var(--primary)"></i>Cake Message</h6>
+            @if($isGroupCheckout)
+              <div class="d-grid gap-3">
+                @foreach($checkoutItems as $ci)
+                  <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e5e7eb">
+                    <label class="form-label fw-semibold small mb-1" for="itemNote{{ $ci->id }}">
+                      {{ $ci->product_name }}
+                      <span class="text-muted fw-normal">x{{ $ci->quantity }}{{ $ci->selected_size ? ' · '.$ci->selected_size : '' }}</span>
+                    </label>
+                    <textarea class="form-control" name="item_notes[{{ $ci->id }}]" id="itemNote{{ $ci->id }}" rows="2" maxlength="160"
+                      placeholder="Example: Happy Birthday, Maria!">{{ old('item_notes.'.$ci->id, $ci->custom_note ?? '') }}</textarea>
+                  </div>
+                @endforeach
+              </div>
+              <div class="form-text"><i class="bi bi-info-circle me-1"></i>Each message is saved to its matching cake.</div>
+            @else
             <label class="form-label fw-semibold small" for="customNoteField">Product note/message <span class="text-muted fw-normal">(optional)</span></label>
             <textarea class="form-control" name="custom_note" id="customNoteField" rows="2" maxlength="160"
               placeholder="Example: Happy Birthday, Maria!">{{ old('custom_note', $checkout['custom_note'] ?? '') }}</textarea>
             <div class="form-text"><i class="bi bi-info-circle me-1"></i>This note will be sent to the kitchen with your order.</div>
+            @endif
           </div>
         </div>
 
@@ -424,7 +440,7 @@ const SHOP_META = {
 };
 const COVERAGE_ZONES   = @json($deliveryZones->values());
 const COVERAGE_RADIUS  = Math.max(1000, SHOP_META.coverageRadius || 5000);
-const BASE_PRICE       = {{ $pricing['final_unit_price'] * $checkout['quantity'] }};
+const BASE_PRICE       = {{ (float) $discountedSubtotal }};
 const HAS_PRODUCT_DISCOUNT = {{ !empty($pricing['has_discount']) ? 'true' : 'false' }};
 let deliveryFee = 0;
 let map, marker, routeLine;

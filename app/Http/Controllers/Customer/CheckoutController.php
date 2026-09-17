@@ -180,6 +180,12 @@ class CheckoutController extends Controller
         if ($isGroupCheckout) {
             $qty = max(1, (int) $checkoutItems->sum('quantity'));
         }
+        $itemNotes = collect($request->input('item_notes', []))
+            ->mapWithKeys(fn ($value, $key) => [(int) $key => substr(preg_replace('/\s+/', ' ', trim((string) $value)), 0, 160)]);
+        if ($isGroupCheckout) {
+            $noteCount = $itemNotes->filter(fn ($value) => $value !== '')->count();
+            $note = $noteCount > 0 ? "Grouped order: {$noteCount} item note" . ($noteCount > 1 ? 's' : '') : null;
+        }
 
         // ── DUPLICATE PREVENTION ──────────────────────────────
         $recentDuplicate = DB::table('orders')
@@ -376,7 +382,7 @@ class CheckoutController extends Controller
                     'final_unit_price_snapshot' => $item->final_unit_price_snapshot,
                     'discount_amount_snapshot' => $item->discount_amount_snapshot,
                     'discount_label_snapshot' => $item->discount_label_snapshot,
-                    'custom_note' => $item->custom_note,
+                    'custom_note' => ($itemNotes[(int) $item->id] ?? '') !== '' ? $itemNotes[(int) $item->id] : $item->custom_note,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ])->all()
@@ -433,11 +439,25 @@ class CheckoutController extends Controller
             'created_at' => now(),
         ]);
 
+        $sellerMessage = "New order placed. Order #{$oid}.";
+        if ($isGroupCheckout) {
+            $lines = $checkoutItems->map(function ($item) use ($itemNotes) {
+                $line = "- {$item->product_name} x{$item->quantity}";
+                if (!empty($item->selected_size)) $line .= " ({$item->selected_size})";
+                $itemNote = $itemNotes[(int) $item->id] ?? ($item->custom_note ?? '');
+                if ($itemNote !== '') $line .= "\n  Note: {$itemNote}";
+                return $line;
+            })->implode("\n");
+            $sellerMessage .= "\nItems:\n{$lines}";
+        } elseif ($note) {
+            $sellerMessage .= "\nNote: {$note}";
+        }
+
         DB::table('messages')->insert([
             'order_id'    => $oid,
             'sender_role' => 'customer',
             'sender_id'   => $uid,
-            'message'     => "New order placed. Order #{$oid}." . ($note ? "\nNote: {$note}" : ''),
+            'message'     => $sellerMessage,
             'is_read' => false,
             'created_at'  => now(),
         ]);
