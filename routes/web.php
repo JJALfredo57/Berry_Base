@@ -133,16 +133,66 @@ Route::get('/api/geocode/reverse', function (\Illuminate\Http\Request $req) {
     $lat = (float) $req->query('lat', 0);
     $lng = (float) $req->query('lng', 0);
     if (!$lat || !$lng) return response()->json(['error' => 'Missing coordinates'], 422);
-    $url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1'
-         . '&lat=' . $lat . '&lon=' . $lng;
-    return redirect()->away($url);
+    if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+        return response()->json(['error' => 'Invalid coordinates'], 422);
+    }
+
+    try {
+        $response = \Illuminate\Support\Facades\Http::timeout(8)
+            ->acceptJson()
+            ->withHeaders([
+                'User-Agent' => config('app.name', 'BerryBase') . ' geocoder/1.0',
+            ])
+            ->get('https://nominatim.openstreetmap.org/reverse', [
+                'format' => 'jsonv2',
+                'addressdetails' => 1,
+                'lat' => $lat,
+                'lon' => $lng,
+            ]);
+
+        if (!$response->successful()) {
+            return response()->json(['error' => 'Address lookup unavailable'], 502);
+        }
+
+        return response()->json($response->json() ?? []);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Reverse geocode failed', [
+            'lat' => $lat,
+            'lng' => $lng,
+            'error' => $e->getMessage(),
+        ]);
+        return response()->json(['error' => 'Address lookup unavailable'], 502);
+    }
 })->name('api.geocode.reverse');
 
 Route::get('/api/geocode/search', function (\Illuminate\Http\Request $req) {
     $q = trim($req->query('q', ''));
     if (!$q) return response()->json([], 200);
-    $url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=' . urlencode($q);
-    return redirect()->away($url);
+    try {
+        $response = \Illuminate\Support\Facades\Http::timeout(8)
+            ->acceptJson()
+            ->withHeaders([
+                'User-Agent' => config('app.name', 'BerryBase') . ' geocoder/1.0',
+            ])
+            ->get('https://nominatim.openstreetmap.org/search', [
+                'format' => 'jsonv2',
+                'addressdetails' => 1,
+                'limit' => 5,
+                'q' => $q,
+            ]);
+
+        if (!$response->successful()) {
+            return response()->json([], 502);
+        }
+
+        return response()->json($response->json() ?? []);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Geocode search failed', [
+            'query' => $q,
+            'error' => $e->getMessage(),
+        ]);
+        return response()->json([], 502);
+    }
 })->name('api.geocode.search');
 
 Route::post('/device/register', [DeviceSessionController::class, 'register'])->name('device.register');
