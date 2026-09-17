@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('content')
 <div class="container-fluid py-4">
-  <h4 class="fw-bold mb-4"><i class="bi bi-chat-dots me-2" style="color:var(--primary)"></i>Messages</h4>
+  <h4 class="fw-bold mb-4"><i class="bi bi-chat-dots me-2" style="color:var(--primary)"></i>Seller Messages</h4>
 
   @forelse($threads as $t)
   <a href="{{ route('customer.messages.thread', $t->order_id) }}" class="text-decoration-none">

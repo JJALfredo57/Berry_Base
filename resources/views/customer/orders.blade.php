@@ -937,7 +937,7 @@
         @endif
 
         <a href="{{ route('customer.messages.thread', $o->id) }}" class="btn btn-outline-primary btn-sm">
-          <i class="bi bi-chat-dots me-1"></i>Message Admin
+          <i class="bi bi-chat-dots me-1"></i>Message Seller
         </a>
 
         @if($o->payment_method === 'GCash' && $o->payment_status === 'Unpaid' && $o->status !== 'Cancelled')
