@@ -6,7 +6,7 @@
 <div class="container-fluid py-4">
   <div class="d-flex justify-content-between align-items-end mb-3">
     <div><h2 class="mb-0">My Addresses</h2><div class="text-muted">Add multiple addresses, delete, and set default.</div></div>
-    <a class="btn btn-outline-secondary pill" href="{{ route('customer.checkout') }}">Back to Checkout</a>
+    <a class="btn btn-outline-secondary pill" href="{{ route('customer.profile') }}">Back to Profile</a>
   </div>
   @if(session('msg'))<div class="alert alert-success">{{ session('msg') }}</div>@endif
   @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
@@ -24,8 +24,17 @@
                 <div class="small text-muted">Lat: {{ $a->latitude }}, Lng: {{ $a->longitude }}</div>
               </div>
               <div class="text-end">
-                <a class="btn btn-sm btn-outline-primary pill mb-1" href="{{ route('customer.addresses.default', $a->id) }}">Set Default</a>
-                <a class="btn btn-sm btn-outline-danger pill" href="{{ route('customer.addresses.destroy', $a->id) }}" onclick="confirmDelete('This address will be permanently removed.', () => window.location=this.href); return false;">Delete</a>
+                @if((int)$a->is_default !== 1)
+                <form method="POST" action="{{ route('customer.addresses.set_default', $a->id) }}" class="mb-1">
+                  @csrf
+                  <button type="submit" class="btn btn-sm btn-outline-primary pill">Set Default</button>
+                </form>
+                @endif
+                <form method="POST" action="{{ route('customer.addresses.destroy', $a->id) }}">
+                  @csrf
+                  <button type="submit" class="btn btn-sm btn-outline-danger pill"
+                          onclick="return confirm('This address will be permanently removed.')">Delete</button>
+                </form>
               </div>
             </div>
           </div>

@@ -58,6 +58,26 @@
         </div>
       </div>
 
+      <div class="card mb-4">
+        <div class="card-body p-4">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+              <h6 class="fw-bold mb-1"><i class="bi bi-geo-alt me-2" style="color:var(--primary)"></i>Saved Address</h6>
+              @if(!empty($defaultAddr))
+                <div class="fw-semibold">{{ $defaultAddr->label_name ?: 'Default Address' }}</div>
+                <div class="text-muted small">{{ $defaultAddr->full_address }}</div>
+                <div class="text-muted small">{{ (int)($addressCount ?? 0) }} saved address{{ (int)($addressCount ?? 0) === 1 ? '' : 'es' }}</div>
+              @else
+                <div class="text-muted small">No saved address yet. Save one during checkout or add it here.</div>
+              @endif
+            </div>
+            <a href="{{ route('customer.addresses') }}" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-map me-1"></i>Manage Addresses
+            </a>
+          </div>
+        </div>
+      </div>
+
       {{-- Profile Photo + Info --}}
       <div class="card mb-4">
         <div class="card-body p-4">

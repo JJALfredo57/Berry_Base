@@ -1739,6 +1739,9 @@
     <a href="{{ route('customer.profile') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.profile') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-person"></i> Profile
     </a>
+    <a href="{{ route('customer.addresses') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.addresses') ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-geo-alt"></i> Addresses
+    </a>
     <a href="{{ route('customer.verification') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.verification') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-shield-check"></i> Verification
     </a>
