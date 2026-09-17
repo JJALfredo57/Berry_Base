@@ -89,7 +89,7 @@
           <div class="border-top p-3">
             @if(session('warn'))<div class="alert alert-warning py-2 small mb-2 border-0">{{ session('warn') }}</div>@endif
             <div id="threadUploadSummary" style="display:flex;align-items:center;flex-wrap:wrap;margin-bottom:.35rem"></div>
-            <form action="{{ route('customer.messages.send', $orderId) }}" method="POST" enctype="multipart/form-data" id="threadForm">
+            <form action="{{ route('customer.messages.thread.send', $orderId) }}" method="POST" enctype="multipart/form-data" id="threadForm">
               @csrf
               <input type="hidden" id="replyToInput" data-reply-input name="reply_to_id" value="">
               <div class="reply-compose-preview" id="replyPreview" data-reply-preview>

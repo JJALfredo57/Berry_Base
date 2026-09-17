@@ -6,7 +6,7 @@
     ->leftJoin('users as u','u.id','=','o.user_id')
     ->join('products as p','p.id','=','o.product_id')
     ->select('o.*',
-      DB::raw('COALESCE(o.guest_name, u.fullname, "Guest") as fullname'),
+      DB::raw("COALESCE(o.guest_name, u.fullname, 'Guest') as fullname"),
       'p.name as product_name')
     ->orderByDesc('o.id')->limit(8)->get();
   $ordersByStatus = DB::table('orders')->select('status', DB::raw('count(*) as count'))->groupBy('status')->get()->keyBy('status');
