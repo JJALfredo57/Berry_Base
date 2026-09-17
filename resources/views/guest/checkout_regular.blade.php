@@ -524,6 +524,13 @@ function checkCheckoutAvailability() {
 .cv-msg { font-size:.74rem; margin-top:4px; min-height:16px; }
 .cv-msg.cv-ok  { color:#16a34a; }
 .cv-msg.cv-err { color:#ef4444; }
+.bb-delivery-route{stroke-dasharray:10 12;stroke-linecap:round;animation:bbRouteDash 1.1s linear infinite;filter:drop-shadow(0 2px 4px rgba(15,23,42,.22))}
+.bb-customer-pin-wrap{background:transparent;border:0}
+.bb-customer-pin{position:relative;width:34px;height:34px;border-radius:50%;background:var(--primary,#e91e63);border:3px solid #fff;box-shadow:0 6px 18px color-mix(in srgb,var(--primary) 45%,transparent);display:flex;align-items:center;justify-content:center}
+.bb-customer-pin::before{content:"";position:absolute;inset:-8px;border-radius:50%;border:2px solid color-mix(in srgb,var(--primary) 35%,transparent);animation:bbPinPulse 1.8s ease-out infinite}
+.bb-customer-pin span{width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px color-mix(in srgb,#fff 40%,transparent)}
+@keyframes bbRouteDash{to{stroke-dashoffset:-22}}
+@keyframes bbPinPulse{0%{transform:scale(.75);opacity:.85}100%{transform:scale(1.45);opacity:0}}
 </style>
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -541,7 +548,7 @@ const SHOP_META = {
 };
 const COVERAGE_RADIUS = Math.max(1000, SHOP_META.coverageRadius || 5000);
 let deliveryFee   = 0;
-let map, marker;
+let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
 
 function haversine(lat1, lon1, lat2, lon2) {
@@ -567,6 +574,49 @@ function deliveryFeeBreakdown(lat, lng) {
   const freeKm = Math.max(0, (SHOP_META.freeRadius || 0) / 1000);
   const chargeKm = Math.max(0, km - freeKm);
   return { dist, km, freeKm, chargeKm, fee: calcDistanceFee(dist) };
+}
+
+function getThemeColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#e91e63';
+}
+
+function curvedDeliveryRoute(startLat, startLng, endLat, endLng) {
+  const points = [];
+  const dx = endLng - startLng;
+  const dy = endLat - startLat;
+  const distance = Math.sqrt(dx * dx + dy * dy) || 0.001;
+  const curve = Math.min(0.012, Math.max(0.002, distance * 0.22));
+  const offsetLat = -dx / distance * curve;
+  const offsetLng = dy / distance * curve;
+
+  for (let i = 0; i <= 28; i++) {
+    const t = i / 28;
+    const lift = Math.sin(Math.PI * t);
+    points.push([
+      startLat + dy * t + offsetLat * lift,
+      startLng + dx * t + offsetLng * lift
+    ]);
+  }
+  return points;
+}
+
+function updateDeliveryRoute(lat, lng) {
+  if (!map || !SHOP_META.lat || !SHOP_META.lng) return;
+  const points = curvedDeliveryRoute(parseFloat(SHOP_META.lat), parseFloat(SHOP_META.lng), parseFloat(lat), parseFloat(lng));
+  if (routeLine) {
+    routeLine.setLatLngs(points);
+    routeLine.setStyle({ color: getThemeColor() });
+  } else {
+    routeLine = L.polyline(points, {
+      color: getThemeColor(),
+      weight: 4,
+      opacity: .9,
+      dashArray: '10 12',
+      lineCap: 'round',
+      className: 'bb-delivery-route'
+    }).addTo(map);
+  }
+  routeLine.bringToFront();
 }
 
 function formatCoverageDistance(distance) {
@@ -824,17 +874,25 @@ function setMarkerAt(latlng) {
   clearDetectedDeliveryZone();
   if (marker) marker.setLatLng(latlng);
   else {
-    marker = L.marker(latlng, { draggable: true }).addTo(map);
+    const pinIcon = L.divIcon({
+      html: '<div class="bb-customer-pin"><span></span></div>',
+      className: 'bb-customer-pin-wrap',
+      iconSize: [34,34],
+      iconAnchor: [17,17]
+    });
+    marker = L.marker(latlng, { draggable: true, icon: pinIcon }).addTo(map);
     marker.on('dragend', e => {
       const ll = e.target.getLatLng();
       document.getElementById('lat').value = ll.lat;
       document.getElementById('lng').value = ll.lng;
+      updateDeliveryRoute(ll.lat, ll.lng);
       reverseGeocode(ll.lat, ll.lng);
       autoSelectBarangayFromCoords(ll.lat, ll.lng);
     });
   }
   document.getElementById('lat').value = latlng.lat;
   document.getElementById('lng').value = latlng.lng;
+  updateDeliveryRoute(latlng.lat, latlng.lng);
   markPinned();
   reverseGeocode(latlng.lat, latlng.lng);
   autoSelectBarangayFromCoords(latlng.lat, latlng.lng);
@@ -845,7 +903,7 @@ function drawCoverageAreas() {
   const coverageFeatures = [];
   if (SHOP_META.lat && SHOP_META.lng) {
     const shopIcon = L.divIcon({
-      html: '<div style="background:#2563eb;width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 12px rgba(37,99,235,.45);display:flex;align-items:center;justify-content:center"><i class="bi bi-shop" style="transform:rotate(45deg);color:#fff;font-size:14px"></i></div>',
+      html: '<div style="background:var(--primary);width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 12px color-mix(in srgb,var(--primary) 45%,transparent);display:flex;align-items:center;justify-content:center"><i class="bi bi-shop" style="transform:rotate(45deg);color:#fff;font-size:14px"></i></div>',
       className: '', iconSize: [34,34], iconAnchor: [17,34]
     });
     L.marker([SHOP_META.lat, SHOP_META.lng], { icon: shopIcon }).addTo(map).bindTooltip('Seller shop');

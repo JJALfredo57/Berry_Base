@@ -19,6 +19,13 @@
 .checkout-branded-shell{position:relative;min-height:auto;padding:8px clamp(8px,1.4vw,18px) 12px;background:transparent}
 .checkout-branded-content{position:relative;width:100%;max-width:none;margin:0}
 .checkout-branded-content>.row>.col-lg-8 .card,.checkout-branded-content>.row>.col-lg-4 .card{background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.bb-delivery-route{stroke-dasharray:10 12;stroke-linecap:round;animation:bbRouteDash 1.1s linear infinite;filter:drop-shadow(0 2px 4px rgba(15,23,42,.22))}
+.bb-customer-pin-wrap{background:transparent;border:0}
+.bb-customer-pin{position:relative;width:34px;height:34px;border-radius:50%;background:var(--primary,#e91e63);border:3px solid #fff;box-shadow:0 6px 18px color-mix(in srgb,var(--primary) 45%,transparent);display:flex;align-items:center;justify-content:center}
+.bb-customer-pin::before{content:"";position:absolute;inset:-8px;border-radius:50%;border:2px solid color-mix(in srgb,var(--primary) 35%,transparent);animation:bbPinPulse 1.8s ease-out infinite}
+.bb-customer-pin span{width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px color-mix(in srgb,#fff 40%,transparent)}
+@keyframes bbRouteDash{to{stroke-dashoffset:-22}}
+@keyframes bbPinPulse{0%{transform:scale(.75);opacity:.85}100%{transform:scale(1.45);opacity:0}}
 @media(max-width:575.98px){.checkout-branded-shell{padding:6px 0 10px}.checkout-branded-content{padding-left:8px;padding-right:8px}}
 </style>
 @endpush
@@ -447,6 +454,49 @@ let deliveryFee = 0;
 let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
 
+function getThemeColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#e91e63';
+}
+
+function curvedDeliveryRoute(startLat, startLng, endLat, endLng) {
+  const points = [];
+  const dx = endLng - startLng;
+  const dy = endLat - startLat;
+  const distance = Math.sqrt(dx * dx + dy * dy) || 0.001;
+  const curve = Math.min(0.012, Math.max(0.002, distance * 0.22));
+  const offsetLat = -dx / distance * curve;
+  const offsetLng = dy / distance * curve;
+
+  for (let i = 0; i <= 28; i++) {
+    const t = i / 28;
+    const lift = Math.sin(Math.PI * t);
+    points.push([
+      startLat + dy * t + offsetLat * lift,
+      startLng + dx * t + offsetLng * lift
+    ]);
+  }
+  return points;
+}
+
+function updateDeliveryRoute(lat, lng) {
+  if (!map || !SHOP_META.lat || !SHOP_META.lng) return;
+  const points = curvedDeliveryRoute(parseFloat(SHOP_META.lat), parseFloat(SHOP_META.lng), parseFloat(lat), parseFloat(lng));
+  if (routeLine) {
+    routeLine.setLatLngs(points);
+    routeLine.setStyle({ color: getThemeColor() });
+  } else {
+    routeLine = L.polyline(points, {
+      color: getThemeColor(),
+      weight: 4,
+      opacity: .9,
+      dashArray: '10 12',
+      lineCap: 'round',
+      className: 'bb-delivery-route'
+    }).addTo(map);
+  }
+  routeLine.bringToFront();
+}
+
 // ── Haversine ─────────────────────────────────────────
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -499,6 +549,7 @@ function nearestCoverageZone(lat, lng) {
 function onPinSet(lat, lng) {
   document.getElementById('lat').value = lat;
   document.getElementById('lng').value = lng;
+  updateDeliveryRoute(lat, lng);
 
   // Coverage check
   const covered = isInCoverage(lat, lng);
@@ -583,15 +634,6 @@ function onPinSet(lat, lng) {
 
     calcBox.style.display = '';
 
-    // Route line from shop to pin
-    if (SHOP_META.lat && SHOP_META.lng) {
-      const pts = [[SHOP_META.lat, SHOP_META.lng], [lat, lng]];
-      if (routeLine) routeLine.setLatLngs(pts);
-      else routeLine = L.polyline(pts, {
-        color: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#e91e63', weight: 2, dashArray: '7 5', opacity: .65
-      }).addTo(map);
-    }
-
     // Update summary panel fee row
     const feeRow = document.getElementById('feeRow');
     if (feeRow) {
@@ -645,11 +687,8 @@ function setMarkerAt(latlng, triggerPin = true) {
     marker.setLatLng(latlng);
   } else {
     const pinIcon = L.divIcon({
-      html: `<div style="position:relative;width:28px;height:40px">
-               <div style="background:var(--primary,#e91e8c);width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(233,30,140,.55)"></div>
-               <div style="position:absolute;top:4px;left:4px;width:12px;height:12px;background:#fff;border-radius:50%;transform:rotate(45deg)"></div>
-             </div>`,
-      className: '', iconSize: [28,40], iconAnchor: [14,40]
+      html: '<div class="bb-customer-pin"><span></span></div>',
+      className: 'bb-customer-pin-wrap', iconSize: [34,34], iconAnchor: [17,17]
     });
     marker = L.marker(latlng, { draggable: true, icon: pinIcon }).addTo(map);
     marker.bindTooltip('Your location', {direction: 'top'});
@@ -662,6 +701,7 @@ function setMarkerAt(latlng, triggerPin = true) {
   else {
     document.getElementById('lat').value = latlng.lat;
     document.getElementById('lng').value = latlng.lng;
+    updateDeliveryRoute(latlng.lat, latlng.lng);
   }
 }
 
