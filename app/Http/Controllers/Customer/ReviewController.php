@@ -24,7 +24,7 @@ class ReviewController extends Controller
 
         if (!$order) return back()->with('error', 'Order not found or not yet delivered.');
 
-        $existing = DB::table('order_reviews')->where('order_id', $orderId)->where('user_id', $uid)->first();
+        $existing = DB::table('order_reviews')->where('order_id', $orderId)->first();
         if ($existing) return back()->with('error', 'You have already reviewed this order.');
 
         // Handle image upload

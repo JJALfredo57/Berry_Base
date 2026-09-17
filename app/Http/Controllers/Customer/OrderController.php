@@ -95,6 +95,45 @@ class OrderController extends Controller
         return view('customer.orders', compact('orders','tracking','orderAddons','orderReviews','customOrderData','search','status'));
     }
 
+    public function status(string $id)
+    {
+        $uid = session('user')['id'];
+        $order = DB::table('orders')
+            ->where('id', $id)
+            ->where('user_id', $uid)
+            ->select('id', 'status', 'payment_status', 'deposit_status', 'total_price', 'deposit_amount', 'paid_at', 'deposit_paid_at', 'updated_at')
+            ->first();
+
+        if (!$order) {
+            return response()->json(['ok' => false, 'message' => 'Order not found.'], 404);
+        }
+
+        $trackingQuery = DB::table('order_tracking')
+            ->where('order_id', $id)
+            ->whereNotIn('status', self::CUSTOMER_HIDDEN_TRACKING_STATUSES);
+
+        $trackingCount = (clone $trackingQuery)->count();
+        $latestTrackingAt = (clone $trackingQuery)->max('created_at');
+        $final = in_array($order->status, ['Delivered', 'Picked Up', 'Cancelled'], true);
+        $active = in_array($order->status, ['Preparing', 'Out for Delivery', 'Pickup'], true);
+
+        return response()->json([
+            'ok' => true,
+            'status' => $order->status,
+            'payment_status' => $order->payment_status,
+            'deposit_status' => $order->deposit_status,
+            'total_price' => (string) round((float) ($order->total_price ?? 0), 2),
+            'deposit_amount' => (string) round((float) ($order->deposit_amount ?? 0), 2),
+            'paid_at' => (string) ($order->paid_at ?? ''),
+            'deposit_paid_at' => (string) ($order->deposit_paid_at ?? ''),
+            'tracking_count' => $trackingCount,
+            'updated_at' => (string) ($order->updated_at ?? ''),
+            'latest_tracking_at' => (string) ($latestTrackingAt ?? ''),
+            'final' => $final,
+            'interval_ms' => $final ? 0 : ($active ? 10000 : 25000),
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
     public function requestCancel(Request $request, string $id)
     {
         $uid    = session('user')['id'];

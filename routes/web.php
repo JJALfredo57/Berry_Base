@@ -303,6 +303,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::post('/checkout/place',  [CustomerCheckout::class, 'placeOrder'])->name('checkout.place');
 
     Route::get('/orders',                          [CustomerOrder::class, 'index'])->name('orders');
+    Route::get('/orders/{id}/status',              [CustomerOrder::class, 'status'])->name('orders.status');
     Route::post('/orders/{id}/cancel-request',     [CustomerOrder::class, 'requestCancel'])->name('orders.cancel_request');
     Route::post('/orders/{id}/review',             [CustomerReview::class, 'store'])->name('orders.review');
 

@@ -164,9 +164,24 @@
     $canReviewThisOrder = in_array($o->status, ['Delivered', 'Picked Up']) && !$hasReview;
     $shouldAutoPromptReview = $canReviewThisOrder && !$autoReviewPrompted;
     if ($shouldAutoPromptReview) $autoReviewPrompted = true;
+    $orderTrackingRows = collect($tracking[$o->id] ?? []);
+    $latestTrackingAt = (string) optional($orderTrackingRows->last())->created_at;
+    $isPickupFlow = ($o->fulfillment_type ?? '') === 'Pickup';
+    $steps = $isPickupFlow
+      ? ['Pending','Confirmed','Preparing','Pickup','Picked Up']
+      : ['Pending','Confirmed','Preparing','Out for Delivery','Delivered'];
   @endphp
 
-  <div class="cust-order-item" data-status="{{ $displayStatus }}" data-search="{{ strtolower($o->product_name . ' ' . $o->id) }}">
+  <div class="cust-order-item"
+       data-status="{{ $displayStatus }}"
+       data-search="{{ strtolower($o->product_name . ' ' . $o->id) }}"
+       data-status-url="{{ route('customer.orders.status', $o->id) }}"
+       data-order-status="{{ $o->status }}"
+       data-payment-status="{{ $o->payment_status }}"
+       data-deposit-status="{{ $o->deposit_status }}"
+       data-tracking-count="{{ $orderTrackingRows->count() }}"
+       data-latest-tracking-at="{{ $latestTrackingAt }}"
+       data-updated-at="{{ $o->updated_at }}">
   <div class="card mb-3">
     <div class="card-body p-0">
 
@@ -558,11 +573,11 @@
         @if($co->review_status === 'rejected')
         <div class="d-flex gap-2 flex-wrap mt-2">
           <button class="btn btn-sm btn-outline-primary"
-                  onclick="sendFollowUp({{ $o->id }}, '{{ addslashes($co->cake_name) }}', {{ $co->id }})">
+                  onclick="sendFollowUp(@js((string) $o->id), @js((string) $co->cake_name), @js((string) $co->id))">
             <i class="bi bi-chat-dots me-1"></i>Follow Up with Admin
           </button>
           <button class="btn btn-sm btn-outline-secondary"
-                  onclick="copyFollowUp({{ $o->id }}, '{{ addslashes($co->cake_name) }}', {{ $co->id }})">
+                  onclick="copyFollowUp(@js((string) $o->id), @js((string) $co->cake_name), @js((string) $co->id))">
             <i class="bi bi-clipboard me-1"></i>Copy Message
           </button>
         </div>
@@ -734,11 +749,11 @@
               @if($co->review_status === 'rejected')
               <div class="d-flex gap-2 flex-wrap">
                 <button class="btn btn-primary btn-sm"
-                        onclick="sendFollowUp({{ $o->id }}, '{{ addslashes($co->cake_name) }}', {{ $co->id }});bootstrap.Modal.getInstance(document.getElementById('coDetailModal{{ $co->id }}')).hide()">
+                        onclick="sendFollowUp(@js((string) $o->id), @js((string) $co->cake_name), @js((string) $co->id));bootstrap.Modal.getInstance(document.getElementById('coDetailModal{{ $co->id }}')).hide()">
                   <i class="bi bi-chat-dots me-1"></i>Send Follow-up to Admin
                 </button>
                 <button class="btn btn-outline-secondary btn-sm"
-                        onclick="copyFollowUp({{ $o->id }}, '{{ addslashes($co->cake_name) }}', {{ $co->id }})">
+                        onclick="copyFollowUp(@js((string) $o->id), @js((string) $co->cake_name), @js((string) $co->id))">
                   <i class="bi bi-clipboard me-1"></i>Copy Message
                 </button>
               </div>
@@ -809,12 +824,19 @@
       </div>
       @endif
               <div class="px-3 py-3">
-        <p class="small fw-semibold text-muted mb-2"><i class="bi bi-geo-alt me-1"></i>Order Tracking</p>
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+          <p class="small fw-semibold text-muted mb-0"><i class="bi bi-geo-alt me-1"></i>Order Tracking</p>
+          @if(!in_array($o->status, ['Delivered', 'Picked Up', 'Cancelled']))
+            <span class="badge bg-light text-dark border" style="font-size:.68rem"><i class="bi bi-arrow-repeat me-1"></i>Live updates</span>
+          @endif
+        </div>
         <div class="d-flex align-items-start overflow-auto pb-1">
           @php
-            $statusOrder = ['Pending'=>0,'Confirmed'=>1,'Preparing'=>2,'Out for Delivery'=>3,'Delivered'=>4];
+            $statusOrder = array_flip($steps);
             $currentIdx  = $statusOrder[$o->status] ?? 0;
-            $icons = ['bi-clock','bi-check-circle','bi-egg-fried','bi-bicycle','bi-house-check'];
+            $icons = $isPickupFlow
+              ? ['bi-clock','bi-check-circle','bi-egg-fried','bi-shop','bi-bag-check']
+              : ['bi-clock','bi-check-circle','bi-egg-fried','bi-bicycle','bi-house-check'];
           @endphp
           @foreach($steps as $si => $step)
           @php $done = $si <= $currentIdx; $active = $si === $currentIdx; @endphp
@@ -838,6 +860,22 @@
           @endif
           @endforeach
         </div>
+        @if($orderTrackingRows->isNotEmpty())
+        <div class="mt-3 rounded-3 border bg-light p-2">
+          @foreach($orderTrackingRows->sortByDesc('created_at')->take(3) as $t)
+          <div class="d-flex gap-2 {{ !$loop->last ? 'mb-2 pb-2 border-bottom' : '' }}">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--primary);margin-top:.45rem;flex-shrink:0"></span>
+            <div class="small">
+              <div class="fw-semibold">{{ $t->status }}</div>
+              @if(!empty($t->notes))
+                <div class="text-muted">{{ $t->notes }}</div>
+              @endif
+              <div class="text-muted" style="font-size:.68rem">{{ \Carbon\Carbon::parse($t->created_at)->format('M d, Y g:i A') }}</div>
+            </div>
+          </div>
+          @endforeach
+        </div>
+        @endif
       </div>
       @else
       <div class="px-3 py-2">
@@ -864,15 +902,15 @@
             <i class="bi bi-x-lg"></i>
           </button>
         </div>
-        <form action="{{ route('customer.orders.review', $o->id) }}" method="POST" enctype="multipart/form-data" onsubmit="rememberCustomerReviewPrompt({{ $o->id }})">
+        <form action="{{ route('customer.orders.review', $o->id) }}" method="POST" enctype="multipart/form-data" onsubmit="rememberCustomerReviewPrompt(@js((string) $o->id))">
           @csrf
           <div class="d-flex gap-1 mb-2" id="stars_{{ $o->id }}">
             @for($s=1;$s<=5;$s++)
-            <label class="star-label" style="cursor:pointer;font-size:1.5rem;color:#d1d5db"
-                   onmouseover="highlightStars({{ $o->id }},{{ $s }})"
-                   onmouseout="resetStars({{ $o->id }})">
+            <label class="star-label" style="cursor:pointer;font-size:1.5rem;color:#f59e0b"
+                   onmouseover="highlightStars(@js((string) $o->id),{{ $s }})"
+                   onmouseout="resetStars(@js((string) $o->id))">
               <input type="radio" name="rating" value="{{ $s }}" class="d-none"
-                     onchange="selectStar({{ $o->id }},{{ $s }})">
+                     onchange="selectStar(@js((string) $o->id),{{ $s }})" {{ $s === 5 ? 'checked' : '' }}>
               ★
             </label>
             @endfor
@@ -903,7 +941,7 @@
             </label>
             <input type="file" class="form-control form-control-sm" name="review_image"
                    accept="image/jpeg,image/png,image/webp"
-                   onchange="previewReviewImage(this, {{ $o->id }})">
+                   onchange="previewReviewImage(this, @js((string) $o->id))">
             <img id="reviewPreview{{ $o->id }}" src="" alt=""
                  style="display:none;width:70px;height:70px;object-fit:cover;border-radius:.5rem;margin-top:6px;border:2px solid #fce7f3">
           </div>
@@ -1128,6 +1166,14 @@ function copyFollowUp(orderId, cakeName, coId) {
 }
 
 const starSelections = {};
+function initCustomerReviewStars() {
+  document.querySelectorAll('[id^="stars_"]').forEach(container => {
+    const orderId = container.id.replace('stars_', '');
+    const checked = container.querySelector('input[name="rating"]:checked');
+    selectStar(orderId, checked ? parseInt(checked.value, 10) : 5);
+  });
+}
+
 function previewReviewImage(input, orderId) {
   const preview = document.getElementById('reviewPreview' + orderId);
   if (input.files && input.files[0]) {
@@ -1183,11 +1229,96 @@ async function shareTrackingLink(code, url) {
   }
 }
 
+let customerOrderStatusTimer = null;
+let customerOrderReloading = false;
+
+function customerOrderCards() {
+  return Array.from(document.querySelectorAll('.cust-order-item[data-status-url]'));
+}
+
+function customerOrderIsFinal(status) {
+  return ['Delivered', 'Picked Up', 'Cancelled'].includes(String(status || ''));
+}
+
+function customerOrderChanged(card, next) {
+  const checks = {
+    orderStatus: next.status,
+    paymentStatus: next.payment_status,
+    depositStatus: next.deposit_status,
+    trackingCount: next.tracking_count,
+    latestTrackingAt: next.latest_tracking_at,
+    updatedAt: next.updated_at
+  };
+
+  return Object.entries(checks).some(([key, value]) => String(card.dataset[key] || '') !== String(value ?? ''));
+}
+
+function rememberCustomerOrderSnapshot(card, next) {
+  card.dataset.orderStatus = String(next.status ?? '');
+  card.dataset.paymentStatus = String(next.payment_status ?? '');
+  card.dataset.depositStatus = String(next.deposit_status ?? '');
+  card.dataset.trackingCount = String(next.tracking_count ?? '');
+  card.dataset.latestTrackingAt = String(next.latest_tracking_at ?? '');
+  card.dataset.updatedAt = String(next.updated_at ?? '');
+}
+
+function scheduleCustomerOrderStatusPoll(delay) {
+  if (customerOrderStatusTimer) clearTimeout(customerOrderStatusTimer);
+  if (!delay || customerOrderReloading) return;
+  customerOrderStatusTimer = setTimeout(pollCustomerOrderStatuses, delay);
+}
+
+async function pollCustomerOrderStatuses() {
+  if (document.hidden) {
+    scheduleCustomerOrderStatusPoll(30000);
+    return;
+  }
+
+  const cards = customerOrderCards().filter(card => !customerOrderIsFinal(card.dataset.orderStatus));
+  if (!cards.length) return;
+
+  let nextDelay = 25000;
+  try {
+    const results = await Promise.all(cards.map(async card => {
+      const res = await fetch(card.dataset.statusUrl, {
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        cache: 'no-store'
+      });
+      if (!res.ok) return null;
+      return { card, data: await res.json() };
+    }));
+
+    for (const result of results) {
+      if (!result || !result.data?.ok) continue;
+      if (customerOrderChanged(result.card, result.data)) {
+        customerOrderReloading = true;
+        trackingToast('Order update received. Refreshing...', 'success');
+        setTimeout(() => window.location.reload(), 800);
+        return;
+      }
+      rememberCustomerOrderSnapshot(result.card, result.data);
+      if (result.data.interval_ms) nextDelay = Math.min(nextDelay, parseInt(result.data.interval_ms, 10) || nextDelay);
+    }
+  } catch (e) {
+    nextDelay = 45000;
+  }
+
+  scheduleCustomerOrderStatusPoll(nextDelay);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && !customerOrderReloading) pollCustomerOrderStatuses();
+});
+
+if (customerOrderCards().some(card => !customerOrderIsFinal(card.dataset.orderStatus))) {
+  scheduleCustomerOrderStatusPoll(15000);
+}
+
 function highlightStars(orderId, count) {
   // supports both 'stars_X' (cake) and 'rider_stars_X' (rider) container IDs
   const isRider = String(orderId).startsWith('rider_');
   const containerId = isRider ? 'rider_stars_' + String(orderId).replace('rider_','') : 'stars_' + orderId;
-  const labels = document.querySelectorAll('#' + containerId + ' .star-label');
+  const labels = document.getElementById(containerId)?.querySelectorAll('.star-label') || [];
   const sel = starSelections[orderId] || 0;
   labels.forEach((l, i) => {
     l.style.color = i < count ? '#f59e0b' : (i < sel ? '#f59e0b' : '#d1d5db');
@@ -1196,7 +1327,7 @@ function highlightStars(orderId, count) {
 function resetStars(orderId) {
   const isRider = String(orderId).startsWith('rider_');
   const containerId = isRider ? 'rider_stars_' + String(orderId).replace('rider_','') : 'stars_' + orderId;
-  const labels = document.querySelectorAll('#' + containerId + ' .star-label');
+  const labels = document.getElementById(containerId)?.querySelectorAll('.star-label') || [];
   const sel = starSelections[orderId] || 0;
   labels.forEach((l, i) => { l.style.color = i < sel ? '#f59e0b' : '#d1d5db'; });
 }
@@ -1304,6 +1435,7 @@ function setupDepositAmountForms() {
 }
 
 setupDepositAmountForms();
+initCustomerReviewStars();
 </script>
 @endpush
 
