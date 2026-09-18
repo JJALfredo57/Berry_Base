@@ -122,6 +122,39 @@
       gap:10px;
       align-items:center;
     }
+    .customer-qr-panel {
+      display:none;
+      border:1.5px solid color-mix(in srgb,var(--primary) 20%,#dbeafe);
+      border-radius:.9rem;
+      padding:1rem;
+      background:#fff;
+      box-shadow:0 10px 26px rgba(15,23,42,.08);
+    }
+    .customer-qr-panel.is-open { display:block; }
+    .customer-qr-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:.8rem;
+      margin-bottom:.65rem;
+    }
+    .customer-qr-title { font-weight:800;color:var(--primary);font-size:.92rem; }
+    .customer-qr-meta { color:#475569;font-size:.75rem;font-weight:650;margin-top:.15rem; }
+    .customer-qr-img {
+      display:block;
+      width:min(250px,80vw);
+      aspect-ratio:1/1;
+      object-fit:contain;
+      margin:.75rem auto;
+      border:8px solid #fff;
+      border-radius:.75rem;
+      box-shadow:0 8px 24px rgba(15,23,42,.10);
+    }
+    .customer-qr-countdown { color:var(--primary);font-weight:900;text-align:center;font-size:.9rem; }
+    .customer-qr-countdown.expired { color:#b91c1c; }
+    .customer-qr-actions { display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem;margin-top:.8rem; }
+    .customer-qr-status { font-size:.78rem;font-weight:700;text-align:center;color:#1e40af;margin-top:.55rem; }
+    .customer-qr-trigger { border:1.5px solid var(--primary)!important;color:var(--primary)!important;background:#fff!important; }
     html.track-modal-open,body.track-modal-open {
       overflow:hidden!important;
       height:100%!important;
@@ -177,6 +210,17 @@
     $canReviewThisOrder = in_array($o->status, ['Delivered', 'Picked Up']) && !$hasReview;
     $shouldAutoPromptReview = $canReviewThisOrder && !$autoReviewPrompted;
     if ($shouldAutoPromptReview) $autoReviewPrompted = true;
+    $qrTotalAmount = max(0, (float) ($o->total_price ?? 0));
+    $qrDepositAmount = max(0, (float) ($o->deposit_amount ?? 0));
+    $qrDepositPaid = ($o->deposit_status ?? null) === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment', 'Paid'], true);
+    $qrRemainingAmount = max(0, round($qrTotalAmount - ($qrDepositPaid ? $qrDepositAmount : 0), 2));
+    $qrPaymentType = $qrDepositPaid ? 'remaining' : (($o->deposit_required ?? false) ? 'deposit' : 'full');
+    $qrAmount = $qrPaymentType === 'remaining' ? $qrRemainingAmount : ($qrPaymentType === 'deposit' ? $qrDepositAmount : $qrTotalAmount);
+    $canShowCustomerQr = !empty($o->track_code)
+      && ($o->payment_method ?? '') === 'GCash'
+      && ($o->payment_status ?? '') !== 'Paid'
+      && ($o->status ?? '') !== 'Cancelled'
+      && $qrAmount >= 100;
   @endphp
 
   <div class="cust-order-item"
@@ -958,6 +1002,31 @@
           <a href="{{ route('customer.pay_gcash', ['order_id'=>$o->id]) }}" class="btn btn-warning btn-sm">
             <i class="bi bi-phone me-1"></i>Pay via GCash
           </a>
+          @if($canShowCustomerQr)
+          <button type="button"
+                  class="btn btn-outline-primary btn-sm customer-qr-trigger"
+                  data-customer-qr
+                  data-target="customerQrPanel{{ $o->id }}"
+                  data-generate-url="{{ route('guest.payment_qr.generate', $o->track_code) }}"
+                  data-check-url="{{ route('guest.payment_qr.check', $o->track_code) }}"
+                  data-payment-type="{{ $qrPaymentType }}"
+                  data-amount="{{ number_format($qrAmount, 2, '.', '') }}">
+            <i class="bi bi-qr-code me-1"></i>Show Payment QR
+          </button>
+          @endif
+        @endif
+
+        @if($canShowCustomerQr && ($o->payment_status ?? '') === 'Partial Payment')
+          <button type="button"
+                  class="btn btn-outline-primary btn-sm customer-qr-trigger"
+                  data-customer-qr
+                  data-target="customerQrPanel{{ $o->id }}"
+                  data-generate-url="{{ route('guest.payment_qr.generate', $o->track_code) }}"
+                  data-check-url="{{ route('guest.payment_qr.check', $o->track_code) }}"
+                  data-payment-type="remaining"
+                  data-amount="{{ number_format($qrRemainingAmount, 2, '.', '') }}">
+            <i class="bi bi-qr-code me-1"></i>Show Remaining QR
+          </button>
         @endif
 
         @if(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'pending' && $o->status === 'Awaiting Deposit')
@@ -966,6 +1035,18 @@
              style="background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:.6rem">
             <i class="bi bi-phone-fill me-1"></i>Pay Deposit — ₱{{ number_format($o->deposit_amount, 2) }}
           </a>
+          @if($canShowCustomerQr)
+          <button type="button"
+                  class="btn btn-outline-primary btn-sm customer-qr-trigger"
+                  data-customer-qr
+                  data-target="customerQrPanel{{ $o->id }}"
+                  data-generate-url="{{ route('guest.payment_qr.generate', $o->track_code) }}"
+                  data-check-url="{{ route('guest.payment_qr.check', $o->track_code) }}"
+                  data-payment-type="deposit"
+                  data-amount="{{ number_format($o->deposit_amount, 2, '.', '') }}">
+            <i class="bi bi-qr-code me-1"></i>Show Deposit QR
+          </button>
+          @endif
         @endif
 
         {{-- CANCEL REQUEST BUTTON --}}
@@ -983,6 +1064,33 @@
           </span>
         @endif
       </div>
+      @if($canShowCustomerQr)
+      <div class="px-3 pb-3">
+        <div class="customer-qr-panel" id="customerQrPanel{{ $o->id }}" aria-live="polite">
+          <div class="customer-qr-head">
+            <div>
+              <div class="customer-qr-title" data-qr-title>GCash QR Payment</div>
+              <div class="customer-qr-meta" data-qr-meta>Secure PayMongo QR</div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-qr-refresh aria-label="Refresh QR">
+              <i class="bi bi-arrow-repeat"></i>
+            </button>
+          </div>
+          <div data-qr-loading class="text-center fw-semibold py-3" style="color:var(--primary);display:none">Generating QR...</div>
+          <img data-qr-image class="customer-qr-img" src="" alt="GCash PayMongo QR code" style="display:none">
+          <div data-qr-countdown class="customer-qr-countdown"></div>
+          <div class="customer-qr-actions">
+            <a class="btn btn-primary" data-qr-open href="#" target="_blank" rel="noopener" style="display:none">
+              <i class="bi bi-phone me-1"></i>Open GCash
+            </a>
+            <button type="button" class="btn btn-outline-primary" data-qr-check>
+              <i class="bi bi-arrow-repeat me-1"></i>Check Payment
+            </button>
+          </div>
+          <div data-qr-status class="customer-qr-status"></div>
+        </div>
+      </div>
+      @endif
     </div>
   </div>
 
@@ -1302,6 +1410,199 @@ function selectStar(orderId, count) {
   resetStars(orderId);
 }
 
+const customerQrStates = new Map();
+
+function customerQrMoney(value) {
+  const amount = Number(value || 0);
+  return 'PHP ' + amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function customerQrPanel(trigger) {
+  const targetId = trigger?.dataset?.target || '';
+  return targetId ? document.getElementById(targetId) : null;
+}
+
+function customerQrElements(panel) {
+  return {
+    panel,
+    title: panel?.querySelector('[data-qr-title]'),
+    meta: panel?.querySelector('[data-qr-meta]'),
+    loading: panel?.querySelector('[data-qr-loading]'),
+    image: panel?.querySelector('[data-qr-image]'),
+    countdown: panel?.querySelector('[data-qr-countdown]'),
+    openLink: panel?.querySelector('[data-qr-open]'),
+    check: panel?.querySelector('[data-qr-check]'),
+    refresh: panel?.querySelector('[data-qr-refresh]'),
+    status: panel?.querySelector('[data-qr-status]')
+  };
+}
+
+function customerQrState(panel) {
+  if (!customerQrStates.has(panel.id)) {
+    customerQrStates.set(panel.id, { id: null, timer: null, paymentType: null, amount: null, generateUrl: '', checkUrl: '' });
+  }
+  return customerQrStates.get(panel.id);
+}
+
+function customerQrSetBusy(panel, isBusy) {
+  const el = customerQrElements(panel);
+  if (!el.panel) return;
+  if (el.loading) el.loading.style.display = isBusy ? 'block' : 'none';
+  if (el.check) el.check.disabled = isBusy;
+  if (el.refresh) el.refresh.disabled = isBusy;
+}
+
+function customerQrMessage(panel, message, type = 'info') {
+  const el = customerQrElements(panel);
+  if (!el.status) return;
+  el.status.textContent = message || '';
+  el.status.style.color = type === 'error' ? '#b91c1c' : (type === 'success' ? '#166534' : '#1e40af');
+}
+
+function customerQrRedirect(url) {
+  trackingToast('Payment received. Refreshing order...', 'success');
+  window.setTimeout(() => { window.location.href = url || window.location.href; }, 900);
+}
+
+function customerQrStartCountdown(panel, expiresAt) {
+  const state = customerQrState(panel);
+  const el = customerQrElements(panel);
+  if (!el.countdown) return;
+  if (state.timer) clearInterval(state.timer);
+
+  const expiresTime = expiresAt ? new Date(expiresAt).getTime() : 0;
+  const tick = () => {
+    const secondsLeft = Math.max(0, Math.floor((expiresTime - Date.now()) / 1000));
+    const minutes = Math.floor(secondsLeft / 60);
+    const seconds = secondsLeft % 60;
+    el.countdown.textContent = secondsLeft > 0
+      ? 'Expires in ' + minutes + ':' + String(seconds).padStart(2, '0')
+      : 'QR expired';
+    el.countdown.classList.toggle('expired', secondsLeft <= 0);
+    if (secondsLeft <= 0) {
+      clearInterval(state.timer);
+      state.timer = null;
+      customerQrMessage(panel, 'QR expired. Tap Refresh QR to create a new one.');
+    }
+  };
+  tick();
+  state.timer = setInterval(tick, 1000);
+}
+
+function customerQrRender(panel, data) {
+  if (!panel || !data?.qr) return;
+  const state = customerQrState(panel);
+  const el = customerQrElements(panel);
+  const qr = data.qr;
+  state.id = qr.id;
+  state.paymentType = qr.payment_type || state.paymentType;
+  state.amount = Number(qr.amount || state.amount || 0);
+  panel.classList.add('is-open');
+  if (el.title) el.title.textContent = (qr.payment_type === 'remaining' ? 'Remaining Balance QR' : (qr.payment_type === 'full' ? 'Full Payment QR' : 'Deposit QR'));
+  if (el.meta) el.meta.textContent = customerQrMoney(qr.amount) + (qr.reference_number ? ' | Ref ' + qr.reference_number : '');
+  if (el.image) {
+    el.image.src = qr.qr_image || '';
+    el.image.style.display = qr.qr_image ? 'block' : 'none';
+  }
+  if (el.openLink) {
+    el.openLink.href = qr.action_url || '#';
+    el.openLink.style.display = qr.action_url ? 'inline-flex' : 'none';
+  }
+  if (data.paid || qr.status === 'paid') {
+    customerQrRedirect(data.redirect_url);
+    return;
+  }
+  customerQrMessage(panel, data.message || 'Scan the QR using GCash, then tap Check Payment after paying.');
+  customerQrStartCountdown(panel, qr.expires_at);
+}
+
+async function customerQrGenerate(trigger) {
+  const panel = customerQrPanel(trigger);
+  if (!panel) return;
+  const state = customerQrState(panel);
+  const paymentType = trigger?.dataset?.paymentType || state.paymentType || 'full';
+  const amount = parseFloat(trigger?.dataset?.amount || state.amount || '0');
+
+  if (!amount || amount < 100) {
+    customerQrMessage(panel, 'Minimum GCash QR payment is PHP 100.00.', 'error');
+    panel.classList.add('is-open');
+    return;
+  }
+
+  state.paymentType = paymentType;
+  state.amount = amount;
+  state.generateUrl = trigger.dataset.generateUrl || state.generateUrl;
+  state.checkUrl = trigger.dataset.checkUrl || state.checkUrl;
+  panel.classList.add('is-open');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  customerQrSetBusy(panel, true);
+  customerQrMessage(panel, 'Generating secure QR...');
+
+  try {
+    const fd = new FormData();
+    fd.append('_token', '{{ csrf_token() }}');
+    fd.append('payment_type', paymentType);
+    fd.append('amount', amount.toFixed(2));
+    const response = await fetch(state.generateUrl, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.message || data.error || 'Unable to generate QR.');
+    customerQrRender(panel, data);
+  } catch (error) {
+    customerQrMessage(panel, error.message || 'Unable to generate QR. Please try again.', 'error');
+  } finally {
+    customerQrSetBusy(panel, false);
+  }
+}
+
+async function customerQrCheck(panel) {
+  if (!panel) return;
+  const state = customerQrState(panel);
+  if (!state.id) {
+    customerQrMessage(panel, 'Generate a QR first.', 'error');
+    return;
+  }
+  customerQrSetBusy(panel, true);
+  customerQrMessage(panel, 'Checking payment status...');
+
+  try {
+    const fd = new FormData();
+    fd.append('_token', '{{ csrf_token() }}');
+    fd.append('qr_id', state.id);
+    const response = await fetch(state.checkUrl, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.message || data.error || 'Unable to check payment.');
+    if (data.paid || data.qr?.status === 'paid') {
+      customerQrRedirect(data.redirect_url);
+      return;
+    }
+    if (data.qr?.status === 'expired') {
+      state.id = null;
+      customerQrMessage(panel, 'QR expired. Tap Refresh QR to create a new one.');
+      return;
+    }
+    customerQrRender(panel, data);
+  } catch (error) {
+    customerQrMessage(panel, error.message || 'Unable to check payment. Please try again.', 'error');
+  } finally {
+    customerQrSetBusy(panel, false);
+  }
+}
+
+function initCustomerQrButtons() {
+  document.querySelectorAll('[data-customer-qr]').forEach(trigger => {
+    trigger.addEventListener('click', () => customerQrGenerate(trigger));
+  });
+  document.querySelectorAll('.customer-qr-panel').forEach(panel => {
+    panel.querySelector('[data-qr-check]')?.addEventListener('click', () => customerQrCheck(panel));
+    panel.querySelector('[data-qr-refresh]')?.addEventListener('click', () => {
+      const state = customerQrState(panel);
+      state.id = null;
+      const trigger = document.querySelector('[data-customer-qr][data-target="' + panel.id + '"]');
+      if (trigger) customerQrGenerate(trigger);
+    });
+  });
+}
+
 function setupDepositAmountForms() {
   document.querySelectorAll('.deposit-amount-form').forEach(form => {
     const input = form.querySelector('.deposit-amount-input');
@@ -1402,6 +1703,7 @@ function setupDepositAmountForms() {
 
 setupDepositAmountForms();
 initCustomerReviewStars();
+initCustomerQrButtons();
 </script>
 @endpush
 
