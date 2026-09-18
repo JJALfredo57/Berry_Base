@@ -24,6 +24,8 @@
 .verify-upload-icon{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:rgba(var(--primary-rgb,233,30,99),.1);color:var(--primary);flex:0 0 auto}
 .verify-upload-card .form-control{font-size:.86rem}
 .verify-upload-hint{font-size:.76rem;color:#64748b}
+.verify-file-input{position:absolute;inline-size:1px;block-size:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0)}
+.verify-upload-status{font-size:.76rem;color:#64748b;min-height:1.1rem}
 @media (max-width:575.98px){.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}}
 </style>
 
@@ -114,7 +116,11 @@
                       <div class="verify-upload-hint">Use the rear camera or choose a saved file.</div>
                     </div>
                   </div>
-                  <input type="file" class="form-control" name="id_front" accept="image/*,.pdf" capture="environment" required data-size-preview-target="idUploadSummary">
+                  <input type="file" class="verify-file-input" id="idFrontInput" name="id_front" accept="image/*,.pdf" capture="environment" required data-size-preview-target="idUploadSummary">
+                  <button type="button" class="btn btn-outline-primary w-100" data-upload-trigger="idFrontInput">
+                    <i class="bi bi-camera me-1"></i>Get Front ID Picture
+                  </button>
+                  <div class="verify-upload-status mt-2" data-upload-status-for="idFrontInput">No file selected yet.</div>
                 </div>
               </div>
               <div class="col-md-6">
@@ -126,7 +132,11 @@
                       <div class="verify-upload-hint">Capture the back side if your ID has details there.</div>
                     </div>
                   </div>
-                  <input type="file" class="form-control" name="id_back" accept="image/*,.pdf" capture="environment" data-size-preview-target="idUploadSummary">
+                  <input type="file" class="verify-file-input" id="idBackInput" name="id_back" accept="image/*,.pdf" capture="environment" data-size-preview-target="idUploadSummary">
+                  <button type="button" class="btn btn-outline-primary w-100" data-upload-trigger="idBackInput">
+                    <i class="bi bi-camera me-1"></i>Get Back ID Picture
+                  </button>
+                  <div class="verify-upload-status mt-2" data-upload-status-for="idBackInput">Optional file not selected.</div>
                 </div>
               </div>
               <div class="col-md-6">
@@ -138,7 +148,11 @@
                       <div class="verify-upload-hint">Front camera opens on most phones.</div>
                     </div>
                   </div>
-                  <input type="file" class="form-control" name="selfie" accept="image/*" capture="user" data-size-preview-target="idUploadSummary">
+                  <input type="file" class="verify-file-input" id="selfieInput" name="selfie" accept="image/*" capture="user" data-size-preview-target="idUploadSummary">
+                  <button type="button" class="btn btn-outline-primary w-100" data-upload-trigger="selfieInput">
+                    <i class="bi bi-person-bounding-box me-1"></i>Get Selfie Picture
+                  </button>
+                  <div class="verify-upload-status mt-2" data-upload-status-for="selfieInput">Optional selfie not selected.</div>
                 </div>
               </div>
               <div class="col-md-6">
@@ -169,4 +183,24 @@
     </div>
   </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-upload-trigger]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var input = document.getElementById(button.dataset.uploadTrigger);
+      if (input) input.click();
+    });
+  });
+
+  document.querySelectorAll('.verify-file-input').forEach(function (input) {
+    input.addEventListener('change', function () {
+      var status = document.querySelector('[data-upload-status-for="' + input.id + '"]');
+      if (!status) return;
+      var file = input.files && input.files[0] ? input.files[0] : null;
+      status.textContent = file ? ('Selected: ' + file.name) : (input.required ? 'No file selected yet.' : 'Optional file not selected.');
+      status.classList.toggle('text-success', !!file);
+    });
+  });
+});
+</script>
 @endsection
