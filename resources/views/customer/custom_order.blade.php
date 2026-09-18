@@ -306,8 +306,8 @@
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Date</label>
                     <input type="date" class="form-control" name="schedule_date" id="custCoFieldDate"
-                           min="{{ date('Y-m-d', strtotime('+1 day')) }}"
-                           value="{{ old('schedule_date', date('Y-m-d', strtotime('+1 day'))) }}"
+                           min="{{ \Carbon\Carbon::now('Asia/Manila')->addDay()->toDateString() }}"
+                           value="{{ old('schedule_date', \Carbon\Carbon::now('Asia/Manila')->addDay()->toDateString()) }}"
                            onchange="checkCustCoAvailability()">
                     <div id="custCoAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
                     <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least 2–3 days for preparation.</div>
@@ -634,19 +634,24 @@ function updatePriceSummary() {
   if (layerSurcharge > 0)
     document.getElementById('layerSurchargeDisplay').textContent = '+\u20b1' + layerSurcharge.toFixed(2);
 
-  document.getElementById('addonSummary').innerHTML = addonDetails.map(d =>
-    '<div class="d-flex justify-content-between small mb-1 text-muted">
-       <span><i class="bi bi-check2 me-1" style="color:var(--primary)"></i>${d.name}</span>
-       <span>${d.price > 0 ? '+₱'+d.price.toFixed(2) : 'FREE'}</span>
-     </div>'
-  ).join('');
+  const addonSummary = document.getElementById('addonSummary');
+  if (addonSummary) {
+    addonSummary.innerHTML = addonDetails.map(d =>
+      '<div class="d-flex justify-content-between small mb-1 text-muted">'
+      + '<span><i class="bi bi-check2 me-1" style="color:var(--primary)"></i>' + d.name + '</span>'
+      + '<span>' + (d.price > 0 ? '+₱'+d.price.toFixed(2) : 'FREE') + '</span></div>'
+    ).join('');
+  }
 
   const qtyRow = document.getElementById('qtyRow');
-  qtyRow.style.display = qty > 1 ? 'flex' : 'none';
-  document.getElementById('qtyDisplay').textContent = qty;
+  if (qtyRow) qtyRow.style.display = qty > 1 ? 'flex' : 'none';
+  const qtyDisplay = document.getElementById('qtyDisplay');
+  if (qtyDisplay) qtyDisplay.textContent = qty;
 
-  document.getElementById('totalDisplay').textContent =
-    '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2});
+  const totalDisplay = document.getElementById('totalDisplay');
+  if (totalDisplay) {
+    totalDisplay.textContent = '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2});
+  }
 }
 
 function highlightAddonCard(input) {
