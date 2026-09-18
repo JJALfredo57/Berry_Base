@@ -326,6 +326,7 @@
                     <label class="form-label fw-semibold small">Preferred Date</label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
                            min="{{ date('Y-m-d', strtotime('+1 day')) }}"
+                           value="{{ old('schedule_date', date('Y-m-d', strtotime('+1 day'))) }}"
                            onchange="cvValidateDate(this);checkCoGuestAvailability()"
                            oninput="cvValidateDate(this)">
                     <div class="cv-msg" id="msgDate"></div>
@@ -1140,7 +1141,10 @@ function coGuestCapacityText(data, fallback) {
 }
 
 function checkCoGuestAvailability() {
-  const date   = document.getElementById('fieldDate')?.value;
+  const dateEl = document.getElementById('fieldDate');
+  if (dateEl && !dateEl.value && dateEl.min) dateEl.value = dateEl.min;
+  if (dateEl) cvValidateDate(dateEl);
+  const date   = dateEl?.value;
   const shopId = '{{ $targetShop->id ?? '' }}';
   const qty    = parseInt(document.querySelector('[name=quantity]')?.value || '1', 10);
   const el     = document.getElementById('coGuestAvailability');

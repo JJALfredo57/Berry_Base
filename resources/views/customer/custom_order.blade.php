@@ -307,6 +307,7 @@
                     <label class="form-label fw-semibold small">Preferred Date</label>
                     <input type="date" class="form-control" name="schedule_date" id="custCoFieldDate"
                            min="{{ date('Y-m-d', strtotime('+1 day')) }}"
+                           value="{{ old('schedule_date', date('Y-m-d', strtotime('+1 day'))) }}"
                            onchange="checkCustCoAvailability()">
                     <div id="custCoAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
                     <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least 2–3 days for preparation.</div>
@@ -923,7 +924,9 @@ function customCapacityText(data, fallback) {
 }
 
 function checkCustCoAvailability() {
-  const date   = document.getElementById('custCoFieldDate')?.value;
+  const dateEl = document.getElementById('custCoFieldDate');
+  if (dateEl && !dateEl.value && dateEl.min) dateEl.value = dateEl.min;
+  const date   = dateEl?.value;
   const shopId = '{{ $targetShop->id ?? '' }}';
   const qty    = parseInt(document.querySelector('[name=quantity]')?.value || '1', 10);
   const el     = document.getElementById('custCoAvailability');
