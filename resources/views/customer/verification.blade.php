@@ -19,6 +19,11 @@
 .benefit-card:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(15,23,42,.08)}
 .benefit-card.locked{background:#f8fafc;color:#64748b}
 .upload-panel{border:1px solid #e5e7eb;border-radius:8px;background:#fff}
+.verify-upload-card{border:1px solid #e5e7eb;border-radius:8px;background:#fff;padding:.9rem;height:100%;transition:.18s border-color,.18s box-shadow,.18s transform}
+.verify-upload-card:focus-within{border-color:var(--primary);box-shadow:0 0 0 .2rem rgba(var(--primary-rgb,233,30,99),.12)}
+.verify-upload-icon{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:rgba(var(--primary-rgb,233,30,99),.1);color:var(--primary);flex:0 0 auto}
+.verify-upload-card .form-control{font-size:.86rem}
+.verify-upload-hint{font-size:.76rem;color:#64748b}
 @media (max-width:575.98px){.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}}
 </style>
 
@@ -75,7 +80,7 @@
     <div class="col-lg-7">
       <div class="upload-panel p-4">
         <h5 class="fw-bold mb-1">Submit valid ID</h5>
-        <p class="text-muted small mb-3">Accepted: JPG, PNG, WebP, or PDF up to 5MB. Use clear, readable images.</p>
+        <p class="text-muted small mb-3">Take a clear photo with your phone camera or upload an existing file. Accepted: JPG, PNG, WebP, or PDF up to 5MB.</p>
         @if($status === 'pending')
           <div class="alert alert-warning border-0 mb-0"><i class="bi bi-hourglass-split me-1"></i>Your latest submission is pending review. You can still order normally.</div>
         @elseif($status === 'approved')
@@ -101,16 +106,40 @@
             </div>
             <div class="row g-3">
               <div class="col-md-6">
-                <label class="form-label fw-semibold small">Front of ID</label>
-                <input type="file" class="form-control" name="id_front" accept="image/*,.pdf" required data-size-preview-target="idUploadSummary">
+                <div class="verify-upload-card">
+                  <div class="d-flex gap-2 align-items-start mb-2">
+                    <div class="verify-upload-icon"><i class="bi bi-camera"></i></div>
+                    <div>
+                      <label class="form-label fw-semibold small mb-1">Front of ID</label>
+                      <div class="verify-upload-hint">Use the rear camera or choose a saved file.</div>
+                    </div>
+                  </div>
+                  <input type="file" class="form-control" name="id_front" accept="image/*,.pdf" capture="environment" required data-size-preview-target="idUploadSummary">
+                </div>
               </div>
               <div class="col-md-6">
-                <label class="form-label fw-semibold small">Back of ID <span class="text-muted fw-normal">(optional)</span></label>
-                <input type="file" class="form-control" name="id_back" accept="image/*,.pdf" data-size-preview-target="idUploadSummary">
+                <div class="verify-upload-card">
+                  <div class="d-flex gap-2 align-items-start mb-2">
+                    <div class="verify-upload-icon"><i class="bi bi-camera"></i></div>
+                    <div>
+                      <label class="form-label fw-semibold small mb-1">Back of ID <span class="text-muted fw-normal">(optional)</span></label>
+                      <div class="verify-upload-hint">Capture the back side if your ID has details there.</div>
+                    </div>
+                  </div>
+                  <input type="file" class="form-control" name="id_back" accept="image/*,.pdf" capture="environment" data-size-preview-target="idUploadSummary">
+                </div>
               </div>
               <div class="col-md-6">
-                <label class="form-label fw-semibold small">Selfie with ID <span class="text-muted fw-normal">(optional)</span></label>
-                <input type="file" class="form-control" name="selfie" accept="image/*" data-size-preview-target="idUploadSummary">
+                <div class="verify-upload-card">
+                  <div class="d-flex gap-2 align-items-start mb-2">
+                    <div class="verify-upload-icon"><i class="bi bi-person-bounding-box"></i></div>
+                    <div>
+                      <label class="form-label fw-semibold small mb-1">Selfie with ID <span class="text-muted fw-normal">(optional)</span></label>
+                      <div class="verify-upload-hint">Front camera opens on most phones.</div>
+                    </div>
+                  </div>
+                  <input type="file" class="form-control" name="selfie" accept="image/*" capture="user" data-size-preview-target="idUploadSummary">
+                </div>
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold small">Note <span class="text-muted fw-normal">(optional)</span></label>
