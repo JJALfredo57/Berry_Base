@@ -89,25 +89,28 @@ class CheckoutController extends Controller
                 ->get()->groupBy('category_id');
         } catch (\Exception $e) {}
 
-        $loyalty = app(\App\Services\LoyaltyService::class)->account($uid);
+        $loyaltyService = app(\App\Services\LoyaltyService::class);
+        $loyalty = $loyaltyService->account($uid);
         $verificationStatus = app(\App\Services\CustomerVerificationService::class)->status($uid);
         $isGroupCheckout = $checkoutItems->isNotEmpty();
         $checkoutSubtotal = $isGroupCheckout
             ? (float) $checkoutItems->sum(fn ($item) => (float) $item->final_unit_price_snapshot * (int) $item->quantity)
             : (float) $pricing['final_unit_price'] * (int) $checkout['quantity'];
         $availableVouchers = app(VoucherService::class)->availableForCustomer($uid, $product->shop_id ?? null, $checkoutSubtotal);
-        $loyaltyQuote = app(\App\Services\LoyaltyService::class)->redemptionQuote(
+        $loyaltyQuote = $loyaltyService->redemptionQuote(
             $uid,
             $checkoutSubtotal,
             0,
             $verificationStatus === 'approved'
         );
+        $loyaltySettings = $loyaltyService->settings();
+        $loyaltyEarnEstimate = $loyaltyService->earningEstimate($uid, $checkoutSubtotal);
 
         return view('customer.checkout_regular', compact(
             'product', 'checkout', 'defaultAddr', 'customer',
             'sizes', 'deliveryZones', 'shop', 'shopSettings', 'pricing',
             'addonCategories', 'addonsByCategory', 'loyalty', 'verificationStatus',
-            'checkoutItems', 'availableVouchers', 'loyaltyQuote'
+            'checkoutItems', 'availableVouchers', 'loyaltyQuote', 'loyaltySettings', 'loyaltyEarnEstimate'
         ));
     }
 
@@ -326,7 +329,8 @@ class CheckoutController extends Controller
             return back()->with('error', $voucherResult['message'])->withInput();
         }
         $voucherDiscount = (float) ($voucherResult['discount'] ?? 0);
-        $loyaltyQuote = app(\App\Services\LoyaltyService::class)->redemptionQuote(
+        $loyaltyService = app(\App\Services\LoyaltyService::class);
+        $loyaltyQuote = $loyaltyService->redemptionQuote(
             $uid,
             max(0, $baseTotal + $addonTotal - $voucherDiscount),
             max(0, (int) $request->input('points_to_redeem', 0)),
@@ -445,6 +449,7 @@ class CheckoutController extends Controller
         }
         if ($pointsRedeemed > 0 && $loyaltyDiscount > 0 && $createdOrder) {
             try {
+                $loyaltySettings = app(\App\Services\LoyaltyService::class)->settings();
                 app(\App\Services\LoyaltyService::class)->redeemForOrder($uid, $oid, $pointsRedeemed, $loyaltyDiscount);
                 DB::table('order_discounts')->insert([
                     'order_id' => $oid,
@@ -453,7 +458,7 @@ class CheckoutController extends Controller
                     'label' => 'Rewards points',
                     'code' => null,
                     'amount' => $loyaltyDiscount,
-                    'meta' => json_encode(['points' => $pointsRedeemed, 'rate' => '1 point = PHP 1']),
+                    'meta' => json_encode(['points' => $pointsRedeemed, 'point_value' => (float) ($loyaltySettings['point_value'] ?? 1)]),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

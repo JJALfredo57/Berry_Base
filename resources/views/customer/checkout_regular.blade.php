@@ -13,6 +13,11 @@
       ? $checkoutItems->sum(fn($item) => (float)$item->discount_amount_snapshot * (int)$item->quantity)
       : $pricing['discount_amount'] * $checkout['quantity'];
   $checkoutCover = $shop->shop_cover ?? $shopSettings->bg_image_path ?? '';
+  $loyaltySettings = $loyaltySettings ?? ['earn_enabled' => true, 'redeem_enabled' => true, 'points_base_amount' => 50, 'point_value' => 1, 'max_redemption_percent' => 50, 'redemption_requires_verified' => true];
+  $pointValue = (float) ($loyaltySettings['point_value'] ?? 1);
+  $maxRedeemPercent = (float) ($loyaltySettings['max_redemption_percent'] ?? 50);
+  $earnBaseAmount = (float) ($loyaltySettings['points_base_amount'] ?? 50);
+  $requiresVerifiedToRedeem = (bool) ($loyaltySettings['redemption_requires_verified'] ?? true);
 @endphp
 @push('styles')
 <style>
@@ -310,7 +315,7 @@ document.body.style.paddingRight = '';
                       </div>
                       <div class="text-muted" style="font-size:.72rem">{{ $voucher->validation_ok ? 'Estimated discount PHP '.number_format($voucher->computed_discount, 2) : $voucher->validation_message }}</div>
                     </div>
-                    <button type="button" class="btn btn-sm {{ $voucher->validation_ok ? 'btn-outline-primary' : 'btn-outline-secondary' }}" data-voucher-code="{{ $voucher->code }}" {{ $voucher->validation_ok ? '' : 'disabled' }}>
+                    <button type="button" class="btn btn-sm {{ $voucher->validation_ok ? 'btn-outline-primary' : 'btn-outline-secondary' }}" data-voucher-code="{{ $voucher->code }}" data-voucher-discount="{{ number_format((float) ($voucher->computed_discount ?? 0), 2, '.', '') }}" {{ $voucher->validation_ok ? '' : 'disabled' }}>
                       Use
                     </button>
                   </div>
@@ -321,7 +326,7 @@ document.body.style.paddingRight = '';
               <input type="text" class="form-control text-uppercase" name="voucher_code" id="voucherCodeInput" maxlength="40" placeholder="Enter voucher code">
               <span class="input-group-text"><i class="bi bi-stars"></i></span>
             </div>
-            <div class="form-text">Verified-only vouchers require an approved valid ID. The discount is checked securely when you place the order.</div>
+            <div class="form-text">Tap Use to preview voucher savings. Final validation still happens securely when you place the order.</div>
           </div>
         </div>
 
@@ -339,11 +344,17 @@ document.body.style.paddingRight = '';
             </div>
             <div class="form-text">
               @if($verificationStatus === 'approved')
-                1 point = PHP 1 discount. Points can cover up to 50% of product subtotal after vouchers.
+                1 point = PHP {{ number_format($pointValue, 2) }} discount. Points can cover up to {{ rtrim(rtrim(number_format($maxRedeemPercent, 2), '0'), '.') }}% of product subtotal after vouchers.
               @else
-                Verify your account first to redeem points. You can still earn points from paid completed orders.
+                {{ $requiresVerifiedToRedeem ? 'Verify your account first to redeem points.' : 'Rewards redemption is available for your account.' }} You can still earn points from paid completed orders.
               @endif
             </div>
+            @if(!empty($loyaltyEarnEstimate['enabled']))
+              <div class="small mt-2" style="color:var(--primary)">
+                <i class="bi bi-plus-circle me-1"></i>Estimated earning after paid completion: <strong>{{ (int) ($loyaltyEarnEstimate['points'] ?? 0) }} pts</strong>
+                <span class="text-muted">({{ number_format((float) ($loyaltyEarnEstimate['multiplier'] ?? 1), 2) }}x tier multiplier)</span>
+              </div>
+            @endif
           </div>
         </div>
 
@@ -406,7 +417,7 @@ document.body.style.paddingRight = '';
           </div>
           @endif
           <div id="addonSummary"></div>
-          <div class="small text-muted mb-2"><i class="bi bi-ticket-perforated me-1"></i>Promo codes are applied after validation on submit.</div>
+          <div class="d-flex justify-content-between small mb-1" id="voucherPreviewRow" style="display:none"><span class="text-muted">Promo Code</span><span id="voucherPreviewDisplay" style="color:#16a34a">-PHP 0.00</span></div>
           <div class="d-flex justify-content-between small mb-1" id="pointsPreviewRow" style="display:none">
             <span class="text-muted">Rewards Points</span>
             <span id="pointsPreviewDisplay" style="color:#16a34a">-PHP 0.00</span>
@@ -502,7 +513,11 @@ const COVERAGE_ZONES   = @json($deliveryZones->values());
 const COVERAGE_RADIUS  = Math.max(1000, SHOP_META.coverageRadius || 5000);
 const BASE_PRICE       = {{ (float) $discountedSubtotal }};
 const HAS_PRODUCT_DISCOUNT = {{ !empty($pricing['has_discount']) ? 'true' : 'false' }};
-const MAX_REDEEMABLE_POINTS = {{ (int)($loyaltyQuote['max'] ?? 0) }};
+const POINT_BALANCE = {{ (int)($loyaltyQuote['balance'] ?? 0) }};
+const POINT_VALUE = {{ json_encode((float) $pointValue) }};
+const MAX_REDEEM_PERCENT = {{ json_encode((float) $maxRedeemPercent) }};
+let MAX_REDEEMABLE_POINTS = {{ (int)($loyaltyQuote['max'] ?? 0) }};
+let voucherPreviewDiscount = 0;
 let deliveryFee = 0;
 let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
@@ -974,15 +989,26 @@ function updateTotal(addonTotal) {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   const pointsInput = document.getElementById('pointsToRedeem');
   let points = pointsInput && !pointsInput.disabled ? parseInt(pointsInput.value || '0', 10) : 0;
+  const subtotalAfterVoucher = Math.max(0, BASE_PRICE + (addonTotal ?? getCurrentAddonTotal()) - voucherPreviewDiscount);
+  const maxBySubtotal = Math.floor((subtotalAfterVoucher * (MAX_REDEEM_PERCENT / 100)) / Math.max(0.01, POINT_VALUE));
+  MAX_REDEEMABLE_POINTS = Math.max(0, Math.min(POINT_BALANCE, maxBySubtotal));
+  if (pointsInput) pointsInput.max = MAX_REDEEMABLE_POINTS;
   points = Math.max(0, Math.min(points || 0, MAX_REDEEMABLE_POINTS));
   if (pointsInput && !pointsInput.disabled && String(pointsInput.value || '') !== String(points)) pointsInput.value = points;
   const pointsRow = document.getElementById('pointsPreviewRow');
   const pointsDisplay = document.getElementById('pointsPreviewDisplay');
   if (pointsRow && pointsDisplay) {
     pointsRow.style.display = points > 0 ? 'flex' : 'none';
-    pointsDisplay.textContent = '-PHP ' + points.toLocaleString('en-PH', {minimumFractionDigits:2});
+    const pointDiscount = points * POINT_VALUE;
+    pointsDisplay.textContent = '-PHP ' + pointDiscount.toLocaleString('en-PH', {minimumFractionDigits:2});
   }
-  const total = Math.max(0, BASE_PRICE + (addonTotal ?? getCurrentAddonTotal()) - points) + (isDelivery ? deliveryFee : 0);
+  const voucherRow = document.getElementById('voucherPreviewRow');
+  const voucherDisplay = document.getElementById('voucherPreviewDisplay');
+  if (voucherRow && voucherDisplay) {
+    voucherRow.style.display = voucherPreviewDiscount > 0 ? 'flex' : 'none';
+    voucherDisplay.textContent = '-PHP ' + voucherPreviewDiscount.toLocaleString('en-PH', {minimumFractionDigits:2});
+  }
+  const total = Math.max(0, BASE_PRICE + (addonTotal ?? getCurrentAddonTotal()) - voucherPreviewDiscount - (points * POINT_VALUE)) + (isDelivery ? deliveryFee : 0);
   const el = document.getElementById('totalDisplay');
   if (el) el.textContent = '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2});
 }
@@ -1019,9 +1045,15 @@ document.querySelectorAll('[data-voucher-code]').forEach(btn => {
     const input = document.getElementById('voucherCodeInput');
     if (input) {
       input.value = btn.dataset.voucherCode || '';
+      voucherPreviewDiscount = Math.max(0, parseFloat(btn.dataset.voucherDiscount || '0') || 0);
       input.focus();
+      updateTotal(getCurrentAddonTotal());
     }
   });
+});
+document.getElementById('voucherCodeInput')?.addEventListener('input', () => {
+  voucherPreviewDiscount = 0;
+  updateTotal(getCurrentAddonTotal());
 });
 document.getElementById('pointsToRedeem')?.addEventListener('input', () => updateTotal(getCurrentAddonTotal()));
 </script>

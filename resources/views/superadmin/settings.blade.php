@@ -106,6 +106,7 @@
   {{-- Tabs --}}
   @php
     $tabs = [
+      'rewards'  => 'Rewards',
       'platform' => '🏢 Platform',
       'paymongo' => '💳 PayMongo',
       'sms'      => '📱 PhilSMS',
@@ -343,6 +344,119 @@
   </div>
 
   {{-- ── PAYMONGO TAB ─────────────────────────────────────────────── --}}
+  @elseif($tab === 'rewards')
+  @php
+    $earnOn = (bool) ($platform->loyalty_earn_enabled ?? true);
+    $redeemOn = (bool) ($platform->loyalty_redeem_enabled ?? true);
+    $baseAmount = (float) ($platform->loyalty_points_base_amount ?? 50);
+    $pointValue = (float) ($platform->loyalty_point_value ?? 1);
+    $maxRedeemPercent = (float) ($platform->loyalty_max_redemption_percent ?? 50);
+    $requiresVerified = (bool) ($platform->loyalty_redemption_requires_verified ?? true);
+  @endphp
+  <form action="{{ route('superadmin.settings.rewards') }}" method="POST" novalidate>
+    @csrf
+    <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);overflow:hidden">
+      <div style="padding:1.1rem 1.5rem;border-bottom:1.5px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+        <div>
+          <span style="font-size:.95rem;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:.6rem">
+            <i class="bi bi-award" style="color:var(--primary)"></i> Rewards, Points, and Membership
+          </span>
+          <div style="font-size:.78rem;color:var(--gray-500);margin-top:.2rem">Controls customer-facing points rules, redemption limits, and membership tiers.</div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm" style="padding:.55rem 1rem;font-weight:600">
+          <i class="bi bi-save me-1"></i> Save Rewards
+        </button>
+      </div>
+      <div style="padding:1.5rem">
+        <div class="row g-3">
+          <div class="col-md-6 col-xl-3">
+            <label class="form-label fw-semibold">Earning</label>
+            <select name="loyalty_earn_enabled" class="form-select">
+              <option value="1" {{ $earnOn ? 'selected' : '' }}>Enabled</option>
+              <option value="0" {{ !$earnOn ? 'selected' : '' }}>Paused</option>
+            </select>
+            <div class="form-text">When paused, completed paid orders do not add new points.</div>
+          </div>
+          <div class="col-md-6 col-xl-3">
+            <label class="form-label fw-semibold">Redemption</label>
+            <select name="loyalty_redeem_enabled" class="form-select">
+              <option value="1" {{ $redeemOn ? 'selected' : '' }}>Enabled</option>
+              <option value="0" {{ !$redeemOn ? 'selected' : '' }}>Paused</option>
+            </select>
+            <div class="form-text">Customers keep points even when redemption is paused.</div>
+          </div>
+          <div class="col-md-6 col-xl-3">
+            <label class="form-label fw-semibold">Spend Per Base Point</label>
+            <div class="input-group">
+              <span class="input-group-text">PHP</span>
+              <input type="number" name="loyalty_points_base_amount" class="form-control" min="1" step="0.01" value="{{ number_format($baseAmount, 2, '.', '') }}" required>
+            </div>
+            <div class="form-text">Example: 50 means PHP 50 earns 1 base point.</div>
+          </div>
+          <div class="col-md-6 col-xl-3">
+            <label class="form-label fw-semibold">Point Value</label>
+            <div class="input-group">
+              <span class="input-group-text">PHP</span>
+              <input type="number" name="loyalty_point_value" class="form-control" min="0.01" step="0.01" value="{{ number_format($pointValue, 2, '.', '') }}" required>
+            </div>
+            <div class="form-text">Discount value of 1 redeemed point.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Max Points Discount Per Order</label>
+            <div class="input-group">
+              <input type="number" name="loyalty_max_redemption_percent" class="form-control" min="0" max="100" step="0.01" value="{{ number_format($maxRedeemPercent, 2, '.', '') }}" required>
+              <span class="input-group-text">%</span>
+            </div>
+            <div class="form-text">Applied to product subtotal after voucher. Delivery fee is not discounted by points.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Verification Rule</label>
+            <select name="loyalty_redemption_requires_verified" class="form-select">
+              <option value="1" {{ $requiresVerified ? 'selected' : '' }}>Require approved valid ID before redeeming</option>
+              <option value="0" {{ !$requiresVerified ? 'selected' : '' }}>Allow redemption without valid ID</option>
+            </select>
+            <div class="form-text">Customers can still earn points while unverified.</div>
+          </div>
+        </div>
+
+        <div style="border-top:1.5px solid var(--gray-100);margin:1.5rem 0 1rem"></div>
+        <div class="fw-bold mb-1" style="color:var(--gray-900)">Membership Tiers</div>
+        <div class="text-muted small mb-3">Lifetime points unlock tiers. Redeeming points does not lower lifetime points.</div>
+        <div class="row g-3">
+          @forelse($loyaltyTiers as $tier)
+            <div class="col-lg-4">
+              <div class="h-100" style="border:1.5px solid var(--gray-100);border-radius:var(--radius-md);padding:1rem;background:#fff">
+                <input type="hidden" name="tiers[{{ $tier->id }}][id]" value="{{ $tier->id }}">
+                <label class="form-label small fw-semibold">Tier Name</label>
+                <input type="text" name="tiers[{{ $tier->id }}][name]" class="form-control mb-2" maxlength="40" value="{{ $tier->name }}" required>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label small fw-semibold">Lifetime Points</label>
+                    <input type="number" name="tiers[{{ $tier->id }}][min_lifetime_points]" class="form-control" min="0" value="{{ (int) $tier->min_lifetime_points }}" required>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small fw-semibold">Multiplier</label>
+                    <input type="number" name="tiers[{{ $tier->id }}][points_multiplier]" class="form-control" min="0" step="0.01" value="{{ number_format((float) $tier->points_multiplier, 2, '.', '') }}" required>
+                  </div>
+                </div>
+                <label class="form-label small fw-semibold mt-2">Benefit Summary</label>
+                <textarea name="tiers[{{ $tier->id }}][perk_summary]" class="form-control" rows="2" maxlength="255">{{ $tier->perk_summary }}</textarea>
+                <div class="form-check mt-3">
+                  <input class="form-check-input" type="checkbox" name="tiers[{{ $tier->id }}][is_active]" value="1" id="tierActive{{ $tier->id }}" {{ $tier->is_active ? 'checked' : '' }}>
+                  <label class="form-check-label small" for="tierActive{{ $tier->id }}">Active tier</label>
+                </div>
+              </div>
+            </div>
+          @empty
+            <div class="col-12"><div class="alert alert-warning mb-0">Loyalty tier table is not available yet. Run migrations first.</div></div>
+          @endforelse
+        </div>
+        <div class="alert alert-info mt-4 mb-0">
+          <i class="bi bi-info-circle me-1"></i> Customer pages automatically use these rules after saving.
+        </div>
+      </div>
+    </div>
+  </form>
   @elseif($tab === 'paymongo')
   @php
     $pmMode    = $platform->paymongo_mode ?? 'test';

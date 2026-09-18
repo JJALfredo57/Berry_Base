@@ -4,6 +4,11 @@
   $currentTier = $overview['current_tier'] ?? 'Bronze';
   $nextTier = $overview['next_tier'] ?? null;
   $isVerified = ($verificationStatus ?? 'not_submitted') === 'approved';
+  $loyaltySettings = $loyaltySettings ?? ($overview['settings'] ?? ['earn_enabled' => true, 'redeem_enabled' => true, 'points_base_amount' => 50, 'point_value' => 1, 'max_redemption_percent' => 50, 'redemption_requires_verified' => true]);
+  $pointValue = (float) ($loyaltySettings['point_value'] ?? 1);
+  $baseAmount = (float) ($loyaltySettings['points_base_amount'] ?? 50);
+  $maxRedeemPercent = (float) ($loyaltySettings['max_redemption_percent'] ?? 50);
+  $requiresVerifiedToRedeem = (bool) ($loyaltySettings['redemption_requires_verified'] ?? true);
 @endphp
 <div class="container-fluid py-4">
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
@@ -46,6 +51,38 @@
   @if(!$isVerified)
     <div class="alert alert-warning border-0"><i class="bi bi-lock me-1"></i>You can earn points now, but redemption and verified-only vouchers unlock after valid ID approval.</div>
   @endif
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">
+        <div>
+          <h6 class="fw-bold mb-1"><i class="bi bi-info-circle me-2" style="color:var(--primary)"></i>How Rewards Work</h6>
+          <div class="text-muted small">Rules shown here follow the current Superadmin rewards settings.</div>
+        </div>
+        <span class="badge {{ !empty($loyaltySettings['redeem_enabled']) ? 'text-bg-success' : 'text-bg-secondary' }}">{{ !empty($loyaltySettings['redeem_enabled']) ? 'Redemption active' : 'Redemption paused' }}</span>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-4">
+          <div class="p-3 rounded-3 h-100" style="background:#f8fafc;border:1px solid #e5e7eb">
+            <div class="fw-semibold small mb-1">Earn</div>
+            <div class="small text-muted">{{ !empty($loyaltySettings['earn_enabled']) ? 'Every PHP '.number_format($baseAmount, 2).' product subtotal earns 1 base point after the order is paid and completed.' : 'Point earning is currently paused.' }}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 rounded-3 h-100" style="background:#f8fafc;border:1px solid #e5e7eb">
+            <div class="fw-semibold small mb-1">Redeem</div>
+            <div class="small text-muted">1 point is worth PHP {{ number_format($pointValue, 2) }}. Points can cover up to {{ rtrim(rtrim(number_format($maxRedeemPercent, 2), '0'), '.') }}% of product subtotal after vouchers.</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 rounded-3 h-100" style="background:#f8fafc;border:1px solid #e5e7eb">
+            <div class="fw-semibold small mb-1">Verification</div>
+            <div class="small text-muted">{{ $requiresVerifiedToRedeem ? 'Without valid ID approval, you can earn points but cannot redeem points or verified-only vouchers.' : 'Valid ID approval improves trust and unlocks verified-only vouchers.' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="row g-4">
     <div class="col-lg-7">

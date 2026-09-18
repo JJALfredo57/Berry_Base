@@ -15,6 +15,7 @@ class RewardController extends Controller
     {
         $uid = session('user')['id'];
         $overview = $loyalty->membershipOverview($uid);
+        $loyaltySettings = $loyalty->settings();
         $verificationStatus = $verification->status($uid);
 
         $transactions = collect();
@@ -63,6 +64,6 @@ class RewardController extends Controller
                 });
         }
 
-        return view('customer.rewards', compact('overview', 'transactions', 'walletVouchers', 'verificationStatus'));
+        return view('customer.rewards', compact('overview', 'transactions', 'walletVouchers', 'verificationStatus', 'loyaltySettings'));
     }
 }

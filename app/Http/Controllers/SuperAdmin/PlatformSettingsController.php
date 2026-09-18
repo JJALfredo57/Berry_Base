@@ -26,11 +26,14 @@ class PlatformSettingsController extends Controller
         }
         $platform = DB::table('platform_settings')->first()
             ?? (object)['platform_name' => 'Cake Shop Platform'];
+        $loyaltyTiers = Schema::hasTable('loyalty_tiers')
+            ? DB::table('loyalty_tiers')->orderBy('min_lifetime_points')->get()
+            : collect();
 
         $files = $this->backups->listBackups();
         $backupStorage = $this->backups->storageStatus();
 
-        return view('superadmin.settings', compact('tab', 'platform', 'files', 'backupStorage'));
+        return view('superadmin.settings', compact('tab', 'platform', 'loyaltyTiers', 'files', 'backupStorage'));
     }
 
     public function update(Request $request)
@@ -166,6 +169,62 @@ class PlatformSettingsController extends Controller
         }
         $status = $devMode ? 'ON — OTP and SMS previews are now visible on screen.' : 'OFF — SMS previews are hidden.';
         return redirect()->route('superadmin.settings', ['tab' => 'platform'])->with('msg', "Developer Mode {$status}");
+    }
+
+    public function saveRewards(Request $request)
+    {
+        $validated = $request->validate([
+            'loyalty_earn_enabled' => 'nullable|boolean',
+            'loyalty_redeem_enabled' => 'nullable|boolean',
+            'loyalty_points_base_amount' => 'required|numeric|min:1|max:100000',
+            'loyalty_point_value' => 'required|numeric|min:0.01|max:100000',
+            'loyalty_max_redemption_percent' => 'required|numeric|min:0|max:100',
+            'loyalty_redemption_requires_verified' => 'nullable|boolean',
+            'tiers' => 'nullable|array',
+            'tiers.*.id' => 'nullable|integer',
+            'tiers.*.name' => 'required_with:tiers|string|max:40',
+            'tiers.*.min_lifetime_points' => 'required_with:tiers|integer|min:0|max:10000000',
+            'tiers.*.points_multiplier' => 'required_with:tiers|numeric|min:0|max:100',
+            'tiers.*.perk_summary' => 'nullable|string|max:255',
+            'tiers.*.is_active' => 'nullable|boolean',
+        ]);
+
+        $updates = [
+            'loyalty_earn_enabled' => $request->boolean('loyalty_earn_enabled'),
+            'loyalty_redeem_enabled' => $request->boolean('loyalty_redeem_enabled'),
+            'loyalty_points_base_amount' => round((float) $validated['loyalty_points_base_amount'], 2),
+            'loyalty_point_value' => round((float) $validated['loyalty_point_value'], 2),
+            'loyalty_max_redemption_percent' => round((float) $validated['loyalty_max_redemption_percent'], 2),
+            'loyalty_redemption_requires_verified' => $request->boolean('loyalty_redemption_requires_verified'),
+            'updated_at' => now(),
+        ];
+
+        $existing = DB::table('platform_settings')->first();
+        if ($existing) {
+            DB::table('platform_settings')->where('id', $existing->id)->update($updates);
+        } else {
+            $updates['platform_name'] = 'Cake Shop Platform';
+            $updates['created_at'] = now();
+            DB::table('platform_settings')->insert($updates);
+        }
+
+        if (Schema::hasTable('loyalty_tiers')) {
+            foreach (($validated['tiers'] ?? []) as $tier) {
+                if (empty($tier['id'])) {
+                    continue;
+                }
+                DB::table('loyalty_tiers')->where('id', (int) $tier['id'])->update([
+                    'name' => trim($tier['name']),
+                    'min_lifetime_points' => (int) $tier['min_lifetime_points'],
+                    'points_multiplier' => round((float) $tier['points_multiplier'], 2),
+                    'perk_summary' => trim((string) ($tier['perk_summary'] ?? '')),
+                    'is_active' => !empty($tier['is_active']),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        return redirect()->route('superadmin.settings', ['tab' => 'rewards'])->with('msg', 'Rewards and membership settings saved.');
     }
 
     public function savePhilsms(Request $request)
