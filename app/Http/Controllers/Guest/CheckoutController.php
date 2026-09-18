@@ -8,6 +8,7 @@ use App\Services\CustomerRiskService;
 use App\Services\CustomerIdentityService;
 use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
+use App\Services\OrderScheduleService;
 use App\Services\ProductStockService;
 use App\Services\VoucherService;
 use Illuminate\Http\Request;
@@ -281,8 +282,10 @@ class CheckoutController extends Controller
         $payment       = $request->input('payment_method','COD');
         $selectedSize  = trim($request->input('selected_size', $checkout['selected_size'] ?? ''));
 
-        if (!$sdate) return back()->with('error','Please select your preferred date.')->withInput();
-        if (!$stime) return back()->with('error','Please select a preferred time slot.')->withInput();
+        $scheduleCheck = app(OrderScheduleService::class)->validate($sdate, $stime);
+        if (!$scheduleCheck['ok']) {
+            return back()->with('error', $scheduleCheck['message'])->withInput();
+        }
 
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null))
             return back()->with('error','Please pin your location on the map.')->withInput();

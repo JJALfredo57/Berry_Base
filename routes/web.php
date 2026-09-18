@@ -400,7 +400,10 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
 
     Route::get('/addresses',          [CustomerAddress::class, 'index'])->name('addresses');
     Route::post('/addresses',         [CustomerAddress::class, 'store'])->name('addresses.store');
+    Route::post('/addresses/{id}/update', [CustomerAddress::class, 'update'])->name('addresses.update');
     Route::post('/addresses/{id}/set-default', [CustomerAddress::class, 'setDefault'])->name('addresses.set_default');
+    Route::post('/addresses/{id}/archive',     [CustomerAddress::class, 'archive'])->name('addresses.archive');
+    Route::post('/addresses/{id}/restore',     [CustomerAddress::class, 'restore'])->name('addresses.restore');
     Route::post('/addresses/{id}/delete',      [CustomerAddress::class, 'destroy'])->name('addresses.destroy');
 
     Route::get('/pay-gcash',            [CustomerPayment::class, 'payGcash'])->name('pay_gcash');

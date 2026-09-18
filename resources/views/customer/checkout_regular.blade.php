@@ -273,13 +273,13 @@ document.body.style.paddingRight = '';
                 <label class="form-label fw-semibold small">Preferred Date</label>
                 <input type="date" class="form-control" name="schedule_date" id="custFieldDate"
                        min="{{ date('Y-m-d') }}"
-                       onchange="checkCustAvailability()">
-                <div id="custCheckoutAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
-                <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date.</div>
+                       onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
+                <div id="custScheduleNotice" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
+                <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date while a time slot is still open.</div>
               </div>
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Preferred Time Slot</label>
-                <select class="form-select" name="schedule_time">
+                <select class="form-select" name="schedule_time" id="custFieldTime" onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
                   <option value="">-- Select Time Slot --</option>
                   <option value="09:00">9:00 AM – 11:00 AM</option>
                   <option value="11:00">11:00 AM – 1:00 PM</option>
@@ -465,31 +465,42 @@ document.body.style.paddingRight = '';
 </div>
 
 <script>
-function checkCustAvailability() {
-  const date      = document.getElementById('custFieldDate')?.value;
-  const productId = '{{ $product->id }}';
-  const orderQty  = {{ (int)($checkout['quantity'] ?? 1) }};
-  const resultEl  = document.getElementById('custCheckoutAvailability');
-  if (!date || !resultEl) return;
-  resultEl.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking...</span>';
-  fetch(`/catalog/availability?product_id=${productId}&date=${date}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data.status === 'capacity_not_configured') {
-        resultEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>${data.message}</span>`;
-      } else if (data.remaining !== null && orderQty > data.remaining) {
-        resultEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Only ${data.remaining} pcs available on this date. Your order quantity is ${orderQty} pcs.</span>`;
-      } else if (data.status === 'available')
-        resultEl.innerHTML = `<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>${data.message}</span>`;
-      else if (data.status === 'almost')
-        resultEl.innerHTML = `<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>${data.message}</span>`;
-      else if (data.status === 'full')
-        resultEl.innerHTML = `<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>${data.message} — please choose another date.</span>`;
-      else
-        resultEl.innerHTML = `<span class="text-danger small"><i class="bi bi-x-circle me-1"></i>${data.message}</span>`;
-    })
-    .catch(() => { resultEl.innerHTML = ''; });
+const REGULAR_SLOT_ENDS = { '09:00':'11:00', '11:00':'13:00', '13:00':'15:00', '15:00':'17:00', '17:00':'19:00' };
+const SERVER_NOW = new Date(@json(now(config('app.timezone'))->format('Y-m-d H:i:s')));
+function minutesOf(time) {
+  const parts = String(time || '').split(':').map(Number);
+  return ((parts[0] || 0) * 60) + (parts[1] || 0);
 }
+function updateRegularScheduleSlots(dateId, timeId, noticeId) {
+  const dateEl = document.getElementById(dateId);
+  const timeEl = document.getElementById(timeId);
+  const notice = document.getElementById(noticeId);
+  if (!dateEl || !timeEl) return true;
+  const selectedDate = dateEl.value;
+  const today = SERVER_NOW.toISOString().slice(0, 10);
+  const nowMins = SERVER_NOW.getHours() * 60 + SERVER_NOW.getMinutes();
+  let openCount = 0;
+  Array.from(timeEl.options).forEach(opt => {
+    if (!opt.value) return;
+    const closed = selectedDate === today && minutesOf(REGULAR_SLOT_ENDS[opt.value]) <= nowMins;
+    opt.disabled = closed;
+    opt.textContent = opt.textContent.replace(' (Closed)', '') + (closed ? ' (Closed)' : '');
+    if (!closed) openCount++;
+  });
+  if (timeEl.selectedOptions[0]?.disabled) timeEl.value = '';
+  if (!notice) return openCount > 0;
+  if (selectedDate === today && openCount === 0) {
+    notice.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Orders for today are already closed. Please choose tomorrow or another date.</span>';
+    return false;
+  }
+  notice.innerHTML = selectedDate === today
+    ? '<span class="text-warning fw-semibold"><i class="bi bi-clock-fill me-1"></i>Only remaining open time slots can be selected today.</span>'
+    : '';
+  return true;
+}
+document.addEventListener('DOMContentLoaded', function() {
+  updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice');
+});
 </script>
 
 @endsection
@@ -782,7 +793,7 @@ function initMap() {
 
   // Pre-load default address pin
   @if($defaultAddr && $defaultAddr->latitude && $defaultAddr->longitude)
-    setMarkerAt(L.latLng({{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}), false);
+    setMarkerAt(L.latLng({{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}), true);
     map.setView([{{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}], 15);
   @endif
 

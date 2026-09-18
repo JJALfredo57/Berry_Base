@@ -4,6 +4,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
+use App\Services\OrderScheduleService;
 use App\Services\ProductStockService;
 use App\Services\VoucherService;
 use Illuminate\Http\Request;
@@ -232,8 +233,13 @@ class CheckoutController extends Controller
         $payment       = $request->input('payment_method', 'COD');
         $selectedSize  = trim($request->input('selected_size', $checkout['selected_size'] ?? ''));
 
+        $scheduleCheck = app(OrderScheduleService::class)->validate($sdate, $stime);
+        if (!$scheduleCheck['ok']) {
+            return back()->with('error', $scheduleCheck['message'])->withInput();
+        }
+
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null)) {
-            return back()->with('error', 'Please pin your location on the map and enter your address.');
+            return back()->with('error', 'Please pin your location on the map and enter your address.')->withInput();
         }
 
         if ($fulfillment === 'Delivery' && $lat !== null && $lng !== null) {

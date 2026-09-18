@@ -310,16 +310,15 @@ document.body.style.paddingRight = '';
                     <label class="form-label fw-semibold small">Preferred Date <span class="text-danger">*</span></label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
                            min="{{ date('Y-m-d') }}"
-                           onchange="cvValidateDate(this);checkCheckoutAvailability()"
+                           onchange="cvValidateDate(this);updateRegularScheduleSlots('fieldDate','fieldTime','msgDate')"
                            oninput="cvValidateDate(this)">
                     <div class="cv-msg" id="msgDate"></div>
-                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred pickup/delivery date. Custom cakes need at least 1 day for preparation.</div>
-                    <div id="checkoutAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
+                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred pickup/delivery date while a time slot is still open.</div>
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Time Slot <span class="text-danger">*</span></label>
                     <select class="form-select cv-field" name="schedule_time" id="fieldTime"
-                            onchange="cvClearSelectErr(this,'msgTime')">
+                            onchange="cvClearSelectErr(this,'msgTime');updateRegularScheduleSlots('fieldDate','fieldTime','msgDate')">
                       <option value="">-- Select Time Slot --</option>
                       <option value="09:00">9:00 AM – 11:00 AM</option>
                       <option value="11:00">11:00 AM – 1:00 PM</option>
@@ -463,45 +462,40 @@ document.body.style.paddingRight = '';
 <script>
 var checkoutAvailabilityIssue = '';
 var checkoutAvailabilityPending = false;
-
-function checkCheckoutAvailability() {
-  const date      = document.getElementById('fieldDate')?.value;
-  const shopId    = '{{ $product->shop_id ?? '' }}';
-  const orderQty  = {{ (int)($checkout['quantity'] ?? 1) }};
-  const resultEl  = document.getElementById('checkoutAvailability');
-  checkoutAvailabilityIssue = '';
-  checkoutAvailabilityPending = false;
-  if (!date || !resultEl) return;
-  checkoutAvailabilityPending = true;
-  resultEl.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking availability...</span>';
-  fetch('/catalog/availability?date=' + date + (shopId ? '&shop_id=' + shopId : ''))
-    .then(r => r.json())
-    .then(data => {
-      checkoutAvailabilityPending = false;
-      if (data.status === 'capacity_not_configured') {
-        checkoutAvailabilityIssue = data.message || 'This shop has not set its daily capacity yet.';
-        resultEl.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + checkoutAvailabilityIssue + '</span>';
-      } else if (data.remaining !== null && orderQty > data.remaining) {
-        checkoutAvailabilityIssue = 'Only ' + data.remaining + ' pcs are available on this date, but your order quantity is ' + orderQty + ' pcs.';
-        resultEl.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Only ' + data.remaining + ' pcs available on this date. Your order quantity is ' + orderQty + ' pcs.</span>';
-      } else if (data.status === 'available') {
-        checkoutAvailabilityIssue = '';
-        resultEl.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + data.message + '</span>';
-      } else if (data.status === 'almost') {
-        checkoutAvailabilityIssue = '';
-        resultEl.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + data.message + '</span>';
-      } else if (data.status === 'full') {
-        checkoutAvailabilityIssue = (data.message || 'This date is fully booked.') + ' Please choose another date.';
-        resultEl.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + data.message + ' — please choose another date.</span>';
-      } else if (data.status === 'invalid') {
-        checkoutAvailabilityIssue = data.message || 'Selected date is not available.';
-        resultEl.innerHTML = '<span class="text-danger small"><i class="bi bi-x-circle me-1"></i>' + data.message + '</span>';
-      } else {
-        checkoutAvailabilityIssue = '';
-        resultEl.innerHTML = '';
-      }
-    })
-    .catch(function() { checkoutAvailabilityPending = false; checkoutAvailabilityIssue = ''; resultEl.innerHTML = ''; });
+const REGULAR_SLOT_ENDS = { '09:00':'11:00', '11:00':'13:00', '13:00':'15:00', '15:00':'17:00', '17:00':'19:00' };
+const SERVER_NOW = new Date(@json(now(config('app.timezone'))->format('Y-m-d H:i:s')));
+function minutesOf(time) {
+  const parts = String(time || '').split(':').map(Number);
+  return ((parts[0] || 0) * 60) + (parts[1] || 0);
+}
+function updateRegularScheduleSlots(dateId, timeId, noticeId) {
+  const dateEl = document.getElementById(dateId);
+  const timeEl = document.getElementById(timeId);
+  const notice = document.getElementById(noticeId);
+  if (!dateEl || !timeEl) return true;
+  const selectedDate = dateEl.value;
+  const today = SERVER_NOW.toISOString().slice(0, 10);
+  const nowMins = SERVER_NOW.getHours() * 60 + SERVER_NOW.getMinutes();
+  let openCount = 0;
+  Array.from(timeEl.options).forEach(opt => {
+    if (!opt.value) return;
+    const closed = selectedDate === today && minutesOf(REGULAR_SLOT_ENDS[opt.value]) <= nowMins;
+    opt.disabled = closed;
+    opt.textContent = opt.textContent.replace(' (Closed)', '') + (closed ? ' (Closed)' : '');
+    if (!closed) openCount++;
+  });
+  if (timeEl.selectedOptions[0]?.disabled) timeEl.value = '';
+  if (!notice) return openCount > 0;
+  if (selectedDate === today && openCount === 0) {
+    notice.className = 'cv-msg cv-err';
+    notice.textContent = 'Orders for today are already closed. Please choose tomorrow or another date.';
+    return false;
+  }
+  if (selectedDate === today) {
+    notice.className = 'cv-msg cv-ok';
+    notice.textContent = 'Only remaining open time slots can be selected today.';
+  }
+  return true;
 }
 </script>
 
@@ -1710,24 +1704,17 @@ function cvValidateAll() {
         issues.push('Preferred date is invalid or already in the past.');
         ok = false; firstErr = firstErr || dateEl;
       }
-      if (checkoutAvailabilityPending) {
-        issues.push('Please wait for the date availability check to finish.');
-        ok = false; firstErr = firstErr || dateEl;
-      } else if (checkoutAvailabilityIssue) {
-        issues.push(checkoutAvailabilityIssue);
-        ok = false; firstErr = firstErr || dateEl;
-      }
     }
   }
 
   // Preferred Time Slot (required)
   const timeEl = document.getElementById('fieldTime');
-  if (timeEl && !timeEl.value) {
+  if (timeEl && (!timeEl.value || timeEl.selectedOptions[0]?.disabled)) {
     timeEl.classList.add('cv-invalid');
     const m = document.getElementById('msgTime');
-    if (m) { m.className = 'cv-msg cv-err'; m.textContent = 'Please select a preferred time slot.'; }
+    if (m) { m.className = 'cv-msg cv-err'; m.textContent = timeEl.value ? 'That time slot is already closed. Please choose another slot.' : 'Please select a preferred time slot.'; }
     cvShake(timeEl);
-    issues.push('Preferred time slot is required.');
+    issues.push(timeEl.value ? 'Selected time slot is already closed.' : 'Preferred time slot is required.');
     ok = false; firstErr = firstErr || timeEl;
   }
 
@@ -1801,7 +1788,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const basePriceEl = document.getElementById('basePrice');
     if (basePriceEl) basePriceEl.style.color = '#dc2626';
   }
-  checkCheckoutAvailability();
+  updateRegularScheduleSlots('fieldDate','fieldTime','msgDate');
   updatePaymentTransparency();
 });
 
