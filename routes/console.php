@@ -383,5 +383,128 @@ Artisan::command('customer:link-orders-by-phone {phone : Customer phone number t
     return 0;
 })->purpose('Safely link historical guest orders to a customer account by phone');
 
+Artisan::command('customer:unverify {phone : Customer phone number to match} {--user-id= : Specific customer user id to unverify} {--name= : Expected customer full name, used as a safety check} {--reason=Temporarily unverified by admin request. : Reason saved on the verification record} {--apply : Actually update the latest approved verification}', function () {
+    /** @var CustomerIdentityService $identity */
+    $identity = app(CustomerIdentityService::class);
+    $phone = (string) $this->argument('phone');
+    $variants = $identity->phoneVariants($phone);
+    $expectedName = trim((string) $this->option('name'));
+    $selectedUserId = trim((string) $this->option('user-id'));
+    $reason = trim((string) $this->option('reason')) ?: 'Temporarily unverified by admin request.';
+    $apply = (bool) $this->option('apply');
+
+    if (!$variants) {
+        $this->error('Invalid Philippine mobile number. Example: 09278460673');
+        return 1;
+    }
+
+    foreach (['users', 'customer_verifications'] as $table) {
+        if (!Schema::hasTable($table)) {
+            $this->error("Missing required table: {$table}");
+            return 1;
+        }
+    }
+
+    $customerQuery = DB::table('users')
+        ->where('role', 'customer')
+        ->whereIn('phone', $variants)
+        ->select('id', 'fullname', 'email', 'phone', 'role', 'is_verified', 'created_at')
+        ->orderByDesc('created_at');
+
+    if ($selectedUserId !== '') {
+        $customerQuery->where('id', $selectedUserId);
+    }
+
+    $customers = $customerQuery->get();
+
+    if ($expectedName !== '') {
+        $matchingByName = $customers->filter(fn ($user) => strcasecmp((string) $user->fullname, $expectedName) === 0)->values();
+        if ($matchingByName->isNotEmpty()) {
+            $customers = $matchingByName;
+        }
+    }
+
+    if ($customers->isEmpty()) {
+        $this->error('No customer account found with this phone number' . ($expectedName ? " and name {$expectedName}." : '.'));
+        $this->line('Phone variants checked: ' . implode(', ', $variants));
+        return 1;
+    }
+
+    if ($customers->count() > 1) {
+        $this->error('More than one customer account matched. Re-run with --user-id=<id> to choose exactly one.');
+        $this->table(['ID', 'Full Name', 'Email', 'Phone', 'Login Approved', 'Created'], $customers->map(fn ($user) => [
+            $user->id,
+            $user->fullname,
+            $user->email,
+            $user->phone,
+            $user->is_verified ? 'yes' : 'no',
+            $user->created_at,
+        ])->all());
+        return 1;
+    }
+
+    $customer = $customers->first();
+    $latest = DB::table('customer_verifications')
+        ->where('user_id', $customer->id)
+        ->orderByDesc('id')
+        ->first();
+
+    $this->info(($apply ? 'APPLY' : 'DRY RUN') . ' - unverify customer valid ID status');
+    $this->table(['Customer ID', 'Full Name', 'Email', 'Phone', 'Login Approved'], [[
+        $customer->id,
+        $customer->fullname,
+        $customer->email,
+        $customer->phone,
+        $customer->is_verified ? 'yes' : 'no',
+    ]]);
+
+    if (!$latest) {
+        $this->warn('This customer has no valid ID verification record yet.');
+        return 0;
+    }
+
+    $this->table(['Verification ID', 'Current Status', 'Reviewed At', 'Current Reason'], [[
+        $latest->id,
+        $latest->status,
+        $latest->reviewed_at ?? '',
+        $latest->rejection_reason ?? '',
+    ]]);
+
+    if ($latest->status !== 'approved') {
+        $this->warn('Latest verification is already not approved, so the customer is not verified.');
+        return 0;
+    }
+
+    if (!$apply) {
+        $this->warn('Dry run only. Re-run with --apply to update this verification to rejected.');
+        return 0;
+    }
+
+    DB::transaction(function () use ($latest, $customer, $reason) {
+        DB::table('customer_verifications')->where('id', $latest->id)->update([
+            'status' => 'rejected',
+            'rejection_reason' => $reason,
+            'reviewed_by' => null,
+            'reviewed_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        if (Schema::hasTable('notifications')) {
+            DB::table('notifications')->insert([
+                'receiver_role' => 'customer',
+                'receiver_user_id' => $customer->id,
+                'title' => 'Verification Needs Review',
+                'message' => 'Your valid ID verification was reset for review. Reason: ' . $reason,
+                'is_read' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    });
+
+    $this->info('Customer valid ID verification was reset to rejected. Login approval was not changed.');
+    return 0;
+})->purpose('Safely reset a customer valid ID verification to unverified by phone');
+
 Schedule::command('backup:run')->hourly();
 Schedule::command('orders:expire-unpaid-deposits')->hourly();

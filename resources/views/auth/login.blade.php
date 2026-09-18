@@ -204,6 +204,10 @@ document.body.classList.add('seller-login-page');
         <button type="submit" class="btn btn-primary w-100 login-btn">
           <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
         </button>
+
+        <a href="{{ route('register') }}" class="btn btn-outline-primary w-100 login-btn mt-2">
+          <i class="bi bi-person-plus me-2"></i>Create Customer Account
+        </a>
       </form>
     </div>
 
