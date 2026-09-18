@@ -158,10 +158,6 @@
                   <div class="verify-upload-status mt-2" data-upload-status-for="selfieInput">Optional selfie not selected.</div>
                 </div>
               </div>
-              <div class="col-md-6">
-                <label class="form-label fw-semibold small">Note <span class="text-muted fw-normal">(optional)</span></label>
-                <textarea class="form-control" name="customer_note" rows="2" maxlength="500" placeholder="Anything admin should know?"></textarea>
-              </div>
             </div>
             <div id="idUploadSummary" class="mt-2"></div>
             <div class="small text-muted mt-3"><i class="bi bi-lock me-1"></i>Your ID is used only for account verification and visible only to authorized admins.</div>
