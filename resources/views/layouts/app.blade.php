@@ -1221,6 +1221,9 @@
       @php try { $openFeedback = (int)\Illuminate\Support\Facades\DB::table('customer_feedback')->where('status','open')->count(); } catch(\Exception $e) { $openFeedback=0; } @endphp
       @if($openFeedback > 0)<span class="sb-badge">{{ $openFeedback > 9 ? '9+' : $openFeedback }}</span>@endif
     </a>
+    <a href="{{ route('superadmin.vouchers.index') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.vouchers') ? 'active' : '' }}">
+      <i class="bi bi-ticket-perforated"></i><span class="sb-link-text">Vouchers</span>
+    </a>
 
     <div class="sb-label">Settings</div>
     <a href="{{ route('superadmin.settings') }}" class="sb-link {{ ($currentRoute==='superadmin.settings' && request()->input('tab','platform') !== 'logs' && request()->input('tab','platform') !== 'backup') ? 'active' : '' }}">
@@ -1397,6 +1400,9 @@
     <div class="sb-label">Catalog</div>
     <a href="{{ route('seller.products') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.products') ? 'active' : '' }}">
       <i class="bi bi-cake2"></i><span class="sb-link-text">Products</span>
+    </a>
+    <a href="{{ route('seller.vouchers.index') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.vouchers') ? 'active' : '' }}">
+      <i class="bi bi-ticket-perforated"></i><span class="sb-link-text">Vouchers</span>
     </a>
     @if($sellerShop?->tier === 'verified')
     <a href="{{ route('seller.custom_orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.custom_orders') ? 'active' : '' }}">
@@ -1738,6 +1744,9 @@
     </a>
     <a href="{{ route('customer.profile') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.profile') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-person"></i> Profile
+    </a>
+    <a href="{{ route('customer.rewards') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.rewards') ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-award"></i> Rewards
     </a>
     <a href="{{ route('customer.addresses') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.addresses') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-geo-alt"></i> Addresses

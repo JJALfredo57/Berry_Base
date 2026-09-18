@@ -134,6 +134,63 @@ class LoyaltyService
         return array_values(array_unique(array_filter($benefits)));
     }
 
+    public function redemptionQuote(?string $userId, float $eligibleSubtotal, int $requestedPoints, bool $isVerified): array
+    {
+        $account = $this->account($userId);
+        $balance = (int) ($account->points_balance ?? 0);
+        $eligibleSubtotal = max(0, $eligibleSubtotal);
+        $maxBySubtotal = (int) floor($eligibleSubtotal * 0.5);
+        $maxRedeemable = max(0, min($balance, $maxBySubtotal));
+
+        if ($requestedPoints <= 0) {
+            return ['ok' => true, 'points' => 0, 'discount' => 0.0, 'balance' => $balance, 'max' => $maxRedeemable, 'message' => ''];
+        }
+
+        if (!$isVerified) {
+            return ['ok' => false, 'points' => 0, 'discount' => 0.0, 'balance' => $balance, 'max' => $maxRedeemable, 'message' => 'Verify your account before redeeming points.'];
+        }
+
+        if ($requestedPoints > $balance) {
+            return ['ok' => false, 'points' => 0, 'discount' => 0.0, 'balance' => $balance, 'max' => $maxRedeemable, 'message' => 'You do not have enough points for that redemption.'];
+        }
+
+        if ($requestedPoints > $maxRedeemable) {
+            return ['ok' => false, 'points' => 0, 'discount' => 0.0, 'balance' => $balance, 'max' => $maxRedeemable, 'message' => 'Points can cover up to 50% of the product subtotal after vouchers.'];
+        }
+
+        return ['ok' => true, 'points' => $requestedPoints, 'discount' => (float) $requestedPoints, 'balance' => $balance, 'max' => $maxRedeemable, 'message' => 'Points applied.'];
+    }
+
+    public function redeemForOrder(string $userId, string $orderId, int $points, float $discount): void
+    {
+        if ($points <= 0 || !Schema::hasTable('loyalty_accounts') || !Schema::hasTable('loyalty_transactions')) return;
+
+        DB::transaction(function () use ($userId, $orderId, $points, $discount) {
+            $account = DB::table('loyalty_accounts')->where('user_id', $userId)->lockForUpdate()->first();
+            if (!$account || (int) $account->points_balance < $points) {
+                throw new \RuntimeException('Points balance changed. Please try again.');
+            }
+
+            $balance = (int) $account->points_balance - $points;
+            DB::table('loyalty_accounts')->where('user_id', $userId)->update([
+                'points_balance' => $balance,
+                'updated_at' => now(),
+            ]);
+
+            DB::table('loyalty_transactions')->insert([
+                'user_id' => $userId,
+                'order_id' => $orderId,
+                'type' => 'redeem',
+                'points' => -$points,
+                'balance_after' => $balance,
+                'description' => "Redeemed {$points} points for Order #{$orderId}.",
+                'meta' => json_encode(['discount_amount' => round($discount, 2), 'rate' => '1 point = PHP 1']),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+    }
+
     public function awardForCompletedOrder(object|string $order): void
     {
         if (is_string($order)) {

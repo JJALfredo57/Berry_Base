@@ -389,6 +389,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
 
     Route::get('/profile',         [CustomerProfile::class, 'show'])->name('profile');
     Route::post('/profile/update', [CustomerProfile::class, 'update'])->name('profile.update');
+    Route::get('/rewards',         [\App\Http\Controllers\Customer\RewardController::class, 'index'])->name('rewards');
     Route::get('/verification',    [\App\Http\Controllers\Customer\VerificationController::class, 'show'])->name('verification');
     Route::post('/verification',   [\App\Http\Controllers\Customer\VerificationController::class, 'store'])->name('verification.store');
     Route::get('/profile/password',               [CustomerProfile::class, 'changePasswordShow'])->name('profile.password.show');
@@ -438,6 +439,9 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     // Dashboard
     Route::get('/dashboard', [\App\Http\Controllers\Seller\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
+    Route::get('/vouchers', [\App\Http\Controllers\Admin\VoucherController::class, 'index'])->name('vouchers.index');
+    Route::post('/vouchers', [\App\Http\Controllers\Admin\VoucherController::class, 'store'])->name('vouchers.store');
+    Route::post('/vouchers/{id}/toggle', [\App\Http\Controllers\Admin\VoucherController::class, 'toggle'])->name('vouchers.toggle');
     Route::get('/payouts',   [\App\Http\Controllers\Seller\PayoutController::class, 'index'])->name('payouts');
     Route::post('/payouts/details', [\App\Http\Controllers\Seller\PayoutController::class, 'saveDetails'])->name('payouts.details');
     Route::post('/payouts/request', [\App\Http\Controllers\Seller\PayoutController::class, 'requestManual'])->name('payouts.request');
@@ -596,6 +600,9 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/platform-settings/backup-settings', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveBackupSettings'])->name('settings.backup_settings');
     Route::get('/platform-settings/download-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'downloadBackup'])->name('settings.download_backup');
     Route::post('/platform-settings/restore',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'restore'])->name('settings.restore');
+    Route::get('/vouchers', [\App\Http\Controllers\Admin\VoucherController::class, 'index'])->name('vouchers.index');
+    Route::post('/vouchers', [\App\Http\Controllers\Admin\VoucherController::class, 'store'])->name('vouchers.store');
+    Route::post('/vouchers/{id}/toggle', [\App\Http\Controllers\Admin\VoucherController::class, 'toggle'])->name('vouchers.toggle');
     Route::get('/customer-verifications', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'index'])->name('customer_verifications.index');
     Route::post('/customer-verifications/{id}/approve', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'approve'])->name('customer_verifications.approve');
     Route::post('/customer-verifications/{id}/reject', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'reject'])->name('customer_verifications.reject');

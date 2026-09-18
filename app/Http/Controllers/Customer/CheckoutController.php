@@ -91,12 +91,23 @@ class CheckoutController extends Controller
 
         $loyalty = app(\App\Services\LoyaltyService::class)->account($uid);
         $verificationStatus = app(\App\Services\CustomerVerificationService::class)->status($uid);
+        $isGroupCheckout = $checkoutItems->isNotEmpty();
+        $checkoutSubtotal = $isGroupCheckout
+            ? (float) $checkoutItems->sum(fn ($item) => (float) $item->final_unit_price_snapshot * (int) $item->quantity)
+            : (float) $pricing['final_unit_price'] * (int) $checkout['quantity'];
+        $availableVouchers = app(VoucherService::class)->availableForCustomer($uid, $product->shop_id ?? null, $checkoutSubtotal);
+        $loyaltyQuote = app(\App\Services\LoyaltyService::class)->redemptionQuote(
+            $uid,
+            $checkoutSubtotal,
+            0,
+            $verificationStatus === 'approved'
+        );
 
         return view('customer.checkout_regular', compact(
             'product', 'checkout', 'defaultAddr', 'customer',
             'sizes', 'deliveryZones', 'shop', 'shopSettings', 'pricing',
             'addonCategories', 'addonsByCategory', 'loyalty', 'verificationStatus',
-            'checkoutItems'
+            'checkoutItems', 'availableVouchers', 'loyaltyQuote'
         ));
     }
 
@@ -315,7 +326,18 @@ class CheckoutController extends Controller
             return back()->with('error', $voucherResult['message'])->withInput();
         }
         $voucherDiscount = (float) ($voucherResult['discount'] ?? 0);
-        $total     = max(0, $baseTotal + $addonTotal - $voucherDiscount) + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
+        $loyaltyQuote = app(\App\Services\LoyaltyService::class)->redemptionQuote(
+            $uid,
+            max(0, $baseTotal + $addonTotal - $voucherDiscount),
+            max(0, (int) $request->input('points_to_redeem', 0)),
+            app(\App\Services\CustomerVerificationService::class)->isVerified($uid)
+        );
+        if (!$loyaltyQuote['ok']) {
+            return back()->with('error', $loyaltyQuote['message'])->withInput();
+        }
+        $pointsRedeemed = (int) ($loyaltyQuote['points'] ?? 0);
+        $loyaltyDiscount = (float) ($loyaltyQuote['discount'] ?? 0);
+        $total     = max(0, $baseTotal + $addonTotal - $voucherDiscount - $loyaltyDiscount) + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $this->generateTrackCode();
 
@@ -359,6 +381,8 @@ class CheckoutController extends Controller
             'discount_amount'  => $pricing['discount_amount'],
             'voucher_code'      => $voucherResult['voucher']->code ?? null,
             'voucher_discount_amount' => $voucherDiscount,
+            'loyalty_discount_amount' => $loyaltyDiscount,
+            'points_redeemed' => $pointsRedeemed,
             'final_unit_price' => $pricing['final_unit_price'],
             'delivery_address' => $address ?? '',
             'schedule_date'    => $sdate,
@@ -418,6 +442,31 @@ class CheckoutController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+        }
+        if ($pointsRedeemed > 0 && $loyaltyDiscount > 0 && $createdOrder) {
+            try {
+                app(\App\Services\LoyaltyService::class)->redeemForOrder($uid, $oid, $pointsRedeemed, $loyaltyDiscount);
+                DB::table('order_discounts')->insert([
+                    'order_id' => $oid,
+                    'source_type' => 'loyalty',
+                    'source_id' => null,
+                    'label' => 'Rewards points',
+                    'code' => null,
+                    'amount' => $loyaltyDiscount,
+                    'meta' => json_encode(['points' => $pointsRedeemed, 'rate' => '1 point = PHP 1']),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                DB::table('orders')->where('id', $oid)->update([
+                    'loyalty_discount_amount' => 0,
+                    'points_redeemed' => 0,
+                    'total_price' => $total + $loyaltyDiscount,
+                    'deposit_amount' => $needsDeposit ? round(($total + $loyaltyDiscount) * 0.5, 2) : null,
+                    'updated_at' => now(),
+                ]);
+                $total += $loyaltyDiscount;
+            }
         }
 
         foreach ($validAddons as $addon) {

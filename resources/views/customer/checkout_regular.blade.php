@@ -291,11 +291,59 @@ document.body.style.paddingRight = '';
         <div class="card mb-3">
           <div class="card-body p-4">
             <h6 class="fw-bold mb-2"><i class="bi bi-ticket-perforated me-2" style="color:var(--primary)"></i>Promo Code</h6>
+            @if(!empty($availableVouchers))
+              <div class="d-grid gap-2 mb-3">
+                @foreach($availableVouchers as $voucher)
+                  <div class="p-2 rounded-3 d-flex flex-wrap align-items-center justify-content-between gap-2" style="background:#f8fafc;border:1px solid #e5e7eb">
+                    <div>
+                      <div class="fw-semibold small">{{ $voucher->name }}</div>
+                      <div class="text-muted" style="font-size:.76rem">
+                        <span class="fw-semibold">{{ $voucher->code }}</span>
+                        @if($voucher->shop_id)
+                          <span class="ms-1">Shop voucher</span>
+                        @else
+                          <span class="ms-1">Platform voucher</span>
+                        @endif
+                        @if($voucher->requires_verified_customer)
+                          <span class="badge text-bg-light ms-1">Verified</span>
+                        @endif
+                      </div>
+                      <div class="text-muted" style="font-size:.72rem">{{ $voucher->validation_ok ? 'Estimated discount PHP '.number_format($voucher->computed_discount, 2) : $voucher->validation_message }}</div>
+                    </div>
+                    <button type="button" class="btn btn-sm {{ $voucher->validation_ok ? 'btn-outline-primary' : 'btn-outline-secondary' }}" data-voucher-code="{{ $voucher->code }}" {{ $voucher->validation_ok ? '' : 'disabled' }}>
+                      Use
+                    </button>
+                  </div>
+                @endforeach
+              </div>
+            @endif
             <div class="input-group">
-              <input type="text" class="form-control text-uppercase" name="voucher_code" maxlength="40" placeholder="Enter voucher code">
+              <input type="text" class="form-control text-uppercase" name="voucher_code" id="voucherCodeInput" maxlength="40" placeholder="Enter voucher code">
               <span class="input-group-text"><i class="bi bi-stars"></i></span>
             </div>
             <div class="form-text">Verified-only vouchers require an approved valid ID. The discount is checked securely when you place the order.</div>
+          </div>
+        </div>
+
+        {{-- Rewards Points --}}
+        <div class="card mb-3">
+          <div class="card-body p-4">
+            <h6 class="fw-bold mb-2"><i class="bi bi-award me-2" style="color:var(--primary)"></i>Use Rewards Points</h6>
+            <div class="d-flex flex-wrap justify-content-between gap-2 small mb-2">
+              <span class="text-muted">Available: <strong>{{ (int)($loyaltyQuote['balance'] ?? 0) }} pts</strong></span>
+              <span class="text-muted">Max this order: <strong>{{ (int)($loyaltyQuote['max'] ?? 0) }} pts</strong></span>
+            </div>
+            <div class="input-group">
+              <input type="number" class="form-control" name="points_to_redeem" id="pointsToRedeem" min="0" max="{{ (int)($loyaltyQuote['max'] ?? 0) }}" value="{{ old('points_to_redeem', 0) }}" {{ $verificationStatus === 'approved' ? '' : 'disabled' }}>
+              <span class="input-group-text">points</span>
+            </div>
+            <div class="form-text">
+              @if($verificationStatus === 'approved')
+                1 point = PHP 1 discount. Points can cover up to 50% of product subtotal after vouchers.
+              @else
+                Verify your account first to redeem points. You can still earn points from paid completed orders.
+              @endif
+            </div>
           </div>
         </div>
 
@@ -359,6 +407,10 @@ document.body.style.paddingRight = '';
           @endif
           <div id="addonSummary"></div>
           <div class="small text-muted mb-2"><i class="bi bi-ticket-perforated me-1"></i>Promo codes are applied after validation on submit.</div>
+          <div class="d-flex justify-content-between small mb-1" id="pointsPreviewRow" style="display:none">
+            <span class="text-muted">Rewards Points</span>
+            <span id="pointsPreviewDisplay" style="color:#16a34a">-PHP 0.00</span>
+          </div>
           <div class="d-flex justify-content-between small mb-1" id="feeRow" style="display:none!important">
             <span class="text-muted">Delivery Fee</span>
             <span id="feeDisplay">₱0.00</span>
@@ -450,6 +502,7 @@ const COVERAGE_ZONES   = @json($deliveryZones->values());
 const COVERAGE_RADIUS  = Math.max(1000, SHOP_META.coverageRadius || 5000);
 const BASE_PRICE       = {{ (float) $discountedSubtotal }};
 const HAS_PRODUCT_DISCOUNT = {{ !empty($pricing['has_discount']) ? 'true' : 'false' }};
+const MAX_REDEEMABLE_POINTS = {{ (int)($loyaltyQuote['max'] ?? 0) }};
 let deliveryFee = 0;
 let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
@@ -919,7 +972,17 @@ function onAddonChange(input) {
 
 function updateTotal(addonTotal) {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
-  const total = BASE_PRICE + (addonTotal ?? getCurrentAddonTotal()) + (isDelivery ? deliveryFee : 0);
+  const pointsInput = document.getElementById('pointsToRedeem');
+  let points = pointsInput && !pointsInput.disabled ? parseInt(pointsInput.value || '0', 10) : 0;
+  points = Math.max(0, Math.min(points || 0, MAX_REDEEMABLE_POINTS));
+  if (pointsInput && !pointsInput.disabled && String(pointsInput.value || '') !== String(points)) pointsInput.value = points;
+  const pointsRow = document.getElementById('pointsPreviewRow');
+  const pointsDisplay = document.getElementById('pointsPreviewDisplay');
+  if (pointsRow && pointsDisplay) {
+    pointsRow.style.display = points > 0 ? 'flex' : 'none';
+    pointsDisplay.textContent = '-PHP ' + points.toLocaleString('en-PH', {minimumFractionDigits:2});
+  }
+  const total = Math.max(0, BASE_PRICE + (addonTotal ?? getCurrentAddonTotal()) - points) + (isDelivery ? deliveryFee : 0);
   const el = document.getElementById('totalDisplay');
   if (el) el.textContent = '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2});
 }
@@ -951,5 +1014,15 @@ if (HAS_PRODUCT_DISCOUNT) {
   if (basePriceEl) basePriceEl.style.color = '#dc2626';
 }
 updatePaymentMethodLabel();
+document.querySelectorAll('[data-voucher-code]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById('voucherCodeInput');
+    if (input) {
+      input.value = btn.dataset.voucherCode || '';
+      input.focus();
+    }
+  });
+});
+document.getElementById('pointsToRedeem')?.addEventListener('input', () => updateTotal(getCurrentAddonTotal()));
 </script>
 @endpush

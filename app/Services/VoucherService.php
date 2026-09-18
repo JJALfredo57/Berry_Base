@@ -7,6 +7,40 @@ use Illuminate\Support\Facades\Schema;
 
 class VoucherService
 {
+    public function availableForCustomer(?string $userId, ?string $shopId, float $subtotal): array
+    {
+        if (!Schema::hasTable('vouchers')) return [];
+
+        $rows = DB::table('vouchers')
+            ->where('is_active', true)
+            ->where(function ($q) use ($shopId) {
+                $q->whereNull('shop_id');
+                if ($shopId) $q->orWhere('shop_id', $shopId);
+            })
+            ->orderByRaw('CASE WHEN shop_id IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('ends_at')
+            ->orderBy('code')
+            ->get();
+
+        return $rows->filter(function ($voucher) use ($userId) {
+            if (($voucher->audience ?? 'public') !== 'assigned') return true;
+            if (!Schema::hasTable('voucher_assignments')) return true;
+            if (!$userId) return false;
+            return DB::table('voucher_assignments')
+                ->where('voucher_id', $voucher->id)
+                ->where('user_id', $userId)
+                ->where('status', 'active')
+                ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', now()))
+                ->exists();
+        })->map(function ($voucher) use ($subtotal, $shopId, $userId) {
+            $result = $this->validate($voucher->code, $subtotal, $shopId, $userId);
+            $voucher->validation_ok = $result['ok'];
+            $voucher->validation_message = $result['message'] ?? '';
+            $voucher->computed_discount = (float) ($result['discount'] ?? 0);
+            return $voucher;
+        })->values()->all();
+    }
+
     public function validate(?string $code, float $subtotal, ?string $shopId, ?string $userId = null, ?string $guestPhone = null): array
     {
         $code = strtoupper(trim((string) $code));
@@ -23,6 +57,20 @@ class VoucherService
             ->first();
 
         if (!$voucher) return ['ok' => false, 'message' => 'Promo code was not found or is inactive.'];
+        if (($voucher->audience ?? 'public') === 'assigned') {
+            if (Schema::hasTable('voucher_assignments')) {
+                if (!$userId) return ['ok' => false, 'message' => 'This promo is assigned to a specific customer account.'];
+                $assigned = DB::table('voucher_assignments')
+                    ->where('voucher_id', $voucher->id)
+                    ->where('user_id', $userId)
+                    ->where('status', 'active')
+                    ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', now()))
+                    ->exists();
+                if (!$assigned) return ['ok' => false, 'message' => 'This promo is not assigned to your account.'];
+            } else {
+                return ['ok' => false, 'message' => 'Customer-specific vouchers are not ready yet.'];
+            }
+        }
         if ($voucher->starts_at && now()->lt($voucher->starts_at)) return ['ok' => false, 'message' => 'This promo has not started yet.'];
         if ($voucher->ends_at && now()->gt($voucher->ends_at)) return ['ok' => false, 'message' => 'This promo has already expired.'];
         if ($subtotal < (float) $voucher->minimum_order_amount) {
