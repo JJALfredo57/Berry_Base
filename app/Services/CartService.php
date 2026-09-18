@@ -83,6 +83,9 @@ class CartService
         $product = DB::table('products')->where('id', $productId)->where('is_available', true)->whereNull('archived_at')->first();
         if (!$product) return ['ok' => false, 'message' => 'Product not available.'];
 
+        $stock = app(ProductStockService::class)->validateProductQuantity($productId, $quantity);
+        if (!$stock['ok']) return ['ok' => false, 'message' => $stock['message']];
+
         $cart = $this->cart($request, $userId);
         if (!$cart) return ['ok' => false, 'message' => 'Cart is not ready yet.'];
 
@@ -100,8 +103,12 @@ class CartService
             ->first();
 
         if ($existing) {
+            $nextQuantity = min(99, (int) $existing->quantity + max(1, $quantity));
+            $stock = app(ProductStockService::class)->validateProductQuantity($productId, $nextQuantity);
+            if (!$stock['ok']) return ['ok' => false, 'message' => $stock['message']];
+
             DB::table('customer_cart_items')->where('id', $existing->id)->update([
-                'quantity' => min(99, (int) $existing->quantity + max(1, $quantity)),
+                'quantity' => $nextQuantity,
                 'updated_at' => now(),
             ]);
         } else {

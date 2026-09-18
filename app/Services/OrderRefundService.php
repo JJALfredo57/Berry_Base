@@ -51,6 +51,7 @@ class OrderRefundService
         });
 
         $fresh = DB::table('orders')->where('id', $order->id)->first() ?: $order;
+        app(ProductStockService::class)->releaseForOrder($fresh);
         $this->notifyStaff($fresh, 'Order Cancelled Before Payment', "Order #{$order->id} was cancelled before any payment was collected.", [
             'event' => 'cancelled_unpaid',
             'order_id' => (string) $order->id,
@@ -171,6 +172,7 @@ class OrderRefundService
         $this->createRefundLedger($order, $refund);
 
         $fresh = DB::table('orders')->where('id', $order->id)->first() ?: $order;
+        app(ProductStockService::class)->releaseForOrder($fresh);
         $this->notifications->notifyOrderCustomer($fresh, 'Refund Sent', "Your refund for Order #{$order->id} has been sent. You can view the receipt on your tracking page.", [
             'event' => 'refund_sent',
             'refund_id' => (string) $refund->id,

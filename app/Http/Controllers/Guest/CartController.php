@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guest;
 
 use App\Http\Controllers\Controller;
 use App\Services\CartService;
+use App\Services\ProductStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -38,8 +39,14 @@ class CartController extends Controller
     {
         $cart = $cartService->cart($request, null);
         if (!$cart) return back()->with('error', 'Cart not found.');
+        $item = DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->first();
+        if (!$item) return back()->with('error', 'Cart item not found.');
+        $qty = max(1, min(99, (int) $request->input('quantity', 1)));
+        $stock = app(ProductStockService::class)->validateProductQuantity((string) $item->product_id, $qty);
+        if (!$stock['ok']) return back()->with('error', $stock['message']);
+
         DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->update([
-            'quantity' => max(1, min(99, (int) $request->input('quantity', 1))),
+            'quantity' => $qty,
             'updated_at' => now(),
         ]);
         return back()->with('msg', 'Cart updated.');

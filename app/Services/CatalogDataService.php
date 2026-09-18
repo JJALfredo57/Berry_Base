@@ -13,7 +13,10 @@ class CatalogDataService
 
         $products = DB::table('products')
             ->leftJoin('shops', 'shops.id', '=', 'products.shop_id')
-            ->where('products.is_available', true)
+            ->where(function ($query) {
+                $query->where('products.is_available', true)
+                    ->orWhere('products.available_quantity', 0);
+            })
             ->where('products.classification', '!=', 'Custom')
             ->whereNull('products.archived_at')
             ->select('products.*', 'shops.shop_name', 'shops.shop_slug', 'shops.shop_logo')

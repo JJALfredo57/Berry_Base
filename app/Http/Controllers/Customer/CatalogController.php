@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Services\CatalogDataService;
+use App\Services\ProductStockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -36,8 +37,12 @@ class CatalogController extends Controller
     public function order(Request $request)
     {
         $pid = $request->input('product_id');
+        $qty = max(1, (int) $request->input('quantity', 1));
         $product = DB::table('products')->where('id', $pid)->where('is_available', true)->whereNull('archived_at')->first();
         if (!$product) return back()->with('error', 'Product not available.');
+
+        $stock = app(ProductStockService::class)->validateProductQuantity($pid, $qty);
+        if (!$stock['ok']) return back()->with('error', $stock['message'])->withInput();
 
         $parts = [];
         if ($d = trim($request->input('dedication', '')))   $parts[] = 'Dedication: "' . $d . '"';
@@ -47,7 +52,7 @@ class CatalogController extends Controller
 
         $request->session()->put('checkout', [
             'product_id'    => $pid,
-            'quantity'      => max(1, (int) $request->input('quantity', 1)),
+            'quantity'      => $qty,
             'custom_note'   => implode(' | ', $parts),
             'selected_size' => trim($request->input('selected_size', '')),
         ]);

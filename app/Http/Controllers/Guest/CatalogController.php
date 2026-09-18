@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Services\CatalogDataService;
+use App\Services\ProductStockService;
 use App\Services\DailyCapacityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -187,6 +188,9 @@ class CatalogController extends Controller
 
         $product = DB::table('products')->where('id', $pid)->where('is_available', true)->whereNull('archived_at')->first();
         if (!$product) return back()->with('error', 'Product not available.');
+
+        $stock = app(ProductStockService::class)->validateProductQuantity($pid, $qty);
+        if (!$stock['ok']) return back()->with('error', $stock['message'])->withInput();
 
         $request->session()->put('guest_checkout', [
             'product_id'   => $pid,

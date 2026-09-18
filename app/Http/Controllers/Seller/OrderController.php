@@ -8,6 +8,7 @@ use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use App\Services\LoyaltyService;
 use App\Services\OrderRefundService;
+use App\Services\ProductStockService;
 use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -195,6 +196,9 @@ class OrderController extends Controller
             }
         }
         DB::table('orders')->where('id', $id)->update($upd);
+        if ($newStatus === 'Cancelled') {
+            app(ProductStockService::class)->releaseForOrder($id);
+        }
         if ($newStatus === 'Picked Up') {
             $freshOrder = DB::table('orders')->where('id', $id)->first();
             PaymentTransactionHelper::recordFinalCashIfNeeded($freshOrder ?? $order, $newStatus);

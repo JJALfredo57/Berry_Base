@@ -222,6 +222,9 @@
       $isArchived  = !empty($p->archived_at);
       $latestReview = $reviews[0] ?? null;
       $pricing = $p->discount_snapshot ?? null;
+      $stockTracked = property_exists($p, 'available_quantity') && $p->available_quantity !== null;
+      $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
+      $hasStock = !$stockTracked || $stockQty > 0;
     @endphp
     <div class="catalog-item"
          data-name="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? '') . ' ' . ($p->shop_name ?? '') . ' ' . ($p->delivery_barangays_text ?? '') . ' ' . ($latestReview->review ?? ''))) }}"
@@ -288,6 +291,15 @@
           @if($p->flavor)
             <div class="text-muted small mb-1"><i class="bi bi-droplet me-1"></i>{{ $p->flavor }}</div>
           @endif
+          <div class="mb-2">
+            @if($stockTracked)
+              <span class="badge rounded-pill" style="background:{{ $stockQty <= 0 ? '#fef2f2' : ($stockQty <= 3 ? '#fffbeb' : '#ecfdf5') }};color:{{ $stockQty <= 0 ? '#b91c1c' : ($stockQty <= 3 ? '#92400e' : '#047857') }};border:1px solid {{ $stockQty <= 0 ? '#fecaca' : ($stockQty <= 3 ? '#fde68a' : '#a7f3d0') }};font-size:.78rem">
+                <i class="bi {{ $stockQty <= 0 ? 'bi-exclamation-circle' : 'bi-box-seam' }} me-1"></i>{{ $stockQty <= 0 ? 'Out of stock' : ($stockQty <= 3 ? 'Only '.$stockQty.' left' : $stockQty.' available') }}
+              </span>
+            @else
+              <span class="badge rounded-pill" style="background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;font-size:.78rem"><i class="bi bi-check-circle me-1"></i>Available</span>
+            @endif
+          </div>
           <p class="text-muted small flex-grow-1 mb-2">{{ Str::limit($p->description, 80) }}</p>
 
           {{-- Rating summary --}}
@@ -344,7 +356,7 @@
           <button class="btn w-100 py-2" style="font-size:1rem;background:#f3f4f6;color:#6b7280;border:1.5px solid #e5e7eb;cursor:not-allowed" disabled>
             <i class="bi bi-slash-circle me-2"></i>Out of Stock
           </button>
-          @elseif($isAvailable)
+          @elseif($isAvailable && $hasStock)
           <button class="btn btn-primary w-100 py-2" style="font-size:1rem;font-weight:600" data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}">
             <i class="bi bi-cart-plus me-2"></i>Order Now
           </button>
@@ -383,6 +395,9 @@
   $isAvailable = (int)($p->is_available ?? 1);
   $isArchived  = !empty($p->archived_at);
   $pricing     = $p->discount_snapshot ?? null;
+      $stockTracked = property_exists($p, 'available_quantity') && $p->available_quantity !== null;
+      $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
+      $hasStock = !$stockTracked || $stockQty > 0;
 @endphp
 <div class="modal fade" id="detailModal{{ $p->id }}" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="true">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
@@ -510,7 +525,7 @@
           <div class="alert border-0 text-center" style="background:#f3f4f6;color:#6b7280">
             <i class="bi bi-slash-circle me-2"></i><strong>Out of Stock</strong> — This cake is temporarily unavailable.
           </div>
-          @elseif($isAvailable)
+          @elseif($isAvailable && $hasStock)
           <form action="{{ route('catalog.select') }}" method="POST" onsubmit="return validateSizeSelection(this)">
             @csrf
             <input type="hidden" name="product_id" value="{{ $p->id }}">
@@ -555,12 +570,17 @@
 
             <div class="mb-3">
               <label class="form-label fw-semibold small">Quantity</label>
+              @if($stockTracked)
+                <div class="small mb-2" style="color:{{ $stockQty <= 3 ? '#92400e' : '#047857' }}">
+                  <i class="bi bi-box-seam me-1"></i>{{ $stockQty <= 0 ? 'No cakes left for this item.' : $stockQty.' cake'.($stockQty > 1 ? 's' : '').' available for ordering.' }}
+                </div>
+              @endif
               <div class="d-flex align-items-center gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm px-3"
                         onclick="changeQty('{{ $p->id }}', -1)">−</button>
                 <input type="number" class="form-control text-center fw-bold"
                        name="quantity" id="qty{{ $p->id }}"
-                       min="1" max="20" value="1" required style="width:70px">
+                       min="1" max="{{ $stockTracked ? min(20, max(1, $stockQty)) : 20 }}" value="1" required style="width:70px">
                 <button type="button" class="btn btn-outline-secondary btn-sm px-3"
                         onclick="changeQty('{{ $p->id }}', 1)">+</button>
               </div>
@@ -582,7 +602,7 @@
           </form>
           @else
           <div class="alert alert-danger text-center border-0">
-            <i class="bi bi-x-circle me-2"></i>This cake is currently not available.
+            <i class="bi bi-x-circle me-2"></i>{{ $stockTracked && $stockQty <= 0 ? 'This cake is currently out of stock.' : 'This cake is currently not available.' }}
           </div>
           @endif
 
@@ -739,7 +759,8 @@ function changeQty(productId, delta) {
   if (!input) return;
   let val = parseInt(input.value) + delta;
   if (val < 1) val = 1;
-  if (val > 20) val = 20;
+  const max = parseInt(input.getAttribute('max') || '20', 10);
+  if (val > max) val = max;
   input.value = val;
 }
 

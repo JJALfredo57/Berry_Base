@@ -8,6 +8,7 @@ use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use App\Services\LoyaltyService;
 use App\Services\OrderRefundService;
+use App\Services\ProductStockService;
 use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -320,6 +321,9 @@ class OrderController extends Controller
         }
 
         DB::table('orders')->where('id', $id)->update($upd);
+        if ($status === 'Cancelled') {
+            app(ProductStockService::class)->releaseForOrder($id);
+        }
         if (in_array($status, $finalStatuses, true)) {
             $freshOrder = DB::table('orders')->where('id', $id)->first() ?? $order;
             PaymentTransactionHelper::recordFinalCashIfNeeded($freshOrder, $status);
@@ -583,6 +587,7 @@ class OrderController extends Controller
             'cancel_status'    => 'accepted',
             'cancel_admin_note'=> $adminNote,
         ]);
+        app(ProductStockService::class)->releaseForOrder($id);
         DB::table('order_tracking')->insert([
             'order_id'   => $id,
             'status'     => 'Cancelled',

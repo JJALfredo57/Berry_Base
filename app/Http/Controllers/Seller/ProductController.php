@@ -104,6 +104,7 @@ class ProductController extends Controller
             'classification' => 'required|string|max:50',
             'description'    => 'nullable|string|max:500',
             'flavor'         => 'nullable|string|max:100',
+            'available_quantity' => 'nullable|integer|min:0|max:9999',
             'image'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ],[
             'name.required'           => 'Product name is required.',
@@ -136,6 +137,7 @@ class ProductController extends Controller
             'image_path'     => $img,
             'classification' => $validated['classification'],
             'flavor'         => $validated['flavor'] ?? null,
+            'available_quantity' => array_key_exists('available_quantity', $validated) ? $validated['available_quantity'] : null,
             'is_available' => true,
             'created_at'     => now(),
             'updated_at'     => now(),
@@ -156,6 +158,7 @@ class ProductController extends Controller
             'classification' => 'required|string|max:50',
             'description'    => 'nullable|string|max:500',
             'flavor'         => 'nullable|string|max:100',
+            'available_quantity' => 'nullable|integer|min:0|max:9999',
             'image'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ],[
             'name.required'  => 'Product name is required.',
@@ -178,6 +181,7 @@ class ProductController extends Controller
             'price'          => $validated['price'],
             'classification' => $validated['classification'],
             'flavor'         => $validated['flavor'] ?? null,
+            'available_quantity' => array_key_exists('available_quantity', $validated) ? $validated['available_quantity'] : null,
             'updated_at'     => now(),
         ];
 

@@ -113,6 +113,12 @@
                placeholder="e.g. Chocolate, Ube, Red Velvet" maxlength="100">
       </div>
       <div class="col-md-3">
+        <label class="form-label">Available Cakes <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
+        <input type="number" class="form-control" name="available_quantity" value="{{ old('available_quantity') }}"
+               min="0" max="9999" step="1" placeholder="e.g. 12">
+        <div style="font-size:.72rem;color:var(--gray-500);margin-top:.25rem">Leave blank to keep it generally available.</div>
+      </div>
+      <div class="col-md-3">
         <label class="form-label">Product Photo <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
         <input type="file" class="form-control" name="image" accept=".jpg,.jpeg,.png,.webp"
                onchange="previewImg(this,'addPreview')">
@@ -134,6 +140,8 @@
   $sizes = collect($productSizes[$p->id] ?? []);
   $discount = $discounts[$p->id] ?? null;
   $discountBadge = $discount ? \App\Helpers\CakeshopHelper::discountBadgeText($discount->discount_type ?? null, $discount->discount_value ?? null) : null;
+  $stockTracked = $p->available_quantity !== null;
+  $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
 @endphp
 <div class="seller-product-item"
      data-search="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? ''))) }}"
@@ -164,6 +172,13 @@
           <span style="background:var(--gray-200);color:var(--gray-600);font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px">Hidden</span>
         @endif
         <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:600;padding:.15rem .5rem;border-radius:99px">{{ $p->classification }}</span>
+        @if($stockTracked)
+          <span style="background:{{ $stockQty <= 0 ? '#fef2f2' : ($stockQty <= 3 ? '#fffbeb' : '#ecfdf5') }};color:{{ $stockQty <= 0 ? '#b91c1c' : ($stockQty <= 3 ? '#92400e' : '#047857') }};border:1px solid {{ $stockQty <= 0 ? '#fecaca' : ($stockQty <= 3 ? '#fde68a' : '#a7f3d0') }};font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;display:inline-flex;align-items:center;gap:.25rem">
+            <i class="bi {{ $stockQty <= 0 ? 'bi-exclamation-circle' : 'bi-box-seam' }}"></i> {{ $stockQty <= 0 ? 'Out of stock' : $stockQty.' available' }}
+          </span>
+        @else
+          <span style="background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px"><i class="bi bi-infinity"></i> Open stock</span>
+        @endif
       </div>
       <div style="font-size:.875rem;font-weight:700;color:var(--primary);margin:.2rem 0">₱{{ number_format($p->price,2) }} base</div>
       @if($discountBadge)
@@ -334,6 +349,11 @@
         <div class="col-md-3">
           <label class="form-label">Flavor</label>
           <input type="text" class="form-control" name="flavor" value="{{ $p->flavor }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Available Cakes</label>
+          <input type="number" class="form-control" name="available_quantity" value="{{ $p->available_quantity }}" min="0" max="9999" step="1" placeholder="Leave blank">
+          <div style="font-size:.72rem;color:var(--gray-500);margin-top:.25rem">Set 0 to show out of stock.</div>
         </div>
         <div class="col-md-4">
           <label class="form-label">Replace Photo</label>

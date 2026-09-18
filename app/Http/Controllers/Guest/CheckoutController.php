@@ -8,6 +8,7 @@ use App\Services\CustomerRiskService;
 use App\Services\CustomerIdentityService;
 use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
+use App\Services\ProductStockService;
 use App\Services\VoucherService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -255,6 +256,13 @@ class CheckoutController extends Controller
         if ($isGroupCheckout) {
             $qty = max(1, (int) $checkoutItems->sum('quantity'));
         }
+        $stockItems = $isGroupCheckout
+            ? $checkoutItems->map(fn ($item) => ['product_id' => $item->product_id, 'quantity' => max(1, (int) $item->quantity)])->all()
+            : [['product_id' => $pid, 'quantity' => max(1, (int) $qty)]];
+        $stockCheck = app(ProductStockService::class)->validateItems($stockItems);
+        if (!$stockCheck['ok']) {
+            return back()->with('error', $stockCheck['message'])->withInput();
+        }
 
         $risk = app(CustomerRiskService::class)->evaluateOrder($phone, $product->shop_id ?? null, 'regular');
         if (!$risk['allowed']) {
@@ -376,6 +384,11 @@ class CheckoutController extends Controller
                     ->with('msg', $existing['message'] ?? 'Order already placed.');
             }
             return back()->with('error', 'This order is already being processed. Please wait.')->withInput();
+        }
+
+        $stockReserve = app(ProductStockService::class)->reserveItems($stockItems);
+        if (!$stockReserve['ok']) {
+            return back()->with('error', $stockReserve['message'])->withInput();
         }
 
         DB::table('orders')->insert([
