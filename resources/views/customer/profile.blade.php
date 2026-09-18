@@ -1,5 +1,16 @@
 @extends('layouts.app')
 @section('content')
+<style>
+.membership-panel{border:1px solid #e5e7eb;border-radius:8px;background:#fff;overflow:hidden}
+.membership-head{background:linear-gradient(135deg,rgba(var(--primary-rgb,233,30,99),.1),#fff);border-bottom:1px solid #f1f5f9}
+.membership-tier-card{height:100%;border:1px solid #e5e7eb;border-radius:8px;background:#fff;padding:1rem;transition:.18s transform,.18s box-shadow,.18s border-color}
+.membership-tier-card.is-current{border-color:var(--primary);box-shadow:0 14px 32px rgba(var(--primary-rgb,233,30,99),.12)}
+.membership-tier-card.is-locked{background:#f8fafc;color:#64748b}
+.membership-icon{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(var(--primary-rgb,233,30,99),.1);color:var(--primary);flex:0 0 auto}
+.membership-benefit{display:flex;gap:.45rem;align-items:flex-start;font-size:.8rem;color:#64748b;margin-top:.45rem}
+.membership-benefit i{color:var(--primary);margin-top:.08rem}
+@media(max-width:575.98px){.membership-head{padding:1rem!important}.membership-tier-card{padding:.9rem}}
+</style>
 <div class="container-fluid py-4">
   <div class="row justify-content-center">
     <div class="col-lg-8">
@@ -18,6 +29,85 @@
           <div class="card text-center p-3">
             <div class="fw-bold" style="font-size:1.8rem;color:#f59e0b">{{ $pendingCount }}</div>
             <div class="text-muted small">Pending Orders</div>
+          </div>
+        </div>
+      </div>
+
+      @php
+        $membership = $loyaltyOverview ?? [];
+        $membershipTiers = $membership['tiers'] ?? [];
+        $currentMembership = $membership['current_tier'] ?? ($loyalty->tier ?? 'Bronze');
+        $nextMembership = $membership['next_tier'] ?? null;
+        $verifiedRewardsActive = ($verificationStatus ?? 'not_submitted') === 'approved';
+      @endphp
+      <div class="membership-panel mb-4">
+        <div class="membership-head p-4">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+              <h6 class="fw-bold mb-1"><i class="bi bi-award me-2" style="color:var(--primary)"></i>Membership Benefits</h6>
+              <div class="text-muted small">
+                {{ $verifiedRewardsActive ? 'Your verified rewards access is active.' : 'You can earn points now. Verify your account to redeem rewards and use verified-only vouchers.' }}
+              </div>
+            </div>
+            <div class="text-sm-end">
+              <div class="small text-muted">Current Level</div>
+              <div class="fw-bold" style="color:var(--primary)">{{ $currentMembership }} Member</div>
+            </div>
+          </div>
+          <div class="row g-3 mt-3">
+            <div class="col-sm-4">
+              <div class="rounded-3 p-3 bg-white border">
+                <div class="small text-muted">Available Points</div>
+                <div class="fw-bold">{{ (int)($membership['balance'] ?? ($loyalty->points_balance ?? 0)) }}</div>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="rounded-3 p-3 bg-white border">
+                <div class="small text-muted">Lifetime Points</div>
+                <div class="fw-bold">{{ (int)($membership['lifetime_points'] ?? ($loyalty->lifetime_points ?? 0)) }}</div>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="rounded-3 p-3 bg-white border">
+                <div class="small text-muted">Next Level</div>
+                <div class="fw-bold">
+                  @if($nextMembership)
+                    {{ $membership['points_to_next'] ?? 0 }} pts to {{ $nextMembership->name }}
+                  @else
+                    Top tier unlocked
+                  @endif
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="progress mt-3" style="height:8px">
+            <div class="progress-bar" style="width:{{ (int)($membership['progress'] ?? 0) }}%;background:var(--primary)"></div>
+          </div>
+        </div>
+        <div class="p-4">
+          <div class="row g-3">
+            @foreach($membershipTiers as $tier)
+              <div class="col-md-4">
+                <div class="membership-tier-card {{ $tier['is_current'] ? 'is-current' : '' }} {{ $tier['is_unlocked'] ? '' : 'is-locked' }}">
+                  <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                      <div class="membership-icon"><i class="bi {{ $tier['is_unlocked'] ? 'bi-patch-check-fill' : 'bi-lock' }}"></i></div>
+                      <div>
+                        <div class="fw-bold">{{ $tier['name'] }}</div>
+                        <div class="small text-muted">{{ number_format($tier['min_lifetime_points']) }} lifetime pts</div>
+                      </div>
+                    </div>
+                    <span class="badge {{ $tier['is_current'] ? 'text-white' : ($tier['is_unlocked'] ? 'text-bg-success' : 'text-bg-light') }}" @if($tier['is_current']) style="background:var(--primary)" @endif>
+                      {{ $tier['is_current'] ? 'Current' : ($tier['is_unlocked'] ? 'Unlocked' : 'Locked') }}
+                    </span>
+                  </div>
+                  <div class="small fw-semibold mb-2">{{ rtrim(rtrim(number_format($tier['points_multiplier'], 2), '0'), '.') }}x points multiplier</div>
+                  @foreach($tier['benefits'] as $item)
+                    <div class="membership-benefit"><i class="bi bi-check-circle"></i><span>{{ $item }}</span></div>
+                  @endforeach
+                </div>
+              </div>
+            @endforeach
           </div>
         </div>
       </div>

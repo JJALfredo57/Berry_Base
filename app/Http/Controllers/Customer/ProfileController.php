@@ -27,13 +27,15 @@ class ProfileController extends Controller
         $orderCount   = DB::table('orders')->where('user_id', $uid)->count();
         $pendingCount = DB::table('orders')->where('user_id', $uid)->where('status','Pending')->count();
         $verificationStatus = app(\App\Services\CustomerVerificationService::class)->status($uid);
-        $loyalty = app(\App\Services\LoyaltyService::class)->account($uid);
+        $loyaltyService = app(\App\Services\LoyaltyService::class);
+        $loyalty = $loyaltyService->account($uid);
+        $loyaltyOverview = $loyaltyService->membershipOverview($uid);
         $defaultAddr = DB::table('user_addresses')
             ->where('user_id', $uid)
             ->where('is_default', 1)
             ->first();
         $addressCount = DB::table('user_addresses')->where('user_id', $uid)->count();
-        return view('customer.profile', compact('user','orderCount','pendingCount','verificationStatus','loyalty','defaultAddr','addressCount'));
+        return view('customer.profile', compact('user','orderCount','pendingCount','verificationStatus','loyalty','loyaltyOverview','defaultAddr','addressCount'));
     }
 
     public function update(Request $request)
@@ -85,13 +87,15 @@ class ProfileController extends Controller
         $orderCount   = DB::table('orders')->where('user_id', $uid)->count();
         $pendingCount = DB::table('orders')->where('user_id', $uid)->where('status','Pending')->count();
         $verificationStatus = app(\App\Services\CustomerVerificationService::class)->status($uid);
-        $loyalty = app(\App\Services\LoyaltyService::class)->account($uid);
+        $loyaltyService = app(\App\Services\LoyaltyService::class);
+        $loyalty = $loyaltyService->account($uid);
+        $loyaltyOverview = $loyaltyService->membershipOverview($uid);
         $defaultAddr = DB::table('user_addresses')
             ->where('user_id', $uid)
             ->where('is_default', 1)
             ->first();
         $addressCount = DB::table('user_addresses')->where('user_id', $uid)->count();
-        return view('customer.profile', compact('user','orderCount','pendingCount','step','verificationStatus','loyalty','defaultAddr','addressCount'));
+        return view('customer.profile', compact('user','orderCount','pendingCount','step','verificationStatus','loyalty','loyaltyOverview','defaultAddr','addressCount'));
     }
 
     // ── Change Password — Back to Step 1 ────────────────────────

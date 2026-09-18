@@ -26,6 +26,9 @@
 .verify-upload-hint{font-size:.76rem;color:#64748b}
 .verify-file-input{position:absolute;inline-size:1px;block-size:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0)}
 .verify-upload-status{font-size:.76rem;color:#64748b;min-height:1.1rem}
+.verify-member-tier{border:1px solid #e5e7eb;border-radius:8px;padding:.8rem;background:#fff}
+.verify-member-tier.is-current{border-color:var(--primary);box-shadow:0 10px 24px rgba(var(--primary-rgb,233,30,99),.1)}
+.verify-member-tier.is-locked{background:#f8fafc;color:#64748b}
 @media (max-width:575.98px){.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}}
 </style>
 
@@ -168,6 +171,51 @@
       </div>
     </div>
     <div class="col-lg-5">
+      @php
+        $membership = $loyaltyOverview ?? [];
+        $membershipTiers = $membership['tiers'] ?? [];
+        $nextMembership = $membership['next_tier'] ?? null;
+      @endphp
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+            <h6 class="fw-bold mb-0"><i class="bi bi-award me-2" style="color:var(--primary)"></i>Membership Rewards</h6>
+            <span class="badge text-bg-light">{{ $membership['current_tier'] ?? 'Bronze' }}</span>
+          </div>
+          <div class="text-muted small mb-3">
+            {{ $status === 'approved' ? 'Verified redemption is active.' : 'Earn points now. Verify your account to redeem rewards and unlock verified-only vouchers.' }}
+          </div>
+          <div class="d-flex justify-content-between small mb-1">
+            <span>{{ (int)($membership['lifetime_points'] ?? 0) }} lifetime points</span>
+            <span>
+              @if($nextMembership)
+                {{ $membership['points_to_next'] ?? 0 }} to {{ $nextMembership->name }}
+              @else
+                Top tier
+              @endif
+            </span>
+          </div>
+          <div class="progress mb-3" style="height:8px">
+            <div class="progress-bar" style="width:{{ (int)($membership['progress'] ?? 0) }}%;background:var(--primary)"></div>
+          </div>
+          <div class="vstack gap-2">
+            @foreach($membershipTiers as $tier)
+              <div class="verify-member-tier {{ $tier['is_current'] ? 'is-current' : '' }} {{ $tier['is_unlocked'] ? '' : 'is-locked' }}">
+                <div class="d-flex align-items-center justify-content-between gap-2">
+                  <div>
+                    <div class="fw-semibold small">{{ $tier['name'] }} Member</div>
+                    <div class="text-muted" style="font-size:.76rem">{{ number_format($tier['min_lifetime_points']) }} lifetime pts • {{ rtrim(rtrim(number_format($tier['points_multiplier'], 2), '0'), '.') }}x points</div>
+                  </div>
+                  <span class="badge {{ $tier['is_current'] ? 'text-white' : ($tier['is_unlocked'] ? 'text-bg-success' : 'text-bg-light') }}" @if($tier['is_current']) style="background:var(--primary)" @endif>
+                    {{ $tier['is_current'] ? 'Current' : ($tier['is_unlocked'] ? 'Unlocked' : 'Locked') }}
+                  </span>
+                </div>
+                <div class="text-muted mt-2" style="font-size:.78rem">{{ $tier['perk_summary'] ?: ($tier['benefits'][0] ?? 'Earn rewards on completed orders.') }}</div>
+              </div>
+            @endforeach
+          </div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-body">
           <h6 class="fw-bold mb-3">While not verified</h6>

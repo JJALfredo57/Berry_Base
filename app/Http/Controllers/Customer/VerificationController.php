@@ -19,8 +19,9 @@ class VerificationController extends Controller
         $status = $latest->status ?? 'not_submitted';
         $benefits = $verification->benefits($status);
         $limitations = $verification->limitations($status);
+        $loyaltyOverview = app(\App\Services\LoyaltyService::class)->membershipOverview($uid);
 
-        return view('customer.verification', compact('latest', 'status', 'benefits', 'limitations'));
+        return view('customer.verification', compact('latest', 'status', 'benefits', 'limitations', 'loyaltyOverview'));
     }
 
     public function store(Request $request)
