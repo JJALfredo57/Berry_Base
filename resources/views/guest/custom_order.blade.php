@@ -1129,6 +1129,16 @@ function cvValidateDate(input) {
 var coGuestAvailabilityIssue = '';
 var coGuestAvailabilityPending = false;
 
+function coGuestCapacityText(data, fallback) {
+  const max = parseInt(data.max ?? 0, 10);
+  const remaining = data.remaining;
+  if (typeof remaining === 'number' && max > 0) {
+    const label = remaining === 1 ? 'custom cake slot' : 'custom cake slots';
+    return `${remaining} of ${max} ${label} available.`;
+  }
+  return fallback || data.message || 'Available.';
+}
+
 function checkCoGuestAvailability() {
   const date   = document.getElementById('fieldDate')?.value;
   const shopId = '{{ $targetShop->id ?? '' }}';
@@ -1145,7 +1155,7 @@ function checkCoGuestAvailability() {
     .then(data => {
       coGuestAvailabilityPending = false;
       if (data.status === 'capacity_not_configured') {
-        coGuestAvailabilityIssue = data.message || 'This shop has not set its daily capacity yet.';
+        coGuestAvailabilityIssue = data.message || 'This shop has not set custom cake daily capacity yet.';
         el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + coGuestAvailabilityIssue + '</span>';
       } else if (data.status === 'invalid') {
         coGuestAvailabilityIssue = data.message || 'Selected date is not available.';
@@ -1154,20 +1164,20 @@ function checkCoGuestAvailability() {
         coGuestAvailabilityIssue = (data.message || 'This date is fully booked.') + ' Please choose another date.';
         el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + data.message + ' — please choose another date.</span>';
       } else if (typeof data.remaining === 'number' && qty > data.remaining) {
-        coGuestAvailabilityIssue = 'Only ' + data.remaining + ' slot' + (data.remaining !== 1 ? 's' : '') + ' available on this date. Please choose another date or reduce quantity.';
-        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Only ' + data.remaining + ' slot' + (data.remaining !== 1 ? 's' : '') + ' available on this date. Please choose another date or reduce quantity.</span>';
+        coGuestAvailabilityIssue = 'Only ' + data.remaining + ' custom cake slot' + (data.remaining !== 1 ? 's' : '') + ' available on this date. Please choose another date or reduce quantity.';
+        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + coGuestAvailabilityIssue + '</span>';
       } else if (data.status === 'almost') {
         coGuestAvailabilityIssue = '';
-        el.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + data.message + '</span>';
+        el.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + coGuestCapacityText(data, data.message) + '</span>';
       } else if (data.status === 'available') {
         coGuestAvailabilityIssue = '';
-        el.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + data.message + '</span>';
+        el.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + coGuestCapacityText(data, data.message) + '</span>';
       } else {
         coGuestAvailabilityIssue = '';
         el.innerHTML = '';
       }
     })
-    .catch(() => { coGuestAvailabilityPending = false; coGuestAvailabilityIssue = ''; el.innerHTML = ''; });
+    .catch(() => { coGuestAvailabilityPending = false; coGuestAvailabilityIssue = 'We could not check custom cake availability. Please try again.'; el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + coGuestAvailabilityIssue + '</span>'; });
 }
 function cvClearErr(el, msgId) {
   el.classList.remove('cv-invalid');

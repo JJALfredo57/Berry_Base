@@ -76,7 +76,7 @@
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Quantity</label>
                     <input type="number" class="form-control" name="quantity" min="1" max="10"
-                           value="{{ old('quantity',1) }}" onchange="updatePriceSummary()">
+                           value="{{ old('quantity',1) }}" onchange="updatePriceSummary();checkCustCoAvailability()">
                   </div>
                 </div>
               </div>
@@ -840,6 +840,8 @@ function confirmCustomOrder(btn) {
     if (!lat || !addr) { alert('Please pin your location on the map and enter your address.'); return false; }
     if (deliveryCoverageBlocked) { alert('This pinned location is outside the seller delivery area. Move the pin inside the green coverage area or choose pickup.'); return false; }
   }
+  if (custCoAvailabilityPending) { alert('Please wait for the custom cake availability check to finish.'); return false; }
+  if (custCoAvailabilityIssue) { alert(custCoAvailabilityIssue); return false; }
   const total = document.getElementById('totalDisplay').textContent;
   cakeConfirm({
     title: '📋 Confirm Custom Order?',
@@ -857,6 +859,7 @@ function confirmCustomOrder(btn) {
 document.addEventListener('DOMContentLoaded', () => {
   updatePaymentMethodLabel();
   updatePriceSummary();
+  checkCustCoAvailability();
 });
 
 // ── Reference image multi-select with preview ────────────────────────
@@ -906,34 +909,62 @@ function syncRefInput() {
   input.files = dt.files;
 }
 
+let custCoAvailabilityIssue = '';
+let custCoAvailabilityPending = false;
+
+function customCapacityText(data, fallback) {
+  const max = parseInt(data.max ?? 0, 10);
+  const remaining = data.remaining;
+  if (typeof remaining === 'number' && max > 0) {
+    const label = remaining === 1 ? 'custom cake slot' : 'custom cake slots';
+    return `${remaining} of ${max} ${label} available.`;
+  }
+  return fallback || data.message || 'Available.';
+}
+
 function checkCustCoAvailability() {
   const date   = document.getElementById('custCoFieldDate')?.value;
   const shopId = '{{ $targetShop->id ?? '' }}';
   const qty    = parseInt(document.querySelector('[name=quantity]')?.value || '1', 10);
   const el     = document.getElementById('custCoAvailability');
+  custCoAvailabilityIssue = '';
+  custCoAvailabilityPending = false;
   if (!date || !el) return;
-  el.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking availability…</span>';
+  custCoAvailabilityPending = true;
+  el.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking custom cake availability...</span>';
   const url = '/catalog/availability?date=' + encodeURIComponent(date) + (shopId ? '&shop_id=' + encodeURIComponent(shopId) : '');
   fetch(url)
     .then(r => r.json())
     .then(data => {
+      custCoAvailabilityPending = false;
       if (data.status === 'capacity_not_configured') {
-        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + (data.message || 'This shop has not set its daily capacity yet.') + '</span>';
+        custCoAvailabilityIssue = data.message || 'This shop has not set custom cake daily capacity yet.';
+        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + custCoAvailabilityIssue + '</span>';
       } else if (data.status === 'invalid') {
-        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + (data.message || 'Date not available.') + '</span>';
+        custCoAvailabilityIssue = data.message || 'Date not available.';
+        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + custCoAvailabilityIssue + '</span>';
       } else if (data.status === 'full') {
-        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + data.message + ' — please choose another date.</span>';
+        custCoAvailabilityIssue = (data.message || 'This date is fully booked.') + ' Please choose another date.';
+        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + custCoAvailabilityIssue + '</span>';
       } else if (typeof data.remaining === 'number' && qty > data.remaining) {
-        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Only ' + data.remaining + ' slot' + (data.remaining !== 1 ? 's' : '') + ' available on this date. Please choose another date or reduce quantity.</span>';
+        custCoAvailabilityIssue = 'Only ' + data.remaining + ' custom cake slot' + (data.remaining !== 1 ? 's' : '') + ' available on this date. Please choose another date or reduce quantity.';
+        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + custCoAvailabilityIssue + '</span>';
       } else if (data.status === 'almost') {
-        el.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + data.message + '</span>';
+        custCoAvailabilityIssue = '';
+        el.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + customCapacityText(data, data.message) + '</span>';
       } else if (data.status === 'available') {
-        el.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + data.message + '</span>';
+        custCoAvailabilityIssue = '';
+        el.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + customCapacityText(data, data.message) + '</span>';
       } else {
+        custCoAvailabilityIssue = '';
         el.innerHTML = '';
       }
     })
-    .catch(() => { el.innerHTML = ''; });
+    .catch(() => {
+      custCoAvailabilityPending = false;
+      custCoAvailabilityIssue = 'We could not check custom cake availability. Please try again.';
+      el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + custCoAvailabilityIssue + '</span>';
+    });
 }
 </script>
 @endpush

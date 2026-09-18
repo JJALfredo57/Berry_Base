@@ -167,7 +167,7 @@
       <i class="bi bi-shop"></i> Shop Profile
     </button>
     <button onclick="showSettingsTab('capacity')" id="stab-capacity" class="s-tab">
-      <i class="bi bi-calendar-check"></i> Daily Capacity
+      <i class="bi bi-calendar-check"></i> Custom Cake Capacity
     </button>
     <button onclick="showSettingsTab('delivery')" id="stab-delivery" class="s-tab">
       <i class="bi bi-truck"></i> Delivery Fee
@@ -297,8 +297,8 @@
       <div class="setting-card-header">
         <i class="bi bi-calendar-check" style="font-size:1.1rem;color:var(--primary)"></i>
         <div>
-          <div class="title">Daily Order Capacity</div>
-          <div class="subtitle">Limit how many cake orders you can accept per day. Set to 0 for unlimited.</div>
+          <div class="title">Custom Cake Daily Capacity</div>
+          <div class="subtitle">Limit how many custom cake requests your shop can accept per preferred date. Set to 0 to pause custom cake checkout until capacity is configured.</div>
         </div>
       </div>
       <div class="setting-card-body">
@@ -307,11 +307,11 @@
           <input type="hidden" name="_section" value="capacity">
           <div class="row g-3">
             <div class="col-md-6 col-lg-3">
-              <label class="form-label fw-semibold">Default Max / Day</label>
+              <label class="form-label fw-semibold">Default Custom Slots / Day</label>
               <input type="number" min="0" class="form-control" name="daily_max_cakes"
                      value="{{ old('daily_max_cakes', $shopSettings->daily_max_cakes ?? 0) }}"
                      oninput="updateCapacityPreview()">
-              <div class="form-text">0 = unlimited</div>
+              <div class="form-text">0 = not accepting custom cake dates</div>
             </div>
             <div class="col-md-6 col-lg-3">
               <label class="form-label fw-semibold">Tomorrow (1-day lead)</label>
@@ -678,11 +678,11 @@ function updateCapacityPreview() {
   const d3    = parseInt(document.querySelector('[name="lead_3day_plus_max"]')?.value) || 0;
   const el    = document.getElementById('capacityPreview');
   if (!el) return;
-  if (daily === 0) { el.textContent = 'Unlimited orders per day — no restrictions applied.'; return; }
-  let txt = `Default: up to ${daily} orders/day`;
-  if (d1 > 0) txt += `  |  Tomorrow: ${d1} orders`;
-  if (d2 > 0) txt += `  |  2-day lead: ${d2} orders`;
-  if (d3 > 0) txt += `  |  3+ days: ${d3} orders`;
+  if (daily === 0) { el.textContent = 'Custom cake date availability is not configured yet. Customers will be asked to contact the seller before placing a custom cake order.'; return; }
+  let txt = `Default: up to ${daily} custom cake slots/day`;
+  if (d1 > 0) txt += `  |  Tomorrow: ${d1} custom cake slots`;
+  if (d2 > 0) txt += `  |  2-day lead: ${d2} custom cake slots`;
+  if (d3 > 0) txt += `  |  3+ days: ${d3} custom cake slots`;
   el.textContent = txt;
 }
 
