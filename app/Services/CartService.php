@@ -52,7 +52,7 @@ class CartService
             ->where('ci.cart_id', $cart->id)
             ->where('p.is_available', true)
             ->whereNull('p.archived_at')
-            ->select('ci.*', 'p.name as product_name', 'p.image_path', 'p.price as product_price', 'p.classification', 's.shop_name as shop_name', 's.shop_slug', 's.shop_logo')
+            ->select('ci.*', 'p.name as product_name', 'p.image_path', 'p.price as product_price', 'p.classification', 'p.available_quantity', 's.shop_name as shop_name', 's.shop_slug', 's.shop_logo')
             ->orderBy('s.shop_name')
             ->orderByDesc('ci.id')
             ->get();

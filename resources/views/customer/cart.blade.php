@@ -8,6 +8,17 @@
     .cart-group-list::before{content:"";position:absolute;left:40px;top:18px;bottom:18px;width:2px;background:linear-gradient(var(--primary),#f9a8d4);opacity:.5}
     .cart-group-item{position:relative}
     .cart-group-dot{width:12px;height:12px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 5px #fff;position:absolute;left:35px;top:36px;z-index:1}
+    .cart-qty-wrap{display:flex;flex-direction:column;gap:.35rem}
+    .cart-qty-control{display:inline-grid;grid-template-columns:38px minmax(54px,70px) 38px;align-items:center;border:1px solid #e5e7eb;border-radius:999px;overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+    .cart-qty-btn{height:38px;border:0;background:#fff;color:var(--primary);font-weight:800;display:flex;align-items:center;justify-content:center;transition:background .15s ease,color .15s ease}
+    .cart-qty-btn:hover{background:#fff0f5;color:#7c2d12}
+    .cart-qty-value{height:38px;display:flex;align-items:center;justify-content:center;border-inline:1px solid #e5e7eb;font-weight:800;color:#111827;background:#f8fafc;min-width:54px}
+    .cart-fixed-dialog{position:fixed;inset:0;z-index:2050;display:none;align-items:center;justify-content:center;padding:1rem;background:rgba(15,23,42,.42);backdrop-filter:blur(3px)}
+    .cart-fixed-dialog.show{display:flex}
+    .cart-dialog-card{width:min(420px,100%);background:#fff;border-radius:14px;box-shadow:0 24px 70px rgba(15,23,42,.28);border:1px solid #f1f5f9;overflow:hidden;animation:cartDialogIn .16s ease-out}
+    .cart-dialog-body{padding:1.15rem}
+    .cart-dialog-icon{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff0f5;color:var(--primary);font-size:1.2rem;flex-shrink:0}
+    @keyframes cartDialogIn{from{transform:translateY(8px) scale(.98);opacity:.6}to{transform:none;opacity:1}}
     @media(max-width:575.98px){.cart-group-list::before{left:28px}.cart-group-dot{left:23px}.cart-item-img{width:68px!important;height:68px!important}}
   </style>
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
@@ -69,15 +80,25 @@
                       <div class="small text-muted mt-2">{{ $item->custom_note }}</div>
                     @endif
                     <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
-                      <form action="{{ route('customer.cart.items.update', $item->id) }}" method="POST" class="d-flex align-items-center gap-2">
+                      @php
+                        $cartQtyTracked = $item->available_quantity !== null;
+                        $cartQtyMax = $cartQtyTracked ? max(1, (int) $item->available_quantity) : 99;
+                      @endphp
+                      <div class="cart-qty-wrap">
+                        <div class="cart-qty-control" aria-label="Quantity for {{ $item->product_name }}">
+                          <button type="button" class="cart-qty-btn" onclick="cartQtyStep('qtyForm{{ $item->id }}','removeForm{{ $item->id }}',-1, @js($item->product_name))" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
+                          <span class="cart-qty-value" id="qtyValue{{ $item->id }}">{{ $item->quantity }}</span>
+                          <button type="button" class="cart-qty-btn" onclick="cartQtyStep('qtyForm{{ $item->id }}','removeForm{{ $item->id }}',1, @js($item->product_name))" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
+                        </div>
+                        @if($cartQtyTracked)
+                          <div class="small text-muted"><i class="bi bi-box-seam me-1"></i>{{ $cartQtyMax }} available</div>
+                        @endif
+                      </div>
+                      <form id="qtyForm{{ $item->id }}" action="{{ route('customer.cart.items.update', $item->id) }}" method="POST" class="d-none">
                         @csrf
-                        <input type="number" min="1" max="99" name="quantity" value="{{ $item->quantity }}" class="form-control form-control-sm" style="width:76px">
-                        <button class="btn btn-outline-secondary btn-sm" title="Update quantity"><i class="bi bi-arrow-repeat"></i></button>
+                        <input type="hidden" name="quantity" value="{{ $item->quantity }}" data-cart-qty-input data-current-quantity="{{ $item->quantity }}" data-max-quantity="{{ $cartQtyMax }}" data-stock-tracked="{{ $cartQtyTracked ? '1' : '0' }}">
                       </form>
-                      <form action="{{ route('customer.cart.items.remove', $item->id) }}" method="POST">
-                        @csrf
-                        <button class="btn btn-outline-danger btn-sm" title="Remove item"><i class="bi bi-trash"></i></button>
-                      </form>
+                      <form id="removeForm{{ $item->id }}" action="{{ route('customer.cart.items.remove', $item->id) }}" method="POST" class="d-none">@csrf</form>
                     </div>
                   </div>
                 </div>
@@ -129,7 +150,80 @@
     </div>
   </div>
 </div>
+<div class="cart-fixed-dialog" id="cartQtyDialog" role="dialog" aria-modal="true" aria-labelledby="cartQtyDialogTitle">
+  <div class="cart-dialog-card">
+    <div class="cart-dialog-body">
+      <div class="d-flex gap-3 align-items-start">
+        <div class="cart-dialog-icon"><i class="bi bi-exclamation-triangle-fill" id="cartQtyDialogIcon"></i></div>
+        <div class="flex-grow-1">
+          <div class="fw-bold mb-1" id="cartQtyDialogTitle">Remove this cake?</div>
+          <div class="text-muted small" id="cartQtyDialogMessage">Quantity is already 1.</div>
+        </div>
+      </div>
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cartQtyCloseDialog()" id="cartQtyCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="cartQtyConfirmDialog()" id="cartQtyConfirmBtn">Remove</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
+let cartQtyPendingRemoveFormId = null;
+
+function cartQtyShowDialog(type, title, message, removeFormId = null) {
+  cartQtyPendingRemoveFormId = removeFormId;
+  const dialog = document.getElementById('cartQtyDialog');
+  const titleEl = document.getElementById('cartQtyDialogTitle');
+  const messageEl = document.getElementById('cartQtyDialogMessage');
+  const confirmBtn = document.getElementById('cartQtyConfirmBtn');
+  const cancelBtn = document.getElementById('cartQtyCancelBtn');
+  const icon = document.getElementById('cartQtyDialogIcon');
+  if (!dialog || !titleEl || !messageEl || !confirmBtn || !cancelBtn) return;
+  titleEl.textContent = title;
+  messageEl.textContent = message;
+  confirmBtn.style.display = type === 'remove' ? '' : 'none';
+  confirmBtn.textContent = 'Remove';
+  cancelBtn.textContent = type === 'remove' ? 'Cancel' : 'OK';
+  if (icon) icon.className = type === 'remove' ? 'bi bi-exclamation-triangle-fill' : 'bi bi-info-circle-fill';
+  dialog.classList.add('show');
+}
+
+function cartQtyCloseDialog() {
+  const dialog = document.getElementById('cartQtyDialog');
+  if (dialog) dialog.classList.remove('show');
+  cartQtyPendingRemoveFormId = null;
+}
+
+function cartQtyConfirmDialog() {
+  if (!cartQtyPendingRemoveFormId) return cartQtyCloseDialog();
+  const form = document.getElementById(cartQtyPendingRemoveFormId);
+  if (form) form.submit();
+  cartQtyCloseDialog();
+}
+
+function cartQtyStep(formId, removeFormId, delta, productName) {
+  const form = document.getElementById(formId);
+  if (!form) return;
+  const input = form.querySelector('[data-cart-qty-input]');
+  if (!input) return;
+  const current = parseInt(input.value || input.dataset.currentQuantity || '1', 10) || 1;
+  const max = parseInt(input.dataset.maxQuantity || '99', 10) || 99;
+  const tracked = input.dataset.stockTracked === '1';
+
+  if (delta < 0 && current <= 1) {
+    cartQtyShowDialog('remove', 'Remove this cake?', 'Quantity is already 1. Do you want to remove ' + productName + ' from your cart?', removeFormId);
+    return;
+  }
+
+  const next = current + delta;
+  if (delta > 0 && tracked && next > max) {
+    cartQtyShowDialog('info', 'Available stock reached', 'Only ' + max + ' ' + productName + ' available. Please reduce the quantity or choose another cake.');
+    return;
+  }
+
+  input.value = Math.max(1, Math.min(next, max));
+  form.submit();
+}
 document.addEventListener('DOMContentLoaded', function () {
   function money(value) {
     return 'PHP ' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
