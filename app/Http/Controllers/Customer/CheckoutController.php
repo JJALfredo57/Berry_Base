@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\CustomCartOrderService;
 use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
 use App\Services\OrderScheduleService;
@@ -188,9 +189,18 @@ class CheckoutController extends Controller
 
         $product = DB::table('products')->where('id', $pid)->first();
         if (!$product) return redirect()->route('customer.catalog');
-        $checkoutItems = $this->checkoutItems($checkout);
+        $allCheckoutItems = $this->checkoutItems($checkout);
+        $customCheckoutItems = $allCheckoutItems->filter(function ($item) {
+            $meta = json_decode($item->meta ?? '[]', true) ?: [];
+            return ($meta['cart_type'] ?? '') === 'custom_cake';
+        })->values();
+        $checkoutItems = $allCheckoutItems->reject(function ($item) {
+            $meta = json_decode($item->meta ?? '[]', true) ?: [];
+            return ($meta['cart_type'] ?? '') === 'custom_cake';
+        })->values();
+        $hasCustomCheckout = $customCheckoutItems->isNotEmpty();
         $isGroupCheckout = $checkoutItems->isNotEmpty();
-        if (!empty($checkout['cart_item_ids']) && !$isGroupCheckout) {
+        if (!empty($checkout['cart_item_ids']) && !$isGroupCheckout && !$hasCustomCheckout) {
             return redirect()->route('customer.cart')->with('error', 'Those cart items are no longer available.');
         }
         if ($isGroupCheckout) {
@@ -198,10 +208,12 @@ class CheckoutController extends Controller
         }
         $stockItems = $isGroupCheckout
             ? $checkoutItems->map(fn ($item) => ['product_id' => $item->product_id, 'quantity' => max(1, (int) $item->quantity)])->all()
-            : [['product_id' => $pid, 'quantity' => max(1, (int) $qty)]];
-        $stockCheck = app(ProductStockService::class)->validateItems($stockItems);
-        if (!$stockCheck['ok']) {
-            return back()->with('error', $stockCheck['message'])->withInput();
+            : ($hasCustomCheckout ? [] : [['product_id' => $pid, 'quantity' => max(1, (int) $qty)]]);
+        if (!empty($stockItems)) {
+            $stockCheck = app(ProductStockService::class)->validateItems($stockItems);
+            if (!$stockCheck['ok']) {
+                return back()->with('error', $stockCheck['message'])->withInput();
+            }
         }
         $itemNotes = collect($request->input('item_notes', []))
             ->mapWithKeys(fn ($value, $key) => [(int) $key => substr(preg_replace('/\s+/', ' ', trim((string) $value)), 0, 160)]);
@@ -284,6 +296,33 @@ class CheckoutController extends Controller
                 'is_default'   => 1,
                 'created_at'   => now(),
             ]);
+        }
+
+        if ($hasCustomCheckout && !$isGroupCheckout) {
+            $createdCustom = [];
+            foreach ($customCheckoutItems as $customItem) {
+                $created = app(CustomCartOrderService::class)->createFromCartItem($customItem, [
+                    'cart_id' => $checkout['cart_id'] ?? null,
+                    'user_id' => $uid,
+                    'customer_name' => session('user')['fullname'] ?? 'Customer',
+                    'payment_method' => $payment,
+                ]);
+                if (!$created['ok']) return back()->with('error', $created['message'])->withInput();
+                $createdCustom[] = $created['order_id'];
+            }
+            DB::table('customer_cart_items')
+                ->where('cart_id', $checkout['cart_id'] ?? 0)
+                ->whereIn('id', $customCheckoutItems->pluck('id')->all())
+                ->delete();
+            if (!empty($checkout['cart_id'])) app(\App\Services\CartService::class)->removeEmptyShop((int) $checkout['cart_id']);
+            $request->session()->forget('checkout');
+            return redirect()->route('customer.orders')->with('msg', count($createdCustom) . ' custom cake request(s) submitted for seller review.');
+        }
+
+        foreach ($customCheckoutItems as $customItem) {
+            $meta = json_decode($customItem->meta ?? '[]', true) ?: [];
+            $capacity = app(DailyCapacityService::class)->validate($customItem->shop_id ?? ($meta['shop_id'] ?? null), $meta['schedule_date'] ?? null, max(1, (int) $customItem->quantity));
+            if (!$capacity['allowed']) return back()->with('error', $capacity['message'])->withInput();
         }
 
         // Size pricing
@@ -555,6 +594,18 @@ class CheckoutController extends Controller
                 );
             }
         } catch (\Throwable $e) {}
+
+        if ($hasCustomCheckout) {
+            foreach ($customCheckoutItems as $customItem) {
+                $created = app(CustomCartOrderService::class)->createFromCartItem($customItem, [
+                    'cart_id' => $checkout['cart_id'] ?? null,
+                    'user_id' => $uid,
+                    'customer_name' => session('user')['fullname'] ?? 'Customer',
+                    'payment_method' => $payment,
+                ]);
+                if (!$created['ok']) return back()->with('error', $created['message']);
+            }
+        }
 
         if (!empty($checkout['cart_item_ids'])) {
             DB::table('customer_cart_items')

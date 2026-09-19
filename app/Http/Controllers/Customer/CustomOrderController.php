@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\CartService;
 use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
 use App\Support\BecCastilloAddons;
@@ -159,6 +160,9 @@ class CustomOrderController extends Controller
     public function store(Request $request)
     {
         $uid     = session('user')['id'];
+        if ($request->input('submit_action') === 'add_to_cart') {
+            return $this->addCustomCakeToCart($request, (string) $uid);
+        }
         $shop = $this->resolveVerifiedShop($request->input('shop_slug'));
         if (!$shop) {
             return redirect()->route('platform.shops')
@@ -473,5 +477,139 @@ class CustomOrderController extends Controller
 
         return redirect()->route('customer.orders')
             ->with('msg', "🎂 Custom Order #{$oid} submitted! We'll review it and get back to you soon.");
+    }
+    private function addCustomCakeToCart(Request $request, string $uid)
+    {
+        $shop = $this->resolveVerifiedShop($request->input('shop_slug'));
+        if (!$shop) {
+            return redirect()->route('platform.shops')
+                ->with('error', 'Custom cake ordering is available only for Verified Sellers. Please choose a verified shop.');
+        }
+
+        $payload = $this->customCartPayload($request, $shop);
+        if (!$payload['ok']) return back()->with('error', $payload['message'])->withInput();
+
+        $result = app(CartService::class)->addCustomDraft($request, $uid, $shop, $payload['data']);
+        return $result['ok']
+            ? redirect()->route('customer.cart')->with('msg', $result['message'])
+            : back()->with('error', $result['message'])->withInput();
+    }
+
+    private function customCartPayload(Request $request, object $shop): array
+    {
+        $shopId = $shop->id;
+        $options = $this->loadOptions($shopId);
+        $cakeName = trim($request->input('cake_name', ''));
+        $flavor = trim($request->input('flavor', ''));
+        $sizeLabel = trim($request->input('size', ''));
+        $layerLabel = trim($request->input('layers', ''));
+        $compLabel = trim($request->input('design_complexity', ''));
+        $dedication = trim($request->input('dedication', ''));
+        $timeSlot = trim($request->input('time_slot', ''));
+        $qty = max(1, (int) $request->input('quantity', 1));
+        $customNote = trim($request->input('custom_note', ''));
+        $addonInstructions = trim($request->input('addon_instructions', ''));
+        $fulfillment = $request->input('fulfillment_type', 'Pickup');
+        $zone = $request->input('delivery_zone', '');
+        $deliveryFee = (float) $request->input('delivery_fee', 0);
+        $address = trim($request->input('address', ''));
+        $lat = $request->input('latitude') !== '' ? (float) $request->input('latitude') : null;
+        $lng = $request->input('longitude') !== '' ? (float) $request->input('longitude') : null;
+        $sdate = $request->input('schedule_date') ?: null;
+        $payment = $request->input('payment_method', 'COD');
+
+        if ($cakeName === '') return ['ok' => false, 'message' => 'Please enter a cake / occasion name.'];
+        if ($flavor === '') return ['ok' => false, 'message' => 'Please select a cake flavor.'];
+        if ($sizeLabel === '') return ['ok' => false, 'message' => 'Please select a cake size.'];
+        if (!$sdate) return ['ok' => false, 'message' => 'Please select your preferred date.'];
+        if ($sdate <= date('Y-m-d')) return ['ok' => false, 'message' => 'Preferred date must be at least tomorrow. Custom cakes require preparation time.'];
+
+        $capacity = app(DailyCapacityService::class)->validate($shopId, $sdate, $qty);
+        if (!$capacity['allowed']) return ['ok' => false, 'message' => $capacity['message']];
+
+        if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null)) {
+            return ['ok' => false, 'message' => 'Please pin your location on the map and enter your address.'];
+        }
+
+        if ($fulfillment === 'Delivery' && $lat !== null && $lng !== null) {
+            $hasPinnedZones = DB::table('delivery_zones')
+                ->where('shop_id', $shopId)->where('is_active', true)
+                ->whereNotNull('lat')->whereNotNull('lng')->exists();
+            if ($hasPinnedZones) {
+                $nearestZone = $this->nearestCoverageZone($lat, $lng, $shopId);
+                if (!$nearestZone) return ['ok' => false, 'message' => 'Sorry, your delivery address is outside this shop delivery coverage area.'];
+                $zone = $nearestZone->barangay ?? $zone;
+            }
+        }
+
+        $refImages = [];
+        if ($request->hasFile('reference_images')) {
+            foreach ($request->file('reference_images') as $file) {
+                if (!$file->isValid() || $file->getSize() > 5 * 1024 * 1024) continue;
+                $ext = strtolower($file->getClientOriginalExtension());
+                if (!in_array($ext, ['jpg','jpeg','png','webp','gif'])) continue;
+                $refImages[] = $this->uploadFile($file, 'uploads/custom_orders');
+            }
+        }
+
+        $basePrice = 1200.00;
+        $sizeSurcharge = 0.00;
+        $layerSurcharge = 0.00;
+        $complexitySurcharge = 0.00;
+        if ($sizeLabel && ($sizeOpt = $options['sizes']->firstWhere('label', $sizeLabel))) $sizeSurcharge = (float) $sizeOpt->price;
+        if ($layerLabel && ($layerOpt = $options['layers']->firstWhere('label', $layerLabel))) $layerSurcharge = (float) $layerOpt->price;
+        if ($compLabel && ($compOpt = $options['complexities']->firstWhere('label', $compLabel))) $complexitySurcharge = (float) $compOpt->price;
+
+        $selectedAddonIds = array_filter(array_map('intval', $request->input('addons', [])));
+        $addonTotal = 0;
+        $validAddons = [];
+        if ($selectedAddonIds) {
+            $addons = DB::table('cake_addons')->whereIn('id', $selectedAddonIds)->where('is_active', true)->get();
+            foreach ($addons as $addon) {
+                $addonTotal += (float) $addon->price;
+                $validAddons[] = ['id' => $addon->id, 'name' => $addon->name, 'price' => (float) $addon->price];
+            }
+        }
+
+        $unitPrice = $basePrice + $sizeSurcharge + $layerSurcharge + $complexitySurcharge;
+        $subtotal = $unitPrice * $qty;
+        $total = $subtotal + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
+
+        return ['ok' => true, 'data' => [
+            'cake_name' => $cakeName,
+            'flavor' => $flavor,
+            'size' => $sizeLabel,
+            'layers' => $layerLabel,
+            'design_complexity' => $compLabel,
+            'dedication' => $dedication,
+            'custom_note' => $customNote,
+            'addon_instructions' => $addonInstructions,
+            'addons' => $validAddons,
+            'reference_images' => $refImages,
+            'fulfillment_type' => $fulfillment,
+            'delivery_zone' => $zone,
+            'delivery_fee' => $fulfillment === 'Delivery' ? $deliveryFee : 0,
+            'address' => $address,
+            'latitude' => $lat,
+            'longitude' => $lng,
+            'schedule_date' => $sdate,
+            'time_slot' => $timeSlot,
+            'payment_method' => $payment,
+            'quantity' => $qty,
+            'estimated_total' => $total,
+            'price_breakdown' => [
+                'base_price' => $basePrice,
+                'size_surcharge' => $sizeSurcharge,
+                'layer_surcharge' => $layerSurcharge,
+                'complexity_surcharge' => $complexitySurcharge,
+                'unit_price' => $unitPrice,
+                'quantity' => $qty,
+                'subtotal' => $subtotal,
+                'addon_total' => $addonTotal,
+                'delivery_fee' => $fulfillment === 'Delivery' ? $deliveryFee : 0,
+                'service_charge' => 0,
+                'total' => $total,
+            ],
+        ]];
     }
 }

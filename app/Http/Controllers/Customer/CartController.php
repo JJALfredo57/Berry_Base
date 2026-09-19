@@ -52,6 +52,10 @@ class CartController extends Controller
 
         $item = DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->first();
         if (!$item) return back()->with('error', 'Cart item not found.');
+        $meta = json_decode($item->meta ?? '[]', true) ?: [];
+        if (($meta['cart_type'] ?? '') === 'custom_cake') {
+            return back()->with('error', 'Custom cake quantity is part of the design request. Please remove and add the custom cake again to change it.');
+        }
         $qty = max(1, min(99, (int) $request->input('quantity', 1)));
         $stock = app(ProductStockService::class)->validateProductQuantity((string) $item->product_id, $qty);
         if (!$stock['ok']) return back()->with('error', $stock['message']);
@@ -130,13 +134,18 @@ class CartController extends Controller
         }
 
         foreach ($items as $item) {
+            $meta = json_decode($item->meta ?? '[]', true) ?: [];
+            if (($meta['cart_type'] ?? '') === 'custom_cake') continue;
             $stock = app(ProductStockService::class)->validateProductQuantity((string) $item->product_id, max(1, (int) $item->quantity));
             if (!$stock['ok']) {
                 return redirect()->route('customer.cart')->with('error', $stock['message']);
             }
         }
 
-        $first = $items->first();
+        $first = $items->first(function ($item) {
+            $meta = json_decode($item->meta ?? '[]', true) ?: [];
+            return ($meta['cart_type'] ?? '') !== 'custom_cake';
+        }) ?: $items->first();
         $request->session()->put('checkout', [
             'cart_id' => $cart->id,
             'cart_shop_id' => $shopKey,

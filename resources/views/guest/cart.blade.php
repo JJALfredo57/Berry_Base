@@ -71,6 +71,26 @@
                       </div>
                       <div class="fw-bold text-nowrap" style="color:var(--primary)">PHP {{ number_format($item->final_unit_price_snapshot * $item->quantity, 2) }}</div>
                     </div>
+                    @php
+                      $cartMeta = json_decode($item->meta ?? '[]', true) ?: [];
+                      $isCustomCakeCart = ($cartMeta['cart_type'] ?? '') === 'custom_cake';
+                    @endphp
+                    @if($isCustomCakeCart)
+                      <div class="mt-2 p-2 rounded-3" style="background:#fff7fb;border:1px solid #fce7f3">
+                        <div class="small fw-bold mb-1" style="color:var(--primary)"><i class="bi bi-palette me-1"></i>Custom cake draft</div>
+                        <div class="small text-muted">
+                          {{ $cartMeta['flavor'] ?? 'Flavor not set' }}
+                          @if(!empty($cartMeta['size'])) &bull; {{ $cartMeta['size'] }} @endif
+                          @if(!empty($cartMeta['layers'])) &bull; {{ $cartMeta['layers'] }} @endif
+                        </div>
+                        <div class="small text-muted">
+                          <i class="bi bi-calendar-event me-1"></i>{{ $cartMeta['schedule_date'] ?? 'No date' }}
+                          @if(!empty($cartMeta['time_slot'])) &bull; {{ $cartMeta['time_slot'] }} @endif
+                          &bull; {{ $cartMeta['fulfillment_type'] ?? 'Pickup' }}
+                        </div>
+                        <div class="small text-muted">Seller capacity will be checked again before checkout submits this request.</div>
+                      </div>
+                    @endif
                     <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
                       @php
                         $cartQtyTracked = $item->available_quantity !== null;

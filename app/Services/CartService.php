@@ -141,6 +141,65 @@ class CartService
         return ['ok' => true, 'message' => 'Added to cart.'];
     }
 
+    public function customProductId(): string
+    {
+        $product = DB::table('products')->where('classification', 'Custom')->orderBy('created_at')->first();
+        if ($product) return (string) $product->id;
+
+        $id = CakeshopHelper::generateId('products');
+        DB::table('products')->insert([
+            'id' => $id,
+            'name' => 'Custom Cake Order',
+            'description' => 'Customized cake order placeholder.',
+            'price' => 1200,
+            'image_path' => '/storage/uploads/products/default.png',
+            'classification' => 'Custom',
+            'flavor' => null,
+            'is_available' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $id;
+    }
+
+    public function addCustomDraft(Request $request, ?string $userId, object $shop, array $payload): array
+    {
+        $cart = $this->cart($request, $userId);
+        if (!$cart) return ['ok' => false, 'message' => 'Cart is not ready yet.'];
+
+        $qty = max(1, min(10, (int) ($payload['quantity'] ?? 1)));
+        $total = max(0, (float) ($payload['estimated_total'] ?? 0));
+        $unit = $qty > 0 ? round($total / $qty, 2) : $total;
+        $productId = $this->customProductId();
+        $cakeName = trim((string) ($payload['cake_name'] ?? 'Custom Cake'));
+
+        $payload['cart_type'] = 'custom_cake';
+        $payload['shop_id'] = $shop->id ?? null;
+        $payload['shop_slug'] = $shop->shop_slug ?? null;
+        $payload['shop_name'] = $shop->shop_name ?? null;
+        $payload['quantity'] = $qty;
+
+        DB::table('customer_cart_items')->insert([
+            'cart_id' => $cart->id,
+            'shop_id' => $shop->id ?? null,
+            'product_id' => $productId,
+            'quantity' => $qty,
+            'selected_size' => $payload['size'] ?? null,
+            'unit_price_snapshot' => $unit,
+            'final_unit_price_snapshot' => $unit,
+            'discount_amount_snapshot' => 0,
+            'discount_label_snapshot' => 'Custom cake estimate',
+            'custom_note' => 'CUSTOM ORDER - ' . $cakeName,
+            'meta' => json_encode($payload),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->removeEmptyShop((int) $cart->id);
+
+        return ['ok' => true, 'message' => 'Custom cake draft added to cart. Checkout will re-check seller capacity before submitting.'];
+    }
     public function removeEmptyShop(int $cartId): void
     {
         $shopIds = DB::table('customer_cart_items')

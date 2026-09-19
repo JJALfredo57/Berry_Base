@@ -352,11 +352,16 @@
                 </div>
               </div>
             </div>
-
-            <button type="submit" class="btn btn-primary w-100 py-3 fw-semibold fs-5"
-                    onclick="return confirmCustomOrder(this)">
-              <i class="bi bi-palette me-2"></i>Place Custom Order
-            </button>
+            <div class="custom-order-actions d-grid gap-2">
+              <button type="submit" name="submit_action" value="add_to_cart" formnovalidate
+                      class="btn btn-outline-primary w-100 py-3 fw-semibold fs-6">
+                <i class="bi bi-cart-plus me-2"></i>Add Custom Cake to Cart
+              </button>
+              <button type="submit" name="submit_action" value="place_order" class="btn btn-primary w-100 py-3 fw-semibold fs-5"
+                      onclick="return confirmCustomOrder(this)">
+                <i class="bi bi-palette me-2"></i>Place Custom Order
+              </button>
+            </div>
           </form>
         </div>
 
