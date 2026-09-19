@@ -591,6 +591,14 @@
               You'll choose pickup/delivery on the next step.
             </div>
 
+            <div class="form-check d-flex align-items-start gap-2 mb-3 p-3" style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:.75rem">
+              <input class="form-check-input mt-1" type="checkbox" name="stay_on_catalog" value="1" id="guestStayCatalog{{ $p->id }}" checked>
+              <label class="form-check-label small" for="guestStayCatalog{{ $p->id }}">
+                <span class="fw-semibold d-block">Stay on catalog after adding to cart</span>
+                <span class="text-muted">Uncheck this if you want to open your cart right after adding.</span>
+              </label>
+            </div>
+
             <div class="d-grid gap-2">
               <button type="submit" class="btn btn-primary py-2 fw-semibold">
                 <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout

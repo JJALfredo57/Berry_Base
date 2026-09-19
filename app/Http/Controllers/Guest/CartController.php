@@ -32,6 +32,10 @@ class CartController extends Controller
             implode(' | ', $parts)
         );
 
+        if ($result['ok'] && !$request->boolean('stay_on_catalog')) {
+            return redirect()->route('cart')->with('msg', $result['message']);
+        }
+
         return back()->with($result['ok'] ? 'msg' : 'error', $result['message']);
     }
 
