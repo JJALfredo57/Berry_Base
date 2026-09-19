@@ -22,7 +22,8 @@
   <div class="row g-3">
     <div class="col-lg-8">
       @forelse(($groups ?? collect()) as $group)
-        <div class="cart-shop-card mb-3">
+        @php $checkoutFormId = 'guestCartCheckout' . $loop->iteration; @endphp
+        <div class="cart-shop-card mb-3" data-cart-group="{{ $checkoutFormId }}">
           <div class="cart-shop-head p-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div class="d-flex align-items-center gap-2">
               @if(!empty($group->shop_logo))
@@ -35,6 +36,10 @@
                 <div class="text-muted small">{{ $group->item_count }} cake option{{ $group->item_count > 1 ? 's' : '' }} connected for one pickup/delivery</div>
               </div>
             </div>
+            <div class="form-check ms-sm-auto">
+              <input class="form-check-input cart-select-all" type="checkbox" id="selectAll{{ $checkoutFormId }}" data-cart-group="{{ $checkoutFormId }}" checked>
+              <label class="form-check-label small fw-semibold" for="selectAll{{ $checkoutFormId }}">Select all</label>
+            </div>
             <div class="text-end">
               <div class="fw-bold" style="color:var(--primary)">PHP {{ number_format($group->subtotal, 2) }}</div>
               <div class="text-muted small">{{ $group->quantity }} total item{{ $group->quantity > 1 ? 's' : '' }}</div>
@@ -44,7 +49,8 @@
             @foreach($group->items as $item)
               <div class="cart-group-item p-3 ps-sm-5">
                 <span class="cart-group-dot"></span>
-                <div class="d-flex gap-3 ms-3">
+                <div class="d-flex gap-3 ms-3 align-items-start">
+                  <input class="form-check-input cart-item-check mt-1" type="checkbox" name="selected_item_ids[]" value="{{ $item->id }}" form="{{ $checkoutFormId }}" data-cart-group="{{ $checkoutFormId }}" data-item-subtotal="{{ (float) $item->final_unit_price_snapshot * (int) $item->quantity }}" data-item-quantity="{{ (int) $item->quantity }}" checked aria-label="Select {{ $item->product_name }} for checkout">
                   <img class="cart-item-img" src="{{ $item->image_path ?: '/images/no-image.png' }}" alt="{{ $item->product_name }}" style="width:82px;height:82px;object-fit:cover;border-radius:8px">
                   <div class="flex-grow-1 min-w-0">
                     <div class="d-flex justify-content-between gap-2">
@@ -68,10 +74,13 @@
             @endforeach
           </div>
           <div class="p-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <div class="small text-muted"><i class="bi bi-link-45deg me-1"></i>Same seller items use one schedule and one pickup/delivery fee.</div>
-            <form action="{{ route('cart.shops.checkout', $group->key) }}" method="POST">
+            <div>
+              <div class="small text-muted"><i class="bi bi-link-45deg me-1"></i>Same seller items use one schedule and one pickup/delivery fee.</div>
+              <div class="small fw-semibold mt-1" data-cart-selected-summary="{{ $checkoutFormId }}" style="color:var(--primary)"></div>
+            </div>
+            <form id="{{ $checkoutFormId }}" action="{{ route('cart.shops.checkout', $group->key) }}" method="POST">
               @csrf
-              <button class="btn btn-primary btn-sm"><i class="bi bi-bag-check me-1"></i>Checkout this seller</button>
+              <button class="btn btn-primary btn-sm" data-cart-checkout-button="{{ $checkoutFormId }}"><i class="bi bi-bag-check me-1"></i>Checkout selected</button>
             </form>
           </div>
         </div>
@@ -84,4 +93,47 @@
     </div>
   </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function money(value) {
+    return 'PHP ' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function refreshGroup(groupId) {
+    const checks = Array.from(document.querySelectorAll('.cart-item-check[data-cart-group="' + groupId + '"]'));
+    const selected = checks.filter(check => check.checked);
+    const selectedQty = selected.reduce((sum, check) => sum + (parseInt(check.dataset.itemQuantity || '0', 10) || 0), 0);
+    const selectedTotal = selected.reduce((sum, check) => sum + (parseFloat(check.dataset.itemSubtotal || '0') || 0), 0);
+    const summary = document.querySelector('[data-cart-selected-summary="' + groupId + '"]');
+    const button = document.querySelector('[data-cart-checkout-button="' + groupId + '"]');
+    const selectAll = document.querySelector('.cart-select-all[data-cart-group="' + groupId + '"]');
+
+    if (summary) {
+      summary.textContent = selected.length
+        ? selected.length + ' selected cake option' + (selected.length > 1 ? 's' : '') + ' • ' + selectedQty + ' item' + (selectedQty > 1 ? 's' : '') + ' • ' + money(selectedTotal)
+        : 'Select at least one cake to checkout.';
+    }
+    if (button) button.disabled = selected.length === 0;
+    if (selectAll) {
+      selectAll.checked = checks.length > 0 && selected.length === checks.length;
+      selectAll.indeterminate = selected.length > 0 && selected.length < checks.length;
+    }
+  }
+
+  document.querySelectorAll('.cart-item-check').forEach(check => {
+    check.addEventListener('change', () => refreshGroup(check.dataset.cartGroup));
+  });
+
+  document.querySelectorAll('.cart-select-all').forEach(check => {
+    check.addEventListener('change', () => {
+      document.querySelectorAll('.cart-item-check[data-cart-group="' + check.dataset.cartGroup + '"]').forEach(item => {
+        item.checked = check.checked;
+      });
+      refreshGroup(check.dataset.cartGroup);
+    });
+  });
+
+  document.querySelectorAll('[data-cart-group]').forEach(group => refreshGroup(group.dataset.cartGroup));
+});
+</script>
 @endsection

@@ -104,13 +104,36 @@ class CartController extends Controller
         if (!$cart) return redirect()->route('customer.cart')->with('error', 'Cart not found.');
 
         $shopKey = $shopId === 'platform' ? null : $shopId;
+        $selectedIds = collect($request->input('selected_item_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($selectedIds->isEmpty()) {
+            return redirect()->route('customer.cart')->with('error', 'Please select at least one cake to checkout.');
+        }
+
         $items = DB::table('customer_cart_items')
             ->where('cart_id', $cart->id)
             ->when($shopKey, fn ($q) => $q->where('shop_id', $shopKey), fn ($q) => $q->whereNull('shop_id'))
+            ->whereIn('id', $selectedIds->all())
             ->orderBy('id')
             ->get();
+
         if ($items->isEmpty()) {
-            return redirect()->route('customer.cart')->with('error', 'No cart items found for that seller.');
+            return redirect()->route('customer.cart')->with('error', 'No selected cart items found for that seller.');
+        }
+
+        if ($items->count() !== $selectedIds->count()) {
+            return redirect()->route('customer.cart')->with('error', 'Some selected cakes are no longer available in this seller cart. Please review your cart.');
+        }
+
+        foreach ($items as $item) {
+            $stock = app(ProductStockService::class)->validateProductQuantity((string) $item->product_id, max(1, (int) $item->quantity));
+            if (!$stock['ok']) {
+                return redirect()->route('customer.cart')->with('error', $stock['message']);
+            }
         }
 
         $first = $items->first();
