@@ -5689,7 +5689,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   if (customActions) {
     customActions.dataset.csOriginalDisplay = customActions.style.display || 'grid';
-    customActions.style.display = 'none';
+    customActions.style.setProperty('display', 'none', 'important');
   }
   cards.forEach(function (card) { card.classList.add('cs-wizard-panel'); });
   var stepper = document.createElement('div');
@@ -5737,7 +5737,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     if (customActions) {
       var customOnLastStep = current === cards.length - 1;
-      customActions.style.display = customOnLastStep ? customActions.dataset.csOriginalDisplay : 'none';
+      customActions.style.setProperty('display', customOnLastStep ? customActions.dataset.csOriginalDisplay : 'none', 'important');
       nextBtn.style.display = customOnLastStep ? 'none' : '';
       return;
     }
