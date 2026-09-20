@@ -5682,10 +5682,15 @@ document.addEventListener('DOMContentLoaded', function () {
   form.dataset.wizardReady = '1';
   var current = 0;
   var submitButtons = Array.from(form.querySelectorAll('button[type="submit"], input[type="submit"]'));
+  var customActions = form.id === 'customOrderForm' ? form.querySelector('.custom-order-actions') : null;
   submitButtons.forEach(function (btn) {
     btn.dataset.csOriginalDisplay = btn.style.display || '';
     btn.style.display = 'none';
   });
+  if (customActions) {
+    customActions.dataset.csOriginalDisplay = customActions.style.display || 'grid';
+    customActions.style.display = 'none';
+  }
   cards.forEach(function (card) { card.classList.add('cs-wizard-panel'); });
   var stepper = document.createElement('div');
   stepper.className = 'cs-checkout-stepper';
@@ -5730,6 +5735,12 @@ document.addEventListener('DOMContentLoaded', function () {
     submitButtons.forEach(function (btn) {
       btn.style.display = ready ? btn.dataset.csOriginalDisplay : 'none';
     });
+    if (customActions) {
+      var customOnLastStep = current === cards.length - 1;
+      customActions.style.display = customOnLastStep ? customActions.dataset.csOriginalDisplay : 'none';
+      nextBtn.style.display = customOnLastStep ? 'none' : '';
+      return;
+    }
     if (navSubmitBtn) {
       navSubmitBtn.style.display = ready ? 'inline-flex' : 'none';
       nextBtn.style.display = current === cards.length - 1 ? 'none' : '';
@@ -5743,7 +5754,7 @@ document.addEventListener('DOMContentLoaded', function () {
       el.classList.toggle('done', idx < current);
     });
     nav.querySelector('[data-wiz-back]').style.visibility = current === 0 ? 'hidden' : 'visible';
-    nextBtn.innerHTML = navSubmitBtn ? 'Next <i class="bi bi-arrow-right ms-1"></i>' : (current === cards.length - 1 ? 'Review Order <i class="bi bi-check2 ms-1"></i>' : 'Next <i class="bi bi-arrow-right ms-1"></i>');
+    nextBtn.innerHTML = (navSubmitBtn || customActions) ? 'Next <i class="bi bi-arrow-right ms-1"></i>' : (current === cards.length - 1 ? 'Review Order <i class="bi bi-check2 ms-1"></i>' : 'Next <i class="bi bi-arrow-right ms-1"></i>');
     updateSubmitVisibility();
     if (scroll !== false) cards[current].scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
