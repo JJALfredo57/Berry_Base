@@ -118,7 +118,10 @@
                             <div class="custom-hold-bar"><div class="custom-hold-fill" data-hold-fill></div></div>
                             <div class="small mt-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
                               <span class="text-muted" data-hold-text>Calculating hold time...</span>
-                              <a class="btn btn-outline-primary btn-sm py-1 px-2 d-none" data-hold-update href="{{ route('customer.custom_order', ['shop_slug' => $cartMeta['shop_slug'] ?? null]) }}">Update fulfillment</a>
+                              <form action="{{ route('customer.cart.items.refresh_custom_hold', $item->id) }}" method="POST" class="m-0 d-inline">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-primary btn-sm py-1 px-2 d-none" data-hold-update>Refresh fulfillment</button>
+                              </form>
                             </div>
                           </div>
                         @endif

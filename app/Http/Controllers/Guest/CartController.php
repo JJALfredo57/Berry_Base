@@ -74,6 +74,43 @@ class CartController extends Controller
         return back()->with('msg', 'Item removed from cart.');
     }
 
+    public function refreshCustomHold(Request $request, string $id, CartService $cartService)
+    {
+        $cart = $cartService->cart($request, null);
+        if (!$cart) return back()->with('error', 'Cart not found.');
+
+        $item = DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->first();
+        if (!$item) return back()->with('error', 'Cart item not found.');
+
+        $meta = json_decode($item->meta ?? '[]', true) ?: [];
+        if (($meta['cart_type'] ?? '') !== 'custom_cake') {
+            return back()->with('error', 'This cart item is not a custom cake draft.');
+        }
+
+        $shopId = $item->shop_id ?? ($meta['shop_id'] ?? null);
+        $scheduleDate = $meta['schedule_date'] ?? null;
+        $quantity = max(1, (int) $item->quantity);
+        $prep = app(\App\Services\PreparationWindowService::class);
+
+        $prepDate = $prep->validateDate($shopId, $scheduleDate, 'custom');
+        if (!$prepDate['ok']) return back()->with('error', $prepDate['message']);
+
+        $capacity = app(\App\Services\DailyCapacityService::class)->validate($shopId, $scheduleDate, $quantity);
+        if (!$capacity['allowed']) return back()->with('error', $capacity['message']);
+
+        $settings = $prep->settings($shopId);
+        $meta['fulfillment_hold_expires_at'] = $prep->holdUntil($shopId)->toDateTimeString();
+        $meta['fulfillment_hold_minutes'] = (int) $settings->custom_cart_hold_minutes;
+        $meta['seller_review_deadline_at'] = optional($prep->reviewDeadline($shopId, $scheduleDate))->toDateTimeString();
+        $meta['custom_prep_days'] = (int) $settings->custom_cake_prep_days;
+
+        DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->update([
+            'meta' => json_encode($meta),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('msg', 'Fulfillment refreshed. Your custom cake schedule hold is active again.');
+    }
     public function checkoutItem(Request $request, string $id, CartService $cartService)
     {
         $cart = $cartService->cart($request, null);

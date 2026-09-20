@@ -119,6 +119,7 @@ Route::post('/catalog/select',  [GuestCatalog::class, 'selectProduct'])->name('c
 Route::get('/cart', [\App\Http\Controllers\Guest\CartController::class, 'index'])->name('cart');
 Route::post('/cart/add', [\App\Http\Controllers\Guest\CartController::class, 'store'])->name('cart.add');
 Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Guest\CartController::class, 'update'])->name('cart.items.update');
+Route::post('/cart/items/{id}/refresh-custom-hold', [\App\Http\Controllers\Guest\CartController::class, 'refreshCustomHold'])->name('cart.items.refresh_custom_hold');
 Route::post('/cart/items/{id}/remove', [\App\Http\Controllers\Guest\CartController::class, 'destroy'])->name('cart.items.remove');
 Route::post('/cart/items/{id}/checkout', [\App\Http\Controllers\Guest\CartController::class, 'checkoutItem'])->name('cart.items.checkout');
 Route::post('/cart/shops/{shopId}/checkout', [\App\Http\Controllers\Guest\CartController::class, 'checkoutShop'])->name('cart.shops.checkout');
@@ -357,6 +358,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::get('/cart',             [\App\Http\Controllers\Customer\CartController::class, 'index'])->name('cart');
     Route::post('/cart/add',        [\App\Http\Controllers\Customer\CartController::class, 'store'])->name('cart.add');
     Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Customer\CartController::class, 'update'])->name('cart.items.update');
+    Route::post('/cart/items/{id}/refresh-custom-hold', [\App\Http\Controllers\Customer\CartController::class, 'refreshCustomHold'])->name('cart.items.refresh_custom_hold');
     Route::post('/cart/items/{id}/remove', [\App\Http\Controllers\Customer\CartController::class, 'destroy'])->name('cart.items.remove');
     Route::post('/cart/items/{id}/checkout', [\App\Http\Controllers\Customer\CartController::class, 'checkoutItem'])->name('cart.items.checkout');
     Route::post('/cart/shops/{shopId}/checkout', [\App\Http\Controllers\Customer\CartController::class, 'checkoutShop'])->name('cart.shops.checkout');
