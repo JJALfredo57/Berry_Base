@@ -288,7 +288,7 @@
 
   {{-- Edit Form --}}
   <div id="discount-{{ $p->id }}" style="display:none;border-top:1.5px solid #fed7aa;padding:1.25rem;background:#fffaf3">
-    <form action="{{ route('seller.products.discount', $p->id) }}" method="POST">
+    <form action="{{ route('seller.products.discount', $p->id) }}" method="POST" class="seller-discount-form" data-product-price="{{ (float) $p->price }}" data-product-stock="{{ $stockTracked ? $stockQty : '' }}" onsubmit="return validateSellerDiscountForm(this, true)">
       @csrf
       <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
         <div>
@@ -296,7 +296,7 @@
           <div style="font-size:.75rem;color:var(--gray-500)">Discount applies to the actual checkout unit price, including selected size pricing.</div>
         </div>
         <label style="display:inline-flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:600;color:var(--gray-700)">
-          <input type="checkbox" name="discount_enabled" value="1" {{ ($discount->is_active ?? 0) ? 'checked' : '' }}>
+          <input type="checkbox" name="discount_enabled" value="1" {{ ($discount->is_active ?? 0) ? 'checked' : '' }} onchange="validateSellerDiscountForm(this.form, false)">
           Enable discount
         </label>
       </div>
@@ -305,22 +305,23 @@
         <input type="hidden" name="discount_label" value="">
         <div class="col-md-3">
           <label class="form-label">Discount Type</label>
-          <select class="form-select" name="discount_type">
+          <select class="form-select" name="discount_type" onchange="validateSellerDiscountForm(this.form, false)">
             <option value="percent" {{ ($discount->discount_type ?? 'percent') === 'percent' ? 'selected' : '' }}>Percentage</option>
             <option value="fixed" {{ ($discount->discount_type ?? '') === 'fixed' ? 'selected' : '' }}>Fixed Amount</option>
           </select>
         </div>
         <div class="col-md-3">
           <label class="form-label">Value</label>
-          <input type="number" step="0.01" min="0" class="form-control" name="discount_value" value="{{ $discount->discount_value ?? '' }}" placeholder="20">
+          <input type="number" step="0.01" min="0" max="{{ ($discount->discount_type ?? 'percent') === 'fixed' ? (float) $p->price : 100 }}" class="form-control" name="discount_value" value="{{ $discount->discount_value ?? '' }}" placeholder="20" oninput="validateSellerDiscountForm(this.form, false)">
+          <div class="small mt-1 discount-value-feedback" style="min-height:16px;color:#dc2626"></div>
         </div>
         <div class="col-md-3">
           <label class="form-label">Start</label>
-          <input type="datetime-local" class="form-control" name="discount_starts_at" value="{{ !empty($discount->starts_at) ? \Carbon\Carbon::parse($discount->starts_at)->format('Y-m-d\TH:i') : '' }}">
+          <input type="datetime-local" class="form-control" name="discount_starts_at" onchange="validateSellerDiscountForm(this.form, false)" value="{{ !empty($discount->starts_at) ? \Carbon\Carbon::parse($discount->starts_at)->format('Y-m-d\TH:i') : '' }}">
         </div>
         <div class="col-md-3">
           <label class="form-label">End</label>
-          <input type="datetime-local" class="form-control" name="discount_ends_at" value="{{ !empty($discount->ends_at) ? \Carbon\Carbon::parse($discount->ends_at)->format('Y-m-d\TH:i') : '' }}">
+          <input type="datetime-local" class="form-control" name="discount_ends_at" onchange="validateSellerDiscountForm(this.form, false)" value="{{ !empty($discount->ends_at) ? \Carbon\Carbon::parse($discount->ends_at)->format('Y-m-d\TH:i') : '' }}">
         </div>
       </div>
 
@@ -354,13 +355,15 @@
           </div>
           <div class="col-md-3">
             <label class="form-label">Best Enjoyed By</label>
-            <input type="datetime-local" class="form-control" name="best_enjoyed_by" value="{{ ($discount && property_exists($discount, 'best_enjoyed_by') && !empty($discount->best_enjoyed_by)) ? \Carbon\Carbon::parse($discount->best_enjoyed_by)->format('Y-m-d\TH:i') : '' }}">
+            <input type="datetime-local" class="form-control" name="best_enjoyed_by" value="{{ ($discount && property_exists($discount, 'best_enjoyed_by') && !empty($discount->best_enjoyed_by)) ? \Carbon\Carbon::parse($discount->best_enjoyed_by)->format('Y-m-d\TH:i') : '' }}" onchange="validateSellerDiscountForm(this.form, false)">
           </div>
           <div class="col-md-2">
             <label class="form-label">Deal Pcs</label>
-            <input type="number" min="0" max="9999" step="1" class="form-control" name="deal_quantity_limit" value="{{ ($discount && property_exists($discount, 'deal_quantity_limit') && $discount->deal_quantity_limit !== null) ? (int) $discount->deal_quantity_limit : '' }}" placeholder="Auto">
+            <input type="number" min="0" max="{{ $stockTracked ? $stockQty : 9999 }}" step="1" class="form-control" name="deal_quantity_limit" value="{{ ($discount && property_exists($discount, 'deal_quantity_limit') && $discount->deal_quantity_limit !== null) ? (int) $discount->deal_quantity_limit : '' }}" placeholder="Auto" oninput="validateSellerDiscountForm(this.form, false)">
+            <div class="small mt-1 deal-pcs-feedback" style="min-height:16px;color:#dc2626"></div>
           </div>
         </div>
+        <div class="small mt-2 discount-date-feedback" style="min-height:16px;color:#dc2626"></div>
         <div class="mt-2" style="font-size:.72rem;color:#64748b">
           <i class="bi bi-info-circle me-1"></i>Pick one customer badge, then add a short friendly note only if needed. The save amount still comes from the discount value.
         </div>
@@ -479,6 +482,100 @@ function toggleDiscountForm(id) {
   const f = document.getElementById(id);
   f.style.display = f.style.display === 'none' ? 'block' : 'none';
 }
+function validateSellerDiscountForm(form, showAlert = false) {
+  if (!form) return true;
+  const enabled = form.querySelector('[name="discount_enabled"]')?.checked;
+  const type = form.querySelector('[name="discount_type"]')?.value || 'percent';
+  const valueInput = form.querySelector('[name="discount_value"]');
+  const startInput = form.querySelector('[name="discount_starts_at"]');
+  const endInput = form.querySelector('[name="discount_ends_at"]');
+  const bestInput = form.querySelector('[name="best_enjoyed_by"]');
+  const dealInput = form.querySelector('[name="deal_quantity_limit"]');
+  const saveBtn = form.querySelector('button[type="submit"]');
+  const price = Number(form.dataset.productPrice || 0);
+  const stockRaw = form.dataset.productStock || '';
+  const stock = stockRaw === '' ? null : Number(stockRaw);
+  const value = Number(valueInput?.value || 0);
+  const dealValue = dealInput?.value === '' ? null : Number(dealInput?.value || 0);
+  const valueFeedback = form.querySelector('.discount-value-feedback');
+  const dateFeedback = form.querySelector('.discount-date-feedback');
+  const dealFeedback = form.querySelector('.deal-pcs-feedback');
+  let valid = true;
+  const messages = [];
+
+  if (valueInput) {
+    valueInput.max = type === 'percent' ? '100' : String(Math.max(0, price));
+    valueInput.step = '0.01';
+  }
+  if (dealInput) {
+    dealInput.max = stock === null ? '9999' : String(Math.max(0, stock));
+  }
+
+  if (valueFeedback) valueFeedback.textContent = '';
+  if (dateFeedback) dateFeedback.textContent = '';
+  if (dealFeedback) dealFeedback.textContent = '';
+
+  if (Number.isNaN(value) || value < 0) {
+    valid = false;
+    messages.push('Discount value cannot be negative.');
+  } else if (enabled && value <= 0) {
+    valid = false;
+    messages.push('Discount value is required when discount is enabled.');
+  } else if (type === 'percent' && value > 100) {
+    valid = false;
+    messages.push('Percentage discount cannot exceed 100%.');
+  } else if (type === 'fixed' && price > 0 && value > price) {
+    valid = false;
+    messages.push('Fixed discount cannot be higher than product price.');
+  }
+
+  if (valueFeedback && messages.length) valueFeedback.textContent = messages[0];
+
+  const start = startInput?.value ? new Date(startInput.value) : null;
+  const end = endInput?.value ? new Date(endInput.value) : null;
+  const best = bestInput?.value ? new Date(bestInput.value) : null;
+  const dateMessages = [];
+  if (start && end && end < start) {
+    valid = false;
+    dateMessages.push('End date cannot be earlier than Start date.');
+  }
+  if (best && start && best < start) {
+    valid = false;
+    dateMessages.push('Best Enjoyed By cannot be earlier than Start date.');
+  }
+  if (best && end && best > end) {
+    valid = false;
+    dateMessages.push('Best Enjoyed By should not be later than End date.');
+  }
+  if (dateFeedback) dateFeedback.textContent = dateMessages[0] || '';
+
+  if (dealValue !== null) {
+    if (Number.isNaN(dealValue) || dealValue < 0) {
+      valid = false;
+      if (dealFeedback) dealFeedback.textContent = 'Deal Pcs cannot be negative.';
+    } else if (stock !== null && dealValue > stock) {
+      valid = false;
+      if (dealFeedback) dealFeedback.textContent = 'Deal Pcs cannot be higher than available cakes.';
+    } else if (dealFeedback) {
+      dealFeedback.textContent = '';
+    }
+  }
+
+  if (saveBtn) {
+    saveBtn.disabled = !valid;
+    saveBtn.style.opacity = valid ? '1' : '.65';
+    saveBtn.style.cursor = valid ? 'pointer' : 'not-allowed';
+  }
+  if (!valid && showAlert) {
+    const firstMessage = messages[0] || dateMessages[0] || dealFeedback?.textContent || 'Please fix discount details before saving.';
+    if (typeof csAlert === 'function') csAlert(firstMessage);
+  }
+  return valid;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.seller-discount-form').forEach(form => validateSellerDiscountForm(form, false));
+});
 function previewImg(input, previewId) {
   const img = document.getElementById(previewId);
   if (!img) return;

@@ -268,21 +268,34 @@ class ProductController extends Controller
         if ($bestEnjoyedBy && $startsAt && strtotime($bestEnjoyedBy) < strtotime($startsAt)) {
             return back()->with('err', 'Best enjoyed date cannot be earlier than the discount start date.');
         }
+        if ($bestEnjoyedBy && $endsAt && strtotime($bestEnjoyedBy) > strtotime($endsAt)) {
+            return back()->with('err', 'Best enjoyed date should not be later than the discount end date.');
+        }
         if (!in_array($dealBadge, $allowedDealBadges, true)) {
             return back()->with('err', 'Invalid Sweet Deal badge.');
         }
-        if ($dealQuantityLimit !== null && $dealQuantityLimit !== '' && ((int) $dealQuantityLimit < 0 || (int) $dealQuantityLimit > 9999)) {
-            return back()->with('err', 'Sweet Deal quantity limit must be between 0 and 9999.');
+        if (!in_array($type, ['percent', 'fixed'], true)) {
+            return back()->with('err', 'Invalid discount type.');
         }
-        if ($enabled) {
-            if (!in_array($type, ['percent', 'fixed'], true)) {
-                return back()->with('err', 'Invalid discount type.');
+        if ($value < 0) {
+            return back()->with('err', 'Discount value cannot be negative.');
+        }
+        if ($enabled && $value <= 0) {
+            return back()->with('err', 'Discount value must be greater than zero when enabled.');
+        }
+        if ($type === 'percent' && $value > 100) {
+            return back()->with('err', 'Percentage discount cannot exceed 100%.');
+        }
+        if ($type === 'fixed' && $value > (float) $product->price) {
+            return back()->with('err', 'Fixed discount cannot be higher than the product price.');
+        }
+        if ($dealQuantityLimit !== null && $dealQuantityLimit !== '') {
+            $dealQuantityLimit = (int) $dealQuantityLimit;
+            if ($dealQuantityLimit < 0 || $dealQuantityLimit > 9999) {
+                return back()->with('err', 'Sweet Deal quantity limit must be between 0 and 9999.');
             }
-            if ($type === 'percent' && ($value <= 0 || $value > 100)) {
-                return back()->with('err', 'Percentage discount must be between 0.01 and 100.');
-            }
-            if ($type === 'fixed' && $value <= 0) {
-                return back()->with('err', 'Fixed discount must be greater than zero.');
+            if ($product->available_quantity !== null && $dealQuantityLimit > (int) $product->available_quantity) {
+                return back()->with('err', 'Sweet Deal pcs cannot be higher than available cakes.');
             }
         }
 
