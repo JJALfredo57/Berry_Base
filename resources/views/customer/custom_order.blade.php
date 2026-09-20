@@ -383,6 +383,50 @@
                 </div>
               </div>
             </div>
+
+            <div class="card mb-3">
+              <div class="card-body p-4">
+                <h6 class="fw-bold mb-2"><i class="bi bi-ticket-perforated me-2" style="color:var(--primary)"></i>Promo Code</h6>
+                @if(!empty($availableVouchers))
+                  <div class="d-grid gap-2 mb-3">
+                    @foreach($availableVouchers as $voucher)
+                      @php $canPreviewVoucher = $voucher->validation_ok || str_starts_with((string) $voucher->validation_message, 'Minimum order amount'); @endphp
+                      <div class="p-2 rounded-3 d-flex flex-wrap align-items-center justify-content-between gap-2" style="background:#f8fafc;border:1px solid #e5e7eb">
+                        <div>
+                          <div class="fw-semibold small">{{ $voucher->name }}</div>
+                          <div class="text-muted" style="font-size:.76rem">
+                            <span class="fw-semibold">{{ $voucher->code }}</span>
+                            @if($voucher->shop_id)
+                              <span class="ms-1">Shop voucher</span>
+                            @else
+                              <span class="ms-1">Platform voucher</span>
+                            @endif
+                            @if($voucher->requires_verified_customer)
+                              <span class="badge text-bg-light ms-1">Verified</span>
+                            @endif
+                          </div>
+                          <div class="text-muted" style="font-size:.72rem">{{ $voucher->validation_ok ? 'Applies to custom cake estimate' : $voucher->validation_message }}</div>
+                        </div>
+                        <button type="button" class="btn btn-sm {{ $canPreviewVoucher ? 'btn-outline-primary' : 'btn-outline-secondary' }}"
+                                data-voucher-code="{{ $voucher->code }}"
+                                data-voucher-type="{{ $voucher->discount_type }}"
+                                data-voucher-value="{{ number_format((float) $voucher->discount_value, 2, '.', '') }}"
+                                data-voucher-max="{{ $voucher->max_discount !== null ? number_format((float) $voucher->max_discount, 2, '.', '') : '' }}"
+                                data-voucher-min="{{ number_format((float) $voucher->minimum_order_amount, 2, '.', '') }}"
+                                {{ $canPreviewVoucher ? '' : 'disabled' }}>
+                          Use
+                        </button>
+                      </div>
+                    @endforeach
+                  </div>
+                @endif
+                <div class="input-group">
+                  <input type="text" class="form-control text-uppercase" name="voucher_code" id="voucherCodeInput" maxlength="40" placeholder="Enter voucher code">
+                  <span class="input-group-text"><i class="bi bi-stars"></i></span>
+                </div>
+                <div class="form-text">Promo applies to the estimated custom cake amount only. Final validation still happens securely when you place the order.</div>
+              </div>
+            </div>
             <div class="custom-order-actions d-grid gap-2">
               <button type="button" class="btn btn-outline-primary w-100 py-3 fw-semibold fs-6" id="customAddToCartBtn" onclick="return submitCustomCakeToCart(this)">
                 <i class="bi bi-cart-plus me-2"></i>Add Custom Cake to Cart
@@ -415,6 +459,10 @@
               </div>
 
               <div id="addonSummary"></div>
+              <div class="d-flex justify-content-between small mb-1" id="voucherPreviewRow" style="display:none">
+                <span class="text-muted">Promo Code</span>
+                <span id="voucherPreviewDisplay" style="color:#16a34a">-PHP 0.00</span>
+              </div>
               <div class="d-flex justify-content-between small mb-1" id="feeRow" style="display:none!important">
                 <span class="text-muted">Delivery Fee</span>
                 <span id="feeDisplay">₱0.00</span>
@@ -485,6 +533,7 @@ const SHOP_META = {
 const COVERAGE_ZONES  = @json($deliveryZones->values());
 const COVERAGE_RADIUS = Math.max(1000, SHOP_META.coverageRadius || 5000);
 let deliveryFee = 0;
+let voucherPreview = null;
 let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
 
@@ -678,7 +727,9 @@ function updatePriceSummary() {
 
   const unitPrice = BASE_CUSTOM + sizeSurcharge + layerSurcharge;
   const subtotal  = unitPrice * qty;
-  const total     = subtotal + addonTotal + (isDelivery ? deliveryFee : 0);
+  const discountableTotal = subtotal + addonTotal;
+  const voucherDiscount = calculateCustomVoucherDiscount(discountableTotal);
+  const total = Math.max(0, discountableTotal - voucherDiscount) + (isDelivery ? deliveryFee : 0);
 
   const sizeSurRow = document.getElementById('sizeSurchargeRow');
   sizeSurRow.style.display = sizeSurcharge > 0 ? 'flex' : 'none';
@@ -699,6 +750,13 @@ function updatePriceSummary() {
     ).join('');
   }
 
+  const voucherRow = document.getElementById('voucherPreviewRow');
+  const voucherDisplay = document.getElementById('voucherPreviewDisplay');
+  if (voucherRow && voucherDisplay) {
+    voucherRow.style.display = voucherDiscount > 0 ? 'flex' : 'none';
+    voucherDisplay.textContent = '-PHP ' + voucherDiscount.toLocaleString('en-PH', {minimumFractionDigits:2});
+  }
+
   const qtyRow = document.getElementById('qtyRow');
   if (qtyRow) qtyRow.style.display = qty > 1 ? 'flex' : 'none';
   const qtyDisplay = document.getElementById('qtyDisplay');
@@ -708,6 +766,30 @@ function updatePriceSummary() {
   if (totalDisplay) {
     totalDisplay.textContent = '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2});
   }
+}
+
+function calculateCustomVoucherDiscount(discountableTotal) {
+  if (!voucherPreview || !voucherPreview.code) return 0;
+  if (discountableTotal < voucherPreview.min) return 0;
+  let discount = 0;
+  if (voucherPreview.type === 'percent') discount = discountableTotal * (voucherPreview.value / 100);
+  else if (voucherPreview.type === 'fixed') discount = voucherPreview.value;
+  if (voucherPreview.max !== null) discount = Math.min(discount, voucherPreview.max);
+  return Math.round(Math.min(Math.max(0, discount), Math.max(0, discountableTotal)) * 100) / 100;
+}
+
+function applyCustomVoucherPreview(btn) {
+  const input = document.getElementById('voucherCodeInput');
+  const maxRaw = btn.dataset.voucherMax || '';
+  voucherPreview = {
+    code: btn.dataset.voucherCode || '',
+    type: (btn.dataset.voucherType || '').toLowerCase(),
+    value: Math.max(0, parseFloat(btn.dataset.voucherValue || '0') || 0),
+    max: maxRaw === '' ? null : Math.max(0, parseFloat(maxRaw) || 0),
+    min: Math.max(0, parseFloat(btn.dataset.voucherMin || '0') || 0),
+  };
+  if (input) input.value = voucherPreview.code;
+  updatePriceSummary();
 }
 
 function highlightAddonCard(input) {
@@ -1026,6 +1108,13 @@ document.addEventListener('DOMContentLoaded', () => {
   toggleSurpriseDelivery();
   updatePriceSummary();
   checkCustCoAvailability();
+  document.querySelectorAll('[data-voucher-code]').forEach(btn => {
+    btn.addEventListener('click', () => applyCustomVoucherPreview(btn));
+  });
+  document.getElementById('voucherCodeInput')?.addEventListener('input', () => {
+    voucherPreview = null;
+    updatePriceSummary();
+  });
 });
 
 // ── Reference image multi-select with preview ────────────────────────

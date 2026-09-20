@@ -6,6 +6,7 @@ use App\Helpers\CakeshopHelper;
 use App\Services\CartService;
 use App\Services\DailyCapacityService;
 use App\Services\MobileNotificationService;
+use App\Services\VoucherService;
 use App\Support\BecCastilloAddons;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -151,9 +152,11 @@ class CustomOrderController extends Controller
                 ->get();
         }
 
+        $availableVouchers = app(VoucherService::class)->availableForCustomer($uid, $shopId, 1200.00);
+
         return view('customer.custom_order', array_merge($options, compact(
             'addonCategories', 'addonsByCategory', 'customer', 'defaultAddr',
-            'deliveryZones', 'targetShop', 'shopSettings'
+            'deliveryZones', 'targetShop', 'shopSettings', 'availableVouchers'
         )));
     }
 
@@ -342,7 +345,14 @@ class CustomOrderController extends Controller
 
         $unitPrice = $basePrice + $sizeSurcharge + $layerSurcharge + $complexitySurcharge;
         $subtotal  = $unitPrice * $qty;
-        $total     = $subtotal + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
+        $discountableTotal = $subtotal + $addonTotal;
+        $voucherCode = strtoupper(trim((string) $request->input('voucher_code', '')));
+        $voucherResult = app(VoucherService::class)->validate($voucherCode, $discountableTotal, $shopId, $uid);
+        if (!$voucherResult['ok']) {
+            return back()->with('error', $voucherResult['message'])->withInput();
+        }
+        $voucherDiscount = (float) ($voucherResult['discount'] ?? 0);
+        $total = max(0, $discountableTotal - $voucherDiscount) + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
 
         $breakdown = [
             'base_price'           => $basePrice,
@@ -353,6 +363,8 @@ class CustomOrderController extends Controller
             'quantity'             => $qty,
             'subtotal'             => $subtotal,
             'addon_total'          => $addonTotal,
+            'voucher_code'         => $voucherResult['voucher']->code ?? null,
+            'voucher_discount'     => $voucherDiscount,
             'delivery_fee'         => $fulfillment === 'Delivery' ? $deliveryFee : 0,
             'service_charge'       => 0,
             'total'                => $total,
@@ -416,6 +428,8 @@ class CustomOrderController extends Controller
             'schedule_time'    => null,
             'payment_method'   => $payment,
             'payment_status'   => 'Unpaid',
+            'voucher_code'      => $voucherResult['voucher']->code ?? null,
+            'voucher_discount_amount' => $voucherDiscount,
             'created_at'       => now(),
         ], $surprise['data'] ?? [])));
 
@@ -440,6 +454,22 @@ class CustomOrderController extends Controller
         ]);
 
         DB::table('orders')->where('id', $oid)->update(['custom_note' => $fullNote]);
+
+        $createdOrder = DB::table('orders')->where('id', $oid)->first();
+        if (!empty($voucherResult['voucher']) && $voucherDiscount > 0 && $createdOrder) {
+            app(VoucherService::class)->recordRedemption($voucherResult['voucher'], $createdOrder, $voucherDiscount);
+            DB::table('order_discounts')->insert([
+                'order_id' => $oid,
+                'source_type' => 'voucher',
+                'source_id' => $voucherResult['voucher']->id,
+                'label' => $voucherResult['voucher']->name,
+                'code' => $voucherResult['voucher']->code,
+                'amount' => $voucherDiscount,
+                'meta' => json_encode(['applied_to' => 'custom_order_estimate']),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         foreach ($validAddons as $addon) {
             DB::table('order_addons')->insert([
