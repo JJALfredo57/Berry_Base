@@ -23,7 +23,7 @@ class PlatformController extends Controller
             ->leftJoin('users as u', 'u.id', '=', 's.seller_id')
             ->select(
                 's.*',
-                DB::raw('(SELECT COUNT(*) FROM products p WHERE p.shop_id = s.id AND p.is_available = 1) as product_count'),
+                DB::raw('(SELECT COUNT(*) FROM products p WHERE p.shop_id = s.id AND p.is_available = true) as product_count'),
                 DB::raw('(SELECT AVG(r.rating) FROM order_reviews r JOIN orders o ON o.id = r.order_id WHERE o.shop_id = s.id) as avg_rating'),
                 DB::raw('(SELECT COUNT(*) FROM order_reviews r JOIN orders o ON o.id = r.order_id WHERE o.shop_id = s.id) as review_count')
             )
@@ -34,7 +34,7 @@ class PlatformController extends Controller
         $featuredProducts = DB::table('products as p')
             ->join('shops as s', 's.id', '=', 'p.shop_id')
             ->where('s.status', 'approved')
-            ->where('p.is_available', 1)
+            ->where('p.is_available', true)
             ->select('p.*', 's.shop_name', 's.shop_slug', 's.tier')
             ->orderByDesc('p.created_at')
             ->limit(8)
@@ -45,7 +45,7 @@ class PlatformController extends Controller
             'shops'    => DB::table('shops')->where('status', 'approved')->count(),
             'products' => DB::table('products as p')
                 ->join('shops as s', 's.id', '=', 'p.shop_id')
-                ->where('s.status', 'approved')->where('p.is_available', 1)->count(),
+                ->where('s.status', 'approved')->where('p.is_available', true)->count(),
             'orders'   => DB::table('orders')->whereNotIn('status', ['Cancelled'])->count(),
         ];
 
@@ -64,7 +64,7 @@ class PlatformController extends Controller
             ->where('s.status', 'approved')
             ->select(
                 's.*',
-                DB::raw('(SELECT COUNT(*) FROM products p WHERE p.shop_id = s.id AND p.is_available = 1) as product_count'),
+                DB::raw('(SELECT COUNT(*) FROM products p WHERE p.shop_id = s.id AND p.is_available = true) as product_count'),
                 DB::raw('(SELECT AVG(r.rating) FROM order_reviews r JOIN orders o ON o.id = r.order_id WHERE o.shop_id = s.id) as avg_rating'),
                 DB::raw('(SELECT COUNT(*) FROM order_reviews r JOIN orders o ON o.id = r.order_id WHERE o.shop_id = s.id) as review_count')
             );
