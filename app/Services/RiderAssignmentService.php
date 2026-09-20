@@ -169,13 +169,23 @@ class RiderAssignmentService
         $siteName = config('app.name', 'Cake Shop');
         $shopName = SmsHelper::getShopName($shop->id ?? ($order->shop_id ?? null));
         $header = SmsHelper::header($siteName, $shopName);
-        $custName = $order->guest_name
-            ?? (!empty($order->user_id) ? DB::table('users')->where('id', $order->user_id)->value('fullname') : null)
-            ?? 'Customer';
-        $custPhone = $order->guest_phone
-            ?? (!empty($order->user_id) ? DB::table('users')->where('id', $order->user_id)->value('phone') : null)
-            ?? '';
-        $addr = $order->delivery_address ?? $order->address ?? 'N/A';
+        $isSurprise = !empty($order->is_surprise_delivery);
+        $custName = $isSurprise
+            ? ($order->recipient_name ?? 'Recipient')
+            : ($order->guest_name
+                ?? (!empty($order->user_id) ? DB::table('users')->where('id', $order->user_id)->value('fullname') : null)
+                ?? 'Customer');
+        $custPhone = $isSurprise
+            ? ($order->recipient_phone ?? '')
+            : ($order->guest_phone
+                ?? (!empty($order->user_id) ? DB::table('users')->where('id', $order->user_id)->value('phone') : null)
+                ?? '');
+        $addr = $isSurprise
+            ? ($order->recipient_address ?? $order->delivery_address ?? $order->address ?? 'N/A')
+            : ($order->delivery_address ?? $order->address ?? 'N/A');
+        if ($isSurprise) {
+            $addr .= ' | SURPRISE: contact sender first. Do not mention price.';
+        }
 
         return SmsHelper::buildRiderSms($header, $order->id, $custName, $custPhone, $addr, SmsHelper::paymentLine($order), $pin, $rider->phone ?? '', $token);
     }

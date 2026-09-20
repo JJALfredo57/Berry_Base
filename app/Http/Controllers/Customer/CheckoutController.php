@@ -176,6 +176,49 @@ class CheckoutController extends Controller
             ->get();
     }
 
+    private function surpriseDeliveryData(Request $request, string $fulfillment): array
+    {
+        $enabled = $fulfillment === 'Delivery' && $request->boolean('is_surprise_delivery');
+        if (!$enabled) {
+            return ['enabled' => false, 'data' => []];
+        }
+
+        $name = substr(preg_replace('/\s+/', ' ', trim((string) $request->input('recipient_name', ''))), 0, 120);
+        $phone = substr(preg_replace('/\s+/', '', trim((string) $request->input('recipient_phone', ''))), 0, 30);
+        $giftMessage = substr(trim((string) $request->input('gift_message', '')), 0, 500);
+        $senderDisplay = substr(preg_replace('/\s+/', ' ', trim((string) $request->input('sender_display_name', ''))), 0, 120);
+        $instructions = substr(trim((string) $request->input('delivery_instructions', '')), 0, 500);
+        $policy = (string) $request->input('surprise_contact_policy', 'sender_first');
+        if (!in_array($policy, ['sender_first', 'recipient_if_needed', 'recipient_ok'], true)) {
+            $policy = 'sender_first';
+        }
+
+        if ($name === '' || $phone === '') {
+            return ['enabled' => true, 'error' => 'Please enter the surprise recipient name and phone number.'];
+        }
+
+        return [
+            'enabled' => true,
+            'data' => [
+                'is_surprise_delivery' => true,
+                'recipient_name' => $name,
+                'recipient_phone' => $phone,
+                'recipient_address' => trim((string) $request->input('address', '')),
+                'recipient_latitude' => $request->input('latitude') !== '' ? (float) $request->input('latitude') : null,
+                'recipient_longitude' => $request->input('longitude') !== '' ? (float) $request->input('longitude') : null,
+                'gift_message' => $giftMessage ?: null,
+                'sender_display_name' => $senderDisplay ?: (session('user')['fullname'] ?? null),
+                'hide_sender_name' => $request->boolean('hide_sender_name'),
+                'surprise_contact_policy' => $policy,
+                'delivery_instructions' => $instructions ?: null,
+            ],
+        ];
+    }
+
+    private function orderColumns(array $data): array
+    {
+        return array_filter($data, fn ($value, $column) => Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
+    }
     public function placeOrder(Request $request)
     {
         $uid      = session('user')['id'];
@@ -244,6 +287,13 @@ class CheckoutController extends Controller
         $stime         = $request->input('schedule_time') ?: null;
         $payment       = $request->input('payment_method', 'COD');
         $selectedSize  = trim($request->input('selected_size', $checkout['selected_size'] ?? ''));
+        $surprise = $this->surpriseDeliveryData($request, $fulfillment);
+        if (!empty($surprise['error'])) {
+            return back()->with('error', $surprise['error'])->withInput();
+        }
+        if (!empty($surprise['enabled']) && $payment !== 'GCash') {
+            return back()->with('error', 'Surprise delivery must be paid by the sender through GCash so the recipient will not be asked to pay.')->withInput();
+        }
 
         $requiresRegularFulfillment = $isGroupCheckout || !$hasCustomCheckout;
         if ($requiresRegularFulfillment) {
@@ -290,7 +340,7 @@ class CheckoutController extends Controller
         }
 
         // Save default address if requested
-        if ($fulfillment === 'Delivery' && $request->has('save_default_address')) {
+        if ($fulfillment === 'Delivery' && !$surprise['enabled'] && $request->has('save_default_address')) {
             DB::table('user_addresses')->where('user_id', $uid)->update(['is_default' => 0]);
             DB::table('user_addresses')->insert([
                 'user_id'      => $uid,
@@ -426,7 +476,7 @@ class CheckoutController extends Controller
             return back()->with('error', $stockReserve['message'])->withInput();
         }
 
-        DB::table('orders')->insert([
+        DB::table('orders')->insert($this->orderColumns(array_merge([
             'id'               => $oid,
             'cart_id'           => $checkout['cart_id'] ?? null,
             'shop_id'          => $product->shop_id ?? null,
@@ -462,7 +512,7 @@ class CheckoutController extends Controller
             'payment_method'   => $payment,
             'payment_status'   => 'Unpaid',
             'created_at'       => now(),
-        ]);
+        ], $surprise['data'] ?? [])));
 
         if (Schema::hasTable('order_items')) {
             $rows = $isGroupCheckout
@@ -573,6 +623,15 @@ class CheckoutController extends Controller
             $sellerMessage .= "\nItems:\n{$lines}";
         } elseif ($note) {
             $sellerMessage .= "\nNote: {$note}";
+        }
+        if ($surprise['enabled']) {
+            $sellerMessage .= "\n\nSurprise delivery"
+                . "\nRecipient: " . ($surprise['data']['recipient_name'] ?? '')
+                . "\nRecipient phone: " . ($surprise['data']['recipient_phone'] ?? '')
+                . "\nInstruction: " . ($surprise['data']['delivery_instructions'] ?? 'Contact sender first. Do not mention price to recipient.');
+            if (!empty($surprise['data']['gift_message'])) {
+                $sellerMessage .= "\nGift message: " . $surprise['data']['gift_message'];
+            }
         }
 
         DB::table('messages')->insert([

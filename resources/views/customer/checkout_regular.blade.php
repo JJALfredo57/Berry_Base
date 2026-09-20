@@ -315,6 +315,51 @@ document.body.style.paddingRight = '';
                 <input class="form-check-input" type="checkbox" name="save_default_address" id="saveAddr">
                 <label class="form-check-label small" for="saveAddr">Save as default address</label>
               </div>
+                  <div class="mt-3 p-3 rounded-3 bb-surprise-card" style="border:1.5px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb);background:linear-gradient(135deg,#fff 0%,var(--primary-light,#fff5f8) 100%);box-shadow:0 10px 24px rgba(15,23,42,.06)">
+                    <div class="form-check form-switch d-flex align-items-center gap-2 mb-2">
+                      <input class="form-check-input" type="checkbox" name="is_surprise_delivery" id="surpriseDelivery" value="1" onchange="toggleSurpriseDelivery()">
+                      <label class="form-check-label fw-bold" for="surpriseDelivery"><i class="bi bi-gift me-1" style="color:var(--primary)"></i>Send as surprise gift</label>
+                    </div>
+                    <div class="text-muted small mb-3">Use this when the cake is for another recipient. Payment stays with you and the recipient will not be asked to pay.</div>
+                    <div id="surpriseFields" style="display:none">
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label fw-semibold small">Recipient Name <span class="text-danger">*</span></label>
+                          <input type="text" class="form-control" name="recipient_name" id="recipientName" maxlength="120" placeholder="Who will receive the cake?">
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label fw-semibold small">Recipient Phone <span class="text-danger">*</span></label>
+                          <input type="tel" class="form-control" name="recipient_phone" id="recipientPhone" maxlength="30" placeholder="09XXXXXXXXX">
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label fw-semibold small">Sender Name on Card</label>
+                          <input type="text" class="form-control" name="sender_display_name" maxlength="120" value="{{ session('user')['fullname'] ?? '' }}" placeholder="Example: Mama, Papa, Your friend">
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label fw-semibold small">Contact Rule</label>
+                          <select class="form-select" name="surprise_contact_policy">
+                            <option value="sender_first">Call me first before recipient</option>
+                            <option value="recipient_if_needed">Call recipient only if needed</option>
+                            <option value="recipient_ok">Recipient may be called directly</option>
+                          </select>
+                        </div>
+                        <div class="col-12">
+                          <label class="form-label fw-semibold small">Gift Message</label>
+                          <textarea class="form-control" name="gift_message" rows="2" maxlength="500" placeholder="Optional message for the recipient"></textarea>
+                        </div>
+                        <div class="col-12">
+                          <label class="form-label fw-semibold small">Rider / Seller Instructions</label>
+                          <textarea class="form-control" name="delivery_instructions" rows="2" maxlength="500" placeholder="Example: Please call me first, do not mention the price, hand it to the guard if recipient is not outside."></textarea>
+                        </div>
+                        <div class="col-12">
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="hide_sender_name" id="hideSenderName" value="1">
+                            <label class="form-check-label small" for="hideSenderName">Hide my name from recipient-facing notes</label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
             </div>
 
             <div class="row g-3 mt-1">
@@ -944,6 +989,49 @@ function detectMyLocation() {
 }
 
 // ── Reverse geocode ───────────────────────────────────
+function isSurpriseDeliverySelected() {
+  return document.getElementById('surpriseDelivery')?.checked === true;
+}
+
+function toggleSurpriseDelivery() {
+  const enabled = isSurpriseDeliverySelected();
+  const fields = document.getElementById('surpriseFields');
+  if (fields) fields.style.display = enabled ? 'block' : 'none';
+  const saveAddr = document.getElementById('saveAddr');
+  const saveWrap = saveAddr?.closest('.form-check');
+  if (saveAddr) {
+    saveAddr.checked = enabled ? false : saveAddr.checked;
+    saveAddr.disabled = enabled;
+  }
+  if (saveWrap) saveWrap.style.display = enabled ? 'none' : '';
+  if (enabled) {
+    const gcash = document.getElementById('gcash');
+    if (gcash) gcash.checked = true;
+  }
+  const codLabel = document.getElementById('codLabelText');
+  const codHelp = document.getElementById('codHelpText');
+  if (enabled) {
+    if (codLabel) codLabel.textContent = 'Cash payment disabled for surprise';
+    if (codHelp) codHelp.textContent = 'Use GCash so the recipient will not be asked to pay.';
+  }
+}
+
+function validateSurpriseDelivery() {
+  if (!isSurpriseDeliverySelected()) return true;
+  const name = document.getElementById('recipientName')?.value?.trim();
+  const phone = document.getElementById('recipientPhone')?.value?.trim();
+  const gcash = document.getElementById('gcash');
+  if (!name || !phone) {
+    alert('Please enter the surprise recipient name and phone number.');
+    return false;
+  }
+  if (gcash && !gcash.checked) {
+    alert('Surprise delivery must use GCash so the recipient will not be asked to pay.');
+    gcash.checked = true;
+    return false;
+  }
+  return true;
+}
 async function reverseGeocode(lat, lng) {
   const lookupId = ++addressLookupSeq;
   const field = document.getElementById('addressField');
@@ -972,6 +1060,7 @@ function toggleDelivery() {
   if (isDelivery && !map) initMap();
   if (!isDelivery) deliveryFee = 0;
   updatePaymentMethodLabel();
+  toggleSurpriseDelivery();
   updateTotal(getCurrentAddonTotal());
 }
 
@@ -1089,6 +1178,7 @@ function validateAndSubmit(btn) {
       return false;
     }
   }
+  if (!validateSurpriseDelivery()) return false;
   setTimeout(() => {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Placing Order…';
@@ -1101,6 +1191,7 @@ if (HAS_PRODUCT_DISCOUNT) {
   if (basePriceEl) basePriceEl.style.color = '#dc2626';
 }
 updatePaymentMethodLabel();
+toggleSurpriseDelivery();
 document.querySelectorAll('[data-voucher-code]').forEach(btn => {
   btn.addEventListener('click', () => {
     const input = document.getElementById('voucherCodeInput');

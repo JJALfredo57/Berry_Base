@@ -182,7 +182,7 @@
             <div class="text-end mt-2 mt-sm-0">
               {{-- Fulfillment badge --}}
               <span class="badge mb-1" style="{{ $o->fulfillment_type === 'Pickup' ? 'background:#ede9fe;color:#5b21b6' : 'background:#dbeafe;color:#1e40af' }}">
-                <i class="bi bi-{{ $o->fulfillment_type === 'Pickup' ? 'shop' : 'truck' }} me-1"></i>{{ $o->fulfillment_type }}
+                <i class="bi bi-{{ $o->fulfillment_type === 'Pickup' ? 'shop' : 'truck' }} me-1"></i>{{ $o->fulfillment_type }} @if(!empty($o->is_surprise_delivery)) <span class="badge bg-warning text-dark ms-1"><i class="bi bi-gift me-1"></i>Surprise</span> @endif
               </span><br>
               <span class="status-badge status-{{ str_replace(' ','-',$o->status) }}">{{ $o->status }}</span>
               <div class="fw-bold mt-1 fs-6">₱{{ number_format($o->total_price,2) }}</div>
@@ -242,7 +242,7 @@
           {{-- Details --}}
           <div class="px-3 py-2 bg-light small text-muted d-flex flex-wrap gap-3">
             <span><i class="bi bi-truck me-1"></i>{{ $o->fulfillment_type }}</span>
-            @if($o->delivery_address)<span><i class="bi bi-geo-alt me-1"></i>{{ Str::limit($o->delivery_address,50) }}</span>@endif
+            @if($o->delivery_address)<span><i class="bi bi-geo-alt me-1"></i>{{ Str::limit(!empty($o->is_surprise_delivery) ? ($o->recipient_address ?? $o->delivery_address) : $o->delivery_address,50) }}</span>@endif
             @if($o->schedule_date)
               <span><i class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($o->schedule_date)->format('M d, Y') }}
                 {{ $o->schedule_time ? \Carbon\Carbon::parse($o->schedule_time)->format('g:i A') : '' }}</span>
@@ -570,7 +570,7 @@
                   @if($o->delivery_address)
                   <div class="col-12">
                     <div class="text-muted">Delivery Address</div>
-                    <div class="fw-semibold">{{ $o->delivery_address }}</div>
+                    <div class="fw-semibold">{{ !empty($o->is_surprise_delivery) ? ($o->recipient_address ?? $o->delivery_address) : $o->delivery_address }}</div>@if(!empty($o->is_surprise_delivery))<div class="small text-warning-emphasis mt-1"><i class="bi bi-gift me-1"></i>Recipient: {{ $o->recipient_name ?? 'Recipient' }}{{ $o->recipient_phone ? ' - '.$o->recipient_phone : '' }}. Contact sender first.</div>@endif
                   </div>
                   @endif
                   @if($o->schedule_date)

@@ -266,24 +266,41 @@
 
 @else
 
+@php
+  $isSurpriseDelivery = !empty($order->is_surprise_delivery);
+  $displayName = $isSurpriseDelivery ? ($order->recipient_name ?? 'Recipient') : ($order->guest_name ?? 'Customer');
+  $displayPhone = $isSurpriseDelivery ? ($order->recipient_phone ?? null) : ($order->guest_phone ?? null);
+  $deliveryAddr = $isSurpriseDelivery ? ($order->recipient_address ?? $order->delivery_address ?? $order->address ?? null) : ($order->delivery_address ?? $order->address ?? null);
+  $deliveryLat = $isSurpriseDelivery ? ($order->recipient_latitude ?? $order->latitude ?? null) : ($order->latitude ?? null);
+  $deliveryLng = $isSurpriseDelivery ? ($order->recipient_longitude ?? $order->longitude ?? null) : ($order->longitude ?? null);
+@endphp
 {{-- Customer --}}
 <div class="section">
+  @if($isSurpriseDelivery)
+  <div class="row" style="background:#fff7ed;border-color:#fed7aa">
+    <div class="row-icon" style="background:#ffedd5"><i class="bi bi-gift"></i></div>
+    <div class="row-body">
+      <div class="row-label">Surprise Delivery</div>
+      <div class="row-value">Contact sender first. Do not mention price to recipient.</div>
+    </div>
+  </div>
+  @endif
   <div class="section-title">Customer</div>
 
   <div class="row">
     <div class="row-icon" style="background:var(--primary-bg);color:var(--primary-dark)">👤</div>
     <div class="row-body">
       <div class="row-label">Name</div>
-      <div class="row-value">{{ $order->guest_name ?? 'Customer' }}</div>
+      <div class="row-value">{{ $displayName }}</div>
     </div>
   </div>
 
-  @if($order->guest_phone)
+  @if($displayPhone)
   <div class="row">
     <div class="row-icon" style="background:#f0fdf4">📞</div>
     <div class="row-body">
       <div class="row-label">Phone — tap to call</div>
-      <a href="tel:{{ $order->guest_phone }}" class="row-value" style="color:#16a34a;text-decoration:none">{{ $order->guest_phone }}</a>
+      <a href="tel:{{ $displayPhone }}" class="row-value" style="color:#16a34a;text-decoration:none">{{ $displayPhone }}</a>
     </div>
   </div>
   @endif
@@ -295,8 +312,8 @@
     <div class="row-body">
       <div class="row-label">Delivery Address</div>
       <div class="row-value">{{ $deliveryAddr }}</div>
-      @if(($order->latitude ?? null) && ($order->longitude ?? null))
-      <a href="https://www.google.com/maps/dir/?api=1&destination={{ $order->latitude }},{{ $order->longitude }}&travelmode=driving"
+      @if($deliveryLat && $deliveryLng)
+      <a href="https://www.google.com/maps/dir/?api=1&destination={{ $deliveryLat }},{{ $deliveryLng }}&travelmode=driving"
          target="_blank" class="row-link">🗺️ Get Directions →</a>
       @else
       <a href="https://www.google.com/maps/dir/?api=1&destination={{ urlencode($deliveryAddr) }}&travelmode=driving"

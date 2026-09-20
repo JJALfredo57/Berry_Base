@@ -175,7 +175,7 @@
         <div style="font-size:.8rem;color:var(--gray-700);font-weight:600">{{ $o->order_customer_name ?? 'Customer' }}</div>
         <div style="font-size:.75rem;color:var(--gray-500)">
           {{ $o->product_name ?? ($custom->cake_name ?? 'Custom Cake') }}
-          &bull; {{ $o->fulfillment_type ?? 'Pickup' }}
+          &bull; {{ $o->fulfillment_type ?? 'Pickup' }} @if(!empty($o->is_surprise_delivery)) <span class="badge" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa"><i class="bi bi-gift me-1"></i>Surprise</span> @endif
           @if($o->schedule_date) &bull; {{ \Carbon\Carbon::parse($o->schedule_date)->format('M d, Y') }} @endif
         </div>
         @if(count($items) > 1)
