@@ -238,10 +238,10 @@
                   {{-- Map + detect location --}}
                   <div class="mb-2">
                     <label class="form-label fw-semibold small">
-                      <i class="bi bi-pin-map me-1" style="color:var(--primary)"></i>Pin Your Delivery Location
+                      <i class="bi bi-pin-map me-1" style="color:var(--primary)"></i><span id="deliveryPinLabel">Pin Your Delivery Location</span>
                       <span class="text-danger">*</span>
                     </label>
-                    <div class="form-text mb-2"><i class="bi bi-info-circle me-1"></i>Tap <strong>Detect My Location</strong> or click the map to pin your exact delivery address.</div>
+                    <div class="form-text mb-2" id="deliveryPinHelp"><i class="bi bi-info-circle me-1"></i>Tap <strong>Detect My Location</strong> or click the map to pin your exact delivery address.</div>
                     <div id="mapWrapper" style="position:relative">
                       <div id="map" style="height:300px;border-radius:.9rem;border:2px dashed #f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15)"></div>
                       <div id="mapOverlay" style="position:absolute;top:12px;left:12px;right:64px;display:flex;z-index:999;pointer-events:none">
@@ -773,6 +773,12 @@ function toggleSurpriseDelivery() {
     saveAddr.disabled = enabled;
   }
   if (saveWrap) saveWrap.style.display = enabled ? 'none' : '';
+  const label = document.getElementById('deliveryPinLabel');
+  const help = document.getElementById('deliveryPinHelp');
+  if (label) label.textContent = enabled ? 'Pin Recipient Delivery Location' : 'Pin Your Delivery Location';
+  if (help) help.innerHTML = enabled
+    ? '<i class="bi bi-info-circle me-1"></i>Pin the recipient exact address. This is the location the rider will use for the surprise delivery.'
+    : '<i class="bi bi-info-circle me-1"></i>Tap <strong>Detect My Location</strong> or click the map to pin your exact delivery address.';
   if (enabled) {
     const gcash = document.getElementById('gcash');
     if (gcash) gcash.checked = true;
@@ -913,7 +919,7 @@ function initMap() {
   drawCoverageAreas();
 
   @if($defaultAddr && ($defaultAddr->latitude ?? null) && ($defaultAddr->longitude ?? null))
-    setMarkerAt(L.latLng({{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}), false);
+    setMarkerAt(L.latLng({{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}), true);
     map.setView([{{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}], 15);
   @endif
 
