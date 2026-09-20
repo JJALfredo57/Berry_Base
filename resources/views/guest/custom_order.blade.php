@@ -25,6 +25,7 @@
           <form action="{{ route('guest.custom_order.store') }}" method="POST" id="customOrderForm" enctype="multipart/form-data" data-prevent-double-submit>
             @csrf
             <input type="hidden" name="shop_slug" value="{{ $targetShop->shop_slug ?? '' }}">
+            <input type="hidden" name="submit_action" id="customSubmitAction" value="place_order">
 
             {{-- 1. Cake Details --}}
             <div class="card mb-3">
@@ -260,11 +261,14 @@
                     </button>
                     <div id="mapWrapper" style="position:relative">
                       <div id="map" style="height:260px;border-radius:.9rem;border:2px dashed #f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15)"></div>
-                      <div style="position:absolute;top:12px;left:12px;right:12px;z-index:999;pointer-events:none">
-                        <div style="background:#fff;border:1.5px solid #bbf7d0;border-radius:.85rem;padding:.65rem .8rem;box-shadow:0 4px 18px rgba(0,0,0,.16);max-width:300px;font-size:.72rem;color:#166534;font-weight:700">
-                          <i class="bi bi-map me-1"></i>The green coverage area shows where this seller delivers.
+                      <div id="mapOverlay" style="position:absolute;top:12px;left:12px;right:64px;z-index:999;pointer-events:none">
+                        <div style="background:#fff;border:1.5px solid #bbf7d0;border-radius:.85rem;padding:.65rem .8rem;box-shadow:0 4px 18px rgba(0,0,0,.16);max-width:320px;font-size:.72rem;color:#166534;font-weight:700">
+                          <i class="bi bi-map me-1"></i>The green coverage area shows where this seller delivers. You can also click the map to pin manually.
                         </div>
                       </div>
+                      <button type="button" id="floatGpsBtn" onclick="useMyLocation()" class="btn btn-primary btn-sm" style="position:absolute;right:12px;bottom:12px;z-index:1000;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.18)">
+                        <i class="bi bi-crosshair"></i>
+                      </button>
                     </div>
                     <div id="coverageStatus" style="display:none;margin-top:.65rem;border-radius:.75rem;padding:.65rem .8rem;font-size:.78rem;font-weight:700"></div>
                     <div class="cv-msg" id="msgMap"></div>
@@ -438,8 +442,7 @@
               </div>
             </div>
             <div class="custom-order-actions d-grid gap-2 mt-3">
-              <button type="submit" name="submit_action" value="add_to_cart" formnovalidate
-                      class="btn btn-outline-primary w-100 py-3 fw-semibold fs-6">
+              <button type="button" class="btn btn-outline-primary w-100 py-3 fw-semibold fs-6" onclick="return submitCustomCakeToCart(this)">
                 <i class="bi bi-cart-plus me-2"></i>Add Custom Cake to Cart
               </button>
               <button type="button" name="submit_action" value="place_order" class="btn btn-primary w-100 py-3 fw-semibold fs-5"
@@ -906,8 +909,9 @@ function initMap() {
 
 function useMyLocation() {
   var btn = document.getElementById('useMyLocationBtn');
+  var floatBtn = document.getElementById('floatGpsBtn');
   if (!window.berryBaseHasLocationSupport?.()) { cakeToast('Your browser does not support GPS location.','error'); return; }
-  btn.disabled = true;
+  btn.disabled = true; if (floatBtn) floatBtn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Getting location…';
   window.berryBaseGetCurrentPosition(
     async pos => {
@@ -1332,6 +1336,32 @@ function cvValidateAllCustom() {
   return ok;
 }
 
+function customSetSubmitAction(action) {
+  var input = document.getElementById('customSubmitAction');
+  if (input) input.value = action;
+}
+
+function submitCustomCakeToCart(btn) {
+  customSetSubmitAction('add_to_cart');
+  var form = document.getElementById('customOrderForm');
+  var requiredFields = Array.from(form.querySelectorAll('[name="cake_name"],[name="flavor"],[name="size"],[name="schedule_date"]'));
+  for (var i = 0; i < requiredFields.length; i++) {
+    if (!requiredFields[i].value) { requiredFields[i].reportValidity(); return false; }
+  }
+  var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+  if (isDelivery) {
+    var lat = document.getElementById('lat')?.value;
+    var lng = document.getElementById('lng')?.value;
+    if (!lat || !lng) { cakeToast('Please pin your delivery location on the map first.', 'error'); return false; }
+    if (typeof deliveryCoverageBlocked !== 'undefined' && deliveryCoverageBlocked) { cakeToast('This pinned location is outside the seller delivery area.', 'error'); return false; }
+  }
+  if (coGuestAvailabilityPending) { cakeToast('Please wait for availability check to finish.', 'error'); return false; }
+  if (coGuestAvailabilityIssue) { cakeToast(coGuestAvailabilityIssue, 'error'); return false; }
+  btn.disabled = true; if (floatBtn) floatBtn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Adding to cart...';
+  form.submit();
+  return false;
+}
 function confirmCustomOrder(btn) {
   if (!cvValidateAllCustom()) return false;
   var isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';

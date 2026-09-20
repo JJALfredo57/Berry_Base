@@ -27,6 +27,7 @@
           <form action="{{ route('customer.custom_order.store') }}" method="POST" id="customOrderForm" enctype="multipart/form-data" data-prevent-double-submit>
             @csrf
             <input type="hidden" name="shop_slug" value="{{ $targetShop->shop_slug ?? '' }}">
+            <input type="hidden" name="submit_action" id="customSubmitAction" value="place_order">
 
             {{-- 1. Cake Details --}}
             <div class="card mb-3">
@@ -234,13 +235,19 @@
                       <i class="bi bi-pin-map me-1" style="color:var(--primary)"></i>Pin Your Delivery Location
                       <span class="text-danger">*</span>
                     </label>
-                    <div class="d-flex gap-2 mb-2 align-items-center flex-wrap">
-                      <button type="button" class="btn btn-sm btn-outline-primary" onclick="detectMyLocation()" id="detectBtn">
+                    <div class="form-text mb-2"><i class="bi bi-info-circle me-1"></i>Tap <strong>Detect My Location</strong> or click the map to pin your exact delivery address.</div>
+                    <div id="mapWrapper" style="position:relative">
+                      <div id="map" style="height:300px;border-radius:.9rem;border:2px dashed #f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15)"></div>
+                      <div id="mapOverlay" style="position:absolute;top:12px;left:12px;right:64px;display:flex;z-index:999;pointer-events:none">
+                        <div style="background:#fff;border:1.5px solid #bbf7d0;border-radius:.85rem;padding:.65rem .8rem;box-shadow:0 4px 18px rgba(0,0,0,.16);max-width:320px;font-size:.72rem;color:#166534;font-weight:700">
+                          <i class="bi bi-map me-1"></i>The green coverage area shows where this seller delivers. You can also click the map to pin manually.
+                        </div>
+                      </div>
+                      <button type="button" class="btn btn-primary btn-sm" onclick="detectMyLocation()" id="detectBtn" style="position:absolute;right:12px;bottom:12px;z-index:1000;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.18)">
                         <i class="bi bi-crosshair me-1"></i>Detect My Location
                       </button>
-                      <span class="text-muted" style="font-size:.78rem">or click/tap anywhere on the map</span>
                     </div>
-                    <div id="map" style="height:260px;border-radius:.9rem;border:1.5px solid #dee2e6"></div>
+                    <div id="msgMap" class="cv-msg" style="font-size:.74rem;margin-top:4px;min-height:16px"></div>
                     <input type="hidden" name="latitude"  id="lat">
                     <input type="hidden" name="longitude" id="lng">
                     <input type="hidden" name="delivery_zone"  id="deliveryZoneInput" value="">
@@ -249,7 +256,7 @@
                   </div>
 
                   {{-- Coverage status --}}
-                  <div id="coverageStatus" style="display:none" class="mb-3 small"></div>
+                  <div id="coverageStatus" style="display:none;margin-top:.65rem;border-radius:.75rem;padding:.65rem .8rem;font-size:.78rem;font-weight:700" class="mb-3 small"></div>
 
                   {{-- Fee + ETA display --}}
                   <div id="deliveryCalcBox" style="display:none" class="mb-3">
@@ -353,12 +360,10 @@
               </div>
             </div>
             <div class="custom-order-actions d-grid gap-2">
-              <button type="submit" name="submit_action" value="add_to_cart" formnovalidate
-                      class="btn btn-outline-primary w-100 py-3 fw-semibold fs-6">
+              <button type="button" class="btn btn-outline-primary w-100 py-3 fw-semibold fs-6" onclick="return submitCustomCakeToCart(this)">
                 <i class="bi bi-cart-plus me-2"></i>Add Custom Cake to Cart
               </button>
-              <button type="submit" name="submit_action" value="place_order" class="btn btn-primary w-100 py-3 fw-semibold fs-5"
-                      onclick="return confirmCustomOrder(this)">
+              <button type="button" class="btn btn-primary w-100 py-3 fw-semibold fs-5" onclick="return confirmCustomOrder(this)">
                 <i class="bi bi-palette me-2"></i>Place Custom Order
               </button>
             </div>
@@ -502,6 +507,25 @@ function nearestCoverageZone(lat, lng) {
 }
 
 // ── On pin set ────────────────────────────────────────
+function updateCustomMapPinState(ok, message, warning = false) {
+  const mapEl = document.getElementById('map');
+  const msg = document.getElementById('msgMap');
+  const overlay = document.getElementById('mapOverlay');
+  if (overlay && ok) overlay.style.display = 'none';
+  if (!mapEl) return;
+  if (!ok) {
+    mapEl.style.border = '2px dashed #f59e0b';
+    mapEl.style.boxShadow = '0 0 0 3px rgba(245,158,11,.15)';
+    if (msg) { msg.className = 'cv-msg text-warning'; msg.textContent = message || 'Please pin your exact delivery location.'; }
+    return;
+  }
+  mapEl.style.border = warning ? '2px solid #f97316' : '2px solid #16a34a';
+  mapEl.style.boxShadow = warning ? '0 0 0 3px rgba(249,115,22,.2)' : '0 0 0 3px rgba(22,163,74,.15)';
+  if (msg) {
+    msg.className = warning ? 'cv-msg text-warning' : 'cv-msg text-success';
+    msg.textContent = message || (warning ? 'Pinned location needs review.' : 'Location pinned.');
+  }
+}
 function onPinSet(lat, lng) {
   document.getElementById('lat').value = lat;
   document.getElementById('lng').value = lng;
@@ -518,12 +542,14 @@ function onPinSet(lat, lng) {
     const zoneName = nearest?.zone?.barangay || 'this seller';
     statusEl.style.cssText = 'display:block;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:.5rem;padding:.5rem .75rem';
     statusEl.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Inside delivery coverage: ' + zoneName + '.';
+    updateCustomMapPinState(true, 'Location pinned inside delivery coverage.');
   } else {
     deliveryCoverageBlocked = true;
     const nearest = nearestCoverageZone(lat, lng);
     const nearestText = nearest ? ' Nearest coverage: ' + (nearest.zone.barangay || 'coverage area') + ', ' + formatCoverageDistance(nearest.distance) + ' away.' : '';
     statusEl.style.cssText = 'display:block;background:#fff1f2;color:#9f1239;border:1px solid #fecdd3;border-radius:.5rem;padding:.5rem .75rem';
     statusEl.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i>Outside this seller delivery area.' + nearestText + ' Move the pin or choose pickup.';
+    updateCustomMapPinState(true, 'Pinned location is outside the seller delivery area.', true);
     deliveryFee = 0;
     document.getElementById('deliveryFeeInput').value = 0;
     document.getElementById('deliveryCalcBox').style.display = 'none';
@@ -827,6 +853,7 @@ function initMap() {
 }
 
 function detectMyLocation() {
+  if (!map) initMap();
   if (!window.berryBaseHasLocationSupport?.()) { alert('Geolocation is not supported by your browser.'); return; }
   const btn = document.getElementById('detectBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Detecting…';
@@ -843,6 +870,32 @@ function detectMyLocation() {
   );
 }
 
+function customSetSubmitAction(action) {
+  const input = document.getElementById('customSubmitAction');
+  if (input) input.value = action;
+}
+
+function submitCustomCakeToCart(btn) {
+  customSetSubmitAction('add_to_cart');
+  const form = document.getElementById('customOrderForm');
+  const requiredFields = Array.from(form.querySelectorAll('[name="cake_name"],[name="flavor"],[name="size"],[name="schedule_date"]'));
+  for (const field of requiredFields) {
+    if (!field.value) { field.reportValidity(); return false; }
+  }
+  const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+  if (isDelivery) {
+    const lat = document.getElementById('lat')?.value;
+    const addr = document.getElementById('addressField')?.value?.trim();
+    if (!lat || !addr) { alert('Please pin your location on the map and enter your address.'); return false; }
+    if (deliveryCoverageBlocked) { alert('This pinned location is outside the seller delivery area. Move the pin inside the green coverage area or choose pickup.'); return false; }
+  }
+  if (custCoAvailabilityPending) { alert('Please wait for the custom cake availability check to finish.'); return false; }
+  if (custCoAvailabilityIssue) { alert(custCoAvailabilityIssue); return false; }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Adding to cart...';
+  form.submit();
+  return false;
+}
 function confirmCustomOrder(btn) {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   if (isDelivery) {
