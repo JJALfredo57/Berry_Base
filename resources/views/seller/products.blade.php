@@ -351,10 +351,10 @@
           </div>
           <div class="col-md-4">
             <label class="form-label">Friendly Note</label>
-            <input type="text" class="form-control" name="deal_note" maxlength="120" value="{{ ($discount && property_exists($discount, 'deal_note')) ? ($discount->deal_note ?? '') : '' }}" placeholder="e.g. Best enjoyed today">
+            <input type="text" class="form-control" name="deal_note" maxlength="120" value="{{ ($discount && property_exists($discount, 'deal_note')) ? ($discount->deal_note ?? '') : '' }}" placeholder="e.g. Fresh today">
           </div>
           <div class="col-md-3">
-            <label class="form-label">Best Enjoyed By</label>
+            <label class="form-label">Fresh Until</label>
             <input type="datetime-local" class="form-control" name="best_enjoyed_by" value="{{ ($discount && property_exists($discount, 'best_enjoyed_by') && !empty($discount->best_enjoyed_by)) ? \Carbon\Carbon::parse($discount->best_enjoyed_by)->format('Y-m-d\TH:i') : '' }}" onchange="validateSellerDiscountForm(this.form, false)">
           </div>
           <div class="col-md-2">
@@ -541,11 +541,11 @@ function validateSellerDiscountForm(form, showAlert = false) {
   }
   if (best && start && best < start) {
     valid = false;
-    dateMessages.push('Best Enjoyed By cannot be earlier than Start date.');
+    dateMessages.push('Fresh Until cannot be earlier than Start date.');
   }
   if (best && end && best > end) {
     valid = false;
-    dateMessages.push('Best Enjoyed By should not be later than End date.');
+    dateMessages.push('Fresh Until cannot be later than End date.');
   }
   if (dateFeedback) dateFeedback.textContent = dateMessages[0] || '';
 

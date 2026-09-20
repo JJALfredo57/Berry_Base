@@ -266,10 +266,10 @@ class ProductController extends Controller
             return back()->with('err', 'Discount end date cannot be earlier than the start date.');
         }
         if ($bestEnjoyedBy && $startsAt && strtotime($bestEnjoyedBy) < strtotime($startsAt)) {
-            return back()->with('err', 'Best enjoyed date cannot be earlier than the discount start date.');
+            return back()->with('err', 'Fresh Until cannot be earlier than the discount start date.');
         }
         if ($bestEnjoyedBy && $endsAt && strtotime($bestEnjoyedBy) > strtotime($endsAt)) {
-            return back()->with('err', 'Best enjoyed date should not be later than the discount end date.');
+            return back()->with('err', 'Fresh Until cannot be later than the discount end date.');
         }
         if (!in_array($dealBadge, $allowedDealBadges, true)) {
             return back()->with('err', 'Invalid Sweet Deal badge.');

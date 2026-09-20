@@ -363,7 +363,7 @@
                       <span class="badge rounded-pill" style="background:#f8fafc;color:#475569;border:1px solid #e2e8f0;font-size:.68rem;font-weight:700">{{ $sweetDealQty }} deal pcs</span>
                     @endif
                     @if($bestEnjoyedBy)
-                      <span class="badge rounded-pill" style="background:#fff1f2;color:#be123c;border:1px solid #fecdd3;font-size:.68rem;font-weight:700">Until {{ $bestEnjoyedBy->format('M d, g:i A') }}</span>
+                      <span class="badge rounded-pill" style="background:#fff1f2;color:#be123c;border:1px solid #fecdd3;font-size:.68rem;font-weight:700">Fresh until {{ $bestEnjoyedBy->format('M d, g:i A') }}</span>
                     @endif
                   </div>
                 @endif
