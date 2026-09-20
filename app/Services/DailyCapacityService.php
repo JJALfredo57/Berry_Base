@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DailyCapacityService
 {
@@ -32,7 +33,7 @@ class DailyCapacityService
 
         $today = date('Y-m-d');
         $leadDays = (int) floor((strtotime($date) - strtotime($today)) / 86400);
-        $effectiveMax = $dailyMax;
+        $effectiveMax = $this->effectiveMaxForDate($settings, $dailyMax, $leadDays);
 
         $ordered = $this->reservedQuantity($shopId, $date);
         $remaining = max(0, $effectiveMax - $ordered);
@@ -86,6 +87,27 @@ class DailyCapacityService
         return ['allowed' => true] + $snapshot;
     }
 
+
+    private function effectiveMaxForDate(object $settings, int $dailyMax, int $leadDays): int
+    {
+        $prepDays = (int) ($settings->custom_cake_prep_days ?? 3);
+        $offset = $leadDays - max(0, $prepDays);
+        if ($offset < 0) return $dailyMax;
+
+        $schedule = [];
+        if (Schema::hasColumn('site_settings', 'custom_capacity_schedule')) {
+            $raw = $settings->custom_capacity_schedule ?? null;
+            $decoded = is_string($raw) ? json_decode($raw, true) : (is_array($raw) ? $raw : []);
+            $schedule = is_array($decoded) ? $decoded : [];
+        }
+
+        if (array_key_exists((string) $offset, $schedule)) {
+            $value = (int) $schedule[(string) $offset];
+            return $value > 0 ? $value : 0;
+        }
+
+        return $dailyMax;
+    }
     private function settingsForShop(?string $shopId): ?object
     {
         $settings = $shopId

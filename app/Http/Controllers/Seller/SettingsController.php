@@ -89,8 +89,17 @@ class SettingsController extends Controller
     public function saveDailyCapacity(Request $request)
     {
         $shop = $this->getShop();
+        $capacitySchedule = [];
+        foreach ((array) $request->input('custom_capacity_schedule', []) as $offset => $value) {
+            $offset = (int) $offset;
+            if ($offset < 0 || $offset > 30) continue;
+            $value = min(999, max(0, (int) $value));
+            if ($value > 0) $capacitySchedule[(string) $offset] = $value;
+        }
+
         $this->upsertSettings($shop->id, [
             'daily_max_cakes'    => max(0, (int)$request->input('daily_max_cakes', 0)),
+            'custom_capacity_schedule' => json_encode($capacitySchedule),
             'lead_1day_max'      => 0,
             'lead_2day_max'      => 0,
             'lead_3day_plus_max' => 0,

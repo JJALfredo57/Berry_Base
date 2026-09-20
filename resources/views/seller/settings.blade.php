@@ -302,6 +302,7 @@
         </div>
       </div>
       <div class="setting-card-body">
+        @php $capacitySchedule = json_decode($shopSettings->custom_capacity_schedule ?? '[]', true) ?: []; @endphp
         <form action="{{ route('seller.settings.daily_capacity') }}" method="POST">
           @csrf
           <input type="hidden" name="_section" value="capacity">
@@ -320,6 +321,27 @@
               <div class="h-100 p-3 rounded-3" style="background:#f8fafc;border:1px solid #e5e7eb">
                 <div class="fw-semibold small mb-1"><i class="bi bi-info-circle me-1" style="color:var(--primary)"></i>How this works</div>
                 <div class="text-muted" style="font-size:.82rem">Capacity starts only on dates allowed by your custom cake prep days. Bulk quantities above the normal limit should be reviewed manually by the seller.</div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e5e7eb">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                  <i class="bi bi-calendar2-week" style="color:var(--primary)"></i>
+                  <div>
+                    <div class="fw-semibold">Relative Day Capacity</div>
+                    <div class="text-muted" style="font-size:.82rem">Optional. These start from the earliest allowed custom date based on Custom Cake Prep Days. Leave 0 to use the default capacity above.</div>
+                  </div>
+                </div>
+                <div class="row g-3">
+                  @foreach([0 => 'Earliest allowed day', 1 => 'Next day', 2 => 'Next 2 days', 3 => 'Next 3 days', 4 => 'Next 4 days'] as $offset => $label)
+                    <div class="col-sm-6 col-lg">
+                      <label class="form-label fw-semibold small">{{ $label }}</label>
+                      <input type="number" min="0" max="999" class="form-control" name="custom_capacity_schedule[{{ $offset }}]"
+                             value="{{ old('custom_capacity_schedule.'.$offset, $capacitySchedule[(string)$offset] ?? 0) }}"
+                             oninput="updateCapacityPreview()">
+                    </div>
+                  @endforeach
+                </div>
               </div>
             </div>
             <div class="col-12">
@@ -703,7 +725,17 @@ function updateCapacityPreview() {
   const earliest = new Date();
   earliest.setDate(earliest.getDate() + prep);
   const earliestText = earliest.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
-  el.textContent = `Custom orders open from ${earliestText}. Up to ${daily} custom cake quantity per allowed date. Cart schedule hold: ${hold} minute${hold === 1 ? '' : 's'}. Bulk quantities above the normal limit should be sent as a seller-reviewed bulk request.`;
+  const labels = ['Earliest allowed day', 'Next day', 'Next 2 days', 'Next 3 days', 'Next 4 days'];
+  const overrides = labels.map((label, offset) => {
+    const input = document.querySelector(`[name="custom_capacity_schedule[${offset}]"]`);
+    const value = parseInt(input?.value || '0', 10) || 0;
+    if (value <= 0) return null;
+    const day = new Date();
+    day.setDate(day.getDate() + prep + offset);
+    return `${label} (${day.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}): ${value} pcs`;
+  }).filter(Boolean);
+  const overrideText = overrides.length ? ' Overrides: ' + overrides.join(' | ') + '.' : ' No relative overrides set; default applies to all allowed dates.';
+  el.textContent = `Custom orders open from ${earliestText}. Default after allowed day: ${daily} pcs/date. Cart schedule hold: ${hold} minute${hold === 1 ? '' : 's'}.` + overrideText + ' Bulk quantities above available capacity should be sent as a seller-reviewed bulk request.';
 }
 
 // ── Delivery Fee Calculator ──────────────────────────────
