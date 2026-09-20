@@ -37,7 +37,7 @@ class PaymentController extends Controller
     {
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
         $mode      = CakeshopHelper::getPaymongoMode();
-        $orderId   = trim($request->input('order_id', ''));
+        $orderId   = trim((string) ($request->input('order_id') ?: $request->input('id', '')));
         $uid       = session('user')['id'];
 
         // --- Validate ---
@@ -272,7 +272,7 @@ class PaymentController extends Controller
     public function depositReturn(Request $request)
     {
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
-        $orderId   = trim($request->input('order_id', ''));
+        $orderId   = trim((string) ($request->input('order_id') ?: $request->input('id', '')));
         $urlStatus = $request->input('status', '');
         $uid       = session('user')['id'];
 
@@ -379,7 +379,7 @@ class PaymentController extends Controller
     public function paymentReturn(Request $request)
     {
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
-        $orderId   = trim($request->input('order_id', ''));
+        $orderId   = trim((string) ($request->input('order_id') ?: $request->input('id', '')));
         $status    = $request->input('status', '');
         $uid       = session('user')['id'];
 

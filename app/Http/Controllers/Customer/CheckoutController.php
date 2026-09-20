@@ -711,11 +711,11 @@ class CheckoutController extends Controller
             if ($submitKey) {
                 Cache::put($submitKey . ':result', [
                     'route' => 'customer.pay_gcash',
-                    'params' => ['id' => $oid],
+                    'params' => ['order_id' => $oid],
                     'message' => "Order #{$oid} was already placed.",
                 ], now()->addMinutes(10));
             }
-            return redirect()->route('customer.pay_gcash', ['id' => $oid]);
+            return redirect()->route('customer.pay_gcash', ['order_id' => $oid]);
         }
 
         // COD / Pickup — require deposit before seller sees the order
