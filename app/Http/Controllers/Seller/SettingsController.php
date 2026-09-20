@@ -91,9 +91,9 @@ class SettingsController extends Controller
         $shop = $this->getShop();
         $this->upsertSettings($shop->id, [
             'daily_max_cakes'    => max(0, (int)$request->input('daily_max_cakes', 0)),
-            'lead_1day_max'      => max(0, (int)$request->input('lead_1day_max', 0)),
-            'lead_2day_max'      => max(0, (int)$request->input('lead_2day_max', 0)),
-            'lead_3day_plus_max' => max(0, (int)$request->input('lead_3day_plus_max', 0)),
+            'lead_1day_max'      => 0,
+            'lead_2day_max'      => 0,
+            'lead_3day_plus_max' => 0,
             'ready_made_prep_days' => min(30, max(0, (int)$request->input('ready_made_prep_days', 0))),
             'custom_cake_prep_days' => min(30, max(0, (int)$request->input('custom_cake_prep_days', 3))),
             'custom_cart_hold_minutes' => min(120, max(1, (int)$request->input('custom_cart_hold_minutes', 15))),

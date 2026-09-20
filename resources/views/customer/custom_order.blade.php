@@ -83,6 +83,7 @@
                     <label class="form-label fw-semibold small">Quantity</label>
                     <input type="number" class="form-control" name="quantity" min="1" max="10"
                            value="{{ old('quantity',1) }}" onchange="updatePriceSummary();checkCustCoAvailability()">
+                    <div class="form-text text-muted small">For 11+ pcs or bulk next-month orders, send a seller-reviewed bulk request instead of normal checkout.</div>
                   </div>
                 </div>
               </div>

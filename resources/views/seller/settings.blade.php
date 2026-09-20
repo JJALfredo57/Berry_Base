@@ -306,33 +306,21 @@
           @csrf
           <input type="hidden" name="_section" value="capacity">
           <div class="row g-3">
-            <div class="col-md-6 col-lg-3">
-              <label class="form-label fw-semibold">Default Custom Slots / Day</label>
+            <div class="col-lg-6">
+              <label class="form-label fw-semibold">Custom Slots / Allowed Day</label>
               <input type="number" min="0" class="form-control" name="daily_max_cakes"
                      value="{{ old('daily_max_cakes', $shopSettings->daily_max_cakes ?? 0) }}"
                      oninput="updateCapacityPreview()">
-              <div class="form-text">0 = not accepting custom cake dates</div>
+              <div class="form-text">Maximum custom cake quantity accepted per allowed preferred date. 0 = pause custom cake checkout.</div>
+              <input type="hidden" name="lead_1day_max" value="0">
+              <input type="hidden" name="lead_2day_max" value="0">
+              <input type="hidden" name="lead_3day_plus_max" value="0">
             </div>
-            <div class="col-md-6 col-lg-3">
-              <label class="form-label fw-semibold">Tomorrow (1-day lead)</label>
-              <input type="number" min="0" class="form-control" name="lead_1day_max"
-                     value="{{ old('lead_1day_max', $shopSettings->lead_1day_max ?? 0) }}"
-                     oninput="updateCapacityPreview()">
-              <div class="form-text">0 = use default</div>
-            </div>
-            <div class="col-md-6 col-lg-3">
-              <label class="form-label fw-semibold">2-Day Lead</label>
-              <input type="number" min="0" class="form-control" name="lead_2day_max"
-                     value="{{ old('lead_2day_max', $shopSettings->lead_2day_max ?? 0) }}"
-                     oninput="updateCapacityPreview()">
-              <div class="form-text">0 = use default</div>
-            </div>
-            <div class="col-md-6 col-lg-3">
-              <label class="form-label fw-semibold">3+ Day Lead</label>
-              <input type="number" min="0" class="form-control" name="lead_3day_plus_max"
-                     value="{{ old('lead_3day_plus_max', $shopSettings->lead_3day_plus_max ?? 0) }}"
-                     oninput="updateCapacityPreview()">
-              <div class="form-text">0 = use default</div>
+            <div class="col-lg-6">
+              <div class="h-100 p-3 rounded-3" style="background:#f8fafc;border:1px solid #e5e7eb">
+                <div class="fw-semibold small mb-1"><i class="bi bi-info-circle me-1" style="color:var(--primary)"></i>How this works</div>
+                <div class="text-muted" style="font-size:.82rem">Capacity starts only on dates allowed by your custom cake prep days. Bulk quantities above the normal limit should be reviewed manually by the seller.</div>
+              </div>
             </div>
             <div class="col-12">
               <div class="p-3 rounded-3" style="background:#fff7fb;border:1px solid #fce7f3">
@@ -353,13 +341,13 @@
                   <div class="col-md-4">
                     <label class="form-label fw-semibold">Custom Cake Prep Days</label>
                     <input type="number" min="0" max="30" class="form-control" name="custom_cake_prep_days"
-                           value="{{ old('custom_cake_prep_days', $shopSettings->custom_cake_prep_days ?? 3) }}">
+                           value="{{ old('custom_cake_prep_days', $shopSettings->custom_cake_prep_days ?? 3) }}" oninput="updateCapacityPreview()">
                     <div class="form-text">Default 3. Used for custom preferred dates and review deadline.</div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label fw-semibold">Cart Hold Minutes</label>
                     <input type="number" min="1" max="120" class="form-control" name="custom_cart_hold_minutes"
-                           value="{{ old('custom_cart_hold_minutes', $shopSettings->custom_cart_hold_minutes ?? 15) }}">
+                           value="{{ old('custom_cart_hold_minutes', $shopSettings->custom_cart_hold_minutes ?? 15) }}" oninput="updateCapacityPreview()">
                     <div class="form-text">Default 15. Customer must refresh fulfillment after expiry.</div>
                   </div>
                 </div>
@@ -704,17 +692,18 @@ function checkMatch() {
 // ── Capacity preview ─────────────────────────────────────
 function updateCapacityPreview() {
   const daily = parseInt(document.querySelector('[name="daily_max_cakes"]')?.value) || 0;
-  const d1    = parseInt(document.querySelector('[name="lead_1day_max"]')?.value)   || 0;
-  const d2    = parseInt(document.querySelector('[name="lead_2day_max"]')?.value)   || 0;
-  const d3    = parseInt(document.querySelector('[name="lead_3day_plus_max"]')?.value) || 0;
+  const prep  = parseInt(document.querySelector('[name="custom_cake_prep_days"]')?.value) || 0;
+  const hold  = parseInt(document.querySelector('[name="custom_cart_hold_minutes"]')?.value) || 15;
   const el    = document.getElementById('capacityPreview');
   if (!el) return;
-  if (daily === 0) { el.textContent = 'Custom cake date availability is not configured yet. Customers will be asked to contact the seller before placing a custom cake order.'; return; }
-  let txt = `Default: up to ${daily} custom cake slots/day`;
-  if (d1 > 0) txt += `  |  Tomorrow: ${d1} custom cake slots`;
-  if (d2 > 0) txt += `  |  2-day lead: ${d2} custom cake slots`;
-  if (d3 > 0) txt += `  |  3+ days: ${d3} custom cake slots`;
-  el.textContent = txt;
+  if (daily === 0) {
+    el.textContent = 'Custom cake checkout is paused until you set Custom Slots / Allowed Day above 0.';
+    return;
+  }
+  const earliest = new Date();
+  earliest.setDate(earliest.getDate() + prep);
+  const earliestText = earliest.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  el.textContent = `Custom orders open from ${earliestText}. Up to ${daily} custom cake quantity per allowed date. Cart schedule hold: ${hold} minute${hold === 1 ? '' : 's'}. Bulk quantities above the normal limit should be sent as a seller-reviewed bulk request.`;
 }
 
 // ── Delivery Fee Calculator ──────────────────────────────

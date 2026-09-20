@@ -33,13 +33,6 @@ class DailyCapacityService
         $today = date('Y-m-d');
         $leadDays = (int) floor((strtotime($date) - strtotime($today)) / 86400);
         $effectiveMax = $dailyMax;
-        if ($leadDays === 1 && (int) ($settings->lead_1day_max ?? 0) > 0) {
-            $effectiveMax = (int) $settings->lead_1day_max;
-        } elseif ($leadDays === 2 && (int) ($settings->lead_2day_max ?? 0) > 0) {
-            $effectiveMax = (int) $settings->lead_2day_max;
-        } elseif ($leadDays >= 3 && (int) ($settings->lead_3day_plus_max ?? 0) > 0) {
-            $effectiveMax = (int) $settings->lead_3day_plus_max;
-        }
 
         $ordered = $this->reservedQuantity($shopId, $date);
         $remaining = max(0, $effectiveMax - $ordered);

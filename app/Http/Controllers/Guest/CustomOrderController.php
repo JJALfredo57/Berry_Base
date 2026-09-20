@@ -276,6 +276,9 @@ class CustomOrderController extends Controller
         $dedication = trim($request->input('dedication',''));
         $timeSlot   = trim($request->input('time_slot',''));
         $qty        = max(1,(int)$request->input('quantity',1));
+        if ($qty > 10) {
+            return back()->with('error', 'For bulk custom cake orders above 10 pcs, please contact the seller or send a bulk request for manual review.')->withInput();
+        }
         $customNote = trim($request->input('custom_note',''));
         $addonInstructions = trim($request->input('addon_instructions',''));
 
@@ -546,6 +549,7 @@ class CustomOrderController extends Controller
         $dedication = trim($request->input('dedication', ''));
         $timeSlot = trim($request->input('time_slot', ''));
         $qty = max(1, (int) $request->input('quantity', 1));
+        if ($qty > 10) return ['ok' => false, 'message' => 'For bulk custom cake orders above 10 pcs, please contact the seller or send a bulk request for manual review.'];
         $customNote = trim($request->input('custom_note', ''));
         $addonInstructions = trim($request->input('addon_instructions', ''));
         $fulfillment = $request->input('fulfillment_type', 'Pickup');
