@@ -1561,15 +1561,16 @@ class PaymentController extends Controller
                          ?? ($res['data']['attributes']['reference_number'] ?? null);
 
         if ($sessionStatus === 'completed' || $paymentStatus === 'succeeded') {
-            $isFullPayment = abs((float)$order->deposit_amount - (float)$co->admin_price) < 0.01;
-            $order->total_price = $co->admin_price;
+            $payableTotal = (float) ($order->total_price ?? $co->admin_price);
+            $isFullPayment = abs((float)$order->deposit_amount - $payableTotal) < 0.01;
+            $order->total_price = $payableTotal;
 
             DB::table('orders')->where('id', $order->id)->update([
                 'deposit_status'  => 'paid',
                 'deposit_paid_at' => now(),
                 'payment_status'  => $isFullPayment ? 'Paid' : 'Partial Payment',
                 'status'          => 'Confirmed',
-                'total_price'     => $co->admin_price,
+                'total_price'     => $payableTotal,
             ]);
             PaymentTransactionHelper::record(
                 $order,
@@ -1592,7 +1593,7 @@ class PaymentController extends Controller
                 'status'     => 'Confirmed',
                 'notes'      => $isFullPayment
                     ? "GCash full payment PHP {$order->deposit_amount} received. Custom order auto-confirmed."
-                    : "GCash deposit PHP {$order->deposit_amount} received. Custom order auto-confirmed. Remaining: PHP " . ($co->admin_price - $order->deposit_amount),
+                    : "GCash deposit PHP {$order->deposit_amount} received. Custom order auto-confirmed. Remaining: PHP " . ($payableTotal - $order->deposit_amount),
                 'created_at' => now(),
             ]);
 

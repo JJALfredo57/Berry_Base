@@ -2,6 +2,9 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Services\CustomerVerificationService;
+use App\Services\LoyaltyService;
+use App\Services\VoucherService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -47,6 +50,10 @@ class OrderController extends Controller
         $orderItems = [];
         $orderReviews = [];
         $customOrderData = [];
+        $customOrderVouchers = [];
+        $customOrderLoyaltyQuotes = [];
+        $loyaltySettings = app(LoyaltyService::class)->settings();
+        $customOrderVerified = app(CustomerVerificationService::class)->isVerified($uid);
 
         if ($orderIds) {
             $rows = DB::table('order_tracking')
@@ -100,9 +107,89 @@ class OrderController extends Controller
             } catch (\Exception $e) {}
         }
 
-        return view('customer.orders', compact('orders','tracking','orderAddons','orderItems','orderReviews','customOrderData','search','status'));
+        foreach ($orders->items() as $orderForDiscounts) {
+            $coForDiscounts = $customOrderData[$orderForDiscounts->id] ?? null;
+            if (!$coForDiscounts || ($coForDiscounts->review_status ?? '') !== 'approved' || (float) ($coForDiscounts->admin_price ?? 0) <= 0) continue;
+            $finalPrice = (float) $coForDiscounts->admin_price;
+            $customOrderVouchers[$coForDiscounts->id] = app(VoucherService::class)->availableForCustomer($uid, $orderForDiscounts->shop_id ?? null, $finalPrice);
+            $customOrderLoyaltyQuotes[$coForDiscounts->id] = app(LoyaltyService::class)->redemptionQuote($uid, $finalPrice, 0, $customOrderVerified);
+        }
+
+        return view('customer.orders', compact('orders','tracking','orderAddons','orderItems','orderReviews','customOrderData','customOrderVouchers','customOrderLoyaltyQuotes','loyaltySettings','customOrderVerified','search','status'));
     }
 
+    private function applyCustomFinalDiscounts(Request $request, object $order, object $co, float $finalPrice, string $uid): array
+    {
+        $voucherCode = strtoupper(trim((string) $request->input('voucher_code', '')));
+        $voucherResult = app(VoucherService::class)->validate($voucherCode, $finalPrice, $order->shop_id ?? null, $uid);
+        if (!$voucherResult['ok']) {
+            return ['ok' => false, 'message' => $voucherResult['message'] ?? 'Voucher could not be applied.'];
+        }
+
+        $voucherDiscount = (float) ($voucherResult['discount'] ?? 0);
+        $loyaltyQuote = app(LoyaltyService::class)->redemptionQuote(
+            $uid,
+            max(0, $finalPrice - $voucherDiscount),
+            max(0, (int) $request->input('points_to_redeem', 0)),
+            app(CustomerVerificationService::class)->isVerified($uid)
+        );
+        if (!$loyaltyQuote['ok']) {
+            return ['ok' => false, 'message' => $loyaltyQuote['message'] ?? 'Rewards points could not be applied.'];
+        }
+
+        $pointsRedeemed = (int) ($loyaltyQuote['points'] ?? 0);
+        $loyaltyDiscount = (float) ($loyaltyQuote['discount'] ?? 0);
+        $payableTotal = round(max(0, $finalPrice - $voucherDiscount - $loyaltyDiscount), 2);
+        if ($payableTotal < 100) {
+            return ['ok' => false, 'message' => 'Custom order payable total must be at least PHP 100.00 after discounts.'];
+        }
+
+        return [
+            'ok' => true,
+            'voucher' => $voucherResult['voucher'] ?? null,
+            'voucher_discount' => $voucherDiscount,
+            'points_redeemed' => $pointsRedeemed,
+            'loyalty_discount' => $loyaltyDiscount,
+            'payable_total' => $payableTotal,
+        ];
+    }
+
+    private function recordCustomFinalDiscounts(string $orderId, object $order, array $discounts, string $uid): void
+    {
+        if (!empty($discounts['voucher']) && (float) $discounts['voucher_discount'] > 0) {
+            app(VoucherService::class)->recordRedemption($discounts['voucher'], $order, (float) $discounts['voucher_discount']);
+            DB::table('order_discounts')->insert([
+                'order_id' => $orderId,
+                'source_type' => 'voucher',
+                'source_id' => $discounts['voucher']->id,
+                'label' => $discounts['voucher']->name,
+                'code' => $discounts['voucher']->code,
+                'amount' => (float) $discounts['voucher_discount'],
+                'meta' => json_encode(['applied_to' => 'custom_final_price']),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        if ((int) ($discounts['points_redeemed'] ?? 0) > 0 && (float) ($discounts['loyalty_discount'] ?? 0) > 0) {
+            app(LoyaltyService::class)->redeemForOrder($uid, $orderId, (int) $discounts['points_redeemed'], (float) $discounts['loyalty_discount']);
+            DB::table('order_discounts')->insert([
+                'order_id' => $orderId,
+                'source_type' => 'loyalty',
+                'source_id' => null,
+                'label' => 'Rewards Points',
+                'code' => null,
+                'amount' => (float) $discounts['loyalty_discount'],
+                'meta' => json_encode([
+                    'points' => (int) $discounts['points_redeemed'],
+                    'point_value' => (float) (app(LoyaltyService::class)->settings()['point_value'] ?? 1),
+                    'applied_to' => 'custom_final_price',
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
     public function status(string $id)
     {
         $uid = session('user')['id'];
@@ -197,7 +284,7 @@ class OrderController extends Controller
         return back()->with('msg', 'Cancel request submitted. Waiting for admin approval.');
     }
 
-    /** Customer accepts the admin-set price → notify admin to proceed */
+    /** Customer accepts the admin-set price -> apply final discounts, then prepare deposit */
     public function acceptPrice(string $coId)
     {
         $uid = session('user')['id'];
@@ -209,16 +296,18 @@ class OrderController extends Controller
         if (!$order) return back()->with('err', 'Order not found.');
         if ($order->payment_status === 'Paid') return back()->with('err', 'This order is already fully paid.');
 
-        $totalPrice    = max((float) $co->admin_price, (float) $order->total_price);
-        $minDeposit    = round($totalPrice * 0.5, 2);
-        $requested     = (float) request()->input('deposit_amount', $minDeposit);
+        $finalPrice = (float) $co->admin_price;
+        $discounts = $this->applyCustomFinalDiscounts(request(), $order, $co, $finalPrice, (string) $uid);
+        if (!$discounts['ok']) return back()->with('err', $discounts['message'])->withInput();
+
+        $totalPrice = (float) $discounts['payable_total'];
+        $minDeposit = round($totalPrice * 0.5, 2);
+        $requested = (float) request()->input('deposit_amount', $minDeposit);
         if ($requested < $minDeposit) {
-            return back()->with('err', 'Minimum deposit is 50%: PHP ' . number_format($minDeposit, 2) . '.');
+            return back()->with('err', 'Minimum deposit is 50%: PHP ' . number_format($minDeposit, 2) . '.')->withInput();
         }
         $depositAmount = round(min($requested, $totalPrice), 2);
-        $isFullPayment = abs($depositAmount - $totalPrice) < 0.01;
 
-        // Mark price as accepted — but DO NOT confirm yet, wait for deposit payment
         DB::table('custom_orders')->where('id', $coId)->update([
             'price_confirmed'       => 'accepted',
             'customer_confirmed_at' => now(),
@@ -233,12 +322,23 @@ class OrderController extends Controller
             'paid_at'          => null,
             'status'           => $order->status,
             'total_price'      => $totalPrice,
+            'voucher_code'      => $discounts['voucher']->code ?? null,
+            'voucher_discount_amount' => (float) $discounts['voucher_discount'],
+            'loyalty_discount_amount' => (float) $discounts['loyalty_discount'],
+            'points_redeemed' => (int) $discounts['points_redeemed'],
         ]);
+
+        $updatedOrder = DB::table('orders')->where('id', $co->order_id)->first();
+        if ($updatedOrder) $this->recordCustomFinalDiscounts($co->order_id, $updatedOrder, $discounts, (string) $uid);
+
+        $discountNote = '';
+        if ((float) $discounts['voucher_discount'] > 0) $discountNote .= ' Voucher discount: PHP ' . number_format((float) $discounts['voucher_discount'], 2) . '.';
+        if ((float) $discounts['loyalty_discount'] > 0) $discountNote .= ' Rewards discount: PHP ' . number_format((float) $discounts['loyalty_discount'], 2) . '.';
 
         DB::table('order_tracking')->insert([
             'order_id'   => $co->order_id,
             'status'     => $order->status,
-            'notes'      => 'Customer accepted the final price of PHP ' . number_format($totalPrice, 2) . '. A 50% PayMongo deposit was prepared before confirmation.',
+            'notes'      => 'Customer accepted the final price of PHP ' . number_format($finalPrice, 2) . '. Payable after discounts: PHP ' . number_format($totalPrice, 2) . '.' . $discountNote,
             'created_at' => now(),
         ]);
 
@@ -247,7 +347,7 @@ class OrderController extends Controller
             'order_id'    => $co->order_id,
             'sender_role' => 'customer',
             'sender_id'   => $uid,
-            'message'     => "I accept the final price of PHP " . number_format($co->admin_price, 2) . ". I will proceed with the deposit payment.",
+            'message'     => 'I accept the final price of PHP ' . number_format($finalPrice, 2) . '. Payable after discounts: PHP ' . number_format($totalPrice, 2) . '. I will proceed with the deposit payment.',
             'is_read' => false,
             'created_at'  => now(),
         ]);
@@ -255,15 +355,14 @@ class OrderController extends Controller
             'receiver_role'    => 'admin',
             'receiver_user_id' => null,
             'title'            => 'Custom Order #' . $co->order_id . ' - Price Accepted',
-            'message'          => "{$custName} accepted PHP " . number_format($co->admin_price, 2) . " for Custom Order #{$co->order_id}. Waiting for deposit payment.",
+            'message'          => $custName . ' accepted PHP ' . number_format($finalPrice, 2) . ' for Custom Order #' . $co->order_id . '. Payable after discounts: PHP ' . number_format($totalPrice, 2) . '. Waiting for deposit payment.',
             'is_read' => false,
             'created_at'       => now(),
         ]);
 
-        CakeshopHelper::logActivity($uid, 'customer', 'Accept Custom Price', "Custom Order #{$coId}");
+        CakeshopHelper::logActivity($uid, 'customer', 'Accept Custom Price', 'Custom Order #' . $coId);
         return redirect()->route('customer.custom_orders.pay_deposit', $coId);
     }
-
     /** Customer sets deposit amount for custom order (min 50%) */
     public function setCustomDeposit(Request $request, string $coId)
     {
@@ -276,7 +375,7 @@ class OrderController extends Controller
         if (!$order) return back()->with('err', 'Order not found.');
         if ($order->payment_status === 'Paid') return back()->with('err', 'This order is already fully paid.');
 
-        $totalPrice    = (float) $co->admin_price;
+        $totalPrice    = (float) $order->total_price;
         $minDeposit    = round($totalPrice * 0.5, 2);
         $depositAmount = round((float) $request->input('deposit_amount', $minDeposit), 2);
 

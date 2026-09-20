@@ -445,7 +445,8 @@
             && $o->deposit_status !== 'paid'
             && in_array($o->status, ['Pending','Pending Review','Confirmed']))
         @php
-          $coTotal = (float)($co->admin_price ?? $o->total_price);
+          $coTotal = (float)($o->total_price ?? $co->admin_price);
+          if ($coTotal <= 0) $coTotal = (float)($co->admin_price ?? 0);
           $minDep  = round($coTotal * 0.5, 2);
         @endphp
         @if($o->payment_method === 'GCash')
@@ -560,6 +561,55 @@
                   data-max="{{ $acceptTotal }}"
                   data-btn-label="Accept Price">
               @csrf
+              @php
+                $coVoucherOptions = $customOrderVouchers[$co->id] ?? [];
+                $coLoyaltyQuote = $customOrderLoyaltyQuotes[$co->id] ?? ['balance' => 0, 'max' => 0];
+                $coPointValue = (float)($loyaltySettings['point_value'] ?? 1);
+                $coMaxRedeemPercent = (float)($loyaltySettings['max_redemption_percent'] ?? 50);
+              @endphp
+              <div class="custom-final-discounts mb-2"
+                   data-base="{{ number_format($acceptTotal, 2, '.', '') }}"
+                   data-point-balance="{{ (int)($coLoyaltyQuote['balance'] ?? 0) }}"
+                   data-point-value="{{ number_format($coPointValue, 2, '.', '') }}"
+                   data-max-redeem-percent="{{ number_format($coMaxRedeemPercent, 2, '.', '') }}">
+                <input type="hidden" name="voucher_code" class="co-voucher-code">
+                <div class="p-2 rounded-3" style="background:#f8fafc;border:1px solid #e5e7eb">
+                  <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                    <div class="fw-semibold small"><i class="bi bi-ticket-perforated me-1" style="color:var(--primary)"></i>Voucher / Points</div>
+                    <span class="text-muted" style="font-size:.68rem">Applied after seller review</span>
+                  </div>
+                  @if(!empty($coVoucherOptions))
+                    <div class="d-flex flex-wrap gap-1 mb-2">
+                      @foreach($coVoucherOptions as $voucher)
+                        @php $canPreviewVoucher = $voucher->validation_ok || str_starts_with((string) $voucher->validation_message, 'Minimum order amount'); @endphp
+                        <button type="button" class="btn btn-sm {{ $canPreviewVoucher ? 'btn-outline-primary' : 'btn-outline-secondary' }} co-voucher-btn"
+                                data-voucher-code="{{ $voucher->code }}"
+                                data-voucher-type="{{ $voucher->discount_type }}"
+                                data-voucher-value="{{ number_format((float)$voucher->discount_value, 2, '.', '') }}"
+                                data-voucher-max="{{ $voucher->max_discount !== null ? number_format((float)$voucher->max_discount, 2, '.', '') : '' }}"
+                                data-voucher-min="{{ number_format((float)$voucher->minimum_order_amount, 2, '.', '') }}"
+                                title="{{ $voucher->validation_ok ? $voucher->name : $voucher->validation_message }}"
+                                {{ $canPreviewVoucher ? '' : 'disabled' }}>{{ $voucher->code }}</button>
+                      @endforeach
+                    </div>
+                  @endif
+                  <div class="input-group input-group-sm mb-2">
+                    <input type="text" class="form-control text-uppercase co-voucher-manual" maxlength="40" placeholder="Voucher code">
+                    <button class="btn btn-outline-secondary co-voucher-clear" type="button">Clear</button>
+                  </div>
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text">Points</span>
+                    <input type="number" name="points_to_redeem" class="form-control co-points-input" min="0" value="0" max="{{ (int)($coLoyaltyQuote['max'] ?? 0) }}" {{ $customOrderVerified ? '' : 'disabled' }}>
+                  </div>
+                  <div class="small text-muted mt-1">Available: {{ (int)($coLoyaltyQuote['balance'] ?? 0) }} pts. Max updates after voucher.</div>
+                  <div class="mt-2 pt-2 border-top small">
+                    <div class="d-flex justify-content-between"><span class="text-muted">Final price</span><span class="co-final-base">PHP {{ number_format($acceptTotal,2) }}</span></div>
+                    <div class="d-flex justify-content-between co-voucher-row" style="display:none"><span class="text-muted">Voucher</span><span style="color:#16a34a" class="co-voucher-discount">-PHP 0.00</span></div>
+                    <div class="d-flex justify-content-between co-points-row" style="display:none"><span class="text-muted">Points</span><span style="color:#16a34a" class="co-points-discount">-PHP 0.00</span></div>
+                    <div class="d-flex justify-content-between fw-semibold"><span>Payable total</span><span class="co-payable-total" style="color:var(--primary)">PHP {{ number_format($acceptTotal,2) }}</span></div>
+                  </div>
+                </div>
+              </div>
               <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now <span class="text-muted fw-normal">(min 50%)</span></label>
               <div class="input-group input-group-sm mb-1">
                 <span class="input-group-text fw-bold" style="color:#d97706;background:#fffbeb;border-color:#fde68a">â‚±</span>
@@ -697,6 +747,55 @@
                         data-max="{{ $acceptTotal }}"
                         data-btn-label="Accept Price">
                     @csrf
+                    @php
+                      $coVoucherOptions = $customOrderVouchers[$co->id] ?? [];
+                      $coLoyaltyQuote = $customOrderLoyaltyQuotes[$co->id] ?? ['balance' => 0, 'max' => 0];
+                      $coPointValue = (float)($loyaltySettings['point_value'] ?? 1);
+                      $coMaxRedeemPercent = (float)($loyaltySettings['max_redemption_percent'] ?? 50);
+                    @endphp
+                    <div class="custom-final-discounts mb-2"
+                         data-base="{{ number_format($acceptTotal, 2, '.', '') }}"
+                         data-point-balance="{{ (int)($coLoyaltyQuote['balance'] ?? 0) }}"
+                         data-point-value="{{ number_format($coPointValue, 2, '.', '') }}"
+                         data-max-redeem-percent="{{ number_format($coMaxRedeemPercent, 2, '.', '') }}">
+                      <input type="hidden" name="voucher_code" class="co-voucher-code">
+                      <div class="p-2 rounded-3" style="background:#f8fafc;border:1px solid #e5e7eb">
+                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                          <div class="fw-semibold small"><i class="bi bi-ticket-perforated me-1" style="color:var(--primary)"></i>Voucher / Points</div>
+                          <span class="text-muted" style="font-size:.68rem">Applied after seller review</span>
+                        </div>
+                        @if(!empty($coVoucherOptions))
+                          <div class="d-flex flex-wrap gap-1 mb-2">
+                            @foreach($coVoucherOptions as $voucher)
+                              @php $canPreviewVoucher = $voucher->validation_ok || str_starts_with((string) $voucher->validation_message, 'Minimum order amount'); @endphp
+                              <button type="button" class="btn btn-sm {{ $canPreviewVoucher ? 'btn-outline-primary' : 'btn-outline-secondary' }} co-voucher-btn"
+                                      data-voucher-code="{{ $voucher->code }}"
+                                      data-voucher-type="{{ $voucher->discount_type }}"
+                                      data-voucher-value="{{ number_format((float)$voucher->discount_value, 2, '.', '') }}"
+                                      data-voucher-max="{{ $voucher->max_discount !== null ? number_format((float)$voucher->max_discount, 2, '.', '') : '' }}"
+                                      data-voucher-min="{{ number_format((float)$voucher->minimum_order_amount, 2, '.', '') }}"
+                                      title="{{ $voucher->validation_ok ? $voucher->name : $voucher->validation_message }}"
+                                      {{ $canPreviewVoucher ? '' : 'disabled' }}>{{ $voucher->code }}</button>
+                            @endforeach
+                          </div>
+                        @endif
+                        <div class="input-group input-group-sm mb-2">
+                          <input type="text" class="form-control text-uppercase co-voucher-manual" maxlength="40" placeholder="Voucher code">
+                          <button class="btn btn-outline-secondary co-voucher-clear" type="button">Clear</button>
+                        </div>
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text">Points</span>
+                          <input type="number" name="points_to_redeem" class="form-control co-points-input" min="0" value="0" max="{{ (int)($coLoyaltyQuote['max'] ?? 0) }}" {{ $customOrderVerified ? '' : 'disabled' }}>
+                        </div>
+                        <div class="small text-muted mt-1">Available: {{ (int)($coLoyaltyQuote['balance'] ?? 0) }} pts. Max updates after voucher.</div>
+                        <div class="mt-2 pt-2 border-top small">
+                          <div class="d-flex justify-content-between"><span class="text-muted">Final price</span><span class="co-final-base">PHP {{ number_format($acceptTotal,2) }}</span></div>
+                          <div class="d-flex justify-content-between co-voucher-row" style="display:none"><span class="text-muted">Voucher</span><span style="color:#16a34a" class="co-voucher-discount">-PHP 0.00</span></div>
+                          <div class="d-flex justify-content-between co-points-row" style="display:none"><span class="text-muted">Points</span><span style="color:#16a34a" class="co-points-discount">-PHP 0.00</span></div>
+                          <div class="d-flex justify-content-between fw-semibold"><span>Payable total</span><span class="co-payable-total" style="color:var(--primary)">PHP {{ number_format($acceptTotal,2) }}</span></div>
+                        </div>
+                      </div>
+                    </div>
                     <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now <span class="text-muted fw-normal">(min 50%)</span></label>
                     <div class="input-group input-group-sm mb-1">
                       <span class="input-group-text fw-bold" style="color:#d97706;background:#fffbeb;border-color:#fde68a">â‚±</span>
@@ -1604,34 +1703,136 @@ function initCustomerQrButtons() {
 }
 
 function setupDepositAmountForms() {
+  const money = amount => 'PHP ' + (amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const peso = amount => '₱' + (amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   document.querySelectorAll('.deposit-amount-form').forEach(form => {
     const input = form.querySelector('.deposit-amount-input');
     const error = form.querySelector('.deposit-error');
     const button = form.querySelector('button[type="submit"]');
-    const min = parseFloat(form.dataset.min || input?.dataset.min || '0');
-    const max = parseFloat(form.dataset.max || input?.dataset.max || '0');
+    const discountBox = form.querySelector('.custom-final-discounts');
+    let min = parseFloat(form.dataset.min || input?.dataset.min || '0');
+    let max = parseFloat(form.dataset.max || input?.dataset.max || '0');
 
     if (!input || !error) return;
 
+    const updateDiscounts = () => {
+      if (!discountBox) return;
+      const base = parseFloat(discountBox.dataset.base || max || '0') || 0;
+      const voucherHidden = discountBox.querySelector('.co-voucher-code');
+      const voucherRow = discountBox.querySelector('.co-voucher-row');
+      const voucherDisplay = discountBox.querySelector('.co-voucher-discount');
+      const pointsRow = discountBox.querySelector('.co-points-row');
+      const pointsDisplay = discountBox.querySelector('.co-points-discount');
+      const payableDisplay = discountBox.querySelector('.co-payable-total');
+      const pointsInput = discountBox.querySelector('.co-points-input');
+      let voucherDiscount = 0;
+      const code = discountBox.dataset.voucherCode || '';
+      if (code) {
+        const vMin = parseFloat(discountBox.dataset.voucherMin || '0') || 0;
+        const vValue = parseFloat(discountBox.dataset.voucherValue || '0') || 0;
+        const vMaxRaw = discountBox.dataset.voucherMax || '';
+        if (base >= vMin) {
+          if ((discountBox.dataset.voucherType || '').toLowerCase() === 'percent') voucherDiscount = base * (vValue / 100);
+          else voucherDiscount = vValue;
+          if (vMaxRaw !== '') voucherDiscount = Math.min(voucherDiscount, parseFloat(vMaxRaw) || 0);
+          voucherDiscount = Math.round(Math.min(Math.max(0, voucherDiscount), base) * 100) / 100;
+        }
+      }
+      if (voucherHidden && !voucherHidden.value && code) voucherHidden.value = code;
+      if (voucherRow && voucherDisplay) {
+        voucherRow.style.display = voucherDiscount > 0 ? 'flex' : 'none';
+        voucherDisplay.textContent = '-' + money(voucherDiscount);
+      }
+
+      const pointBalance = parseInt(discountBox.dataset.pointBalance || '0', 10) || 0;
+      const pointValue = Math.max(0.01, parseFloat(discountBox.dataset.pointValue || '1') || 1);
+      const maxRedeemPercent = Math.max(0, parseFloat(discountBox.dataset.maxRedeemPercent || '50') || 0);
+      const subtotalAfterVoucher = Math.max(0, base - voucherDiscount);
+      const maxPointsBySubtotal = Math.floor((subtotalAfterVoucher * (maxRedeemPercent / 100)) / pointValue);
+      const maxPoints = Math.max(0, Math.min(pointBalance, maxPointsBySubtotal));
+      let points = pointsInput && !pointsInput.disabled ? parseInt(pointsInput.value || '0', 10) || 0 : 0;
+      points = Math.max(0, Math.min(points, maxPoints));
+      if (pointsInput) {
+        pointsInput.max = String(maxPoints);
+        if (String(pointsInput.value || '0') !== String(points)) pointsInput.value = String(points);
+      }
+      const pointsDiscount = Math.round(points * pointValue * 100) / 100;
+      if (pointsRow && pointsDisplay) {
+        pointsRow.style.display = pointsDiscount > 0 ? 'flex' : 'none';
+        pointsDisplay.textContent = '-' + money(pointsDiscount);
+      }
+
+      max = Math.max(0, Math.round((base - voucherDiscount - pointsDiscount) * 100) / 100);
+      min = Math.round(max * 50) / 100;
+      if (max > 0 && min < 100) min = Math.min(max, 100);
+      form.dataset.min = min.toFixed(2);
+      form.dataset.max = max.toFixed(2);
+      input.dataset.min = min.toFixed(2);
+      input.dataset.max = max.toFixed(2);
+      if (payableDisplay) payableDisplay.textContent = money(max);
+      const current = parseFloat(input.value || '0') || 0;
+      if (!current || current < min || current > max) input.value = min.toFixed(2);
+    };
+
+    discountBox?.querySelectorAll('.co-voucher-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        discountBox.dataset.voucherCode = btn.dataset.voucherCode || '';
+        discountBox.dataset.voucherType = btn.dataset.voucherType || '';
+        discountBox.dataset.voucherValue = btn.dataset.voucherValue || '0';
+        discountBox.dataset.voucherMax = btn.dataset.voucherMax || '';
+        discountBox.dataset.voucherMin = btn.dataset.voucherMin || '0';
+        const hidden = discountBox.querySelector('.co-voucher-code');
+        const manual = discountBox.querySelector('.co-voucher-manual');
+        if (hidden) hidden.value = discountBox.dataset.voucherCode;
+        if (manual) manual.value = discountBox.dataset.voucherCode;
+        updateDiscounts();
+        setButtonCopy();
+      });
+    });
+    discountBox?.querySelector('.co-voucher-manual')?.addEventListener('input', event => {
+      const code = (event.target.value || '').toUpperCase().replace(/\s+/g, '');
+      event.target.value = code;
+      const hidden = discountBox.querySelector('.co-voucher-code');
+      if (hidden) hidden.value = code;
+      delete discountBox.dataset.voucherCode;
+      updateDiscounts();
+      setButtonCopy();
+    });
+    discountBox?.querySelector('.co-voucher-clear')?.addEventListener('click', () => {
+      ['voucherCode','voucherType','voucherValue','voucherMax','voucherMin'].forEach(key => delete discountBox.dataset[key]);
+      const hidden = discountBox.querySelector('.co-voucher-code');
+      const manual = discountBox.querySelector('.co-voucher-manual');
+      if (hidden) hidden.value = '';
+      if (manual) manual.value = '';
+      updateDiscounts();
+      setButtonCopy();
+    });
+    discountBox?.querySelector('.co-points-input')?.addEventListener('input', () => {
+      updateDiscounts();
+      setButtonCopy();
+    });
+
     const btnLabel = form.dataset.btnLabel || 'Pay Deposit via GCash';
-    const setButtonCopy = () => {
+    function setButtonCopy() {
+      updateDiscounts();
       const amount = parseFloat(input.value || '0');
       if (button) {
         button.innerHTML = '<i class="bi bi-phone-fill me-1"></i>' + btnLabel;
-        button.dataset.csConfirm = 'Pay deposit of ₱' + (amount || min).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' via GCash?\\n\\nYou will be redirected to PayMongo.';
+        button.dataset.csConfirm = 'Pay deposit of ' + peso(amount || min) + ' via GCash?\n\nYou will be redirected to PayMongo.';
         button.dataset.csTitle = 'Pay Deposit';
         button.dataset.csOk = 'Pay Now';
         button.dataset.csIcon = 'bi-phone-fill';
         button.dataset.csIconBg = '#d1fae5';
         button.dataset.csIconColor = '#059669';
         if (btnLabel === 'Accept Price') {
-          button.dataset.csConfirm = 'Accept final price and pay PHP ' + (amount || min).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' via PayMongo?';
+          button.dataset.csConfirm = 'Accept final price and pay ' + money(amount || min) + ' via PayMongo?';
           button.dataset.csTitle = 'Accept Final Price';
           button.dataset.csOk = 'Accept Price';
           button.dataset.csIcon = 'bi-check-circle';
         }
       }
-    };
+    }
 
     const showError = message => {
       input.classList.add('is-invalid');
@@ -1660,6 +1861,7 @@ function setupDepositAmountForms() {
     });
 
     input.addEventListener('blur', () => {
+      updateDiscounts();
       const amount = parseFloat(input.value || '0');
       if (!amount) input.value = min.toFixed(2);
       else input.value = Math.min(amount, max).toFixed(2);
@@ -1667,28 +1869,30 @@ function setupDepositAmountForms() {
     });
 
     button?.addEventListener('click', event => {
+      updateDiscounts();
       const amount = parseFloat(input.value || '0');
       if (!amount || amount < min) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        showError('Minimum payment is 50%: ₱' + min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '.');
+        showError('Minimum payment is 50%: ' + peso(min) + '.');
         input.focus();
       }
     });
 
     form.addEventListener('submit', event => {
+      updateDiscounts();
       const amount = parseFloat(input.value || '0');
       if (!amount || amount < min) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        showError('Minimum payment is 50%: ₱' + min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '.');
+        showError('Minimum payment is 50%: ' + peso(min) + '.');
         input.focus();
         return false;
       }
       if (max && amount > max) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        showError('Payment cannot exceed the order total: ₱' + max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '.');
+        showError('Payment cannot exceed the order total: ' + peso(max) + '.');
         input.focus();
         return false;
       }
@@ -1700,7 +1904,6 @@ function setupDepositAmountForms() {
     setButtonCopy();
   });
 }
-
 setupDepositAmountForms();
 initCustomerReviewStars();
 initCustomerQrButtons();
