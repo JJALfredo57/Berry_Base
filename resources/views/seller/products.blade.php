@@ -140,6 +140,9 @@
   $sizes = collect($productSizes[$p->id] ?? []);
   $discount = $discounts[$p->id] ?? null;
   $discountBadge = $discount ? \App\Helpers\CakeshopHelper::discountBadgeText($discount->discount_type ?? null, $discount->discount_value ?? null) : null;
+  $sweetDealBadge = ($discount && property_exists($discount, 'deal_badge_label')) ? trim((string) ($discount->deal_badge_label ?? '')) : '';
+  $sweetDealNote = ($discount && property_exists($discount, 'deal_note')) ? trim((string) ($discount->deal_note ?? '')) : '';
+  $sweetDealQty = ($discount && property_exists($discount, 'deal_quantity_limit')) ? (int) ($discount->deal_quantity_limit ?? 0) : 0;
   $stockTracked = $p->available_quantity !== null;
   $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
 @endphp
@@ -183,11 +186,21 @@
       <div style="font-size:.875rem;font-weight:700;color:var(--primary);margin:.2rem 0">₱{{ number_format($p->price,2) }} base</div>
       @if($discountBadge)
         <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.2rem">
+          @if($sweetDealBadge)
+            <span style="background:linear-gradient(135deg,#fff7ed,#ffe4e6);color:#9f1239;border:1px solid #fecdd3;font-size:.68rem;font-weight:800;padding:.18rem .55rem;border-radius:99px;box-shadow:0 6px 14px rgba(244,63,94,.12)">
+              <i class="bi bi-stars me-1"></i>{{ $sweetDealBadge }}
+            </span>
+          @endif
           <span style="background:#fff1f2;color:#be123c;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px">
             {{ $discountBadge }}
           </span>
-          @if(!empty($discount->label))
+          @if($sweetDealNote)
+            <span style="font-size:.7rem;color:#9f1239;font-weight:600">{{ $sweetDealNote }}</span>
+          @elseif(!empty($discount->label))
             <span style="font-size:.7rem;color:var(--gray-500)">{{ $discount->label }}</span>
+          @endif
+          @if($sweetDealQty > 0)
+            <span style="font-size:.68rem;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;padding:.12rem .45rem;border-radius:99px">{{ $sweetDealQty }} deal pcs</span>
           @endif
         </div>
       @elseif(!empty($discount))
@@ -311,6 +324,48 @@
         <div class="col-md-3">
           <label class="form-label">End</label>
           <input type="datetime-local" class="form-control" name="discount_ends_at" value="{{ !empty($discount->ends_at) ? \Carbon\Carbon::parse($discount->ends_at)->format('Y-m-d\TH:i') : '' }}">
+        </div>
+      </div>
+
+      @php
+        $savedSweetBadge = ($discount && property_exists($discount, 'deal_badge_label')) ? (string) ($discount->deal_badge_label ?? '') : '';
+        $sweetBadgeOptions = ["Today's Sweet Deal", "Baker's Pick Deal", "Limited Sweet Deal", "Sweet Saver", "Fresh Pick Promo"];
+      @endphp
+      <div class="mt-3 p-3 rounded-3" style="background:#fff;border:1px solid #fed7aa;box-shadow:0 10px 22px rgba(154,52,18,.05)">
+        <div class="d-flex align-items-start gap-2 mb-3">
+          <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#fb7185,#f97316);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="bi bi-stars"></i>
+          </div>
+          <div>
+            <div style="font-size:.9rem;font-weight:800;color:#7c2d12">Sweet Deal Display</div>
+            <div style="font-size:.74rem;color:var(--gray-500)">Use positive labels for cakes you want to sell faster. Avoid scary expiry wording on the catalog.</div>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Catalog Badge</label>
+            <select class="form-select" name="deal_badge_label">
+              <option value="">Use promo label only</option>
+              @foreach($sweetBadgeOptions as $option)
+                <option value="{{ $option }}" {{ $savedSweetBadge === $option ? 'selected' : '' }}>{{ $option }}</option>
+              @endforeach
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Friendly Note</label>
+            <input type="text" class="form-control" name="deal_note" maxlength="120" value="{{ ($discount && property_exists($discount, 'deal_note')) ? ($discount->deal_note ?? '') : '' }}" placeholder="e.g. Best enjoyed today">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Best Enjoyed By</label>
+            <input type="datetime-local" class="form-control" name="best_enjoyed_by" value="{{ ($discount && property_exists($discount, 'best_enjoyed_by') && !empty($discount->best_enjoyed_by)) ? \Carbon\Carbon::parse($discount->best_enjoyed_by)->format('Y-m-d\TH:i') : '' }}">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Deal Pcs</label>
+            <input type="number" min="0" max="9999" step="1" class="form-control" name="deal_quantity_limit" value="{{ ($discount && property_exists($discount, 'deal_quantity_limit') && $discount->deal_quantity_limit !== null) ? (int) $discount->deal_quantity_limit : '' }}" placeholder="Auto">
+          </div>
+        </div>
+        <div class="mt-2" style="font-size:.72rem;color:#64748b">
+          <i class="bi bi-info-circle me-1"></i>Recommended labels: Today's Sweet Deal, Baker's Pick Deal, Limited Sweet Deal, Save badge from the discount value.
         </div>
       </div>
 

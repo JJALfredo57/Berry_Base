@@ -222,6 +222,11 @@
       $isArchived  = !empty($p->archived_at);
       $latestReview = $reviews[0] ?? null;
       $pricing = $p->discount_snapshot ?? null;
+      $activeDiscount = $p->active_discount ?? null;
+      $sweetDealBadge = ($activeDiscount && property_exists($activeDiscount, 'deal_badge_label')) ? trim((string) ($activeDiscount->deal_badge_label ?? '')) : '';
+      $sweetDealNote = ($activeDiscount && property_exists($activeDiscount, 'deal_note')) ? trim((string) ($activeDiscount->deal_note ?? '')) : '';
+      $sweetDealQty = ($activeDiscount && property_exists($activeDiscount, 'deal_quantity_limit')) ? (int) ($activeDiscount->deal_quantity_limit ?? 0) : 0;
+      $bestEnjoyedBy = ($activeDiscount && property_exists($activeDiscount, 'best_enjoyed_by') && !empty($activeDiscount->best_enjoyed_by)) ? \Carbon\Carbon::parse($activeDiscount->best_enjoyed_by) : null;
       $stockTracked = property_exists($p, 'available_quantity') && $p->available_quantity !== null;
       $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
       $hasStock = !$stockTracked || $stockQty > 0;
@@ -262,6 +267,16 @@
                 style="background:rgba(0,0,0,.55);color:#fbbf24;font-size:clamp(.68rem,1.3vw,.72rem)">
             ★ {{ number_format($avgRating,1) }}
           </span>
+          @endif
+          @if(!empty($pricing['has_discount']) && $sweetDealBadge)
+          <div class="position-absolute start-0 m-2 d-flex flex-column align-items-start gap-1" style="top:2.35rem;z-index:3;max-width:calc(100% - 1rem)">
+            <span class="badge" style="background:linear-gradient(135deg,#fb7185,#f97316);color:#fff;border:1px solid rgba(255,255,255,.65);box-shadow:0 10px 24px rgba(190,18,60,.24);font-size:clamp(.7rem,1.5vw,.78rem);font-weight:800;white-space:normal;text-align:left">
+              <i class="bi bi-stars me-1"></i>{{ $sweetDealBadge }}
+            </span>
+            @if(!empty($pricing['badge_text']))
+              <span class="badge" style="background:rgba(255,255,255,.92);color:#be123c;border:1px solid #fecdd3;font-size:clamp(.66rem,1.3vw,.72rem);font-weight:800">{{ $pricing['badge_text'] }}</span>
+            @endif
+          </div>
           @endif
           {{-- Not Available overlay --}}
           @if(!$isAvailable)
@@ -338,7 +353,20 @@
               @if(!empty($pricing['has_discount']))
                 <div class="text-muted text-decoration-line-through" style="font-size:.85rem">₱{{ number_format($pricing['original_unit_price'],2) }}</div>
                 <span class="fw-bold fs-5" style="color:#dc2626">₱{{ number_format($pricing['final_unit_price'],2) }}</span>
-                <div style="font-size:.8rem;color:#be123c;font-weight:700">{{ $pricing['badge_text'] }}</div>
+                <div style="font-size:.8rem;color:#be123c;font-weight:700">{{ $sweetDealBadge ?: $pricing['badge_text'] }}</div>
+                @if($sweetDealNote || $sweetDealQty > 0 || $bestEnjoyedBy)
+                  <div class="d-flex flex-wrap gap-1 mt-1" style="max-width:220px">
+                    @if($sweetDealNote)
+                      <span class="badge rounded-pill" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-size:.68rem;font-weight:700">{{ $sweetDealNote }}</span>
+                    @endif
+                    @if($sweetDealQty > 0)
+                      <span class="badge rounded-pill" style="background:#f8fafc;color:#475569;border:1px solid #e2e8f0;font-size:.68rem;font-weight:700">{{ $sweetDealQty }} deal pcs</span>
+                    @endif
+                    @if($bestEnjoyedBy)
+                      <span class="badge rounded-pill" style="background:#fff1f2;color:#be123c;border:1px solid #fecdd3;font-size:.68rem;font-weight:700">Until {{ $bestEnjoyedBy->format('M d, g:i A') }}</span>
+                    @endif
+                  </div>
+                @endif
               @else
                 <span class="fw-bold fs-5" style="color:var(--primary)">₱{{ number_format($p->price,2) }}</span>
               @endif

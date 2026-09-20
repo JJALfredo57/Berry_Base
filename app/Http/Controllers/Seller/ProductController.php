@@ -247,11 +247,32 @@ class ProductController extends Controller
         $type = strtolower(trim((string) $request->input('discount_type', 'percent')));
         $value = (float) $request->input('discount_value', 0);
         $label = trim((string) $request->input('discount_label', ''));
+        $dealBadge = trim((string) $request->input('deal_badge_label', ''));
+        $dealNote = trim((string) $request->input('deal_note', ''));
+        $bestEnjoyedBy = $request->input('best_enjoyed_by') ?: null;
+        $dealQuantityLimit = $request->input('deal_quantity_limit');
         $startsAt = $request->input('discount_starts_at') ?: null;
         $endsAt = $request->input('discount_ends_at') ?: null;
+        $allowedDealBadges = [
+            '',
+            'Today\'s Sweet Deal',
+            'Baker\'s Pick Deal',
+            'Limited Sweet Deal',
+            'Sweet Saver',
+            'Fresh Pick Promo',
+        ];
 
         if ($startsAt && $endsAt && strtotime($endsAt) < strtotime($startsAt)) {
             return back()->with('err', 'Discount end date cannot be earlier than the start date.');
+        }
+        if ($bestEnjoyedBy && $startsAt && strtotime($bestEnjoyedBy) < strtotime($startsAt)) {
+            return back()->with('err', 'Best enjoyed date cannot be earlier than the discount start date.');
+        }
+        if (!in_array($dealBadge, $allowedDealBadges, true)) {
+            return back()->with('err', 'Invalid Sweet Deal badge.');
+        }
+        if ($dealQuantityLimit !== null && $dealQuantityLimit !== '' && ((int) $dealQuantityLimit < 0 || (int) $dealQuantityLimit > 9999)) {
+            return back()->with('err', 'Sweet Deal quantity limit must be between 0 and 9999.');
         }
         if ($enabled) {
             if (!in_array($type, ['percent', 'fixed'], true)) {
@@ -267,7 +288,7 @@ class ProductController extends Controller
 
         $existingId = DB::table('product_discounts')->where('product_id', $id)->value('id');
         $payload = [
-            'label'          => $label ?: null,
+            'label'          => $label ?: ($dealBadge ?: null),
             'discount_type'  => $type,
             'discount_value' => $value,
             'starts_at'      => $startsAt ?: null,
@@ -275,6 +296,19 @@ class ProductController extends Controller
             'is_active'      => (bool) $enabled,
             'updated_at'     => now(),
         ];
+
+        if (Schema::hasColumn('product_discounts', 'deal_badge_label')) {
+            $payload['deal_badge_label'] = $dealBadge ?: null;
+        }
+        if (Schema::hasColumn('product_discounts', 'deal_note')) {
+            $payload['deal_note'] = $dealNote ? mb_substr($dealNote, 0, 120) : null;
+        }
+        if (Schema::hasColumn('product_discounts', 'best_enjoyed_by')) {
+            $payload['best_enjoyed_by'] = $bestEnjoyedBy ?: null;
+        }
+        if (Schema::hasColumn('product_discounts', 'deal_quantity_limit')) {
+            $payload['deal_quantity_limit'] = ($dealQuantityLimit === null || $dealQuantityLimit === '') ? null : (int) $dealQuantityLimit;
+        }
 
         if ($existingId) {
             DB::table('product_discounts')->where('id', $existingId)->update($payload);
