@@ -384,9 +384,10 @@
               </div>
             </div>
             <div class="custom-order-actions d-grid gap-2">
-              <button type="button" class="btn btn-outline-primary w-100 py-3 fw-semibold fs-6" onclick="return submitCustomCakeToCart(this)">
+              <button type="button" class="btn btn-outline-primary w-100 py-3 fw-semibold fs-6" id="customAddToCartBtn" onclick="return submitCustomCakeToCart(this)">
                 <i class="bi bi-cart-plus me-2"></i>Add Custom Cake to Cart
               </button>
+              <div class="small text-muted rounded-3 px-3 py-2" id="surpriseDirectOrderNote" style="display:none;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa"><i class="bi bi-info-circle me-1"></i>Surprise delivery must be placed directly so recipient details stay with this order.</div>
               <button type="button" class="btn btn-primary w-100 py-3 fw-semibold fs-5" onclick="return confirmCustomOrder(this)">
                 <i class="bi bi-palette me-2"></i>Place Custom Order
               </button>
@@ -779,15 +780,23 @@ function toggleSurpriseDelivery() {
   if (help) help.innerHTML = enabled
     ? '<i class="bi bi-info-circle me-1"></i>Pin the recipient exact address. This is the location the rider will use for the surprise delivery.'
     : '<i class="bi bi-info-circle me-1"></i>Tap <strong>Detect My Location</strong> or click the map to pin your exact delivery address.';
-  if (enabled) {
-    const gcash = document.getElementById('gcash');
-    if (gcash) gcash.checked = true;
-  }
+  const cod = document.getElementById('cod');
+  const gcash = document.getElementById('gcash');
+  if (cod) cod.disabled = enabled;
+  if (enabled && gcash) gcash.checked = true;
+  const addToCartBtn = document.getElementById('customAddToCartBtn');
+  const directOrderNote = document.getElementById('surpriseDirectOrderNote');
+  if (addToCartBtn) addToCartBtn.style.display = enabled ? 'none' : '';
+  if (directOrderNote) directOrderNote.style.display = enabled ? 'block' : 'none';
   const codLabel = document.getElementById('codLabelText');
   const codHelp = document.getElementById('codHelpText');
   if (enabled) {
     if (codLabel) codLabel.textContent = 'Cash payment disabled for surprise';
     if (codHelp) codHelp.textContent = 'Use GCash so the recipient will not be asked to pay.';
+  } else {
+    const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+    if (codLabel) codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
+    if (codHelp) codHelp.textContent = isDelivery ? 'Pay cash when your order arrives.' : 'Pay cash when you pick up your order.';
   }
 }
 

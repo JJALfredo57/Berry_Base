@@ -1004,15 +1004,19 @@ function toggleSurpriseDelivery() {
     saveAddr.disabled = enabled;
   }
   if (saveWrap) saveWrap.style.display = enabled ? 'none' : '';
-  if (enabled) {
-    const gcash = document.getElementById('gcash');
-    if (gcash) gcash.checked = true;
-  }
+  const cod = document.getElementById('cod');
+  const gcash = document.getElementById('gcash');
+  if (cod) cod.disabled = enabled;
+  if (enabled && gcash) gcash.checked = true;
   const codLabel = document.getElementById('codLabelText');
   const codHelp = document.getElementById('codHelpText');
   if (enabled) {
     if (codLabel) codLabel.textContent = 'Cash payment disabled for surprise';
     if (codHelp) codHelp.textContent = 'Use GCash so the recipient will not be asked to pay.';
+  } else {
+    const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+    if (codLabel) codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
+    if (codHelp) codHelp.textContent = isDelivery ? 'Pay cash when your order arrives.' : 'Pay cash when you pick up your order.';
   }
 }
 
