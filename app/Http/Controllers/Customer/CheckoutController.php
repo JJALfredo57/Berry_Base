@@ -395,6 +395,12 @@ class CheckoutController extends Controller
         if (!$dealCheck['ok']) {
             return back()->with('error', $dealCheck['message'])->withInput();
         }
+        $dealScheduleCheck = $isGroupCheckout
+            ? app(\App\Services\SweetDealService::class)->validateScheduleDateForCartItems($checkoutItems, $sdate)
+            : app(\App\Services\SweetDealService::class)->validateScheduleDateForDirectItem((string) $pid, $pricing, $sdate);
+        if (!$dealScheduleCheck['ok']) {
+            return back()->with('error', $dealScheduleCheck['message'])->withInput();
+        }
 
         $capacity = app(DailyCapacityService::class)->validate($product->shop_id ?? null, $sdate, $qty);
         if (!$capacity['allowed']) {

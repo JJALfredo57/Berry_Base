@@ -31,6 +31,11 @@
   $readyPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($product->shop_id ?? null);
   $readyPrepDays = (int) $readyPrepSettings->ready_made_prep_days;
   $readyMadeEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($product->shop_id ?? null, 'regular')->toDateString();
+  $sweetDealScheduleLimit = $isGroupCheckout
+      ? app(\App\Services\SweetDealService::class)->scheduleLimitForCartItems($regularCheckoutItems)
+      : app(\App\Services\SweetDealService::class)->scheduleLimitForDirectItem((string) ($product->id ?? ''), $pricing);
+  $sweetDealMaxDate = $sweetDealScheduleLimit['date'] ?? null;
+  $sweetDealMaxLabel = $sweetDealScheduleLimit['label'] ?? null;
 @endphp
 @push('styles')
 <style>
@@ -367,9 +372,13 @@ document.body.style.paddingRight = '';
                 <label class="form-label fw-semibold small">Preferred Date</label>
                 <input type="date" class="form-control" name="schedule_date" id="custFieldDate"
                        min="{{ $readyMadeEarliestDate }}"
+                       @if($sweetDealMaxDate) max="{{ $sweetDealMaxDate }}" data-sweet-deal-max-label="{{ $sweetDealMaxLabel }}" @endif
                        onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
                 <div id="custScheduleNotice" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
                 <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date while a time slot is still open.</div>
+                @if($sweetDealMaxLabel)
+                  <div class="form-text" style="color:#be123c"><i class="bi bi-tags me-1"></i>Sweet Deal schedules must be on or before {{ $sweetDealMaxLabel }}.</div>
+                @endif
               </div>
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Preferred Time Slot</label>

@@ -25,6 +25,11 @@
   $readyPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($product->shop_id ?? null);
   $readyPrepDays = (int) $readyPrepSettings->ready_made_prep_days;
   $readyMadeEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($product->shop_id ?? null, 'regular')->toDateString();
+  $sweetDealScheduleLimit = $isGroupCheckout
+      ? app(\App\Services\SweetDealService::class)->scheduleLimitForCartItems($regularCheckoutItems)
+      : app(\App\Services\SweetDealService::class)->scheduleLimitForDirectItem((string) ($product->id ?? ''), $pricing);
+  $sweetDealMaxDate = $sweetDealScheduleLimit['date'] ?? null;
+  $sweetDealMaxLabel = $sweetDealScheduleLimit['label'] ?? null;
 @endphp
 @push('styles')
 <style>
@@ -359,10 +364,14 @@ document.body.style.paddingRight = '';
                     <label class="form-label fw-semibold small">Preferred Date <span class="text-danger">*</span></label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
                            min="{{ $readyMadeEarliestDate }}"
+                           @if($sweetDealMaxDate) max="{{ $sweetDealMaxDate }}" data-sweet-deal-max-label="{{ $sweetDealMaxLabel }}" @endif
                            onchange="cvValidateDate(this);updateRegularScheduleSlots('fieldDate','fieldTime','msgDate')"
                            oninput="cvValidateDate(this)">
                     <div class="cv-msg" id="msgDate"></div>
                     <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred pickup/delivery date while a time slot is still open.</div>
+                    @if($sweetDealMaxLabel)
+                      <div class="form-text" style="color:#be123c"><i class="bi bi-tags me-1"></i>Sweet Deal schedules must be on or before {{ $sweetDealMaxLabel }}.</div>
+                    @endif
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Time Slot <span class="text-danger">*</span></label>

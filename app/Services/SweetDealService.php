@@ -49,6 +49,74 @@ class SweetDealService
         return ['ok' => true];
     }
 
+    public function scheduleLimitForCartItems(iterable $items): ?array
+    {
+        $limits = [];
+        foreach ($this->groupDiscountedCartItems($items) as $productId => $quantity) {
+            $discount = CakeshopHelper::getActiveProductDiscount((string) $productId);
+            if (!$discount || empty($discount->ends_at)) {
+                continue;
+            }
+            $limits[] = [
+                'date' => date('Y-m-d', strtotime((string) $discount->ends_at)),
+                'label' => date('M d, Y', strtotime((string) $discount->ends_at)),
+            ];
+        }
+
+        if (!$limits) {
+            return null;
+        }
+
+        usort($limits, fn ($a, $b) => strcmp($a['date'], $b['date']));
+        return $limits[0];
+    }
+
+    public function scheduleLimitForDirectItem(string $productId, array $pricing): ?array
+    {
+        if (empty($pricing['has_discount'])) {
+            return null;
+        }
+
+        $discount = CakeshopHelper::getActiveProductDiscount($productId);
+        if (!$discount || empty($discount->ends_at)) {
+            return null;
+        }
+
+        return [
+            'date' => date('Y-m-d', strtotime((string) $discount->ends_at)),
+            'label' => date('M d, Y', strtotime((string) $discount->ends_at)),
+        ];
+    }
+
+    public function validateScheduleDateForCartItems(iterable $items, ?string $scheduleDate): array
+    {
+        $limit = $this->scheduleLimitForCartItems($items);
+        return $this->validateScheduleAgainstLimit($limit, $scheduleDate);
+    }
+
+    public function validateScheduleDateForDirectItem(string $productId, array $pricing, ?string $scheduleDate): array
+    {
+        $limit = $this->scheduleLimitForDirectItem($productId, $pricing);
+        return $this->validateScheduleAgainstLimit($limit, $scheduleDate);
+    }
+
+    private function validateScheduleAgainstLimit(?array $limit, ?string $scheduleDate): array
+    {
+        if (!$limit || !$scheduleDate) {
+            return ['ok' => true];
+        }
+
+        $selected = date('Y-m-d', strtotime($scheduleDate));
+        if ($selected > $limit['date']) {
+            return [
+                'ok' => false,
+                'message' => 'Sweet Deal orders must be scheduled on or before ' . $limit['label'] . '.',
+            ];
+        }
+
+        return ['ok' => true];
+    }
+
     public function reserveCartItems(iterable $items): array
     {
         return $this->reserveGrouped($this->groupDiscountedCartItems($items));
