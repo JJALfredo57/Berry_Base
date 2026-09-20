@@ -997,6 +997,12 @@ function toggleSurpriseDelivery() {
   const enabled = isSurpriseDeliverySelected();
   const fields = document.getElementById('surpriseFields');
   if (fields) fields.style.display = enabled ? 'block' : 'none';
+  ['recipientName', 'recipientPhone'].forEach(id => {
+    const field = document.getElementById(id);
+    if (!field) return;
+    field.required = enabled;
+    field.setAttribute('aria-required', enabled ? 'true' : 'false');
+  });
   const saveAddr = document.getElementById('saveAddr');
   const saveWrap = saveAddr?.closest('.form-check');
   if (saveAddr) {
@@ -1022,11 +1028,21 @@ function toggleSurpriseDelivery() {
 
 function validateSurpriseDelivery() {
   if (!isSurpriseDeliverySelected()) return true;
-  const name = document.getElementById('recipientName')?.value?.trim();
-  const phone = document.getElementById('recipientPhone')?.value?.trim();
+  const nameField = document.getElementById('recipientName');
+  const phoneField = document.getElementById('recipientPhone');
+  const name = nameField?.value?.trim();
+  const phone = phoneField?.value?.trim();
   const gcash = document.getElementById('gcash');
-  if (!name || !phone) {
-    alert('Please enter the surprise recipient name and phone number.');
+  if (!name) {
+    alert('Please enter the surprise recipient name before continuing.');
+    nameField?.focus();
+    nameField?.reportValidity?.();
+    return false;
+  }
+  if (!phone) {
+    alert('Please enter the surprise recipient phone number before continuing.');
+    phoneField?.focus();
+    phoneField?.reportValidity?.();
     return false;
   }
   if (gcash && !gcash.checked) {

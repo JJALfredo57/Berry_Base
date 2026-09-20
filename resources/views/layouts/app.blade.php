@@ -5761,6 +5761,8 @@ document.addEventListener('DOMContentLoaded', function () {
   nav.querySelector('[data-wiz-back]').addEventListener('click', function () { showStep(current - 1); });
   nextBtn.addEventListener('click', function () {
     if (!currentValid()) return;
+    var leavingFulfillment = (form.id === 'checkoutForm' || form.id === 'customOrderForm') && titleOf(cards[current]).includes('Fulfillment');
+    if (leavingFulfillment && typeof window.validateSurpriseDelivery === 'function' && !window.validateSurpriseDelivery()) return;
     if (current < cards.length - 1) {
       var leavingPayment = (form.id === 'checkoutForm' || form.id === 'customOrderForm') && titleOf(cards[current]).includes('Payment Method');
       var cashSelected = form.querySelector('[name="payment_method"]:checked')?.value !== 'GCash';
