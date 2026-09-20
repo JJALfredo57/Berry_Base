@@ -52,6 +52,10 @@ class CartController extends Controller
         $qty = max(1, min(99, (int) $request->input('quantity', 1)));
         $stock = app(ProductStockService::class)->validateProductQuantity((string) $item->product_id, $qty);
         if (!$stock['ok']) return back()->with('error', $stock['message']);
+        if ((float) ($item->discount_amount_snapshot ?? 0) > 0) {
+            $dealCheck = app(\App\Services\SweetDealService::class)->validateCartItems([(object) array_merge((array) $item, ['quantity' => $qty])]);
+            if (!$dealCheck['ok']) return back()->with('error', $dealCheck['message']);
+        }
 
         DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->update([
             'quantity' => $qty,
@@ -127,6 +131,11 @@ class CartController extends Controller
             if (!$stock['ok']) {
                 return redirect()->route('cart')->with('error', $stock['message']);
             }
+        }
+
+        $dealCheck = app(\App\Services\SweetDealService::class)->validateCartItems($items);
+        if (!$dealCheck['ok']) {
+            return redirect()->route('cart')->with('error', $dealCheck['message']);
         }
 
         $first = $items->first(function ($item) {

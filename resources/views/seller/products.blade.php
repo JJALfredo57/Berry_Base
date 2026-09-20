@@ -302,10 +302,7 @@
       </div>
 
       <div class="row g-3">
-        <div class="col-md-4">
-          <label class="form-label">Promo Label</label>
-          <input type="text" class="form-control" name="discount_label" value="{{ $discount->label ?? '' }}" placeholder="e.g. Summer Sale">
-        </div>
+        <input type="hidden" name="discount_label" value="">
         <div class="col-md-3">
           <label class="form-label">Discount Type</label>
           <select class="form-select" name="discount_type">
@@ -313,7 +310,7 @@
             <option value="fixed" {{ ($discount->discount_type ?? '') === 'fixed' ? 'selected' : '' }}>Fixed Amount</option>
           </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-3">
           <label class="form-label">Value</label>
           <input type="number" step="0.01" min="0" class="form-control" name="discount_value" value="{{ $discount->discount_value ?? '' }}" placeholder="20">
         </div>
@@ -338,14 +335,14 @@
           </div>
           <div>
             <div style="font-size:.9rem;font-weight:800;color:#7c2d12">Sweet Deal Display</div>
-            <div style="font-size:.74rem;color:var(--gray-500)">Use positive labels for cakes you want to sell faster. Avoid scary expiry wording on the catalog.</div>
+            <div style="font-size:.74rem;color:var(--gray-500)">Choose the one clear badge customers will see on the catalog and cart.</div>
           </div>
         </div>
         <div class="row g-3">
           <div class="col-md-3">
-            <label class="form-label">Catalog Badge</label>
+            <label class="form-label">Customer Badge</label>
             <select class="form-select" name="deal_badge_label">
-              <option value="">Use promo label only</option>
+              <option value="">No special badge</option>
               @foreach($sweetBadgeOptions as $option)
                 <option value="{{ $option }}" {{ $savedSweetBadge === $option ? 'selected' : '' }}>{{ $option }}</option>
               @endforeach
@@ -365,7 +362,7 @@
           </div>
         </div>
         <div class="mt-2" style="font-size:.72rem;color:#64748b">
-          <i class="bi bi-info-circle me-1"></i>Recommended labels: Today's Sweet Deal, Baker's Pick Deal, Limited Sweet Deal, Save badge from the discount value.
+          <i class="bi bi-info-circle me-1"></i>Pick one customer badge, then add a short friendly note only if needed. The save amount still comes from the discount value.
         </div>
       </div>
 

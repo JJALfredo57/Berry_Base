@@ -94,6 +94,8 @@ class CartService
         $unit = CakeshopHelper::resolveProductUnitPrice($product->id, (float) $product->price, $selectedSize);
         $discount = CakeshopHelper::getActiveProductDiscount($product->id);
         $pricing = CakeshopHelper::calculateDiscountSnapshot($unit, $discount);
+        $dealCheck = app(SweetDealService::class)->validateDirectItem($product->id, max(1, $quantity), $pricing);
+        if (!$dealCheck['ok']) return $dealCheck;
 
         $existing = DB::table('customer_cart_items')
             ->where('cart_id', $cart->id)
@@ -106,6 +108,10 @@ class CartService
             $nextQuantity = min(99, (int) $existing->quantity + max(1, $quantity));
             $stock = app(ProductStockService::class)->validateProductQuantity($productId, $nextQuantity);
             if (!$stock['ok']) return ['ok' => false, 'message' => $stock['message']];
+            if ((float) ($existing->discount_amount_snapshot ?? 0) > 0) {
+                $dealCheck = app(SweetDealService::class)->validateCartItems([(object) array_merge((array) $existing, ['quantity' => $nextQuantity])]);
+                if (!$dealCheck['ok']) return $dealCheck;
+            }
 
             DB::table('customer_cart_items')->where('id', $existing->id)->update([
                 'quantity' => $nextQuantity,

@@ -389,6 +389,12 @@ class CheckoutController extends Controller
         $sizePrice = CakeshopHelper::resolveProductUnitPrice($product->id, (float) $product->price, $selectedSize);
         $discount = CakeshopHelper::getActiveProductDiscount($product->id);
         $pricing = CakeshopHelper::calculateDiscountSnapshot($sizePrice, $discount);
+        $dealCheck = $isGroupCheckout
+            ? app(\App\Services\SweetDealService::class)->validateCartItems($checkoutItems)
+            : app(\App\Services\SweetDealService::class)->validateDirectItem((string) $pid, $qty, $pricing);
+        if (!$dealCheck['ok']) {
+            return back()->with('error', $dealCheck['message'])->withInput();
+        }
 
         $capacity = app(DailyCapacityService::class)->validate($product->shop_id ?? null, $sdate, $qty);
         if (!$capacity['allowed']) {
@@ -469,6 +475,13 @@ class CheckoutController extends Controller
                     ->with('warn', $existing['message'] ?? 'Order already placed.');
             }
             return back()->with('error', 'This order is already being processed. Please wait.');
+        }
+
+        $dealReserve = $isGroupCheckout
+            ? app(\App\Services\SweetDealService::class)->reserveCartItems($checkoutItems)
+            : app(\App\Services\SweetDealService::class)->reserveDirectItem((string) $pid, $qty, $pricing);
+        if (!$dealReserve['ok']) {
+            return back()->with('error', $dealReserve['message'])->withInput();
         }
 
         $stockReserve = app(ProductStockService::class)->reserveItems($stockItems);

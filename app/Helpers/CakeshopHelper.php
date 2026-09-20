@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class CakeshopHelper
 {
@@ -162,6 +163,11 @@ class CakeshopHelper
                 })
                 ->where(function ($query) use ($now) {
                     $query->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
+                })
+                ->when(Schema::hasColumn('product_discounts', 'deal_quantity_limit'), function ($query) {
+                    $query->where(function ($q) {
+                        $q->whereNull('deal_quantity_limit')->orWhere('deal_quantity_limit', '>', 0);
+                    });
                 })
                 ->orderByDesc('id')
                 ->get();
