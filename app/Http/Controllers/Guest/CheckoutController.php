@@ -294,11 +294,12 @@ class CheckoutController extends Controller
         $payment       = $request->input('payment_method','COD');
         $selectedSize  = trim($request->input('selected_size', $checkout['selected_size'] ?? ''));
 
-        $scheduleCheck = app(OrderScheduleService::class)->validate($sdate, $stime);
-        if (!$scheduleCheck['ok']) {
-            return back()->with('error', $scheduleCheck['message'])->withInput();
-        }
-        if ($isGroupCheckout || !$hasCustomCheckout) {
+        $requiresRegularFulfillment = $isGroupCheckout || !$hasCustomCheckout;
+        if ($requiresRegularFulfillment) {
+            $scheduleCheck = app(OrderScheduleService::class)->validate($sdate, $stime);
+            if (!$scheduleCheck['ok']) {
+                return back()->with('error', $scheduleCheck['message'])->withInput();
+            }
             $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($product->shop_id ?? null, $sdate, 'regular');
             if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->withInput();
         }

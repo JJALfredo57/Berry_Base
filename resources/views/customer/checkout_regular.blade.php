@@ -2,6 +2,16 @@
 @section('content')
 @php
   $checkoutItems = $checkoutItems ?? collect();
+  $customCheckoutItems = $checkoutItems->filter(function ($item) {
+      $meta = json_decode($item->meta ?? '[]', true) ?: [];
+      return ($meta['cart_type'] ?? '') === 'custom_cake';
+  })->values();
+  $regularCheckoutItems = $checkoutItems->reject(function ($item) {
+      $meta = json_decode($item->meta ?? '[]', true) ?: [];
+      return ($meta['cart_type'] ?? '') === 'custom_cake';
+  })->values();
+  $hasCustomCheckout = $customCheckoutItems->isNotEmpty();
+  $hasRegularFulfillment = !$checkoutItems->count() || $regularCheckoutItems->isNotEmpty();
   $isGroupCheckout = $checkoutItems->count() > 0;
   $originalSubtotal = $isGroupCheckout
       ? $checkoutItems->sum(fn($item) => (float)$item->unit_price_snapshot * (int)$item->quantity)
@@ -168,6 +178,42 @@ document.body.style.paddingRight = '';
         <div class="card mb-3">
           <div class="card-body p-4">
             <h6 class="fw-bold mb-3"><i class="bi bi-truck me-2" style="color:var(--primary)"></i>Fulfillment</h6>
+            @if($hasCustomCheckout)
+              <div class="mb-3 d-grid gap-2">
+                @foreach($customCheckoutItems as $customItem)
+                  @php
+                    $customMeta = json_decode($customItem->meta ?? '[]', true) ?: [];
+                    $holdExpires = !empty($customMeta['fulfillment_hold_expires_at']) ? \Carbon\Carbon::parse($customMeta['fulfillment_hold_expires_at'], config('app.timezone')) : null;
+                    $holdActive = $holdExpires && $holdExpires->gt(now(config('app.timezone')));
+                  @endphp
+                  <div class="p-3 rounded-3" style="background:#fff7fb;border:1px solid #fce7f3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                      <div>
+                        <div class="fw-bold small" style="color:var(--primary)"><i class="bi bi-lock-fill me-1"></i>Custom cake schedule {{ $holdActive ? 'locked' : 'needs update' }}</div>
+                        <div class="text-muted small mt-1">{{ $customItem->product_name }} x{{ $customItem->quantity }}</div>
+                      </div>
+                      <span class="badge {{ $holdActive ? 'text-bg-success' : 'text-bg-danger' }}">{{ $holdActive ? 'Hold active' : 'Expired' }}</span>
+                    </div>
+                    <div class="row g-2 mt-2 small">
+                      <div class="col-sm-6"><i class="bi bi-calendar-event me-1"></i>{{ $customMeta['schedule_date'] ?? 'No date saved' }}</div>
+                      <div class="col-sm-6"><i class="bi bi-clock me-1"></i>{{ $customMeta['time_slot'] ?? 'No time slot saved' }}</div>
+                      <div class="col-sm-6"><i class="bi bi-bag-check me-1"></i>{{ $customMeta['fulfillment_type'] ?? 'Pickup' }}</div>
+                      @if(($customMeta['fulfillment_type'] ?? 'Pickup') === 'Delivery')
+                        <div class="col-sm-6"><i class="bi bi-geo-alt me-1"></i>{{ $customMeta['address'] ?? 'Address saved with custom request' }}</div>
+                      @endif
+                    </div>
+                    <div class="text-muted mt-2" style="font-size:.78rem">
+                      @if($holdActive)
+                        This saved date and time will be used for the custom cake. You can update fulfillment after the hold expires.
+                      @else
+                        Schedule hold expired. Please return to the cart and update fulfillment before checkout.
+                      @endif
+                    </div>
+                  </div>
+                @endforeach
+              </div>
+            @endif
+            @if($hasRegularFulfillment)
             <div class="d-flex gap-3 mb-3">
               <div class="form-check">
                 <input class="form-check-input" type="radio" name="fulfillment_type" value="Pickup" id="pickup" checked onchange="toggleDelivery()">
@@ -292,6 +338,7 @@ document.body.style.paddingRight = '';
                 </select>
               </div>
             </div>
+            @endif
           </div>
         </div>
 
