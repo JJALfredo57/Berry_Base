@@ -18,6 +18,16 @@
     .cart-dialog-card{width:min(420px,100%);background:#fff;border-radius:14px;box-shadow:0 24px 70px rgba(15,23,42,.28);border:1px solid #f1f5f9;overflow:hidden;animation:cartDialogIn .16s ease-out}
     .cart-dialog-body{padding:1.15rem}
     .cart-dialog-icon{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff0f5;color:var(--primary);font-size:1.2rem;flex-shrink:0}
+    .custom-hold-wrap{margin-top:.55rem;padding:.6rem .7rem;border-radius:10px;background:#fff;border:1px solid #fce7f3}
+    .custom-hold-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;font-size:.78rem;color:#6b7280;margin-bottom:.4rem}
+    .custom-hold-bar{height:8px;border-radius:999px;background:#f3f4f6;overflow:hidden;box-shadow:inset 0 1px 2px rgba(15,23,42,.08)}
+    .custom-hold-fill{height:100%;width:100%;border-radius:inherit;background:linear-gradient(90deg,var(--primary),#f472b6);transition:width .45s ease,background .2s ease}
+    .custom-hold-wrap.expired{border-color:#fecaca;background:#fffafa}
+    .custom-hold-wrap.expired .custom-hold-fill{background:#ef4444}
+    .custom-hold-info{border:0;background:transparent;color:var(--primary);padding:0;line-height:1}
+    .custom-hold-tip{position:relative;display:inline-flex}
+    .custom-hold-tip:hover::after,.custom-hold-tip:focus-within::after{content:attr(data-tip);position:absolute;right:0;bottom:calc(100% + 8px);width:min(280px,76vw);background:#111827;color:#fff;border-radius:8px;padding:.55rem .65rem;font-size:.75rem;line-height:1.3;box-shadow:0 12px 30px rgba(15,23,42,.25);z-index:10}
+    @media(max-width:575.98px){.custom-hold-head{align-items:flex-start;flex-direction:column;gap:.35rem}.custom-hold-tip:hover::after,.custom-hold-tip:focus-within::after{left:0;right:auto}}
     @keyframes cartDialogIn{from{transform:translateY(8px) scale(.98);opacity:.6}to{transform:none;opacity:1}}
     @media(max-width:575.98px){.cart-group-list::before{left:28px}.cart-group-dot{left:23px}.cart-item-img{width:68px!important;height:68px!important}}
   </style>
@@ -97,6 +107,21 @@
                           &bull; {{ $cartMeta['fulfillment_type'] ?? 'Pickup' }}
                         </div>
                         <div class="small text-muted">Seller capacity will be checked again before checkout submits this request.</div>
+                        @if(!empty($cartMeta['fulfillment_hold_expires_at']))
+                          <div class="custom-hold-wrap" data-custom-hold data-hold-expires="{{ $cartMeta['fulfillment_hold_expires_at'] }}" data-hold-minutes="{{ (int)($cartMeta['fulfillment_hold_minutes'] ?? 15) }}">
+                            <div class="custom-hold-head">
+                              <span><i class="bi bi-hourglass-split me-1"></i><strong data-hold-label>Schedule hold active</strong></span>
+                              <span class="custom-hold-tip" data-tip="This timer temporarily keeps your selected custom cake date and time. When it expires, update fulfillment to recheck seller availability.">
+                                <button type="button" class="custom-hold-info" aria-label="What is this timer?"><i class="bi bi-info-circle"></i></button>
+                              </span>
+                            </div>
+                            <div class="custom-hold-bar"><div class="custom-hold-fill" data-hold-fill></div></div>
+                            <div class="small mt-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                              <span class="text-muted" data-hold-text>Calculating hold time...</span>
+                              <a class="btn btn-outline-primary btn-sm py-1 px-2 d-none" data-hold-update href="{{ route('customer.custom_order', ['shop_slug' => $cartMeta['shop_slug'] ?? null]) }}">Update fulfillment</a>
+                            </div>
+                          </div>
+                        @endif
                       </div>
                     @endif
                     <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
@@ -244,7 +269,41 @@ function cartQtyStep(formId, removeFormId, delta, productName) {
   input.value = Math.max(1, Math.min(next, max));
   form.submit();
 }
+
+function refreshCustomHoldTimers() {
+  const now = Date.now();
+  document.querySelectorAll('[data-custom-hold]').forEach(box => {
+    const expiresRaw = box.dataset.holdExpires || '';
+    const holdMinutes = Math.max(1, parseInt(box.dataset.holdMinutes || '15', 10) || 15);
+    const expires = Date.parse(expiresRaw.replace(' ', 'T'));
+    const fill = box.querySelector('[data-hold-fill]');
+    const text = box.querySelector('[data-hold-text]');
+    const label = box.querySelector('[data-hold-label]');
+    const update = box.querySelector('[data-hold-update]');
+    if (!expires || Number.isNaN(expires)) return;
+    const totalMs = holdMinutes * 60 * 1000;
+    const remaining = Math.max(0, expires - now);
+    const pct = Math.max(0, Math.min(100, (remaining / totalMs) * 100));
+    if (fill) fill.style.width = pct + '%';
+    if (remaining <= 0) {
+      box.classList.add('expired');
+      if (label) label.textContent = 'Schedule hold expired';
+      if (text) text.textContent = 'Update fulfillment to recheck custom cake availability.';
+      if (update) update.classList.remove('d-none');
+      return;
+    }
+    box.classList.remove('expired');
+    if (update) update.classList.add('d-none');
+    const minutes = Math.floor(remaining / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    if (label) label.textContent = 'Schedule hold active';
+    if (text) text.textContent = minutes + ':' + String(seconds).padStart(2, '0') + ' schedule hold left';
+  });
+}
 document.addEventListener('DOMContentLoaded', function () {
+  refreshCustomHoldTimers();
+  setInterval(refreshCustomHoldTimers, 1000);
+
   function money(value) {
     return 'PHP ' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }

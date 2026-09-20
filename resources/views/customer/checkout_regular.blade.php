@@ -18,6 +18,9 @@
   $maxRedeemPercent = (float) ($loyaltySettings['max_redemption_percent'] ?? 50);
   $earnBaseAmount = (float) ($loyaltySettings['points_base_amount'] ?? 50);
   $requiresVerifiedToRedeem = (bool) ($loyaltySettings['redemption_requires_verified'] ?? true);
+  $readyPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($product->shop_id ?? null);
+  $readyPrepDays = (int) $readyPrepSettings->ready_made_prep_days;
+  $readyMadeEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($product->shop_id ?? null, 'regular')->toDateString();
 @endphp
 @push('styles')
 <style>
@@ -272,7 +275,7 @@ document.body.style.paddingRight = '';
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Preferred Date</label>
                 <input type="date" class="form-control" name="schedule_date" id="custFieldDate"
-                       min="{{ date('Y-m-d') }}"
+                       min="{{ $readyMadeEarliestDate }}"
                        onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
                 <div id="custScheduleNotice" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
                 <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date while a time slot is still open.</div>

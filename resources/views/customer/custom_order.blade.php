@@ -1,5 +1,10 @@
 @extends('layouts.app')
 @section('content')
+@php
+  $customPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($targetShop->id ?? null);
+  $customPrepDays = (int) $customPrepSettings->custom_cake_prep_days;
+  $customEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($targetShop->id ?? null, 'custom')->toDateString();
+@endphp
 <div class="container-fluid py-4">
   <div class="row justify-content-center">
     <div class="col-lg-10">
@@ -313,11 +318,11 @@
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Date</label>
                     <input type="date" class="form-control" name="schedule_date" id="custCoFieldDate"
-                           min="{{ \Carbon\Carbon::now('Asia/Manila')->addDay()->toDateString() }}"
-                           value="{{ old('schedule_date', \Carbon\Carbon::now('Asia/Manila')->addDay()->toDateString()) }}"
+                           min="{{ $customEarliestDate }}"
+                           value="{{ old('schedule_date', $customEarliestDate) }}"
                            onchange="checkCustCoAvailability()">
                     <div id="custCoAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
-                    <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least 2–3 days for preparation.</div>
+                    <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least {{ $customPrepDays }} preparation day{{ $customPrepDays === 1 ? '' : 's' }}.</div>
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Time Slot</label>

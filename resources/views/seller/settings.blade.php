@@ -335,6 +335,37 @@
               <div class="form-text">0 = use default</div>
             </div>
             <div class="col-12">
+              <div class="p-3 rounded-3" style="background:#fff7fb;border:1px solid #fce7f3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                  <i class="bi bi-hourglass-split" style="color:var(--primary)"></i>
+                  <div>
+                    <div class="fw-semibold">Preparation & Hold Rules</div>
+                    <div class="text-muted" style="font-size:.82rem">Controls the earliest preferred date and how long a custom schedule is held in cart.</div>
+                  </div>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label fw-semibold">Ready-made Prep Days</label>
+                    <input type="number" min="0" max="30" class="form-control" name="ready_made_prep_days"
+                           value="{{ old('ready_made_prep_days', $shopSettings->ready_made_prep_days ?? 0) }}">
+                    <div class="form-text">Default 0. Same-day is allowed if the shop is still open.</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label fw-semibold">Custom Cake Prep Days</label>
+                    <input type="number" min="0" max="30" class="form-control" name="custom_cake_prep_days"
+                           value="{{ old('custom_cake_prep_days', $shopSettings->custom_cake_prep_days ?? 3) }}">
+                    <div class="form-text">Default 3. Used for custom preferred dates and review deadline.</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label fw-semibold">Cart Hold Minutes</label>
+                    <input type="number" min="1" max="120" class="form-control" name="custom_cart_hold_minutes"
+                           value="{{ old('custom_cart_hold_minutes', $shopSettings->custom_cart_hold_minutes ?? 15) }}">
+                    <div class="form-text">Default 15. Customer must refresh fulfillment after expiry.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12">
               <div id="capacityPreview" style="font-size:.82rem;color:var(--gray-600);background:var(--gray-50);border-radius:var(--radius-sm);padding:.6rem 1rem"></div>
             </div>
           </div>

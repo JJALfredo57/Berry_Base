@@ -179,6 +179,12 @@ class CartService
         $payload['shop_slug'] = $shop->shop_slug ?? null;
         $payload['shop_name'] = $shop->shop_name ?? null;
         $payload['quantity'] = $qty;
+        $prep = app(PreparationWindowService::class);
+        $prepSettings = $prep->settings($shop->id ?? null);
+        $payload['fulfillment_hold_expires_at'] = $prep->holdUntil($shop->id ?? null)->toDateTimeString();
+        $payload['fulfillment_hold_minutes'] = (int) $prepSettings->custom_cart_hold_minutes;
+        $payload['seller_review_deadline_at'] = optional($prep->reviewDeadline($shop->id ?? null, $payload['schedule_date'] ?? null))->toDateTimeString();
+        $payload['custom_prep_days'] = (int) $prepSettings->custom_cake_prep_days;
 
         DB::table('customer_cart_items')->insert([
             'cart_id' => $cart->id,

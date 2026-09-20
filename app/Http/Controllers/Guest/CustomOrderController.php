@@ -316,8 +316,8 @@ class CustomOrderController extends Controller
             return back()->with('error', 'Please select your preferred date.')->withInput();
         }
 
-        if ($sdate && $sdate <= date('Y-m-d'))
-            return back()->with('error', 'Preferred date must be at least tomorrow. Custom cakes require preparation time — same-day orders are not accepted.')->withInput();
+        $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($shopId, $sdate, 'custom');
+        if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->withInput();
 
         $capacity = app(DailyCapacityService::class)->validate($shopId, $sdate, $qty);
         if (!$capacity['allowed']) {
@@ -562,7 +562,8 @@ class CustomOrderController extends Controller
         if ($flavor === '') return ['ok' => false, 'message' => 'Please select a cake flavor.'];
         if ($sizeLabel === '') return ['ok' => false, 'message' => 'Please select a cake size.'];
         if (!$sdate) return ['ok' => false, 'message' => 'Please select your preferred date.'];
-        if ($sdate <= date('Y-m-d')) return ['ok' => false, 'message' => 'Preferred date must be at least tomorrow. Custom cakes require preparation time.'];
+        $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($shopId, $sdate, 'custom');
+        if (!$prepDate['ok']) return ['ok' => false, 'message' => $prepDate['message']];
 
         $capacity = app(DailyCapacityService::class)->validate($shopId, $sdate, $qty);
         if (!$capacity['allowed']) return ['ok' => false, 'message' => $capacity['message']];

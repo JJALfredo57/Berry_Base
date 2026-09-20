@@ -298,6 +298,10 @@ class CheckoutController extends Controller
         if (!$scheduleCheck['ok']) {
             return back()->with('error', $scheduleCheck['message'])->withInput();
         }
+        if ($isGroupCheckout || !$hasCustomCheckout) {
+            $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($product->shop_id ?? null, $sdate, 'regular');
+            if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->withInput();
+        }
 
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null))
             return back()->with('error','Please pin your location on the map.')->withInput();
@@ -388,6 +392,11 @@ class CheckoutController extends Controller
 
         foreach ($customCheckoutItems as $customItem) {
             $meta = json_decode($customItem->meta ?? '[]', true) ?: [];
+            $prep = app(\App\Services\PreparationWindowService::class);
+            $hold = $prep->validateCustomHold($meta);
+            if (!$hold['ok']) return back()->with('error', $hold['message'])->withInput();
+            $prepDate = $prep->validateDate($customItem->shop_id ?? ($meta['shop_id'] ?? null), $meta['schedule_date'] ?? null, 'custom');
+            if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->withInput();
             $capacity = app(DailyCapacityService::class)->validate($customItem->shop_id ?? ($meta['shop_id'] ?? null), $meta['schedule_date'] ?? null, max(1, (int) $customItem->quantity));
             if (!$capacity['allowed']) return back()->with('error', $capacity['message'])->withInput();
         }

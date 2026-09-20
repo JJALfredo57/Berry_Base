@@ -93,12 +93,16 @@ class SettingsController extends Controller
             'lead_1day_max'      => max(0, (int)$request->input('lead_1day_max', 0)),
             'lead_2day_max'      => max(0, (int)$request->input('lead_2day_max', 0)),
             'lead_3day_plus_max' => max(0, (int)$request->input('lead_3day_plus_max', 0)),
+            'ready_made_prep_days' => min(30, max(0, (int)$request->input('ready_made_prep_days', 0))),
+            'custom_cake_prep_days' => min(30, max(0, (int)$request->input('custom_cake_prep_days', 3))),
+            'custom_cart_hold_minutes' => min(120, max(1, (int)$request->input('custom_cart_hold_minutes', 15))),
         ]);
         return redirect()->to(route('seller.settings').'?tab=capacity')->with('msg', 'Daily capacity settings saved!');
     }
 
     private function upsertSettings(string $shopId, array $data): void
     {
+        $data = array_filter($data, fn ($value, $column) => Schema::hasColumn('site_settings', $column), ARRAY_FILTER_USE_BOTH);
         $data['updated_at'] = now();
         DB::table('site_settings')->updateOrInsert(['shop_id' => $shopId], $data);
     }

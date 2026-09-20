@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\CakeshopHelper;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CustomCartOrderService
 {
@@ -27,6 +28,11 @@ class CustomCartOrderService
         $shopId = $item->shop_id ?? ($meta['shop_id'] ?? null);
         $qty = max(1, (int) ($item->quantity ?? ($meta['quantity'] ?? 1)));
         $date = $meta['schedule_date'] ?? null;
+        $prep = app(PreparationWindowService::class);
+        $hold = $prep->validateCustomHold($meta);
+        if (!$hold['ok']) return ['ok' => false, 'message' => $hold['message']];
+        $prepDate = $prep->validateDate($shopId, $date, 'custom');
+        if (!$prepDate['ok']) return ['ok' => false, 'message' => $prepDate['message']];
         $capacity = app(DailyCapacityService::class)->validate($shopId, $date, $qty);
         if (!$capacity['allowed']) return ['ok' => false, 'message' => $capacity['message']];
 
@@ -86,7 +92,7 @@ class CustomCartOrderService
             'created_at' => now(),
         ]);
 
-        DB::table('custom_orders')->insert([
+        $customOrderRow = [
             'id' => CakeshopHelper::generateId('custom_orders'),
             'order_id' => $oid,
             'shop_id' => $shopId,
@@ -105,8 +111,12 @@ class CustomCartOrderService
             'estimated_price' => $total,
             'price_breakdown' => json_encode($breakdown ?: ['total' => $total, 'quantity' => $qty]),
             'review_status' => 'pending',
+            'review_deadline_at' => $meta['seller_review_deadline_at'] ?? optional($prep->reviewDeadline($shopId, $date))->toDateTimeString(),
+            'review_deadline_status' => 'active',
             'created_at' => now(),
-        ]);
+        ];
+        $customOrderRow = array_filter($customOrderRow, fn ($value, $column) => Schema::hasColumn('custom_orders', $column), ARRAY_FILTER_USE_BOTH);
+        DB::table('custom_orders')->insert($customOrderRow);
 
         foreach ($addons as $addon) {
             DB::table('order_addons')->insert([
@@ -135,7 +145,8 @@ class CustomCartOrderService
         ]);
 
         $customerName = $context['guest_name'] ?? $context['customer_name'] ?? 'Customer';
-        $notifMsg = "{$customerName} submitted a custom cake request from cart.";
+        $deadlineText = !empty($meta['seller_review_deadline_at']) ? ' Review before ' . date('M d, Y h:i A', strtotime($meta['seller_review_deadline_at'])) . '.' : '';
+        $notifMsg = "{$customerName} submitted a custom cake request from cart." . $deadlineText;
         DB::table('notifications')->insert([
             'receiver_role' => 'admin',
             'receiver_user_id' => null,

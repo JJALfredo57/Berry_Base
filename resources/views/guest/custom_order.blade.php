@@ -1,5 +1,10 @@
 @extends('layouts.app')
 @section('content')
+@php
+  $customPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($targetShop->id ?? null);
+  $customPrepDays = (int) $customPrepSettings->custom_cake_prep_days;
+  $customEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($targetShop->id ?? null, 'custom')->toDateString();
+@endphp
 <div class="container-fluid py-4" style="padding-left:clamp(12px,3vw,32px);padding-right:clamp(12px,3vw,32px)">
 
       <div class="d-flex align-items-center gap-3 mb-4">
@@ -329,13 +334,13 @@
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Date</label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
-                           min="{{ date('Y-m-d', strtotime('+1 day')) }}"
-                           value="{{ old('schedule_date', date('Y-m-d', strtotime('+1 day'))) }}"
+                           min="{{ $customEarliestDate }}"
+                           value="{{ old('schedule_date', $customEarliestDate) }}"
                            onchange="cvValidateDate(this);checkCoGuestAvailability()"
                            oninput="cvValidateDate(this)">
                     <div class="cv-msg" id="msgDate"></div>
                     <div id="coGuestAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
-                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred delivery or pickup date. Custom cakes need at least 2–3 days for preparation.</div>
+                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred delivery or pickup date. Custom cakes need at least {{ $customPrepDays }} preparation day{{ $customPrepDays === 1 ? '' : 's' }}.</div>
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Time Slot</label>

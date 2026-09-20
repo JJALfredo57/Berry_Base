@@ -12,6 +12,9 @@
   $productDiscountTotal = $isGroupCheckout
       ? $checkoutItems->sum(fn($item) => (float)$item->discount_amount_snapshot * (int)$item->quantity)
       : $pricing['discount_amount'] * $checkout['quantity'];
+  $readyPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($product->shop_id ?? null);
+  $readyPrepDays = (int) $readyPrepSettings->ready_made_prep_days;
+  $readyMadeEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($product->shop_id ?? null, 'regular')->toDateString();
 @endphp
 @push('styles')
 <style>
@@ -309,7 +312,7 @@ document.body.style.paddingRight = '';
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Date <span class="text-danger">*</span></label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
-                           min="{{ date('Y-m-d') }}"
+                           min="{{ $readyMadeEarliestDate }}"
                            onchange="cvValidateDate(this);updateRegularScheduleSlots('fieldDate','fieldTime','msgDate')"
                            oninput="cvValidateDate(this)">
                     <div class="cv-msg" id="msgDate"></div>
