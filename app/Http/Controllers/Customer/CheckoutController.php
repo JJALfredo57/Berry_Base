@@ -286,7 +286,7 @@ class CheckoutController extends Controller
             $note = $noteCount > 0 ? "Grouped order: {$noteCount} item note" . ($noteCount > 1 ? 's' : '') : null;
         }
 
-        // Ã¢â€â‚¬Ã¢â€â‚¬ DUPLICATE PREVENTION Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+        //  DUPLICATE PREVENTION
         $recentDuplicate = DB::table('orders')
             ->where('user_id', $uid)->where('product_id', $pid)
             ->whereIn('status', ['Pending', 'Awaiting Deposit'])
@@ -331,7 +331,7 @@ class CheckoutController extends Controller
         }
 
         if ($fulfillment === 'Delivery' && $lat !== null && $lng !== null) {
-            // Ã¢â€â‚¬Ã¢â€â‚¬ Coverage validation Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+            //  Coverage validation
             $hasPinnedZones = DB::table('delivery_zones')
                 ->where('shop_id', $product->shop_id)
                 ->where('is_active', true)
@@ -347,7 +347,7 @@ class CheckoutController extends Controller
                 $zone = $nearestZone->barangay ?? $zone;
             }
 
-            // Ã¢â€â‚¬Ã¢â€â‚¬ Recalculate fee server-side (prevent tampering) Ã¢â€â‚¬
+            //  Recalculate fee server-side (prevent tampering)
             $settings = DB::table('site_settings')->where('shop_id', $product->shop_id)->first();
             if ($settings && $settings->shop_lat && $settings->shop_lng) {
                 $dist        = $this->haversine($lat, $lng, (float)$settings->shop_lat, (float)$settings->shop_lng);
@@ -430,7 +430,7 @@ class CheckoutController extends Controller
             return back()->with('error', $capacity['message']);
         }
 
-        // Ã¢â€â‚¬Ã¢â€â‚¬ Daily capacity check Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+        //  Daily capacity check
         if ($sdate) {
             $shopId   = $product->shop_id ?? null;
             $settings = $shopId ? DB::table('site_settings')->where('shop_id', $shopId)->first() : null;
@@ -752,7 +752,7 @@ class CheckoutController extends Controller
             return redirect()->route('customer.pay_gcash', ['order_id' => $oid]);
         }
 
-        // COD / Pickup Ã¢â‚¬â€ require deposit before seller sees the order
+        // COD / Pickup  require deposit before seller sees the order
         if ($submitKey) {
             Cache::put($submitKey . ':result', [
                 'route' => 'customer.pay_deposit',

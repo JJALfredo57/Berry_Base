@@ -230,7 +230,7 @@ class OrderController extends Controller
 
         // Picked Up requires settled payment; Cash on Pickup is settled during pickup confirmation.
         if ($newStatus === 'Picked Up' && $order->payment_status !== 'Paid' && !$isCashPickup) {
-            return back()->with('err', 'Cannot mark as Picked Up ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â customer still has an unpaid balance. Payment must be completed first.');
+            return back()->with('err', 'Cannot mark as Picked Up ‚‚ customer still has an unpaid balance. Payment must be completed first.');
         }
 
         $upd = [
@@ -278,7 +278,7 @@ class OrderController extends Controller
             Log::warning('Seller order status push failed: ' . $e->getMessage());
         }
 
-        // SMS + in-app notification ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â send only for actionable statuses
+        // SMS + in-app notification ‚‚ send only for actionable statuses
         try {
             $siteName  = config('app.name', 'Cake Shop');
             $shopName  = SmsHelper::getShopName($shop->id ?? null);

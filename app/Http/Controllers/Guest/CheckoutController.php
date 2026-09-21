@@ -599,7 +599,7 @@ class CheckoutController extends Controller
 
         DB::table('notifications')->insert([
             'receiver_role'    => 'admin', 'receiver_user_id' => null,
-            'title'            => 'Ã°Å¸â€ºÂÃ¯Â¸Â New Order from '.$guestName,
+            'title'            => ' New Order from '.$guestName,
             'message'          => "{$guestName} ({$phone}) placed Order #{$oid}.",
             'is_read' => false, 'created_at' => now(),
         ]);
@@ -658,7 +658,7 @@ class CheckoutController extends Controller
                 "{$header}\n"
                 . "Hi {$guestName}! Your order has been received.\n\n"
                 . "Order No.: #{$oid}{$shopLine}\n"
-                . "Action Required: Pay Ã¢â€šÂ±" . number_format($depositAmount, 2) . " deposit via GCash to confirm your order.\n\n"
+                . "Action Required: Pay " . number_format($depositAmount, 2) . " deposit via GCash to confirm your order.\n\n"
                 . "Your Tracking Code: {$trackCode}\n"
                 . "Track your order and pay the deposit on our website.";
             $customerTitle = 'Deposit Required';
@@ -686,8 +686,8 @@ class CheckoutController extends Controller
         );
 
         $successMsg = $needsDeposit
-            ? 'Order placed! Ã°Å¸Å½â€š Please pay your 50% deposit below to confirm your order.'
-            : 'Order placed! We\'ll contact you soon to confirm. Ã°Å¸Å½â€š';
+            ? 'Order placed!  Please pay your 50% deposit below to confirm your order.'
+            : 'Order placed! We\'ll contact you soon to confirm. ';
 
         if ($submitKey) {
             Cache::put($submitKey . ':result', [

@@ -246,6 +246,6 @@ class KitchenController extends Controller
             return $this->update($fakeRequest, $ticket->id);
         }
 
-        return back()->with('msg', "Rider assigned and order marked as done! âœ…");
+        return back()->with('msg', "Rider assigned and order marked as done! ");
     }
 }

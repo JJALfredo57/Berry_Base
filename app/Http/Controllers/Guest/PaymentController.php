@@ -43,7 +43,7 @@ class PaymentController extends Controller
         $amountCentavos = (int) round((float) $order->total_price * 100);
         if ($amountCentavos < 10000) {
             return redirect()->route('track.order', $trackCode)
-                ->with('error', 'Minimum GCash payment is â‚±100.00.');
+                ->with('error', 'Minimum GCash payment is 100.00.');
         }
 
         $mobileParam = $this->mobileReturnParam();
@@ -64,7 +64,7 @@ class PaymentController extends Controller
                     'line_items' => [[
                         'currency' => 'PHP',
                         'amount'   => $amountCentavos,
-                        'name'     => $order->product_name . ' â€” Order #' . $order->id,
+                        'name'     => $order->product_name . '  Order #' . $order->id,
                         'quantity' => 1,
                     ]],
                     'payment_method_types' => $this->getPaymongoCheckoutMethods(),
@@ -173,7 +173,7 @@ class PaymentController extends Controller
 
         // Validate: must be at least 50% and at most 100%
         if ($depositAmount < $minDeposit) {
-            return back()->with('error', 'Minimum deposit is 50% of total (â‚±' . number_format($minDeposit, 2) . ').');
+            return back()->with('error', 'Minimum deposit is 50% of total (' . number_format($minDeposit, 2) . ').');
         }
         if ($depositAmount > $maxDeposit) {
             return back()->with('error', 'Payment cannot exceed the order total (PHP ' . number_format($maxDeposit, 2) . ').');
@@ -194,8 +194,8 @@ class PaymentController extends Controller
                 'order_id'   => $order->id,
                 'status'     => $order->status,
                 'notes'      => $isFullPayment
-                    ? "Customer chose to pay full amount â‚±{$depositAmount} via GCash (PayMongo)."
-                    : "Customer set deposit of â‚±{$depositAmount} via GCash (min 50%).",
+                    ? "Customer chose to pay full amount {$depositAmount} via GCash (PayMongo)."
+                    : "Customer set deposit of {$depositAmount} via GCash (min 50%).",
                 'created_at' => now(),
             ]);
         } catch (\Exception $e) {}
@@ -228,7 +228,7 @@ class PaymentController extends Controller
 
         $amountCentavos = (int) round((float) $order->deposit_amount * 100);
         if ($amountCentavos < 10000)
-            return redirect()->route('track.order', $trackCode)->with('error', 'Minimum GCash payment is â‚±100.00.');
+            return redirect()->route('track.order', $trackCode)->with('error', 'Minimum GCash payment is 100.00.');
 
         $mobileParam = $this->mobileReturnParam();
         $successUrl = url('/track/' . $trackCode . '/deposit-return?status=success' . $mobileParam);
@@ -246,7 +246,7 @@ class PaymentController extends Controller
                     'line_items' => [[
                         'currency' => 'PHP',
                         'amount'   => $amountCentavos,
-                        'name'     => 'Deposit â€” ' . $order->product_name . ' (Order #' . $order->id . ')',
+                        'name'     => 'Deposit  ' . $order->product_name . ' (Order #' . $order->id . ')',
                         'quantity' => 1,
                     ]],
                     'payment_method_types' => $this->getPaymongoCheckoutMethods(),
@@ -315,7 +315,7 @@ class PaymentController extends Controller
         if ($urlStatus === 'cancelled')
             return redirect()->route('track.order', $trackCode)->with('error', 'Deposit payment cancelled. You can try again.');
 
-        // Idempotency â€” already paid, just send to kitchen if not yet done
+        // Idempotency  already paid, just send to kitchen if not yet done
         if ($order->deposit_status === 'paid') {
             if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
                 $this->sendToKitchen($order);
@@ -363,7 +363,7 @@ class PaymentController extends Controller
         if (!$paymentConfirmed)
             return redirect()->route('track.order', $trackCode)->with('error', 'Payment could not be confirmed. Please contact the shop if payment was deducted.');
 
-        // â”€â”€ Mark deposit as paid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Mark deposit as paid
         $isFullPayment = abs((float)$order->deposit_amount - (float)$order->total_price) < 0.01;
         DB::table('orders')->where('id', $order->id)->update([
             'deposit_status'  => 'paid',
@@ -391,12 +391,12 @@ class PaymentController extends Controller
             DB::table('order_tracking')->insert([
                 'order_id'   => $order->id,
                 'status'     => 'Deposit Paid',
-                'notes'      => 'Deposit of â‚±' . number_format($order->deposit_amount, 2) . ' paid via GCash.',
+                'notes'      => 'Deposit of ' . number_format($order->deposit_amount, 2) . ' paid via GCash.',
                 'created_at' => now(),
             ]);
         } catch (\Exception $e) {}
 
-        // â”€â”€ Move 'Awaiting Deposit' â†’ 'Pending' so seller can confirm â”€â”€
+        //  Move 'Awaiting Deposit'  'Pending' so seller can confirm
         if ($order->status === 'Awaiting Deposit') {
             DB::table('orders')->where('id', $order->id)->update(['status' => 'Pending']);
             try {
@@ -409,7 +409,7 @@ class PaymentController extends Controller
             } catch (\Exception $e) {}
         }
 
-        // â”€â”€ Auto-confirm custom orders already in pending state â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Auto-confirm custom orders already in pending state
         if (in_array($order->status, ['Pending', 'Pending Review'])) {
             DB::table('orders')->where('id', $order->id)->update(['status' => 'Confirmed']);
             try {
@@ -422,7 +422,7 @@ class PaymentController extends Controller
             } catch (\Exception $e) {}
         }
 
-        // â”€â”€ Send to kitchen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Send to kitchen
         if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
             // Reload order so product_name is fresh after potential join issue
             $freshOrder = DB::table('orders as o')
@@ -433,7 +433,7 @@ class PaymentController extends Controller
             $this->sendToKitchen($freshOrder ?? $order, $isFullPayment);
         }
 
-        // â”€â”€ Notify admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Notify admin
         try {
             DB::table('notifications')->insert([
                 'receiver_role'    => 'admin',
@@ -445,7 +445,7 @@ class PaymentController extends Controller
             ]);
         } catch (\Exception $e) {}
 
-        // â”€â”€ SMS to customer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  SMS to customer
         try {
             $guestPhone = $order->guest_phone ?? null;
             if ($guestPhone) {
@@ -473,7 +473,7 @@ class PaymentController extends Controller
             }
         } catch (\Exception $e) {}
 
-        // â”€â”€ Return receipt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Return receipt
         $receipt = DB::table('orders as o')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.id', $order->id)
@@ -497,7 +497,7 @@ class PaymentController extends Controller
         try {
             $addons    = DB::table('order_addons')->where('order_id', $order->id)->get();
             $addonList = $addons->count() > 0
-                ? "\nADD-ONS:\n" . $addons->map(fn($a) => '  â€¢ ' . $a->addon_name . ($a->addon_price > 0 ? ' (+â‚±' . $a->addon_price . ')' : ' (FREE)'))->implode("\n")
+                ? "\nADD-ONS:\n" . $addons->map(fn($a) => '   ' . $a->addon_name . ($a->addon_price > 0 ? ' (+' . $a->addon_price . ')' : ' (FREE)'))->implode("\n")
                 : '';
 
             $productName = $order->product_name ?? DB::table('products')->where('id', $order->product_id)->value('name') ?? 'Custom Cake';
@@ -571,7 +571,7 @@ class PaymentController extends Controller
         $amountCentavos = (int) round($payAmount * 100);
         if ($amountCentavos < 10000)
             return redirect()->route('track.order', $trackCode)
-                ->with('error', 'Minimum GCash payment is â‚±100.00.');
+                ->with('error', 'Minimum GCash payment is 100.00.');
 
         $label      = $depositPaid ? 'Remaining Balance' : 'Full Payment';
         $mobileParam = $this->mobileReturnParam();
@@ -586,7 +586,7 @@ class PaymentController extends Controller
                     'line_items' => [[
                         'currency' => 'PHP',
                         'amount'   => $amountCentavos,
-                        'name'     => "{$label} â€” {$order->product_name} (Order #{$order->id})",
+                        'name'     => "{$label}  {$order->product_name} (Order #{$order->id})",
                         'quantity' => 1,
                     ]],
                     'payment_method_types' => $this->getPaymongoCheckoutMethods(),
@@ -709,7 +709,7 @@ class PaymentController extends Controller
                 Log::warning('Guest remaining payment push failed: ' . $e->getMessage());
             }
 
-            // â”€â”€ AUTO CONFIRM + SEND TO KITCHEN (remaining balance paid) â”€
+            //  AUTO CONFIRM + SEND TO KITCHEN (remaining balance paid)
             if (in_array($order->status, ['Pending', 'Pending Review'])) {
                 DB::table('orders')->where('id', $order->id)->update(['status' => 'Confirmed']);
                 DB::table('order_tracking')->insert([
@@ -722,7 +722,7 @@ class PaymentController extends Controller
                 if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
                     $addons = DB::table('order_addons')->where('order_id', $order->id)->get();
                     $addonList = $addons->count() > 0
-                        ? "\nADD-ONS:\n" . $addons->map(fn($a) => "  â€¢ {$a->addon_name}" . ($a->addon_price > 0 ? " (+â‚±{$a->addon_price})" : " (FREE)"))->implode("\n")
+                        ? "\nADD-ONS:\n" . $addons->map(fn($a) => "   {$a->addon_name}" . ($a->addon_price > 0 ? " (+{$a->addon_price})" : " (FREE)"))->implode("\n")
                         : '';
                     $productName = $order->product_name ?? DB::table('products')->where('id', $order->product_id)->value('name') ?? 'Custom Cake';
                     $fullname    = $order->guest_name ?? DB::table('users')->where('id', $order->user_id)->value('fullname') ?? 'Guest';
@@ -737,7 +737,7 @@ class PaymentController extends Controller
                         'product_name' => $productName,
                         'product_image'=> $order->product_image ?? null,
                         'quantity'     => $order->quantity ?? 1,
-                        'instructions' => "=== KITCHEN ORDER TICKET ===\nOrder #: {$order->id}\nCustomer: {$fullname}" . ($phone ? " ({$phone})" : '') . "\nProduct: {$productName}\nQty: {$order->quantity}{$sizeInfo}{$noteInfo}{$addonList}\nFulfillment: {$order->fulfillment_type}\nPayment: GCash âœ“ Fully Paid\n===========================",
+                        'instructions' => "=== KITCHEN ORDER TICKET ===\nOrder #: {$order->id}\nCustomer: {$fullname}" . ($phone ? " ({$phone})" : '') . "\nProduct: {$productName}\nQty: {$order->quantity}{$sizeInfo}{$noteInfo}{$addonList}\nFulfillment: {$order->fulfillment_type}\nPayment: GCash  Fully Paid\n===========================",
                         'status'       => 'pending',
                         'sent_at'      => now()->format('Y-m-d H:i:s'),
                         'created_at'   => now(),
@@ -746,7 +746,7 @@ class PaymentController extends Controller
                     DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => true]);
                 }
             }
-            // â”€â”€ END AUTO CONFIRM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            //  END AUTO CONFIRM
 
             DB::table('notifications')->insert([
                 'receiver_role'    => 'admin',
@@ -1022,7 +1022,7 @@ class PaymentController extends Controller
                 Log::warning('Guest full payment push failed: ' . $e->getMessage());
             }
 
-            // â”€â”€ AUTO CONFIRM + SEND TO KITCHEN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            //  AUTO CONFIRM + SEND TO KITCHEN
             // Only auto-confirm if order is still Pending/Pending Review
             if (in_array($order->status, ['Pending', 'Pending Review'])) {
 
@@ -1042,7 +1042,7 @@ class PaymentController extends Controller
                 if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
                     $addons    = DB::table('order_addons')->where('order_id', $order->id)->get();
                     $addonList = $addons->count() > 0
-                        ? "\nADD-ONS:\n" . $addons->map(fn($a) => "  â€¢ {$a->addon_name}" . ($a->addon_price > 0 ? " (+â‚±{$a->addon_price})" : " (FREE)"))->implode("\n")
+                        ? "\nADD-ONS:\n" . $addons->map(fn($a) => "   {$a->addon_name}" . ($a->addon_price > 0 ? " (+{$a->addon_price})" : " (FREE)"))->implode("\n")
                         : '';
 
                     $sizeInfo  = $order->selected_size ? "\nSIZE: {$order->selected_size}" : '';
@@ -1063,7 +1063,7 @@ class PaymentController extends Controller
                         "Qty: {$order->quantity}" .
                         $sizeInfo . $noteInfo . $addonList . $schedInfo .
                         "\nFulfillment: {$order->fulfillment_type}" .
-                        "\nPayment: GCash âœ“ Paid" .
+                        "\nPayment: GCash  Paid" .
                         "\n===========================";
 
                     DB::table('kitchen_tickets')->where('order_id', $order->id)->delete();
@@ -1083,7 +1083,7 @@ class PaymentController extends Controller
                     DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => true]);
                 }
             }
-            // â”€â”€ END AUTO CONFIRM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            //  END AUTO CONFIRM
 
             DB::table('notifications')->insert([
                 'receiver_role'    => 'admin',
@@ -1429,10 +1429,10 @@ class PaymentController extends Controller
         $digits = preg_replace('/\D/', '', (string) $phone);
         // Normalize PH numbers for PayMongo's hosted phone field.
         if (strlen($digits) === 12 && substr($digits, 0, 2) === '63') {
-            $digits = substr($digits, 2); // strip 63 â†’ 9XXXXXXXXX
+            $digits = substr($digits, 2); // strip 63  9XXXXXXXXX
         }
         if (strlen($digits) === 11 && substr($digits, 0, 1) === '0') {
-            $digits = substr($digits, 1); // strip leading 0 â†’ 9XXXXXXXXX
+            $digits = substr($digits, 1); // strip leading 0  9XXXXXXXXX
         }
         // The hosted checkout prepends +63, so only pass the national number.
         if (strlen($digits) === 10 && substr($digits, 0, 1) === '9') {
@@ -1442,7 +1442,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Customer custom order â€” GCash deposit via PayMongo
+     * Customer custom order  GCash deposit via PayMongo
      */
     public function payCustomDeposit(string $coId)
     {
@@ -1482,14 +1482,14 @@ class PaymentController extends Controller
                 'line_items'   => [[
                     'currency'   => 'PHP',
                     'amount'     => $amountCentavos,
-                    'name'       => 'Custom Order #' . $order->id . ' â€” Deposit',
+                    'name'       => 'Custom Order #' . $order->id . '  Deposit',
                     'quantity'   => 1,
                 ]],
                 'payment_method_types' => $this->getPaymongoCheckoutMethods(),
                 'pass_on_fees' => true,
                 'success_url'  => $successUrl,
                 'cancel_url'   => $cancelUrl,
-                'description'  => 'Custom Cake Deposit â€” Order #' . $order->id,
+                'description'  => 'Custom Cake Deposit  Order #' . $order->id,
             ]]
         ];
 
@@ -1537,7 +1537,7 @@ class PaymentController extends Controller
         if (!$order) abort(404);
 
         if ($order->deposit_status === 'paid')
-            return redirect()->route('customer.orders')->with('msg', 'Deposit already paid! âœ…');
+            return redirect()->route('customer.orders')->with('msg', 'Deposit already paid! ');
 
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
         if (!$order->deposit_paymongo_id || !$secretKey)
@@ -1601,7 +1601,7 @@ class PaymentController extends Controller
             // Send to kitchen
             $addons    = DB::table('order_addons')->where('order_id', $order->id)->get();
             $addonList = $addons->count() > 0
-                ? "\nADD-ONS:\n" . $addons->map(fn($a) => "  â€¢ {$a->addon_name}" . ($a->addon_price > 0 ? " (+â‚±{$a->addon_price})" : " (FREE)"))->implode("\n")
+                ? "\nADD-ONS:\n" . $addons->map(fn($a) => "   {$a->addon_name}" . ($a->addon_price > 0 ? " (+{$a->addon_price})" : " (FREE)"))->implode("\n")
                 : '';
             $fullname    = DB::table('users')->where('id', $uid)->value('fullname') ?? 'Customer';
             $phone       = DB::table('users')->where('id', $uid)->value('phone') ?? '';
@@ -1609,7 +1609,7 @@ class PaymentController extends Controller
             $sizeInfo    = $order->selected_size ? "\nSIZE: {$order->selected_size}" : '';
             $noteInfo    = $order->custom_note   ? "\nSPECIAL NOTE: {$order->custom_note}" : '';
             $schedInfo   = $order->schedule_date ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) : '';
-            $payInfo     = $isFullPayment ? "GCash Full â‚±{$order->deposit_amount} âœ“ Fully Paid" : "GCash Deposit â‚±{$order->deposit_amount} âœ“ Paid (Balance remaining)";
+            $payInfo     = $isFullPayment ? "GCash Full {$order->deposit_amount}  Fully Paid" : "GCash Deposit {$order->deposit_amount}  Paid (Balance remaining)";
 
             if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
                 DB::table('kitchen_tickets')->where('order_id', $order->id)->delete();

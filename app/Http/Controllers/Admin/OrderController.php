@@ -124,7 +124,7 @@ class OrderController extends Controller
         return back()->with('msg', "Phone {$order->phone} unblocked.");
     }
 
-    /** Admin confirms order â€” only allowed after deposit is paid */
+    /** Admin confirms order  only allowed after deposit is paid */
     public function confirmOrder(Request $request, string $id)
     {
         $user  = session('user');
@@ -142,7 +142,7 @@ class OrderController extends Controller
             return back()->with('err', 'Order is already confirmed or processed.');
 
         if ($order->deposit_required && $order->deposit_status !== 'paid')
-            return back()->with('err', 'Cannot confirm â€” deposit has not been paid yet.');
+            return back()->with('err', 'Cannot confirm  deposit has not been paid yet.');
 
         DB::table('orders')->where('id', $id)->update(['status' => 'Confirmed']);
         DB::table('order_tracking')->insert([
@@ -154,7 +154,7 @@ class OrderController extends Controller
 
         if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) $this->doSendToKitchen($id, $order, $user);
 
-        // No SMS on Confirmed â€” customer already got the order placed SMS
+        // No SMS on Confirmed  customer already got the order placed SMS
 
         CakeshopHelper::logActivity($user['id'], 'admin', 'Confirm Order', "Order #{$id}");
         $confirmMsg = app(OrderTypeService::class)->requiresKitchen($order)
@@ -225,7 +225,7 @@ class OrderController extends Controller
         DB::table('order_tracking')->insert([
             'order_id'   => $id,
             'status'     => 'Awaiting Deposit',
-            'notes'      => "Admin requested deposit of â‚±{$amount}.",
+            'notes'      => "Admin requested deposit of {$amount}.",
             'created_at' => now(),
         ]);
 
@@ -258,14 +258,14 @@ class OrderController extends Controller
         DB::table('notifications')->insert([
             'receiver_role'    => 'admin',
             'receiver_user_id' => null,
-            'title'            => "Deposit Requested â€” Order #{$id}",
-            'message'          => "Deposit of â‚±{$amount} requested from " . ($order->guest_name ?? 'Guest') . ".",
+            'title'            => "Deposit Requested  Order #{$id}",
+            'message'          => "Deposit of {$amount} requested from " . ($order->guest_name ?? 'Guest') . ".",
             'is_read' => false,
             'created_at'       => now(),
         ]);
 
-        CakeshopHelper::logActivity($user['id'], 'admin', 'Request Deposit', "Order #{$id} â€” â‚±{$amount}");
-        return back()->with('msg', "Deposit request sent! SMS delivered to customer. âœ…");
+        CakeshopHelper::logActivity($user['id'], 'admin', 'Request Deposit', "Order #{$id}  {$amount}");
+        return back()->with('msg', "Deposit request sent! SMS delivered to customer. ");
     }
 
     public function updateStatus(Request $request, string $id)
@@ -278,13 +278,13 @@ class OrderController extends Controller
 
         $isPickup = $order->fulfillment_type === 'Pickup';
 
-        // â”€â”€ Allowed statuses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Allowed statuses
         $allowed = ['Pending','Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery',
                     'Delivered','Picked Up','Cancelled'];
         if (!in_array($status, $allowed))
             return redirect()->route('admin.orders.index')->with('err', 'Invalid status.');
 
-        // â”€â”€ Waterfall: Pickup vs Delivery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Waterfall: Pickup vs Delivery
         $waterfall = [
             'Pending'          => ['Confirmed','Cancelled'],
             'Pending Review'   => ['Confirmed','Cancelled'],
@@ -303,7 +303,7 @@ class OrderController extends Controller
             return redirect()->route('admin.orders.index')
                 ->with('err', "Cannot change status from '{$current}' to '{$status}'.");
 
-        // â”€â”€ Block admin from marking Delivery orders as Delivered â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Block admin from marking Delivery orders as Delivered
         // Only the rider can mark Delivery orders as Delivered via rider page
         if ($status === 'Delivered' && !$isPickup)
             return back()->with('err', 'Delivery orders can only be marked as Delivered by the rider.');
@@ -311,9 +311,9 @@ class OrderController extends Controller
         if (in_array($status, $finalStatuses)
             && $order->payment_method === 'GCash'
             && $order->payment_status !== 'Paid')
-            return back()->with('err', "Cannot mark as {$status} â€” GCash payment is not yet completed.");
+            return back()->with('err', "Cannot mark as {$status}  GCash payment is not yet completed.");
 
-        // â”€â”€ Build update â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Build update
         $upd = ['status' => $status];
         if (in_array($status, $finalStatuses)) {
             $upd['delivered_at']     = now()->format('Y-m-d H:i:s');
@@ -342,11 +342,11 @@ class OrderController extends Controller
             'created_at' => now(),
         ]);
 
-        // â”€â”€ Auto-send to kitchen when Confirmed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Auto-send to kitchen when Confirmed
         if ($status === 'Confirmed' && !$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order))
             $this->doSendToKitchen($id, $order, $user);
 
-        // â”€â”€ Generate rider token + SMS when Out for Delivery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //  Generate rider token + SMS when Out for Delivery
         if ($status === 'Out for Delivery' && $order->fulfillment_type === 'Delivery') {
             $token = bin2hex(random_bytes(16));
             DB::table('orders')->where('id',$id)->update(['rider_token' => $token]);
@@ -389,7 +389,7 @@ class OrderController extends Controller
             }
         }
 
-        // â”€â”€ SMS to guest (no account) â€” send only for actionable statuses â”€â”€â”€
+        //  SMS to guest (no account)  send only for actionable statuses
         $guestPhone = $order->guest_phone ?? null;
         if ($guestPhone) {
             $siteName  = config('app.name', 'Cake Shop');
@@ -416,7 +416,7 @@ class OrderController extends Controller
             }
         }
 
-        // â”€â”€ Notify registered customer â€” send only for actionable statuses â”€
+        //  Notify registered customer  send only for actionable statuses
         $custId = $order->user_id ?? null;
         if ($custId) {
             $siteName  = config('app.name', 'Cake Shop');
@@ -428,8 +428,8 @@ class OrderController extends Controller
             $notifMessages = [
                 'Confirmed'        => "Your order #{$id} has been confirmed! We'll start preparing it soon.",
                 'Preparing'        => "Your order #{$id} is now being prepared.",
-                'Out for Delivery' => "Your order #{$id} is on its way! ðŸš´ Our rider is heading to your location.",
-                'Pickup'           => "Your order #{$id} is ready for pickup! ðŸŽ‚",
+                'Out for Delivery' => "Your order #{$id} is on its way!  Our rider is heading to your location.",
+                'Pickup'           => "Your order #{$id} is ready for pickup! ",
                 'Delivered'        => "Your order #{$id} has been delivered. Enjoy!",
                 'Picked Up'        => "Your order #{$id} has been picked up. Enjoy!",
                 'Cancelled'        => "Your order #{$id} has been cancelled.",
@@ -443,10 +443,10 @@ class OrderController extends Controller
                 'created_at'       => now(),
             ]);
 
-            // SMS â€” send only for actionable statuses
+            // SMS  send only for actionable statuses
             $smsCustMessages = [
-                'Out for Delivery' => "{$header}\nHi {$custName}! ðŸš´ Your order is on its way!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Out for Delivery\n\nOur rider is now heading to your location. Please make sure someone is available to receive your order.",
-                'Pickup'           => "{$header}\nHi {$custName}! ðŸŽ‚ Your order is ready!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Ready for Pickup\n\nYour cake is now ready for pickup. Please visit our shop at your earliest convenience.",
+                'Out for Delivery' => "{$header}\nHi {$custName}!  Your order is on its way!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Out for Delivery\n\nOur rider is now heading to your location. Please make sure someone is available to receive your order.",
+                'Pickup'           => "{$header}\nHi {$custName}!  Your order is ready!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Ready for Pickup\n\nYour cake is now ready for pickup. Please visit our shop at your earliest convenience.",
                 'Cancelled'        => "{$header}\nHi {$custName}, your order has been cancelled.\n\nOrder No.: #{$id}{$shopLine}\nStatus: Cancelled\n\nIf you have questions or concerns, please contact us through our shop page. We hope to serve you again soon.",
             ];
             $custPhone = DB::table('users')->where('id', $custId)->value('phone');
@@ -462,7 +462,7 @@ class OrderController extends Controller
                 DB::table('notifications')->insert([
                     'receiver_role'    => 'customer',
                     'receiver_user_id' => $custId,
-                    'title'            => 'â­ Rate Your Order #' . $id,
+                    'title'            => ' Rate Your Order #' . $id,
                     'message'          => "How was your cake? Please leave a rating for Order #{$id}!",
                     'is_read' => false,
                     'created_at'       => now(),
@@ -479,7 +479,7 @@ class OrderController extends Controller
     {
         $addons    = DB::table('order_addons')->where('order_id', $id)->get();
         $addonList = $addons->count() > 0
-            ? "\nADD-ONS:\n" . $addons->map(fn($a) => "  â€¢ {$a->addon_name}" . ($a->addon_price > 0 ? " (+â‚±{$a->addon_price})" : " (FREE)"))->implode("\n")
+            ? "\nADD-ONS:\n" . $addons->map(fn($a) => "   {$a->addon_name}" . ($a->addon_price > 0 ? " (+{$a->addon_price})" : " (FREE)"))->implode("\n")
             : '';
 
         $sizeInfo  = $order->selected_size ? "\nSIZE: {$order->selected_size}" : '';
@@ -606,7 +606,7 @@ class OrderController extends Controller
         DB::table('notifications')->insert([
             'receiver_role'    => 'customer',
             'receiver_user_id' => $order->user_id,
-            'title'            => 'Cancel Approved â€” Order #' . $id,
+            'title'            => 'Cancel Approved  Order #' . $id,
             'message'          => "Your cancel request for Order #{$id} was approved. {$adminNote}",
             'is_read' => false,
             'created_at'       => now(),
@@ -668,7 +668,7 @@ class OrderController extends Controller
         DB::table('notifications')->insert([
             'receiver_role'    => 'customer',
             'receiver_user_id' => $order->user_id,
-            'title'            => 'âŒ Cancel Rejected â€” Order #' . $id,
+            'title'            => ' Cancel Rejected  Order #' . $id,
             'message'          => "Your cancel request for Order #{$id} was rejected. Reason: {$adminNote}",
             'is_read' => false,
             'created_at'       => now(),
@@ -677,7 +677,7 @@ class OrderController extends Controller
             'order_id'    => $id,
             'sender_role' => 'admin',
             'sender_id'   => $user['id'],
-            'message'     => "âŒ Cancel request rejected.\n\nReason: {$adminNote}",
+            'message'     => " Cancel request rejected.\n\nReason: {$adminNote}",
             'is_read' => false,
             'created_at'  => now(),
         ]);

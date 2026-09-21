@@ -12,13 +12,13 @@
       <h4 class="fw-bold mb-0"><i class="bi bi-bag-check me-2" style="color:var(--primary)"></i>Orders</h4>
       <p class="text-muted small mb-0" id="ordersCountLabel">{{ $orders->total() }} total orders
         @if($pendingCancelCount > 0)
-          &nbsp;Â·&nbsp;<span class="badge bg-danger">{{ $pendingCancelCount }} cancel request{{ $pendingCancelCount > 1 ? 's' : '' }}</span>
+          &nbsp;&nbsp;<span class="badge bg-danger">{{ $pendingCancelCount }} cancel request{{ $pendingCancelCount > 1 ? 's' : '' }}</span>
         @endif
       </p>
     </div>
     <div class="cs-search-bar" style="flex:1;min-width:0;max-width:280px">
       <input type="text" id="searchInput" class="form-control form-control-sm"
-             placeholder="Search customer, order IDâ€¦"
+             placeholder="Search customer, order ID"
              value="{{ $search }}"
              oninput="pgSearch(this.value)">
     </div>
@@ -50,7 +50,7 @@
 
   {{-- Status filter tabs --}}
   <div class="d-flex gap-2 flex-wrap mb-3" id="filterTabs">
-    @foreach(['All'=>'All','Pending'=>'â³ Pending','Confirmed'=>'âœ… Confirmed','Preparing'=>'ðŸ³ Preparing','Ready for Rider'=>'ðŸš´ Ready for Rider','Out for Delivery'=>'ðŸš´ Out for Delivery','Pickup'=>'ðŸª Ready for Pickup','Delivered'=>'ðŸ  Delivered','Picked Up'=>'ðŸŽ‚ Picked Up','Cancelled'=>'âŒ Cancelled','Cancel Requests'=>'ðŸš¨ Cancel Requests'] as $val=>$lbl)
+    @foreach(['All'=>'All','Pending'=>' Pending','Confirmed'=>' Confirmed','Preparing'=>' Preparing','Ready for Rider'=>' Ready for Rider','Out for Delivery'=>' Out for Delivery','Pickup'=>' Ready for Pickup','Delivered'=>' Delivered','Picked Up'=>' Picked Up','Cancelled'=>' Cancelled','Cancel Requests'=>' Cancel Requests'] as $val=>$lbl)
     @php $isActive = ($status === $val) || ($val === 'All' && $status === 'All'); @endphp
     <a href="{{ url()->current() }}?status={{ urlencode($val) }}&search={{ urlencode($search) }}"
        class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }}">{{ $lbl }}
@@ -89,7 +89,7 @@
                style="background:#fee2e2;border-radius:1.1rem 1.1rem 0 0">
             <div class="d-flex align-items-center gap-2">
               <i class="bi bi-exclamation-triangle-fill text-danger"></i>
-              <strong class="small text-danger">Cancel Request â€” needs your action!</strong>
+              <strong class="small text-danger">Cancel Request  needs your action!</strong>
             </div>
             <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelReviewModal{{ $o->id }}">
               <i class="bi bi-eye me-1"></i>Review Request
@@ -131,7 +131,7 @@
               @endif
               <div>
                 <div class="fw-bold">{{ $o->product_name }}
-                  <span class="text-muted fw-normal small">Ã—{{ $o->quantity }}</span>
+                  <span class="text-muted fw-normal small">{{ $o->quantity }}</span>
                 </div>
                 <div class="small text-muted">
                   <i class="bi bi-person me-1"></i><strong>{{ $o->fullname }}</strong>
@@ -140,7 +140,7 @@
                   @else
                     (@<span>{{ $o->username }}</span>)
                   @endif
-                  &nbsp;Â·&nbsp;
+                  &nbsp;&nbsp;
                   <i class="bi bi-phone me-1"></i>
                   @if($o->phone)
                     <a href="tel:{{ $o->phone }}" class="text-decoration-none text-muted">{{ $o->phone }}</a>
@@ -175,7 +175,7 @@
                 @endif
                 <div class="small text-muted">
                   <i class="bi bi-hash"></i>{{ $o->id }}
-                  &nbsp;Â·&nbsp;{{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y g:i A') }}
+                  &nbsp;&nbsp;{{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y g:i A') }}
                 </div>
               </div>
             </div>
@@ -185,7 +185,7 @@
                 <i class="bi bi-{{ $o->fulfillment_type === 'Pickup' ? 'shop' : 'truck' }} me-1"></i>{{ $o->fulfillment_type }} @if(!empty($o->is_surprise_delivery)) <span class="badge bg-warning text-dark ms-1"><i class="bi bi-gift me-1"></i>Surprise</span> @endif
               </span><br>
               <span class="status-badge status-{{ str_replace(' ','-',$o->status) }}">{{ $o->status }}</span>
-              <div class="fw-bold mt-1 fs-6">â‚±{{ number_format($o->total_price,2) }}</div>
+              <div class="fw-bold mt-1 fs-6">{{ number_format($o->total_price,2) }}</div>
               @if($isCancelledOrder)
               <div class="small" style="color:#991b1b">
                 <i class="bi bi-x-circle-fill me-1"></i>
@@ -201,10 +201,10 @@
               </div>
               @elseif($o->deposit_required && $o->deposit_status === 'paid')
               <div class="small" style="color:#16a34a">
-                <i class="bi bi-check-circle-fill me-1"></i>Deposit: â‚±{{ number_format($o->deposit_amount,2) }}
+                <i class="bi bi-check-circle-fill me-1"></i>Deposit: {{ number_format($o->deposit_amount,2) }}
               </div>
               <div class="small" style="color:#9a3412">
-                Remaining: â‚±{{ number_format($o->total_price - $o->deposit_amount,2) }}
+                Remaining: {{ number_format($o->total_price - $o->deposit_amount,2) }}
               </div>
               @endif
               <div class="small text-muted">
@@ -220,10 +220,10 @@
           {{-- Add-ons --}}
           @if(isset($orderAddons[$o->id]) && count($orderAddons[$o->id]) > 0)
           <div class="px-3 py-2 small" style="background:#fff5f8;border-top:1px dashed #f9a8d4">
-            <span class="fw-semibold me-2" style="color:var(--primary)">ðŸŽ¨ Add-ons:</span>
+            <span class="fw-semibold me-2" style="color:var(--primary)"> Add-ons:</span>
             @foreach($orderAddons[$o->id] as $oa)
               <span class="badge me-1" style="background:#fff0f5;color:var(--primary);font-size:clamp(.68rem,1.3vw,.72rem)">
-                {{ $oa->addon_name }}{{ $oa->addon_price > 0 ? ' +â‚±'.number_format($oa->addon_price,2) : ' FREE' }}
+                {{ $oa->addon_name }}{{ $oa->addon_price > 0 ? ' +'.number_format($oa->addon_price,2) : ' FREE' }}
               </span>
             @endforeach
           </div>
@@ -267,7 +267,7 @@
             <form action="{{ route('admin.orders.assign_rider', $o->id) }}" method="POST" class="d-flex gap-1 ms-auto">
               @csrf
               <select name="rider_id" class="form-select form-select-sm" style="min-width:140px">
-                <option value="">â€” Unassign â€”</option>
+                <option value=""> Unassign </option>
                 @foreach($riders as $r)
                 <option value="{{ $r->id }}" {{ $o->rider_id == $r->id ? 'selected' : '' }}>{{ $r->name }}</option>
                 @endforeach
@@ -282,9 +282,9 @@
           <div class="px-3 py-3" style="background:#fff5f5;border-top:2px solid #fecaca">
             <div class="d-flex align-items-center gap-2 mb-2">
               <span style="font-size:clamp(.95rem,2.5vw,1.2rem)">
-                @if($o->issue_type==='damaged') ðŸŽ‚ðŸ’”
-                @elseif($o->issue_type==='not_home') ðŸ âŒ
-                @else âš ï¸ @endif
+                @if($o->issue_type==='damaged')
+                @elseif($o->issue_type==='not_home')  
+                @else  @endif
               </span>
               <strong class="text-danger small">
                 @if($o->issue_type==='damaged') Damaged Cake
@@ -294,11 +294,11 @@
               @if($o->issue_status === 'pending')
                 <span class="badge bg-danger ms-auto">Needs Action</span>
               @elseif($o->issue_status === 'rider_liable')
-                <span class="badge bg-warning text-dark ms-auto">Rider Liable â‚±{{ number_format($o->issue_amount,2) }}</span>
+                <span class="badge bg-warning text-dark ms-auto">Rider Liable {{ number_format($o->issue_amount,2) }}</span>
               @elseif($o->issue_status === 'shop_liable')
                 <span class="badge bg-info text-dark ms-auto">Shop Liable</span>
               @elseif($o->issue_status === 'settled')
-                <span class="badge bg-success ms-auto">Settled âœ“</span>
+                <span class="badge bg-success ms-auto">Settled </span>
               @endif
             </div>
             @if($o->issue_note)<p class="small text-muted mb-2">{{ $o->issue_note }}</p>@endif
@@ -308,7 +308,7 @@
             @if($o->resolution_type)
             <div class="small mb-2 p-2 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0">
               <strong>Resolution:</strong> {{ ucfirst(str_replace('_',' ',$o->resolution_type)) }}
-              @if($o->resolution_note) â€” {{ $o->resolution_note }}@endif
+              @if($o->resolution_note)  {{ $o->resolution_note }}@endif
             </div>
             @endif
             @if(in_array($o->issue_status, ['pending','rider_liable','shop_liable']))
@@ -329,7 +329,7 @@
             <div class="modal-dialog modal-dialog-centered" style="max-width:440px">
               <div class="modal-content border-0" style="border-radius:1.2rem;overflow:hidden">
                 <div class="modal-header border-0 pt-4 px-4">
-                  <h5 class="modal-title fw-bold">Resolve Issue â€” Order #{{ $o->id }}</h5>
+                  <h5 class="modal-title fw-bold">Resolve Issue  Order #{{ $o->id }}</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form action="{{ route('admin.orders.resolve_issue', $o->id) }}" method="POST">
@@ -340,27 +340,27 @@
                       <div class="d-flex gap-2">
                         <div class="form-check">
                           <input class="form-check-input" type="radio" name="liability" value="rider_liable" id="rl{{ $o->id }}" required>
-                          <label class="form-check-label" for="rl{{ $o->id }}">ðŸš´ Rider's Fault</label>
+                          <label class="form-check-label" for="rl{{ $o->id }}"> Rider's Fault</label>
                         </div>
                         <div class="form-check">
                           <input class="form-check-input" type="radio" name="liability" value="shop_liable" id="sl{{ $o->id }}">
-                          <label class="form-check-label" for="sl{{ $o->id }}">ðŸª Shop's Fault</label>
+                          <label class="form-check-label" for="sl{{ $o->id }}"> Shop's Fault</label>
                         </div>
                       </div>
                     </div>
                     <div class="mb-3" id="amountRow{{ $o->id }}">
-                      <label class="form-label fw-semibold small">Rider Liable Amount (â‚±)</label>
+                      <label class="form-label fw-semibold small">Rider Liable Amount ()</label>
                       <input type="number" class="form-control" name="issue_amount" step="0.01" min="0" max="{{ $o->total_price }}" value="{{ $o->total_price }}">
-                      <div class="form-text">Total order: â‚±{{ number_format($o->total_price,2) }}</div>
+                      <div class="form-text">Total order: {{ number_format($o->total_price,2) }}</div>
                     </div>
                     <div class="mb-3">
                       <label class="form-label fw-semibold small">Resolution *</label>
                       <select class="form-select" name="resolution_type" required>
-                        <option value="">â€” Select â€”</option>
-                        <option value="replace">ðŸ”„ Replace (bake new cake)</option>
-                        <option value="refund">ðŸ’¸ Refund (GCash or personal)</option>
-                        <option value="discount">ðŸ’° Discount on next order</option>
-                        <option value="no_refund">âŒ No Refund (customer fault)</option>
+                        <option value=""> Select </option>
+                        <option value="replace"> Replace (bake new cake)</option>
+                        <option value="refund"> Refund (GCash or personal)</option>
+                        <option value="discount"> Discount on next order</option>
+                        <option value="no_refund"> No Refund (customer fault)</option>
                       </select>
                     </div>
                     <div class="mb-0">
@@ -384,14 +384,14 @@
             {{-- Confirm Order button (for Pending / Pending Review) --}}
             @if(in_array($o->status, ['Pending','Pending Review']))
 
-              {{-- Deposit request removed â€” customer sets own deposit --}}
+              {{-- Deposit request removed  customer sets own deposit --}}
 
-              {{-- Confirm Order button removed â€” auto-confirmed after payment --}}
+              {{-- Confirm Order button removed  auto-confirmed after payment --}}
 
               {{-- Deposit status badge --}}
               @if($isCancelledOrder)
                 @if($refund && $refund->status === 'refunded')
-                <span class="badge bg-success">Refunded â‚±{{ number_format((float)($refund->amount ?? $o->deposit_amount ?? 0),2) }}</span>
+                <span class="badge bg-success">Refunded {{ number_format((float)($refund->amount ?? $o->deposit_amount ?? 0),2) }}</span>
                 @elseif($refund && $refund->status === 'pending')
                 <span class="badge bg-danger">Cancelled - Refund Pending</span>
                 @elseif($o->deposit_status === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']))
@@ -401,9 +401,9 @@
                 @endif
               @elseif($o->deposit_required)
                 @if($o->deposit_status === 'paid')
-                <span class="badge bg-success">ðŸ’° Deposit Paid â‚±{{ number_format($o->deposit_amount,2) }}</span>
+                <span class="badge bg-success"> Deposit Paid {{ number_format($o->deposit_amount,2) }}</span>
                 @elseif($o->deposit_status === 'pending')
-                <span class="badge bg-warning text-dark">â³ Awaiting Deposit â‚±{{ number_format($o->deposit_amount,2) }}</span>
+                <span class="badge bg-warning text-dark"> Awaiting Deposit {{ number_format($o->deposit_amount,2) }}</span>
                 @endif
               @endif
 
@@ -452,7 +452,7 @@
                 Rider is handling this delivery
                 @if($o->rider_id)
                   @php $riderName = \Illuminate\Support\Facades\DB::table('riders')->where('id',$o->rider_id)->value('name'); @endphp
-                  â€” <strong>{{ $riderName ?? 'Assigned' }}</strong>
+                   <strong>{{ $riderName ?? 'Assigned' }}</strong>
                 @endif
               </span>
               @if($o->delivery_photo)
@@ -497,7 +497,7 @@
             {{-- Review badge --}}
             @if(isset($orderReviews[$o->id]))
             <span class="badge" style="background:#fef9c3;color:#92400e;font-size:clamp(.7rem,1.4vw,.75rem);padding:.4rem .7rem">
-              @for($s=1;$s<=5;$s++)<span style="color:{{ $s<=$orderReviews[$o->id]->rating?'#f59e0b':'#d1d5db' }}">â˜…</span>@endfor
+              @for($s=1;$s<=5;$s++)<span style="color:{{ $s<=$orderReviews[$o->id]->rating?'#f59e0b':'#d1d5db' }}"></span>@endfor
               {{ $orderReviews[$o->id]->rating }}/5
             </span>
             @endif
@@ -515,7 +515,7 @@
         <div class="modal-content border-0" style="border-radius:1.2rem">
           <div class="modal-header border-0 pb-0">
             <h5 class="modal-title fw-bold">
-              <i class="bi bi-x-circle me-2 text-danger"></i>Review Cancel Request â€” Order #{{ $o->id }}
+              <i class="bi bi-x-circle me-2 text-danger"></i>Review Cancel Request  Order #{{ $o->id }}
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
@@ -524,7 +524,7 @@
             {{-- Full Order Details --}}
             <div class="card mb-3" style="border:1px solid #e5e7eb !important">
               <div class="card-body p-3">
-                <h6 class="fw-bold mb-3 small text-muted text-uppercase">ðŸ“¦ Order Details</h6>
+                <h6 class="fw-bold mb-3 small text-muted text-uppercase"> Order Details</h6>
                 <div class="d-flex align-items-center gap-3 mb-3">
                   @if($orderThumb)
                   <img src="{{ $orderThumb }}" data-src="{{ $orderThumb }}" class="chat-img" onclick="openLightbox(this)"
@@ -537,7 +537,7 @@
                   @endif
               <div>
                     <div class="fw-bold">{{ $o->product_name }}</div>
-                    <div class="text-muted small">Qty: {{ $o->quantity }} &bull; â‚±{{ number_format($o->total_price,2) }}</div>
+                    <div class="text-muted small">Qty: {{ $o->quantity }} &bull; {{ number_format($o->total_price,2) }}</div>
                   </div>
                 </div>
                 <div class="row g-2 small">
@@ -555,7 +555,7 @@
                   <div class="col-sm-6">
                     <div class="text-muted">Fulfillment</div>
                     <div class="fw-semibold">{{ $o->fulfillment_type }}
-                      @if($o->delivery_zone) â€” {{ $o->delivery_zone }} @endif
+                      @if($o->delivery_zone)  {{ $o->delivery_zone }} @endif
                     </div>
                   </div>
                   <div class="col-sm-6">
@@ -613,7 +613,7 @@
             @if($refund)
             <div class="p-3 rounded mb-3" style="background:#fff7ed;border-left:4px solid #f97316">
               <div class="fw-semibold small mb-1"><i class="bi bi-cash-coin me-1"></i>Refund Details</div>
-              <div class="small"><strong>Amount:</strong> â‚±{{ number_format((float)$refund->refund_amount, 2) }}</div>
+              <div class="small"><strong>Amount:</strong> {{ number_format((float)$refund->refund_amount, 2) }}</div>
               <div class="small"><strong>GCash name:</strong> {{ $refund->refund_gcash_name }}</div>
               <div class="small"><strong>GCash number:</strong> {{ $refund->refund_gcash_number }}</div>
               <div class="small text-muted mt-1">Approve only after sending the refund and uploading the receipt.</div>
@@ -763,48 +763,48 @@ function rerunOrdersPager(search) {
   // Override activeItems via filter function
   // custom filter: use data-visible flag
   const active = items.filter(el => el.dataset.visible !== '0');
-  
+
   // Hide all, show only active page
   const perPage = 8;
   let cur = 1;
-  
+
   function renderPage() {
     const total = Math.ceil(active.length / perPage);
     const s = (cur - 1) * perPage;
     items.forEach(el => el.style.display = 'none');
     active.forEach((el, i) => { el.style.display = (i >= s && i < s + perPage) ? '' : 'none'; });
-    
+
     // Update count label
     const lbl = document.getElementById('ordersCountLabel');
     if (lbl) lbl.firstChild.textContent = active.length + ' order' + (active.length !== 1 ? 's' : '');
-    
+
     // Render pager
     const pagerEl = document.getElementById('ordersList_pager');
     if (!pagerEl) return;
     if (total <= 1) { pagerEl.innerHTML = ''; return; }
-    
+
     let html = '<div class="cs-pagination">';
     html += '<button class="cs-page-btn" onclick="ordersGoPage(' + (cur-1) + ')" ' + (cur===1 ? 'disabled' : '') + '><i class="bi bi-chevron-left"></i></button>';
     buildRange(cur, total).forEach(p => {
-      if (p === '...') html += '<button class="cs-page-btn dots">â€¦</button>';
+      if (p === '...') html += '<button class="cs-page-btn dots"></button>';
       else html += '<button class="cs-page-btn ' + (p===cur ? 'active' : '') + '" onclick="ordersGoPage(' + p + ')">' + p + '</button>';
     });
     html += '<button class="cs-page-btn" onclick="ordersGoPage(' + (cur+1) + ')" ' + (cur===total ? 'disabled' : '') + '><i class="bi bi-chevron-right"></i></button>';
     html += '<span class="ms-1 text-muted" style="font-size:.78rem">' + active.length + ' item' + (active.length!==1 ? 's' : '') + '</span></div>';
     pagerEl.innerHTML = html;
-    
+
     window._ordersActive = active;
     window._ordersCur    = cur;
     window._ordersTotal  = total;
   }
-  
+
   window.ordersGoPage = function(p) {
     const t = window._ordersTotal || 1;
     if (p < 1 || p > t) return;
     cur = p; renderPage();
     document.getElementById('ordersList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-  
+
   renderPage();
 }
 

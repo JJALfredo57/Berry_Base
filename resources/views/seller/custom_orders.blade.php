@@ -24,7 +24,7 @@
           <input type="text" class="form-control border-start-0 border-end-0 ps-0"
                  name="search" id="coSearch"
                  value="{{ $search }}"
-                 placeholder="Customer name, cake, or #orderâ€¦"
+                 placeholder="Customer name, cake, or #order"
                  autocomplete="off">
           <button type="submit" class="btn btn-primary btn-sm px-3 fw-semibold" style="border-radius:0 .6rem .6rem 0">
             Search
@@ -94,13 +94,13 @@
 <div class="d-flex align-items-center gap-2 mb-3 small" style="color:#6b7280">
   <i class="bi bi-funnel-fill" style="font-size:.75rem;color:var(--primary)"></i>
   @if($tab === 'pending')
-    <span>Showing <strong style="color:#d97706">pending</strong> orders â€” newest first</span>
+    <span>Showing <strong style="color:#d97706">pending</strong> orders  newest first</span>
   @elseif($tab === 'approved')
     <span>Showing <strong style="color:#16a34a">approved</strong> orders</span>
   @elseif($tab === 'rejected')
     <span>Showing <strong style="color:#dc2626">rejected</strong> orders</span>
   @else
-    <span>Showing <strong>all</strong> orders â€” pending first</span>
+    <span>Showing <strong>all</strong> orders  pending first</span>
   @endif
   @if($search)
     &nbsp;&bull; matching <strong>"{{ $search }}"</strong>
@@ -120,9 +120,9 @@
   $breakdown = $co->price_breakdown ? json_decode($co->price_breakdown, true) : [];
   $estimatedPrice = (float)($co->estimated_price ?? 0);
   $statusColors = [
-    'pending'  => ['bg'=>'#fff3cd','color'=>'#856404','label'=>'â³ Pending Review'],
-    'approved' => ['bg'=>'#d1fae5','color'=>'#065f46','label'=>'âœ… Approved'],
-    'rejected' => ['bg'=>'#fee2e2','color'=>'#991b1b','label'=>'âŒ Rejected'],
+    'pending'  => ['bg'=>'#fff3cd','color'=>'#856404','label'=>' Pending Review'],
+    'approved' => ['bg'=>'#d1fae5','color'=>'#065f46','label'=>' Approved'],
+    'rejected' => ['bg'=>'#fee2e2','color'=>'#991b1b','label'=>' Rejected'],
   ];
   $sc = $statusColors[$co->review_status] ?? $statusColors['pending'];
   $orderStatus    = $co->order_status ?? 'Pending Review';
@@ -200,7 +200,7 @@
           <div class="mb-3">
             <div class="fw-semibold small mb-2" style="color:var(--primary)"><i class="bi bi-cake2 me-1"></i>Cake Details</div>
             <div style="overflow-x:auto"><table class="table table-sm table-borderless mb-0" style="font-size:.85rem">
-              <tr><td class="text-muted" style="width:40%">Cake Name</td><td class="fw-semibold">{{ $co->cake_name ?? 'â€”' }}</td></tr>
+              <tr><td class="text-muted" style="width:40%">Cake Name</td><td class="fw-semibold">{{ $co->cake_name ?? '' }}</td></tr>
               @if($co->flavor ?? null)<tr><td class="text-muted">Flavor</td><td>{{ $co->flavor }}</td></tr>@endif
               @if($co->size ?? null)<tr><td class="text-muted">Size</td><td>{{ $co->size }}</td></tr>@endif
               @if($co->layers ?? null)<tr><td class="text-muted">Layers</td><td>{{ $co->layers }}</td></tr>@endif
@@ -219,7 +219,7 @@
             <div class="d-flex flex-wrap gap-1">
               @foreach($addons as $a)
               <span class="badge" style="background:#f0fdf4;color:#166534;font-size:.75rem">
-                {{ $a->addon_name }}@if($a->addon_price > 0) +â‚±{{ number_format($a->addon_price,2) }}@endif
+                {{ $a->addon_name }}@if($a->addon_price > 0) +{{ number_format($a->addon_price,2) }}@endif
               </span>
               @endforeach
             </div>
@@ -256,36 +256,36 @@
               @if(isset($breakdown['base_price']))
               <div class="d-flex justify-content-between px-3 py-2" style="background:#f8f9fa">
                 <span class="text-muted">Base Price</span>
-                <span>â‚±{{ number_format($breakdown['base_price'],2) }}</span>
+                <span>{{ number_format($breakdown['base_price'],2) }}</span>
               </div>
               @endif
               @if(!empty($breakdown['size_surcharge']) && $breakdown['size_surcharge'] > 0)
               <div class="d-flex justify-content-between px-3 py-2" style="border-top:1px solid #f0f0f0">
                 <span class="text-muted">Size ({{ $co->size }})</span>
-                <span>+â‚±{{ number_format($breakdown['size_surcharge'],2) }}</span>
+                <span>+{{ number_format($breakdown['size_surcharge'],2) }}</span>
               </div>
               @endif
               @if(!empty($breakdown['complexity_surcharge']) && $breakdown['complexity_surcharge'] > 0)
               <div class="d-flex justify-content-between px-3 py-2" style="border-top:1px solid #f0f0f0">
                 <span class="text-muted">Design ({{ $co->design_complexity }})</span>
-                <span>+â‚±{{ number_format($breakdown['complexity_surcharge'],2) }}</span>
+                <span>+{{ number_format($breakdown['complexity_surcharge'],2) }}</span>
               </div>
               @endif
               @if(!empty($breakdown['addon_total']) && $breakdown['addon_total'] > 0)
               <div class="d-flex justify-content-between px-3 py-2" style="border-top:1px solid #f0f0f0">
                 <span class="text-muted">Add-ons</span>
-                <span>+â‚±{{ number_format($breakdown['addon_total'],2) }}</span>
+                <span>+{{ number_format($breakdown['addon_total'],2) }}</span>
               </div>
               @endif
               @if(!empty($breakdown['delivery_fee']) && $breakdown['delivery_fee'] > 0)
               <div class="d-flex justify-content-between px-3 py-2" style="border-top:1px solid #f0f0f0">
                 <span class="text-muted">Delivery Fee</span>
-                <span>+â‚±{{ number_format($breakdown['delivery_fee'],2) }}</span>
+                <span>+{{ number_format($breakdown['delivery_fee'],2) }}</span>
               </div>
               @endif
               <div class="d-flex justify-content-between px-3 py-2 fw-bold" style="border-top:2px solid var(--primary);background:#fff0f5;color:var(--primary)">
                 <span>Estimated Total</span>
-                <span>â‚±{{ number_format($estimatedPrice,2) }}</span>
+                <span>{{ number_format($estimatedPrice,2) }}</span>
               </div>
             </div>
           </div>
@@ -294,13 +294,13 @@
           @if($co->admin_price ?? null)
           <div class="d-flex align-items-center gap-2 mb-3 p-2 rounded-2" style="background:#f0fdf4;border:1px solid #bbf7d0">
             <span class="text-muted small">Final Price Set:</span>
-            <span class="fw-bold" style="color:#16a34a;font-size:1.05rem">â‚±{{ number_format($co->admin_price,2) }}</span>
+            <span class="fw-bold" style="color:#16a34a;font-size:1.05rem">{{ number_format($co->admin_price,2) }}</span>
             @if($priceConfirmed === 'pending')
-              <span class="badge ms-1" style="background:#fff3cd;color:#856404;font-size:.72rem;border-radius:2rem">â³ Awaiting customer</span>
+              <span class="badge ms-1" style="background:#fff3cd;color:#856404;font-size:.72rem;border-radius:2rem"> Awaiting customer</span>
             @elseif($priceConfirmed === 'accepted')
-              <span class="badge ms-1 bg-success" style="font-size:.72rem;border-radius:2rem">âœ… Customer accepted</span>
+              <span class="badge ms-1 bg-success" style="font-size:.72rem;border-radius:2rem"> Customer accepted</span>
             @elseif($priceConfirmed === 'cancelled')
-              <span class="badge ms-1 bg-danger" style="font-size:.72rem;border-radius:2rem">âŒ Customer cancelled</span>
+              <span class="badge ms-1 bg-danger" style="font-size:.72rem;border-radius:2rem"> Customer cancelled</span>
             @endif
           </div>
           @endif
@@ -322,11 +322,11 @@
                   <label class="form-label fw-semibold small">
                     Final Price <span class="text-danger">*</span>
                     @if($estimatedPrice > 0)
-                      <span class="text-muted fw-normal">(Estimated: â‚±{{ number_format($estimatedPrice,2) }})</span>
+                      <span class="text-muted fw-normal">(Estimated: {{ number_format($estimatedPrice,2) }})</span>
                     @endif
                   </label>
                   <div class="input-group">
-                    <span class="input-group-text">â‚±</span>
+                    <span class="input-group-text"></span>
                     <input type="number" class="form-control fw-bold" name="admin_price"
                            id="adminPriceInput{{ $co->id }}"
                            step="0.01" min="0"
@@ -336,11 +336,11 @@
                   </div>
                   <div id="priceChangeNote{{ $co->id }}" class="form-text" style="display:none;color:#d97706">
                     <i class="bi bi-exclamation-triangle me-1"></i>
-                    Price differs from estimate â€” customer will need to <strong>confirm</strong> before order proceeds.
+                    Price differs from estimate  customer will need to <strong>confirm</strong> before order proceeds.
                   </div>
                   <div id="priceSameNote{{ $co->id }}" class="form-text" style="color:#16a34a">
                     <i class="bi bi-check-circle me-1"></i>
-                    Same as estimate â€” customer will still need to pay deposit to confirm.
+                    Same as estimate  customer will still need to pay deposit to confirm.
                   </div>
                 </div>
                 <div class="mb-3">
@@ -380,7 +380,7 @@
           </div>
           @endif
 
-          {{-- APPROVED â€” Progress Photo Form --}}
+          {{-- APPROVED  Progress Photo Form --}}
           @if($isApproved && $co->order_id && in_array($orderStatus, ['Confirmed','Preparing','Ready for Rider','Out for Delivery']))
           <div class="p-3 rounded-3 mb-3" style="border:2px solid var(--primary);background:#fff0f6">
             <div class="fw-semibold mb-3" style="color:var(--primary)">
@@ -457,7 +457,7 @@
     <p class="text-muted mt-3 mb-1">No custom orders found matching <strong>"{{ $search }}"</strong>.</p>
     <a href="{{ route('seller.custom_orders', ['tab' => $tab]) }}" class="btn btn-sm btn-outline-secondary mt-2">Clear search</a>
   @elseif($tab === 'pending')
-    <p class="text-muted mt-3">No pending custom orders â€” you're all caught up!</p>
+    <p class="text-muted mt-3">No pending custom orders  you're all caught up!</p>
   @elseif($tab === 'approved')
     <p class="text-muted mt-3">No approved custom orders yet.</p>
   @elseif($tab === 'rejected')

@@ -16,7 +16,7 @@
 <div class="cs-page-header">
   <div>
     <h4 class="cs-page-title"><i class="bi bi-speedometer2 me-2" style="color:var(--primary)"></i>Dashboard</h4>
-    <p class="cs-page-sub">Welcome back, <strong>{{ session('user')['fullname'] ?? session('user')['username'] }}</strong> â€” {{ now()->format('l, F d, Y') }}</p>
+    <p class="cs-page-sub">Welcome back, <strong>{{ session('user')['fullname'] ?? session('user')['username'] }}</strong>  {{ now()->format('l, F d, Y') }}</p>
   </div>
   <div class="cs-page-actions">
     <a href="{{ route('admin.orders.index') }}" class="btn btn-primary btn-sm"><i class="bi bi-bag-check me-1"></i>View Orders</a>
@@ -85,12 +85,12 @@
         <i class="bi bi-cash-stack" style="color:#059669"></i>
       </div>
       <div class="cs-stat-body">
-        <div class="cs-stat-num" style="color:#059669">â‚±{{ number_format($totalRevenue,2) }}</div>
+        <div class="cs-stat-num" style="color:#059669">{{ number_format($totalRevenue,2) }}</div>
         <div class="cs-stat-label">Total Revenue</div>
         <div class="cs-stat-trend up" style="flex-wrap:wrap;gap:8px">
-          <span><i class="bi bi-sun me-1"></i>Today: <strong>â‚±{{ number_format($revenueToday,2) }}</strong></span>
-          <span style="color:var(--gray-400)">Â·</span>
-          <span><i class="bi bi-calendar me-1"></i>Month: <strong>â‚±{{ number_format($revenueMonth,2) }}</strong></span>
+          <span><i class="bi bi-sun me-1"></i>Today: <strong>{{ number_format($revenueToday,2) }}</strong></span>
+          <span style="color:var(--gray-400)"></span>
+          <span><i class="bi bi-calendar me-1"></i>Month: <strong>{{ number_format($revenueMonth,2) }}</strong></span>
         </div>
       </div>
     </div>
@@ -153,7 +153,7 @@
             <div class="text-muted" style="font-size:.73rem">{{ $o->fulfillment_type ?? 'Pickup' }}</div>
           </td>
           <td style="font-size:.85rem;max-width:160px">{{ Str::limit($o->product_name, 28) }}</td>
-          <td class="fw-bold" style="font-size:.88rem">â‚±{{ number_format($o->total_price,2) }}</td>
+          <td class="fw-bold" style="font-size:.88rem">{{ number_format($o->total_price,2) }}</td>
           <td><span class="status-badge status-{{ $o->payment_status }}">{{ $o->payment_status }}</span></td>
           <td><span class="status-badge status-{{ str_replace(' ','-',$o->status) }}">{{ $o->status }}</span></td>
           <td>
