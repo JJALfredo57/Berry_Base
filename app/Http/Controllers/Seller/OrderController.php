@@ -8,6 +8,7 @@ use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use App\Services\LoyaltyService;
 use App\Services\OrderRefundService;
+use App\Services\OrderTypeService;
 use App\Services\ProductStockService;
 use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
@@ -34,6 +35,7 @@ class OrderController extends Controller
         $search = trim($request->input('search', ''));
         $status = $request->input('status', 'All');
         $hasRemittanceTable = Schema::hasTable('rider_remittances');
+        $riders = DB::table('riders')->where('shop_id', $shop->id)->where('is_active', true)->orderBy('name')->get();
 
         try {
             $orders = DB::table('orders as o')
@@ -147,7 +149,7 @@ class OrderController extends Controller
 
         try {
             return response(
-                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'orderItems', 'customData', 'orderRefunds', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'pendingCancelCount', 'search', 'status'))->render()
+                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'orderItems', 'customData', 'orderRefunds', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'pendingCancelCount', 'search', 'status', 'riders'))->render()
             );
         } catch (\Throwable $e) {
             Log::error('Seller orders VIEW render failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
@@ -162,8 +164,39 @@ class OrderController extends Controller
         if (!$order) return back()->with('err', 'Order not found.');
 
         $newStatus = $request->input('status');
+        $isCustomOrder = app(OrderTypeService::class)->isCustom($order);
+        $isPickupOrder = ($order->fulfillment_type ?? 'Pickup') === 'Pickup';
         $allowed   = ['Confirmed','Preparing','Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'];
         if (!in_array($newStatus, $allowed)) return back()->with('err', 'Invalid status.');
+
+        if ($newStatus !== 'Cancelled') {
+            if (!$isCustomOrder && $newStatus === 'Preparing') {
+                return back()->with('err', 'Ready-made orders skip kitchen preparation. Confirm it, then mark ready for pickup or assign a rider.');
+            }
+            if (!$isCustomOrder && !$isPickupOrder && $newStatus === 'Out for Delivery' && empty($order->rider_id)) {
+                return back()->with('err', 'Delivery ready-made orders must be dispatched through rider assignment.');
+            }
+            if ($isCustomOrder && ($order->status ?? '') === 'Pending Review') {
+                return back()->with('err', 'Custom orders must be reviewed from the Custom Orders page before production.');
+            }
+            $regularNext = [
+                'Pending' => ['Confirmed'],
+                'Confirmed' => $isPickupOrder ? ['Pickup'] : ['Out for Delivery'],
+                'Out for Delivery' => ['Delivered'],
+                'Pickup' => ['Picked Up'],
+            ];
+            $customNext = [
+                'Confirmed' => ['Preparing'],
+                'Preparing' => $isPickupOrder ? ['Pickup'] : ['Out for Delivery'],
+                'Out for Delivery' => ['Delivered'],
+                'Pickup' => ['Picked Up'],
+            ];
+            $nextMap = $isCustomOrder ? $customNext : $regularNext;
+            $currentStatus = (string) ($order->status ?? '');
+            if (!in_array($newStatus, $nextMap[$currentStatus] ?? [], true)) {
+                return back()->with('err', "Cannot change {$currentStatus} order to {$newStatus} from this page.");
+            }
+        }
 
         // Cancellation requires reason
         if ($newStatus === 'Cancelled') {
@@ -604,6 +637,12 @@ class OrderController extends Controller
         $shop  = $this->getShop();
         $order = DB::table('orders')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$order) return back()->with('err', 'Order not found.');
+        if (($order->fulfillment_type ?? 'Pickup') !== 'Delivery') {
+            return back()->with('err', 'Only delivery orders can be assigned to a rider.');
+        }
+        if (!in_array((string) ($order->status ?? ''), ['Confirmed', 'Preparing'], true)) {
+            return back()->with('err', 'Assign a rider only after the order is confirmed and ready for handoff.');
+        }
 
         $validated = $request->validate([
             'rider_id' => 'required|exists:riders,id',

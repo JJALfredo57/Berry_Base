@@ -82,12 +82,14 @@
         </select>
       </div>
     </div>
-    <div id="sellerOrderFilterSummary" style="font-size:.78rem;color:var(--gray-500);margin-top:.6rem">Showing {{ $orders->firstItem() ?? 0 }}–{{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} orders</div>
+    <div id="sellerOrderFilterSummary" style="font-size:.78rem;color:var(--gray-500);margin-top:.6rem">Showing {{ $orders->firstItem() ?? 0 }}â€“{{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} orders</div>
   </div>
 
   @forelse($orders as $o)
   @php
     $custom = $customData[$o->id] ?? null;
+    $isCustomOrder = ($o->order_type ?? '') === 'custom' || (bool) $custom;
+    $isRegularOrder = !$isCustomOrder;
     $addons = $orderAddons[$o->id] ?? [];
     $items = $orderItems[$o->id] ?? [];
     $refund = $orderRefunds[$o->id] ?? null;
@@ -168,8 +170,10 @@
             @endphp
             <span class="seller-remit-pill"><i class="bi bi-cash-stack"></i>{{ $remitLabel }}</span>
           @endif
-          @if($custom)
+          @if($isCustomOrder)
             <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Custom</span>
+          @else
+            <span style="background:#ecfdf5;color:#047857;font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Ready-made</span>
           @endif
         </div>
         <div style="font-size:.8rem;color:var(--gray-700);font-weight:600">{{ $o->order_customer_name ?? 'Customer' }}</div>
@@ -185,7 +189,7 @@
         @endif
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0">
-        <div style="font-size:1rem;font-weight:700;color:var(--primary)">₱{{ number_format((float)($o->total_price ?? 0),2) }}</div>
+        <div style="font-size:1rem;font-weight:700;color:var(--primary)">â‚±{{ number_format((float)($o->total_price ?? 0),2) }}</div>
         <div data-payment-status-label="{{ $o->id }}" style="font-size:.72rem;color:{{ $o->payment_status==='Paid' ? 'var(--success,#2E7D32)' : ($o->payment_status==='Partial Payment' ? '#E65100' : 'var(--gray-500)') }};font-weight:600">
           {{ $o->payment_status ?? 'Unpaid' }}
         </div>
@@ -266,7 +270,7 @@
         <div>
           <div style="font-size:.78rem;font-weight:800;color:#880E4F;letter-spacing:.04em">AWAITING DEPOSIT</div>
           <div style="font-size:.8rem;color:#880E4F;margin-top:.1rem">
-            Customer must pay ₱{{ number_format((float)($o->deposit_amount ?? 0), 2) }} deposit via GCash before this order enters the queue.
+            Customer must pay â‚±{{ number_format((float)($o->deposit_amount ?? 0), 2) }} deposit via GCash before this order enters the queue.
           </div>
         </div>
       </div>
@@ -276,7 +280,7 @@
         <div>
           <div style="font-size:.78rem;font-weight:800;color:#2E7D32;letter-spacing:.04em">DEPOSIT RECEIVED</div>
           <div style="font-size:.8rem;color:#2E7D32;margin-top:.1rem">
-            ₱{{ number_format((float)($o->deposit_amount ?? 0), 2) }} deposit paid. Remaining ₱{{ number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) }} to be collected on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}.
+            â‚±{{ number_format((float)($o->deposit_amount ?? 0), 2) }} deposit paid. Remaining â‚±{{ number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) }} to be collected on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}.
           </div>
         </div>
       </div>
@@ -289,7 +293,7 @@
         <div><span style="color:var(--gray-500)">Customer</span><br><strong>{{ $o->order_customer_name ?? 'Customer' }}</strong></div>
         <div>
           <span style="color:var(--gray-500)">Phone</span><br>
-          <strong>{{ $o->order_customer_phone ?? '—' }}</strong>
+          <strong>{{ $o->order_customer_phone ?? 'â€”' }}</strong>
           @include('shared.customer_risk_badge', ['risk' => $customerRiskMap[$o->id] ?? null, 'compact' => true])
         </div>
         <div><span style="color:var(--gray-500)">Product</span><br><strong>{{ $o->product_name ?? ($custom->cake_name ?? 'Custom Cake') }}</strong></div>
@@ -297,25 +301,25 @@
           <div style="grid-column:1/-1">
             <span style="color:var(--gray-500)">Grouped Items</span><br>
             @foreach($items as $item)
-              <div class="small">• <strong>{{ $item->product_name }}</strong> x{{ $item->quantity }} @if($item->selected_size) ({{ $item->selected_size }}) @endif</div>
+              <div class="small">â€¢ <strong>{{ $item->product_name }}</strong> x{{ $item->quantity }} @if($item->selected_size) ({{ $item->selected_size }}) @endif</div>
             @endforeach
           </div>
         @endif
-        <div><span style="color:var(--gray-500)">Qty / Size</span><br><strong>{{ $o->quantity ?? 1 }}x {{ $o->selected_size ?? ($custom->size_label ?? '—') }}</strong></div>
+        <div><span style="color:var(--gray-500)">Qty / Size</span><br><strong>{{ $o->quantity ?? 1 }}x {{ $o->selected_size ?? ($custom->size_label ?? 'â€”') }}</strong></div>
         <div><span style="color:var(--gray-500)">Fulfillment</span><br><strong>{{ $o->fulfillment_type ?? 'Pickup' }}</strong></div>
-        <div><span style="color:var(--gray-500)">Schedule</span><br><strong>{{ $o->schedule_date ? \Carbon\Carbon::parse($o->schedule_date)->format('M d, Y') : '—' }}{{ $o->schedule_time ? ' '.$o->schedule_time : '' }}</strong></div>
+        <div><span style="color:var(--gray-500)">Schedule</span><br><strong>{{ $o->schedule_date ? \Carbon\Carbon::parse($o->schedule_date)->format('M d, Y') : 'â€”' }}{{ $o->schedule_time ? ' '.$o->schedule_time : '' }}</strong></div>
         @if($o->fulfillment_type === 'Delivery')
-        <div style="grid-column:1/-1"><span style="color:var(--gray-500)">Delivery Address</span><br><strong>{{ $o->delivery_address ?? '—' }}</strong></div>
+        <div style="grid-column:1/-1"><span style="color:var(--gray-500)">Delivery Address</span><br><strong>{{ $o->delivery_address ?? 'â€”' }}</strong></div>
         @endif
-        <div><span style="color:var(--gray-500)">Payment</span><br><strong>{{ $o->payment_method ?? '—' }}</strong></div>
+        <div><span style="color:var(--gray-500)">Payment</span><br><strong>{{ $o->payment_method ?? 'â€”' }}</strong></div>
         <div><span style="color:var(--gray-500)">Payment Status</span><br>
           <strong style="color:{{ $o->payment_status==='Paid' ? '#16a34a' : ($o->payment_status==='Partial Payment' ? '#d97706' : '#6b7280') }}">
             {{ $o->payment_status ?? 'Unpaid' }}
           </strong>
         </div>
-        <div><span style="color:var(--gray-500)">Total</span><br><strong style="color:var(--primary)">₱{{ number_format((float)($o->total_price ?? 0),2) }}</strong></div>
+        <div><span style="color:var(--gray-500)">Total</span><br><strong style="color:var(--primary)">â‚±{{ number_format((float)($o->total_price ?? 0),2) }}</strong></div>
         @if($o->delivery_fee)
-        <div><span style="color:var(--gray-500)">Delivery Fee</span><br><strong>₱{{ number_format((float)($o->delivery_fee ?? 0),2) }}</strong></div>
+        <div><span style="color:var(--gray-500)">Delivery Fee</span><br><strong>â‚±{{ number_format((float)($o->delivery_fee ?? 0),2) }}</strong></div>
         @endif
         @if($o->deposit_required)
         <div><span style="color:var(--gray-500)">Deposit</span><br>
@@ -323,7 +327,7 @@
             @if($isCancelledOrder)
               {{ ($o->deposit_status??'') === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']) ? 'Cancelled - refund status shown below' : 'Cancelled before payment' }}
             @else
-              ₱{{ number_format((float)($o->deposit_amount ?? 0),2) }} — {{ ($o->deposit_status??'') === 'paid' ? 'Paid' : 'Pending' }}
+              â‚±{{ number_format((float)($o->deposit_amount ?? 0),2) }} â€” {{ ($o->deposit_status??'') === 'paid' ? 'Paid' : 'Pending' }}
             @endif
           </strong>
         </div>
@@ -411,7 +415,7 @@
       <div style="margin-top:.85rem">
         <div style="font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Add-ons</div>
         @foreach($addons as $a)
-        <div style="font-size:.81rem;color:var(--gray-700)">• {{ $a->addon_name ?? '—' }} @if($a->addon_price ?? 0) — ₱{{ number_format((float)($a->addon_price ?? 0),2) }} @endif</div>
+        <div style="font-size:.81rem;color:var(--gray-700)">â€¢ {{ $a->addon_name ?? 'â€”' }} @if($a->addon_price ?? 0) â€” â‚±{{ number_format((float)($a->addon_price ?? 0),2) }} @endif</div>
         @endforeach
       </div>
       @endif
@@ -447,7 +451,7 @@
             <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#92400e;margin-bottom:.25rem">
               {{ $refund->status === 'pending' ? 'Paid Cancellation / Refund Request' : 'Refund Status' }}
             </div>
-            <div><strong>Refund amount:</strong> ₱{{ number_format((float)$refund->refund_amount, 2) }}</div>
+            <div><strong>Refund amount:</strong> â‚±{{ number_format((float)$refund->refund_amount, 2) }}</div>
             <div><strong>GCash:</strong> {{ $refund->refund_gcash_name }} / {{ $refund->refund_gcash_number }}</div>
             @if($refund->review_note)<div><strong>Note:</strong> {{ $refund->review_note }}</div>@endif
             @if($refund->reference_number)<div><strong>Reference:</strong> {{ $refund->reference_number }}</div>@endif
@@ -519,7 +523,7 @@
         <div style="flex:1;min-width:260px">
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">REFUND REVIEW NEEDED</div>
           <div style="font-size:.82rem;color:#92400e;line-height:1.5;font-weight:600">
-            Customer paid ₱{{ number_format((float)$refund->payment_amount_paid, 2) }}. Approve only after sending the GCash refund and uploading the receipt.
+            Customer paid â‚±{{ number_format((float)$refund->payment_amount_paid, 2) }}. Approve only after sending the GCash refund and uploading the receipt.
           </div>
         </div>
       </div>
@@ -613,19 +617,19 @@
             <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">AWAITING PAYMENT</div>
             <div style="font-size:.82rem;color:#d97706;line-height:1.5;font-weight:600">
               Order is ready but customer still has an unpaid balance
-              @if($o->payment_method === 'GCash') (GCash — ₱{{ number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) }} remaining)@endif.
+              @if($o->payment_method === 'GCash') (GCash â€” â‚±{{ number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) }} remaining)@endif.
               The <strong>Mark as Picked Up</strong> button will appear once GCash payment is completed.
             </div>
           </div>
         </div>
         <span style="background:#FEF3C7;color:#92400E;border:1.5px solid #FDE68A;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:700;margin-left:auto">
-          <i class="bi bi-lock"></i> Locked — Unpaid
+          <i class="bi bi-lock"></i> Locked â€” Unpaid
         </span>
       </div>
       @endif
     @endif
 
-    {{-- Awaiting Deposit — seller info only, no actions until paid --}}
+    {{-- Awaiting Deposit â€” seller info only, no actions until paid --}}
     @if($o->status === 'Awaiting Deposit')
     <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fce4ec 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
       <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
@@ -635,7 +639,7 @@
         <div>
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">WAITING FOR DEPOSIT</div>
           <div style="font-size:.82rem;color:#880E4F;line-height:1.5;font-weight:600">
-            Customer needs to pay the 50% deposit (₱{{ number_format((float)($o->deposit_amount ?? 0),2) }}) via GCash. The order will appear in your queue once payment is confirmed.
+            Customer needs to pay the 50% deposit (â‚±{{ number_format((float)($o->deposit_amount ?? 0),2) }}) via GCash. The order will appear in your queue once payment is confirmed.
           </div>
         </div>
       </div>
@@ -655,11 +659,65 @@
         <div>
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">ORDER PROGRESS</div>
           <div style="font-size:.82rem;color:#6b7280;line-height:1.5">
-            Progress moves automatically through the Kitchen workflow.
+            @if($isRegularOrder)
+              Ready-made orders skip kitchen. Confirm the order, then prepare handoff for pickup or delivery.
+            @else
+              Custom orders continue through seller review and kitchen preparation.
+            @endif
           </div>
         </div>
       </div>
 
+      @if($isRegularOrder && $o->status === 'Pending')
+        <form action="{{ route('seller.orders.status', $o->id) }}" method="POST" class="m-0">
+          @csrf
+          <input type="hidden" name="status" value="Confirmed">
+          <button type="submit" class="btn btn-primary btn-sm fw-semibold"
+                  data-cs-confirm="Confirm this ready-made order?"
+                  data-cs-title="Confirm Ready-made Order"
+                  data-cs-ok="Confirm Order">
+            <i class="bi bi-check2-circle me-1"></i>Confirm order
+          </button>
+        </form>
+      @elseif($isRegularOrder && $o->status === 'Confirmed' && ($o->fulfillment_type ?? 'Pickup') === 'Pickup')
+        <form action="{{ route('seller.orders.status', $o->id) }}" method="POST" class="m-0">
+          @csrf
+          <input type="hidden" name="status" value="Pickup">
+          <button type="submit" class="btn btn-success btn-sm fw-semibold"
+                  data-cs-confirm="Mark this ready-made order as ready for pickup?"
+                  data-cs-title="Ready for Pickup"
+                  data-cs-ok="Mark Ready">
+            <i class="bi bi-bag-check me-1"></i>Ready for pickup
+          </button>
+        </form>
+      @elseif($isRegularOrder && $o->status === 'Confirmed' && ($o->fulfillment_type ?? 'Pickup') === 'Delivery')
+        <form action="{{ route('seller.orders.assign_rider', $o->id) }}" method="POST" class="d-flex gap-2 flex-wrap align-items-center m-0">
+          @csrf
+          <select name="rider_id" class="form-select form-select-sm" style="width:180px" required>
+            <option value="">Choose rider</option>
+            @foreach($riders as $rider)
+              <option value="{{ $rider->id }}">{{ $rider->name }}</option>
+            @endforeach
+          </select>
+          <button type="submit" class="btn btn-primary btn-sm fw-semibold"
+                  data-cs-confirm="Assign rider and move this order out for delivery?"
+                  data-cs-title="Dispatch Ready-made Order"
+                  data-cs-ok="Assign Rider">
+            <i class="bi bi-bicycle me-1"></i>Assign rider
+          </button>
+          @if($riders->isEmpty())
+            <span class="small text-danger fw-semibold">No active riders.</span>
+          @endif
+        </form>
+      @elseif($isCustomOrder && $o->status === 'Pending Review')
+        <a href="{{ route('seller.custom_orders') }}" class="btn btn-outline-primary btn-sm fw-semibold">
+          <i class="bi bi-palette me-1"></i>Review custom order
+        </a>
+      @elseif($isCustomOrder && in_array($o->status, ['Confirmed','Preparing'], true))
+        <a href="{{ route('seller.kitchen') }}" class="btn btn-outline-primary btn-sm fw-semibold">
+          <i class="bi bi-fire me-1"></i>Open kitchen
+        </a>
+      @endif
       {{-- Cancel --}}
       <button type="button" onclick="toggleCancel('cancel-{{ $o->id }}')"
               style="background:#FFEBEE;color:#C62828;border:1.5px solid #FFCDD2;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer;margin-left:auto">
