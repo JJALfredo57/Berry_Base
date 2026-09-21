@@ -126,7 +126,7 @@ class OrderController extends Controller
                             ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
                             ->where('o.shop_id', $shop->id)
                             ->whereIn('o.checkout_group_id', $groupIds)
-                            ->select('o.id','o.checkout_group_id','o.status','o.track_code','o.order_type','o.total_price', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"))
+                            ->select('o.id','o.checkout_group_id','o.status','o.track_code','o.order_type','o.processing_mode','o.total_price', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"))
                             ->orderBy('o.id')
                             ->get();
                         foreach ($siblings as $sibling) $checkoutGroupOrders[$sibling->checkout_group_id][] = $sibling;
@@ -230,7 +230,7 @@ class OrderController extends Controller
 
         // Picked Up requires settled payment; Cash on Pickup is settled during pickup confirmation.
         if ($newStatus === 'Picked Up' && $order->payment_status !== 'Paid' && !$isCashPickup) {
-            return back()->with('err', 'Cannot mark as Picked Up Ã¢â‚¬â€ customer still has an unpaid balance. Payment must be completed first.');
+            return back()->with('err', 'Cannot mark as Picked Up ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â customer still has an unpaid balance. Payment must be completed first.');
         }
 
         $upd = [
@@ -278,7 +278,7 @@ class OrderController extends Controller
             Log::warning('Seller order status push failed: ' . $e->getMessage());
         }
 
-        // SMS + in-app notification Ã¢â‚¬â€ send only for actionable statuses
+        // SMS + in-app notification ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â send only for actionable statuses
         try {
             $siteName  = config('app.name', 'Cake Shop');
             $shopName  = SmsHelper::getShopName($shop->id ?? null);

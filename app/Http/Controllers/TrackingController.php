@@ -235,7 +235,7 @@ class TrackingController extends Controller
                 ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
                 ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
                 ->where('o.checkout_group_id', $order->checkout_group_id)
-                ->select('o.id','o.status','o.track_code','o.order_type','o.total_price', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"))
+                ->select('o.id','o.status','o.track_code','o.order_type','o.processing_mode','o.total_price', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"))
                 ->orderBy('o.id')
                 ->get();
         }

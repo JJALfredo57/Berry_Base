@@ -250,6 +250,20 @@ class CheckoutController extends Controller
         $isGroupCheckout = $checkoutItems->isNotEmpty();
         $resultingOrderCount = ($isGroupCheckout ? 1 : 0) + $customCheckoutItems->count();
         $checkoutGroupId = $resultingOrderCount > 1 ? $this->generateCheckoutGroupId() : null;
+        $customScheduleDates = $customCheckoutItems->map(function ($item) {
+            $meta = json_decode($item->meta ?? '[]', true) ?: [];
+            return $meta['schedule_date'] ?? null;
+        })->filter()->unique();
+        $customFulfillments = $customCheckoutItems->map(function ($item) {
+            $meta = json_decode($item->meta ?? '[]', true) ?: [];
+            return $meta['fulfillment_type'] ?? null;
+        })->filter()->unique();
+        $processingMode = null;
+        if ($checkoutGroupId) {
+            $sameSchedule = $customScheduleDates->isEmpty() || ($customScheduleDates->count() === 1 && (string) $customScheduleDates->first() === (string) ($request->input('schedule_date') ?: null));
+            $sameFulfillment = $customFulfillments->isEmpty() || ($customFulfillments->count() === 1 && (string) $customFulfillments->first() === (string) $request->input('fulfillment_type', 'Pickup'));
+            $processingMode = ($sameSchedule && $sameFulfillment) ? 'together' : 'separate';
+        }
         if (!empty($checkout['cart_item_ids']) && !$isGroupCheckout && !$hasCustomCheckout) {
             return redirect()->route('customer.cart')->with('error', 'Those cart items are no longer available.');
         }
@@ -272,7 +286,7 @@ class CheckoutController extends Controller
             $note = $noteCount > 0 ? "Grouped order: {$noteCount} item note" . ($noteCount > 1 ? 's' : '') : null;
         }
 
-        // â”€â”€ DUPLICATE PREVENTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ DUPLICATE PREVENTION Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
         $recentDuplicate = DB::table('orders')
             ->where('user_id', $uid)->where('product_id', $pid)
             ->whereIn('status', ['Pending', 'Awaiting Deposit'])
@@ -317,7 +331,7 @@ class CheckoutController extends Controller
         }
 
         if ($fulfillment === 'Delivery' && $lat !== null && $lng !== null) {
-            // â”€â”€ Coverage validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // Ã¢â€â‚¬Ã¢â€â‚¬ Coverage validation Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
             $hasPinnedZones = DB::table('delivery_zones')
                 ->where('shop_id', $product->shop_id)
                 ->where('is_active', true)
@@ -333,7 +347,7 @@ class CheckoutController extends Controller
                 $zone = $nearestZone->barangay ?? $zone;
             }
 
-            // â”€â”€ Recalculate fee server-side (prevent tampering) â”€
+            // Ã¢â€â‚¬Ã¢â€â‚¬ Recalculate fee server-side (prevent tampering) Ã¢â€â‚¬
             $settings = DB::table('site_settings')->where('shop_id', $product->shop_id)->first();
             if ($settings && $settings->shop_lat && $settings->shop_lng) {
                 $dist        = $this->haversine($lat, $lng, (float)$settings->shop_lat, (float)$settings->shop_lng);
@@ -369,6 +383,7 @@ class CheckoutController extends Controller
                     'customer_name' => session('user')['fullname'] ?? 'Customer',
                     'payment_method' => $payment,
                     'checkout_group_id' => $checkoutGroupId,
+                    'processing_mode' => $processingMode,
                 ]);
                 if (!$created['ok']) return back()->with('error', $created['message'])->withInput();
                 $createdCustom[] = $created['order_id'];
@@ -415,7 +430,7 @@ class CheckoutController extends Controller
             return back()->with('error', $capacity['message']);
         }
 
-        // â”€â”€ Daily capacity check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ Daily capacity check Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
         if ($sdate) {
             $shopId   = $product->shop_id ?? null;
             $settings = $shopId ? DB::table('site_settings')->where('shop_id', $shopId)->first() : null;
@@ -511,6 +526,7 @@ class CheckoutController extends Controller
             'product_id'       => $pid,
             'order_type'       => 'regular',
             'checkout_group_id' => $checkoutGroupId,
+                    'processing_mode' => $processingMode,
             'track_code'       => $trackCode,
             'quantity'         => $qty,
             'custom_note'      => $note,
@@ -701,6 +717,7 @@ class CheckoutController extends Controller
                     'customer_name' => session('user')['fullname'] ?? 'Customer',
                     'payment_method' => $payment,
                     'checkout_group_id' => $checkoutGroupId,
+                    'processing_mode' => $processingMode,
                 ]);
                 if (!$created['ok']) return back()->with('error', $created['message']);
             }
@@ -735,7 +752,7 @@ class CheckoutController extends Controller
             return redirect()->route('customer.pay_gcash', ['order_id' => $oid]);
         }
 
-        // COD / Pickup â€” require deposit before seller sees the order
+        // COD / Pickup Ã¢â‚¬â€ require deposit before seller sees the order
         if ($submitKey) {
             Cache::put($submitKey . ':result', [
                 'route' => 'customer.pay_deposit',

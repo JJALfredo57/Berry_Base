@@ -268,6 +268,20 @@ class CheckoutController extends Controller
         $isGroupCheckout = $checkoutItems->isNotEmpty();
         $resultingOrderCount = ($isGroupCheckout ? 1 : 0) + $customCheckoutItems->count();
         $checkoutGroupId = $resultingOrderCount > 1 ? $this->generateCheckoutGroupId() : null;
+        $customScheduleDates = $customCheckoutItems->map(function ($item) {
+            $meta = json_decode($item->meta ?? '[]', true) ?: [];
+            return $meta['schedule_date'] ?? null;
+        })->filter()->unique();
+        $customFulfillments = $customCheckoutItems->map(function ($item) {
+            $meta = json_decode($item->meta ?? '[]', true) ?: [];
+            return $meta['fulfillment_type'] ?? null;
+        })->filter()->unique();
+        $processingMode = null;
+        if ($checkoutGroupId) {
+            $sameSchedule = $customScheduleDates->isEmpty() || ($customScheduleDates->count() === 1 && (string) $customScheduleDates->first() === (string) ($request->input('schedule_date') ?: null));
+            $sameFulfillment = $customFulfillments->isEmpty() || ($customFulfillments->count() === 1 && (string) $customFulfillments->first() === (string) $request->input('fulfillment_type', 'Pickup'));
+            $processingMode = ($sameSchedule && $sameFulfillment) ? 'together' : 'separate';
+        }
         if (!empty($checkout['cart_item_ids']) && !$isGroupCheckout && !$hasCustomCheckout) {
             return redirect()->route('cart')->with('error', 'Those cart items are no longer available.');
         }
@@ -383,6 +397,7 @@ class CheckoutController extends Controller
                     'guest_phone' => $phone,
                     'payment_method' => $payment,
                     'checkout_group_id' => $checkoutGroupId,
+                    'processing_mode' => $processingMode,
                 ]);
                 if (!$created['ok']) return back()->with('error', $created['message'])->withInput();
                 $createdCustom[] = $created;
@@ -479,6 +494,7 @@ class CheckoutController extends Controller
             'product_id'          => $pid,
             'order_type'          => 'regular',
             'checkout_group_id'    => $checkoutGroupId,
+            'processing_mode'      => $processingMode,
             'quantity'            => $qty,
             'custom_note'         => $note ?: null,
             'total_price'         => $total,
@@ -583,7 +599,7 @@ class CheckoutController extends Controller
 
         DB::table('notifications')->insert([
             'receiver_role'    => 'admin', 'receiver_user_id' => null,
-            'title'            => 'ðŸ›ï¸ New Order from '.$guestName,
+            'title'            => 'Ã°Å¸â€ºÂÃ¯Â¸Â New Order from '.$guestName,
             'message'          => "{$guestName} ({$phone}) placed Order #{$oid}.",
             'is_read' => false, 'created_at' => now(),
         ]);
@@ -609,6 +625,7 @@ class CheckoutController extends Controller
                     'guest_phone' => $phone,
                     'payment_method' => $payment,
                     'checkout_group_id' => $checkoutGroupId,
+                    'processing_mode' => $processingMode,
                 ]);
                 if (!$created['ok']) return back()->with('error', $created['message']);
             }
@@ -641,7 +658,7 @@ class CheckoutController extends Controller
                 "{$header}\n"
                 . "Hi {$guestName}! Your order has been received.\n\n"
                 . "Order No.: #{$oid}{$shopLine}\n"
-                . "Action Required: Pay â‚±" . number_format($depositAmount, 2) . " deposit via GCash to confirm your order.\n\n"
+                . "Action Required: Pay Ã¢â€šÂ±" . number_format($depositAmount, 2) . " deposit via GCash to confirm your order.\n\n"
                 . "Your Tracking Code: {$trackCode}\n"
                 . "Track your order and pay the deposit on our website.";
             $customerTitle = 'Deposit Required';
@@ -669,8 +686,8 @@ class CheckoutController extends Controller
         );
 
         $successMsg = $needsDeposit
-            ? 'Order placed! ðŸŽ‚ Please pay your 50% deposit below to confirm your order.'
-            : 'Order placed! We\'ll contact you soon to confirm. ðŸŽ‚';
+            ? 'Order placed! Ã°Å¸Å½â€š Please pay your 50% deposit below to confirm your order.'
+            : 'Order placed! We\'ll contact you soon to confirm. Ã°Å¸Å½â€š';
 
         if ($submitKey) {
             Cache::put($submitKey . ':result', [

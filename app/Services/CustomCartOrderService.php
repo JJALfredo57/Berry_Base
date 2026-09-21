@@ -75,6 +75,7 @@ class CustomCartOrderService
             'product_id' => $item->product_id,
             'order_type' => 'custom',
             'checkout_group_id' => $context['checkout_group_id'] ?? null,
+            'processing_mode' => $context['processing_mode'] ?? null,
             'quantity' => $qty,
             'custom_note' => $fullNote,
             'total_price' => $total,
