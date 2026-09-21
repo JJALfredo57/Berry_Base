@@ -116,7 +116,7 @@ class OrderController extends Controller
                         ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
                         ->where('o.user_id', $uid)
                         ->whereIn('o.checkout_group_id', $groupIds)
-                        ->select('o.id','o.checkout_group_id','o.status','o.track_code','o.order_type','o.processing_mode','o.total_price', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"))
+                        ->select('o.id','o.checkout_group_id','o.status','o.track_code','o.order_type','o.total_price', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"))
                         ->orderBy('o.id')
                         ->get();
                     foreach ($siblings as $sibling) $checkoutGroupOrders[$sibling->checkout_group_id][] = $sibling;
@@ -282,7 +282,7 @@ class OrderController extends Controller
         DB::table('notifications')->insert([
             'receiver_role'    => 'admin',
             'receiver_user_id' => null,
-            'title'            => 'ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Cancel Request ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Order #' . $id,
+            'title'            => 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Cancel Request ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Order #' . $id,
             'message'          => "{$custName} wants to cancel Order #{$id}. Reason: {$reason}",
             'is_read' => false,
             'created_at'       => now(),
@@ -291,12 +291,12 @@ class OrderController extends Controller
         DB::table('messages')->insert([
                         'sender_role' => 'customer',
             'sender_id'   => $uid,
-            'message'     => "ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Cancel Request submitted.\n\nReason: {$reason}",
+            'message'     => "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Cancel Request submitted.\n\nReason: {$reason}",
             'is_read' => false,
             'created_at'  => now(),
         ]);
 
-        CakeshopHelper::logActivity($uid, 'customer', 'Cancel Request', "Order #{$id} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â {$reason}");
+        CakeshopHelper::logActivity($uid, 'customer', 'Cancel Request', "Order #{$id} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â {$reason}");
         return back()->with('msg', 'Cancel request submitted. Waiting for admin approval.');
     }
 
@@ -396,7 +396,7 @@ class OrderController extends Controller
         $depositAmount = round((float) $request->input('deposit_amount', $minDeposit), 2);
 
         if ($depositAmount < $minDeposit)
-            return back()->with('err', 'Minimum deposit is 50% of total (ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±' . number_format($minDeposit, 2) . ').');
+            return back()->with('err', 'Minimum deposit is 50% of total (ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±' . number_format($minDeposit, 2) . ').');
         if ($depositAmount > $totalPrice)
             $depositAmount = $totalPrice;
 
@@ -419,7 +419,7 @@ class OrderController extends Controller
             'created_at' => now(),
         ]);
 
-        // GCash ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â redirect to PayMongo
+        // GCash ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â redirect to PayMongo
         if ($order->payment_method === 'GCash') {
             return redirect()->route('customer.custom_orders.pay_deposit', $coId);
         }
@@ -428,7 +428,7 @@ class OrderController extends Controller
         return redirect()->route('customer.custom_orders.pay_deposit', $coId);
     }
 
-    /** COD custom order ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â acknowledge deposit and auto-confirm */
+    /** COD custom order ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â acknowledge deposit and auto-confirm */
     private function acknowledgeCustomCod(string $coId, object $co, object $order, float $depositAmount, bool $isFullPayment, int $uid)
     {
         DB::table('orders')->where('id', $co->order_id)->update([
@@ -442,8 +442,8 @@ class OrderController extends Controller
             'order_id'   => $co->order_id,
             'status'     => 'Confirmed',
             'notes'      => $isFullPayment
-                ? "COD full payment ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±{$depositAmount} acknowledged. Order auto-confirmed."
-                : "COD deposit ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±{$depositAmount} acknowledged. Order auto-confirmed. Remaining: ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±" . ($order->total_price - $depositAmount),
+                ? "COD full payment ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±{$depositAmount} acknowledged. Order auto-confirmed."
+                : "COD deposit ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±{$depositAmount} acknowledged. Order auto-confirmed. Remaining: ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±" . ($order->total_price - $depositAmount),
             'created_at' => now(),
         ]);
 
@@ -468,7 +468,7 @@ class OrderController extends Controller
         ]);
 
         CakeshopHelper::logActivity($uid, 'customer', 'COD Custom Deposit Acknowledged', "Custom Order #{$coId}");
-        return back()->with('msg', 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Order confirmed! Your custom cake is now being prepared. ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡');
+        return back()->with('msg', 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Order confirmed! Your custom cake is now being prepared. ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â½ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡');
     }
 
     /** Send custom order to kitchen (shared helper) */
@@ -477,7 +477,7 @@ class OrderController extends Controller
         if ($order->kitchen_sent) return;
         $addons    = DB::table('order_addons')->where('order_id', $co->order_id)->get();
         $addonList = $addons->count() > 0
-            ? "\nADD-ONS:\n" . $addons->map(fn($a) => "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ {$a->addon_name}" . ($a->addon_price > 0 ? " (+ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±{$a->addon_price})" : " (FREE)"))->implode("\n")
+            ? "\nADD-ONS:\n" . $addons->map(fn($a) => "  ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {$a->addon_name}" . ($a->addon_price > 0 ? " (+ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±{$a->addon_price})" : " (FREE)"))->implode("\n")
             : '';
         $productName = DB::table('products')->where('id', $order->product_id)->value('name') ?? 'Custom Cake';
         $fullname    = DB::table('users')->where('id', $order->user_id)->value('fullname') ?? 'Customer';
@@ -487,8 +487,8 @@ class OrderController extends Controller
         $schedInfo   = $order->schedule_date
             ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) : '';
         $payInfo     = $order->payment_method === 'COD'
-            ? CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null) . " ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Deposit ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±{$order->deposit_amount} acknowledged"
-            : "GCash Deposit ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±{$order->deposit_amount} ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Paid";
+            ? CakeshopHelper::shortPaymentCode($order->payment_method, $order->fulfillment_type ?? null) . " ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Deposit ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±{$order->deposit_amount} acknowledged"
+            : "GCash Deposit ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±{$order->deposit_amount} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Paid";
 
         DB::table('kitchen_tickets')->where('order_id', $co->order_id)->delete();
         DB::table('kitchen_tickets')->insert([
@@ -523,7 +523,7 @@ class OrderController extends Controller
             DB::table('order_tracking')->insert([
                 'order_id'   => $co->order_id,
                 'status'     => 'Cancelled',
-                'notes'      => 'Customer declined the final price of ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â±' . number_format($co->admin_price, 2),
+                'notes'      => 'Customer declined the final price of ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±' . number_format($co->admin_price, 2),
                 'created_at' => now(),
             ]);
 
