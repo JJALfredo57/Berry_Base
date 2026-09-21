@@ -229,10 +229,21 @@ class TrackingController extends Controller
             ->limit(5)
             ->get();
 
+        $checkoutGroupOrders = collect();
+        if (!empty($order->checkout_group_id) && Schema::hasColumn('orders', 'checkout_group_id')) {
+            $checkoutGroupOrders = DB::table('orders as o')
+                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+                ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
+                ->where('o.checkout_group_id', $order->checkout_group_id)
+                ->select('o.id','o.status','o.track_code','o.order_type','o.total_price', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"))
+                ->orderBy('o.id')
+                ->get();
+        }
+
         $refund = app(OrderRefundService::class)->latestForOrder((string) $order->id);
 
         return view('guest.track_order', compact(
-            'order','tracking','addons','orderItems','customOrder','statusSteps','currentStep','recentReceipts','receiptCount','refund'
+            'order','tracking','addons','orderItems','customOrder','checkoutGroupOrders','statusSteps','currentStep','recentReceipts','receiptCount','refund'
         ));
     }
 

@@ -101,6 +101,7 @@ class OrderController extends Controller
         $orderRefunds = [];
         $paymentReceipts = [];
         $riderRemittances = [];
+        $checkoutGroupOrders = [];
         if ($orderIds) {
             try {
                 $addons = DB::table('order_addons')->whereIn('order_id', $orderIds)->get();
@@ -115,6 +116,20 @@ class OrderController extends Controller
                     $refundRows = DB::table('order_refunds')->whereIn('order_id', $orderIds)->orderByDesc('id')->get();
                     foreach ($refundRows as $r) {
                         if (!isset($orderRefunds[$r->order_id])) $orderRefunds[$r->order_id] = $r;
+                    }
+                }
+                if (Schema::hasColumn('orders', 'checkout_group_id')) {
+                    $groupIds = collect($orders->items())->pluck('checkout_group_id')->filter()->unique()->values();
+                    if ($groupIds->isNotEmpty()) {
+                        $siblings = DB::table('orders as o')
+                            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+                            ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
+                            ->where('o.shop_id', $shop->id)
+                            ->whereIn('o.checkout_group_id', $groupIds)
+                            ->select('o.id','o.checkout_group_id','o.status','o.track_code','o.order_type','o.total_price', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"))
+                            ->orderBy('o.id')
+                            ->get();
+                        foreach ($siblings as $sibling) $checkoutGroupOrders[$sibling->checkout_group_id][] = $sibling;
                     }
                 }
                 if (Schema::hasTable('payment_transactions')) {
@@ -149,7 +164,7 @@ class OrderController extends Controller
 
         try {
             return response(
-                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'orderItems', 'customData', 'orderRefunds', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'pendingCancelCount', 'search', 'status', 'riders'))->render()
+                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'orderItems', 'checkoutGroupOrders', 'customData', 'orderRefunds', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'pendingCancelCount', 'search', 'status', 'riders'))->render()
             );
         } catch (\Throwable $e) {
             Log::error('Seller orders VIEW render failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
@@ -215,7 +230,7 @@ class OrderController extends Controller
 
         // Picked Up requires settled payment; Cash on Pickup is settled during pickup confirmation.
         if ($newStatus === 'Picked Up' && $order->payment_status !== 'Paid' && !$isCashPickup) {
-            return back()->with('err', 'Cannot mark as Picked Up â€” customer still has an unpaid balance. Payment must be completed first.');
+            return back()->with('err', 'Cannot mark as Picked Up Ã¢â‚¬â€ customer still has an unpaid balance. Payment must be completed first.');
         }
 
         $upd = [
@@ -263,7 +278,7 @@ class OrderController extends Controller
             Log::warning('Seller order status push failed: ' . $e->getMessage());
         }
 
-        // SMS + in-app notification â€” send only for actionable statuses
+        // SMS + in-app notification Ã¢â‚¬â€ send only for actionable statuses
         try {
             $siteName  = config('app.name', 'Cake Shop');
             $shopName  = SmsHelper::getShopName($shop->id ?? null);
