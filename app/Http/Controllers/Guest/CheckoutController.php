@@ -223,6 +223,11 @@ class CheckoutController extends Controller
         }
     }
 
+    private function generateCheckoutGroupId(): string
+    {
+        return 'CHK-' . strtoupper(bin2hex(random_bytes(6)));
+    }
+
     public function placeOrder(Request $request)
     {
         $checkout = $request->session()->get('guest_checkout');
@@ -261,6 +266,8 @@ class CheckoutController extends Controller
         })->values();
         $hasCustomCheckout = $customCheckoutItems->isNotEmpty();
         $isGroupCheckout = $checkoutItems->isNotEmpty();
+        $resultingOrderCount = ($isGroupCheckout ? 1 : 0) + $customCheckoutItems->count();
+        $checkoutGroupId = $resultingOrderCount > 1 ? $this->generateCheckoutGroupId() : null;
         if (!empty($checkout['cart_item_ids']) && !$isGroupCheckout && !$hasCustomCheckout) {
             return redirect()->route('cart')->with('error', 'Those cart items are no longer available.');
         }
@@ -375,6 +382,7 @@ class CheckoutController extends Controller
                     'guest_name' => $guestName,
                     'guest_phone' => $phone,
                     'payment_method' => $payment,
+                    'checkout_group_id' => $checkoutGroupId,
                 ]);
                 if (!$created['ok']) return back()->with('error', $created['message'])->withInput();
                 $createdCustom[] = $created;
@@ -470,6 +478,7 @@ class CheckoutController extends Controller
             'user_id'             => $linkedCustomerId,
             'product_id'          => $pid,
             'order_type'          => 'regular',
+            'checkout_group_id'    => $checkoutGroupId,
             'quantity'            => $qty,
             'custom_note'         => $note ?: null,
             'total_price'         => $total,
@@ -574,7 +583,7 @@ class CheckoutController extends Controller
 
         DB::table('notifications')->insert([
             'receiver_role'    => 'admin', 'receiver_user_id' => null,
-            'title'            => '🛍️ New Order from '.$guestName,
+            'title'            => 'ðŸ›ï¸ New Order from '.$guestName,
             'message'          => "{$guestName} ({$phone}) placed Order #{$oid}.",
             'is_read' => false, 'created_at' => now(),
         ]);
@@ -599,6 +608,7 @@ class CheckoutController extends Controller
                     'guest_name' => $guestName,
                     'guest_phone' => $phone,
                     'payment_method' => $payment,
+                    'checkout_group_id' => $checkoutGroupId,
                 ]);
                 if (!$created['ok']) return back()->with('error', $created['message']);
             }
@@ -631,7 +641,7 @@ class CheckoutController extends Controller
                 "{$header}\n"
                 . "Hi {$guestName}! Your order has been received.\n\n"
                 . "Order No.: #{$oid}{$shopLine}\n"
-                . "Action Required: Pay ₱" . number_format($depositAmount, 2) . " deposit via GCash to confirm your order.\n\n"
+                . "Action Required: Pay â‚±" . number_format($depositAmount, 2) . " deposit via GCash to confirm your order.\n\n"
                 . "Your Tracking Code: {$trackCode}\n"
                 . "Track your order and pay the deposit on our website.";
             $customerTitle = 'Deposit Required';
@@ -659,8 +669,8 @@ class CheckoutController extends Controller
         );
 
         $successMsg = $needsDeposit
-            ? 'Order placed! 🎂 Please pay your 50% deposit below to confirm your order.'
-            : 'Order placed! We\'ll contact you soon to confirm. 🎂';
+            ? 'Order placed! ðŸŽ‚ Please pay your 50% deposit below to confirm your order.'
+            : 'Order placed! We\'ll contact you soon to confirm. ðŸŽ‚';
 
         if ($submitKey) {
             Cache::put($submitKey . ':result', [

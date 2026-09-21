@@ -215,6 +215,11 @@ class CheckoutController extends Controller
         ];
     }
 
+    private function generateCheckoutGroupId(): string
+    {
+        return 'CHK-' . strtoupper(bin2hex(random_bytes(6)));
+    }
+
     private function orderColumns(array $data): array
     {
         return array_filter($data, fn ($value, $column) => Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
@@ -243,6 +248,8 @@ class CheckoutController extends Controller
         })->values();
         $hasCustomCheckout = $customCheckoutItems->isNotEmpty();
         $isGroupCheckout = $checkoutItems->isNotEmpty();
+        $resultingOrderCount = ($isGroupCheckout ? 1 : 0) + $customCheckoutItems->count();
+        $checkoutGroupId = $resultingOrderCount > 1 ? $this->generateCheckoutGroupId() : null;
         if (!empty($checkout['cart_item_ids']) && !$isGroupCheckout && !$hasCustomCheckout) {
             return redirect()->route('customer.cart')->with('error', 'Those cart items are no longer available.');
         }
@@ -265,7 +272,7 @@ class CheckoutController extends Controller
             $note = $noteCount > 0 ? "Grouped order: {$noteCount} item note" . ($noteCount > 1 ? 's' : '') : null;
         }
 
-        // ── DUPLICATE PREVENTION ──────────────────────────────
+        // â”€â”€ DUPLICATE PREVENTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         $recentDuplicate = DB::table('orders')
             ->where('user_id', $uid)->where('product_id', $pid)
             ->whereIn('status', ['Pending', 'Awaiting Deposit'])
@@ -310,7 +317,7 @@ class CheckoutController extends Controller
         }
 
         if ($fulfillment === 'Delivery' && $lat !== null && $lng !== null) {
-            // ── Coverage validation ────────────────────────────
+            // â”€â”€ Coverage validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             $hasPinnedZones = DB::table('delivery_zones')
                 ->where('shop_id', $product->shop_id)
                 ->where('is_active', true)
@@ -326,7 +333,7 @@ class CheckoutController extends Controller
                 $zone = $nearestZone->barangay ?? $zone;
             }
 
-            // ── Recalculate fee server-side (prevent tampering) ─
+            // â”€â”€ Recalculate fee server-side (prevent tampering) â”€
             $settings = DB::table('site_settings')->where('shop_id', $product->shop_id)->first();
             if ($settings && $settings->shop_lat && $settings->shop_lng) {
                 $dist        = $this->haversine($lat, $lng, (float)$settings->shop_lat, (float)$settings->shop_lng);
@@ -361,6 +368,7 @@ class CheckoutController extends Controller
                     'user_id' => $uid,
                     'customer_name' => session('user')['fullname'] ?? 'Customer',
                     'payment_method' => $payment,
+                    'checkout_group_id' => $checkoutGroupId,
                 ]);
                 if (!$created['ok']) return back()->with('error', $created['message'])->withInput();
                 $createdCustom[] = $created['order_id'];
@@ -407,7 +415,7 @@ class CheckoutController extends Controller
             return back()->with('error', $capacity['message']);
         }
 
-        // ── Daily capacity check ──────────────────────────────
+        // â”€â”€ Daily capacity check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if ($sdate) {
             $shopId   = $product->shop_id ?? null;
             $settings = $shopId ? DB::table('site_settings')->where('shop_id', $shopId)->first() : null;
@@ -502,6 +510,7 @@ class CheckoutController extends Controller
             'user_id'          => $uid,
             'product_id'       => $pid,
             'order_type'       => 'regular',
+            'checkout_group_id' => $checkoutGroupId,
             'track_code'       => $trackCode,
             'quantity'         => $qty,
             'custom_note'      => $note,
@@ -691,6 +700,7 @@ class CheckoutController extends Controller
                     'user_id' => $uid,
                     'customer_name' => session('user')['fullname'] ?? 'Customer',
                     'payment_method' => $payment,
+                    'checkout_group_id' => $checkoutGroupId,
                 ]);
                 if (!$created['ok']) return back()->with('error', $created['message']);
             }
@@ -725,7 +735,7 @@ class CheckoutController extends Controller
             return redirect()->route('customer.pay_gcash', ['order_id' => $oid]);
         }
 
-        // COD / Pickup — require deposit before seller sees the order
+        // COD / Pickup â€” require deposit before seller sees the order
         if ($submitKey) {
             Cache::put($submitKey . ':result', [
                 'route' => 'customer.pay_deposit',

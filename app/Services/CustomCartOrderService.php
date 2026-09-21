@@ -74,6 +74,7 @@ class CustomCartOrderService
             'track_code' => $trackCode,
             'product_id' => $item->product_id,
             'order_type' => 'custom',
+            'checkout_group_id' => $context['checkout_group_id'] ?? null,
             'quantity' => $qty,
             'custom_note' => $fullNote,
             'total_price' => $total,
