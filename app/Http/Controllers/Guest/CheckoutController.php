@@ -460,7 +460,7 @@ class CheckoutController extends Controller
             return back()->with('error', $stockReserve['message'])->withInput();
         }
 
-        DB::table('orders')->insert([
+        $orderRow = [
             'id'                  => $oid,
             'cart_id'             => $checkout['cart_id'] ?? null,
             'shop_id'             => $product->shop_id ?? null,
@@ -469,6 +469,7 @@ class CheckoutController extends Controller
             'track_code'          => $trackCode,
             'user_id'             => $linkedCustomerId,
             'product_id'          => $pid,
+            'order_type'          => 'regular',
             'quantity'            => $qty,
             'custom_note'         => $note ?: null,
             'total_price'         => $total,
@@ -496,7 +497,9 @@ class CheckoutController extends Controller
             'payment_method'      => $payment,
             'payment_status'      => 'Unpaid',
             'created_at'          => now(),
-        ]);
+        ];
+        $orderRow = array_filter($orderRow, fn ($value, $column) => Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
+        DB::table('orders')->insert($orderRow);
 
         if (Schema::hasTable('order_items')) {
             $rows = $isGroupCheckout

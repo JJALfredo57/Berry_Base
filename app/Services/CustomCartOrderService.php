@@ -64,7 +64,7 @@ class CustomCartOrderService
         if ($addons && $addonInstructions) $parts[] = "Add-on instructions: {$addonInstructions}";
         $fullNote = implode(' | ', $parts);
 
-        DB::table('orders')->insert([
+        $orderRow = [
             'id' => $oid,
             'cart_id' => $context['cart_id'] ?? null,
             'shop_id' => $shopId,
@@ -73,6 +73,7 @@ class CustomCartOrderService
             'guest_phone' => $context['guest_phone'] ?? null,
             'track_code' => $trackCode,
             'product_id' => $item->product_id,
+            'order_type' => 'custom',
             'quantity' => $qty,
             'custom_note' => $fullNote,
             'total_price' => $total,
@@ -90,7 +91,9 @@ class CustomCartOrderService
             'payment_method' => $meta['payment_method'] ?? ($context['payment_method'] ?? 'COD'),
             'payment_status' => 'Unpaid',
             'created_at' => now(),
-        ]);
+        ];
+        $orderRow = array_filter($orderRow, fn ($value, $column) => Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
+        DB::table('orders')->insert($orderRow);
 
         $customOrderRow = [
             'id' => CakeshopHelper::generateId('custom_orders'),

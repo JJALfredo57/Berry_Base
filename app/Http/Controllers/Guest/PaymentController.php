@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
 use App\Services\MobileNotificationService;
+use App\Services\OrderTypeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -316,7 +317,7 @@ class PaymentController extends Controller
 
         // Idempotency — already paid, just send to kitchen if not yet done
         if ($order->deposit_status === 'paid') {
-            if (!$order->kitchen_sent) {
+            if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
                 $this->sendToKitchen($order);
             }
             return redirect()->route('track.order', $trackCode)->with('msg', 'Deposit already paid!');
@@ -422,7 +423,7 @@ class PaymentController extends Controller
         }
 
         // ── Send to kitchen ─────────────────────────────────────────────
-        if (!$order->kitchen_sent) {
+        if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
             // Reload order so product_name is fresh after potential join issue
             $freshOrder = DB::table('orders as o')
                 ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
@@ -718,7 +719,7 @@ class PaymentController extends Controller
                     'created_at' => now(),
                 ]);
 
-                if (!$order->kitchen_sent) {
+                if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
                     $addons = DB::table('order_addons')->where('order_id', $order->id)->get();
                     $addonList = $addons->count() > 0
                         ? "\nADD-ONS:\n" . $addons->map(fn($a) => "  • {$a->addon_name}" . ($a->addon_price > 0 ? " (+₱{$a->addon_price})" : " (FREE)"))->implode("\n")
@@ -751,7 +752,7 @@ class PaymentController extends Controller
                 'receiver_role'    => 'admin',
                 'receiver_user_id' => null,
                 'title'            => 'GCash Payment Received - Order #' . $order->id,
-                'message'          => ($order->guest_name ?? 'Guest') . ' completed GCash payment for Order #' . $order->id . '. Order auto-confirmed and sent to kitchen.',
+                'message'          => ($order->guest_name ?? 'Guest') . ' completed GCash payment for Order #' . $order->id . '. Order auto-confirmed.',
                 'is_read' => false,
                 'created_at'       => now(),
             ]);
@@ -1038,7 +1039,7 @@ class PaymentController extends Controller
                 ]);
 
                 // 2. Send to Kitchen (auto)
-                if (!$order->kitchen_sent) {
+                if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
                     $addons    = DB::table('order_addons')->where('order_id', $order->id)->get();
                     $addonList = $addons->count() > 0
                         ? "\nADD-ONS:\n" . $addons->map(fn($a) => "  • {$a->addon_name}" . ($a->addon_price > 0 ? " (+₱{$a->addon_price})" : " (FREE)"))->implode("\n")
@@ -1088,7 +1089,7 @@ class PaymentController extends Controller
                 'receiver_role'    => 'admin',
                 'receiver_user_id' => null,
                 'title'            => 'GCash Payment Received - Order #' . $order->id,
-                'message'          => ($order->guest_name ?? 'Guest') . ' paid via GCash for Order #' . $order->id . '. Order auto-confirmed and sent to kitchen.',
+                'message'          => ($order->guest_name ?? 'Guest') . ' paid via GCash for Order #' . $order->id . '. Order auto-confirmed.',
                 'is_read' => false,
                 'created_at'       => now(),
             ]);
@@ -1326,7 +1327,7 @@ class PaymentController extends Controller
             } catch (\Throwable $e) {}
 
             $fresh = $this->qrOrder($qr->track_code);
-            if ($fresh && !$fresh->kitchen_sent) {
+            if ($fresh && !$fresh->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($fresh)) {
                 $this->sendToKitchen($fresh, $isFull);
             }
         }
@@ -1610,7 +1611,7 @@ class PaymentController extends Controller
             $schedInfo   = $order->schedule_date ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) : '';
             $payInfo     = $isFullPayment ? "GCash Full ₱{$order->deposit_amount} ✓ Fully Paid" : "GCash Deposit ₱{$order->deposit_amount} ✓ Paid (Balance remaining)";
 
-            if (!$order->kitchen_sent) {
+            if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
                 DB::table('kitchen_tickets')->where('order_id', $order->id)->delete();
                 DB::table('kitchen_tickets')->insert([
                     'shop_id'       => $order->shop_id ?? null,

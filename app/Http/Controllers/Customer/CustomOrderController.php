@@ -400,6 +400,7 @@ class CustomOrderController extends Controller
             'shop_id'          => $shopId,
             'user_id'          => $uid,
             'product_id'       => $customPid,
+            'order_type'       => 'custom',
             'track_code'       => $trackCode,
             'quantity'         => $qty,
             'custom_note'      => $fullNote,

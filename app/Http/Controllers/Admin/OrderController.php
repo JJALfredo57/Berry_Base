@@ -8,6 +8,7 @@ use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
 use App\Services\LoyaltyService;
 use App\Services\OrderRefundService;
+use App\Services\OrderTypeService;
 use App\Services\ProductStockService;
 use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
@@ -151,12 +152,15 @@ class OrderController extends Controller
             'created_at' => now(),
         ]);
 
-        if (!$order->kitchen_sent) $this->doSendToKitchen($id, $order, $user);
+        if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) $this->doSendToKitchen($id, $order, $user);
 
         // No SMS on Confirmed — customer already got the order placed SMS
 
         CakeshopHelper::logActivity($user['id'], 'admin', 'Confirm Order', "Order #{$id}");
-        return back()->with('msg', "Order #{$id} confirmed and sent to kitchen! ✅");
+        $confirmMsg = app(OrderTypeService::class)->requiresKitchen($order)
+            ? "Order #{$id} confirmed and sent to kitchen!"
+            : "Order #{$id} confirmed. Ready-made order skips kitchen.";
+        return back()->with('msg', $confirmMsg);
     }
 
     /** Assign rider to a delivery order */
@@ -338,7 +342,7 @@ class OrderController extends Controller
         ]);
 
         // ── Auto-send to kitchen when Confirmed ───────────────────────────
-        if ($status === 'Confirmed' && !$order->kitchen_sent)
+        if ($status === 'Confirmed' && !$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order))
             $this->doSendToKitchen($id, $order, $user);
 
         // ── Generate rider token + SMS when Out for Delivery ──────────────
@@ -541,6 +545,9 @@ class OrderController extends Controller
             ->first();
 
         if (!$order) return back()->with('err', 'Order not found.');
+        if (!app(OrderTypeService::class)->requiresKitchen($order)) {
+            return back()->with('err', 'Regular ready-made orders do not require kitchen tickets. Mark them ready for pickup or assign a rider when ready.');
+        }
 
         $this->doSendToKitchen($id, $order, $user);
         return back()->with('msg', "Order #{$id} sent to kitchen successfully!");

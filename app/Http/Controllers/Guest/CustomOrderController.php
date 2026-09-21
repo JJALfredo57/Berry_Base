@@ -15,6 +15,7 @@ use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CustomOrderController extends Controller
 {
@@ -412,10 +413,10 @@ class CustomOrderController extends Controller
             return back()->with('error', 'This custom order is already being processed. Please wait.')->withInput();
         }
 
-        DB::table('orders')->insert([
+        $orderRow = [
             'id'=>$oid,'shop_id'=>$shopId,
             'guest_name'=>$guestName,'guest_phone'=>$phone,'track_code'=>$trackCode,
-            'user_id'=>$linkedCustomerId,'product_id'=>$customPid,'quantity'=>$qty,
+            'user_id'=>$linkedCustomerId,'product_id'=>$customPid,'order_type'=>'custom','quantity'=>$qty,
             'custom_note'=>$fullNote,'total_price'=>$total,'status'=>'Pending Review',
             'fulfillment_type'=>$fulfillment,'delivery_zone'=>$zone??'',
             'delivery_fee'=>$deliveryFee,'service_charge'=>$serviceCharge,
@@ -423,8 +424,9 @@ class CustomOrderController extends Controller
             'delivery_address'=>$address??'','latitude'=>$lat??0,
             'schedule_date'=>$sdate,'schedule_time'=>null,
             'payment_method'=>$payment,'payment_status'=>'Unpaid','created_at'=>now(),
-        ]);
-
+        ];
+        $orderRow = array_filter($orderRow, fn ($value, $column) => Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
+        DB::table('orders')->insert($orderRow);
         DB::table('custom_orders')->insert([
             'id'               => CakeshopHelper::generateId('custom_orders'),
             'order_id'         => $oid,

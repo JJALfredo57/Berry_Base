@@ -501,6 +501,7 @@ class CheckoutController extends Controller
             'shop_id'          => $product->shop_id ?? null,
             'user_id'          => $uid,
             'product_id'       => $pid,
+            'order_type'       => 'regular',
             'track_code'       => $trackCode,
             'quantity'         => $qty,
             'custom_note'      => $note,
