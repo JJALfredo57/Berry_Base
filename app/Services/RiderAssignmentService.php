@@ -35,7 +35,7 @@ class RiderAssignmentService
             'rider_accepted_at' => null,
             'rider_declined_at' => null,
             'rider_decline_reason' => null,
-            'status' => 'Out for Delivery',
+            'status' => 'Ready for Rider',
             'updated_at' => now(),
         ]);
 
@@ -80,7 +80,19 @@ class RiderAssignmentService
 
         $riderName = DB::table('riders')->where('id', $order->rider_id)->value('name') ?: 'Rider';
         $this->track((string) $order->id, 'Rider Accepted Delivery', "{$riderName} accepted the delivery assignment.");
+        $this->track((string) $order->id, 'Out for Delivery', "{$riderName} is now out for delivery.");
         $this->notifySeller($order, 'Rider Accepted Delivery', "{$riderName} accepted Order #{$order->id}.", 'rider_assignment_accepted');
+        try {
+            $freshOrder = DB::table('orders')->where('id', $order->id)->first() ?: $order;
+            $this->notifications->notifyOrderCustomer(
+                $freshOrder,
+                'Order Out for Delivery',
+                "Order #{$order->id} is now out for delivery.",
+                ['event' => 'order_status']
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Customer rider acceptance notification failed: ' . $e->getMessage());
+        }
     }
 
     public function decline(object $order, string $reason): void
@@ -193,13 +205,13 @@ class RiderAssignmentService
     private function previousStatus(object $order): string
     {
         $status = (string) ($order->status ?? 'Preparing');
-        return in_array($status, ['Out for Delivery', 'Delivered', 'Cancelled'], true) ? 'Preparing' : $status;
+        return in_array($status, ['Out for Delivery', 'Delivered', 'Cancelled'], true) ? 'Ready for Rider' : $status;
     }
 
     private function restoreStatus(object $order): string
     {
         $previous = (string) ($order->rider_assignment_previous_status ?? '');
-        return $previous !== '' ? $previous : 'Preparing';
+        return $previous !== '' ? $previous : 'Ready for Rider';
     }
 
     private function track(string $orderId, string $status, string $notes): void

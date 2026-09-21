@@ -75,7 +75,7 @@ class OrderController extends Controller
                     CASE
                         WHEN o.status = 'Pickup' THEN 0
                         WHEN o.status IN ('Pending','Pending Review') THEN 1
-                        WHEN o.status IN ('Confirmed','Preparing','Out for Delivery') THEN 2
+                        WHEN o.status IN ('Confirmed','Preparing','Ready for Rider','Out for Delivery') THEN 2
                         WHEN o.status IN ('Delivered','Picked Up','Cancelled') THEN 4
                         ELSE 3
                     END
@@ -166,28 +166,31 @@ class OrderController extends Controller
         $newStatus = $request->input('status');
         $isCustomOrder = app(OrderTypeService::class)->isCustom($order);
         $isPickupOrder = ($order->fulfillment_type ?? 'Pickup') === 'Pickup';
-        $allowed   = ['Confirmed','Preparing','Pickup','Out for Delivery','Delivered','Picked Up','Cancelled'];
+        $allowed   = ['Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','Cancelled'];
         if (!in_array($newStatus, $allowed)) return back()->with('err', 'Invalid status.');
 
         if ($newStatus !== 'Cancelled') {
             if (!$isCustomOrder && $newStatus === 'Preparing') {
                 return back()->with('err', 'Ready-made orders skip kitchen preparation. Confirm it, then mark ready for pickup or assign a rider.');
             }
-            if (!$isCustomOrder && !$isPickupOrder && $newStatus === 'Out for Delivery' && empty($order->rider_id)) {
-                return back()->with('err', 'Delivery ready-made orders must be dispatched through rider assignment.');
+            if (!$isPickupOrder && $newStatus === 'Out for Delivery' && empty($order->rider_id)) {
+                return back()->with('err', 'Delivery orders must be dispatched through rider assignment.');
+            }
+            if (!$isPickupOrder && $newStatus === 'Out for Delivery' && ($order->rider_assignment_status ?? '') !== 'accepted') {
+                return back()->with('err', 'The rider must accept the delivery before it can move out for delivery.');
             }
             if ($isCustomOrder && ($order->status ?? '') === 'Pending Review') {
                 return back()->with('err', 'Custom orders must be reviewed from the Custom Orders page before production.');
             }
             $regularNext = [
                 'Pending' => ['Confirmed'],
-                'Confirmed' => $isPickupOrder ? ['Pickup'] : ['Out for Delivery'],
+                'Confirmed' => $isPickupOrder ? ['Pickup'] : ['Ready for Rider'],
                 'Out for Delivery' => ['Delivered'],
                 'Pickup' => ['Picked Up'],
             ];
             $customNext = [
                 'Confirmed' => ['Preparing'],
-                'Preparing' => $isPickupOrder ? ['Pickup'] : ['Out for Delivery'],
+                'Preparing' => $isPickupOrder ? ['Pickup'] : ['Ready for Rider'],
                 'Out for Delivery' => ['Delivered'],
                 'Pickup' => ['Picked Up'],
             ];
@@ -212,7 +215,7 @@ class OrderController extends Controller
 
         // Picked Up requires settled payment; Cash on Pickup is settled during pickup confirmation.
         if ($newStatus === 'Picked Up' && $order->payment_status !== 'Paid' && !$isCashPickup) {
-            return back()->with('err', 'Cannot mark as Picked Up — customer still has an unpaid balance. Payment must be completed first.');
+            return back()->with('err', 'Cannot mark as Picked Up â€” customer still has an unpaid balance. Payment must be completed first.');
         }
 
         $upd = [
@@ -260,7 +263,7 @@ class OrderController extends Controller
             Log::warning('Seller order status push failed: ' . $e->getMessage());
         }
 
-        // SMS + in-app notification — send only for actionable statuses
+        // SMS + in-app notification â€” send only for actionable statuses
         try {
             $siteName  = config('app.name', 'Cake Shop');
             $shopName  = SmsHelper::getShopName($shop->id ?? null);
@@ -640,8 +643,8 @@ class OrderController extends Controller
         if (($order->fulfillment_type ?? 'Pickup') !== 'Delivery') {
             return back()->with('err', 'Only delivery orders can be assigned to a rider.');
         }
-        if (!in_array((string) ($order->status ?? ''), ['Confirmed', 'Preparing'], true)) {
-            return back()->with('err', 'Assign a rider only after the order is confirmed and ready for handoff.');
+        if (!in_array((string) ($order->status ?? ''), ['Ready for Rider', 'Confirmed', 'Preparing'], true)) {
+            return back()->with('err', 'Assign a rider only after the order is ready for rider handoff.');
         }
 
         $validated = $request->validate([
@@ -667,9 +670,9 @@ class OrderController extends Controller
             if ($pushOrder) {
                 app(MobileNotificationService::class)->notifyOrderCustomer(
                     $pushOrder,
-                    'Order Out for Delivery',
-                    "Order #{$id} is now out for delivery.",
-                    ['event' => 'order_status']
+                    'Rider Assigned',
+                    "Order #{$id} is ready for rider pickup. We will notify you when the rider accepts.",
+                    ['event' => 'rider_assignment_pending']
                 );
             }
         } catch (\Throwable $e) {

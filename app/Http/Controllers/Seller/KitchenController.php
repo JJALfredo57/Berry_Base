@@ -66,7 +66,7 @@ class KitchenController extends Controller
         $current = $ticket->status;
         $new     = $request->input('status', '');
 
-        // Waterfall validation — only allow forward movement
+        // Waterfall validation â€” only allow forward movement
         $allowed = [];
         if ($current === 'pending')      $allowed = ['in_progress'];
         if ($current === 'in_progress')  $allowed = ['done'];
@@ -82,7 +82,7 @@ class KitchenController extends Controller
 
         // Sync order status
         if ($new === 'in_progress') {
-            // Kitchen is preparing → update order to Preparing
+            // Kitchen is preparing â†’ update order to Preparing
             $order = DB::table('orders')->where('id', $orderId)->first();
             if ($order && $order->status !== 'Preparing') {
                 DB::table('orders')->where('id', $orderId)->update(['status' => 'Preparing']);
@@ -102,7 +102,7 @@ class KitchenController extends Controller
                         'is_read' => false,
                         'created_at'       => now(),
                     ]);
-                    // No SMS for Preparing — informational only, visible on tracking page
+                    // No SMS for Preparing â€” informational only, visible on tracking page
                 }
             }
         }
@@ -119,11 +119,11 @@ class KitchenController extends Controller
         if ($new === 'done') {
             $order = DB::table('orders')->where('id', $orderId)->first();
             if ($order) {
-                // Pickup order → Pickup status, Delivery order → Out for Delivery
-                $nextStatus = $order->fulfillment_type === 'Pickup' ? 'Pickup' : 'Out for Delivery';
+                // Pickup orders become ready for pickup; delivery orders wait for rider acceptance.
+                $nextStatus = $order->fulfillment_type === 'Pickup' ? 'Pickup' : 'Ready for Rider';
                 $notes      = $order->fulfillment_type === 'Pickup'
                     ? 'Kitchen completed the order. Ready for pickup.'
-                    : 'Kitchen completed the order. Ready for delivery.';
+                    : 'Kitchen completed the order. Ready for rider handoff.';
 
                 DB::table('orders')->where('id', $orderId)->update(['status' => $nextStatus]);
                 DB::table('order_tracking')->insert([
@@ -143,13 +143,13 @@ class KitchenController extends Controller
                     $name      = $order->guest_name ?? 'Customer';
                     $sms = $order->fulfillment_type === 'Pickup'
                         ? "{$header}\nHi {$name}! Your order is ready!\n\nOrder No.: #{$orderId}{$shopLine}\nStatus: Ready for Pickup\n\nYour cake is now ready for pickup. Please visit our shop at your earliest convenience.\n\nYour Tracking Code: {$order->track_code}"
-                        : "{$header}\nHi {$name}! Your order is on its way!\n\nOrder No.: #{$orderId}{$shopLine}\nStatus: Out for Delivery\n\nOur rider is now heading to your location. Please make sure someone is available to receive your order.\n\nYour Tracking Code: {$order->track_code}";
+                        : "{$header}\nHi {$name}! Your order is ready for delivery handoff!\n\nOrder No.: #{$orderId}{$shopLine}\nStatus: Ready for Rider\n\nYour cake is ready for rider pickup. We will notify you when the rider is on the way.\n\nYour Tracking Code: {$order->track_code}";
                     app(MobileNotificationService::class)->notifyOrderCustomer(
                         $order,
                         'Order Update: ' . $nextStatus,
                         $order->fulfillment_type === 'Pickup'
                             ? "Your order #{$orderId} is ready for pickup."
-                            : "Your order #{$orderId} is on its way.",
+                            : "Your order #{$orderId} is ready for rider pickup.",
                         ['event' => 'kitchen_update'],
                         $sms
                     );
@@ -163,11 +163,11 @@ class KitchenController extends Controller
                     $shopLine  = $shopName ? "\nShop: {$shopName}" : '';
                     $custName  = DB::table('users')->where('id', $order->user_id)->value('fullname') ?? 'Customer';
                     $notifMsg  = $order->fulfillment_type === 'Pickup'
-                        ? "Your order #{$orderId} is ready for pickup! 🎂"
-                        : "Your order #{$orderId} is on its way! 🚴";
+                        ? "Your order #{$orderId} is ready for pickup! ðŸŽ‚"
+                        : "Your order #{$orderId} is ready for rider pickup.";
                     $smsMsg    = $order->fulfillment_type === 'Pickup'
-                        ? "{$header}\nHi {$custName}! 🎂 Your order is ready!\n\nOrder No.: #{$orderId}{$shopLine}\nStatus: Ready for Pickup\n\nYour cake is now ready for pickup. Please visit our shop at your earliest convenience."
-                        : "{$header}\nHi {$custName}! 🚴 Your order is on its way!\n\nOrder No.: #{$orderId}{$shopLine}\nStatus: Out for Delivery\n\nOur rider is now heading to your location. Please make sure someone is available to receive your order.";
+                        ? "{$header}\nHi {$custName}! ðŸŽ‚ Your order is ready!\n\nOrder No.: #{$orderId}{$shopLine}\nStatus: Ready for Pickup\n\nYour cake is now ready for pickup. Please visit our shop at your earliest convenience."
+                        : "{$header}\nHi {$custName}! Your order is ready for delivery handoff!\n\nOrder No.: #{$orderId}{$shopLine}\nStatus: Ready for Rider\n\nYour cake is ready for rider pickup. We will notify you when the rider is on the way.";
                     DB::table('notifications')->insert([
                         'receiver_role'    => 'customer',
                         'receiver_user_id' => $order->user_id,
@@ -185,19 +185,20 @@ class KitchenController extends Controller
                     );
                 }
 
-                // ── Send SMS to Rider (Delivery orders only) ─────────────
+                // â”€â”€ Send SMS to Rider (Delivery orders only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 if ($order->fulfillment_type === 'Delivery' && $order->rider_id) {
                     $rider = DB::table('riders')->where('id', $order->rider_id)->where('is_active', true)->first();
+                    $handoffOrder = DB::table('orders')->where('id', $orderId)->first() ?: $order;
                     if ($rider) {
-                        $assignment = app(RiderAssignmentService::class)->assign($order, $rider, $shop, 'seller');
+                        $assignment = app(RiderAssignmentService::class)->assign($handoffOrder, $rider, $shop, 'seller');
                         $riderNotifyChannel = $assignment['notice']['channel'] ?? 'none';
                     }
                 }
             }
         }
 
-        CakeshopHelper::logActivity($user['id'], 'seller', 'Update Kitchen Ticket', "Ticket #{$id}: {$current} → {$new}");
-        $labels = ['in_progress' => 'In Progress (Preparing)', 'done' => 'Done (Out for Delivery)'];
+        CakeshopHelper::logActivity($user['id'], 'seller', 'Update Kitchen Ticket', "Ticket #{$id}: {$current} â†’ {$new}");
+        $labels = ['in_progress' => 'In Progress (Preparing)', 'done' => 'Done (Ready for Handoff)'];
         $baseMsg = "Kitchen ticket updated to: " . ($labels[$new] ?? $new);
 
         if ($new === 'done' && isset($riderNotifyChannel)) {
@@ -288,6 +289,6 @@ class KitchenController extends Controller
             return $this->update($fakeRequest, $ticket->id);
         }
 
-        return back()->with('msg', "Rider assigned and order marked as done! ✅");
+        return back()->with('msg', "Rider assigned and order marked as done! âœ…");
     }
 }

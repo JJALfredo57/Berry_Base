@@ -220,7 +220,7 @@ class TrackingController extends Controller
         $isPickup    = ($order->fulfillment_type ?? '') === 'Pickup';
         $statusSteps = $isPickup
             ? ['Pending','Confirmed','Preparing','Pickup','Picked Up']
-            : ['Pending','Confirmed','Preparing','Out for Delivery','Delivered'];
+            : ['Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered'];
         $currentStep = array_search($order->status, $statusSteps);
         if ($currentStep === false) $currentStep = 0;
         $receiptQuery = $this->receiptQueryForPhone($order->guest_phone ?? '');
@@ -289,7 +289,7 @@ class TrackingController extends Controller
         } catch (\Throwable $e) {}
 
         $final = in_array($order->status, ['Delivered', 'Picked Up', 'Cancelled'], true);
-        $active = in_array($order->status, ['Preparing', 'Out for Delivery', 'Pickup'], true);
+        $active = in_array($order->status, ['Preparing', 'Ready for Rider', 'Out for Delivery', 'Pickup'], true);
 
         return response()->json([
             'ok' => true,

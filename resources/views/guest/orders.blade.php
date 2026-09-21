@@ -11,14 +11,14 @@
       <h4 class="fw-bold mb-0"><i class="bi bi-bag-check me-2" style="color:var(--primary)"></i>Orders</h4>
       <p class="text-muted small mb-0" id="ordersCountLabel">{{ count($orders) }} total orders
         @if($pendingCancelCount > 0)
-          &nbsp;·&nbsp;<span class="badge bg-danger">{{ $pendingCancelCount }} cancel request{{ $pendingCancelCount > 1 ? 's' : '' }}</span>
+          &nbsp;Â·&nbsp;<span class="badge bg-danger">{{ $pendingCancelCount }} cancel request{{ $pendingCancelCount > 1 ? 's' : '' }}</span>
         @endif
       </p>
     </div>
     <div class="cs-search-bar" style="max-width:240px;width:100%">
       
       <input type="text" id="searchInput" class="form-control form-control-sm"
-             placeholder="Search customer, order ID…" oninput="doFilter()">
+             placeholder="Search customer, order IDâ€¦" oninput="doFilter()">
     </div>
   </div>
 
@@ -31,7 +31,7 @@
 
   {{-- Status filter tabs --}}
   <div class="d-flex gap-2 flex-wrap mb-3" id="filterTabs">
-    @foreach(['All'=>'All','Pending'=>'⏳ Pending','Confirmed'=>'✅ Confirmed','Preparing'=>'🍳 Preparing','Out for Delivery'=>'🚴 Delivery','Delivered'=>'🏠 Delivered','Cancelled'=>'❌ Cancelled','Cancel Requests'=>'🚨 Cancel Requests'] as $val=>$lbl)
+    @foreach(['All'=>'All','Pending'=>'â³ Pending','Confirmed'=>'âœ… Confirmed','Preparing'=>'ðŸ³ Preparing','Ready for Rider'=>'ðŸš´ Ready for Rider','Out for Delivery'=>'ðŸš´ Delivery','Delivered'=>'ðŸ  Delivered','Cancelled'=>'âŒ Cancelled','Cancel Requests'=>'ðŸš¨ Cancel Requests'] as $val=>$lbl)
     <button class="btn btn-sm {{ $val==='All' ? 'btn-primary' : 'btn-outline-secondary' }}"
             data-filter="{{ $val }}" onclick="setFilter('{{ $val }}',this)">{{ $lbl }}
       @if($val === 'Cancel Requests' && $pendingCancelCount > 0)
@@ -62,7 +62,7 @@
                style="background:#fee2e2;border-radius:1.1rem 1.1rem 0 0">
             <div class="d-flex align-items-center gap-2">
               <i class="bi bi-exclamation-triangle-fill text-danger"></i>
-              <strong class="small text-danger">Cancel Request — needs your action!</strong>
+              <strong class="small text-danger">Cancel Request â€” needs your action!</strong>
             </div>
             <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelReviewModal{{ $o->id }}">
               <i class="bi bi-eye me-1"></i>Review Request
@@ -84,10 +84,10 @@
           <div class="d-flex flex-wrap align-items-center justify-content-between p-3 border-bottom">
             <div class="d-flex align-items-center gap-3">
               <img src="{{ $o->image_path }}" style="width:52px;height:52px;object-fit:cover;border-radius:.7rem"
-                   onerror="this.src='https://placehold.co/52x52/fce4ec/e91e63?text=🎂'">
+                   onerror="this.src='https://placehold.co/52x52/fce4ec/e91e63?text=ðŸŽ‚'">
               <div>
                 <div class="fw-bold">{{ $o->product_name }}
-                  <span class="text-muted fw-normal small">×{{ $o->quantity }}</span>
+                  <span class="text-muted fw-normal small">Ã—{{ $o->quantity }}</span>
                 </div>
                 <div class="small text-muted">
                   <i class="bi bi-person me-1"></i><strong>{{ $o->fullname }}</strong>
@@ -96,7 +96,7 @@
                   @else
                     (@<span>{{ $o->username }}</span>)
                   @endif
-                  &nbsp;·&nbsp;
+                  &nbsp;Â·&nbsp;
                   <i class="bi bi-phone me-1"></i>
                   @if($o->phone)
                     <a href="tel:{{ $o->phone }}" class="text-decoration-none text-muted">{{ $o->phone }}</a>
@@ -104,13 +104,13 @@
                 </div>
                 <div class="small text-muted">
                   <i class="bi bi-hash"></i>{{ $o->id }}
-                  &nbsp;·&nbsp;{{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y g:i A') }}
+                  &nbsp;Â·&nbsp;{{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y g:i A') }}
                 </div>
               </div>
             </div>
             <div class="text-end mt-2 mt-sm-0">
               <span class="status-badge status-{{ str_replace(' ','-',$o->status) }}">{{ $o->status }}</span>
-              <div class="fw-bold mt-1 fs-6">₱{{ number_format($o->total_price,2) }}</div>
+              <div class="fw-bold mt-1 fs-6">â‚±{{ number_format($o->total_price,2) }}</div>
               <div class="small text-muted">
                 {{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}
                 <span class="badge rounded-pill ms-1"
@@ -124,10 +124,10 @@
           {{-- Add-ons --}}
           @if(isset($orderAddons[$o->id]) && count($orderAddons[$o->id]) > 0)
           <div class="px-3 py-2 small" style="background:#fff5f8;border-top:1px dashed #f9a8d4">
-            <span class="fw-semibold me-2" style="color:var(--primary)">🎨 Add-ons:</span>
+            <span class="fw-semibold me-2" style="color:var(--primary)">ðŸŽ¨ Add-ons:</span>
             @foreach($orderAddons[$o->id] as $oa)
               <span class="badge me-1" style="background:#fff0f5;color:var(--primary);font-size:.72rem">
-                {{ $oa->addon_name }}{{ $oa->addon_price > 0 ? ' +₱'.number_format($oa->addon_price,2) : ' FREE' }}
+                {{ $oa->addon_name }}{{ $oa->addon_price > 0 ? ' +â‚±'.number_format($oa->addon_price,2) : ' FREE' }}
               </span>
             @endforeach
           </div>
@@ -173,7 +173,7 @@
                 <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
                   <div class="modal-content border-0" style="border-radius:1.2rem;overflow:hidden">
                     <div class="modal-header border-0 pt-4 px-4">
-                      <h5 class="modal-title fw-bold">💰 Request Deposit — Order #{{ $o->id }}</h5>
+                      <h5 class="modal-title fw-bold">ðŸ’° Request Deposit â€” Order #{{ $o->id }}</h5>
                       <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <form action="{{ route('admin.orders.request_deposit', $o->id) }}" method="POST">
@@ -181,15 +181,15 @@
                       <div class="modal-body px-4 pt-0 pb-3">
                         <p class="text-muted small mb-3">
                           Customer: <strong>{{ $o->fullname }}</strong> &bull;
-                          Total: <strong>₱{{ number_format($o->total_price,2) }}</strong>
+                          Total: <strong>â‚±{{ number_format($o->total_price,2) }}</strong>
                         </p>
                         <div class="mb-3">
-                          <label class="form-label fw-semibold small">Deposit Amount (₱) <span class="text-danger">*</span></label>
+                          <label class="form-label fw-semibold small">Deposit Amount (â‚±) <span class="text-danger">*</span></label>
                           <input type="number" class="form-control" name="deposit_amount"
                                  step="0.01" min="1" max="{{ $o->total_price }}"
                                  value="{{ $o->deposit_amount > 0 ? $o->deposit_amount : round($o->total_price * 0.5, 2) }}"
                                  required>
-                          <div class="form-text">Default 50% = ₱{{ number_format($o->total_price * 0.5, 2) }}</div>
+                          <div class="form-text">Default 50% = â‚±{{ number_format($o->total_price * 0.5, 2) }}</div>
                         </div>
                         <div class="mb-3">
                           <label class="form-label fw-semibold small">Message to Customer <span class="text-muted">(optional)</span></label>
@@ -213,7 +213,7 @@
               </div>
               @endif
 
-              {{-- Confirm Order — locked until deposit paid (if required) --}}
+              {{-- Confirm Order â€” locked until deposit paid (if required) --}}
               @if(!$o->deposit_required || $o->deposit_status === 'paid')
               <form action="{{ route('admin.orders.confirm', $o->id) }}" method="POST" class="d-inline">
                 @csrf
@@ -237,9 +237,9 @@
               {{-- Deposit status badge --}}
               @if($o->deposit_required)
                 @if($o->deposit_status === 'paid')
-                <span class="badge bg-success">💰 Deposit Paid ₱{{ number_format($o->deposit_amount,2) }}</span>
+                <span class="badge bg-success">ðŸ’° Deposit Paid â‚±{{ number_format($o->deposit_amount,2) }}</span>
                 @elseif($o->deposit_status === 'pending')
-                <span class="badge bg-warning text-dark">⏳ Awaiting Deposit ₱{{ number_format($o->deposit_amount,2) }}</span>
+                <span class="badge bg-warning text-dark">â³ Awaiting Deposit â‚±{{ number_format($o->deposit_amount,2) }}</span>
                 @endif
               @endif
 
@@ -251,7 +251,7 @@
                 'Pending'          => ['Cancelled'],
                 'Pending Review'   => ['Cancelled'],
                 'Confirmed'        => ['Preparing','Cancelled'],
-                'Preparing'        => ['Out for Delivery','Cancelled'],
+                'Preparing'        => ['Ready for Rider','Cancelled'],
                 'Out for Delivery' => ['Delivered','Cancelled'],
                 'Delivered'        => [],
                 'Cancelled'        => [],
@@ -259,6 +259,7 @@
               $btnColors = [
                 'Confirmed'        => 'btn-success',
                 'Preparing'        => 'btn-warning text-dark',
+                'Ready for Rider'  => 'btn-outline-info',
                 'Out for Delivery' => 'btn-info text-dark',
                 'Delivered'        => 'btn-primary',
                 'Cancelled'        => 'btn-outline-danger',
@@ -295,7 +296,7 @@
               @csrf
               <button type="submit" class="btn btn-sm {{ $o->kitchen_sent ? 'btn-success' : 'btn-outline-success' }}"
                       onclick="confirmAction('Send to Kitchen?', 'Order #{{ $o->id }} will be sent to the kitchen.', () => this.closest('form').submit()); return false;">
-                <i class="bi bi-fire me-1"></i>{{ $o->kitchen_sent ? '✓ Sent to Kitchen' : 'Send to Kitchen' }}
+                <i class="bi bi-fire me-1"></i>{{ $o->kitchen_sent ? 'âœ“ Sent to Kitchen' : 'Send to Kitchen' }}
               </button>
             </form>
             @endif
@@ -303,7 +304,7 @@
             {{-- Review badge --}}
             @if(isset($orderReviews[$o->id]))
             <span class="badge" style="background:#fef9c3;color:#92400e;font-size:.75rem;padding:.4rem .7rem">
-              @for($s=1;$s<=5;$s++)<span style="color:{{ $s<=$orderReviews[$o->id]->rating?'#f59e0b':'#d1d5db' }}">★</span>@endfor
+              @for($s=1;$s<=5;$s++)<span style="color:{{ $s<=$orderReviews[$o->id]->rating?'#f59e0b':'#d1d5db' }}">â˜…</span>@endfor
               {{ $orderReviews[$o->id]->rating }}/5
             </span>
             @endif
@@ -321,7 +322,7 @@
         <div class="modal-content border-0" style="border-radius:1.2rem">
           <div class="modal-header border-0 pb-0">
             <h5 class="modal-title fw-bold">
-              <i class="bi bi-x-circle me-2 text-danger"></i>Review Cancel Request — Order #{{ $o->id }}
+              <i class="bi bi-x-circle me-2 text-danger"></i>Review Cancel Request â€” Order #{{ $o->id }}
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
@@ -330,13 +331,13 @@
             {{-- Full Order Details --}}
             <div class="card mb-3" style="border:1px solid #e5e7eb !important">
               <div class="card-body p-3">
-                <h6 class="fw-bold mb-3 small text-muted text-uppercase">📦 Order Details</h6>
+                <h6 class="fw-bold mb-3 small text-muted text-uppercase">ðŸ“¦ Order Details</h6>
                 <div class="d-flex align-items-center gap-3 mb-3">
                   <img src="{{ $o->image_path }}" style="width:60px;height:60px;object-fit:cover;border-radius:.7rem"
-                       onerror="this.src='https://placehold.co/60x60/fce4ec/e91e63?text=🎂'">
+                       onerror="this.src='https://placehold.co/60x60/fce4ec/e91e63?text=ðŸŽ‚'">
                   <div>
                     <div class="fw-bold">{{ $o->product_name }}</div>
-                    <div class="text-muted small">Qty: {{ $o->quantity }} &bull; ₱{{ number_format($o->total_price,2) }}</div>
+                    <div class="text-muted small">Qty: {{ $o->quantity }} &bull; â‚±{{ number_format($o->total_price,2) }}</div>
                   </div>
                 </div>
                 <div class="row g-2 small">
@@ -351,7 +352,7 @@
                   <div class="col-sm-6">
                     <div class="text-muted">Fulfillment</div>
                     <div class="fw-semibold">{{ $o->fulfillment_type }}
-                      @if($o->delivery_zone) — {{ $o->delivery_zone }} @endif
+                      @if($o->delivery_zone) â€” {{ $o->delivery_zone }} @endif
                     </div>
                   </div>
                   <div class="col-sm-6">
@@ -550,7 +551,7 @@ function rerunOrdersPager(search) {
     let html = '<div class="cs-pagination">';
     html += '<button class="cs-page-btn" onclick="ordersGoPage(' + cur-1 + ')" ' + cur===1?'disabled':'' + '><i class="bi bi-chevron-left"></i></button>';
     buildRange(cur, total).forEach(p => {
-      if (p === '...') html += '<button class="cs-page-btn dots">…</button>';
+      if (p === '...') html += '<button class="cs-page-btn dots">â€¦</button>';
       else html += '<button class="cs-page-btn ' + p===cur?'active':'' + '" onclick="ordersGoPage(' + p + ')">' + p + '</button>';
     });
     html += '<button class="cs-page-btn" onclick="ordersGoPage(' + cur+1 + ')" ' + cur===total?'disabled':'' + '><i class="bi bi-chevron-right"></i></button>';
