@@ -31,8 +31,8 @@
   .filter-fab{display:inline-flex;position:fixed;right:14px;top:calc(var(--topbar-h,56px) + 10px);bottom:auto;z-index:1043;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.2)}
   .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1040}
   .filter-overlay.show{display:block}
-  .filter-panel{position:fixed!important;top:calc(var(--topbar-h,56px) + 54px);left:10px;right:10px;bottom:auto;width:auto;max-width:calc(100vw - 20px);max-height:calc(100vh - var(--topbar-h,56px) - 72px);z-index:1042;overflow:auto;border-radius:1rem!important;transform:translateY(-125%);margin:0!important}
-  .filter-panel.show{transform:translateY(0);box-shadow:0 18px 44px rgba(15,23,42,.22)}
+  .filter-panel{position:fixed!important;top:calc(var(--topbar-h,56px) + 54px);left:10px;right:10px;bottom:auto;width:auto;max-width:calc(100vw - 20px);max-height:calc(100vh - var(--topbar-h,56px) - 72px);z-index:1042;overflow:auto;border-radius:1rem!important;transform:translateY(-10px);opacity:0;visibility:hidden;pointer-events:none;margin:0!important}
+  .filter-panel.show{transform:translateY(0);opacity:1;visibility:visible;pointer-events:auto;box-shadow:0 18px 44px rgba(15,23,42,.22)}
   .filter-panel .card-body{padding:.9rem!important}
 }
 .customer-wrap { animation: none !important; transform: none !important; }
