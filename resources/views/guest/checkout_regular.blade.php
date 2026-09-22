@@ -435,8 +435,8 @@ document.body.style.paddingRight = '';
         </div>
 
         {{-- RIGHT: Order Summary --}}
-        <div class="col-lg-4 col-xl-3">
-          <div class="card bb-sticky-order-summary">
+        <div class="col-lg-4 col-xl-3 bb-sticky-order-column">
+          <div class="card">
             <div class="card-body p-4">
               <h6 class="fw-bold mb-3">📋 Order Summary</h6>
 

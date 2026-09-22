@@ -1068,15 +1068,16 @@
 
 
     @@media (min-width: 992px) {
-      .bb-sticky-order-summary {
-        position: fixed !important;
+      .bb-sticky-order-column {
+        position: sticky !important;
         top: calc(var(--topbar-h, 64px) + 16px);
-        right: clamp(16px, 3vw, 32px);
-        width: clamp(280px, 26vw, 380px);
+        align-self: flex-start;
+        z-index: 1020;
+      }
+      .bb-sticky-order-column > .card {
         max-height: calc(100vh - var(--topbar-h, 64px) - 32px);
         overflow-y: auto;
         overscroll-behavior: contain;
-        z-index: 1020;
       }
       .bb-sticky-catalog-filters {
         position: sticky !important;
@@ -1087,12 +1088,12 @@
     }
 
     @@media (max-width: 991.98px) {
-      .bb-sticky-order-summary,
+      .bb-sticky-order-column,
       .bb-sticky-catalog-filters {
         position: static !important;
         top: auto !important;
-        right: auto !important;
-        width: auto !important;
+      }
+      .bb-sticky-order-column > .card {
         max-height: none !important;
         overflow: visible !important;
       }
