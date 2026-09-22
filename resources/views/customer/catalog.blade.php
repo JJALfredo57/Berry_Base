@@ -24,15 +24,16 @@
   .best-seller-grid{ grid-template-columns:1fr; }
   .catalog-img-wrap{ height:200px !important; }
 }
-.filter-fab{display:none}
+.filter-fab{display:inline-flex;align-items:center;gap:.45rem;position:sticky;top:calc(var(--topbar-h,56px) + 10px);z-index:1025;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.16);margin:0 0 1rem auto;width:max-content}
 .filter-overlay{display:none}
-.filter-panel{transition:transform .25s ease, opacity .2s ease, box-shadow .25s ease}
+.filter-panel{max-height:0;opacity:0;visibility:hidden;pointer-events:none;overflow:hidden;margin:0!important;transform:translateY(-8px) scale(.99);transition:max-height .28s cubic-bezier(.2,.8,.2,1),opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s linear .28s,margin .2s ease,box-shadow .25s ease}
+.filter-panel.show,.filter-panel:target{position:sticky!important;top:calc(var(--topbar-h,56px) + 56px);z-index:1024;max-height:calc(100vh - var(--topbar-h,56px) - 76px);opacity:1;visibility:visible;pointer-events:auto;overflow:auto;transform:translateY(0) scale(1);margin-bottom:1.5rem!important;box-shadow:0 18px 44px rgba(15,23,42,.14);transition:max-height .32s cubic-bezier(.2,.8,.2,1),opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s,margin .2s ease,box-shadow .25s ease}
 @media(max-width:768px){
-  .filter-fab{display:inline-flex;position:fixed;right:14px;top:calc(var(--topbar-h,56px) + 10px);bottom:auto;z-index:1067;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.2)}
+  .filter-fab{position:fixed;right:14px;top:calc(var(--topbar-h,56px) + 10px);bottom:auto;z-index:1067;margin:0;box-shadow:0 12px 28px rgba(15,23,42,.2)}
   .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1060}
   .filter-overlay.show{display:block}
-  .filter-panel{position:fixed!important;top:calc(var(--topbar-h,56px) + 54px);left:10px;right:10px;bottom:auto;width:auto;max-width:calc(100vw - 20px);max-height:calc(100vh - var(--topbar-h,56px) - 72px);z-index:1065;overflow:auto;border-radius:1rem!important;transform:translateY(-10px);opacity:0;visibility:hidden;pointer-events:none;margin:0!important}
-  .filter-panel.show,.filter-panel:target{transform:translateY(0);opacity:1;visibility:visible;pointer-events:auto;box-shadow:0 18px 44px rgba(15,23,42,.22)}
+  .filter-panel{position:fixed!important;top:calc(var(--topbar-h,56px) + 54px);left:10px;right:10px;bottom:auto;width:auto;max-width:calc(100vw - 20px);max-height:0;z-index:1065;border-radius:1rem!important;margin:0!important}
+  .filter-panel.show,.filter-panel:target{max-height:calc(100vh - var(--topbar-h,56px) - 72px);margin:0!important;box-shadow:0 18px 44px rgba(15,23,42,.22)}
   .filter-panel .card-body{padding:.9rem!important}
 }
 .customer-wrap { animation: none !important; transform: none !important; }
@@ -107,11 +108,11 @@
   @endif
 
 <span id="catalogFiltersTop"></span>
-<a href="#catalogFilterPanel" role="button" class="btn btn-primary filter-fab" onclick="if(window.toggleCatalogFilters){toggleCatalogFilters(true);return false;}">
-  <i class="bi bi-funnel me-1"></i>Filters
+<a href="#catalogFilterPanel" role="button" class="btn btn-primary filter-fab" aria-controls="catalogFilterPanel" aria-expanded="false" onclick="if(window.toggleCatalogFilters){toggleCatalogFilters(true);return false;}">
+  <i class="bi bi-search-heart me-1"></i>Smart Search
 </a>
 <div id="catalogFilterOverlay" class="filter-overlay" onclick="toggleCatalogFilters(false)"></div>
-<div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel bb-sticky-catalog-filters" style="border-radius:1.25rem;background:#fff">
+<div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel" style="border-radius:1.25rem;background:#fff">
   <div class="card-body p-3 p-md-4">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div>
@@ -122,7 +123,7 @@
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetCatalogFilters()">
           <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
         </button>
-        <a href="#catalogFiltersTop" role="button" class="btn btn-outline-secondary btn-sm d-md-none" onclick="if(window.toggleCatalogFilters){toggleCatalogFilters(false);return false;}">
+        <a href="#catalogFiltersTop" role="button" class="btn btn-outline-secondary btn-sm" aria-label="Close smart search" onclick="if(window.toggleCatalogFilters){toggleCatalogFilters(false);return false;}">
           <i class="bi bi-x-lg"></i>
         </a>
       </div>
@@ -1028,10 +1029,16 @@ function ensureCatalogFilterLayer(open) {
 
 function toggleCatalogFilters(open) {
   const layer = ensureCatalogFilterLayer(open);
-  layer.panel?.classList.toggle('show', open);
-  layer.overlay?.classList.toggle('show', open);
-  document.body.classList.toggle('catalog-filter-open', !!open);
-  document.body.style.overflow = open ? 'hidden' : '';
+  const shouldOpen = !!open;
+  layer.panel?.classList.toggle('show', shouldOpen);
+  layer.overlay?.classList.toggle('show', shouldOpen);
+  document.querySelector('.filter-fab')?.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+  document.body.classList.toggle('catalog-filter-open', shouldOpen);
+  document.body.style.overflow = shouldOpen && window.matchMedia('(max-width: 768px)').matches ? 'hidden' : '';
+
+  if (!shouldOpen && window.location.hash === '#catalogFilterPanel' && window.history?.replaceState) {
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
 }
 
 window.filterCatalog = filterCatalog;
