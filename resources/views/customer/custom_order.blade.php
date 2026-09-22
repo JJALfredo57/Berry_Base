@@ -346,16 +346,8 @@
                     <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least {{ $customPrepDays }} preparation day{{ $customPrepDays === 1 ? '' : 's' }}.</div>
                   </div>
                   <div class="col-sm-6">
-                    <label class="form-label fw-semibold small">Preferred Time Slot</label>
-                    <select class="form-select" name="time_slot" id="customFieldTime" onchange="updateCustomScheduleSlots()">
-                      <option value="">-- Select Time Slot --</option>
-                      @foreach($customScheduleSlots as $slot)
-                        <option value="{{ $slot['value'] }}"
-                                data-start="{{ $slot['start'] }}"
-                                data-end="{{ $slot['end'] }}"
-                                data-fulfillment="{{ $slot['fulfillment'] }}">{{ $slot['label'] }}</option>
-                      @endforeach
-                    </select>
+                    <label class="form-label fw-semibold small">Preferred Time</label>
+                    <input type="time" class="form-control" name="time_slot" id="customFieldTime" min="{{ substr($customScheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($customScheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateCustomScheduleSlots()" oninput="updateCustomScheduleSlots()">
                   </div>
                 </div>
               </div>
@@ -465,14 +457,33 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <script>
+function customMinutesOf(time) {
+  const parts = String(time || '').split(':').map(Number);
+  return ((parts[0] || 0) * 60) + (parts[1] || 0);
+}
+function customFormatTime(totalMinutes) {
+  totalMinutes = Math.max(0, Math.min(1439, Math.ceil(totalMinutes)));
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hh = ((h + 11) % 12) + 1;
+  return `${hh}:${String(m).padStart(2, '0')} ${suffix}`;
+}
 function updateCustomScheduleSlots() {
   const timeEl = document.getElementById('customFieldTime') || document.querySelector('[name="time_slot"]');
   if (!timeEl) return true;
-  Array.from(timeEl.options).forEach(opt => {
-    if (!opt.value) return;
-    opt.disabled = false;
-    opt.textContent = opt.textContent.replace(/ \((Too soon|Unavailable)\)$/,'');
-  });
+  const open = @json(substr($customScheduleSettings->shop_open_time ?? '09:00', 0, 5));
+  const close = @json(substr($customScheduleSettings->shop_close_time ?? '19:00', 0, 5));
+  const openMins = customMinutesOf(open);
+  const closeMins = customMinutesOf(close);
+  const selectedMins = customMinutesOf(timeEl.value);
+  timeEl.min = open;
+  timeEl.max = close;
+  timeEl.setCustomValidity('');
+  if (timeEl.value && (selectedMins < openMins || selectedMins > closeMins)) {
+    timeEl.setCustomValidity(`Please choose a time within shop hours: ${customFormatTime(openMins)} to ${customFormatTime(closeMins)}.`);
+    return false;
+  }
   return true;
 }
 // ── Price maps ────────────────────────────────────────

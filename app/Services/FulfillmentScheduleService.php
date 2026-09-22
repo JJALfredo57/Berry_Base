@@ -20,6 +20,8 @@ class FulfillmentScheduleService
         }
 
         return (object) [
+            'shop_open_time' => $this->timeColumnValue($settings, 'shop_open_time', '09:00'),
+            'shop_close_time' => $this->timeColumnValue($settings, 'shop_close_time', '19:00'),
             'ready_made_prep_minutes' => $this->columnValue($settings, 'ready_made_prep_minutes', 90),
             'custom_cake_prep_minutes' => $this->columnValue($settings, 'custom_cake_prep_minutes', 0),
             'pickup_buffer_minutes' => $this->columnValue($settings, 'pickup_buffer_minutes', 0),
@@ -32,41 +34,29 @@ class FulfillmentScheduleService
 
     public function slots(?string $shopId, string $orderType = 'regular', ?string $fulfillment = null): Collection
     {
-        $slots = collect();
-
-        if (Schema::hasTable('fulfillment_time_slots')) {
-            $slots = DB::table('fulfillment_time_slots')
-                ->where('shop_id', $shopId)
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('start_time')
-                ->get();
-        }
-
-        if ($slots->isEmpty()) {
-            $slots = collect($this->defaultSlots());
-        }
-
-        return $slots->map(function ($slot) {
-            $start = substr((string) $slot->start_time, 0, 5);
-            $end = substr((string) $slot->end_time, 0, 5);
-            $slot->start_time = $start;
-            $slot->end_time = $end;
-            $slot->label = $this->label($start, $end);
-            return $slot;
-        })->values();
+        $settings = $this->settings($shopId);
+        return collect([
+            (object) [
+                'label' => $this->label($settings->shop_open_time, $settings->shop_close_time),
+                'start_time' => $settings->shop_open_time,
+                'end_time' => $settings->shop_close_time,
+                'fulfillment_method' => 'both',
+                'order_type' => 'both',
+            ],
+        ]);
     }
 
     public function slotsForCheckout(?string $shopId, string $orderType = 'regular'): array
     {
-        return $this->slots($shopId, $orderType)->map(fn ($slot) => [
-            'value' => $slot->start_time,
-            'label' => $slot->label,
-            'start' => $slot->start_time,
-            'end' => $slot->end_time,
-            'fulfillment' => $slot->fulfillment_method ?? 'both',
-            'order_type' => $slot->order_type ?? 'both',
-        ])->all();
+        $settings = $this->settings($shopId);
+        return [[
+            'value' => $settings->shop_open_time,
+            'label' => $this->label($settings->shop_open_time, $settings->shop_close_time),
+            'start' => $settings->shop_open_time,
+            'end' => $settings->shop_close_time,
+            'fulfillment' => 'both',
+            'order_type' => 'both',
+        ]];
     }
 
     public function validate(
@@ -84,7 +74,12 @@ class FulfillmentScheduleService
         }
 
         if (!$time) {
-            return ['ok' => false, 'message' => 'Please select a preferred time slot.'];
+            return ['ok' => false, 'message' => 'Please select a preferred time.'];
+        }
+
+        $time = substr((string) $time, 0, 5);
+        if (!$this->validTime($time)) {
+            return ['ok' => false, 'message' => 'Please select a valid preferred time.'];
         }
 
         try {
@@ -99,28 +94,47 @@ class FulfillmentScheduleService
             return ['ok' => false, 'message' => 'Selected date is already past. Please choose today or a future date.'];
         }
 
-        $slot = $this->slots($shopId, $orderType, $fulfillment)->firstWhere('start_time', substr($time, 0, 5));
-        if (!$slot) {
-            return ['ok' => false, 'message' => 'Please select a valid preferred time slot.'];
+        $settings = $this->settings($shopId);
+        $open = substr((string) $settings->shop_open_time, 0, 5);
+        $close = substr((string) $settings->shop_close_time, 0, 5);
+        if ($time < $open || $time > $close) {
+            return [
+                'ok' => false,
+                'message' => 'Please choose a time within shop hours: '
+                    . Carbon::createFromFormat('H:i', $open)->format('g:i A')
+                    . ' to '
+                    . Carbon::createFromFormat('H:i', $close)->format('g:i A')
+                    . '.',
+                'shop_open_time' => $open,
+                'shop_close_time' => $close,
+            ];
         }
 
         if ($enforceLeadTime && $selectedDate->isSameDay($today)) {
             $requiredMinutes = $this->requiredLeadMinutes($shopId, $orderType, $fulfillment, $lat, $lng);
             $earliest = $now->copy()->addMinutes($requiredMinutes);
-            $slotStart = Carbon::parse($date . ' ' . $slot->start_time, config('app.timezone'));
-            if ($slotStart->lt($earliest)) {
+            $selectedAt = Carbon::parse($date . ' ' . $time, config('app.timezone'));
+            if ($selectedAt->lt($earliest)) {
                 return [
                     'ok' => false,
                     'message' => $this->hasOpenSlotToday($shopId, $orderType, $fulfillment, $lat, $lng)
-                        ? 'That time slot is too soon for preparation' . ($this->isDelivery($fulfillment) ? ' and delivery travel time.' : '.')
-                        : 'No more time slots can be fulfilled today. Please choose another date.',
+                        ? 'That time is too soon for preparation' . ($this->isDelivery($fulfillment) ? ' and delivery travel time.' : '.')
+                        : 'No more times can be fulfilled today. Please choose another date.',
                     'earliest_time' => $earliest->format('g:i A'),
                     'required_minutes' => $requiredMinutes,
                 ];
             }
         }
 
-        return ['ok' => true, 'message' => 'Schedule is available.', 'slot' => $slot];
+        return [
+            'ok' => true,
+            'message' => 'Schedule is available.',
+            'slot' => (object) [
+                'label' => Carbon::createFromFormat('H:i', $time)->format('g:i A'),
+                'start_time' => $time,
+                'end_time' => $time,
+            ],
+        ];
     }
 
     public function hasOpenSlotToday(
@@ -133,14 +147,10 @@ class FulfillmentScheduleService
         $now = now(config('app.timezone'));
         $today = $now->toDateString();
         $earliest = $now->copy()->addMinutes($this->requiredLeadMinutes($shopId, $orderType, $fulfillment, $lat, $lng));
+        $settings = $this->settings($shopId);
+        $close = Carbon::parse($today . ' ' . $settings->shop_close_time, config('app.timezone'));
 
-        foreach ($this->slots($shopId, $orderType, $fulfillment) as $slot) {
-            if (Carbon::parse($today . ' ' . $slot->start_time, config('app.timezone'))->gte($earliest)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $earliest->lte($close);
     }
 
     public function requiredLeadMinutes(
@@ -174,17 +184,6 @@ class FulfillmentScheduleService
             . Carbon::createFromFormat('H:i', substr($end, 0, 5))->format('g:i A');
     }
 
-    private function defaultSlots(): array
-    {
-        return [
-            (object) ['label' => '9:00 AM - 11:00 AM', 'start_time' => '09:00', 'end_time' => '11:00', 'fulfillment_method' => 'both', 'order_type' => 'both'],
-            (object) ['label' => '11:00 AM - 1:00 PM', 'start_time' => '11:00', 'end_time' => '13:00', 'fulfillment_method' => 'both', 'order_type' => 'both'],
-            (object) ['label' => '1:00 PM - 3:00 PM', 'start_time' => '13:00', 'end_time' => '15:00', 'fulfillment_method' => 'both', 'order_type' => 'both'],
-            (object) ['label' => '3:00 PM - 5:00 PM', 'start_time' => '15:00', 'end_time' => '17:00', 'fulfillment_method' => 'both', 'order_type' => 'both'],
-            (object) ['label' => '5:00 PM - 7:00 PM', 'start_time' => '17:00', 'end_time' => '19:00', 'fulfillment_method' => 'both', 'order_type' => 'both'],
-        ];
-    }
-
     private function columnValue(?object $settings, string $column, int $default): int
     {
         if (!$settings || !Schema::hasColumn('site_settings', $column)) {
@@ -192,6 +191,21 @@ class FulfillmentScheduleService
         }
 
         return max(0, (int) ($settings->{$column} ?? $default));
+    }
+
+    private function timeColumnValue(?object $settings, string $column, string $default): string
+    {
+        if (!$settings || !Schema::hasColumn('site_settings', $column)) {
+            return $default;
+        }
+
+        $value = substr((string) ($settings->{$column} ?? $default), 0, 5);
+        return $this->validTime($value) ? $value : $default;
+    }
+
+    private function validTime(string $time): bool
+    {
+        return (bool) preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $time);
     }
 
     private function isDelivery(string $fulfillment): bool

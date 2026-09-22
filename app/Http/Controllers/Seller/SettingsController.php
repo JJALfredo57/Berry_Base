@@ -97,22 +97,29 @@ class SettingsController extends Controller
             if ($value > 0) $capacitySchedule[(string) $offset] = $value;
         }
 
+        $shopOpen = substr((string) $request->input('shop_open_time', '09:00'), 0, 5);
+        $shopClose = substr((string) $request->input('shop_close_time', '19:00'), 0, 5);
+        if (!$this->validTime($shopOpen) || !$this->validTime($shopClose) || $shopOpen >= $shopClose) {
+            return back()->withInput()->with('err', 'Please set valid shop opening and closing times. Closing time must be later than opening time.');
+        }
+
         $this->upsertSettings($shop->id, [
             'daily_max_cakes'    => max(0, (int)$request->input('daily_max_cakes', 0)),
             'custom_capacity_schedule' => json_encode($capacitySchedule),
             'lead_1day_max'      => 0,
             'lead_2day_max'      => 0,
             'lead_3day_plus_max' => 0,
+            'shop_open_time' => $shopOpen,
+            'shop_close_time' => $shopClose,
             'ready_made_prep_days' => min(30, max(0, (int)$request->input('ready_made_prep_days', 0))),
             'custom_cake_prep_days' => min(30, max(0, (int)$request->input('custom_cake_prep_days', 3))),
             'custom_cart_hold_minutes' => min(120, max(1, (int)$request->input('custom_cart_hold_minutes', 15))),
             'ready_made_prep_minutes' => min(1440, max(0, (int)$request->input('ready_made_prep_minutes', 90))),
             'custom_cake_prep_minutes' => min(1440, max(0, (int)$request->input('custom_cake_prep_minutes', 0))),
-            'pickup_buffer_minutes' => min(480, max(0, (int)$request->input('pickup_buffer_minutes', 0))),
+            'pickup_buffer_minutes' => 0,
             'delivery_base_buffer_minutes' => min(480, max(0, (int)$request->input('delivery_base_buffer_minutes', 30))),
-            'delivery_minutes_per_km' => min(120, max(0, (int)$request->input('delivery_minutes_per_km', 5))),
+            'delivery_minutes_per_km' => 5,
         ]);
-        $this->syncFulfillmentTimeSlots($shop->id, (array) $request->input('slots', []));
         return redirect()->to(route('seller.settings').'?tab=capacity')->with('msg', 'Daily capacity settings saved!');
     }
 

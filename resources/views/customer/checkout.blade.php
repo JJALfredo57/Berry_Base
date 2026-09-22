@@ -221,15 +221,8 @@ document.body.style.paddingRight = '';
                 <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date.</div>
               </div>
               <div class="col-sm-6">
-                <label class="form-label fw-semibold small">Preferred Time Slot</label>
-                <select class="form-select" name="schedule_time">
-                  <option value="">-- Select Time Slot --</option>
-                  <option value="09:00">9:00 AM – 11:00 AM</option>
-                  <option value="11:00">11:00 AM – 1:00 PM</option>
-                  <option value="13:00">1:00 PM – 3:00 PM</option>
-                  <option value="15:00">3:00 PM – 5:00 PM</option>
-                  <option value="17:00">5:00 PM – 7:00 PM</option>
-                </select>
+                <label class="form-label fw-semibold small">Preferred Time</label>
+                <input type="time" class="form-control" name="schedule_time" min="09:00" max="19:00">
               </div>
             </div>
           </div>

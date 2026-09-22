@@ -283,16 +283,9 @@ document.body.style.paddingRight = '';
                     <div id="checkoutAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
                   </div>
                   <div class="col-sm-6">
-                    <label class="form-label fw-semibold small">Preferred Time Slot</label>
-                    <select class="form-select" name="schedule_time">
-                      <option value="">-- Select Time Slot --</option>
-                      <option value="09:00">9:00 AM – 11:00 AM</option>
-                      <option value="11:00">11:00 AM – 1:00 PM</option>
-                      <option value="13:00">1:00 PM – 3:00 PM</option>
-                      <option value="15:00">3:00 PM – 5:00 PM</option>
-                      <option value="17:00">5:00 PM – 7:00 PM</option>
-                    </select>
-                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred time slot. Please make sure someone is available to receive the order.</div>
+                    <label class="form-label fw-semibold small">Preferred Time</label>
+                    <input type="time" class="form-control" name="schedule_time" min="09:00" max="19:00">
+                    <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred time. The system checks shop hours and preparation time automatically.</div>
                   </div>
                 </div>
               </div>

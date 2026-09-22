@@ -304,12 +304,6 @@
       <div class="setting-card-body">
         @php
           $capacitySchedule = json_decode($shopSettings->custom_capacity_schedule ?? '[]', true) ?: [];
-          $fulfillmentSlots = \Illuminate\Support\Facades\Schema::hasTable('fulfillment_time_slots')
-              ? \Illuminate\Support\Facades\DB::table('fulfillment_time_slots')->where('shop_id', $shop->id)->orderBy('sort_order')->orderBy('start_time')->get()
-              : collect();
-          if ($fulfillmentSlots->isEmpty()) {
-              $fulfillmentSlots = app(\App\Services\FulfillmentScheduleService::class)->slots($shop->id);
-          }
         @endphp
         <form action="{{ route('seller.settings.daily_capacity') }}" method="POST">
           @csrf
@@ -355,13 +349,25 @@
             <div class="col-12">
               <div class="p-3 rounded-3" style="background:#fff7fb;border:1px solid #fce7f3">
                 <div class="d-flex align-items-center gap-2 mb-3">
-                  <i class="bi bi-hourglass-split" style="color:var(--primary)"></i>
+                  <i class="bi bi-clock-history" style="color:var(--primary)"></i>
                   <div>
-                    <div class="fw-semibold">Preparation, Buffer & Hold Rules</div>
-                    <div class="text-muted" style="font-size:.82rem">Controls earliest checkout slots for pickup and delivery. Same-day slots only show when there is enough preparation and travel time.</div>
+                    <div class="fw-semibold">Fulfillment Defaults</div>
+                    <div class="text-muted" style="font-size:.82rem">Simple defaults for exact customer time requests. The system automatically blocks times that are outside shop hours or too soon for ready-made preparation and delivery.</div>
                   </div>
                 </div>
                 <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold">Shop Opening Time</label>
+                    <input type="time" class="form-control" name="shop_open_time"
+                           value="{{ old('shop_open_time', substr($shopSettings->shop_open_time ?? '09:00', 0, 5)) }}" oninput="updateCapacityPreview()" required>
+                    <div class="form-text">Default: 9:00 AM. Customers cannot choose a time before opening.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold">Shop Closing Time</label>
+                    <input type="time" class="form-control" name="shop_close_time"
+                           value="{{ old('shop_close_time', substr($shopSettings->shop_close_time ?? '19:00', 0, 5)) }}" oninput="updateCapacityPreview()" required>
+                    <div class="form-text">Default: 7:00 PM. Customers cannot choose a time after closing.</div>
+                  </div>
                   <div class="col-md-4">
                     <label class="form-label fw-semibold">Ready-made Prep Days</label>
                     <input type="number" min="0" max="30" class="form-control" name="ready_made_prep_days"
@@ -372,25 +378,25 @@
                     <label class="form-label fw-semibold">Ready-made Prep Minutes</label>
                     <input type="number" min="0" max="1440" class="form-control" name="ready_made_prep_minutes"
                            value="{{ old('ready_made_prep_minutes', $shopSettings->ready_made_prep_minutes ?? 90) }}" oninput="updateCapacityPreview()">
-                    <div class="form-text">Blocks same-day slots that are too soon for baking/packing.</div>
+                    <div class="form-text">Default: 90 minutes. Same-day ready-made orders must have enough prep time.</div>
                   </div>
                   <div class="col-md-4">
-                    <label class="form-label fw-semibold">Pickup Buffer Minutes</label>
-                    <input type="number" min="0" max="480" class="form-control" name="pickup_buffer_minutes"
-                           value="{{ old('pickup_buffer_minutes', $shopSettings->pickup_buffer_minutes ?? 0) }}" oninput="updateCapacityPreview()">
-                    <div class="form-text">Extra handoff buffer added to pickup orders.</div>
+                    <label class="form-label fw-semibold">Delivery Buffer Minutes</label>
+                    <input type="number" min="0" max="480" class="form-control" name="delivery_base_buffer_minutes"
+                           value="{{ old('delivery_base_buffer_minutes', $shopSettings->delivery_base_buffer_minutes ?? 30) }}" oninput="updateCapacityPreview()">
+                    <div class="form-text">Default: 30 minutes for packing and rider handoff. Distance is estimated automatically.</div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label fw-semibold">Custom Cake Prep Days</label>
                     <input type="number" min="0" max="30" class="form-control" name="custom_cake_prep_days"
                            value="{{ old('custom_cake_prep_days', $shopSettings->custom_cake_prep_days ?? 3) }}" oninput="updateCapacityPreview()">
-                    <div class="form-text">Date-level lead time for custom preferred dates.</div>
+                    <div class="form-text">Default: 3 days before the preferred date.</div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label fw-semibold">Custom Prep Minutes</label>
                     <input type="number" min="0" max="1440" class="form-control" name="custom_cake_prep_minutes"
                            value="{{ old('custom_cake_prep_minutes', $shopSettings->custom_cake_prep_minutes ?? 0) }}" oninput="updateCapacityPreview()">
-                    <div class="form-text">Optional same-day buffer when custom prep days is 0.</div>
+                    <div class="form-text">Optional. Usually 0 because custom prep days already protects the schedule.</div>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label fw-semibold">Cart Hold Minutes</label>
@@ -398,58 +404,8 @@
                            value="{{ old('custom_cart_hold_minutes', $shopSettings->custom_cart_hold_minutes ?? 15) }}" oninput="updateCapacityPreview()">
                     <div class="form-text">Customer must refresh fulfillment after expiry.</div>
                   </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold">Delivery Base Buffer Minutes</label>
-                    <input type="number" min="0" max="480" class="form-control" name="delivery_base_buffer_minutes"
-                           value="{{ old('delivery_base_buffer_minutes', $shopSettings->delivery_base_buffer_minutes ?? 30) }}" oninput="updateCapacityPreview()">
-                    <div class="form-text">Added to delivery orders before distance is considered.</div>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold">Delivery Minutes per km</label>
-                    <input type="number" min="0" max="120" class="form-control" name="delivery_minutes_per_km"
-                           value="{{ old('delivery_minutes_per_km', $shopSettings->delivery_minutes_per_km ?? 5) }}" oninput="updateCapacityPreview()">
-                    <div class="form-text">Estimated travel buffer based on customer distance from the shop.</div>
-                  </div>
                 </div>
-              </div>
-            </div>
-            <div class="col-12">
-              <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e5e7eb">
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                  <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-clock-history" style="color:var(--primary)"></i>
-                    <div>
-                      <div class="fw-semibold">Fulfillment Time Slots</div>
-                      <div class="text-muted" style="font-size:.82rem">Set real start and end times. Customer labels are generated automatically from the time range.</div>
-                    </div>
-                  </div>
-                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="addScheduleSlotRow()">
-                    <i class="bi bi-plus-lg me-1"></i>Add Slot
-                  </button>
-                </div>
-                <div id="scheduleSlotRows" class="d-grid gap-2">
-                  @foreach($fulfillmentSlots as $idx => $slot)
-                    <div class="row g-2 align-items-end schedule-slot-row" style="background:#fff;border:1px solid #e5e7eb;border-radius:.8rem;padding:.75rem">
-                      <input type="hidden" name="slots[{{ $idx }}][id]" value="{{ $slot->id ?? '' }}">
-                      <input type="hidden" name="slots[{{ $idx }}][sort_order]" value="{{ $idx + 1 }}">
-                      <div class="col-6 col-md-4">
-                        <label class="form-label small fw-semibold">Start</label>
-                        <input type="time" class="form-control" name="slots[{{ $idx }}][start_time]" value="{{ old('slots.'.$idx.'.start_time', substr($slot->start_time, 0, 5)) }}" required>
-                      </div>
-                      <div class="col-6 col-md-4">
-                        <label class="form-label small fw-semibold">End</label>
-                        <input type="time" class="form-control" name="slots[{{ $idx }}][end_time]" value="{{ old('slots.'.$idx.'.end_time', substr($slot->end_time, 0, 5)) }}" required>
-                      </div>
-                      <div class="col-md-4">
-                        <input type="hidden" name="slots[{{ $idx }}][is_active]" value="0">
-                        <div class="form-check form-switch mb-2">
-                          <input class="form-check-input" type="checkbox" name="slots[{{ $idx }}][is_active]" value="1" @checked(old('slots.'.$idx.'.is_active', $slot->is_active ?? true)) title="Active">
-                        </div>
-                      </div>
-                    </div>
-                  @endforeach
-                </div>
-                <div class="form-text mt-2"><i class="bi bi-shield-check me-1"></i>Customers can only submit slots that still satisfy prep and delivery buffers on the server.</div>
+                <div class="form-text mt-3"><i class="bi bi-shield-check me-1"></i>Delivery travel time uses the pinned map distance automatically. Sellers only set the practical prep and handoff defaults.</div>
               </div>
             </div>
             <div class="col-12">
@@ -725,7 +681,7 @@
 </div>
 
 <script>
-// ── Tab switching ────────────────────────────────────────
+// Tab switching
 function showSettingsTab(name) {
   if (name === 'appearance') name = 'profile';
   ['profile','capacity','delivery','password','upgrade'].forEach(t => {
@@ -738,7 +694,6 @@ function showSettingsTab(name) {
   if (name === 'capacity') updateCapacityPreview();
 }
 
-// Restore active tab from URL ?tab= param or old('_section')
 (function () {
   const urlTab  = new URLSearchParams(window.location.search).get('tab');
   const oldSect = '{{ old("_section") }}';
@@ -747,7 +702,7 @@ function showSettingsTab(name) {
   else { updateDeliveryCalc(); updateCapacityPreview(); }
 })();
 
-// ── Shop Profile helpers ─────────────────────────────────
+// Shop Profile helpers
 document.getElementById('themeColorPicker').addEventListener('input', function() {
   document.getElementById('colorPreviewBox').style.background = this.value;
 });
@@ -768,7 +723,7 @@ function previewFile(input, id) {
   r.readAsDataURL(input.files[0]);
 }
 
-// ── Password helpers ─────────────────────────────────────
+// Password helpers
 function togglePwd(id, btn) {
   const input = document.getElementById(id);
   input.type = input.type === 'password' ? 'text' : 'password';
@@ -780,7 +735,7 @@ function checkMatch() {
   const m = document.getElementById('matchMsg');
   if (!c.value) { m.textContent = ''; return; }
   if (p.value === c.value) {
-    m.textContent = 'Passwords match ✓'; m.style.color = 'var(--success,#2E7D32)';
+    m.textContent = 'Passwords match'; m.style.color = 'var(--success,#2E7D32)';
     c.setCustomValidity('');
   } else {
     m.textContent = 'Passwords do not match'; m.style.color = 'var(--danger,#C62828)';
@@ -788,33 +743,7 @@ function checkMatch() {
   }
 }
 
-// ── Capacity preview ─────────────────────────────────────
-let scheduleSlotIndex = {{ $fulfillmentSlots->count() }};
-function addScheduleSlotRow() {
-  const wrap = document.getElementById('scheduleSlotRows');
-  if (!wrap) return;
-  const idx = scheduleSlotIndex++;
-  const row = document.createElement('div');
-  row.className = 'row g-2 align-items-end schedule-slot-row';
-  row.style.cssText = 'background:#fff;border:1px solid #e5e7eb;border-radius:.8rem;padding:.75rem';
-  row.innerHTML = `
-    <input type="hidden" name="slots[${idx}][sort_order]" value="${idx + 1}">
-    <div class="col-6 col-md-4">
-      <label class="form-label small fw-semibold">Start</label>
-      <input type="time" class="form-control" name="slots[${idx}][start_time]" required>
-    </div>
-    <div class="col-6 col-md-4">
-      <label class="form-label small fw-semibold">End</label>
-      <input type="time" class="form-control" name="slots[${idx}][end_time]" required>
-    </div>
-    <div class="col-md-4">
-      <input type="hidden" name="slots[${idx}][is_active]" value="0">
-      <div class="form-check form-switch mb-2">
-        <input class="form-check-input" type="checkbox" name="slots[${idx}][is_active]" value="1" checked title="Active">
-      </div>
-    </div>`;
-  wrap.appendChild(row);
-}
+// Capacity preview
 function updateCapacityPreview() {
   const daily = parseInt(document.querySelector('[name="daily_max_cakes"]')?.value) || 0;
   const prep  = parseInt(document.querySelector('[name="custom_cake_prep_days"]')?.value) || 0;
@@ -1024,7 +953,7 @@ updateCapacityPreview();
           @foreach([
             ['bi-patch-check-fill', 'Verified badge on your shop'],
             ['bi-palette-fill',     'Custom cake orders'],
-            ['bi-sliders',          'Custom options for flavors, sizes, layers, and time slots'],
+            ['bi-sliders',          'Custom options for flavors, sizes, layers, and fulfillment time'],
             ['bi-gift-fill',        'Add-ons such as candles, toppers, and packaging'],
             ['bi-infinity',         'Unlimited product listings'],
             ['bi-graph-up-arrow',   'Priority visibility in shop listings'],

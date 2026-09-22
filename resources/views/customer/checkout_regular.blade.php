@@ -203,7 +203,7 @@ document.body.style.paddingRight = '';
                     </div>
                     <div class="row g-2 mt-2 small">
                       <div class="col-sm-6"><i class="bi bi-calendar-event me-1"></i>{{ $customMeta['schedule_date'] ?? 'No date saved' }}</div>
-                      <div class="col-sm-6"><i class="bi bi-clock me-1"></i>{{ $customMeta['time_slot'] ?? 'No time slot saved' }}</div>
+                      <div class="col-sm-6"><i class="bi bi-clock me-1"></i>{{ $customMeta['time_slot'] ?? 'No time saved' }}</div>
                       <div class="col-sm-6"><i class="bi bi-bag-check me-1"></i>{{ $customMeta['fulfillment_type'] ?? 'Pickup' }}</div>
                       @if(($customMeta['fulfillment_type'] ?? 'Pickup') === 'Delivery')
                         <div class="col-sm-6"><i class="bi bi-geo-alt me-1"></i>{{ $customMeta['address'] ?? 'Address saved with custom request' }}</div>
@@ -377,22 +377,14 @@ document.body.style.paddingRight = '';
                        @if($sweetDealMaxDate) max="{{ $sweetDealMaxDate }}" data-sweet-deal-max-label="{{ $sweetDealMaxLabel }}" @endif
                        onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
                 <div id="custScheduleNotice" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
-                <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date while a time slot is still open.</div>
+                <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date while a time is still open.</div>
                 @if($sweetDealMaxLabel)
                   <div class="form-text" style="color:#be123c"><i class="bi bi-tags me-1"></i>Sweet Deal schedules must be on or before {{ $sweetDealMaxLabel }}.</div>
                 @endif
               </div>
               <div class="col-sm-6">
-                <label class="form-label fw-semibold small">Preferred Time Slot</label>
-                <select class="form-select" name="schedule_time" id="custFieldTime" onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
-                  <option value="">-- Select Time Slot --</option>
-                      @foreach($regularScheduleSlots as $slot)
-                        <option value="{{ $slot['value'] }}"
-                                data-start="{{ $slot['start'] }}"
-                                data-end="{{ $slot['end'] }}"
-                                data-fulfillment="{{ $slot['fulfillment'] }}">{{ $slot['label'] }}</option>
-                      @endforeach
-                </select>
+                <label class="form-label fw-semibold small">Preferred Time</label>
+                <input type="time" class="form-control" name="schedule_time" id="custFieldTime" min="{{ substr($scheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($scheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')" oninput="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
               </div>
             </div>
             @endif
@@ -573,11 +565,12 @@ document.body.style.paddingRight = '';
 
 <script>
 const FULFILLMENT_SCHEDULE = {
-  slots: @json($regularScheduleSlots),
   readyPrep: {{ (int)($scheduleSettings->ready_made_prep_minutes ?? 90) }},
   pickupBuffer: {{ (int)($scheduleSettings->pickup_buffer_minutes ?? 0) }},
   deliveryBaseBuffer: {{ (int)($scheduleSettings->delivery_base_buffer_minutes ?? 30) }},
   deliveryMinutesPerKm: {{ (int)($scheduleSettings->delivery_minutes_per_km ?? 5) }},
+  shopOpen: @json(substr($scheduleSettings->shop_open_time ?? '09:00', 0, 5)),
+  shopClose: @json(substr($scheduleSettings->shop_close_time ?? '19:00', 0, 5)),
   shopLat: {{ $scheduleSettings->shop_lat !== null ? (float)$scheduleSettings->shop_lat : 'null' }},
   shopLng: {{ $scheduleSettings->shop_lng !== null ? (float)$scheduleSettings->shop_lng : 'null' }}
 };
@@ -585,6 +578,14 @@ const SERVER_NOW = new Date(@json(now(config('app.timezone'))->format('Y-m-d H:i
 function minutesOf(time) {
   const parts = String(time || '').split(':').map(Number);
   return ((parts[0] || 0) * 60) + (parts[1] || 0);
+}
+function formatScheduleTime(totalMinutes) {
+  totalMinutes = Math.max(0, Math.min(1439, Math.ceil(totalMinutes)));
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hh = ((h + 11) % 12) + 1;
+  return `${hh}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 function activeFulfillment() {
   return document.querySelector('[name="fulfillment_type"]:checked')?.value || 'Pickup';
@@ -611,35 +612,58 @@ function requiredLeadMinutes() {
   }
   return Math.max(0, minutes);
 }
+function setScheduleNotice(notice, message, type) {
+  if (!notice) return;
+  if (notice.classList.contains('cv-msg')) notice.className = 'cv-msg ' + (type === 'error' ? 'cv-err' : 'cv-ok');
+  notice.innerHTML = message;
+}
 function updateRegularScheduleSlots(dateId, timeId, noticeId) {
   const dateEl = document.getElementById(dateId);
   const timeEl = document.getElementById(timeId);
   const notice = document.getElementById(noticeId);
   if (!dateEl || !timeEl) return true;
+
+  const openMins = minutesOf(FULFILLMENT_SCHEDULE.shopOpen || '09:00');
+  const closeMins = minutesOf(FULFILLMENT_SCHEDULE.shopClose || '19:00');
+  timeEl.min = FULFILLMENT_SCHEDULE.shopOpen || '09:00';
+  timeEl.max = FULFILLMENT_SCHEDULE.shopClose || '19:00';
+  timeEl.setCustomValidity('');
+
   const selectedDate = dateEl.value;
+  const selectedMins = minutesOf(timeEl.value);
   const today = SERVER_NOW.toISOString().slice(0, 10);
-  const fulfillment = activeFulfillment().toLowerCase();
   const earliestMins = SERVER_NOW.getHours() * 60 + SERVER_NOW.getMinutes() + requiredLeadMinutes();
-  let openCount = 0;
-  Array.from(timeEl.options).forEach(opt => {
-    if (!opt.value) return;
-    const slotMethod = String(opt.dataset.fulfillment || 'both').toLowerCase();
-    const methodBlocked = slotMethod !== 'both' && slotMethod !== fulfillment;
-    const tooSoon = selectedDate === today && minutesOf(opt.dataset.start || opt.value) < earliestMins;
-    const closed = methodBlocked || tooSoon;
-    opt.disabled = closed;
-    opt.textContent = opt.textContent.replace(/ \((Closed|Too soon|Unavailable)\)$/,'') + (closed ? (methodBlocked ? ' (Unavailable)' : ' (Too soon)') : '');
-    if (!closed) openCount++;
-  });
-  if (timeEl.selectedOptions[0]?.disabled) timeEl.value = '';
-  if (!notice) return openCount > 0;
-  if (selectedDate === today && openCount === 0) {
-    notice.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>No remaining time slot has enough preparation' + (activeFulfillment() === 'Delivery' ? ' and delivery travel time.' : ' time.') + '</span>';
+  const earliestAllowed = selectedDate === today ? Math.max(openMins, earliestMins) : openMins;
+  const hoursText = `${formatScheduleTime(openMins)} to ${formatScheduleTime(closeMins)}`;
+
+  if (!selectedDate) {
+    setScheduleNotice(notice, '', 'ok');
+    return true;
+  }
+  if (selectedDate === today && earliestAllowed > closeMins) {
+    const msg = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>No remaining time today has enough preparation' + (activeFulfillment() === 'Delivery' ? ' and delivery travel time.' : ' time.') + '</span>';
+    timeEl.setCustomValidity('No available time today. Please choose another date.');
+    setScheduleNotice(notice, msg, 'error');
     return false;
   }
-  notice.innerHTML = selectedDate === today
-    ? '<span class="text-warning fw-semibold"><i class="bi bi-clock-fill me-1"></i>Only slots with enough preparation time can be selected today.</span>'
-    : '';
+  if (!timeEl.value) {
+    const msg = selectedDate === today
+      ? '<span class="text-warning fw-semibold"><i class="bi bi-clock-fill me-1"></i>Earliest available today: ' + formatScheduleTime(earliestAllowed) + '. Shop hours: ' + hoursText + '.</span>'
+      : '<span class="text-muted"><i class="bi bi-clock me-1"></i>Shop hours: ' + hoursText + '.</span>';
+    setScheduleNotice(notice, msg, 'ok');
+    return true;
+  }
+  if (selectedMins < openMins || selectedMins > closeMins) {
+    timeEl.setCustomValidity('Please choose a time within shop hours.');
+    setScheduleNotice(notice, '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle-fill me-1"></i>Please choose a time within shop hours: ' + hoursText + '.</span>', 'error');
+    return false;
+  }
+  if (selectedDate === today && selectedMins < earliestAllowed) {
+    timeEl.setCustomValidity('That time is too soon for preparation.');
+    setScheduleNotice(notice, '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle-fill me-1"></i>Earliest available today is ' + formatScheduleTime(earliestAllowed) + '.</span>', 'error');
+    return false;
+  }
+  setScheduleNotice(notice, selectedDate === today ? '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>This time has enough preparation allowance.</span>' : '', 'ok');
   return true;
 }
 document.addEventListener('DOMContentLoaded', function() {
