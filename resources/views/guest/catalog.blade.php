@@ -53,12 +53,17 @@
   .best-seller-grid{ grid-template-columns:1fr; }
   .catalog-img-wrap{ height:200px !important; }
 }
-.filter-fab,.filter-overlay{display:none!important}
-.filter-panel{transition:box-shadow .25s ease}
+.filter-fab{display:none}
+.filter-overlay{display:none}
+.filter-panel{transition:transform .25s ease, box-shadow .25s ease}
 @media(max-width:768px){
-  .filter-panel{border-radius:1rem!important}
-  .filter-panel .card-body{padding:.9rem!important}
-}.catalog-item{ transition: all .3s ease; }
+  .filter-fab{display:inline-flex;position:fixed;right:14px;bottom:82px;z-index:1041;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.2)}
+  .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1040}
+  .filter-overlay.show{display:block}
+  .filter-panel{position:fixed;top:0;right:0;bottom:0;width:min(88vw,360px);z-index:1042;overflow:auto;border-radius:0!important;transform:translateX(105%);margin:0!important}
+  .filter-panel.show{transform:translateX(0);box-shadow:-18px 0 40px rgba(15,23,42,.2)}
+}
+.catalog-item{ transition: all .3s ease; }
 @media (hover: hover) {
   .catalog-card:hover {
     transform: translateY(-8px) scale(1.02) !important;
@@ -138,7 +143,11 @@
   </div>
   @endif
 
-<div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel bb-sticky-catalog-filters" style="border-radius:1.25rem;background:#fff">
+<button type="button" class="btn btn-primary filter-fab" onclick="toggleCatalogFilters(true)">
+  <i class="bi bi-funnel me-1"></i>Filters
+</button>
+<div id="catalogFilterOverlay" class="filter-overlay" onclick="toggleCatalogFilters(false)"></div>
+<div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel" style="border-radius:1.25rem;background:#fff">
   <div class="card-body p-3 p-md-4">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div>
@@ -148,6 +157,9 @@
       <div class="d-flex gap-2">
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetCatalogFilters()">
           <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm d-md-none" onclick="toggleCatalogFilters(false)">
+          <i class="bi bi-x-lg"></i>
         </button>
       </div>
     </div>
@@ -967,6 +979,12 @@ function resetCatalogFilters() {
     if (el) el.value = '';
   });
   filterCatalog();
+}
+
+function toggleCatalogFilters(open) {
+  document.getElementById('catalogFilterPanel')?.classList.toggle('show', open);
+  document.getElementById('catalogFilterOverlay')?.classList.toggle('show', open);
+  document.body.style.overflow = open ? 'hidden' : '';
 }
 
 window.filterCatalog = filterCatalog;
