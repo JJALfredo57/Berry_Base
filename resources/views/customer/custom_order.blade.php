@@ -465,68 +465,16 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 <script>
-const CUSTOM_FULFILLMENT_SCHEDULE = {
-  slots: @json($customScheduleSlots),
-  customPrep: {{ (int)($customScheduleSettings->custom_cake_prep_minutes ?? 0) }},
-  pickupBuffer: {{ (int)($customScheduleSettings->pickup_buffer_minutes ?? 0) }},
-  deliveryBaseBuffer: {{ (int)($customScheduleSettings->delivery_base_buffer_minutes ?? 30) }},
-  deliveryMinutesPerKm: {{ (int)($customScheduleSettings->delivery_minutes_per_km ?? 5) }},
-  shopLat: {{ $customScheduleSettings->shop_lat !== null ? (float)$customScheduleSettings->shop_lat : 'null' }},
-  shopLng: {{ $customScheduleSettings->shop_lng !== null ? (float)$customScheduleSettings->shop_lng : 'null' }}
-};
-const CUSTOM_SERVER_NOW = new Date(@json(now(config('app.timezone'))->format('Y-m-d H:i:s')));
-function customMinutesOf(time) {
-  const parts = String(time || '').split(':').map(Number);
-  return ((parts[0] || 0) * 60) + (parts[1] || 0);
-}
-function customActiveFulfillment() {
-  return document.querySelector('[name="fulfillment_type"]:checked')?.value || 'Pickup';
-}
-function customDistanceKm(lat1, lng1, lat2, lng2) {
-  const toRad = deg => deg * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-function customRequiredLeadMinutes() {
-  const fulfillment = customActiveFulfillment();
-  let minutes = Number(CUSTOM_FULFILLMENT_SCHEDULE.customPrep || 0);
-  if (fulfillment === 'Delivery') {
-    minutes += Number(CUSTOM_FULFILLMENT_SCHEDULE.deliveryBaseBuffer || 0);
-    const lat = parseFloat(document.getElementById('lat')?.value || document.querySelector('[name="latitude"]')?.value || '');
-    const lng = parseFloat(document.getElementById('lng')?.value || document.querySelector('[name="longitude"]')?.value || '');
-    if (!Number.isNaN(lat) && !Number.isNaN(lng) && CUSTOM_FULFILLMENT_SCHEDULE.shopLat !== null && CUSTOM_FULFILLMENT_SCHEDULE.shopLng !== null) {
-      minutes += Math.ceil(customDistanceKm(Number(CUSTOM_FULFILLMENT_SCHEDULE.shopLat), Number(CUSTOM_FULFILLMENT_SCHEDULE.shopLng), lat, lng) * Number(CUSTOM_FULFILLMENT_SCHEDULE.deliveryMinutesPerKm || 0));
-    }
-  } else {
-    minutes += Number(CUSTOM_FULFILLMENT_SCHEDULE.pickupBuffer || 0);
-  }
-  return Math.max(0, minutes);
-}
 function updateCustomScheduleSlots() {
-  const dateEl = document.querySelector('[name="schedule_date"]');
   const timeEl = document.getElementById('customFieldTime') || document.querySelector('[name="time_slot"]');
-  if (!dateEl || !timeEl) return true;
-  const selectedDate = dateEl.value;
-  const today = CUSTOM_SERVER_NOW.toISOString().slice(0, 10);
-  const fulfillment = customActiveFulfillment().toLowerCase();
-  const earliestMins = CUSTOM_SERVER_NOW.getHours() * 60 + CUSTOM_SERVER_NOW.getMinutes() + customRequiredLeadMinutes();
-  let openCount = 0;
+  if (!timeEl) return true;
   Array.from(timeEl.options).forEach(opt => {
     if (!opt.value) return;
-    const slotMethod = String(opt.dataset.fulfillment || 'both').toLowerCase();
-    const methodBlocked = slotMethod !== 'both' && slotMethod !== fulfillment;
-    const tooSoon = selectedDate === today && customMinutesOf(opt.dataset.start || opt.value) < earliestMins;
-    const closed = methodBlocked || tooSoon;
-    opt.disabled = closed;
-    opt.textContent = opt.textContent.replace(/ \((Too soon|Unavailable)\)$/,'') + (closed ? (methodBlocked ? ' (Unavailable)' : ' (Too soon)') : '');
-    if (!closed) openCount++;
+    opt.disabled = false;
+    opt.textContent = opt.textContent.replace(/ \((Too soon|Unavailable)\)$/,'');
   });
-  if (timeEl.selectedOptions[0]?.disabled) timeEl.value = '';
-  return openCount > 0;
+  return true;
 }
-
 // ── Price maps ────────────────────────────────────────
 const SIZE_PRICES = {
   @foreach($sizes as $s)

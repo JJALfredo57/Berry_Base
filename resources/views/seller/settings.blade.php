@@ -420,7 +420,7 @@
                     <i class="bi bi-clock-history" style="color:var(--primary)"></i>
                     <div>
                       <div class="fw-semibold">Fulfillment Time Slots</div>
-                      <div class="text-muted" style="font-size:.82rem">Set real start and end times. Labels are shown to customers, but validation uses the actual times.</div>
+                      <div class="text-muted" style="font-size:.82rem">Set real start and end times. Customer labels are generated automatically from the time range.</div>
                     </div>
                   </div>
                   <button type="button" class="btn btn-sm btn-outline-primary" onclick="addScheduleSlotRow()">
@@ -432,35 +432,15 @@
                     <div class="row g-2 align-items-end schedule-slot-row" style="background:#fff;border:1px solid #e5e7eb;border-radius:.8rem;padding:.75rem">
                       <input type="hidden" name="slots[{{ $idx }}][id]" value="{{ $slot->id ?? '' }}">
                       <input type="hidden" name="slots[{{ $idx }}][sort_order]" value="{{ $idx + 1 }}">
-                      <div class="col-6 col-md-2">
+                      <div class="col-6 col-md-4">
                         <label class="form-label small fw-semibold">Start</label>
                         <input type="time" class="form-control" name="slots[{{ $idx }}][start_time]" value="{{ old('slots.'.$idx.'.start_time', substr($slot->start_time, 0, 5)) }}" required>
                       </div>
-                      <div class="col-6 col-md-2">
+                      <div class="col-6 col-md-4">
                         <label class="form-label small fw-semibold">End</label>
                         <input type="time" class="form-control" name="slots[{{ $idx }}][end_time]" value="{{ old('slots.'.$idx.'.end_time', substr($slot->end_time, 0, 5)) }}" required>
                       </div>
-                      <div class="col-md-3">
-                        <label class="form-label small fw-semibold">Customer Label</label>
-                        <input type="text" class="form-control" name="slots[{{ $idx }}][label]" value="{{ old('slots.'.$idx.'.label', $slot->label) }}" maxlength="80" placeholder="Auto if blank">
-                      </div>
-                      <div class="col-6 col-md-2">
-                        <label class="form-label small fw-semibold">Fulfillment</label>
-                        <select class="form-select" name="slots[{{ $idx }}][fulfillment_method]">
-                          @foreach(['both'=>'Both','pickup'=>'Pickup','delivery'=>'Delivery'] as $val => $label)
-                            <option value="{{ $val }}" @selected(old('slots.'.$idx.'.fulfillment_method', $slot->fulfillment_method ?? 'both') === $val)>{{ $label }}</option>
-                          @endforeach
-                        </select>
-                      </div>
-                      <div class="col-6 col-md-2">
-                        <label class="form-label small fw-semibold">Cake Type</label>
-                        <select class="form-select" name="slots[{{ $idx }}][order_type]">
-                          @foreach(['both'=>'Both','regular'=>'Ready-made','custom'=>'Custom'] as $val => $label)
-                            <option value="{{ $val }}" @selected(old('slots.'.$idx.'.order_type', $slot->order_type ?? 'both') === $val)>{{ $label }}</option>
-                          @endforeach
-                        </select>
-                      </div>
-                      <div class="col-md-1">
+                      <div class="col-md-4">
                         <input type="hidden" name="slots[{{ $idx }}][is_active]" value="0">
                         <div class="form-check form-switch mb-2">
                           <input class="form-check-input" type="checkbox" name="slots[{{ $idx }}][is_active]" value="1" @checked(old('slots.'.$idx.'.is_active', $slot->is_active ?? true)) title="Active">
@@ -819,31 +799,15 @@ function addScheduleSlotRow() {
   row.style.cssText = 'background:#fff;border:1px solid #e5e7eb;border-radius:.8rem;padding:.75rem';
   row.innerHTML = `
     <input type="hidden" name="slots[${idx}][sort_order]" value="${idx + 1}">
-    <div class="col-6 col-md-2">
+    <div class="col-6 col-md-4">
       <label class="form-label small fw-semibold">Start</label>
       <input type="time" class="form-control" name="slots[${idx}][start_time]" required>
     </div>
-    <div class="col-6 col-md-2">
+    <div class="col-6 col-md-4">
       <label class="form-label small fw-semibold">End</label>
       <input type="time" class="form-control" name="slots[${idx}][end_time]" required>
     </div>
-    <div class="col-md-3">
-      <label class="form-label small fw-semibold">Customer Label</label>
-      <input type="text" class="form-control" name="slots[${idx}][label]" maxlength="80" placeholder="Auto if blank">
-    </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label small fw-semibold">Fulfillment</label>
-      <select class="form-select" name="slots[${idx}][fulfillment_method]">
-        <option value="both">Both</option><option value="pickup">Pickup</option><option value="delivery">Delivery</option>
-      </select>
-    </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label small fw-semibold">Cake Type</label>
-      <select class="form-select" name="slots[${idx}][order_type]">
-        <option value="both">Both</option><option value="regular">Ready-made</option><option value="custom">Custom</option>
-      </select>
-    </div>
-    <div class="col-md-1">
+    <div class="col-md-4">
       <input type="hidden" name="slots[${idx}][is_active]" value="0">
       <div class="form-check form-switch mb-2">
         <input class="form-check-input" type="checkbox" name="slots[${idx}][is_active]" value="1" checked title="Active">

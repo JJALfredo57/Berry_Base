@@ -129,20 +129,9 @@ class SettingsController extends Controller
                 continue;
             }
 
-            $fulfillment = strtolower((string) ($slot['fulfillment_method'] ?? 'both'));
-            if (!in_array($fulfillment, ['both', 'pickup', 'delivery'], true)) {
-                $fulfillment = 'both';
-            }
-
-            $orderType = strtolower((string) ($slot['order_type'] ?? 'both'));
-            if (!in_array($orderType, ['both', 'regular', 'custom'], true)) {
-                $orderType = 'both';
-            }
-
-            $label = trim((string) ($slot['label'] ?? ''));
-            if ($label === '') {
-                $label = date('g:i A', strtotime($start)) . ' - ' . date('g:i A', strtotime($end));
-            }
+            $fulfillment = 'both';
+            $orderType = 'both';
+            $label = date('g:i A', strtotime($start)) . ' - ' . date('g:i A', strtotime($end));
 
             $row = [
                 'shop_id' => $shopId,

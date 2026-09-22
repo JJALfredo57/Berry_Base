@@ -284,7 +284,7 @@ class CustomOrderController extends Controller
         $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($shopId, $sdate, 'custom');
         if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->withInput();
 
-        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng);
+        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng, false);
         if (!$scheduleCheck['ok']) return back()->with('error', $scheduleCheck['message'])->withInput();
         $slotLabel = $scheduleCheck['slot']->label ?? $timeSlot;
 
@@ -587,7 +587,7 @@ class CustomOrderController extends Controller
         $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($shopId, $sdate, 'custom');
         if (!$prepDate['ok']) return ['ok' => false, 'message' => $prepDate['message']];
 
-        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng);
+        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng, false);
         if (!$scheduleCheck['ok']) return ['ok' => false, 'message' => $scheduleCheck['message']];
         $slotLabel = $scheduleCheck['slot']->label ?? $timeSlot;
 

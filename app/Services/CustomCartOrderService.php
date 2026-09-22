@@ -38,7 +38,7 @@ class CustomCartOrderService
         if (!$capacity['allowed']) return ['ok' => false, 'message' => $capacity['message']];
 
         if ($scheduleTime !== '') {
-            $scheduleCheck = app(OrderScheduleService::class)->validate($date, $scheduleTime, $shopId, 'custom', $meta['fulfillment_type'] ?? 'Pickup', isset($meta['latitude']) ? (float) $meta['latitude'] : null, isset($meta['longitude']) ? (float) $meta['longitude'] : null);
+            $scheduleCheck = app(OrderScheduleService::class)->validate($date, $scheduleTime, $shopId, 'custom', $meta['fulfillment_type'] ?? 'Pickup', isset($meta['latitude']) ? (float) $meta['latitude'] : null, isset($meta['longitude']) ? (float) $meta['longitude'] : null, false);
             if (!$scheduleCheck['ok']) return ['ok' => false, 'message' => $scheduleCheck['message']];
         }
 

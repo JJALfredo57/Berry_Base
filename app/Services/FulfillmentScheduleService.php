@@ -35,18 +35,12 @@ class FulfillmentScheduleService
         $slots = collect();
 
         if (Schema::hasTable('fulfillment_time_slots')) {
-            $query = DB::table('fulfillment_time_slots')
+            $slots = DB::table('fulfillment_time_slots')
                 ->where('shop_id', $shopId)
                 ->where('is_active', true)
-                ->whereIn('order_type', ['both', $orderType])
                 ->orderBy('sort_order')
-                ->orderBy('start_time');
-
-            if ($fulfillment) {
-                $query->whereIn('fulfillment_method', ['both', strtolower($fulfillment)]);
-            }
-
-            $slots = $query->get();
+                ->orderBy('start_time')
+                ->get();
         }
 
         if ($slots->isEmpty()) {
@@ -58,7 +52,7 @@ class FulfillmentScheduleService
             $end = substr((string) $slot->end_time, 0, 5);
             $slot->start_time = $start;
             $slot->end_time = $end;
-            $slot->label = trim((string) ($slot->label ?? '')) ?: $this->label($start, $end);
+            $slot->label = $this->label($start, $end);
             return $slot;
         })->values();
     }
@@ -82,7 +76,8 @@ class FulfillmentScheduleService
         string $orderType = 'regular',
         string $fulfillment = 'Pickup',
         ?float $lat = null,
-        ?float $lng = null
+        ?float $lng = null,
+        bool $enforceLeadTime = true
     ): array {
         if (!$date) {
             return ['ok' => false, 'message' => 'Please select your preferred date.'];
@@ -109,7 +104,7 @@ class FulfillmentScheduleService
             return ['ok' => false, 'message' => 'Please select a valid preferred time slot.'];
         }
 
-        if ($selectedDate->isSameDay($today)) {
+        if ($enforceLeadTime && $selectedDate->isSameDay($today)) {
             $requiredMinutes = $this->requiredLeadMinutes($shopId, $orderType, $fulfillment, $lat, $lng);
             $earliest = $now->copy()->addMinutes($requiredMinutes);
             $slotStart = Carbon::parse($date . ' ' . $slot->start_time, config('app.timezone'));
