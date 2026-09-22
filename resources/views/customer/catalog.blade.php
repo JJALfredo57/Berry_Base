@@ -26,13 +26,13 @@
 }
 .filter-fab{display:none}
 .filter-overlay{display:none}
-.filter-panel{transition:transform .25s ease, box-shadow .25s ease}
+.filter-panel{transition:transform .25s ease, opacity .2s ease, box-shadow .25s ease}
 @media(max-width:768px){
-  .filter-fab{display:inline-flex;position:fixed;right:14px;top:calc(var(--topbar-h,56px) + 10px);bottom:auto;z-index:1043;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.2)}
-  .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1040}
+  .filter-fab{display:inline-flex;position:fixed;right:14px;top:calc(var(--topbar-h,56px) + 10px);bottom:auto;z-index:1067;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.2)}
+  .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1060}
   .filter-overlay.show{display:block}
-  .filter-panel{position:fixed!important;top:calc(var(--topbar-h,56px) + 54px);left:10px;right:10px;bottom:auto;width:auto;max-width:calc(100vw - 20px);max-height:calc(100vh - var(--topbar-h,56px) - 72px);z-index:1042;overflow:auto;border-radius:1rem!important;transform:translateY(-10px);opacity:0;visibility:hidden;pointer-events:none;margin:0!important}
-  .filter-panel.show{transform:translateY(0);opacity:1;visibility:visible;pointer-events:auto;box-shadow:0 18px 44px rgba(15,23,42,.22)}
+  .filter-panel{position:fixed!important;top:calc(var(--topbar-h,56px) + 54px);left:10px;right:10px;bottom:auto;width:auto;max-width:calc(100vw - 20px);max-height:calc(100vh - var(--topbar-h,56px) - 72px);z-index:1065;overflow:auto;border-radius:1rem!important;transform:translateY(-10px);opacity:0;visibility:hidden;pointer-events:none;margin:0!important}
+  .filter-panel.show,.filter-panel:target{transform:translateY(0);opacity:1;visibility:visible;pointer-events:auto;box-shadow:0 18px 44px rgba(15,23,42,.22)}
   .filter-panel .card-body{padding:.9rem!important}
 }
 .customer-wrap { animation: none !important; transform: none !important; }
@@ -106,9 +106,10 @@
   </div>
   @endif
 
-<button type="button" class="btn btn-primary filter-fab" onclick="toggleCatalogFilters(true)">
+<span id="catalogFiltersTop"></span>
+<a href="#catalogFilterPanel" role="button" class="btn btn-primary filter-fab" onclick="if(window.toggleCatalogFilters){toggleCatalogFilters(true);return false;}">
   <i class="bi bi-funnel me-1"></i>Filters
-</button>
+</a>
 <div id="catalogFilterOverlay" class="filter-overlay" onclick="toggleCatalogFilters(false)"></div>
 <div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel bb-sticky-catalog-filters" style="border-radius:1.25rem;background:#fff">
   <div class="card-body p-3 p-md-4">
@@ -121,9 +122,9 @@
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetCatalogFilters()">
           <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
         </button>
-        <button type="button" class="btn btn-outline-secondary btn-sm d-md-none" onclick="toggleCatalogFilters(false)">
+        <a href="#catalogFiltersTop" role="button" class="btn btn-outline-secondary btn-sm d-md-none" onclick="if(window.toggleCatalogFilters){toggleCatalogFilters(false);return false;}">
           <i class="bi bi-x-lg"></i>
-        </button>
+        </a>
       </div>
     </div>
     <div class="row g-2">
@@ -999,11 +1000,46 @@ function resetCatalogFilters() {
   filterCatalog();
 }
 
+function ensureCatalogFilterLayer(open) {
+  const panel = document.getElementById('catalogFilterPanel');
+  const overlay = document.getElementById('catalogFilterOverlay');
+  if (!panel || !overlay) return { panel, overlay };
+
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  if (!panel.dataset.originalParent) {
+    const home = document.createElement('span');
+    home.id = 'catalogFilterPanelHome';
+    home.hidden = true;
+    panel.parentNode.insertBefore(home, panel);
+    panel.dataset.originalParent = '1';
+  }
+
+  const home = document.getElementById('catalogFilterPanelHome');
+  if (isMobile && open) {
+    if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+    if (panel.parentNode !== document.body) document.body.appendChild(panel);
+  } else if (!open && home && panel.parentNode === document.body) {
+    home.parentNode.insertBefore(overlay, home.nextSibling);
+    home.parentNode.insertBefore(panel, overlay.nextSibling);
+  }
+
+  return { panel, overlay };
+}
+
 function toggleCatalogFilters(open) {
-  document.getElementById('catalogFilterPanel')?.classList.toggle('show', open);
-  document.getElementById('catalogFilterOverlay')?.classList.toggle('show', open);
+  const layer = ensureCatalogFilterLayer(open);
+  layer.panel?.classList.toggle('show', open);
+  layer.overlay?.classList.toggle('show', open);
+  document.body.classList.toggle('catalog-filter-open', !!open);
   document.body.style.overflow = open ? 'hidden' : '';
 }
+
+window.filterCatalog = filterCatalog;
+window.resetCatalogFilters = resetCatalogFilters;
+window.toggleCatalogFilters = toggleCatalogFilters;
+window.addEventListener('resize', function() {
+  if (!window.matchMedia('(max-width: 768px)').matches) toggleCatalogFilters(false);
+});
 </script>
 
 
