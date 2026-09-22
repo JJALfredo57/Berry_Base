@@ -1068,12 +1068,21 @@
 
 
     @@media (min-width: 992px) {
-      .bb-sticky-order-summary,
-      .bb-sticky-catalog-filters {
-        position: sticky;
+      .bb-sticky-order-summary {
+        position: fixed !important;
         top: calc(var(--topbar-h, 64px) + 16px);
+        right: clamp(16px, 3vw, 32px);
+        width: clamp(280px, 26vw, 380px);
+        max-height: calc(100vh - var(--topbar-h, 64px) - 32px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        z-index: 1020;
+      }
+      .bb-sticky-catalog-filters {
+        position: sticky !important;
+        top: calc(var(--topbar-h, 64px) + 12px);
         align-self: flex-start;
-        z-index: 20;
+        z-index: 1020;
       }
     }
 
@@ -1082,6 +1091,10 @@
       .bb-sticky-catalog-filters {
         position: static !important;
         top: auto !important;
+        right: auto !important;
+        width: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
       }
     }
     @@media(max-width:399px) {
