@@ -1087,6 +1087,19 @@
       }
     }
 
+      .bb-sticky-js-fixed {
+        position: fixed !important;
+        z-index: 1020;
+        max-height: calc(100vh - var(--topbar-h, 64px) - 32px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      .bb-sticky-js-placeholder {
+        display: none;
+      }
+      .bb-sticky-js-placeholder.is-active {
+        display: block;
+      }
     @@media (max-width: 991.98px) {
       .bb-sticky-order-column,
       .bb-sticky-catalog-filters {
@@ -5867,6 +5880,104 @@ window.berryBaseGetCurrentPosition = async function (success, fail, options) {
     });
   }
 };
+</script>
+<script>
+(function () {
+  const desktopQuery = window.matchMedia('(min-width: 992px)');
+  const topGap = () => {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--topbar-h').trim();
+    const topbar = Number.parseFloat(raw) || 64;
+    return topbar + 16;
+  };
+
+  const state = new WeakMap();
+
+  function ensureState(target, anchor) {
+    let item = state.get(target);
+    if (!item) {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'bb-sticky-js-placeholder';
+      target.parentNode.insertBefore(placeholder, target.nextSibling);
+      item = { anchor, placeholder, naturalTop: 0 };
+      state.set(target, item);
+    }
+    item.anchor = anchor;
+    return item;
+  }
+
+  function clearTarget(target) {
+    const item = state.get(target);
+    target.classList.remove('bb-sticky-js-fixed');
+    target.style.top = '';
+    target.style.left = '';
+    target.style.width = '';
+    target.style.maxHeight = '';
+    if (item?.placeholder) {
+      item.placeholder.classList.remove('is-active');
+      item.placeholder.style.height = '';
+      item.placeholder.style.width = '';
+    }
+  }
+
+  function applyTarget(target, anchor) {
+    const item = ensureState(target, anchor);
+    if (!desktopQuery.matches) {
+      clearTarget(target);
+      return;
+    }
+
+    const wasFixed = target.classList.contains('bb-sticky-js-fixed');
+    if (wasFixed) clearTarget(target);
+
+    const anchorRect = anchor.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const triggerTop = scrollY + anchorRect.top - topGap();
+    const shouldPin = scrollY > triggerTop;
+
+    if (!shouldPin) {
+      clearTarget(target);
+      return;
+    }
+
+    item.placeholder.style.height = targetRect.height + 'px';
+    item.placeholder.style.width = targetRect.width + 'px';
+    item.placeholder.classList.add('is-active');
+
+    target.classList.add('bb-sticky-js-fixed');
+    target.style.top = topGap() + 'px';
+    target.style.left = targetRect.left + 'px';
+    target.style.width = targetRect.width + 'px';
+    target.style.maxHeight = `calc(100vh - ${topGap()}px - 16px)`;
+  }
+
+  function refreshStickyFallbacks() {
+    document.querySelectorAll('.bb-sticky-order-column').forEach(column => {
+      const card = column.querySelector(':scope > .card') || column.firstElementChild;
+      if (card) applyTarget(card, column);
+    });
+    document.querySelectorAll('.bb-sticky-catalog-filters').forEach(panel => {
+      applyTarget(panel, panel);
+    });
+  }
+
+  let ticking = false;
+  function scheduleRefresh() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      refreshStickyFallbacks();
+    });
+  }
+
+  window.addEventListener('scroll', scheduleRefresh, { passive: true });
+  window.addEventListener('resize', scheduleRefresh, { passive: true });
+  desktopQuery.addEventListener?.('change', scheduleRefresh);
+  document.addEventListener('DOMContentLoaded', scheduleRefresh);
+  window.addEventListener('load', scheduleRefresh, { once: true });
+  setTimeout(scheduleRefresh, 350);
+})();
 </script>
 </body>
 </html>
