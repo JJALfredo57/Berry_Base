@@ -53,19 +53,12 @@
   .best-seller-grid{ grid-template-columns:1fr; }
   .catalog-img-wrap{ height:200px !important; }
 }
-.filter-fab{display:inline-flex;align-items:center;gap:.45rem;position:sticky;top:calc(var(--topbar-h,56px) + 10px);z-index:1025;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.16);margin:0 0 1rem auto;width:max-content}
-.filter-overlay{display:none}
-.filter-panel{max-height:0;opacity:0;visibility:hidden;pointer-events:none;overflow:hidden;margin:0!important;transform:translateY(-8px) scale(.99);transition:max-height .28s cubic-bezier(.2,.8,.2,1),opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s linear .28s,margin .2s ease,box-shadow .25s ease}
-.filter-panel.show,.filter-panel:target{position:sticky!important;top:calc(var(--topbar-h,56px) + 56px);z-index:1024;max-height:calc(100vh - var(--topbar-h,56px) - 76px);opacity:1;visibility:visible;pointer-events:auto;overflow:auto;transform:translateY(0) scale(1);margin-bottom:1.5rem!important;box-shadow:0 18px 44px rgba(15,23,42,.14);transition:max-height .32s cubic-bezier(.2,.8,.2,1),opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s,margin .2s ease,box-shadow .25s ease}
+.filter-fab,.filter-overlay{display:none!important}
+.filter-panel{transition:box-shadow .25s ease}
 @media(max-width:768px){
-  .filter-fab{position:fixed;right:14px;top:calc(var(--topbar-h,56px) + 10px);bottom:auto;z-index:1074;margin:0;box-shadow:0 12px 28px rgba(15,23,42,.2)}
-  .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1060}
-  .filter-overlay.show{display:block}
-  .filter-panel{position:fixed!important;top:calc(var(--topbar-h,56px) + 54px);left:10px;right:10px;bottom:auto;width:auto;max-width:calc(100vw - 20px);max-height:0;z-index:1072;border-radius:1rem!important;margin:0!important}
-  .filter-panel.show,.filter-panel:target{display:block!important;max-height:calc(100vh - var(--topbar-h,56px) - 72px);min-height:180px;opacity:1!important;visibility:visible!important;pointer-events:auto!important;overflow-y:auto!important;transform:translateY(0) scale(1)!important;margin:0!important;background:#fff!important;box-shadow:0 18px 44px rgba(15,23,42,.22)}
+  .filter-panel{border-radius:1rem!important}
   .filter-panel .card-body{padding:.9rem!important}
-}
-.catalog-item{ transition: all .3s ease; }
+}.catalog-item{ transition: all .3s ease; }
 @media (hover: hover) {
   .catalog-card:hover {
     transform: translateY(-8px) scale(1.02) !important;
@@ -145,12 +138,7 @@
   </div>
   @endif
 
-<span id="catalogFiltersTop"></span>
-<a href="#catalogFilterPanel" role="button" class="btn btn-primary filter-fab" aria-controls="catalogFilterPanel" aria-expanded="false" onclick="if(window.toggleCatalogFilters){toggleCatalogFilters(true);return false;}">
-  <i class="bi bi-search-heart me-1"></i>Smart Search
-</a>
-<div id="catalogFilterOverlay" class="filter-overlay" onclick="toggleCatalogFilters(false)"></div>
-<div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel" style="border-radius:1.25rem;background:#fff">
+<div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel bb-sticky-catalog-filters" style="border-radius:1.25rem;background:#fff">
   <div class="card-body p-3 p-md-4">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div>
@@ -161,9 +149,6 @@
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetCatalogFilters()">
           <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
         </button>
-        <a href="#catalogFiltersTop" role="button" class="btn btn-outline-secondary btn-sm" aria-label="Close smart search" onclick="if(window.toggleCatalogFilters){toggleCatalogFilters(false);return false;}">
-          <i class="bi bi-x-lg"></i>
-        </a>
       </div>
     </div>
     <div class="row g-2">
@@ -984,135 +969,8 @@ function resetCatalogFilters() {
   filterCatalog();
 }
 
-const catalogFilterState = { open: false, mode: null };
-const catalogFilterInlineProps = [
-  'display','position','top','left','right','bottom','width','maxWidth','maxHeight','minHeight',
-  'opacity','visibility','pointerEvents','overflow','overflowY','transform','zIndex','background','margin'
-];
-
-function catalogFilterMode() {
-  return window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop';
-}
-
-function catalogFilterTopbarHeight() {
-  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 56;
-}
-
-function catalogFilterElements() {
-  const panel = document.getElementById('catalogFilterPanel');
-  const overlay = document.getElementById('catalogFilterOverlay');
-  const trigger = document.querySelector('.filter-fab');
-  if (!panel || !overlay) return { panel, overlay, trigger, home: null };
-
-  let home = document.getElementById('catalogFilterPanelHome');
-  if (!home) {
-    home = document.createElement('span');
-    home.id = 'catalogFilterPanelHome';
-    home.hidden = true;
-    panel.parentNode.insertBefore(home, panel);
-  }
-
-  return { panel, overlay, trigger, home };
-}
-
-function clearCatalogFilterInlineStyles(panel) {
-  if (!panel) return;
-  catalogFilterInlineProps.forEach(prop => { panel.style[prop] = ''; });
-}
-
-function restoreCatalogFilterHome(panel, overlay, home) {
-  if (!panel || !overlay || !home || !home.parentNode) return;
-  if (overlay.parentNode !== home.parentNode || overlay.nextSibling !== home) {
-    home.parentNode.insertBefore(overlay, home);
-  }
-  if (panel.parentNode !== home.parentNode || home.nextSibling !== panel) {
-    home.parentNode.insertBefore(panel, home.nextSibling);
-  }
-}
-
-function moveCatalogFilterToBody(panel, overlay) {
-  if (overlay && overlay.parentNode !== document.body) document.body.appendChild(overlay);
-  if (panel && panel.parentNode !== document.body) document.body.appendChild(panel);
-}
-
-function applyMobileCatalogFilterLayout(panel, overlay) {
-  const topbar = catalogFilterTopbarHeight();
-  moveCatalogFilterToBody(panel, overlay);
-  Object.assign(panel.style, {
-    display: 'block',
-    position: 'fixed',
-    top: (topbar + 54) + 'px',
-    left: '10px',
-    right: '10px',
-    bottom: 'auto',
-    width: 'auto',
-    maxWidth: 'calc(100vw - 20px)',
-    maxHeight: 'calc(100vh - ' + topbar + 'px - 72px)',
-    minHeight: '180px',
-    opacity: '1',
-    visibility: 'visible',
-    pointerEvents: 'auto',
-    overflowY: 'auto',
-    transform: 'translateY(0) scale(1)',
-    zIndex: '1072',
-    background: '#fff',
-    margin: '0'
-  });
-  overlay.classList.add('show');
-  document.body.style.overflow = 'hidden';
-}
-
-function applyDesktopCatalogFilterLayout(panel, overlay, home) {
-  restoreCatalogFilterHome(panel, overlay, home);
-  clearCatalogFilterInlineStyles(panel);
-  overlay.classList.remove('show');
-  document.body.style.overflow = '';
-}
-
-function syncCatalogFilterLayout() {
-  const { panel, overlay, trigger, home } = catalogFilterElements();
-  if (!panel || !overlay) return;
-
-  const mode = catalogFilterMode();
-  catalogFilterState.mode = mode;
-  panel.classList.toggle('show', catalogFilterState.open);
-  trigger?.setAttribute('aria-expanded', catalogFilterState.open ? 'true' : 'false');
-  document.body.classList.toggle('catalog-filter-open', catalogFilterState.open);
-
-  if (!catalogFilterState.open) {
-    overlay.classList.remove('show');
-    document.body.style.overflow = '';
-    restoreCatalogFilterHome(panel, overlay, home);
-    clearCatalogFilterInlineStyles(panel);
-    return;
-  }
-
-  if (mode === 'mobile') {
-    applyMobileCatalogFilterLayout(panel, overlay);
-  } else {
-    applyDesktopCatalogFilterLayout(panel, overlay, home);
-  }
-}
-
-function toggleCatalogFilters(open) {
-  catalogFilterState.open = !!open;
-  syncCatalogFilterLayout();
-
-  if (!catalogFilterState.open && window.location.hash === '#catalogFilterPanel' && window.history?.replaceState) {
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
-  }
-}
-
 window.filterCatalog = filterCatalog;
 window.resetCatalogFilters = resetCatalogFilters;
-window.toggleCatalogFilters = toggleCatalogFilters;
-window.addEventListener('resize', function() {
-  window.requestAnimationFrame(syncCatalogFilterLayout);
-}, { passive: true });
-window.addEventListener('orientationchange', function() {
-  window.setTimeout(syncCatalogFilterLayout, 120);
-}, { passive: true });
-if (window.location.hash === '#catalogFilterPanel') toggleCatalogFilters(true);
 </script>
 
 
