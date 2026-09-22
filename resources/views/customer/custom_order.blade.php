@@ -324,7 +324,7 @@
                     <div id="surpriseFields" style="display:none">
                       <div class="row g-3">
                         <div class="col-md-6"><label class="form-label fw-semibold small">Recipient Name <span class="text-danger">*</span></label><input type="text" class="form-control" name="recipient_name" id="recipientName" maxlength="120" placeholder="Who will receive the cake?"></div>
-                        <div class="col-md-6"><label class="form-label fw-semibold small">Recipient Phone <span class="text-danger">*</span></label><input type="tel" class="form-control" name="recipient_phone" id="recipientPhone" maxlength="30" placeholder="09XXXXXXXXX"></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold small">Recipient Phone <span class="text-muted fw-normal">(optional)</span></label><input type="tel" class="form-control" name="recipient_phone" id="recipientPhone" maxlength="30" placeholder="09XXXXXXXXX"><div class="form-text">Optional. Rider will use this only if delivery cannot be completed. If blank, sender will be contacted first.</div></div>
                         <div class="col-md-6"><label class="form-label fw-semibold small">Sender Name on Card</label><input type="text" class="form-control" name="sender_display_name" maxlength="120" value="{{ session('user')['fullname'] ?? '' }}" placeholder="Example: Mama, Papa, Your friend"></div>
                         <div class="col-md-6"><label class="form-label fw-semibold small">Contact Rule</label><select class="form-select" name="surprise_contact_policy"><option value="sender_first">Call me first before recipient</option><option value="recipient_if_needed">Call recipient only if needed</option><option value="recipient_ok">Recipient may be called directly</option></select></div>
                         <div class="col-12"><label class="form-label fw-semibold small">Gift Message</label><textarea class="form-control" name="gift_message" rows="2" maxlength="500" placeholder="Optional message for the recipient"></textarea></div>
@@ -395,7 +395,7 @@
 
         {{-- RIGHT: Price Summary --}}
         <div class="col-lg-4">
-          <div class="card sticky-top" style="top:80px">
+          <div class="card bb-sticky-order-summary">
             <div class="card-body p-4">
               <h6 class="fw-bold mb-3">🎂 Price Summary</h6>
               <div class="d-flex justify-content-between small mb-2">
@@ -796,7 +796,7 @@ function toggleSurpriseDelivery() {
   const enabled = isSurpriseDeliverySelected();
   const fields = document.getElementById('surpriseFields');
   if (fields) fields.style.display = enabled ? 'block' : 'none';
-  ['recipientName', 'recipientPhone'].forEach(id => {
+  ['recipientName'].forEach(id => {
     const field = document.getElementById(id);
     if (!field) return;
     field.required = enabled;
@@ -838,20 +838,12 @@ function toggleSurpriseDelivery() {
 function validateSurpriseDelivery() {
   if (!isSurpriseDeliverySelected()) return true;
   const nameField = document.getElementById('recipientName');
-  const phoneField = document.getElementById('recipientPhone');
   const name = nameField?.value?.trim();
-  const phone = phoneField?.value?.trim();
   const gcash = document.getElementById('gcash');
   if (!name) {
     alert('Please enter the surprise recipient name before continuing.');
     nameField?.focus();
     nameField?.reportValidity?.();
-    return false;
-  }
-  if (!phone) {
-    alert('Please enter the surprise recipient phone number before continuing.');
-    phoneField?.focus();
-    phoneField?.reportValidity?.();
     return false;
   }
   if (gcash && !gcash.checked) {

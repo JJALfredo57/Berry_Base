@@ -147,7 +147,7 @@
   <i class="bi bi-funnel me-1"></i>Filters
 </button>
 <div id="catalogFilterOverlay" class="filter-overlay" onclick="toggleCatalogFilters(false)"></div>
-<div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel" style="border-radius:1.25rem;background:#fff">
+<div id="catalogFilterPanel" class="card border-0 shadow-sm mb-4 filter-panel bb-sticky-catalog-filters" style="border-radius:1.25rem;background:#fff">
   <div class="card-body p-3 p-md-4">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div>

@@ -335,8 +335,8 @@ document.body.style.paddingRight = '';
                           <input type="text" class="form-control" name="recipient_name" id="recipientName" maxlength="120" placeholder="Who will receive the cake?">
                         </div>
                         <div class="col-md-6">
-                          <label class="form-label fw-semibold small">Recipient Phone <span class="text-danger">*</span></label>
-                          <input type="tel" class="form-control" name="recipient_phone" id="recipientPhone" maxlength="30" placeholder="09XXXXXXXXX">
+                          <label class="form-label fw-semibold small">Recipient Phone <span class="text-muted fw-normal">(optional)</span></label>
+                          <input type="tel" class="form-control" name="recipient_phone" id="recipientPhone" maxlength="30" placeholder="09XXXXXXXXX"><div class="form-text">Optional. Rider will use this only if delivery cannot be completed. If blank, sender will be contacted first.</div>
                         </div>
                         <div class="col-md-6">
                           <label class="form-label fw-semibold small">Sender Name on Card</label>
@@ -494,7 +494,7 @@ document.body.style.paddingRight = '';
 
     {{-- RIGHT: Order Summary --}}
     <div class="col-lg-4 col-xl-3">
-      <div class="card sticky-top" style="top:80px">
+      <div class="card bb-sticky-order-summary">
         <div class="card-body p-4">
           <h6 class="fw-bold mb-3">📋 Order Summary</h6>
           <div class="d-flex justify-content-between small mb-2">
@@ -1071,7 +1071,7 @@ function toggleSurpriseDelivery() {
   const enabled = isSurpriseDeliverySelected();
   const fields = document.getElementById('surpriseFields');
   if (fields) fields.style.display = enabled ? 'block' : 'none';
-  ['recipientName', 'recipientPhone'].forEach(id => {
+  ['recipientName'].forEach(id => {
     const field = document.getElementById(id);
     if (!field) return;
     field.required = enabled;
@@ -1103,22 +1103,14 @@ function toggleSurpriseDelivery() {
 function validateSurpriseDelivery() {
   if (!isSurpriseDeliverySelected()) return true;
   const nameField = document.getElementById('recipientName');
-  const phoneField = document.getElementById('recipientPhone');
   const name = nameField?.value?.trim();
-  const phone = phoneField?.value?.trim();
   const gcash = document.getElementById('gcash');
   if (!name) {
     alert('Please enter the surprise recipient name before continuing.');
     nameField?.focus();
     nameField?.reportValidity?.();
     return false;
-  }
-  if (!phone) {
-    alert('Please enter the surprise recipient phone number before continuing.');
-    phoneField?.focus();
-    phoneField?.reportValidity?.();
-    return false;
-  }
+  }
   if (gcash && !gcash.checked) {
     alert('Surprise delivery must use GCash so the recipient will not be asked to pay.');
     gcash.checked = true;

@@ -153,7 +153,7 @@
 
         {{-- RIGHT: Order Summary --}}
         <div class="col-lg-4">
-          <div class="card sticky-top" style="top:80px">
+          <div class="card bb-sticky-order-summary">
             <div class="card-body p-4">
               <h6 class="fw-bold mb-3">📋 Order Summary</h6>
 

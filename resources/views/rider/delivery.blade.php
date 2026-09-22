@@ -269,7 +269,7 @@
 @php
   $isSurpriseDelivery = !empty($order->is_surprise_delivery);
   $displayName = $isSurpriseDelivery ? ($order->recipient_name ?? 'Recipient') : ($order->guest_name ?? 'Customer');
-  $displayPhone = $isSurpriseDelivery ? ($order->recipient_phone ?? null) : ($order->guest_phone ?? null);
+  $displayPhone = $isSurpriseDelivery ? (($order->recipient_phone ?: null) ?? ($order->guest_phone ?? null)) : ($order->guest_phone ?? null);
   $deliveryAddr = $isSurpriseDelivery ? ($order->recipient_address ?? $order->delivery_address ?? $order->address ?? null) : ($order->delivery_address ?? $order->address ?? null);
   $deliveryLat = $isSurpriseDelivery ? ($order->recipient_latitude ?? $order->latitude ?? null) : ($order->latitude ?? null);
   $deliveryLng = $isSurpriseDelivery ? ($order->recipient_longitude ?? $order->longitude ?? null) : ($order->longitude ?? null);

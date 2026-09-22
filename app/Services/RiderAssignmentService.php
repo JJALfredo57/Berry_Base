@@ -188,7 +188,7 @@ class RiderAssignmentService
                 ?? (!empty($order->user_id) ? DB::table('users')->where('id', $order->user_id)->value('fullname') : null)
                 ?? 'Customer');
         $custPhone = $isSurprise
-            ? ($order->recipient_phone ?? '')
+            ? (($order->recipient_phone ?: null) ?? $order->guest_phone ?? '')
             : ($order->guest_phone
                 ?? (!empty($order->user_id) ? DB::table('users')->where('id', $order->user_id)->value('phone') : null)
                 ?? '');

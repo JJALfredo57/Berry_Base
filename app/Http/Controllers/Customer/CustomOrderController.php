@@ -169,14 +169,14 @@ class CustomOrderController extends Controller
         $instructions = substr(trim((string) $request->input('delivery_instructions', '')), 0, 500);
         $policy = (string) $request->input('surprise_contact_policy', 'sender_first');
         if (!in_array($policy, ['sender_first', 'recipient_if_needed', 'recipient_ok'], true)) $policy = 'sender_first';
-        if ($name === '' || $phone === '') {
-            return ['enabled' => true, 'error' => 'Please enter the surprise recipient name and phone number.'];
+        if ($name === '') {
+            return ['enabled' => true, 'error' => 'Please enter the surprise recipient name.'];
         }
 
         return ['enabled' => true, 'data' => [
             'is_surprise_delivery' => true,
             'recipient_name' => $name,
-            'recipient_phone' => $phone,
+            'recipient_phone' => $phone ?: null,
             'recipient_address' => trim((string) $request->input('address', '')),
             'recipient_latitude' => $request->input('latitude') !== '' ? (float) $request->input('latitude') : null,
             'recipient_longitude' => $request->input('longitude') !== '' ? (float) $request->input('longitude') : null,
@@ -469,9 +469,12 @@ class CustomOrderController extends Controller
 
         $surpriseNote = '';
         if ($surprise['enabled']) {
+            $recipientPhoneLine = !empty($surprise['data']['recipient_phone'])
+                ? "\nRecipient phone: " . $surprise['data']['recipient_phone']
+                : "\nRecipient phone: Not provided. Contact sender first.";
             $surpriseNote = "\n\nSurprise delivery"
                 . "\nRecipient: " . ($surprise['data']['recipient_name'] ?? '')
-                . "\nRecipient phone: " . ($surprise['data']['recipient_phone'] ?? '')
+                . $recipientPhoneLine
                 . "\nInstruction: " . ($surprise['data']['delivery_instructions'] ?? 'Contact sender first. Do not mention price to recipient.');
             if (!empty($surprise['data']['gift_message'])) {
                 $surpriseNote .= "\nGift message: " . $surprise['data']['gift_message'];

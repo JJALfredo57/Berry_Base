@@ -1066,6 +1066,24 @@
       }
     }
 
+
+    @@media (min-width: 992px) {
+      .bb-sticky-order-summary,
+      .bb-sticky-catalog-filters {
+        position: sticky;
+        top: calc(var(--topbar-h, 64px) + 16px);
+        align-self: flex-start;
+        z-index: 20;
+      }
+    }
+
+    @@media (max-width: 991.98px) {
+      .bb-sticky-order-summary,
+      .bb-sticky-catalog-filters {
+        position: static !important;
+        top: auto !important;
+      }
+    }
     @@media(max-width:399px) {
       /* Very small phones (iPhone SE, Galaxy A) */
       .admin-page { padding:8px 8px 20px !important; }

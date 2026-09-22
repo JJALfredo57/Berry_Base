@@ -458,7 +458,7 @@
 
         {{-- RIGHT: Price Summary --}}
         <div class="col-lg-4">
-          <div class="card sticky-top" style="top:80px">
+          <div class="card bb-sticky-order-summary">
             <div class="card-body p-4">
               <h6 class="fw-bold mb-3">🎂 Price Summary</h6>
               <div class="d-flex justify-content-between small mb-2">
