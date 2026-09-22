@@ -106,8 +106,73 @@ class SettingsController extends Controller
             'ready_made_prep_days' => min(30, max(0, (int)$request->input('ready_made_prep_days', 0))),
             'custom_cake_prep_days' => min(30, max(0, (int)$request->input('custom_cake_prep_days', 3))),
             'custom_cart_hold_minutes' => min(120, max(1, (int)$request->input('custom_cart_hold_minutes', 15))),
+            'ready_made_prep_minutes' => min(1440, max(0, (int)$request->input('ready_made_prep_minutes', 90))),
+            'custom_cake_prep_minutes' => min(1440, max(0, (int)$request->input('custom_cake_prep_minutes', 0))),
+            'pickup_buffer_minutes' => min(480, max(0, (int)$request->input('pickup_buffer_minutes', 0))),
+            'delivery_base_buffer_minutes' => min(480, max(0, (int)$request->input('delivery_base_buffer_minutes', 30))),
+            'delivery_minutes_per_km' => min(120, max(0, (int)$request->input('delivery_minutes_per_km', 5))),
         ]);
+        $this->syncFulfillmentTimeSlots($shop->id, (array) $request->input('slots', []));
         return redirect()->to(route('seller.settings').'?tab=capacity')->with('msg', 'Daily capacity settings saved!');
+    }
+
+    private function syncFulfillmentTimeSlots(string $shopId, array $slots): void
+    {
+        if (!Schema::hasTable('fulfillment_time_slots')) {
+            return;
+        }
+
+        foreach ($slots as $index => $slot) {
+            $start = trim((string) ($slot['start_time'] ?? ''));
+            $end = trim((string) ($slot['end_time'] ?? ''));
+            if (!$this->validTime($start) || !$this->validTime($end) || $start >= $end) {
+                continue;
+            }
+
+            $fulfillment = strtolower((string) ($slot['fulfillment_method'] ?? 'both'));
+            if (!in_array($fulfillment, ['both', 'pickup', 'delivery'], true)) {
+                $fulfillment = 'both';
+            }
+
+            $orderType = strtolower((string) ($slot['order_type'] ?? 'both'));
+            if (!in_array($orderType, ['both', 'regular', 'custom'], true)) {
+                $orderType = 'both';
+            }
+
+            $label = trim((string) ($slot['label'] ?? ''));
+            if ($label === '') {
+                $label = date('g:i A', strtotime($start)) . ' - ' . date('g:i A', strtotime($end));
+            }
+
+            $row = [
+                'shop_id' => $shopId,
+                'label' => $label,
+                'start_time' => $start,
+                'end_time' => $end,
+                'fulfillment_method' => $fulfillment,
+                'order_type' => $orderType,
+                'is_active' => !empty($slot['is_active']),
+                'sort_order' => min(999, max(0, (int) ($slot['sort_order'] ?? $index + 1))),
+                'updated_at' => now(),
+            ];
+
+            $id = (int) ($slot['id'] ?? 0);
+            $existing = $id > 0
+                ? DB::table('fulfillment_time_slots')->where('id', $id)->where('shop_id', $shopId)->first()
+                : null;
+
+            if ($existing) {
+                DB::table('fulfillment_time_slots')->where('id', $id)->where('shop_id', $shopId)->update($row);
+            } else {
+                $row['created_at'] = now();
+                DB::table('fulfillment_time_slots')->insert($row);
+            }
+        }
+    }
+
+    private function validTime(string $time): bool
+    {
+        return (bool) preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $time);
     }
 
     private function upsertSettings(string $shopId, array $data): void
@@ -242,3 +307,4 @@ class SettingsController extends Controller
         return redirect()->to(route('seller.settings').'?tab=password')->with('msg', 'Password changed successfully.');
     }
 }
+

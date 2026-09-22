@@ -317,7 +317,7 @@ class CheckoutController extends Controller
 
         $requiresRegularFulfillment = $isGroupCheckout || !$hasCustomCheckout;
         if ($requiresRegularFulfillment) {
-            $scheduleCheck = app(OrderScheduleService::class)->validate($sdate, $stime);
+            $scheduleCheck = app(OrderScheduleService::class)->validate($sdate, $stime, $product->shop_id ?? null, 'regular', $fulfillment, $lat, $lng);
             if (!$scheduleCheck['ok']) {
                 return back()->with('error', $scheduleCheck['message'])->withInput();
             }
@@ -699,3 +699,4 @@ class CheckoutController extends Controller
         return redirect()->route('track.order', $trackCode)->with('msg', $successMsg);
     }
 }
+

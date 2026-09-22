@@ -31,6 +31,8 @@
   $readyPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($product->shop_id ?? null);
   $readyPrepDays = (int) $readyPrepSettings->ready_made_prep_days;
   $readyMadeEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($product->shop_id ?? null, 'regular')->toDateString();
+  $regularScheduleSlots = app(\App\Services\FulfillmentScheduleService::class)->slotsForCheckout($product->shop_id ?? null, 'regular');
+  $scheduleSettings = app(\App\Services\FulfillmentScheduleService::class)->settings($product->shop_id ?? null);
   $sweetDealScheduleLimit = $isGroupCheckout
       ? app(\App\Services\SweetDealService::class)->scheduleLimitForCartItems($regularCheckoutItems)
       : app(\App\Services\SweetDealService::class)->scheduleLimitForDirectItem((string) ($product->id ?? ''), $pricing);
@@ -384,11 +386,12 @@ document.body.style.paddingRight = '';
                 <label class="form-label fw-semibold small">Preferred Time Slot</label>
                 <select class="form-select" name="schedule_time" id="custFieldTime" onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
                   <option value="">-- Select Time Slot --</option>
-                  <option value="09:00">9:00 AM – 11:00 AM</option>
-                  <option value="11:00">11:00 AM – 1:00 PM</option>
-                  <option value="13:00">1:00 PM – 3:00 PM</option>
-                  <option value="15:00">3:00 PM – 5:00 PM</option>
-                  <option value="17:00">5:00 PM – 7:00 PM</option>
+                      @foreach($regularScheduleSlots as $slot)
+                        <option value="{{ $slot['value'] }}"
+                                data-start="{{ $slot['start'] }}"
+                                data-end="{{ $slot['end'] }}"
+                                data-fulfillment="{{ $slot['fulfillment'] }}">{{ $slot['label'] }}</option>
+                      @endforeach
                 </select>
               </div>
             </div>
@@ -569,11 +572,44 @@ document.body.style.paddingRight = '';
 </div>
 
 <script>
-const REGULAR_SLOT_ENDS = { '09:00':'11:00', '11:00':'13:00', '13:00':'15:00', '15:00':'17:00', '17:00':'19:00' };
+const FULFILLMENT_SCHEDULE = {
+  slots: @json($regularScheduleSlots),
+  readyPrep: {{ (int)($scheduleSettings->ready_made_prep_minutes ?? 90) }},
+  pickupBuffer: {{ (int)($scheduleSettings->pickup_buffer_minutes ?? 0) }},
+  deliveryBaseBuffer: {{ (int)($scheduleSettings->delivery_base_buffer_minutes ?? 30) }},
+  deliveryMinutesPerKm: {{ (int)($scheduleSettings->delivery_minutes_per_km ?? 5) }},
+  shopLat: {{ $scheduleSettings->shop_lat !== null ? (float)$scheduleSettings->shop_lat : 'null' }},
+  shopLng: {{ $scheduleSettings->shop_lng !== null ? (float)$scheduleSettings->shop_lng : 'null' }}
+};
 const SERVER_NOW = new Date(@json(now(config('app.timezone'))->format('Y-m-d H:i:s')));
 function minutesOf(time) {
   const parts = String(time || '').split(':').map(Number);
   return ((parts[0] || 0) * 60) + (parts[1] || 0);
+}
+function activeFulfillment() {
+  return document.querySelector('[name="fulfillment_type"]:checked')?.value || 'Pickup';
+}
+function distanceKm(lat1, lng1, lat2, lng2) {
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function requiredLeadMinutes() {
+  const fulfillment = activeFulfillment();
+  let minutes = Number(FULFILLMENT_SCHEDULE.readyPrep || 0);
+  if (fulfillment === 'Delivery') {
+    minutes += Number(FULFILLMENT_SCHEDULE.deliveryBaseBuffer || 0);
+    const lat = parseFloat(document.getElementById('lat')?.value || document.querySelector('[name="latitude"]')?.value || '');
+    const lng = parseFloat(document.getElementById('lng')?.value || document.querySelector('[name="longitude"]')?.value || '');
+    if (!Number.isNaN(lat) && !Number.isNaN(lng) && FULFILLMENT_SCHEDULE.shopLat !== null && FULFILLMENT_SCHEDULE.shopLng !== null) {
+      minutes += Math.ceil(distanceKm(Number(FULFILLMENT_SCHEDULE.shopLat), Number(FULFILLMENT_SCHEDULE.shopLng), lat, lng) * Number(FULFILLMENT_SCHEDULE.deliveryMinutesPerKm || 0));
+    }
+  } else {
+    minutes += Number(FULFILLMENT_SCHEDULE.pickupBuffer || 0);
+  }
+  return Math.max(0, minutes);
 }
 function updateRegularScheduleSlots(dateId, timeId, noticeId) {
   const dateEl = document.getElementById(dateId);
@@ -582,23 +618,27 @@ function updateRegularScheduleSlots(dateId, timeId, noticeId) {
   if (!dateEl || !timeEl) return true;
   const selectedDate = dateEl.value;
   const today = SERVER_NOW.toISOString().slice(0, 10);
-  const nowMins = SERVER_NOW.getHours() * 60 + SERVER_NOW.getMinutes();
+  const fulfillment = activeFulfillment().toLowerCase();
+  const earliestMins = SERVER_NOW.getHours() * 60 + SERVER_NOW.getMinutes() + requiredLeadMinutes();
   let openCount = 0;
   Array.from(timeEl.options).forEach(opt => {
     if (!opt.value) return;
-    const closed = selectedDate === today && minutesOf(REGULAR_SLOT_ENDS[opt.value]) <= nowMins;
+    const slotMethod = String(opt.dataset.fulfillment || 'both').toLowerCase();
+    const methodBlocked = slotMethod !== 'both' && slotMethod !== fulfillment;
+    const tooSoon = selectedDate === today && minutesOf(opt.dataset.start || opt.value) < earliestMins;
+    const closed = methodBlocked || tooSoon;
     opt.disabled = closed;
-    opt.textContent = opt.textContent.replace(' (Closed)', '') + (closed ? ' (Closed)' : '');
+    opt.textContent = opt.textContent.replace(/ \((Closed|Too soon|Unavailable)\)$/,'') + (closed ? (methodBlocked ? ' (Unavailable)' : ' (Too soon)') : '');
     if (!closed) openCount++;
   });
   if (timeEl.selectedOptions[0]?.disabled) timeEl.value = '';
   if (!notice) return openCount > 0;
   if (selectedDate === today && openCount === 0) {
-    notice.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Orders for today are already closed. Please choose tomorrow or another date.</span>';
+    notice.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>No remaining time slot has enough preparation' + (activeFulfillment() === 'Delivery' ? ' and delivery travel time.' : ' time.') + '</span>';
     return false;
   }
   notice.innerHTML = selectedDate === today
-    ? '<span class="text-warning fw-semibold"><i class="bi bi-clock-fill me-1"></i>Only remaining open time slots can be selected today.</span>'
+    ? '<span class="text-warning fw-semibold"><i class="bi bi-clock-fill me-1"></i>Only slots with enough preparation time can be selected today.</span>'
     : '';
   return true;
 }
@@ -925,6 +965,7 @@ function setMarkerAt(latlng, triggerPin = true) {
     document.getElementById('lng').value = latlng.lng;
     updateDeliveryRoute(latlng.lat, latlng.lng);
   }
+  setTimeout(() => updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice'), 250);
 }
 
 function drawCoverageAreas() {
@@ -1091,6 +1132,7 @@ function toggleDelivery() {
   updatePaymentMethodLabel();
   toggleSurpriseDelivery();
   updateTotal(getCurrentAddonTotal());
+  updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice');
 }
 
 function updatePaymentMethodLabel() {
@@ -1239,3 +1281,7 @@ document.getElementById('voucherCodeInput')?.addEventListener('input', () => {
 document.getElementById('pointsToRedeem')?.addEventListener('input', () => updateTotal(getCurrentAddonTotal()));
 </script>
 @endpush
+
+
+
+

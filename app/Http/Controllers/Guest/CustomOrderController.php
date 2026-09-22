@@ -323,6 +323,10 @@ class CustomOrderController extends Controller
         $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($shopId, $sdate, 'custom');
         if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->withInput();
 
+        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng);
+        if (!$scheduleCheck['ok']) return back()->with('error', $scheduleCheck['message'])->withInput();
+        $slotLabel = $scheduleCheck['slot']->label ?? $timeSlot;
+
         $capacity = app(DailyCapacityService::class)->validate($shopId, $sdate, $qty);
         if (!$capacity['allowed']) {
             return back()->with('error', $capacity['message'])->withInput();
@@ -422,7 +426,7 @@ class CustomOrderController extends Controller
             'delivery_fee'=>$deliveryFee,'service_charge'=>$serviceCharge,
             'selected_size'=>$sizeLabel?:null,'selected_size_price'=>$unitPrice,
             'delivery_address'=>$address??'','latitude'=>$lat??0,
-            'schedule_date'=>$sdate,'schedule_time'=>null,
+            'schedule_date'=>$sdate,'schedule_time'=>$timeSlot,
             'payment_method'=>$payment,'payment_status'=>'Unpaid','created_at'=>now(),
         ];
         $orderRow = array_filter($orderRow, fn ($value, $column) => Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
@@ -441,7 +445,7 @@ class CustomOrderController extends Controller
             'design_complexity'=> $compLabel ?: null,
             'dedication'       => $dedication ?: null,
             'custom_note'      => trim($customNote . (!empty($validAddons) && $addonInstructions ? "\nAdd-on instructions: {$addonInstructions}" : '')) ?: null,
-            'time_slot'        => $timeSlot ?: null,
+            'time_slot'        => $slotLabel ?: null,
             'reference_images' => !empty($refImages) ? json_encode($refImages) : null,
             'estimated_price'  => $total,
             'price_breakdown'  => json_encode($breakdown),
@@ -571,6 +575,10 @@ class CustomOrderController extends Controller
         $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($shopId, $sdate, 'custom');
         if (!$prepDate['ok']) return ['ok' => false, 'message' => $prepDate['message']];
 
+        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng);
+        if (!$scheduleCheck['ok']) return ['ok' => false, 'message' => $scheduleCheck['message']];
+        $slotLabel = $scheduleCheck['slot']->label ?? $timeSlot;
+
         $capacity = app(DailyCapacityService::class)->validate($shopId, $sdate, $qty);
         if (!$capacity['allowed']) return ['ok' => false, 'message' => $capacity['message']];
 
@@ -635,7 +643,8 @@ class CustomOrderController extends Controller
             'latitude' => $lat,
             'longitude' => $lng,
             'schedule_date' => $sdate,
-            'time_slot' => $timeSlot,
+            'schedule_time' => $timeSlot,
+            'time_slot' => $slotLabel,
             'payment_method' => $payment,
             'quantity' => $qty,
             'estimated_total' => $total,
@@ -791,3 +800,4 @@ class CustomOrderController extends Controller
 
 
 }
+

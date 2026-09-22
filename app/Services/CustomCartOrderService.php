@@ -28,6 +28,7 @@ class CustomCartOrderService
         $shopId = $item->shop_id ?? ($meta['shop_id'] ?? null);
         $qty = max(1, (int) ($item->quantity ?? ($meta['quantity'] ?? 1)));
         $date = $meta['schedule_date'] ?? null;
+        $scheduleTime = trim((string) ($meta['schedule_time'] ?? ''));
         $prep = app(PreparationWindowService::class);
         $hold = $prep->validateCustomHold($meta);
         if (!$hold['ok']) return ['ok' => false, 'message' => $hold['message']];
@@ -35,6 +36,11 @@ class CustomCartOrderService
         if (!$prepDate['ok']) return ['ok' => false, 'message' => $prepDate['message']];
         $capacity = app(DailyCapacityService::class)->validate($shopId, $date, $qty);
         if (!$capacity['allowed']) return ['ok' => false, 'message' => $capacity['message']];
+
+        if ($scheduleTime !== '') {
+            $scheduleCheck = app(OrderScheduleService::class)->validate($date, $scheduleTime, $shopId, 'custom', $meta['fulfillment_type'] ?? 'Pickup', isset($meta['latitude']) ? (float) $meta['latitude'] : null, isset($meta['longitude']) ? (float) $meta['longitude'] : null);
+            if (!$scheduleCheck['ok']) return ['ok' => false, 'message' => $scheduleCheck['message']];
+        }
 
         $cakeName = trim((string) ($meta['cake_name'] ?? 'Custom Cake'));
         $flavor = trim((string) ($meta['flavor'] ?? ''));
@@ -89,7 +95,7 @@ class CustomCartOrderService
             'delivery_address' => $meta['address'] ?? '',
             'latitude' => $meta['latitude'] ?? null,
             'schedule_date' => $date,
-            'schedule_time' => null,
+            'schedule_time' => $scheduleTime ?: null,
             'payment_method' => $meta['payment_method'] ?? ($context['payment_method'] ?? 'COD'),
             'payment_status' => 'Unpaid',
             'created_at' => now(),
@@ -191,3 +197,4 @@ class CustomCartOrderService
         return ['ok' => true, 'order_id' => $oid, 'track_code' => $trackCode, 'total' => $total];
     }
 }
+
