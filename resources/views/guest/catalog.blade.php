@@ -984,70 +984,121 @@ function resetCatalogFilters() {
   filterCatalog();
 }
 
-function ensureCatalogFilterLayer(open) {
+const catalogFilterState = { open: false, mode: null };
+const catalogFilterInlineProps = [
+  'display','position','top','left','right','bottom','width','maxWidth','maxHeight','minHeight',
+  'opacity','visibility','pointerEvents','overflow','overflowY','transform','zIndex','background','margin'
+];
+
+function catalogFilterMode() {
+  return window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop';
+}
+
+function catalogFilterTopbarHeight() {
+  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 56;
+}
+
+function catalogFilterElements() {
   const panel = document.getElementById('catalogFilterPanel');
   const overlay = document.getElementById('catalogFilterOverlay');
-  if (!panel || !overlay) return { panel, overlay };
+  const trigger = document.querySelector('.filter-fab');
+  if (!panel || !overlay) return { panel, overlay, trigger, home: null };
 
-  const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  if (!panel.dataset.originalParent) {
-    const home = document.createElement('span');
+  let home = document.getElementById('catalogFilterPanelHome');
+  if (!home) {
+    home = document.createElement('span');
     home.id = 'catalogFilterPanelHome';
     home.hidden = true;
     panel.parentNode.insertBefore(home, panel);
-    panel.dataset.originalParent = '1';
   }
 
-  const home = document.getElementById('catalogFilterPanelHome');
-  if (isMobile && open) {
-    if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
-    if (panel.parentNode !== document.body) document.body.appendChild(panel);
-  } else if (!open && home && panel.parentNode === document.body) {
-    home.parentNode.insertBefore(overlay, home.nextSibling);
-    home.parentNode.insertBefore(panel, overlay.nextSibling);
+  return { panel, overlay, trigger, home };
+}
+
+function clearCatalogFilterInlineStyles(panel) {
+  if (!panel) return;
+  catalogFilterInlineProps.forEach(prop => { panel.style[prop] = ''; });
+}
+
+function restoreCatalogFilterHome(panel, overlay, home) {
+  if (!panel || !overlay || !home || !home.parentNode) return;
+  if (overlay.parentNode !== home.parentNode || overlay.nextSibling !== home) {
+    home.parentNode.insertBefore(overlay, home);
+  }
+  if (panel.parentNode !== home.parentNode || home.nextSibling !== panel) {
+    home.parentNode.insertBefore(panel, home.nextSibling);
+  }
+}
+
+function moveCatalogFilterToBody(panel, overlay) {
+  if (overlay && overlay.parentNode !== document.body) document.body.appendChild(overlay);
+  if (panel && panel.parentNode !== document.body) document.body.appendChild(panel);
+}
+
+function applyMobileCatalogFilterLayout(panel, overlay) {
+  const topbar = catalogFilterTopbarHeight();
+  moveCatalogFilterToBody(panel, overlay);
+  Object.assign(panel.style, {
+    display: 'block',
+    position: 'fixed',
+    top: (topbar + 54) + 'px',
+    left: '10px',
+    right: '10px',
+    bottom: 'auto',
+    width: 'auto',
+    maxWidth: 'calc(100vw - 20px)',
+    maxHeight: 'calc(100vh - ' + topbar + 'px - 72px)',
+    minHeight: '180px',
+    opacity: '1',
+    visibility: 'visible',
+    pointerEvents: 'auto',
+    overflowY: 'auto',
+    transform: 'translateY(0) scale(1)',
+    zIndex: '1072',
+    background: '#fff',
+    margin: '0'
+  });
+  overlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function applyDesktopCatalogFilterLayout(panel, overlay, home) {
+  restoreCatalogFilterHome(panel, overlay, home);
+  clearCatalogFilterInlineStyles(panel);
+  overlay.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function syncCatalogFilterLayout() {
+  const { panel, overlay, trigger, home } = catalogFilterElements();
+  if (!panel || !overlay) return;
+
+  const mode = catalogFilterMode();
+  catalogFilterState.mode = mode;
+  panel.classList.toggle('show', catalogFilterState.open);
+  trigger?.setAttribute('aria-expanded', catalogFilterState.open ? 'true' : 'false');
+  document.body.classList.toggle('catalog-filter-open', catalogFilterState.open);
+
+  if (!catalogFilterState.open) {
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+    restoreCatalogFilterHome(panel, overlay, home);
+    clearCatalogFilterInlineStyles(panel);
+    return;
   }
 
-  return { panel, overlay };
+  if (mode === 'mobile') {
+    applyMobileCatalogFilterLayout(panel, overlay);
+  } else {
+    applyDesktopCatalogFilterLayout(panel, overlay, home);
+  }
 }
 
 function toggleCatalogFilters(open) {
-  const layer = ensureCatalogFilterLayer(open);
-  const shouldOpen = !!open;
-  const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  layer.panel?.classList.toggle('show', shouldOpen);
-  layer.overlay?.classList.toggle('show', shouldOpen);
-  document.querySelector('.filter-fab')?.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-  document.body.classList.toggle('catalog-filter-open', shouldOpen);
-  document.body.style.overflow = shouldOpen && isMobile ? 'hidden' : '';
+  catalogFilterState.open = !!open;
+  syncCatalogFilterLayout();
 
-  if (layer.panel && isMobile) {
-    if (shouldOpen) {
-      const topbar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 56;
-      Object.assign(layer.panel.style, {
-        display: 'block',
-        position: 'fixed',
-        top: (topbar + 54) + 'px',
-        left: '10px',
-        right: '10px',
-        width: 'auto',
-        maxWidth: 'calc(100vw - 20px)',
-        maxHeight: 'calc(100vh - ' + topbar + 'px - 72px)',
-        minHeight: '180px',
-        opacity: '1',
-        visibility: 'visible',
-        pointerEvents: 'auto',
-        overflowY: 'auto',
-        transform: 'translateY(0) scale(1)',
-        zIndex: '1072',
-        background: '#fff',
-        margin: '0'
-      });
-    } else {
-      ['display','position','top','left','right','width','maxWidth','maxHeight','minHeight','opacity','visibility','pointerEvents','overflowY','transform','zIndex','background','margin'].forEach(prop => layer.panel.style[prop] = '');
-    }
-  }
-
-  if (!shouldOpen && window.location.hash === '#catalogFilterPanel' && window.history?.replaceState) {
+  if (!catalogFilterState.open && window.location.hash === '#catalogFilterPanel' && window.history?.replaceState) {
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }
 }
@@ -1056,8 +1107,12 @@ window.filterCatalog = filterCatalog;
 window.resetCatalogFilters = resetCatalogFilters;
 window.toggleCatalogFilters = toggleCatalogFilters;
 window.addEventListener('resize', function() {
-  if (!window.matchMedia('(max-width: 768px)').matches) toggleCatalogFilters(false);
-});
+  window.requestAnimationFrame(syncCatalogFilterLayout);
+}, { passive: true });
+window.addEventListener('orientationchange', function() {
+  window.setTimeout(syncCatalogFilterLayout, 120);
+}, { passive: true });
+if (window.location.hash === '#catalogFilterPanel') toggleCatalogFilters(true);
 </script>
 
 
