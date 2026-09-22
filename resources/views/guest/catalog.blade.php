@@ -57,11 +57,12 @@
 .filter-overlay{display:none}
 .filter-panel{transition:transform .25s ease, box-shadow .25s ease}
 @media(max-width:768px){
-  .filter-fab{display:inline-flex;position:fixed;right:14px;bottom:82px;z-index:1041;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.2)}
+  .filter-fab{display:inline-flex;position:fixed;right:14px;top:calc(var(--topbar-h,56px) + 10px);bottom:auto;z-index:1043;border-radius:999px;box-shadow:0 12px 28px rgba(15,23,42,.2)}
   .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1040}
   .filter-overlay.show{display:block}
-  .filter-panel{position:fixed;top:0;right:0;bottom:0;width:min(88vw,360px);z-index:1042;overflow:auto;border-radius:0!important;transform:translateX(105%);margin:0!important}
-  .filter-panel.show{transform:translateX(0);box-shadow:-18px 0 40px rgba(15,23,42,.2)}
+  .filter-panel{position:fixed!important;top:calc(var(--topbar-h,56px) + 54px);left:10px;right:10px;bottom:auto;width:auto;max-width:calc(100vw - 20px);max-height:calc(100vh - var(--topbar-h,56px) - 72px);z-index:1042;overflow:auto;border-radius:1rem!important;transform:translateY(-125%);margin:0!important}
+  .filter-panel.show{transform:translateY(0);box-shadow:0 18px 44px rgba(15,23,42,.22)}
+  .filter-panel .card-body{padding:.9rem!important}
 }
 .catalog-item{ transition: all .3s ease; }
 @media (hover: hover) {
