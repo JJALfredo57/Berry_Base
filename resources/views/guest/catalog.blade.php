@@ -58,11 +58,11 @@
 .filter-panel{max-height:0;opacity:0;visibility:hidden;pointer-events:none;overflow:hidden;margin:0!important;transform:translateY(-8px) scale(.99);transition:max-height .28s cubic-bezier(.2,.8,.2,1),opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s linear .28s,margin .2s ease,box-shadow .25s ease}
 .filter-panel.show,.filter-panel:target{position:sticky!important;top:calc(var(--topbar-h,56px) + 56px);z-index:1024;max-height:calc(100vh - var(--topbar-h,56px) - 76px);opacity:1;visibility:visible;pointer-events:auto;overflow:auto;transform:translateY(0) scale(1);margin-bottom:1.5rem!important;box-shadow:0 18px 44px rgba(15,23,42,.14);transition:max-height .32s cubic-bezier(.2,.8,.2,1),opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s,margin .2s ease,box-shadow .25s ease}
 @media(max-width:768px){
-  .filter-fab{position:fixed;right:14px;top:calc(var(--topbar-h,56px) + 10px);bottom:auto;z-index:1067;margin:0;box-shadow:0 12px 28px rgba(15,23,42,.2)}
+  .filter-fab{position:fixed;right:14px;top:calc(var(--topbar-h,56px) + 10px);bottom:auto;z-index:1074;margin:0;box-shadow:0 12px 28px rgba(15,23,42,.2)}
   .filter-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1060}
   .filter-overlay.show{display:block}
-  .filter-panel{position:fixed!important;top:calc(var(--topbar-h,56px) + 54px);left:10px;right:10px;bottom:auto;width:auto;max-width:calc(100vw - 20px);max-height:0;z-index:1065;border-radius:1rem!important;margin:0!important}
-  .filter-panel.show,.filter-panel:target{max-height:calc(100vh - var(--topbar-h,56px) - 72px);margin:0!important;box-shadow:0 18px 44px rgba(15,23,42,.22)}
+  .filter-panel{position:fixed!important;top:calc(var(--topbar-h,56px) + 54px);left:10px;right:10px;bottom:auto;width:auto;max-width:calc(100vw - 20px);max-height:0;z-index:1072;border-radius:1rem!important;margin:0!important}
+  .filter-panel.show,.filter-panel:target{display:block!important;max-height:calc(100vh - var(--topbar-h,56px) - 72px);min-height:180px;opacity:1!important;visibility:visible!important;pointer-events:auto!important;overflow-y:auto!important;transform:translateY(0) scale(1)!important;margin:0!important;background:#fff!important;box-shadow:0 18px 44px rgba(15,23,42,.22)}
   .filter-panel .card-body{padding:.9rem!important}
 }
 .catalog-item{ transition: all .3s ease; }
@@ -1013,11 +1013,39 @@ function ensureCatalogFilterLayer(open) {
 function toggleCatalogFilters(open) {
   const layer = ensureCatalogFilterLayer(open);
   const shouldOpen = !!open;
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
   layer.panel?.classList.toggle('show', shouldOpen);
   layer.overlay?.classList.toggle('show', shouldOpen);
   document.querySelector('.filter-fab')?.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
   document.body.classList.toggle('catalog-filter-open', shouldOpen);
-  document.body.style.overflow = shouldOpen && window.matchMedia('(max-width: 768px)').matches ? 'hidden' : '';
+  document.body.style.overflow = shouldOpen && isMobile ? 'hidden' : '';
+
+  if (layer.panel && isMobile) {
+    if (shouldOpen) {
+      const topbar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 56;
+      Object.assign(layer.panel.style, {
+        display: 'block',
+        position: 'fixed',
+        top: (topbar + 54) + 'px',
+        left: '10px',
+        right: '10px',
+        width: 'auto',
+        maxWidth: 'calc(100vw - 20px)',
+        maxHeight: 'calc(100vh - ' + topbar + 'px - 72px)',
+        minHeight: '180px',
+        opacity: '1',
+        visibility: 'visible',
+        pointerEvents: 'auto',
+        overflowY: 'auto',
+        transform: 'translateY(0) scale(1)',
+        zIndex: '1072',
+        background: '#fff',
+        margin: '0'
+      });
+    } else {
+      ['display','position','top','left','right','width','maxWidth','maxHeight','minHeight','opacity','visibility','pointerEvents','overflowY','transform','zIndex','background','margin'].forEach(prop => layer.panel.style[prop] = '');
+    }
+  }
 
   if (!shouldOpen && window.location.hash === '#catalogFilterPanel' && window.history?.replaceState) {
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
