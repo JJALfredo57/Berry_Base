@@ -42,11 +42,16 @@
       $continueUrl = route('superadmin.dashboard');
   } elseif ($continueRole === 'admin') {
       $continueUrl = route('admin.dashboard');
+  } elseif ($continueRole === 'customer') {
+      $continueUrl = route('customer.catalog');
   }
-  $hasActiveAccount = in_array($continueRole, ['seller', 'admin', 'superadmin'], true);
+  $hasActiveAccount = in_array($continueRole, ['customer', 'seller', 'admin', 'superadmin'], true);
   $continueText = $hasActiveAccount
       ? 'Continue as ' . ($continueName !== '' ? $continueName : ucfirst($continueRole))
       : 'Browse Our Cakes';
+  $secondaryCtaUrl = $continueRole === 'customer' ? route('customer.orders') : route('track.recover');
+  $secondaryCtaIcon = $continueRole === 'customer' ? 'bi-bag-check' : 'bi-key-fill';
+  $secondaryCtaText = $continueRole === 'customer' ? 'My Orders' : 'Forgot tracking code?';
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -834,8 +839,8 @@
         <path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </button>
-    <a href="{{ route('track.recover') }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;color:#7B3A0F;text-decoration:none;font-size:.82rem;font-weight:700">
-      <i class="bi bi-key-fill"></i>Forgot tracking code?
+    <a href="{{ $secondaryCtaUrl }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;color:#7B3A0F;text-decoration:none;font-size:.82rem;font-weight:700">
+      <i class="bi {{ $secondaryCtaIcon }}"></i>{{ $secondaryCtaText }}
     </a>
     <div class="ms-hint">
       <div class="ms-hint-line"></div>
@@ -901,9 +906,9 @@
           <path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
-      <a class="btn-secondary" href="{{ route('track.recover') }}">
-        <i class="bi bi-key-fill"></i>
-        Forgot tracking code?
+      <a class="btn-secondary" href="{{ $secondaryCtaUrl }}">
+        <i class="bi {{ $secondaryCtaIcon }}"></i>
+        {{ $secondaryCtaText }}
       </a>
     </div>
 
