@@ -109,7 +109,7 @@ class ProductController extends Controller
         ],[
             'name.required'           => 'Product name is required.',
             'price.required'          => 'Price is required.',
-            'price.min'               => 'Price must be at least ₱1.',
+            'price.min'               => 'Price must be at least Ã¢â€šÂ±1.',
             'classification.required' => 'Please select a classification.',
             'image.mimes'             => 'Image must be JPG, PNG, or WebP.',
             'image.max'               => 'Image must not exceed 5MB.',
@@ -163,7 +163,7 @@ class ProductController extends Controller
         ],[
             'name.required'  => 'Product name is required.',
             'price.required' => 'Price is required.',
-            'price.min'      => 'Price must be at least ₱1.',
+            'price.min'      => 'Price must be at least Ã¢â€šÂ±1.',
         ]);
 
         // Duplicate check (exclude current product)
@@ -344,13 +344,13 @@ class ProductController extends Controller
         $validated = $request->validate([
             'label' => 'required|string|max:50',
             'price' => 'required|numeric|min:1',
+            'available_quantity' => 'nullable|integer|min:0|max:9999',
         ],[
             'label.required' => 'Size label is required.',
             'price.required' => 'Size price is required.',
-            'price.min'      => 'Price must be at least ₱1.',
+            'price.min'      => 'Price must be at least PHP 1.',
         ]);
 
-        // Duplicate size label check
         $exists = DB::table('product_sizes')
             ->where('product_id', $productId)
             ->whereRaw('LOWER(label) = ?', [strtolower($validated['label'])])
@@ -362,13 +362,37 @@ class ProductController extends Controller
             'product_id' => $productId,
             'label'      => $validated['label'],
             'price'      => $validated['price'],
+            'available_quantity' => array_key_exists('available_quantity', $validated) ? $validated['available_quantity'] : null,
             'is_active' => true,
             'sort_order' => $maxSort + 1,
             'created_at' => now(),
+            'updated_at' => now(),
         ]);
-        return back()->with('msg', "Size added.");
+        return back()->with('msg', 'Size added.');
     }
 
+    public function updateSizeStock(Request $request, string $sizeId)
+    {
+        $shop = $this->getShop();
+        $size = DB::table('product_sizes as ps')
+            ->join('products as p', 'p.id', '=', 'ps.product_id')
+            ->where('ps.id', $sizeId)
+            ->where('p.shop_id', $shop->id)
+            ->select('ps.*')
+            ->first();
+        if (!$size) return back()->with('err', 'Size not found.');
+
+        $validated = $request->validate([
+            'available_quantity' => 'nullable|integer|min:0|max:9999',
+        ]);
+
+        DB::table('product_sizes')->where('id', $sizeId)->update([
+            'available_quantity' => array_key_exists('available_quantity', $validated) ? $validated['available_quantity'] : null,
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('msg', "Stock for size \"{$size->label}\" updated.");
+    }
     public function archiveSize(string $sizeId)
     {
         $shop = $this->getShop();

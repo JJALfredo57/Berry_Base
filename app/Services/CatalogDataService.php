@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\CakeshopHelper;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CatalogDataService
 {
@@ -151,6 +152,7 @@ class CatalogDataService
             $sizes = DB::table('product_sizes')
                 ->whereIn('product_id', $productIds)
                 ->where('is_active', true)
+                ->when(Schema::hasColumn('product_sizes', 'archived_at'), fn ($query) => $query->whereNull('archived_at'))
                 ->orderBy('sort_order')
                 ->get();
             foreach ($sizes as $size) {

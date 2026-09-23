@@ -74,7 +74,7 @@
             <div class="d-flex flex-wrap gap-1 mt-1">
               @foreach($sizes as $sz)
               <span class="badge" style="background:var(--primary-light);color:var(--primary);font-size:clamp(.66rem,1.3vw,.7rem)">
-                {{ $sz->label }} — ₱{{ number_format($sz->price,2) }}
+                {{ $sz->label }} - PHP {{ number_format($sz->price,2) }} @if($sz->available_quantity !== null) ({{ max(0, (int)$sz->available_quantity) }} stock) @else (open stock) @endif
               </span>
               @endforeach
             </div>
@@ -201,9 +201,14 @@
                 @foreach($sizes as $sz)
                 <div class="d-flex align-items-center justify-content-between p-2 rounded"
                      style="background:#f8f9fa;border:1px solid #e9ecef">
-                  <div>
+                  <div class="flex-grow-1">
                     <span class="fw-semibold small">{{ $sz->label }}</span>
-                    <span class="text-muted small ms-2">₱{{ number_format($sz->price,2) }}</span>
+                    <span class="text-muted small ms-2">PHP {{ number_format($sz->price,2) }}</span>
+                    <form action="{{ route('admin.products.sizes.stock',$sz->id) }}" method="POST" class="d-flex gap-1 mt-1" style="max-width:180px">
+                      @csrf
+                      <input type="number" class="form-control form-control-sm" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" placeholder="Open stock">
+                      <button type="submit" class="btn btn-outline-primary btn-sm py-0 px-2" title="Save stock"><i class="bi bi-check2"></i></button>
+                    </form>
                   </div>
                   <form action="{{ route('admin.products.sizes.destroy',$sz->id) }}" method="POST"
                         onsubmit="return false;" onclick="confirmDelete('Delete size \'{{ addslashes($sz->label) }}\'?', () => this.closest('form').submit())">
@@ -234,8 +239,12 @@
                     <input type="text" class="form-control" name="label" placeholder='e.g. 6"' required maxlength="40">
                   </div>
                   <div class="col-6">
-                    <label class="form-label fw-semibold small">Price (₱)</label>
+                    <label class="form-label fw-semibold small">Price (PHP)</label>
                     <input type="number" step="0.01" min="0" class="form-control" name="price" placeholder="500.00" required>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold small">Stock <span class="text-muted fw-normal">(blank = open stock)</span></label>
+                    <input type="number" min="0" max="9999" step="1" class="form-control" name="available_quantity" placeholder="e.g. 2">
                   </div>
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm w-100 mt-3">

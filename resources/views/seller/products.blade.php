@@ -255,7 +255,15 @@
       <span style="font-size:.72rem;font-weight:700;color:var(--gray-500);margin-right:.25rem">SIZES:</span>
       @foreach($sizes as $sz)
       <span style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:var(--gray-700);display:inline-flex;align-items:center;gap:.4rem">
-        {{ $sz->label }} — ₱{{ number_format($sz->price,2) }}
+        <span>{{ $sz->label }} - PHP {{ number_format($sz->price,2) }}</span>
+        <span style="color:{{ $sz->available_quantity === null ? 'var(--gray-500)' : ((int)$sz->available_quantity <= 0 ? '#b91c1c' : ((int)$sz->available_quantity <= 3 ? '#92400e' : '#047857')) }}">
+          {{ $sz->available_quantity === null ? 'Stock: open' : 'Stock: '.max(0, (int)$sz->available_quantity) }}
+        </span>
+        <form action="{{ route('seller.products.sizes.stock', $sz->id) }}" method="POST" class="d-inline-flex align-items-center gap-1">
+          @csrf
+          <input type="number" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" placeholder="Open" title="Size stock" style="width:72px;border:1px solid var(--gray-200);border-radius:6px;padding:.12rem .35rem;font-size:.72rem">
+          <button type="submit" title="Save size stock" style="background:none;border:none;color:var(--primary);cursor:pointer;padding:0;font-size:.78rem;line-height:1"><i class="bi bi-check2-circle"></i></button>
+        </form>
         <form action="{{ route('seller.products.sizes.archive', $sz->id) }}" method="POST" class="d-inline"
               onsubmit="return false;" onclick="confirmDelete('Archive size &quot;{{ addslashes($sz->label) }}&quot;? It will be hidden and can be restored anytime.', () => this.closest('form').submit())">
           @csrf
@@ -272,7 +280,10 @@
       <span style="font-size:.72rem;font-weight:700;color:#d97706;margin-right:.25rem">ARCHIVED SIZES:</span>
       @foreach($archivedSz as $sz)
       <span style="background:#fffbeb;border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:#92400e;display:inline-flex;align-items:center;gap:.4rem;opacity:.8">
-        {{ $sz->label }} — ₱{{ number_format($sz->price,2) }}
+        <span>{{ $sz->label }} - PHP {{ number_format($sz->price,2) }}</span>
+        <span style="color:{{ $sz->available_quantity === null ? 'var(--gray-500)' : ((int)$sz->available_quantity <= 0 ? '#b91c1c' : ((int)$sz->available_quantity <= 3 ? '#92400e' : '#047857')) }}">
+          {{ $sz->available_quantity === null ? 'Stock: open' : 'Stock: '.max(0, (int)$sz->available_quantity) }}
+        </span>
         <form action="{{ route('seller.products.sizes.restore', $sz->id) }}" method="POST" class="d-inline">
           @csrf
           <button type="submit" title="Restore size" style="background:none;border:none;color:#059669;cursor:pointer;padding:0;font-size:.75rem;line-height:1">
@@ -431,7 +442,10 @@
             <input type="text" class="form-control" name="new_size_label" placeholder="e.g. 6-inch" style="width:140px">
           </div>
           <div>
-            <input type="number" class="form-control" name="new_size_price" placeholder="₱" step="0.01" min="1" style="width:120px">
+            <input type="number" class="form-control" name="new_size_price" placeholder="PHP" step="0.01" min="1" style="width:120px">
+          </div>
+          <div>
+            <input type="number" class="form-control" name="new_size_available_quantity" placeholder="Stock" min="0" max="9999" step="1" style="width:110px">
           </div>
           <a href="{{ route('seller.products.sizes.store', $p->id) }}" style="display:none" id="sizeFormAction-{{ $p->id }}"></a>
           <button type="button" onclick="submitSize('{{ $p->id }}')"
@@ -588,11 +602,12 @@ function previewImg(input, previewId) {
 function submitSize(productId) {
   const label = document.querySelector(`#edit-${productId} input[name="new_size_label"]`).value.trim();
   const price = document.querySelector(`#edit-${productId} input[name="new_size_price"]`).value.trim();
+  const stock = document.querySelector(`#edit-${productId} input[name="new_size_available_quantity"]`)?.value.trim() || '';
   if (!label || !price) { csAlert('Please enter size label and price.'); return; }
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = '{{ url("/seller/products") }}/' + productId + '/sizes';
-  form.innerHTML = `@csrf<input name="label" value="${label}"><input name="price" value="${price}">`;
+  form.innerHTML = `@csrf<input name="label" value="${label}"><input name="price" value="${price}"><input name="available_quantity" value="${stock}">`;
   document.body.appendChild(form);
   form.submit();
 }

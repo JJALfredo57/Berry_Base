@@ -57,6 +57,11 @@ class CartService
             ->orderByDesc('ci.id')
             ->get();
 
+        $stockService = app(ProductStockService::class);
+        foreach ($items as $item) {
+            $item->available_quantity = $stockService->availableForCartItem($item);
+        }
+
         $subtotal = $items->sum(fn ($item) => (float) $item->final_unit_price_snapshot * (int) $item->quantity);
         $groups = $items->groupBy(fn ($item) => $item->shop_id ?: 'platform')->map(function ($group, $key) {
             $first = $group->first();
@@ -83,7 +88,7 @@ class CartService
         $product = DB::table('products')->where('id', $productId)->where('is_available', true)->whereNull('archived_at')->first();
         if (!$product) return ['ok' => false, 'message' => 'Product not available.'];
 
-        $stock = app(ProductStockService::class)->validateProductQuantity($productId, $quantity);
+        $stock = app(ProductStockService::class)->validateProductQuantity($productId, $quantity, $selectedSize);
         if (!$stock['ok']) return ['ok' => false, 'message' => $stock['message']];
 
         $cart = $this->cart($request, $userId);
@@ -106,7 +111,7 @@ class CartService
 
         if ($existing) {
             $nextQuantity = min(99, (int) $existing->quantity + max(1, $quantity));
-            $stock = app(ProductStockService::class)->validateProductQuantity($productId, $nextQuantity);
+            $stock = app(ProductStockService::class)->validateProductQuantity($productId, $nextQuantity, $selectedSize);
             if (!$stock['ok']) return ['ok' => false, 'message' => $stock['message']];
             if ((float) ($existing->discount_amount_snapshot ?? 0) > 0) {
                 $dealCheck = app(SweetDealService::class)->validateCartItems([(object) array_merge((array) $existing, ['quantity' => $nextQuantity])]);

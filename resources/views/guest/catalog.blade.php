@@ -229,7 +229,10 @@
       $bestEnjoyedBy = ($activeDiscount && property_exists($activeDiscount, 'best_enjoyed_by') && !empty($activeDiscount->best_enjoyed_by)) ? \Carbon\Carbon::parse($activeDiscount->best_enjoyed_by) : null;
       $stockTracked = property_exists($p, 'available_quantity') && $p->available_quantity !== null;
       $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
-      $hasStock = !$stockTracked || $stockQty > 0;
+      $hasSizeOptions = count($sizes) > 0;
+      $hasStock = $hasSizeOptions
+        ? collect($sizes)->contains(fn($sz) => !property_exists($sz, 'available_quantity') || $sz->available_quantity === null || (int) $sz->available_quantity > 0)
+        : (!$stockTracked || $stockQty > 0);
     @endphp
     <div class="catalog-item"
          data-name="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? '') . ' ' . ($p->shop_name ?? '') . ' ' . ($p->delivery_barangays_text ?? '') . ' ' . ($latestReview->review ?? ''))) }}"
@@ -307,7 +310,9 @@
             <div class="text-muted small mb-1"><i class="bi bi-droplet me-1"></i>{{ $p->flavor }}</div>
           @endif
           <div class="mb-2">
-            @if($stockTracked)
+            @if($hasSizeOptions)
+              <span class="badge rounded-pill" style="background:#f8fafc;color:#475569;border:1px solid #e2e8f0;font-size:.78rem"><i class="bi bi-rulers me-1"></i>Stock varies by size</span>
+            @elseif($stockTracked)
               <span class="badge rounded-pill" style="background:{{ $stockQty <= 0 ? '#fef2f2' : ($stockQty <= 3 ? '#fffbeb' : '#ecfdf5') }};color:{{ $stockQty <= 0 ? '#b91c1c' : ($stockQty <= 3 ? '#92400e' : '#047857') }};border:1px solid {{ $stockQty <= 0 ? '#fecaca' : ($stockQty <= 3 ? '#fde68a' : '#a7f3d0') }};font-size:.78rem">
                 <i class="bi {{ $stockQty <= 0 ? 'bi-exclamation-circle' : 'bi-box-seam' }} me-1"></i>{{ $stockQty <= 0 ? 'Out of stock' : ($stockQty <= 3 ? 'Only '.$stockQty.' left' : $stockQty.' available') }}
               </span>
@@ -566,15 +571,26 @@
                    data-discount-type="{{ $pricing['discount_type'] ?? '' }}"
                    data-discount-value="{{ $pricing['discount_value'] ?? 0 }}">
                 @foreach($sizes as $sz)
+                  @php
+                    $sizeStockTracked = property_exists($sz, 'available_quantity') && $sz->available_quantity !== null;
+                    $sizeStockQty = $sizeStockTracked ? max(0, (int) $sz->available_quantity) : null;
+                    $sizeOut = $sizeStockTracked && $sizeStockQty <= 0;
+                  @endphp
                   <button type="button"
                           class="size-choice-btn px-3 py-1 rounded-pill border bg-white {{ $loop->iteration > 4 ? 'd-none is-extra-size' : '' }}"
                           data-product-id="{{ $p->id }}"
                           data-base-price="{{ $p->price }}"
                           data-size-label="{{ $sz->label }}"
                           data-price="{{ $sz->price }}"
+                          data-stock-tracked="{{ $sizeStockTracked ? '1' : '0' }}"
+                          data-stock-qty="{{ $sizeStockQty ?? '' }}"
+                          {{ $sizeOut ? 'disabled' : '' }}
                           onclick="selectModalSize(this)">
                     <span class="fw-semibold">{{ $sz->label }}</span>
-                    <span class="text-muted ms-1">— ₱{{ number_format($sz->price,2) }}</span>
+                    <span class="text-muted ms-1">- PHP {{ number_format($sz->price,2) }}</span>
+                    @if($sizeStockTracked)
+                      <span class="text-muted ms-1">{{ $sizeOut ? 'Out' : $sizeStockQty.' left' }}</span>
+                    @endif
                   </button>
                 @endforeach
                 @if(count($sizes) > 4)
@@ -598,11 +614,9 @@
 
             <div class="mb-3">
               <label class="form-label fw-semibold small">Quantity</label>
-              @if($stockTracked)
-                <div class="small mb-2" style="color:{{ $stockQty <= 3 ? '#92400e' : '#047857' }}">
-                  <i class="bi bi-box-seam me-1"></i>{{ $stockQty <= 0 ? 'No cakes left for this item.' : $stockQty.' cake'.($stockQty > 1 ? 's' : '').' available for ordering.' }}
-                </div>
-              @endif
+              <div class="small mb-2 {{ $hasSizeOptions || $stockTracked ? '' : 'd-none' }}" id="stockHint{{ $p->id }}" style="color:{{ $stockTracked && $stockQty <= 3 ? '#92400e' : '#047857' }}">
+                <i class="bi bi-box-seam me-1"></i>{{ $hasSizeOptions ? 'Choose a size to see stock.' : ($stockQty <= 0 ? 'No cakes left for this item.' : $stockQty.' cake'.($stockQty > 1 ? 's' : '').' available for ordering.') }}
+              </div>
               <div class="d-flex align-items-center gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm px-3"
                         onclick="changeQty('{{ $p->id }}', -1)">−</button>
@@ -758,6 +772,20 @@ function selectModalSize(button) {
   }
   button.classList.add('is-selected');
   button.setAttribute('aria-pressed', 'true');
+  const qtyInput = document.getElementById('qty' + productId);
+  const hint = document.getElementById('stockHint' + productId);
+  const tracked = button.dataset.stockTracked === '1';
+  const stockQty = parseInt(button.dataset.stockQty || '0', 10) || 0;
+  if (qtyInput) {
+    const max = tracked ? Math.max(1, Math.min(20, stockQty)) : 20;
+    qtyInput.setAttribute('max', String(max));
+    if ((parseInt(qtyInput.value || '1', 10) || 1) > max) qtyInput.value = max;
+  }
+  if (hint) {
+    hint.classList.remove('d-none');
+    hint.style.color = tracked && stockQty <= 3 ? '#92400e' : '#047857';
+    hint.innerHTML = '<i class="bi bi-box-seam me-1"></i>' + (tracked ? stockQty + ' cake' + (stockQty === 1 ? '' : 's') + ' available for this size.' : 'This size is available.');
+  }
   updateModalPrice(productId, basePrice, button);
 }
 

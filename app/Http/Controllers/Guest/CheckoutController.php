@@ -289,8 +289,8 @@ class CheckoutController extends Controller
             $qty = max(1, (int) $checkoutItems->sum('quantity'));
         }
         $stockItems = $isGroupCheckout
-            ? $checkoutItems->map(fn ($item) => ['product_id' => $item->product_id, 'quantity' => max(1, (int) $item->quantity)])->all()
-            : ($hasCustomCheckout ? [] : [['product_id' => $pid, 'quantity' => max(1, (int) $qty)]]);
+            ? $checkoutItems->map(fn ($item) => ['product_id' => $item->product_id, 'quantity' => max(1, (int) $item->quantity), 'selected_size' => $item->selected_size ?? null])->all()
+            : ($hasCustomCheckout ? [] : [['product_id' => $pid, 'quantity' => max(1, (int) $qty), 'selected_size' => $checkout['selected_size'] ?? null]]);
         if (!empty($stockItems)) {
             $stockCheck = app(ProductStockService::class)->validateItems($stockItems);
             if (!$stockCheck['ok']) {
@@ -699,4 +699,3 @@ class CheckoutController extends Controller
         return redirect()->route('track.order', $trackCode)->with('msg', $successMsg);
     }
 }
-

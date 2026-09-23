@@ -461,6 +461,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/products/{id}/toggle',     [\App\Http\Controllers\Seller\ProductController::class, 'toggleAvailable'])->name('products.toggle');
     Route::post('/products/{id}/discount',   [\App\Http\Controllers\Seller\ProductController::class, 'saveDiscount'])->name('products.discount');
     Route::post('/products/{id}/sizes',      [\App\Http\Controllers\Seller\ProductController::class, 'storeSize'])->name('products.sizes.store');
+    Route::post('/products/sizes/{id}/stock', [\App\Http\Controllers\Seller\ProductController::class, 'updateSizeStock'])->name('products.sizes.stock');
     Route::post('/products/sizes/{id}/archive', [\App\Http\Controllers\Seller\ProductController::class, 'archiveSize'])->name('products.sizes.archive');
     Route::post('/products/sizes/{id}/restore', [\App\Http\Controllers\Seller\ProductController::class, 'restoreSize'])->name('products.sizes.restore');
 
@@ -626,6 +627,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/products/{id}/toggle-available', [ProductController::class, 'toggleAvailable'])->name('products.toggle_available');
     Route::post('/products/{id}/discount',         [ProductController::class, 'saveDiscount'])->name('products.discount');
     Route::post('/products/{id}/sizes',            [ProductSizeController::class, 'store'])->name('products.sizes.store');
+    Route::post('/products/sizes/{id}/stock',      [ProductSizeController::class, 'updateStock'])->name('products.sizes.stock');
     Route::post('/products/sizes/{id}/delete',     [ProductSizeController::class, 'destroy'])->name('products.sizes.destroy');
 
     Route::get('/delivery-zones',              [DeliveryZoneController::class, 'index'])->name('delivery_zones.index');
@@ -722,6 +724,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/products/{id}/delete',           [ProductController::class, 'destroy'])->name('products.destroy');
     Route::post('/products/{id}/toggle-available', [ProductController::class, 'toggleAvailable'])->name('products.toggle_available');
     Route::post('/products/{id}/sizes',            [ProductSizeController::class, 'store'])->name('products.sizes.store');
+    Route::post('/products/sizes/{id}/stock',      [ProductSizeController::class, 'updateStock'])->name('products.sizes.stock');
     Route::post('/products/sizes/{id}/delete',     [ProductSizeController::class, 'destroy'])->name('products.sizes.destroy');
 
     Route::get('/delivery-zones',              [DeliveryZoneController::class, 'index'])->name('delivery_zones.index');

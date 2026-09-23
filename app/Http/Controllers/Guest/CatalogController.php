@@ -87,7 +87,7 @@ class CatalogController extends Controller
             return response()->json(['error' => 'Missing date.'], 400);
         }
 
-        // Block past dates only — today is allowed
+        // Block past dates only â€” today is allowed
         $today = date('Y-m-d');
         if ($date < $today) {
             return response()->json(['status' => 'invalid', 'message' => 'Cannot select a past date.']);
@@ -157,7 +157,7 @@ class CatalogController extends Controller
             $message = "Fully booked on this date ({$totalOrdered}/{$effectiveMax} pcs)";
         } elseif ($pct >= 0.8) {
             $status  = 'almost';
-            $message = "Almost full — only {$remaining} of {$effectiveMax} pcs left!";
+            $message = "Almost full â€” only {$remaining} of {$effectiveMax} pcs left!";
         } else {
             $status  = 'available';
             $message = "{$remaining} of {$effectiveMax} pcs available";
@@ -189,7 +189,7 @@ class CatalogController extends Controller
         $product = DB::table('products')->where('id', $pid)->where('is_available', true)->whereNull('archived_at')->first();
         if (!$product) return back()->with('error', 'Product not available.');
 
-        $stock = app(ProductStockService::class)->validateProductQuantity($pid, $qty);
+        $stock = app(ProductStockService::class)->validateProductQuantity($pid, $qty, $size);
         if (!$stock['ok']) return back()->with('error', $stock['message'])->withInput();
 
         $request->session()->put('guest_checkout', [

@@ -50,7 +50,7 @@ class CartController extends Controller
             return back()->with('error', 'Custom cake quantity is part of the design request. Please remove and add the custom cake again to change it.');
         }
         $qty = max(1, min(99, (int) $request->input('quantity', 1)));
-        $stock = app(ProductStockService::class)->validateProductQuantity((string) $item->product_id, $qty);
+        $stock = app(ProductStockService::class)->validateProductQuantity((string) $item->product_id, $qty, $item->selected_size ?? null);
         if (!$stock['ok']) return back()->with('error', $stock['message']);
         if ((float) ($item->discount_amount_snapshot ?? 0) > 0) {
             $dealCheck = app(\App\Services\SweetDealService::class)->validateCartItems([(object) array_merge((array) $item, ['quantity' => $qty])]);
@@ -164,7 +164,7 @@ class CartController extends Controller
         foreach ($items as $item) {
             $meta = json_decode($item->meta ?? '[]', true) ?: [];
             if (($meta['cart_type'] ?? '') === 'custom_cake') continue;
-            $stock = app(ProductStockService::class)->validateProductQuantity((string) $item->product_id, max(1, (int) $item->quantity));
+            $stock = app(ProductStockService::class)->validateProductQuantity((string) $item->product_id, max(1, (int) $item->quantity), $item->selected_size ?? null);
             if (!$stock['ok']) {
                 return redirect()->route('cart')->with('error', $stock['message']);
             }

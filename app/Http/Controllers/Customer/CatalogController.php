@@ -41,7 +41,7 @@ class CatalogController extends Controller
         $product = DB::table('products')->where('id', $pid)->where('is_available', true)->whereNull('archived_at')->first();
         if (!$product) return back()->with('error', 'Product not available.');
 
-        $stock = app(ProductStockService::class)->validateProductQuantity($pid, $qty);
+        $stock = app(ProductStockService::class)->validateProductQuantity($pid, $qty, trim($request->input('selected_size', '')));
         if (!$stock['ok']) return back()->with('error', $stock['message'])->withInput();
 
         $parts = [];
