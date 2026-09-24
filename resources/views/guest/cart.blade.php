@@ -124,21 +124,38 @@
                         $cartQtyTracked = $item->available_quantity !== null;
                         $cartQtyMax = $cartQtyTracked ? max(1, (int) $item->available_quantity) : 99;
                       @endphp
-                      <div class="cart-qty-wrap">
-                        <div class="cart-qty-control" aria-label="Quantity for {{ $item->product_name }}">
-                          <button type="button" class="cart-qty-btn" onclick="cartQtyStep('qtyForm{{ $item->id }}','removeForm{{ $item->id }}',-1, @js($item->product_name))" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
-                          <span class="cart-qty-value" id="qtyValue{{ $item->id }}">{{ $item->quantity }}</span>
-                          <button type="button" class="cart-qty-btn" onclick="cartQtyStep('qtyForm{{ $item->id }}','removeForm{{ $item->id }}',1, @js($item->product_name))" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
+                      @if($isCustomCakeCart)
+                        <div class="cart-qty-wrap">
+                          <div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill" style="border:1px solid #e5e7eb;background:#f8fafc">
+                            <i class="bi bi-lock-fill" style="color:var(--primary)"></i>
+                            <span class="small text-muted">Qty locked</span>
+                            <span class="fw-bold">{{ $item->quantity }}</span>
+                          </div>
+                          <div class="small text-muted">Quantity is part of this custom cake request.</div>
                         </div>
-                        @if($cartQtyTracked)
-                          <div class="small text-muted"><i class="bi bi-box-seam me-1"></i>{{ $cartQtyMax }} available</div>
-                        @endif
-                      </div>
-                      <form id="qtyForm{{ $item->id }}" action="{{ route('cart.items.update', $item->id) }}" method="POST" class="d-none">
-                        @csrf
-                        <input type="hidden" name="quantity" value="{{ $item->quantity }}" data-cart-qty-input data-current-quantity="{{ $item->quantity }}" data-max-quantity="{{ $cartQtyMax }}" data-stock-tracked="{{ $cartQtyTracked ? '1' : '0' }}">
-                      </form>
-                      <form id="removeForm{{ $item->id }}" action="{{ route('cart.items.remove', $item->id) }}" method="POST" class="d-none">@csrf</form>
+                        <form action="{{ route('cart.items.remove', $item->id) }}" method="POST" class="m-0">
+                          @csrf
+                          <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash3 me-1"></i>Remove custom cake
+                          </button>
+                        </form>
+                      @else
+                        <div class="cart-qty-wrap">
+                          <div class="cart-qty-control" aria-label="Quantity for {{ $item->product_name }}">
+                            <button type="button" class="cart-qty-btn" onclick="cartQtyStep('qtyForm{{ $item->id }}','removeForm{{ $item->id }}',-1, @js($item->product_name))" aria-label="Decrease quantity"><i class="bi bi-dash-lg"></i></button>
+                            <span class="cart-qty-value" id="qtyValue{{ $item->id }}">{{ $item->quantity }}</span>
+                            <button type="button" class="cart-qty-btn" onclick="cartQtyStep('qtyForm{{ $item->id }}','removeForm{{ $item->id }}',1, @js($item->product_name))" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
+                          </div>
+                          @if($cartQtyTracked)
+                            <div class="small text-muted"><i class="bi bi-box-seam me-1"></i>{{ $cartQtyMax }} available</div>
+                          @endif
+                        </div>
+                        <form id="qtyForm{{ $item->id }}" action="{{ route('cart.items.update', $item->id) }}" method="POST" class="d-none">
+                          @csrf
+                          <input type="hidden" name="quantity" value="{{ $item->quantity }}" data-cart-qty-input data-current-quantity="{{ $item->quantity }}" data-max-quantity="{{ $cartQtyMax }}" data-stock-tracked="{{ $cartQtyTracked ? '1' : '0' }}">
+                        </form>
+                        <form id="removeForm{{ $item->id }}" action="{{ route('cart.items.remove', $item->id) }}" method="POST" class="d-none">@csrf</form>
+                      @endif
                     </div>
                   </div>
                 </div>
