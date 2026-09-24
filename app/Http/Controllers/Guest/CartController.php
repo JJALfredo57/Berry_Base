@@ -111,6 +111,62 @@ class CartController extends Controller
 
         return back()->with('msg', 'Fulfillment refreshed. Your custom cake schedule hold is active again.');
     }
+    public function rescheduleCustomHold(Request $request, string $id, CartService $cartService)
+    {
+        $cart = $cartService->cart($request, null);
+        if (!$cart) return back()->with('error', 'Cart not found.');
+
+        $item = DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->first();
+        if (!$item) return back()->with('error', 'Cart item not found.');
+
+        $meta = json_decode($item->meta ?? '[]', true) ?: [];
+        if (($meta['cart_type'] ?? '') !== 'custom_cake') {
+            return back()->with('error', 'This cart item is not a custom cake draft.');
+        }
+
+        $shopId = $item->shop_id ?? ($meta['shop_id'] ?? null);
+        $scheduleDate = $request->input('schedule_date') ?: null;
+        $scheduleTime = trim((string) $request->input('time_slot', ''));
+        $fulfillment = $request->input('fulfillment_type', $meta['fulfillment_type'] ?? 'Pickup');
+        $fulfillment = in_array($fulfillment, ['Pickup', 'Delivery'], true) ? $fulfillment : 'Pickup';
+        $quantity = max(1, (int) $item->quantity);
+        $lat = isset($meta['latitude']) && $meta['latitude'] !== '' ? (float) $meta['latitude'] : null;
+        $lng = isset($meta['longitude']) && $meta['longitude'] !== '' ? (float) $meta['longitude'] : null;
+
+        if (!$scheduleDate) return back()->with('error', 'Please choose a new date for this custom cake.');
+        if ($scheduleTime === '') return back()->with('error', 'Please choose a new time for this custom cake.');
+        if ($fulfillment === 'Delivery' && (empty($meta['address']) || $lat === null || $lng === null)) {
+            return back()->with('error', 'Delivery reschedule needs a saved delivery address. Please recreate the draft with delivery details.');
+        }
+
+        $prep = app(\App\Services\PreparationWindowService::class);
+        $prepDate = $prep->validateDate($shopId, $scheduleDate, 'custom');
+        if (!$prepDate['ok']) return back()->with('error', $prepDate['message']);
+
+        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($scheduleDate, $scheduleTime, $shopId, 'custom', $fulfillment, $lat, $lng, false);
+        if (!$scheduleCheck['ok']) return back()->with('error', $scheduleCheck['message']);
+
+        $capacity = app(\App\Services\DailyCapacityService::class)->validate($shopId, $scheduleDate, $quantity);
+        if (!$capacity['allowed']) return back()->with('error', $capacity['message']);
+
+        $settings = $prep->settings($shopId);
+        $meta['schedule_date'] = $scheduleDate;
+        $meta['schedule_time'] = $scheduleTime;
+        $meta['time_slot'] = $scheduleCheck['slot']->label ?? $scheduleTime;
+        $meta['fulfillment_type'] = $fulfillment;
+        $meta['fulfillment_hold_expires_at'] = $prep->holdUntil($shopId)->toDateTimeString();
+        $meta['fulfillment_hold_minutes'] = (int) $settings->custom_cart_hold_minutes;
+        $meta['seller_review_deadline_at'] = optional($prep->reviewDeadline($shopId, $scheduleDate))->toDateTimeString();
+        $meta['custom_prep_days'] = (int) $settings->custom_cake_prep_days;
+
+        DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->update([
+            'selected_size' => $meta['size'] ?? $item->selected_size,
+            'meta' => json_encode($meta),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('msg', 'Custom cake schedule updated. Your schedule hold is active again.');
+    }
     public function checkoutItem(Request $request, string $id, CartService $cartService)
     {
         $cart = $cartService->cart($request, null);

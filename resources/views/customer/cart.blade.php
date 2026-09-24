@@ -28,6 +28,13 @@
     .custom-hold-tip{position:relative;display:inline-flex}
     .custom-hold-tip:hover::after,.custom-hold-tip:focus-within::after{content:attr(data-tip);position:absolute;right:0;bottom:calc(100% + 8px);width:min(280px,76vw);background:#111827;color:#fff;border-radius:8px;padding:.55rem .65rem;font-size:.75rem;line-height:1.3;box-shadow:0 12px 30px rgba(15,23,42,.25);z-index:10}
     @media(max-width:575.98px){.custom-hold-head{align-items:flex-start;flex-direction:column;gap:.35rem}.custom-hold-tip:hover::after,.custom-hold-tip:focus-within::after{left:0;right:auto}}
+    .custom-reschedule-note{margin-top:.55rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.55rem;padding:.65rem .75rem;border-radius:10px;background:#f8fafc;border:1px solid #e5e7eb}
+    .custom-reschedule-note .meta{min-width:0;color:#4b5563;font-size:.78rem;line-height:1.35}
+    .custom-reschedule-dialog .cart-dialog-card{width:min(560px,100%)}
+    .custom-reschedule-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+    .custom-reschedule-choice{border:1px solid #e5e7eb;border-radius:10px;padding:.7rem .8rem;background:#fff;display:flex;align-items:center;gap:.5rem;cursor:pointer}
+    .custom-reschedule-choice:has(input:checked){border-color:var(--primary);background:#fff7fb;color:var(--primary)}
+    @media(max-width:575.98px){.custom-reschedule-grid{grid-template-columns:1fr}.custom-reschedule-note{align-items:flex-start}.custom-reschedule-note .btn{width:100%}}
     @keyframes cartDialogIn{from{transform:translateY(8px) scale(.98);opacity:.6}to{transform:none;opacity:1}}
     @media(max-width:575.98px){.cart-group-list::before{left:28px}.cart-group-dot{left:23px}.cart-item-img{width:68px!important;height:68px!important}}
   </style>
@@ -107,6 +114,20 @@
                           &bull; {{ $cartMeta['fulfillment_type'] ?? 'Pickup' }}
                         </div>
                         <div class="small text-muted">Seller capacity will be checked again before checkout submits this request.</div>
+                        <div class="custom-reschedule-note">
+                          <div class="meta">
+                            <div class="fw-semibold text-dark"><i class="bi bi-calendar2-week me-1" style="color:var(--primary)"></i>Need another slot?</div>
+                            <div>Keep this draft and update only the schedule.</div>
+                          </div>
+                          <button type="button" class="btn btn-outline-primary btn-sm" onclick="customRescheduleOpen(this)"
+                            data-action="{{ route('customer.cart.items.reschedule_custom_hold', $item->id) }}"
+                            data-date="{{ $cartMeta['schedule_date'] ?? '' }}"
+                            data-time="{{ $cartMeta['schedule_time'] ?? '' }}"
+                            data-fulfillment="{{ $cartMeta['fulfillment_type'] ?? 'Pickup' }}"
+                            data-summary="{{ ($cartMeta['schedule_date'] ?? 'No date') . (!empty($cartMeta['time_slot']) ? ' - ' . $cartMeta['time_slot'] : '') . ' - ' . ($cartMeta['fulfillment_type'] ?? 'Pickup') }}">
+                            <i class="bi bi-calendar-plus me-1"></i>Reschedule
+                          </button>
+                        </div>
                         @if(!empty($cartMeta['fulfillment_hold_expires_at']))
                           <div class="custom-hold-wrap" data-custom-hold data-hold-expires="{{ $cartMeta['fulfillment_hold_expires_at'] }}" data-hold-minutes="{{ (int)($cartMeta['fulfillment_hold_minutes'] ?? 15) }}">
                             <div class="custom-hold-head">
@@ -232,6 +253,51 @@
     </div>
   </div>
 </div>
+<div class="cart-fixed-dialog custom-reschedule-dialog" id="customRescheduleDialog" role="dialog" aria-modal="true" aria-labelledby="customRescheduleTitle">
+  <div class="cart-dialog-card">
+    <form method="POST" id="customRescheduleForm">
+      @csrf
+      <div class="cart-dialog-body">
+        <div class="d-flex gap-3 align-items-start mb-3">
+          <div class="cart-dialog-icon"><i class="bi bi-calendar2-week"></i></div>
+          <div class="flex-grow-1 min-w-0">
+            <div class="fw-bold mb-1" id="customRescheduleTitle">Reschedule custom cake</div>
+            <div class="text-muted small">Your design details stay in the cart. Only the schedule and fulfillment hold will be updated.</div>
+          </div>
+        </div>
+        <div class="rounded-3 p-2 mb-3 small" style="background:#f8fafc;border:1px solid #e5e7eb">
+          <span class="text-muted">Current:</span> <span class="fw-semibold" data-custom-reschedule-current>Selected schedule</span>
+        </div>
+        <div class="custom-reschedule-grid mb-3">
+          <div>
+            <label class="form-label small fw-semibold" for="customRescheduleDate">New date</label>
+            <input type="date" class="form-control" id="customRescheduleDate" name="schedule_date" required>
+          </div>
+          <div>
+            <label class="form-label small fw-semibold" for="customRescheduleTime">New time</label>
+            <input type="time" class="form-control" id="customRescheduleTime" name="time_slot" required>
+          </div>
+        </div>
+        <div class="small fw-semibold mb-2">Fulfillment</div>
+        <div class="custom-reschedule-grid mb-3">
+          <label class="custom-reschedule-choice mb-0">
+            <input class="form-check-input m-0" type="radio" name="fulfillment_type" value="Pickup" checked>
+            <span><i class="bi bi-shop me-1"></i>Pickup</span>
+          </label>
+          <label class="custom-reschedule-choice mb-0">
+            <input class="form-check-input m-0" type="radio" name="fulfillment_type" value="Delivery">
+            <span><i class="bi bi-truck me-1"></i>Delivery</span>
+          </label>
+        </div>
+        <div class="small text-muted"><i class="bi bi-info-circle me-1"></i>Delivery uses the address already saved on this draft.</div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="customRescheduleClose()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check2-circle me-1"></i>Update schedule</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
 <script>
 let cartQtyPendingRemoveFormId = null;
 
@@ -290,6 +356,30 @@ function cartQtyStep(formId, removeFormId, delta, productName) {
   form.submit();
 }
 
+function customRescheduleOpen(button) {
+  const dialog = document.getElementById('customRescheduleDialog');
+  const form = document.getElementById('customRescheduleForm');
+  if (!dialog || !form || !button) return;
+  form.action = button.dataset.action || '';
+  const dateInput = document.getElementById('customRescheduleDate');
+  const timeInput = document.getElementById('customRescheduleTime');
+  const current = dialog.querySelector('[data-custom-reschedule-current]');
+  if (dateInput) {
+    dateInput.value = button.dataset.date || '';
+    dateInput.min = new Date().toISOString().slice(0, 10);
+  }
+  if (timeInput) timeInput.value = button.dataset.time || '';
+  dialog.querySelectorAll('[name="fulfillment_type"]').forEach(input => {
+    input.checked = input.value === (button.dataset.fulfillment || 'Pickup');
+  });
+  if (current) current.textContent = button.dataset.summary || 'Selected schedule';
+  dialog.classList.add('show');
+}
+
+function customRescheduleClose() {
+  const dialog = document.getElementById('customRescheduleDialog');
+  if (dialog) dialog.classList.remove('show');
+}
 function refreshCustomHoldTimers() {
   const now = Date.now();
   document.querySelectorAll('[data-custom-hold]').forEach(box => {
