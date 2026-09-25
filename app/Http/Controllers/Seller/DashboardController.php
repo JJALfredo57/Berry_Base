@@ -132,6 +132,8 @@ class DashboardController extends Controller
             'kitchen' => 0,
             'messages' => 0,
             'custom_orders' => 0,
+            'order_requests' => 0,
+            'rush_requests' => 0,
             'reviews' => 0,
             'feedback' => 0,
             'pickup_ready' => 0,
@@ -183,6 +185,18 @@ class DashboardController extends Controller
                 $counts['custom_orders'] = (int) DB::table('custom_orders')
                     ->where('shop_id', $shopId)
                     ->where('review_status', 'pending')
+                    ->count();
+            }
+
+            if (Schema::hasTable('order_requests')) {
+                $counts['order_requests'] = (int) DB::table('order_requests')
+                    ->where('shop_id', $shopId)
+                    ->where('status', 'pending')
+                    ->count();
+                $counts['rush_requests'] = (int) DB::table('order_requests')
+                    ->where('shop_id', $shopId)
+                    ->where('status', 'pending')
+                    ->where('is_rush', true)
                     ->count();
             }
 

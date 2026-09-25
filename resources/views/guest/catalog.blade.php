@@ -398,7 +398,11 @@
           </button>
           @elseif($isAvailable && $hasStock)
           <button class="btn btn-primary w-100 py-2" style="font-size:1rem;font-weight:600" data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}">
-            <i class="bi bi-cart-plus me-2"></i>Order Now
+            <i class="bi bi-cart-plus me-2"></i>Order
+          </button>
+          @elseif($isAvailable && !$hasStock)
+          <button class="btn btn-primary w-100 py-2" style="font-size:1rem;font-weight:600" data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}">
+            <i class="bi bi-send me-2"></i>Request Order
           </button>
           @else
           <button class="btn btn-secondary w-100 py-2" style="font-size:1rem" disabled>
@@ -662,9 +666,36 @@
               </button>
             </div>
           </form>
+          @elseif($isAvailable && !$hasStock)
+          <div class="p-3 rounded-3" style="background:#fff7fb;border:1px solid #fbcfe8">
+            <div class="d-flex align-items-start gap-2 mb-2">
+              <div style="width:34px;height:34px;border-radius:10px;background:#e91e63;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><i class="bi bi-send"></i></div>
+              <div><div class="fw-bold" style="color:#9d174d">Request this cake</div><div class="small text-muted">The seller will review your preferred schedule. Earlier-than-prep requests are marked as rush automatically.</div></div>
+            </div>
+            <form action="{{ route('order_requests.store') }}" method="POST" class="row g-2">
+              @csrf
+              <input type="hidden" name="product_id" value="{{ $p->id }}">
+              <input type="hidden" name="type" value="ready_made">
+              <input type="hidden" name="source" value="catalog">
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Full name <span class="text-danger">*</span></label>
+                <input type="text" name="guest_name" class="form-control form-control-sm" value="{{ old('guest_name') }}" maxlength="120" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold">Mobile number <span class="text-danger">*</span></label>
+                <input type="tel" name="guest_phone" class="form-control form-control-sm" value="{{ old('guest_phone') }}" placeholder="09XXXXXXXXX" required>
+              </div>
+              <div class="col-4"><label class="form-label small fw-semibold">Qty</label><input type="number" name="quantity" min="1" max="20" value="1" class="form-control form-control-sm" required></div>
+              <div class="col-8 col-md-4"><label class="form-label small fw-semibold">Preferred date</label><input type="date" name="preferred_date" min="{{ now()->toDateString() }}" class="form-control form-control-sm" required></div>
+              <div class="col-12 col-md-4"><label class="form-label small fw-semibold">Preferred time</label><input type="time" name="preferred_time" class="form-control form-control-sm" required></div>
+              <div class="col-12"><label class="form-label small fw-semibold">Allow similar cake? <span class="text-muted" title="Seller may offer a close design, flavor, or size if the exact cake is not possible."><i class="bi bi-info-circle"></i></span></label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="allow_similar_cake" value="1" id="catalogAllowSimilar{{ $p->id }}"><label class="form-check-label small text-muted" for="catalogAllowSimilar{{ $p->id }}">Yes, seller may offer a close alternative.</label></div></div>
+              <div class="col-12"><label class="form-label small fw-semibold">Note to seller</label><textarea name="customer_note" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Occasion, timing, or exact request"></textarea></div>
+              <div class="col-12"><button type="submit" class="btn btn-primary w-100 fw-semibold"><i class="bi bi-send me-1"></i>Send Request</button><div class="small text-muted mt-2">No payment yet. This becomes an order only after seller confirmation.</div></div>
+            </form>
+          </div>
           @else
           <div class="alert alert-danger text-center border-0">
-            <i class="bi bi-x-circle me-2"></i>{{ $stockTracked && $stockQty <= 0 ? 'This cake is currently out of stock.' : 'This cake is currently not available.' }}
+            <i class="bi bi-x-circle me-2"></i>This cake is currently not available.
           </div>
           @endif
 

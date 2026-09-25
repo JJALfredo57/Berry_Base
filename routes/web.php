@@ -116,6 +116,7 @@ Route::get('/catalog', function (\Illuminate\Http\Request $request) {
 })->name('catalog');
 Route::get('/catalog/products/{productId}/reviews', [GuestCatalog::class, 'reviews'])->name('catalog.reviews');
 Route::post('/catalog/select',  [GuestCatalog::class, 'selectProduct'])->name('catalog.select');
+Route::post('/order-requests', [\App\Http\Controllers\OrderRequestController::class, 'store'])->name('order_requests.store');
 Route::get('/cart', [\App\Http\Controllers\Guest\CartController::class, 'index'])->name('cart');
 Route::post('/cart/add', [\App\Http\Controllers\Guest\CartController::class, 'store'])->name('cart.add');
 Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Guest\CartController::class, 'update'])->name('cart.items.update');
@@ -356,6 +357,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
 
     Route::get('/catalog',          [CustomerCatalog::class, 'index'])->name('catalog');
     Route::post('/catalog/order',   [CustomerCatalog::class, 'order'])->name('catalog.order');
+    Route::post('/order-requests',  [\App\Http\Controllers\OrderRequestController::class, 'store'])->name('order_requests.store');
     Route::get('/cart',             [\App\Http\Controllers\Customer\CartController::class, 'index'])->name('cart');
     Route::post('/cart/add',        [\App\Http\Controllers\Customer\CartController::class, 'store'])->name('cart.add');
     Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Customer\CartController::class, 'update'])->name('cart.items.update');
@@ -470,6 +472,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     // Orders
     Route::get('/sidebar-counts',            [\App\Http\Controllers\Seller\DashboardController::class, 'sidebarCounts'])->name('sidebar_counts');
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
+    Route::get('/order-requests',            [\App\Http\Controllers\Seller\OrderRequestController::class, 'index'])->name('order_requests');
+    Route::post('/order-requests/{id}/update', [\App\Http\Controllers\Seller\OrderRequestController::class, 'update'])->name('order_requests.update');
     Route::get('/orders/{id}/realtime-status', [\App\Http\Controllers\Seller\OrderController::class, 'realtimeStatus'])->name('orders.realtime_status');
     Route::get('/orders/{id}/receipt/{transactionId}', [\App\Http\Controllers\Seller\OrderController::class, 'receipt'])->name('orders.receipt');
     Route::get('/orders/{id}/remittance/{remittanceId}/confirm', [\App\Http\Controllers\Seller\OrderController::class, 'remittanceActionRedirect'])->name('orders.remittance_confirm_get');

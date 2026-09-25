@@ -1450,6 +1450,10 @@
       <i class="bi bi-ticket-perforated"></i><span class="sb-link-text">Vouchers</span>
     </a>
     @if($sellerShop?->tier === 'verified')
+    <a href="{{ route('seller.order_requests') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.order_requests') ? 'active' : '' }}">
+      <i class="bi bi-lightning-charge"></i><span class="sb-link-text">Order Requests</span>
+      <span class="sb-badge warn" data-seller-badge="order_requests" title="Pending order requests" style="{{ $sbCount('order_requests') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('order_requests')) }}</span>
+    </a>
     <a href="{{ route('seller.custom_orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.custom_orders') ? 'active' : '' }}">
       <i class="bi bi-palette"></i><span class="sb-link-text">Custom Orders</span>
       <span class="sb-badge warn" data-seller-badge="custom_orders" title="Custom orders awaiting review" style="{{ $sbCount('custom_orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('custom_orders')) }}</span>
@@ -3411,6 +3415,7 @@ function applySellerSidebarCounts(counts) {
   setSellerSidebarBadge('kitchen', counts.kitchen, (counts.kitchen_pending || 0) + ' pending, ' + (counts.kitchen_preparing || 0) + ' preparing');
   setSellerSidebarBadge('messages', counts.messages, 'Unread customer messages');
   setSellerSidebarBadge('custom_orders', counts.custom_orders, 'Custom orders awaiting review');
+  setSellerSidebarBadge('order_requests', counts.order_requests, (counts.rush_requests || 0) + ' rush, ' + (counts.order_requests || 0) + ' pending');
   setSellerSidebarBadge('reviews', counts.reviews, 'New reviews awaiting review');
   setSellerSidebarBadge('feedback', counts.feedback, 'Open platform feedback');
   if (typeof counts.messages !== 'undefined') setBubbleBadgeCount(counts.messages, true);

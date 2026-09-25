@@ -155,6 +155,11 @@
         </div>
       </div>
       <div class="d-flex align-items-center gap-2 flex-wrap">
+        @if(!empty($co->is_rush))
+        <span class="badge px-3 py-2" style="background:#fff1f2;color:#be123c;font-size:.8rem;border-radius:2rem">
+          <i class="bi bi-lightning-charge-fill me-1"></i>Rush
+        </span>
+        @endif
         <span class="badge px-3 py-2" style="background:{{ $sc['bg'] }};color:{{ $sc['color'] }};font-size:.8rem;border-radius:2rem">
           {{ $sc['label'] }}
         </span>

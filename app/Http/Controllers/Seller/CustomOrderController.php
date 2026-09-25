@@ -66,6 +66,7 @@ class CustomOrderController extends Controller
         if (!in_array($tab, ['pending', 'approved', 'rejected', 'all'])) $tab = 'pending';
 
         $hasCakeName = Schema::hasColumn('custom_orders', 'cake_name');
+        $hasRush = Schema::hasColumn('custom_orders', 'is_rush');
         $searchId    = ($search && is_numeric(ltrim($search, '#'))) ? (int)ltrim($search, '#') : null;
 
         $customOrders = DB::table('custom_orders as co')
@@ -93,6 +94,7 @@ class CustomOrderController extends Controller
                 });
             })
             ->when($tab !== 'all', fn($q) => $q->where('co.review_status', $tab))
+            ->when($hasRush, fn($q) => $q->orderByRaw("CASE WHEN co.review_status = 'pending' AND co.is_rush = 1 THEN 0 ELSE 1 END"))
             ->when($tab === 'all', fn($q) => $q->orderByRaw(
                 "CASE WHEN co.review_status = 'pending' THEN 0 WHEN co.review_status = 'approved' THEN 1 ELSE 2 END"
             ))

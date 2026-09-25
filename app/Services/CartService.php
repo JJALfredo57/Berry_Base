@@ -196,6 +196,12 @@ class CartService
         $payload['fulfillment_hold_minutes'] = (int) $prepSettings->custom_cart_hold_minutes;
         $payload['seller_review_deadline_at'] = optional($prep->reviewDeadline($shop->id ?? null, $payload['schedule_date'] ?? null))->toDateTimeString();
         $payload['custom_prep_days'] = (int) $prepSettings->custom_cake_prep_days;
+        $rush = app(OrderRequestService::class)->rushSnapshot($shop->id ?? null, $payload['schedule_date'] ?? null, $payload['time_slot'] ?? null, 'custom');
+        $payload['is_rush'] = $rush['is_rush'];
+        $payload['rush_reason'] = $rush['rush_reason'];
+        $payload['seller_prep_days_at_request'] = $rush['seller_prep_days_at_request'];
+        $payload['requested_notice_minutes'] = $rush['requested_notice_minutes'];
+        $payload['rush_detected_at'] = $rush['is_rush'] ? now()->toDateTimeString() : null;
 
         DB::table('customer_cart_items')->insert([
             'cart_id' => $cart->id,

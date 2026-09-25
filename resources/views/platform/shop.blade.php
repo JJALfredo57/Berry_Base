@@ -453,8 +453,8 @@
                   @if($bsBestEnjoyedBy)<span>Fresh until {{ $bsBestEnjoyedBy->format('M d, g:i A') }}</span>@endif
                 </div>
               @endif
-              <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $bs->id }}" {{ !$bsHasStock ? 'disabled' : '' }}>
-                <i class="bi {{ $bsHasStock ? 'bi-cart-plus' : 'bi-x-circle' }} me-1"></i>{{ $bsHasStock ? 'Order Now' : 'Not Available' }}
+              <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $bs->id }}">
+                <i class="bi {{ $bsHasStock ? 'bi-cart-plus' : 'bi-send' }} me-1"></i>{{ $bsHasStock ? 'Order' : 'Request Order' }}
               </button>
             </div>
           </div>
@@ -580,8 +580,8 @@
                 @if($bestEnjoyedBy)<span>Fresh until {{ $bestEnjoyedBy->format('M d, g:i A') }}</span>@endif
               </div>
             @endif
-            <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $p->id }}" {{ !$hasStock ? 'disabled' : '' }}>
-              <i class="bi {{ $hasStock ? 'bi-cart-plus' : 'bi-x-circle' }} me-1"></i>{{ $hasStock ? 'Order Now' : 'Not Available' }}
+            <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $p->id }}">
+              <i class="bi {{ $hasStock ? 'bi-cart-plus' : 'bi-send' }} me-1"></i>{{ $hasStock ? 'Order' : 'Request Order' }}
             </button>
           </div>
         </div>
@@ -843,6 +843,67 @@
                   <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
                 </button>
               </form>
+
+              @if(!$hasStock)
+              <div class="mt-3 p-3 rounded-3" style="background:#fff7fb;border:1px solid #fbcfe8">
+                <div class="d-flex align-items-start gap-2 mb-2">
+                  <div style="width:34px;height:34px;border-radius:10px;background:#e91e63;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><i class="bi bi-send"></i></div>
+                  <div>
+                    <div class="fw-bold" style="color:#9d174d">Request this cake</div>
+                    <div class="small text-muted">The seller will review your preferred schedule first. If your date is earlier than their prep time, it will be marked as rush automatically.</div>
+                  </div>
+                </div>
+                @if($viewerRole === 'customer')
+                  <form action="{{ route('customer.order_requests.store') }}" method="POST" class="row g-2">
+                @else
+                  <form action="{{ route('order_requests.store') }}" method="POST" class="row g-2">
+                @endif
+                  @csrf
+                  <input type="hidden" name="product_id" value="{{ $p->id }}">
+                  <input type="hidden" name="type" value="ready_made">
+                  <input type="hidden" name="source" value="shop">
+                  @if($viewerRole !== 'customer')
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">Full name <span class="text-danger">*</span></label>
+                    <input type="text" name="guest_name" class="form-control form-control-sm" value="{{ old('guest_name') }}" maxlength="120" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">Mobile number <span class="text-danger">*</span></label>
+                    <input type="tel" name="guest_phone" class="form-control form-control-sm" value="{{ old('guest_phone') }}" placeholder="09XXXXXXXXX" required>
+                  </div>
+                  @endif
+                  <div class="col-4">
+                    <label class="form-label small fw-semibold">Qty</label>
+                    <input type="number" name="quantity" min="1" max="20" value="1" class="form-control form-control-sm" required>
+                  </div>
+                  <div class="col-8 col-md-4">
+                    <label class="form-label small fw-semibold">Preferred date</label>
+                    <input type="date" name="preferred_date" min="{{ now()->toDateString() }}" class="form-control form-control-sm" required>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label class="form-label small fw-semibold">Preferred time</label>
+                    <input type="time" name="preferred_time" class="form-control form-control-sm" required>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label small fw-semibold d-flex align-items-center gap-1">Allow similar cake?
+                      <span class="text-muted" title="Choose this if the seller may offer a close design, flavor, or size when the exact cake is not possible."><i class="bi bi-info-circle"></i></span>
+                    </label>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" name="allow_similar_cake" value="1" id="allowSimilar{{ $p->id }}">
+                      <label class="form-check-label small text-muted" for="allowSimilar{{ $p->id }}">Yes, seller may offer a close alternative if needed.</label>
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label small fw-semibold">Note to seller</label>
+                    <textarea name="customer_note" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Occasion, delivery concern, or exact request"></textarea>
+                  </div>
+                  <div class="col-12">
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold"><i class="bi bi-send me-1"></i>Send Request</button>
+                    <div class="small text-muted mt-2">No payment yet. This becomes an order only after the seller accepts and confirms the next step.</div>
+                  </div>
+                </form>
+              </div>
+              @endif
 
               {{-- Reviews --}}
               <div class="mt-4">
