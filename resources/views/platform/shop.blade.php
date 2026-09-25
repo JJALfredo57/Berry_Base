@@ -128,13 +128,13 @@
     .product-card:hover .product-img-wrap img{transform:scale(1.07)}
     .product-img-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
     .product-body{padding:1rem;flex:1;display:flex;flex-direction:column}
-    .product-name{font-size:1rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem;line-height:1.35}
-    .product-desc{font-size:.82rem;color:var(--gray-500);line-height:1.55;margin:.25rem 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex-grow:1}
+    .product-name{font-size:1rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .product-desc{font-size:.82rem;color:var(--gray-500);line-height:1.45;margin:.25rem 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .product-price{font-size:1.1rem;font-weight:800;color:var(--primary);margin-top:.5rem}
     .product-price-old{font-size:.78rem;color:var(--gray-400);text-decoration:line-through;margin-left:.35rem;font-weight:600}
     .product-price-meta{font-size:.78rem;color:var(--gray-500);font-weight:600;margin-top:.05rem}
     .product-card-bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:.65rem;margin-top:auto;padding-top:.4rem}
-    .product-stock-note{width:max-content;max-width:100%;font-size:.76rem;font-weight:700;margin:.35rem 0 .15rem;display:inline-flex;align-items:center;gap:.25rem;border-radius:99px;padding:.2rem .55rem;background:#f8fafc;color:#475569;border:1px solid #e2e8f0}
+    .product-stock-note{width:max-content;max-width:100%;font-size:.76rem;font-weight:700;margin:.35rem 0 .15rem;display:inline-flex;align-items:center;gap:.25rem;border-radius:99px;padding:.2rem .55rem;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;white-space:nowrap}
     .product-stock-note.is-ok{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
     .product-stock-note.is-low{background:#fffbeb;color:#92400e;border-color:#fde68a}
     .product-stock-note.is-out{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
@@ -178,14 +178,25 @@
       .shop-logo-placeholder{width:74px;height:74px;border-radius:16px;font-size:1.8rem}
       .shop-logo-wrap{margin-top:-38px}
       .shop-meta{font-size:.875rem;gap:.5rem .75rem}
-      .product-img-wrap{height:155px}
-      .product-name{font-size:1rem}
-      .product-body{padding:.85rem}
+      .product-card{border-radius:14px}
+      .product-img-wrap{height:128px}
+      .product-name{font-size:.92rem;line-height:1.25;margin-bottom:.2rem;min-height:2.3em}
+      .product-body{padding:.62rem;gap:.2rem}
+      .product-desc,.product-rating-row,.product-body > .deal-detail-pills{display:none!important}
+      .flavor-tag{font-size:.68rem;padding:.16rem .45rem;margin:.15rem 0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .product-stock-note{font-size:.66rem;padding:.12rem .4rem;margin:.12rem 0 .05rem;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+      .product-price{font-size:.95rem;margin-top:.15rem;line-height:1.15}
+      .product-price-old{display:block;margin-left:0;font-size:.68rem}
+      .product-price-meta{font-size:.68rem}
+      .product-card-bottom{align-items:flex-start;flex-direction:column;gap:.12rem;padding-top:.1rem}
+      .product-sold-badge{font-size:.66rem;padding:.16rem .42rem}
+      .product-rating-badge{font-size:.66rem;padding:.16rem .42rem;top:.45rem;right:.45rem}
+      .class-badge{font-size:.66rem;padding:.16rem .42rem;top:.45rem;left:.45rem;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .deal-badge{font-size:.64rem;padding:.16rem .42rem;top:1.95rem;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .btn-order{font-size:.78rem;min-height:38px;padding:.5rem .6rem;margin-top:.45rem;border-radius:10px}
       .tab-btn{font-size:.875rem;padding:.65rem .85rem}
       .tab-pane{padding:1.2rem .9rem}
       .filter-chip{font-size:.82rem;padding:.4rem .85rem}
-      .product-card-bottom{align-items:flex-start;flex-direction:column;gap:.25rem}
-      .product-sold-badge{font-size:.72rem}
       .deal-detail-pills span{font-size:.62rem}
       .review-card{padding:.9rem 1rem}
       .info-row{padding:.85rem 1rem;gap:.75rem}
@@ -360,7 +371,7 @@
           if ($bsHasSizes) {
             $bsStockClass = '';
             $bsStockIcon = 'bi-rulers';
-            $bsStockLabel = 'Stock varies by size';
+            $bsStockLabel = 'By size';
           } elseif ($bsStockTracked && $bsStockQty <= 0) {
             $bsStockClass = 'is-out';
             $bsStockIcon = 'bi-exclamation-circle';
@@ -412,7 +423,7 @@
                 <p class="product-desc">{{ \Illuminate\Support\Str::limit($bs->description, 80) }}</p>
               @endif
               @if($bsAvg > 0)
-                <div class="small mb-1" style="color:#f59e0b">
+                <div class="small mb-1 product-rating-row" style="color:#f59e0b">
                   @for($i=1;$i<=5;$i++)<i class="bi bi-star{{ $i <= round($bsAvg) ? '-fill' : '' }}"></i>@endfor
                   <span class="text-muted ms-1">{{ number_format($bsAvg,1) }} ({{ $bsReviewCount }} review{{ $bsReviewCount != 1 ? 's' : '' }})</span>
                 </div>
@@ -488,7 +499,7 @@
         if ($hasSizeOptions) {
           $stockClass = '';
           $stockIcon = 'bi-rulers';
-          $stockLabel = 'Stock varies by size';
+          $stockLabel = 'By size';
         } elseif ($stockTracked && $stockQty <= 0) {
           $stockClass = 'is-out';
           $stockIcon = 'bi-exclamation-circle';
@@ -537,7 +548,7 @@
               <p class="product-desc">{{ \Illuminate\Support\Str::limit($p->description, 80) }}</p>
             @endif
             @if($cardAvg > 0)
-              <div class="small mb-1" style="color:#f59e0b">
+              <div class="small mb-1 product-rating-row" style="color:#f59e0b">
                 @for($i=1;$i<=5;$i++)<i class="bi bi-star{{ $i <= round($cardAvg) ? '-fill' : '' }}"></i>@endfor
                 <span class="text-muted ms-1">{{ number_format($cardAvg,1) }} ({{ $cardReviewCount }} review{{ $cardReviewCount != 1 ? 's' : '' }})</span>
               </div>
