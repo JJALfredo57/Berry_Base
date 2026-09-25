@@ -131,6 +131,11 @@
     .product-name{font-size:1rem;font-weight:700;color:var(--gray-900);margin:0 0 .25rem;line-height:1.35}
     .product-desc{font-size:.82rem;color:var(--gray-500);line-height:1.55;margin:.25rem 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex-grow:1}
     .product-price{font-size:1.1rem;font-weight:700;color:var(--primary);margin-top:.5rem}
+    .product-price-old{font-size:.78rem;color:var(--gray-400);text-decoration:line-through;margin-left:.35rem}
+    .product-stock-note{font-size:.76rem;color:var(--gray-500);font-weight:600;margin:.25rem 0 .1rem;display:flex;align-items:center;gap:.25rem}
+    .product-stock-note.is-out{color:#dc2626}
+    .deal-badge{position:absolute;left:.6rem;top:2.25rem;z-index:2;background:linear-gradient(135deg,#fb7185,#f97316);color:#fff;font-size:.7rem;font-weight:800;padding:.22rem .6rem;border-radius:99px;box-shadow:0 8px 18px rgba(190,18,60,.18)}
+    .size-choice-btn:disabled{opacity:.48;cursor:not-allowed;text-decoration:line-through}
     .flavor-tag{display:inline-block;background:var(--primary-bg);color:var(--primary);font-size:.75rem;padding:.22rem .65rem;border-radius:99px;margin:.35rem 0;font-weight:600}
     .class-badge{position:absolute;top:.6rem;left:.6rem;font-size:.72rem;font-weight:700;padding:.22rem .6rem;border-radius:99px}
     .btn-order{display:block;width:100%;background:var(--primary);color:#fff;padding:.65rem 1rem;border-radius:var(--radius-md);font-size:.9rem;font-weight:700;border:none;cursor:pointer;transition:all .18s;text-align:center;margin-top:.75rem;min-height:44px;display:flex;align-items:center;justify-content:center;gap:.35rem}
@@ -323,6 +328,16 @@
         @php
           $bsCb = $classBadge[$bs->classification] ?? ['bg'=>'#dbeafe','color'=>'#1e40af'];
           $bsSizes = $productSizes[$bs->id] ?? collect();
+          $bsPricing = $bs->discount_snapshot ?? null;
+          $bsDeal = $bs->active_discount ?? null;
+          $bsDealBadge = ($bsDeal && property_exists($bsDeal, 'deal_badge_label')) ? trim((string) ($bsDeal->deal_badge_label ?? '')) : '';
+          $bsStockTracked = property_exists($bs, 'available_quantity') && $bs->available_quantity !== null;
+          $bsStockQty = $bsStockTracked ? max(0, (int) $bs->available_quantity) : null;
+          $bsHasSizes = $bsSizes->count() > 0;
+          $bsHasStock = $bsHasSizes
+            ? collect($bsSizes)->contains(fn($sz) => !property_exists($sz, 'available_quantity') || $sz->available_quantity === null || (int) $sz->available_quantity > 0)
+            : (!$bsStockTracked || $bsStockQty > 0);
+          $bsRating = $productRatings[$bs->id] ?? null;
         @endphp
         <div class="col-6 col-md-3">
           <div class="product-card" style="border-color:#ffd8c0;position:relative">
@@ -338,18 +353,41 @@
                 <i class="bi bi-cake2" style="font-size:2.5rem;color:var(--primary);opacity:.35"></i>
               </div>
               <span class="class-badge" style="background:{{ $bsCb['bg'] }};color:{{ $bsCb['color'] }}">{{ $bs->classification }}</span>
+              @if(!empty($bsPricing['has_discount']) && $bsDealBadge)
+                <span class="deal-badge"><i class="bi bi-stars me-1"></i>{{ $bsDealBadge }}</span>
+              @endif
             </div>
             <div class="product-body">
               <div class="product-name">{{ $bs->name }}</div>
               @if($bs->flavor)
                 <span class="flavor-tag"><i class="bi bi-droplet me-1" style="font-size:.62rem"></i>{{ $bs->flavor }}</span>
               @endif
-              <div class="product-price">₱{{ number_format($bs->price,2) }}</div>
+              <div class="product-price">
+                @if(!empty($bsPricing['has_discount']))
+                  ₱{{ number_format($bsPricing['final_unit_price'],2) }}
+                  <span class="product-price-old">₱{{ number_format($bsPricing['original_unit_price'],2) }}</span>
+                @else
+                  ₱{{ number_format($bs->price,2) }}
+                @endif
+              </div>
+              <div class="product-stock-note {{ !$bsHasStock ? 'is-out' : '' }}">
+                <i class="bi {{ $bsHasStock ? 'bi-box-seam' : 'bi-x-circle' }}"></i>
+                @if($bsHasSizes)
+                  Stock varies by size
+                @elseif($bsStockTracked)
+                  {{ $bsStockQty }} available
+                @else
+                  Available
+                @endif
+              </div>
+              @if($bsRating)
+                <div class="small mb-1" style="color:#f59e0b"><i class="bi bi-star-fill me-1"></i>{{ number_format((float)$bsRating->avg_rating,1) }} <span class="text-muted">({{ (int)$bsRating->review_count }})</span></div>
+              @endif
               <div style="font-size:.82rem;color:#ff6b35;font-weight:600;margin-bottom:.25rem">
                 <i class="bi bi-bag-check me-1"></i>{{ number_format($bs->total_sold) }} sold
               </div>
-              <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $bs->id }}">
-                <i class="bi bi-bag-plus me-1"></i>Order Now
+              <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $bs->id }}" {{ !$bsHasStock ? 'disabled' : '' }}>
+                <i class="bi bi-bag-plus me-1"></i>{{ $bsHasStock ? 'Order Now' : 'Out of Stock' }}
               </button>
             </div>
           </div>
@@ -372,7 +410,20 @@
 
     <div class="row g-3" id="prodsGrid">
       @foreach($products as $p)
-      @php $cb = $classBadge[$p->classification] ?? ['bg'=>'#dbeafe','color'=>'#1e40af']; @endphp
+      @php
+        $cb = $classBadge[$p->classification] ?? ['bg'=>'#dbeafe','color'=>'#1e40af'];
+        $sizes = $productSizes[$p->id] ?? collect();
+        $pricing = $p->discount_snapshot ?? null;
+        $activeDiscount = $p->active_discount ?? null;
+        $sweetDealBadge = ($activeDiscount && property_exists($activeDiscount, 'deal_badge_label')) ? trim((string) ($activeDiscount->deal_badge_label ?? '')) : '';
+        $stockTracked = property_exists($p, 'available_quantity') && $p->available_quantity !== null;
+        $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
+        $hasSizeOptions = $sizes->count() > 0;
+        $hasStock = $hasSizeOptions
+          ? collect($sizes)->contains(fn($sz) => !property_exists($sz, 'available_quantity') || $sz->available_quantity === null || (int) $sz->available_quantity > 0)
+          : (!$stockTracked || $stockQty > 0);
+        $cardRating = $productRatings[$p->id] ?? null;
+      @endphp
       <div class="col-6 col-md-4 col-lg-3 prod-item" data-class="{{ $p->classification }}">
         <div class="product-card">
           <div class="product-img-wrap">
@@ -384,6 +435,9 @@
               <i class="bi bi-cake2" style="font-size:2.5rem;color:var(--primary);opacity:.35"></i>
             </div>
             <span class="class-badge" style="background:{{ $cb['bg'] }};color:{{ $cb['color'] }}">{{ $p->classification }}</span>
+            @if(!empty($pricing['has_discount']) && $sweetDealBadge)
+              <span class="deal-badge"><i class="bi bi-stars me-1"></i>{{ $sweetDealBadge }}</span>
+            @endif
           </div>
           <div class="product-body">
             <div class="product-name">{{ $p->name }}</div>
@@ -393,9 +447,29 @@
             @if($p->description)
               <p class="product-desc">{{ $p->description }}</p>
             @endif
-            <div class="product-price">₱{{ number_format($p->price,2) }}</div>
-            <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $p->id }}">
-              <i class="bi bi-bag-plus me-1"></i>Order Now
+            <div class="product-price">
+              @if(!empty($pricing['has_discount']))
+                ₱{{ number_format($pricing['final_unit_price'],2) }}
+                <span class="product-price-old">₱{{ number_format($pricing['original_unit_price'],2) }}</span>
+              @else
+                ₱{{ number_format($p->price,2) }}
+              @endif
+            </div>
+            <div class="product-stock-note {{ !$hasStock ? 'is-out' : '' }}">
+              <i class="bi {{ $hasStock ? 'bi-box-seam' : 'bi-x-circle' }}"></i>
+              @if($hasSizeOptions)
+                Stock varies by size
+              @elseif($stockTracked)
+                {{ $stockQty }} available
+              @else
+                Available
+              @endif
+            </div>
+            @if($cardRating)
+              <div class="small mb-1" style="color:#f59e0b"><i class="bi bi-star-fill me-1"></i>{{ number_format((float)$cardRating->avg_rating,1) }} <span class="text-muted">({{ (int)$cardRating->review_count }})</span></div>
+            @endif
+            <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $p->id }}" {{ !$hasStock ? 'disabled' : '' }}>
+              <i class="bi bi-bag-plus me-1"></i>{{ $hasStock ? 'Order Now' : 'Out of Stock' }}
             </button>
           </div>
         </div>
@@ -417,6 +491,17 @@
         'Perishable' => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'bi-snow'],
       ];
       $cls = $classBadge[$p->classification] ?? $classBadge['Standard'];
+      $pricing = $p->discount_snapshot ?? null;
+      $activeDiscount = $p->active_discount ?? null;
+      $sweetDealBadge = ($activeDiscount && property_exists($activeDiscount, 'deal_badge_label')) ? trim((string) ($activeDiscount->deal_badge_label ?? '')) : '';
+      $sweetDealNote = ($activeDiscount && property_exists($activeDiscount, 'deal_note')) ? trim((string) ($activeDiscount->deal_note ?? '')) : '';
+      $stockTracked = property_exists($p, 'available_quantity') && $p->available_quantity !== null;
+      $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
+      $hasSizeOptions = $sizes->count() > 0;
+      $hasStock = $hasSizeOptions
+        ? collect($sizes)->contains(fn($sz) => !property_exists($sz, 'available_quantity') || $sz->available_quantity === null || (int) $sz->available_quantity > 0)
+        : (!$stockTracked || $stockQty > 0);
+      $baseDisplayPrice = !empty($pricing['has_discount']) ? (float) $pricing['final_unit_price'] : (float) $p->price;
     @endphp
     <div class="modal fade" id="shopOrderModal{{ $p->id }}" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
@@ -428,7 +513,7 @@
               <span class="badge" style="background:{{ $cls['bg'] }};color:{{ $cls['color'] }};font-size:.72rem">
                 <i class="bi {{ $cls['icon'] }} me-1"></i>{{ $p->classification }}
               </span>
-              <span class="badge bg-success" style="font-size:.72rem"><i class="bi bi-check-circle me-1"></i>Available</span>
+              <span class="badge {{ $hasStock ? 'bg-success' : 'bg-danger' }}" style="font-size:.72rem"><i class="bi {{ $hasStock ? 'bi-check-circle' : 'bi-x-circle' }} me-1"></i>{{ $hasStock ? 'Available' : 'Out of Stock' }}</span>
               <span class="fw-bold ms-1" style="font-size:.95rem">{{ $p->name }}</span>
             </div>
             <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"></button>
@@ -472,8 +557,15 @@
                 <div class="col-6">
                   <div class="p-2 rounded-2" style="background:#f8f9fa">
                     <div class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.05em">Price</div>
-                    <div class="fw-bold" style="color:var(--primary);font-size:1.15rem">₱{{ number_format($p->price,2) }}</div>
-                    @if($sizes->count() > 0)
+                    <div class="fw-bold" style="color:var(--primary);font-size:1.15rem">
+                      ₱{{ number_format($baseDisplayPrice,2) }}
+                      @if(!empty($pricing['has_discount']))
+                        <span class="product-price-old">₱{{ number_format($pricing['original_unit_price'],2) }}</span>
+                      @endif
+                    </div>
+                    @if(!empty($pricing['badge_text']))
+                      <div class="fw-semibold" style="font-size:.7rem;color:#dc2626">{{ $pricing['badge_text'] }}</div>
+                    @elseif($sizes->count() > 0)
                       <div class="text-muted" style="font-size:.68rem">Base price</div>
                     @endif
                   </div>
@@ -522,6 +614,25 @@
                 <i class="bi bi-chevron-right" style="color:#d1d5db;font-size:.75rem"></i>
               </a>
 
+              @if(!empty($pricing['has_discount']) && ($sweetDealBadge || $sweetDealNote))
+              <div class="alert border-0 py-2 small mb-3" style="background:#fff7ed;border-radius:.7rem;color:#9a3412">
+                <i class="bi bi-stars me-1"></i>
+                <strong>{{ $sweetDealBadge ?: 'Sweet Deal' }}</strong>
+                @if($sweetDealNote)<span class="d-block text-muted mt-1">{{ $sweetDealNote }}</span>@endif
+              </div>
+              @endif
+
+              <div class="alert border-0 py-2 small mb-3" style="background:#f8fafc;border-radius:.7rem;color:#475569">
+                <i class="bi bi-box-seam me-1" style="color:var(--primary)"></i>
+                @if($hasSizeOptions)
+                  Stock varies by size. Choose a size to see availability.
+                @elseif($stockTracked)
+                  {{ $stockQty }} available.
+                @else
+                  Available for checkout.
+                @endif
+              </div>
+
               <hr class="my-3">
 
               {{-- Order Form --}}
@@ -546,15 +657,27 @@
                   <input type="hidden" name="selected_size" id="selectedSize{{ $p->id }}">
                   <div class="d-flex flex-wrap gap-2" data-size-picker id="sizeOptions{{ $p->id }}">
                     @foreach($sizes as $sz)
+                      @php
+                        $sizeStockTracked = property_exists($sz, 'available_quantity') && $sz->available_quantity !== null;
+                        $sizeStockQty = $sizeStockTracked ? max(0, (int) $sz->available_quantity) : null;
+                        $sizeAvailable = !$sizeStockTracked || $sizeStockQty > 0;
+                        $sizePricing = \App\Helpers\CakeshopHelper::calculateDiscountSnapshot((float) $sz->price, $activeDiscount);
+                        $sizeDisplayPrice = !empty($sizePricing['has_discount']) ? (float) $sizePricing['final_unit_price'] : (float) $sz->price;
+                      @endphp
                       <button type="button"
                               class="size-choice-btn px-3 py-1 rounded-pill border bg-white {{ $loop->iteration > 4 ? 'd-none is-extra-size' : '' }}"
                               data-product-id="{{ $p->id }}"
-                              data-base-price="{{ $p->price }}"
+                              data-base-price="{{ $baseDisplayPrice }}"
                               data-size-label="{{ $sz->label }}"
-                              data-price="{{ $sz->price }}"
-                              onclick="selectModalSize(this)">
+                              data-price="{{ $sizeDisplayPrice }}"
+                              data-stock-tracked="{{ $sizeStockTracked ? '1' : '0' }}"
+                              data-stock-qty="{{ $sizeStockTracked ? $sizeStockQty : '' }}"
+                              onclick="selectModalSize(this)" {{ $sizeAvailable ? '' : 'disabled' }}>
                         <span class="fw-semibold">{{ $sz->label }}</span>
-                        <span class="text-muted ms-1">— ₱{{ number_format($sz->price,2) }}</span>
+                        <span class="text-muted ms-1">— ₱{{ number_format($sizeDisplayPrice,2) }}</span>
+                        @if($sizeStockTracked)
+                          <span class="text-muted ms-1">({{ $sizeStockQty }} left)</span>
+                        @endif
                       </button>
                     @endforeach
                     @if($sizes->count() > 4)
@@ -567,7 +690,7 @@
                   <div class="mt-2 p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:#fff0f5">
                     <span class="small text-muted">Total Price:</span>
                     <span class="fw-bold" style="color:var(--primary);font-size:1.05rem" id="modalPrice{{ $p->id }}">
-                      ₱{{ number_format($p->price,2) }}
+                      ₱{{ number_format($baseDisplayPrice,2) }}
                     </span>
                   </div>
                 </div>
@@ -581,7 +704,7 @@
                             onclick="changeQty('{{ $p->id }}', -1)">−</button>
                     <input type="number" class="form-control text-center fw-bold"
                            name="quantity" id="qty{{ $p->id }}"
-                           min="1" max="20" value="1" required style="width:70px">
+                           min="1" max="{{ $hasSizeOptions ? 20 : ($stockTracked ? max(1, $stockQty) : 20) }}" value="1" required style="width:70px" data-default-max="{{ $hasSizeOptions ? 20 : ($stockTracked ? max(1, $stockQty) : 20) }}">
                     <button type="button" class="btn btn-outline-secondary btn-sm px-3"
                             onclick="changeQty('{{ $p->id }}', 1)">+</button>
                   </div>
@@ -593,7 +716,7 @@
                 </div>
 
                 {{-- Date Availability --}}
-                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" {{ $hasStock ? '' : 'disabled' }}>
                   <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
                 </button>
               </form>
@@ -1016,6 +1139,7 @@ function validateSizeSelection(form) {
 }
 
 function selectModalSize(button) {
+  if (!button || button.disabled) return;
   const productId = button.dataset.productId || '';
   const basePrice = parseFloat(button.dataset.basePrice || '0');
   const form = button.closest('form');
@@ -1033,6 +1157,14 @@ function selectModalSize(button) {
   }
   button.classList.add('is-selected');
   button.setAttribute('aria-pressed', 'true');
+  const qtyInput = document.getElementById('qty' + productId);
+  if (qtyInput) {
+    const tracked = button.dataset.stockTracked === '1';
+    const stockQty = parseInt(button.dataset.stockQty || '0', 10) || 0;
+    const nextMax = tracked ? Math.max(1, stockQty) : (parseInt(qtyInput.dataset.defaultMax || '20', 10) || 20);
+    qtyInput.max = String(nextMax);
+    if ((parseInt(qtyInput.value || '1', 10) || 1) > nextMax) qtyInput.value = String(nextMax);
+  }
   updateModalPrice(productId, basePrice, button);
 }
 
@@ -1055,9 +1187,10 @@ function updateModalPrice(productId, basePrice, priceSource) {
 function changeQty(productId, delta) {
   const input = document.getElementById('qty' + productId);
   if (!input) return;
-  let val = parseInt(input.value) + delta;
+  const max = parseInt(input.max || input.dataset.defaultMax || '20', 10) || 20;
+  let val = (parseInt(input.value || '1', 10) || 1) + delta;
   if (val < 1) val = 1;
-  if (val > 20) val = 20;
+  if (val > max) val = max;
   input.value = val;
 }
 let catLbScale = 1;

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+use Illuminate\Support\Facades\Schema;
 class PlatformController extends Controller
 {
     public function home()
@@ -102,13 +103,25 @@ class PlatformController extends Controller
         $products = DB::table('products')
             ->where('shop_id', $shop->id)
             ->where('is_available', true)
+            ->when(Schema::hasColumn('products', 'archived_at'), fn ($query) => $query->whereNull('archived_at'))
             ->orderBy('classification')->orderBy('name')
             ->get();
+
+        $discountMap = \App\Helpers\CakeshopHelper::getActiveDiscountMap($products->pluck('id')->toArray());
+        foreach ($products as $product) {
+            $product->active_discount = $discountMap[$product->id] ?? null;
+            $product->discount_snapshot = \App\Helpers\CakeshopHelper::calculateDiscountSnapshot(
+                (float) $product->price,
+                $product->active_discount
+            );
+            $product->total_sold = 0;
+        }
 
         $productIds   = $products->pluck('id')->toArray();
         $productSizes = DB::table('product_sizes')
             ->whereIn('product_id', $productIds)
             ->where('is_active', true)
+            ->when(Schema::hasColumn('product_sizes', 'archived_at'), fn ($query) => $query->whereNull('archived_at'))
             ->orderBy('sort_order')
             ->get()
             ->groupBy('product_id');
@@ -159,13 +172,14 @@ class PlatformController extends Controller
                 ->limit(4)
                 ->get()->keyBy('product_id');
 
+            foreach ($products as $product) {
+                if (isset($soldStats[$product->id])) {
+                    $product->total_sold = (int) $soldStats[$product->id]->total_sold;
+                }
+            }
+
             $bestSellers = $products
-                ->filter(fn($p) => isset($soldStats[$p->id]) && $soldStats[$p->id]->total_sold > 0)
-                ->map(function ($p) use ($soldStats) {
-                    $p = clone $p;
-                    $p->total_sold = $soldStats[$p->id]->total_sold;
-                    return $p;
-                })
+                ->filter(fn($p) => (int) ($p->total_sold ?? 0) > 0)
                 ->sortByDesc('total_sold')->take(4)->values();
         } catch (\Exception $e) {}
 
