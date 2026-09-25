@@ -56,7 +56,7 @@ class OrderRequestController extends Controller
         }
 
         $requests = $query
-            ->orderByRaw("CASE WHEN r.status = 'pending' AND r.is_rush = 1 THEN 0 WHEN r.status = 'pending' THEN 1 ELSE 2 END")
+            ->orderByRaw("CASE WHEN r.status = 'pending' AND r.is_rush = true THEN 0 WHEN r.status = 'pending' THEN 1 ELSE 2 END")
             ->orderByRaw('CASE WHEN r.preferred_datetime IS NULL THEN 1 ELSE 0 END')
             ->orderBy('r.preferred_datetime')
             ->orderByDesc('r.created_at')

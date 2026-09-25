@@ -94,7 +94,7 @@ class CustomOrderController extends Controller
                 });
             })
             ->when($tab !== 'all', fn($q) => $q->where('co.review_status', $tab))
-            ->when($hasRush, fn($q) => $q->orderByRaw("CASE WHEN co.review_status = 'pending' AND co.is_rush = 1 THEN 0 ELSE 1 END"))
+            ->when($hasRush, fn($q) => $q->orderByRaw("CASE WHEN co.review_status = 'pending' AND co.is_rush = true THEN 0 ELSE 1 END"))
             ->when($tab === 'all', fn($q) => $q->orderByRaw(
                 "CASE WHEN co.review_status = 'pending' THEN 0 WHEN co.review_status = 'approved' THEN 1 ELSE 2 END"
             ))
