@@ -27,7 +27,7 @@ class OrderRequestService
         try {
             if ($date) {
                 $preferredAt = Carbon::parse($date . ' ' . (substr((string) $time, 0, 5) ?: '00:00'), config('app.timezone'));
-                $noticeMinutes = now(config('app.timezone'))->diffInMinutes($preferredAt, false);
+                $noticeMinutes = (int) round(now(config('app.timezone'))->diffInMinutes($preferredAt, false));
                 $minimumAt = now(config('app.timezone'))->addDays(max(0, $prepDays));
                 $isRush = $preferredAt->lt($minimumAt);
             }
