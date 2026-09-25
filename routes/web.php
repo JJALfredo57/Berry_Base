@@ -117,6 +117,9 @@ Route::get('/catalog', function (\Illuminate\Http\Request $request) {
 Route::get('/catalog/products/{productId}/reviews', [GuestCatalog::class, 'reviews'])->name('catalog.reviews');
 Route::post('/catalog/select',  [GuestCatalog::class, 'selectProduct'])->name('catalog.select');
 Route::post('/order-requests', [\App\Http\Controllers\OrderRequestController::class, 'store'])->name('order_requests.store');
+Route::get('/order-requests/{id}/{token}', [\App\Http\Controllers\OrderRequestOfferController::class, 'show'])->name('order_requests.show_token');
+Route::post('/order-requests/{id}/{token}/accept', [\App\Http\Controllers\OrderRequestOfferController::class, 'accept'])->name('order_requests.accept_token');
+Route::post('/order-requests/{id}/{token}/decline', [\App\Http\Controllers\OrderRequestOfferController::class, 'decline'])->name('order_requests.decline_token');
 Route::get('/cart', [\App\Http\Controllers\Guest\CartController::class, 'index'])->name('cart');
 Route::post('/cart/add', [\App\Http\Controllers\Guest\CartController::class, 'store'])->name('cart.add');
 Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Guest\CartController::class, 'update'])->name('cart.items.update');
@@ -358,6 +361,9 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::get('/catalog',          [CustomerCatalog::class, 'index'])->name('catalog');
     Route::post('/catalog/order',   [CustomerCatalog::class, 'order'])->name('catalog.order');
     Route::post('/order-requests',  [\App\Http\Controllers\OrderRequestController::class, 'store'])->name('order_requests.store');
+    Route::get('/order-requests/{id}', [\App\Http\Controllers\OrderRequestOfferController::class, 'show'])->name('order_requests.show');
+    Route::post('/order-requests/{id}/accept', [\App\Http\Controllers\OrderRequestOfferController::class, 'accept'])->name('order_requests.accept');
+    Route::post('/order-requests/{id}/decline', [\App\Http\Controllers\OrderRequestOfferController::class, 'decline'])->name('order_requests.decline');
     Route::get('/cart',             [\App\Http\Controllers\Customer\CartController::class, 'index'])->name('cart');
     Route::post('/cart/add',        [\App\Http\Controllers\Customer\CartController::class, 'store'])->name('cart.add');
     Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Customer\CartController::class, 'update'])->name('cart.items.update');

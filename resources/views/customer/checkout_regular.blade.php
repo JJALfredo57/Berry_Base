@@ -373,7 +373,8 @@ document.body.style.paddingRight = '';
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Preferred Date</label>
                 <input type="date" class="form-control" name="schedule_date" id="custFieldDate"
-                       min="{{ $readyMadeEarliestDate }}"
+                       value="{{ old('schedule_date', $checkout['schedule_date'] ?? '') }}"
+                       min="{{ !empty($checkout['request_offer_checkout']) ? ($checkout['schedule_date'] ?? $readyMadeEarliestDate) : $readyMadeEarliestDate }}"
                        @if($sweetDealMaxDate) max="{{ $sweetDealMaxDate }}" data-sweet-deal-max-label="{{ $sweetDealMaxLabel }}" @endif
                        onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
                 <div id="custScheduleNotice" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
@@ -384,7 +385,7 @@ document.body.style.paddingRight = '';
               </div>
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Preferred Time</label>
-                <input type="time" class="form-control" name="schedule_time" id="custFieldTime" min="{{ substr($scheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($scheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')" oninput="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
+                <input type="time" class="form-control" name="schedule_time" id="custFieldTime" value="{{ old('schedule_time', $checkout['schedule_time'] ?? '') }}" min="{{ substr($scheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($scheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')" oninput="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
               </div>
             </div>
             @endif

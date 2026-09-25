@@ -24,7 +24,7 @@ class OrderRequestController extends Controller
         $shop = $this->getShop();
         $service->markExpired();
         $tab = $request->input('tab', 'pending');
-        if (!in_array($tab, ['pending', 'rush', 'accepted', 'suggested', 'declined', 'all'], true)) $tab = 'pending';
+        if (!in_array($tab, ['pending', 'rush', 'accepted', 'suggested', 'converted', 'declined', 'all'], true)) $tab = 'pending';
         $search = trim((string) $request->input('search', ''));
 
         $query = DB::table('order_requests as r')
@@ -38,7 +38,9 @@ class OrderRequestController extends Controller
         } elseif ($tab === 'pending') {
             $query->where('r.status', 'pending');
         } elseif ($tab === 'accepted') {
-            $query->where('r.status', 'accepted');
+            $query->whereIn('r.status', ['accepted', 'customer_accepted']);
+        } elseif ($tab === 'converted') {
+            $query->where('r.status', 'converted');
         } elseif ($tab === 'suggested') {
             $query->whereIn('r.status', ['alternative_offered', 'schedule_suggested', 'needs_more_details']);
         } elseif ($tab === 'declined') {
@@ -63,14 +65,15 @@ class OrderRequestController extends Controller
             ->paginate(12)
             ->withQueryString();
 
-        $counts = ['pending' => 0, 'rush' => 0, 'accepted' => 0, 'suggested' => 0, 'declined' => 0, 'all' => 0];
+        $counts = ['pending' => 0, 'rush' => 0, 'accepted' => 0, 'suggested' => 0, 'converted' => 0, 'declined' => 0, 'all' => 0];
         if (Schema::hasTable('order_requests')) {
             $base = DB::table('order_requests')->where('shop_id', $shop->id);
             $counts['pending'] = (clone $base)->where('status', 'pending')->count();
             $counts['rush'] = (clone $base)->where('status', 'pending')->where('is_rush', true)->count();
-            $counts['accepted'] = (clone $base)->where('status', 'accepted')->count();
+            $counts['accepted'] = (clone $base)->whereIn('status', ['accepted', 'customer_accepted'])->count();
+            $counts['converted'] = (clone $base)->where('status', 'converted')->count();
             $counts['suggested'] = (clone $base)->whereIn('status', ['alternative_offered', 'schedule_suggested', 'needs_more_details'])->count();
-            $counts['declined'] = (clone $base)->whereIn('status', ['declined', 'expired'])->count();
+            $counts['declined'] = (clone $base)->whereIn('status', ['declined', 'customer_declined', 'expired'])->count();
             $counts['all'] = (clone $base)->count();
         }
 
@@ -101,9 +104,17 @@ class OrderRequestController extends Controller
 
         if ($action === 'accept') {
             $price = $request->input('accepted_price');
+            $fallbackPrice = (float) (DB::table('products')->where('id', $orderRequest->product_id)->value('price') ?? 0);
+            $acceptedPrice = $price !== null && $price !== '' ? max(0, (float) $price) : $fallbackPrice;
+            if ($acceptedPrice <= 0) return back()->with('err', 'Please set a valid accepted price before sending the offer.')->withInput();
+            $acceptedDate = $request->input('accepted_date') ?: $orderRequest->preferred_date;
+            $acceptedTime = substr((string) ($request->input('accepted_time') ?: $orderRequest->preferred_time), 0, 5);
             $data['status'] = 'accepted';
-            $data['accepted_price'] = $price !== null && $price !== '' ? max(0, (float) $price) : null;
-            $message = 'Request accepted. Customer can now be guided to checkout/payment manually.';
+            $data['accepted_price'] = $acceptedPrice;
+            $data['accepted_date'] = $acceptedDate;
+            $data['accepted_time'] = $acceptedTime;
+            $data['accepted_datetime'] = $acceptedDate ? \Carbon\Carbon::parse($acceptedDate . ' ' . ($acceptedTime ?: '00:00'), config('app.timezone'))->toDateTimeString() : null;
+            $message = 'Offer sent. Waiting for the customer to accept before checkout/payment.';
         } elseif ($action === 'decline') {
             if ($response === '') return back()->with('err', 'Please provide a reason for declining.')->withInput();
             $data['status'] = 'declined';
@@ -132,6 +143,7 @@ class OrderRequestController extends Controller
         }
 
         DB::table('order_requests')->where('id', $id)->update($data);
+        app(OrderRequestService::class)->ensureCustomerToken($id);
         $this->notifyCustomer($id, $data['status']);
 
         return back()->with('msg', $message);
@@ -156,6 +168,11 @@ class OrderRequestController extends Controller
                 default => 'Order request updated',
             };
             $message = ($row->product_name ?: 'Your cake request') . ' was updated by the seller.';
+            $url = null;
+            if ($status === 'accepted') {
+                $url = app(OrderRequestService::class)->offerUrl($row);
+                $message = ($row->product_name ?: 'Your cake request') . ' was accepted. Review the offer to continue checkout.';
+            }
             app(MobileNotificationService::class)->notifyUser(
                 !empty($row->user_id) ? 'customer' : 'guest_customer',
                 !empty($row->user_id) ? (string) $row->user_id : null,
@@ -164,7 +181,7 @@ class OrderRequestController extends Controller
                 $message,
                 ['event' => 'order_request', 'order_request_id' => $id],
                 null,
-                null
+                $url
             );
         } catch (\Throwable $e) {
             // Never break seller action because notification failed.

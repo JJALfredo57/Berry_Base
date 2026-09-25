@@ -4,7 +4,10 @@
 @php
   $statusMeta = [
     'pending' => ['label' => 'Pending', 'bg' => '#fff7ed', 'fg' => '#9a3412', 'icon' => 'bi-hourglass-split'],
-    'accepted' => ['label' => 'Accepted', 'bg' => '#dcfce7', 'fg' => '#166534', 'icon' => 'bi-check-circle'],
+    'accepted' => ['label' => 'Waiting for Customer', 'bg' => '#dcfce7', 'fg' => '#166534', 'icon' => 'bi-check-circle'],
+    'customer_accepted' => ['label' => 'Customer Accepted', 'bg' => '#dbeafe', 'fg' => '#1d4ed8', 'icon' => 'bi-bag-check'],
+    'customer_declined' => ['label' => 'Customer Declined', 'bg' => '#fee2e2', 'fg' => '#991b1b', 'icon' => 'bi-person-x'],
+    'converted' => ['label' => 'Converted to Order', 'bg' => '#ede9fe', 'fg' => '#6d28d9', 'icon' => 'bi-receipt'],
     'alternative_offered' => ['label' => 'Alternative Offered', 'bg' => '#eff6ff', 'fg' => '#1d4ed8', 'icon' => 'bi-shuffle'],
     'schedule_suggested' => ['label' => 'Schedule Suggested', 'bg' => '#f0f9ff', 'fg' => '#0369a1', 'icon' => 'bi-calendar-event'],
     'needs_more_details' => ['label' => 'Needs Details', 'bg' => '#fef3c7', 'fg' => '#92400e', 'icon' => 'bi-question-circle'],
@@ -16,6 +19,7 @@
     'rush' => 'Rush',
     'suggested' => 'Seller Replies',
     'accepted' => 'Accepted',
+    'converted' => 'Converted',
     'declined' => 'Closed',
     'all' => 'All',
   ];
@@ -86,6 +90,15 @@
       <div class="or-body">
         <div class="or-detail-grid">
           <div class="or-detail"><span class="or-label">Preferred Schedule</span><div class="or-value">{{ $preferred ? $preferred->format('M d, Y g:i A') : trim($req->preferred_date.' '.$req->preferred_time) }}</div></div>
+          @if($req->accepted_price)
+            <div class="or-detail"><span class="or-label">Accepted Offer</span><div class="or-value">PHP {{ number_format((float)$req->accepted_price, 2) }} each</div></div>
+          @endif
+          @if($req->accepted_date)
+            <div class="or-detail"><span class="or-label">Accepted Schedule</span><div class="or-value">{{ \Carbon\Carbon::parse($req->accepted_date.' '.($req->accepted_time ?: '00:00'))->format('M d, Y g:i A') }}</div></div>
+          @endif
+          @if($req->converted_order_id)
+            <div class="or-detail"><span class="or-label">Order</span><div class="or-value">#{{ $req->converted_order_id }}</div></div>
+          @endif
           <div class="or-detail"><span class="or-label">Time Left</span><div class="or-value countdown" data-countdown="{{ $preferred ? $preferred->toIso8601String() : '' }}">Checking...</div></div>
           <div class="or-detail"><span class="or-label">Seller Prep Setting</span><div class="or-value">{{ (int)($req->seller_prep_days_at_request ?? 0) }} day{{ (int)($req->seller_prep_days_at_request ?? 0) === 1 ? '' : 's' }}</div></div>
           <div class="or-detail"><span class="or-label">Customer Notice</span><div class="or-value">{{ $noticeLabel }}</div></div>
@@ -106,10 +119,11 @@
               <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2">
                 @csrf
                 <input type="hidden" name="action" value="accept">
-                <label class="form-label small fw-semibold">Accepted price (optional)</label>
-                <input type="number" name="accepted_price" min="0" step="0.01" class="form-control form-control-sm mb-2" placeholder="Leave blank if price is unchanged">
+                <label class="form-label small fw-semibold">Accepted price</label>
+                <input type="number" name="accepted_price" min="0" step="0.01" class="form-control form-control-sm mb-2" placeholder="Defaults to product base price if blank">
+                <div class="row g-2 mb-2"><div class="col-7"><label class="form-label small fw-semibold">Accepted date</label><input type="date" name="accepted_date" value="{{ $req->preferred_date }}" class="form-control form-control-sm"></div><div class="col-5"><label class="form-label small fw-semibold">Time</label><input type="time" name="accepted_time" value="{{ substr((string)$req->preferred_time,0,5) }}" class="form-control form-control-sm"></div></div>
                 <textarea name="seller_response" class="form-control form-control-sm mb-2" placeholder="Short message for the customer"></textarea>
-                <button class="btn-or-primary w-100" type="submit"><i class="bi bi-check-lg me-1"></i>Accept</button>
+                <button class="btn-or-primary w-100" type="submit"><i class="bi bi-check-lg me-1"></i>Send Offer</button>
               </form>
             </details>
             <details>
@@ -146,7 +160,7 @@
               </form>
             </details>
           @else
-            <div class="text-muted small">This request is already closed. Customer notifications were sent when it changed status.</div>
+            <div class="text-muted small">This request is waiting for the customer, converted, or already closed. Customer notifications were sent when it changed status.</div>
           @endif
         </div>
       </div>

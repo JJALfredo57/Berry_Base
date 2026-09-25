@@ -7,10 +7,12 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class OrderRequestService
 {
-    public const ACTIVE_STATUSES = ['pending', 'alternative_offered', 'schedule_suggested', 'needs_more_details'];
+    public const ACTIVE_STATUSES = ['pending', 'accepted', 'alternative_offered', 'schedule_suggested', 'needs_more_details'];
 
     public function rushSnapshot(?string $shopId, ?string $date, ?string $time, string $type = 'ready_made'): array
     {
@@ -42,6 +44,164 @@ class OrderRequestService
             'requested_notice_minutes' => $noticeMinutes,
             'preferred_datetime' => $preferredAt?->toDateTimeString(),
         ];
+    }
+
+
+    public function ensureCustomerToken(object|string $request): ?string
+    {
+        if (!Schema::hasTable('order_requests') || !Schema::hasColumn('order_requests', 'customer_token')) return null;
+        $row = is_object($request) ? $request : DB::table('order_requests')->where('id', $request)->first();
+        if (!$row) return null;
+        if (!empty($row->customer_token)) return (string) $row->customer_token;
+
+        do {
+            $token = Str::random(48);
+        } while (DB::table('order_requests')->where('customer_token', $token)->exists());
+
+        DB::table('order_requests')->where('id', $row->id)->update([
+            'customer_token' => $token,
+            'updated_at' => now(),
+        ]);
+        return $token;
+    }
+
+    public function offerUrl(object $row): string
+    {
+        $token = $this->ensureCustomerToken($row);
+        if (!empty($row->user_id)) {
+            return route('customer.order_requests.show', $row->id, false);
+        }
+        return route('order_requests.show_token', ['id' => $row->id, 'token' => $token], false);
+    }
+
+    public function findForCustomer(string $id, ?string $token = null, ?string $userId = null): ?object
+    {
+        if (!Schema::hasTable('order_requests')) return null;
+        $query = DB::table('order_requests as r')
+            ->leftJoin('products as p', 'p.id', '=', 'r.product_id')
+            ->leftJoin('shops as s', 's.id', '=', 'r.shop_id')
+            ->leftJoin('products as ap', 'ap.id', '=', 'r.alternative_product_id')
+            ->where('r.id', $id)
+            ->select('r.*', 'p.name as product_name', 'p.image_path', 'p.price as product_price', 'p.flavor', 'p.classification', 's.shop_name', 's.shop_slug', 'ap.name as alternative_product_name');
+        if ($userId) $query->where('r.user_id', $userId);
+        else $query->where('r.customer_token', $token);
+        return $query->first();
+    }
+
+    public function finalOfferPrice(object $row): float
+    {
+        $price = (float) ($row->accepted_price ?? 0);
+        if ($price <= 0) $price = (float) ($row->product_price ?? 0);
+        return max(0, round($price, 2));
+    }
+
+    public function prepareCheckoutFromOffer(Request $request, object $row, bool $customer): array
+    {
+        if (!in_array(($row->status ?? ''), ['accepted', 'customer_accepted'], true)) {
+            return ['ok' => false, 'message' => 'This offer is not ready for checkout.'];
+        }
+        if (!empty($row->converted_order_id)) {
+            return ['ok' => false, 'message' => 'This request was already converted to an order.'];
+        }
+        if (!empty($row->expires_at) && Carbon::parse($row->expires_at, config('app.timezone'))->lte(now(config('app.timezone')))) {
+            DB::table('order_requests')->where('id', $row->id)->update(['status' => 'expired', 'updated_at' => now()]);
+            return ['ok' => false, 'message' => 'This seller offer already expired. Please request again or message the seller.'];
+        }
+        $price = $this->finalOfferPrice($row);
+        if ($price <= 0) return ['ok' => false, 'message' => 'The seller must set a valid final price before checkout.'];
+
+        $acceptedDate = $row->accepted_date ?: $row->preferred_date;
+        $acceptedTime = substr((string) ($row->accepted_time ?: $row->preferred_time), 0, 5);
+        $noteParts = [];
+        if (!empty($row->customer_note)) $noteParts[] = (string) $row->customer_note;
+        if (!empty($row->seller_response)) $noteParts[] = 'Seller note: ' . $row->seller_response;
+        if (!empty($row->is_rush)) $noteParts[] = 'Rush request accepted by seller.';
+
+        $checkout = [
+            'product_id' => $row->alternative_product_id ?: $row->product_id,
+            'quantity' => max(1, (int) $row->quantity),
+            'custom_note' => implode(' | ', $noteParts),
+            'selected_size' => '',
+            'order_request_id' => $row->id,
+            'request_offer_checkout' => true,
+            'accepted_unit_price' => $price,
+            'accepted_total_price' => $price * max(1, (int) $row->quantity),
+            'schedule_date' => $acceptedDate,
+            'schedule_time' => $acceptedTime,
+            'is_rush' => (bool) $row->is_rush,
+            'rush_reason' => $row->rush_reason,
+            'seller_prep_days_at_request' => $row->seller_prep_days_at_request,
+            'requested_notice_minutes' => $row->requested_notice_minutes,
+        ];
+
+        if (($row->status ?? '') === 'accepted') {
+            DB::table('order_requests')->where('id', $row->id)->where('status', 'accepted')->update([
+                'status' => 'customer_accepted',
+                'customer_decision_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        $checkout['request_offer_status'] = 'customer_accepted';
+
+        $request->session()->put($customer ? 'checkout' : 'guest_checkout', $checkout);
+        return ['ok' => true, 'checkout' => $checkout];
+    }
+
+    public function customerDecline(object $row, ?string $note = null): array
+    {
+        if (!in_array(($row->status ?? ''), ['accepted', 'customer_accepted'], true)) return ['ok' => false, 'message' => 'This offer can no longer be declined.'];
+        DB::table('order_requests')->where('id', $row->id)->whereIn('status', ['accepted', 'customer_accepted'])->update([
+            'status' => 'customer_declined',
+            'customer_decision_note' => trim((string) $note) ?: null,
+            'customer_decision_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->notifySellerDecision((string) $row->id, 'declined');
+        return ['ok' => true, 'message' => 'Offer declined.'];
+    }
+
+    public function notifySellerDecision(string $requestId, string $decision, ?string $orderId = null): void
+    {
+        try {
+            $row = DB::table('order_requests as r')
+                ->leftJoin('products as p', 'p.id', '=', 'r.product_id')
+                ->leftJoin('shops as s', 's.id', '=', 'r.shop_id')
+                ->leftJoin('users as u', 'u.id', '=', 's.seller_id')
+                ->where('r.id', $requestId)
+                ->select('r.*', 'p.name as product_name', 's.seller_id', 'u.phone as seller_phone')
+                ->first();
+            if (!$row || !$row->seller_id) return;
+            $accepted = $decision === 'accepted';
+            $title = $accepted ? 'Customer accepted your offer' : 'Customer declined your offer';
+            if ($accepted && !empty($row->is_rush)) $title = '[Rush] ' . $title;
+            $message = ($row->product_name ?: 'Cake request') . ($accepted ? ' is moving to checkout.' : ' was declined by the customer.');
+            if ($orderId) $message .= ' Order #' . $orderId . '.';
+            if (Schema::hasTable('notifications')) {
+                DB::table('notifications')->insert([
+                    'receiver_role' => 'seller',
+                    'receiver_user_id' => $row->seller_id,
+                    'title' => $title,
+                    'message' => $message,
+                    'is_read' => false,
+                    'created_at' => now(),
+                ]);
+            }
+            app(MobileNotificationService::class)->notifyUser('seller', (string) $row->seller_id, $row->seller_phone ?? null, $title, $message, ['event' => 'order_request_decision', 'order_request_id' => $requestId, 'order_id' => $orderId], null, route('seller.order_requests', [], false));
+        } catch (\Throwable $e) {
+            Log::warning('Order request seller decision notification failed: ' . $e->getMessage());
+        }
+    }
+
+    public function markConverted(string $requestId, string $orderId): void
+    {
+        if (!Schema::hasTable('order_requests')) return;
+        DB::table('order_requests')->where('id', $requestId)->whereIn('status', ['customer_accepted', 'accepted'])->update([
+            'status' => 'converted',
+            'converted_order_id' => $orderId,
+            'converted_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->notifySellerDecision($requestId, 'accepted', $orderId);
     }
 
     public function validateRequestPayload(array $data, ?object $product = null): array
@@ -142,6 +302,7 @@ class OrderRequestService
             ]);
         });
 
+        $this->ensureCustomerToken($id);
         $this->notifySeller($id);
 
         return [

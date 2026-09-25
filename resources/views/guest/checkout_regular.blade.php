@@ -360,7 +360,7 @@ document.body.style.paddingRight = '';
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Date <span class="text-danger">*</span></label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
-                           min="{{ $readyMadeEarliestDate }}"
+                           min="{{ !empty($checkout['request_offer_checkout']) ? ($checkout['schedule_date'] ?? $readyMadeEarliestDate) : $readyMadeEarliestDate }}"
                            onchange="cvValidateDate(this);updateRegularScheduleSlots('fieldDate','fieldTime','msgDate')"
                            oninput="cvValidateDate(this)">
                     <div class="cv-msg" id="msgDate"></div>
@@ -368,7 +368,7 @@ document.body.style.paddingRight = '';
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Time <span class="text-danger">*</span></label>
-                    <input type="time" class="form-control cv-field" name="schedule_time" id="fieldTime" min="{{ substr($scheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($scheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="cvClearSelectErr(this,'msgTime');updateRegularScheduleSlots('fieldDate','fieldTime','msgDate')" oninput="updateRegularScheduleSlots('fieldDate','fieldTime','msgDate')">
+                    <input type="time" class="form-control cv-field" name="schedule_time" id="fieldTime" value="{ old('schedule_time', $checkout['schedule_time'] ?? '') }" min="{{ substr($scheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($scheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="cvClearSelectErr(this,'msgTime');updateRegularScheduleSlots('fieldDate','fieldTime','msgDate')" oninput="updateRegularScheduleSlots('fieldDate','fieldTime','msgDate')">
                     <div class="cv-msg" id="msgTime"></div>
                     <div class="form-text"><i class="bi bi-info-circle me-1"></i>Choose your preferred time. The system checks shop hours, preparation time, and delivery distance automatically.</div>
                   </div>

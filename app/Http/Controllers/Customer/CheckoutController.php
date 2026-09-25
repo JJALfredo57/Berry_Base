@@ -78,6 +78,21 @@ class CheckoutController extends Controller
         $originalUnitPrice = CakeshopHelper::resolveProductUnitPrice($product->id, (float) $product->price, $selectedSize);
         $discount = CakeshopHelper::getActiveProductDiscount($product->id);
         $pricing = CakeshopHelper::calculateDiscountSnapshot($originalUnitPrice, $discount);
+        if (!empty($checkout['request_offer_checkout'])) {
+            $offerUnit = max(0, (float) ($checkout['accepted_unit_price'] ?? 0));
+            if ($offerUnit > 0) {
+                $pricing = [
+                    'has_discount' => false,
+                    'original_unit_price' => $offerUnit,
+                    'discount_label' => 'Seller accepted offer',
+                    'discount_type' => null,
+                    'discount_value' => null,
+                    'discount_amount' => 0,
+                    'final_unit_price' => $offerUnit,
+                    'badge_text' => 'Seller accepted offer',
+                ];
+            }
+        }
 
         $addonCategories  = collect();
         $addonsByCategory = collect();
@@ -272,7 +287,7 @@ class CheckoutController extends Controller
         }
         $stockItems = $isGroupCheckout
             ? $checkoutItems->map(fn ($item) => ['product_id' => $item->product_id, 'quantity' => max(1, (int) $item->quantity), 'selected_size' => $item->selected_size ?? null])->all()
-            : ($hasCustomCheckout ? [] : [['product_id' => $pid, 'quantity' => max(1, (int) $qty), 'selected_size' => $checkout['selected_size'] ?? null]]);
+            : ($hasCustomCheckout || !empty($checkout['request_offer_checkout']) ? [] : [['product_id' => $pid, 'quantity' => max(1, (int) $qty), 'selected_size' => $checkout['selected_size'] ?? null]]);
         if (!empty($stockItems)) {
             $stockCheck = app(ProductStockService::class)->validateItems($stockItems);
             if (!$stockCheck['ok']) {
@@ -308,6 +323,10 @@ class CheckoutController extends Controller
         $stime         = $request->input('schedule_time') ?: null;
         $payment       = $request->input('payment_method', 'COD');
         $selectedSize  = trim($request->input('selected_size', $checkout['selected_size'] ?? ''));
+        if (!empty($checkout['request_offer_checkout'])) {
+            $sdate = $checkout['schedule_date'] ?? $sdate;
+            $stime = $checkout['schedule_time'] ?? $stime;
+        }
         $surprise = $this->surpriseDeliveryData($request, $fulfillment);
         if (!empty($surprise['error'])) {
             return back()->with('error', $surprise['error'])->withInput();
@@ -318,12 +337,14 @@ class CheckoutController extends Controller
 
         $requiresRegularFulfillment = $isGroupCheckout || !$hasCustomCheckout;
         if ($requiresRegularFulfillment) {
-            $scheduleCheck = app(OrderScheduleService::class)->validate($sdate, $stime, $product->shop_id ?? null, 'regular', $fulfillment, $lat, $lng);
+            $scheduleCheck = app(OrderScheduleService::class)->validate($sdate, $stime, $product->shop_id ?? null, 'regular', $fulfillment, $lat, $lng, false);
             if (!$scheduleCheck['ok']) {
                 return back()->with('error', $scheduleCheck['message'])->withInput();
             }
-            $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($product->shop_id ?? null, $sdate, 'regular');
-            if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->withInput();
+            if (empty($checkout['request_offer_checkout'])) {
+                $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($product->shop_id ?? null, $sdate, 'regular');
+                if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->withInput();
+            }
         }
 
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null)) {
@@ -412,26 +433,49 @@ class CheckoutController extends Controller
         $sizePrice = CakeshopHelper::resolveProductUnitPrice($product->id, (float) $product->price, $selectedSize);
         $discount = CakeshopHelper::getActiveProductDiscount($product->id);
         $pricing = CakeshopHelper::calculateDiscountSnapshot($sizePrice, $discount);
-        $dealCheck = $isGroupCheckout
-            ? app(\App\Services\SweetDealService::class)->validateCartItems($checkoutItems)
-            : app(\App\Services\SweetDealService::class)->validateDirectItem((string) $pid, $qty, $pricing);
-        if (!$dealCheck['ok']) {
-            return back()->with('error', $dealCheck['message'])->withInput();
+        $isRequestOfferCheckout = !empty($checkout['request_offer_checkout']) && !empty($checkout['order_request_id']);
+        if ($isRequestOfferCheckout) {
+            $offerUnit = max(0, (float) ($checkout['accepted_unit_price'] ?? 0));
+            if ($offerUnit > 0) {
+                $pricing = [
+                    'has_discount' => false,
+                    'original_unit_price' => $offerUnit,
+                    'discount_label' => 'Seller accepted offer',
+                    'discount_type' => null,
+                    'discount_value' => null,
+                    'discount_amount' => 0,
+                    'final_unit_price' => $offerUnit,
+                    'badge_text' => 'Seller accepted offer',
+                ];
+                $sizePrice = $offerUnit;
+            }
         }
-        $dealScheduleCheck = $isGroupCheckout
-            ? app(\App\Services\SweetDealService::class)->validateScheduleDateForCartItems($checkoutItems, $sdate)
-            : app(\App\Services\SweetDealService::class)->validateScheduleDateForDirectItem((string) $pid, $pricing, $sdate);
-        if (!$dealScheduleCheck['ok']) {
-            return back()->with('error', $dealScheduleCheck['message'])->withInput();
+        if (empty($checkout['request_offer_checkout'])) {
+            $dealCheck = $isGroupCheckout
+                ? app(\App\Services\SweetDealService::class)->validateCartItems($checkoutItems)
+                : app(\App\Services\SweetDealService::class)->validateDirectItem((string) $pid, $qty, $pricing);
+            if (!$dealCheck['ok']) {
+                return back()->with('error', $dealCheck['message'])->withInput();
+            }
+        }
+        if (empty($checkout['request_offer_checkout'])) {
+            $dealScheduleCheck = $isGroupCheckout
+                ? app(\App\Services\SweetDealService::class)->validateScheduleDateForCartItems($checkoutItems, $sdate)
+                : app(\App\Services\SweetDealService::class)->validateScheduleDateForDirectItem((string) $pid, $pricing, $sdate);
+            if (!$dealScheduleCheck['ok']) {
+                return back()->with('error', $dealScheduleCheck['message'])->withInput();
+            }
         }
 
-        $capacity = app(DailyCapacityService::class)->validate($product->shop_id ?? null, $sdate, $qty);
-        if (!$capacity['allowed']) {
-            return back()->with('error', $capacity['message']);
+        if (empty($checkout['request_offer_checkout'])) {
+            $capacity = app(DailyCapacityService::class)->validate($product->shop_id ?? null, $sdate, $qty);
+            if (!$capacity['allowed']) {
+                return back()->with('error', $capacity['message']);
+            }
         }
 
         //  Daily capacity check
-        if ($sdate) {
+        if ($sdate && empty($checkout['request_offer_checkout'])) {
             $shopId   = $product->shop_id ?? null;
             $settings = $shopId ? DB::table('site_settings')->where('shop_id', $shopId)->first() : null;
             if (!$settings) $settings = DB::table('site_settings')->whereNull('shop_id')->first() ?? DB::table('site_settings')->first();
@@ -506,16 +550,18 @@ class CheckoutController extends Controller
             return back()->with('error', 'This order is already being processed. Please wait.');
         }
 
-        $dealReserve = $isGroupCheckout
-            ? app(\App\Services\SweetDealService::class)->reserveCartItems($checkoutItems)
-            : app(\App\Services\SweetDealService::class)->reserveDirectItem((string) $pid, $qty, $pricing);
-        if (!$dealReserve['ok']) {
-            return back()->with('error', $dealReserve['message'])->withInput();
-        }
+        if (empty($checkout['request_offer_checkout'])) {
+            $dealReserve = $isGroupCheckout
+                ? app(\App\Services\SweetDealService::class)->reserveCartItems($checkoutItems)
+                : app(\App\Services\SweetDealService::class)->reserveDirectItem((string) $pid, $qty, $pricing);
+            if (!$dealReserve['ok']) {
+                return back()->with('error', $dealReserve['message'])->withInput();
+            }
 
-        $stockReserve = app(ProductStockService::class)->reserveItems($stockItems);
-        if (!$stockReserve['ok']) {
-            return back()->with('error', $stockReserve['message'])->withInput();
+            $stockReserve = app(ProductStockService::class)->reserveItems($stockItems);
+            if (!$stockReserve['ok']) {
+                return back()->with('error', $stockReserve['message'])->withInput();
+            }
         }
 
         DB::table('orders')->insert($this->orderColumns(array_merge([
@@ -556,8 +602,17 @@ class CheckoutController extends Controller
             'schedule_time'    => $stime,
             'payment_method'   => $payment,
             'payment_status'   => 'Unpaid',
+            'order_request_id' => $checkout['order_request_id'] ?? null,
+            'is_rush' => !empty($checkout['is_rush']),
+            'rush_reason' => $checkout['rush_reason'] ?? null,
+            'seller_prep_days_at_request' => $checkout['seller_prep_days_at_request'] ?? null,
+            'requested_notice_minutes' => $checkout['requested_notice_minutes'] ?? null,
             'created_at'       => now(),
         ], $surprise['data'] ?? [])));
+
+        if (!empty($checkout['order_request_id'])) {
+            app(\App\Services\OrderRequestService::class)->markConverted((string) $checkout['order_request_id'], $oid);
+        }
 
         if (Schema::hasTable('order_items')) {
             $rows = $isGroupCheckout
