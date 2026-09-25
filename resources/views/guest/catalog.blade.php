@@ -49,9 +49,13 @@
   gap:1rem;
 }
 @media(max-width:600px){
-  .catalog-grid{ grid-template-columns: 1fr; gap:.75rem; }
+  .catalog-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem; }
   .best-seller-grid{ grid-template-columns:1fr; }
-  .catalog-img-wrap{ height:200px !important; }
+  .catalog-img-wrap{ height:140px !important; }
+  .catalog-card .card-body{padding:.75rem!important}
+  .catalog-card h5{font-size:.92rem;line-height:1.2}
+  .catalog-card .small{font-size:.72rem}
+  .catalog-card .btn{font-size:.72rem;padding:.38rem .5rem}
 }
 .filter-fab{display:none}
 .filter-overlay{display:none}
@@ -84,6 +88,8 @@
 .size-choice-btn.is-selected .text-muted{color:rgba(255,255,255,.78)!important}
 .size-choice-btn:focus{box-shadow:0 0 0 .16rem rgba(233,30,99,.18)}
 .size-view-more-btn{font-size:.78rem;font-weight:700;color:var(--primary);background:#fff;border:1px dashed var(--primary);border-radius:999px;padding:.25rem .75rem}
+.catalog-see-more-wrap{display:none}
+.catalog-see-more-btn{border-radius:999px;padding:.7rem 1.25rem;font-weight:800;box-shadow:0 10px 24px rgba(233,30,99,.14)}
 </style>
 
   <div class="text-center mb-5">
@@ -120,7 +126,7 @@
               data-bs-toggle="modal" data-bs-target="#detailModal{{ $p->id }}"
               style="background:#fff;border-radius:1.15rem;overflow:hidden;box-shadow:0 12px 30px rgba(15,23,42,.08)">
         <div class="position-relative" style="height:180px">
-          <img src="{{ $p->image_path }}" alt="{{ $p->name }}" style="width:100%;height:100%;object-fit:cover"
+          <img src="{{ $p->image_path }}" alt="{{ $p->name }}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover"
                onerror="this.src='https://placehold.co/480x320/fce4ec/e91e63?text=Cake'">
           <span class="position-absolute top-0 start-0 m-2 badge best-seller-rank" style="background:#be123c;color:#fff">
             <i class="bi bi-trophy-fill me-1"></i>Top {{ $loop->iteration }}
@@ -247,6 +253,7 @@
         <div class="catalog-img-wrap img-zoom-wrap position-relative overflow-hidden" style="border-radius:1.1rem 1.1rem 0 0;height:260px">
           <img src="{{ $p->image_path }}" alt="{{ $p->name }}"
                class="img-zoom-target"
+               loading="lazy" decoding="async"
                style="width:100%;height:100%;object-fit:cover;transition:transform .4s ease;cursor:zoom-in;user-select:none;-webkit-user-drag:none"
                onerror="this.src='https://placehold.co/400x220/fce4ec/e91e63?text=🎂'"
                onmouseover="this.style.transform='scale(1.12)'"
@@ -409,7 +416,12 @@
     </div>
     @endforelse
   </div>
-</div>
+  <div class="catalog-see-more-wrap text-center mt-4" id="catalogSeeMoreWrap">
+    <button type="button" class="btn btn-primary catalog-see-more-btn" onclick="loadMoreCatalogItems()">
+      <i class="bi bi-chevron-down me-1"></i><span data-catalog-see-more-text>See more cakes</span>
+    </button>
+    <div class="small text-muted mt-2" id="catalogSeeMoreHint"></div>
+  </div></div>
 
 {{-- ── PRODUCT DETAIL MODALS (outside grid to avoid transform stacking context bug) --}}
 @foreach($products as $p)
@@ -947,13 +959,15 @@ document.addEventListener('hidden.bs.modal', forceCleanModals);
 @endpush
 
 <script>
-function filterCatalog(){
+const CATALOG_INITIAL_LIMIT = 20;
+const CATALOG_LOAD_STEP = 10;
+let catalogVisibleLimit = CATALOG_INITIAL_LIMIT;
+
+function currentCatalogMatches() {
   const q = (document.getElementById('catalogSearch')?.value || '').toLowerCase().trim();
   const classification = (document.getElementById('catalogClassFilter')?.value || '').toLowerCase();
   const seller = (document.getElementById('catalogSellerFilter')?.value || '').toLowerCase();
   const barangay = (document.getElementById('catalogBarangayFilter')?.value || '').toLowerCase();
-  let visibleCount = 0;
-  let visibleBestSellerCount = 0;
 
   const matchesCatalogFilters = (el) => {
     const haystack = (el.getAttribute('data-name') || '').toLowerCase();
@@ -967,14 +981,26 @@ function filterCatalog(){
       && (!barangay || elBarangays.includes(barangay));
   };
 
+  return { q, classification, seller, barangay, matchesCatalogFilters };
+}
+
+function filterCatalog(resetLimit = true){
+  if (resetLimit) catalogVisibleLimit = CATALOG_INITIAL_LIMIT;
+  const filters = currentCatalogMatches();
+  let matchCount = 0;
+  let shownCount = 0;
+  let visibleBestSellerCount = 0;
+
   document.querySelectorAll('.catalog-item').forEach(el => {
-    const matches = matchesCatalogFilters(el);
-    el.style.display = matches ? '' : 'none';
-    if (matches) visibleCount++;
+    const matches = filters.matchesCatalogFilters(el);
+    if (matches) matchCount++;
+    const shouldShow = matches && shownCount < catalogVisibleLimit;
+    el.style.display = shouldShow ? '' : 'none';
+    if (shouldShow) shownCount++;
   });
 
   document.querySelectorAll('.best-seller-item').forEach(el => {
-    const matches = matchesCatalogFilters(el);
+    const matches = filters.matchesCatalogFilters(el);
     el.style.display = matches ? '' : 'none';
     if (matches) {
       visibleBestSellerCount++;
@@ -989,16 +1015,26 @@ function filterCatalog(){
   }
 
   const emptyState = document.getElementById('catalogEmptyState');
-  if (emptyState) emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+  if (emptyState) emptyState.style.display = matchCount === 0 ? 'block' : 'none';
+
+  const seeMoreWrap = document.getElementById('catalogSeeMoreWrap');
+  const seeMoreHint = document.getElementById('catalogSeeMoreHint');
+  if (seeMoreWrap) seeMoreWrap.style.display = matchCount > shownCount ? 'block' : 'none';
+  if (seeMoreHint) seeMoreHint.textContent = matchCount > shownCount ? (matchCount - shownCount) + ' more cake option' + (matchCount - shownCount === 1 ? '' : 's') + ' available' : '';
 
   const summary = document.getElementById('catalogFilterSummary');
   if (summary) {
     const suffixParts = [];
-    if (seller) suffixParts.push('seller "' + document.getElementById('catalogSellerFilter').value + '"');
-    if (barangay) suffixParts.push('barangay "' + document.getElementById('catalogBarangayFilter').value + '"');
+    if (filters.seller) suffixParts.push('seller "' + document.getElementById('catalogSellerFilter').value + '"');
+    if (filters.barangay) suffixParts.push('barangay "' + document.getElementById('catalogBarangayFilter').value + '"');
     const suffix = suffixParts.length ? ' for ' + suffixParts.join(' and ') : '';
-    summary.textContent = 'Showing ' + visibleCount + ' of ' + document.querySelectorAll('.catalog-item').length + ' cake options' + suffix;
+    summary.textContent = 'Showing ' + shownCount + ' of ' + matchCount + ' matching cake option' + (matchCount === 1 ? '' : 's') + suffix;
   }
+}
+
+function loadMoreCatalogItems() {
+  catalogVisibleLimit += CATALOG_LOAD_STEP;
+  filterCatalog(false);
 }
 
 function resetCatalogFilters() {
@@ -1006,7 +1042,7 @@ function resetCatalogFilters() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  filterCatalog();
+  filterCatalog(true);
 }
 
 function toggleCatalogFilters(open) {
@@ -1015,8 +1051,13 @@ function toggleCatalogFilters(open) {
   document.body.style.overflow = open ? 'hidden' : '';
 }
 
+document.addEventListener('DOMContentLoaded', function() {
+  filterCatalog(true);
+});
+
 window.filterCatalog = filterCatalog;
 window.resetCatalogFilters = resetCatalogFilters;
+window.loadMoreCatalogItems = loadMoreCatalogItems;
 </script>
 
 
