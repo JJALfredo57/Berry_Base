@@ -361,6 +361,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::get('/catalog',          [CustomerCatalog::class, 'index'])->name('catalog');
     Route::post('/catalog/order',   [CustomerCatalog::class, 'order'])->name('catalog.order');
     Route::post('/order-requests',  [\App\Http\Controllers\OrderRequestController::class, 'store'])->name('order_requests.store');
+    Route::get('/order-requests', [\App\Http\Controllers\Customer\OrderRequestController::class, 'index'])->name('order_requests.index');
     Route::get('/order-requests/{id}', [\App\Http\Controllers\OrderRequestOfferController::class, 'show'])->name('order_requests.show');
     Route::post('/order-requests/{id}/accept', [\App\Http\Controllers\OrderRequestOfferController::class, 'accept'])->name('order_requests.accept');
     Route::post('/order-requests/{id}/decline', [\App\Http\Controllers\OrderRequestOfferController::class, 'decline'])->name('order_requests.decline');

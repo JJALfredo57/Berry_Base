@@ -1784,6 +1784,9 @@
     <a href="{{ route('customer.orders') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.orders') || str_starts_with($currentRoute,'customer.custom_orders') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-bag-check"></i> Orders
     </a>
+    <a href="{{ route('customer.order_requests.index') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.order_requests') ? 'active' : '' }}" onclick="closeCustSidebar()">
+      <i class="bi bi-send"></i> Requests
+    </a>
     <a href="{{ route('customer.messages') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.messages') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-chat-dots"></i> Messages
       @if($unreadMessages > 0)<span class="csb-badge">{{ $unreadMessages > 9 ? '9+' : $unreadMessages }}</span>@endif

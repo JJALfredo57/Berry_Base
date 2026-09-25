@@ -3,13 +3,22 @@
 <div class="container-fluid py-4">
   @php
     use Illuminate\Support\Facades\DB;
+    use Illuminate\Support\Facades\Schema;
     $uid = session('user')['id'];
     $totalOrders    = DB::table('orders')->where('user_id',$uid)->count();
     $pendingOrders  = DB::table('orders')->where('user_id',$uid)->where('status','Pending')->count();
     $deliveredOrders = DB::table('orders')->where('user_id',$uid)->where('status','Delivered')->count();
     $openFeedback = 0;
+    $activeRequests = 0;
+    $offerRequests = 0;
     try {
       $openFeedback = DB::table('customer_feedback')->where('user_id',$uid)->where('status','open')->count();
+    } catch (\Exception $e) {}
+    try {
+      if (Schema::hasTable('order_requests')) {
+        $activeRequests = DB::table('order_requests')->where('user_id',$uid)->whereIn('status',['pending','accepted','customer_accepted','schedule_suggested','alternative_offered','needs_more_details'])->count();
+        $offerRequests = DB::table('order_requests')->where('user_id',$uid)->whereIn('status',['accepted','customer_accepted'])->count();
+      }
     } catch (\Exception $e) {}
     $recentOrders   = DB::table('orders as o')
       ->leftJoin('products as p','p.id','=','o.product_id')
@@ -25,23 +34,29 @@
   </div>
 
   <div class="row g-3 mb-4">
-    <div class="col-4">
+    <div class="col-6 col-md-3">
       <div class="card text-center p-3 h-100">
         <div class="fw-bold" style="font-size:1.8rem;color:var(--primary)">{{ $totalOrders }}</div>
         <div class="text-muted small">Total Orders</div>
       </div>
     </div>
-    <div class="col-4">
+    <div class="col-6 col-md-3">
       <div class="card text-center p-3 h-100">
         <div class="fw-bold text-warning" style="font-size:1.8rem">{{ $pendingOrders }}</div>
         <div class="text-muted small">Pending</div>
       </div>
     </div>
-    <div class="col-4">
+    <div class="col-6 col-md-3">
       <div class="card text-center p-3 h-100">
         <div class="fw-bold text-success" style="font-size:1.8rem">{{ $deliveredOrders }}</div>
         <div class="text-muted small">Delivered</div>
       </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <a href="{{ route('customer.order_requests.index', ['filter' => $offerRequests > 0 ? 'offers' : 'active']) }}" class="card text-center p-3 h-100 text-decoration-none" style="border-color:rgba(236,37,99,.18)">
+        <div class="fw-bold" style="font-size:1.8rem;color:var(--primary)">{{ $activeRequests }}</div>
+        <div class="text-muted small">Requests{{ $offerRequests > 0 ? ' - '.$offerRequests.' offer'.($offerRequests > 1 ? 's' : '') : '' }}</div>
+      </a>
     </div>
   </div>
 
@@ -50,6 +65,9 @@
     <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
       <a href="{{ route('customer.feedback') }}" class="btn btn-sm btn-outline-primary">
         <i class="bi bi-chat-square-heart me-1"></i>Feedback{{ $openFeedback > 0 ? ' ('.$openFeedback.')' : '' }}
+      </a>
+      <a href="{{ route('customer.order_requests.index') }}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-send me-1"></i>Requests{{ $activeRequests > 0 ? ' ('.$activeRequests.')' : '' }}
       </a>
       <a href="{{ route('customer.orders') }}" class="small" style="color:var(--primary)">View all →</a>
     </div>
