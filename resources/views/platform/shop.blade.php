@@ -581,7 +581,7 @@
               </div>
             @endif
             <button class="btn-order" data-bs-toggle="modal" data-bs-target="#shopOrderModal{{ $p->id }}">
-              <i class="bi {{ $hasStock ? 'bi-cart-plus' : 'bi-send' }} me-1"></i>{{ $hasStock ? 'Order' : 'Request Order' }}
+              <i class="bi {{ $hasStock ? 'bi-cart-plus' : 'bi-send' }} me-1"></i>{{ $hasStock ? 'Order' : 'Request to Bake' }}
             </button>
           </div>
         </div>
@@ -849,8 +849,8 @@
                 <div class="d-flex align-items-start gap-2 mb-2">
                   <div style="width:34px;height:34px;border-radius:10px;background:#e91e63;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><i class="bi bi-send"></i></div>
                   <div>
-                    <div class="fw-bold" style="color:#9d174d">Request this cake</div>
-                    <div class="small text-muted">The seller will review your preferred schedule first. If your date is earlier than their prep time, it will be marked as rush automatically.</div>
+                    <div class="fw-bold" style="color:#9d174d">Request to Bake</div>
+                    <div class="small text-muted">This goes to the seller kitchen first. If your date is earlier than their prep time, it will be marked as rush automatically.</div>
                   </div>
                 </div>
                 @if($viewerRole === 'customer')
@@ -862,6 +862,24 @@
                   <input type="hidden" name="product_id" value="{{ $p->id }}">
                   <input type="hidden" name="type" value="ready_made">
                   <input type="hidden" name="source" value="shop">
+                  <input type="hidden" name="request_reason" value="{{ count($sizes) > 0 ? 'size_out_of_stock' : 'out_of_stock' }}">
+                  @if(count($sizes) > 0)
+                  <div class="col-12">
+                    <label class="form-label small fw-semibold">Requested size <span class="text-danger">*</span></label>
+                    <select name="selected_size" class="form-select form-select-sm" required>
+                      <option value="">Choose the size you want the seller to bake</option>
+                      @foreach($sizes as $sz)
+                        @php
+                          $requestSizeTracked = property_exists($sz, 'available_quantity') && $sz->available_quantity !== null;
+                          $requestSizeQty = $requestSizeTracked ? max(0, (int) $sz->available_quantity) : null;
+                        @endphp
+                        <option value="{{ $sz->label }}" {{ old('selected_size') === $sz->label ? 'selected' : '' }}>
+                          {{ $sz->label }} - PHP {{ number_format($sz->price, 2) }}{{ $requestSizeTracked ? ($requestSizeQty <= 0 ? ' - out of stock' : ' - '.$requestSizeQty.' left') : '' }}
+                        </option>
+                      @endforeach
+                    </select>
+                  </div>
+                  @endif
                   @if($viewerRole !== 'customer')
                   <div class="col-md-6">
                     <label class="form-label small fw-semibold">Full name <span class="text-danger">*</span></label>
@@ -898,7 +916,7 @@
                     <textarea name="customer_note" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Occasion, delivery concern, or exact request"></textarea>
                   </div>
                   <div class="col-12">
-                    <button type="submit" class="btn btn-primary w-100 fw-semibold"><i class="bi bi-send me-1"></i>Send Request</button>
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold"><i class="bi bi-send me-1"></i>Send Kitchen Request</button>
                     <div class="small text-muted mt-2">No payment yet. This becomes an order only after the seller accepts and confirms the next step.</div>
                   </div>
                 </form>

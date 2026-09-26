@@ -32,8 +32,8 @@
 <div class="order-request-shell">
   <div class="or-header">
     <div>
-      <h1 class="or-title"><i class="bi bi-lightning-charge me-1" style="color:#e91e63"></i>Order Requests</h1>
-      <p class="or-sub">Out-of-stock and special schedule requests. Rush items are sorted first.</p>
+      <h1 class="or-title"><i class="bi bi-lightning-charge me-1" style="color:#e91e63"></i>Kitchen Requests</h1>
+      <p class="or-sub">Out-of-stock ready-made cakes, unavailable size requests, and special schedule requests. Rush items are sorted first.</p>
     </div>
     <a href="{{ route('seller.dashboard') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
   </div>
@@ -82,6 +82,7 @@
             @if($req->is_rush)<span class="or-pill rush"><i class="bi bi-lightning-charge-fill"></i>Rush</span>@endif
             <span class="or-pill status" style="--or-bg:{{ $meta['bg'] }};--or-fg:{{ $meta['fg'] }}"><i class="bi {{ $meta['icon'] }}"></i>{{ $meta['label'] }}</span>
             <span class="or-pill"><i class="bi bi-bag"></i>{{ $req->quantity }} pc{{ (int)$req->quantity === 1 ? '' : 's' }}</span>
+            @if(($req->request_reason ?? '') === 'size_out_of_stock')<span class="or-pill"><i class="bi bi-rulers"></i>Size request</span>@elseif(($req->request_reason ?? '') === 'out_of_stock')<span class="or-pill"><i class="bi bi-box-seam"></i>Request to bake</span>@endif
             @if($req->allow_similar_cake)<span class="or-pill"><i class="bi bi-shuffle"></i>Allows similar cake</span>@endif
           </div>
         </div>
@@ -102,6 +103,9 @@
           <div class="or-detail"><span class="or-label">Time Left</span><div class="or-value countdown" data-countdown="{{ $preferred ? $preferred->toIso8601String() : '' }}">Checking...</div></div>
           <div class="or-detail"><span class="or-label">Seller Prep Setting</span><div class="or-value">{{ (int)($req->seller_prep_days_at_request ?? 0) }} day{{ (int)($req->seller_prep_days_at_request ?? 0) === 1 ? '' : 's' }}</div></div>
           <div class="or-detail"><span class="or-label">Customer Notice</span><div class="or-value">{{ $noticeLabel }}</div></div>
+          @if($req->selected_size ?? null)
+            <div class="or-detail"><span class="or-label">Requested Size</span><div class="or-value">{{ $req->selected_size }}</div></div>
+          @endif
           <div class="or-detail"><span class="or-label">Flavor / Type</span><div class="or-value">{{ $req->flavor ?: 'Not specified' }}{{ $req->classification ? ' - '.$req->classification : '' }}</div></div>
           <div class="or-detail"><span class="or-label">Source</span><div class="or-value">{{ ucfirst(str_replace('_',' ', $req->source ?: 'shop')) }}</div></div>
           @if($req->customer_note)
@@ -169,7 +173,7 @@
     <div class="or-empty">
       <i class="bi bi-inbox" style="font-size:2rem;color:#cbd5e1"></i>
       <h2 class="h5 mt-2 mb-1">No requests here</h2>
-      <p class="mb-0">New request orders will appear here with rush ones at the top.</p>
+      <p class="mb-0">New request-to-bake items will appear here with rush ones at the top.</p>
     </div>
   @endforelse
 

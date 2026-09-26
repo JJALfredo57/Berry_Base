@@ -121,7 +121,7 @@ class OrderRequestService
             'product_id' => $row->alternative_product_id ?: $row->product_id,
             'quantity' => max(1, (int) $row->quantity),
             'custom_note' => implode(' | ', $noteParts),
-            'selected_size' => '',
+            'selected_size' => trim((string) ($row->selected_size ?? '')),
             'order_request_id' => $row->id,
             'request_offer_checkout' => true,
             'accepted_unit_price' => $price,
@@ -237,7 +237,23 @@ class OrderRequestService
             $errors[] = 'This product is currently unavailable.';
         }
 
-        return ['ok' => empty($errors), 'message' => implode(' ', $errors), 'quantity' => $qty, 'time' => $time];
+        $selectedSize = trim((string) ($data['selected_size'] ?? ''));
+        if ($selectedSize !== '' && $product && Schema::hasTable('product_sizes')) {
+            $sizeQuery = DB::table('product_sizes')
+                ->where('product_id', $product->id)
+                ->whereRaw('LOWER(label) = ?', [strtolower($selectedSize)]);
+            if (Schema::hasColumn('product_sizes', 'archived_at')) {
+                $sizeQuery->whereNull('archived_at');
+            }
+            if (!$sizeQuery->exists()) {
+                $errors[] = 'Selected size is no longer available for this cake.';
+            }
+        }
+        if (($data['request_reason'] ?? '') === 'size_out_of_stock' && $selectedSize === '') {
+            $errors[] = 'Please choose the out-of-stock size you want to request.';
+        }
+
+        return ['ok' => empty($errors), 'message' => implode(' ', $errors), 'quantity' => $qty, 'time' => $time, 'selected_size' => $selectedSize];
     }
 
     public function createReadyMade(array $data): array
@@ -276,7 +292,7 @@ class OrderRequestService
         $expiresAt = $expiresAt->toDateTimeString();
 
         DB::transaction(function () use ($id, $data, $product, $valid, $rush, $note, $expiresAt) {
-            DB::table('order_requests')->insert([
+            $insert = [
                 'id' => $id,
                 'shop_id' => $product->shop_id,
                 'user_id' => $data['user_id'] ?? null,
@@ -299,7 +315,14 @@ class OrderRequestService
                 'expires_at' => $expiresAt,
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('order_requests', 'selected_size')) {
+                $insert['selected_size'] = $valid['selected_size'] ?: null;
+            }
+            if (Schema::hasColumn('order_requests', 'request_reason')) {
+                $insert['request_reason'] = $data['request_reason'] ?? 'out_of_stock';
+            }
+            DB::table('order_requests')->insert($insert);
         });
 
         $this->ensureCustomerToken($id);
@@ -310,8 +333,8 @@ class OrderRequestService
             'id' => $id,
             'is_rush' => $rush['is_rush'],
             'message' => $rush['is_rush']
-                ? 'Rush request sent. The seller will confirm if they can prepare it in time.'
-                : 'Request sent. The seller will review your preferred schedule.',
+                ? 'Rush request to bake sent. The seller will confirm if the kitchen can prepare it in time.'
+                : 'Request to bake sent. The seller will review it before it becomes an order.',
         ];
     }
 
@@ -327,9 +350,10 @@ class OrderRequestService
                 ->first();
             if (!$request || !$request->seller_id) return;
 
-            $title = $request->is_rush ? 'Rush order request received' : 'Order request received';
+            $title = $request->is_rush ? 'Rush kitchen request received' : 'Kitchen request received';
             $when = trim(($request->preferred_date ?? '') . ' ' . ($request->preferred_time ?? ''));
-            $message = ($request->product_name ?: 'Cake request') . ' requested for ' . $when . '.';
+            $sizeText = !empty($request->selected_size) ? ' (' . $request->selected_size . ')' : '';
+            $message = ($request->product_name ?: 'Cake request') . $sizeText . ' requested to bake for ' . $when . '.';
 
             if (Schema::hasTable('notifications')) {
                 DB::table('notifications')->insert([

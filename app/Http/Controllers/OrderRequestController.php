@@ -21,7 +21,9 @@ class OrderRequestController extends Controller
             'product_id' => $request->input('product_id'),
             'type' => $request->input('type', 'ready_made'),
             'source' => $request->input('source', 'shop'),
+            'request_reason' => $request->input('request_reason', 'out_of_stock'),
             'quantity' => $request->input('quantity', 1),
+            'selected_size' => $request->input('selected_size'),
             'preferred_date' => $request->input('preferred_date'),
             'preferred_time' => $request->input('preferred_time'),
             'allow_similar_cake' => $request->boolean('allow_similar_cake'),
@@ -30,6 +32,10 @@ class OrderRequestController extends Controller
 
         if (!$result['ok']) {
             return back()->with('error', $result['message'])->withInput();
+        }
+
+        if ($role === 'customer') {
+            return redirect()->route('customer.order_requests.index')->with('msg', $result['message']);
         }
 
         return back()->with('msg', $result['message']);
