@@ -172,6 +172,53 @@ class OrderController extends Controller
         }
     }
 
+
+    private function sendToKitchenTicket(object $order): void
+    {
+        if (!empty($order->kitchen_sent)) return;
+
+        $addons = DB::table('order_addons')->where('order_id', $order->id)->get();
+        $addonList = $addons->count() > 0
+            ? "\nADD-ONS:\n" . $addons->map(fn ($a) => '   ' . $a->addon_name . ((float) $a->addon_price > 0 ? ' (+' . $a->addon_price . ')' : ' (FREE)'))->implode("\n")
+            : '';
+        $product = DB::table('products')->where('id', $order->product_id)->first();
+        $productName = $product->name ?? 'Cake';
+        $customer = DB::table('users')->where('id', $order->user_id)->first();
+        $fullname = $order->guest_name ?? $customer->fullname ?? 'Customer';
+        $phone = $order->guest_phone ?? $customer->phone ?? '';
+        $sizeInfo = !empty($order->selected_size) ? "\nSIZE: {$order->selected_size}" : '';
+        $noteInfo = !empty($order->custom_note) ? "\nSPECIAL NOTE: {$order->custom_note}" : '';
+        $rushInfo = !empty($order->is_rush) ? "\nPRIORITY: RUSH request-to-bake" : '';
+        $schedInfo = !empty($order->schedule_date)
+            ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) . (!empty($order->schedule_time) ? ' at ' . date('g:i A', strtotime($order->schedule_time)) : '')
+            : '';
+        $sourceInfo = !empty($order->order_request_id) ? "\nSOURCE: Accepted request-to-bake #{$order->order_request_id}" : '';
+
+        $instructions = "=== KITCHEN ORDER TICKET ===\n"
+            . "Order #: {$order->id}\n"
+            . "Customer: {$fullname}" . ($phone ? " ({$phone})" : '') . "\n"
+            . "Product: {$productName}\n"
+            . "Qty: {$order->quantity}"
+            . $sizeInfo . $rushInfo . $noteInfo . $addonList . $schedInfo . $sourceInfo
+            . "\nFulfillment: " . ($order->fulfillment_type ?? 'Pickup')
+            . "\n===========================";
+
+        DB::table('kitchen_tickets')->where('order_id', $order->id)->delete();
+        DB::table('kitchen_tickets')->insert([
+            'shop_id' => $order->shop_id ?? null,
+            'order_id' => $order->id,
+            'product_name' => $productName,
+            'product_image' => $product->image_path ?? null,
+            'quantity' => $order->quantity ?? 1,
+            'instructions' => $instructions,
+            'status' => 'pending',
+            'sent_at' => now()->format('Y-m-d H:i:s'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => true]);
+    }
+
     public function updateStatus(Request $request, string $id)
     {
         $shop  = $this->getShop();
@@ -179,14 +226,16 @@ class OrderController extends Controller
         if (!$order) return back()->with('err', 'Order not found.');
 
         $newStatus = $request->input('status');
-        $isCustomOrder = app(OrderTypeService::class)->isCustom($order);
+        $orderTypes = app(OrderTypeService::class);
+        $isCustomOrder = $orderTypes->isCustom($order);
+        $requiresKitchen = $orderTypes->requiresKitchen($order);
         $isPickupOrder = ($order->fulfillment_type ?? 'Pickup') === 'Pickup';
         $allowed   = ['Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','Cancelled'];
         if (!in_array($newStatus, $allowed)) return back()->with('err', 'Invalid status.');
 
         if ($newStatus !== 'Cancelled') {
-            if (!$isCustomOrder && $newStatus === 'Preparing') {
-                return back()->with('err', 'Ready-made orders skip kitchen preparation. Confirm it, then mark ready for pickup or assign a rider.');
+            if (!$requiresKitchen && $newStatus === 'Preparing') {
+                return back()->with('err', 'Stock ready-made orders skip kitchen preparation. Confirm it, then mark ready for pickup or assign a rider.');
             }
             if (!$isPickupOrder && $newStatus === 'Out for Delivery' && empty($order->rider_id)) {
                 return back()->with('err', 'Delivery orders must be dispatched through rider assignment.');
@@ -209,7 +258,7 @@ class OrderController extends Controller
                 'Out for Delivery' => ['Delivered'],
                 'Pickup' => ['Picked Up'],
             ];
-            $nextMap = $isCustomOrder ? $customNext : $regularNext;
+            $nextMap = $requiresKitchen ? $customNext : $regularNext;
             $currentStatus = (string) ($order->status ?? '');
             if (!in_array($newStatus, $nextMap[$currentStatus] ?? [], true)) {
                 return back()->with('err', "Cannot change {$currentStatus} order to {$newStatus} from this page.");
@@ -247,6 +296,10 @@ class OrderController extends Controller
             }
         }
         DB::table('orders')->where('id', $id)->update($upd);
+        if ($newStatus === 'Confirmed' && $requiresKitchen && empty($order->kitchen_sent)) {
+            $freshKitchenOrder = DB::table('orders')->where('id', $id)->first();
+            if ($freshKitchenOrder) $this->sendToKitchenTicket($freshKitchenOrder);
+        }
         if ($newStatus === 'Cancelled') {
             app(ProductStockService::class)->releaseForOrder($id);
         }

@@ -33,8 +33,13 @@ class OrderTypeService
         return str_starts_with(strtoupper((string) ($order->custom_note ?? '')), 'CUSTOM ORDER');
     }
 
+    public function isRequestBakeOrder(object $order): bool
+    {
+        return !empty($order->order_request_id);
+    }
+
     public function requiresKitchen(object $order): bool
     {
-        return $this->isCustom($order);
+        return $this->isCustom($order) || $this->isRequestBakeOrder($order);
     }
 }

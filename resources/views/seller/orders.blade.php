@@ -89,7 +89,9 @@
   @php
     $custom = $customData[$o->id] ?? null;
     $isCustomOrder = ($o->order_type ?? '') === 'custom' || (bool) $custom;
-    $isRegularOrder = !$isCustomOrder;
+    $isRequestBakeOrder = !empty($o->order_request_id);
+    $requiresKitchen = $isCustomOrder || $isRequestBakeOrder;
+    $isRegularOrder = !$requiresKitchen;
     $addons = $orderAddons[$o->id] ?? [];
     $items = $orderItems[$o->id] ?? [];
     $groupOrders = !empty($o->checkout_group_id) ? collect($checkoutGroupOrders[$o->checkout_group_id] ?? [])->where('id', '!=', $o->id)->values() : collect();
@@ -681,8 +683,10 @@
         <div>
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">ORDER PROGRESS</div>
           <div style="font-size:.82rem;color:#6b7280;line-height:1.5">
-            @if($isRegularOrder)
-              Ready-made orders skip kitchen. Confirm the order, then prepare handoff for pickup or delivery.
+            @if($isRequestBakeOrder)
+              Request-to-bake ready-made orders go to Kitchen after confirmation. Stock ready-made orders still skip Kitchen.
+            @elseif($isRegularOrder)
+              Stock ready-made orders skip Kitchen. Confirm the order, then prepare handoff for pickup or delivery.
             @else
               Custom orders continue through seller review and kitchen preparation.
             @endif
@@ -690,12 +694,23 @@
         </div>
       </div>
 
-      @if($isRegularOrder && $o->status === 'Pending')
+      @if($isRequestBakeOrder && $o->status === 'Pending')
         <form action="{{ route('seller.orders.status', $o->id) }}" method="POST" class="m-0">
           @csrf
           <input type="hidden" name="status" value="Confirmed">
           <button type="submit" class="btn btn-primary btn-sm fw-semibold"
-                  data-cs-confirm="Confirm this ready-made order?"
+                  data-cs-confirm="Confirm this request-to-bake order and send it to Kitchen?"
+                  data-cs-title="Confirm Kitchen Order"
+                  data-cs-ok="Confirm & Send">
+            <i class="bi bi-fire me-1"></i>Confirm & send to kitchen
+          </button>
+        </form>
+      @elseif($isRegularOrder && $o->status === 'Pending')
+        <form action="{{ route('seller.orders.status', $o->id) }}" method="POST" class="m-0">
+          @csrf
+          <input type="hidden" name="status" value="Confirmed">
+          <button type="submit" class="btn btn-primary btn-sm fw-semibold"
+                  data-cs-confirm="Confirm this stock ready-made order?"
                   data-cs-title="Confirm Ready-made Order"
                   data-cs-ok="Confirm Order">
             <i class="bi bi-check2-circle me-1"></i>Confirm order
@@ -746,7 +761,7 @@
         <a href="{{ route('seller.custom_orders') }}" class="btn btn-outline-primary btn-sm fw-semibold">
           <i class="bi bi-palette me-1"></i>Review custom order
         </a>
-      @elseif($isCustomOrder && in_array($o->status, ['Confirmed','Preparing'], true))
+      @elseif($requiresKitchen && in_array($o->status, ['Confirmed','Preparing'], true))
         <a href="{{ route('seller.kitchen') }}" class="btn btn-outline-primary btn-sm fw-semibold">
           <i class="bi bi-fire me-1"></i>Open kitchen
         </a>
