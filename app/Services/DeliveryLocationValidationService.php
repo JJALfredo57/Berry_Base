@@ -23,6 +23,11 @@ class DeliveryLocationValidationService
             if ($missing) {
                 return ['ok' => false, 'message' => 'Please complete these delivery address details: ' . implode(', ', $missing) . '.'];
             }
+
+            $invalid = $this->invalidStructuredFields($parts);
+            if ($invalid) {
+                return ['ok' => false, 'message' => 'Please enter a real, readable delivery address. Check these fields: ' . implode(', ', $invalid) . '.'];
+            }
         }
 
         return $this->validate($this->addressFromRequest($request, $fallbackField), $lat, $lng, $zone, $requireZoneMatch);
@@ -65,6 +70,46 @@ class DeliveryLocationValidationService
         return $missing;
     }
 
+    private function invalidStructuredFields(array $parts): array
+    {
+        $labels = [
+            'street' => 'Street / road',
+            'barangay' => 'Barangay',
+            'city' => 'City / municipality',
+            'province' => 'Province',
+            'landmark' => 'Landmark',
+        ];
+
+        $invalid = [];
+        foreach ($labels as $key => $label) {
+            if (!$this->looksLikeReadableLocationText($parts[$key] ?? '')) {
+                $invalid[] = $label;
+            }
+        }
+
+        if (($parts['postal_code'] ?? '') !== '' && !preg_match('/^\d{4}$/', $parts['postal_code'])) {
+            $invalid[] = 'Postal Code';
+        }
+
+        return $invalid;
+    }
+
+    private function looksLikeReadableLocationText(string $value): bool
+    {
+        $text = $this->normalizeLocationText($value);
+        if (strlen($text) < 4) return false;
+
+        $words = array_values(array_filter(explode(' ', $text), fn ($word) => strlen($word) >= 2));
+        if (!$words) return false;
+
+        foreach ($words as $word) {
+            if (preg_match('/[aeiou]/', $word) && !preg_match('/([bcdfghjklmnpqrstvwxyz])\1{2,}/', $word)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
     private function composeStructuredAddress(array $parts): string
     {
         $main = array_filter([

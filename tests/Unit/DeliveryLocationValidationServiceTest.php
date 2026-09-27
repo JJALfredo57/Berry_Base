@@ -45,6 +45,45 @@ class DeliveryLocationValidationServiceTest extends TestCase
         );
     }
 
+    public function test_structured_delivery_address_rejects_gibberish_details(): void
+    {
+        $request = Request::create('/addresses', 'POST', [
+            '_structured_address' => '1',
+            'address_house' => 'dfsd',
+            'address_street' => 'dfsdfd',
+            'address_barangay' => 'fsdfdsf',
+            'address_city' => 'dsf',
+            'address_province' => 'sdfdsfsdf',
+            'address_landmark' => 'dfsdfdsfsdfsdfsdf',
+        ]);
+
+        $result = (new DeliveryLocationValidationService())
+            ->validateRequest($request, 15.7756639, 120.3845859, null, false, 'full_address');
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('real, readable delivery address', $result['message']);
+    }
+
+    public function test_structured_delivery_address_rejects_invalid_postal_code(): void
+    {
+        $request = Request::create('/addresses', 'POST', [
+            '_structured_address' => '1',
+            'address_house' => 'House 12',
+            'address_street' => 'Rizal Street',
+            'address_barangay' => 'Poblacion',
+            'address_city' => 'Bautista',
+            'address_province' => 'Pangasinan',
+            'address_postal_code' => 'abcd',
+            'address_landmark' => 'Near the blue gate',
+        ]);
+
+        $result = (new DeliveryLocationValidationService())
+            ->validateRequest($request, 15.8095, 120.4988, null, false, 'full_address');
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('Postal Code', $result['message']);
+    }
+
     public function test_saved_address_can_validate_full_address_fallback(): void
     {
         $request = Request::create('/addresses', 'POST', [
@@ -55,5 +94,6 @@ class DeliveryLocationValidationServiceTest extends TestCase
             ->validateRequest($request, 15.8095, 120.4988, null, false, 'full_address');
 
         $this->assertTrue($result['ok']);
-    }}
+    }
+}
 
