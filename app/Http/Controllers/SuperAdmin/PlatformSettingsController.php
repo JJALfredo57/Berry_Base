@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
 use App\Services\BackupService;
+use App\Services\IdentityVerificationSettingsService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -131,7 +132,7 @@ class PlatformSettingsController extends Controller
         $effectiveLiveSecret = $liveSecret ?: (string) ($existing->paymongo_live_secret ?? '');
 
         if ($mode === 'live' && ($effectiveLiveSecret === '' || $effectiveLivePublic === '')) {
-            return back()->with('err', 'Cannot switch to Live mode — enter your Live Secret Key and Live Public Key first.');
+            return back()->with('err', 'Cannot switch to Live mode â€” enter your Live Secret Key and Live Public Key first.');
         }
 
         $updates = ['paymongo_mode' => $mode, 'updated_at' => now()];
@@ -167,7 +168,7 @@ class PlatformSettingsController extends Controller
                 'updated_at' => now(),
             ]);
         }
-        $status = $devMode ? 'ON — OTP and SMS previews are now visible on screen.' : 'OFF — SMS previews are hidden.';
+        $status = $devMode ? 'ON â€” OTP and SMS previews are now visible on screen.' : 'OFF â€” SMS previews are hidden.';
         return redirect()->route('superadmin.settings', ['tab' => 'platform'])->with('msg', "Developer Mode {$status}");
     }
 
@@ -227,6 +228,35 @@ class PlatformSettingsController extends Controller
         return redirect()->route('superadmin.settings', ['tab' => 'rewards'])->with('msg', 'Rewards and membership settings saved.');
     }
 
+    public function saveVerification(Request $request, IdentityVerificationSettingsService $identitySettings)
+    {
+        $validated = $request->validate([
+            'id_types' => 'required|array|min:1|max:20',
+            'id_types.*' => 'nullable|string|max:60',
+            'id_keywords' => 'nullable|array|max:20',
+            'id_keywords.*' => 'nullable|string|max:500',
+            'verification_selfie_required' => 'nullable|boolean',
+        ]);
+
+        $types = $identitySettings->normalizeInput($validated['id_types'] ?? [], $validated['id_keywords'] ?? []);
+
+        $updates = [
+            'verification_id_types' => json_encode($types),
+            'verification_selfie_required' => $request->boolean('verification_selfie_required'),
+            'updated_at' => now(),
+        ];
+
+        $existing = DB::table('platform_settings')->first();
+        if ($existing) {
+            DB::table('platform_settings')->where('id', $existing->id)->update($updates);
+        } else {
+            $updates['platform_name'] = 'Cake Shop Platform';
+            $updates['created_at'] = now();
+            DB::table('platform_settings')->insert($updates);
+        }
+
+        return redirect()->route('superadmin.settings', ['tab' => 'verification'])->with('msg', 'ID verification settings saved.');
+    }
     public function savePhilsms(Request $request)
     {
         $request->validate([

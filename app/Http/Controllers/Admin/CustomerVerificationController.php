@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CustomerVerificationController extends Controller
 {
@@ -25,6 +26,10 @@ class CustomerVerificationController extends Controller
         $user = session('user');
         $row = DB::table('customer_verifications')->where('id', $id)->first();
         if (!$row) return back()->with('err', 'Verification request not found.');
+
+        if (($row->id_type_match_status ?? null) === 'mismatch') {
+            return back()->with('err', 'Cannot approve this request because the selected ID type does not match the reviewed ID. Reject it and ask the customer to resubmit the correct ID.');
+        }
 
         DB::table('customer_verifications')->where('id', $id)->update([
             'status' => 'approved',
@@ -73,5 +78,37 @@ class CustomerVerificationController extends Controller
         ]);
 
         return back()->with('msg', 'Customer verification rejected with reason.');
+    }
+
+    public function flagIdType(Request $request, string $id)
+    {
+        if (!Schema::hasColumn('customer_verifications', 'id_type_match_status')) {
+            return back()->with('err', 'ID type review fields are not available yet. Please run migrations first.');
+        }
+
+        $request->validate([
+            'detected_id_type' => 'nullable|string|max:60',
+            'warning' => 'required|string|min:5|max:500',
+        ]);
+
+        $row = DB::table('customer_verifications')->where('id', $id)->first();
+        if (!$row) return back()->with('err', 'Verification request not found.');
+
+        $updates = [
+            'id_type_match_status' => 'mismatch',
+            'id_type_match_warning' => trim($request->input('warning')),
+            'updated_at' => now(),
+        ];
+
+        if (Schema::hasColumn('customer_verifications', 'scan_status')) {
+            $updates['scan_status'] = 'manual_review';
+        }
+        if (Schema::hasColumn('customer_verifications', 'id_type_scan_detected')) {
+            $updates['id_type_scan_detected'] = trim((string) $request->input('detected_id_type')) ?: null;
+        }
+
+        DB::table('customer_verifications')->where('id', $id)->update($updates);
+
+        return back()->with('msg', 'ID type mismatch warning saved. This request cannot be approved until the customer resubmits the correct ID.');
     }
 }

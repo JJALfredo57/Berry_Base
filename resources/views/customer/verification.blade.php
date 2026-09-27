@@ -100,13 +100,9 @@
               <label class="form-label fw-semibold small">ID Type</label>
               <select class="form-select" name="id_type" required>
                 <option value="">Select ID type</option>
-                <option>National ID</option>
-                <option>Driver's License</option>
-                <option>Passport</option>
-                <option>UMID</option>
-                <option>Postal ID</option>
-                <option>Student ID</option>
-                <option>Other Government ID</option>
+                @foreach($idTypes as $idType)
+                  <option value="{{ $idType }}" {{ old('id_type') === $idType ? 'selected' : '' }}>{{ $idType }}</option>
+                @endforeach
               </select>
             </div>
             <div class="row g-3">
@@ -147,15 +143,15 @@
                   <div class="d-flex gap-2 align-items-start mb-2">
                     <div class="verify-upload-icon"><i class="bi bi-person-bounding-box"></i></div>
                     <div>
-                      <label class="form-label fw-semibold small mb-1">Selfie with ID <span class="text-muted fw-normal">(optional)</span></label>
+                      <label class="form-label fw-semibold small mb-1">Selfie with ID <span class="text-muted fw-normal">{{ $selfieRequired ? '(required)' : '(optional)' }}</span></label>
                       <div class="verify-upload-hint">Front camera opens on most phones.</div>
                     </div>
                   </div>
-                  <input type="file" class="verify-file-input" id="selfieInput" name="selfie" accept="image/*" capture="user" data-size-preview-target="idUploadSummary">
+                  <input type="file" class="verify-file-input" id="selfieInput" name="selfie" accept="image/*" capture="user" data-size-preview-target="idUploadSummary" {{ $selfieRequired ? 'required' : '' }}>
                   <button type="button" class="btn btn-outline-primary w-100" data-upload-trigger="selfieInput">
                     <i class="bi bi-person-bounding-box me-1"></i>Get Selfie Picture
                   </button>
-                  <div class="verify-upload-status mt-2" data-upload-status-for="selfieInput">Optional selfie not selected.</div>
+                  <div class="verify-upload-status mt-2" data-upload-status-for="selfieInput">{{ $selfieRequired ? 'No selfie selected yet.' : 'Optional selfie not selected.' }}</div>
                 </div>
               </div>
             </div>
@@ -200,7 +196,7 @@
                 <div class="d-flex align-items-center justify-content-between gap-2">
                   <div>
                     <div class="fw-semibold small">{{ $tier['name'] }} Member</div>
-                    <div class="text-muted" style="font-size:.76rem">{{ number_format($tier['min_lifetime_points']) }} lifetime pts • {{ rtrim(rtrim(number_format($tier['points_multiplier'], 2), '0'), '.') }}x points</div>
+                    <div class="text-muted" style="font-size:.76rem">{{ number_format($tier['min_lifetime_points']) }} lifetime pts â€¢ {{ rtrim(rtrim(number_format($tier['points_multiplier'], 2), '0'), '.') }}x points</div>
                   </div>
                   <span class="badge {{ $tier['is_current'] ? 'text-white' : ($tier['is_unlocked'] ? 'text-bg-success' : 'text-bg-light') }}" @if($tier['is_current']) style="background:var(--primary)" @endif>
                     {{ $tier['is_current'] ? 'Current' : ($tier['is_unlocked'] ? 'Unlocked' : 'Locked') }}
