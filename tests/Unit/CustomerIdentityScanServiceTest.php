@@ -4,6 +4,8 @@ namespace Tests\Unit;
 
 use App\Services\CustomerIdentityScanService;
 use App\Services\IdentityVerificationSettingsService;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class CustomerIdentityScanServiceTest extends TestCase
@@ -54,5 +56,48 @@ class CustomerIdentityScanServiceTest extends TestCase
 
         $this->assertSame('needs_review', $result['status']);
         $this->assertNull($result['detected_id_type']);
+    }
+
+    public function test_http_ocr_driver_can_match_selected_id_type(): void
+    {
+        config()->set('services.ocr.driver', 'http');
+        config()->set('services.ocr.service_url', 'https://ocr.example.test/ocr');
+        config()->set('services.ocr.service_token', 'test-token');
+
+        Http::fake([
+            'ocr.example.test/ocr' => Http::response([
+                'ok' => true,
+                'text' => 'Republic of the Philippines PhilSys PhilID National Identification Card',
+            ]),
+        ]);
+
+        $image = UploadedFile::fake()->create('front.jpg', 10, 'image/jpeg');
+        $result = $this->service()->scanUploadedFile('National ID', $image);
+
+        $this->assertSame('scanned', $result['scan_status']);
+        $this->assertSame('match', $result['id_type_match_status']);
+        $this->assertSame('http', $result['scan_result']['engine']);
+
+        Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer test-token'));
+    }
+
+    public function test_http_ocr_health_check_reports_available_service(): void
+    {
+        config()->set('services.ocr.driver', 'http');
+        config()->set('services.ocr.service_url', 'https://ocr.example.test/ocr');
+
+        Http::fake([
+            'ocr.example.test/health' => Http::response([
+                'ok' => true,
+                'version' => 'tesseract v5.3.0',
+                'language' => 'eng',
+            ]),
+        ]);
+
+        $result = $this->service()->healthCheck();
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('http', $result['driver']);
+        $this->assertSame('tesseract v5.3.0', $result['version']);
     }
 }

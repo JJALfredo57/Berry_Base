@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 
@@ -16,59 +16,9 @@ class CustomerIdentityScanService
 
     public function healthCheck(): array
     {
-        $binary = (string) config('services.ocr.tesseract_binary', 'tesseract');
-        $language = (string) config('services.ocr.tesseract_lang', 'eng');
-        $timeout = max(3, min(15, (int) config('services.ocr.tesseract_timeout', 20)));
-
-        try {
-            $result = Process::timeout($timeout)->run([$binary, '--version']);
-        } catch (\Throwable $e) {
-            Log::warning('Customer ID OCR health check unavailable', ['message' => $e->getMessage()]);
-
-            return [
-                'ok' => false,
-                'binary' => $binary,
-                'language' => $language,
-                'timeout' => $timeout,
-                'version' => null,
-                'error' => 'ocr_unavailable',
-                'message' => 'OCR engine is unavailable. The server cannot run the configured Tesseract binary.',
-                'details' => Str::limit($e->getMessage(), 500, ''),
-            ];
-        }
-
-        $output = trim($result->output() ?: $result->errorOutput());
-        $firstLine = trim((string) strtok($output, "\r\n"));
-
-        if (!$result->successful()) {
-            Log::warning('Customer ID OCR health check failed', [
-                'exit_code' => $result->exitCode(),
-                'error' => Str::limit($result->errorOutput(), 500, ''),
-            ]);
-
-            return [
-                'ok' => false,
-                'binary' => $binary,
-                'language' => $language,
-                'timeout' => $timeout,
-                'version' => $firstLine ?: null,
-                'error' => 'ocr_failed',
-                'message' => 'OCR engine responded but failed the health check.',
-                'details' => Str::limit($result->errorOutput() ?: $result->output(), 500, ''),
-                'exit_code' => $result->exitCode(),
-            ];
-        }
-
-        return [
-            'ok' => true,
-            'binary' => $binary,
-            'language' => $language,
-            'timeout' => $timeout,
-            'version' => $firstLine ?: 'Tesseract available',
-            'error' => null,
-            'message' => 'OCR engine is available and can run on this server.',
-            'details' => Str::limit($output, 500, ''),
-        ];
+        return $this->ocrDriver() === 'http'
+            ? $this->healthCheckHttp()
+            : $this->healthCheckTesseract();
     }
 
     public function scan(string $selectedIdType, ?string $frontPath): array
@@ -82,7 +32,7 @@ class CustomerIdentityScanService
                 'id_type_match_status' => 'needs_review',
                 'id_type_match_warning' => 'OCR could not access the uploaded ID file. Please review it manually.',
                 'scan_result' => [
-                    'engine' => 'tesseract',
+                    'engine' => $this->ocrDriver(),
                     'error' => $file['error'] ?? 'file_not_found',
                 ],
             ]);
@@ -112,60 +62,7 @@ class CustomerIdentityScanService
             throw $e;
         }
     }
-    private function scanLocalFile(string $selectedIdType, string $path, bool $deleteAfter = false): array
-    {
-        $base = $this->baseResult($selectedIdType);
 
-        if (in_array(strtolower((string) pathinfo($path, PATHINFO_EXTENSION)), ['pdf'], true)) {
-            if ($deleteAfter && is_file($path)) {
-                @unlink($path);
-            }
-
-            return array_replace_recursive($base, [
-                'scan_status' => 'unsupported_file',
-                'id_type_match_status' => 'needs_review',
-                'id_type_match_warning' => 'OCR currently supports image uploads only. Please scan or upload a JPG, PNG, or WebP image.',
-                'scan_result' => [
-                    'engine' => 'tesseract',
-                    'error' => 'pdf_not_supported',
-                ],
-            ]);
-        }
-
-        $ocr = $this->runTesseract($path);
-        if ($deleteAfter && is_file($path)) {
-            @unlink($path);
-        }
-
-        if (!$ocr['ok']) {
-            return array_replace_recursive($base, [
-                'scan_status' => $ocr['status'],
-                'id_type_match_status' => 'needs_review',
-                'id_type_match_warning' => $ocr['message'],
-                'scan_result' => [
-                    'engine' => 'tesseract',
-                    'error' => $ocr['error'],
-                    'message' => $ocr['message'],
-                ],
-            ]);
-        }
-
-        $match = $this->evaluateText($selectedIdType, $ocr['text']);
-
-        return array_replace_recursive($base, [
-            'scan_status' => 'scanned',
-            'id_type_match_status' => $match['status'],
-            'id_type_scan_detected' => $match['detected_id_type'],
-            'id_type_match_warning' => $match['warning'],
-            'scan_result' => [
-                'engine' => 'tesseract',
-                'text_preview' => Str::limit(preg_replace('/\s+/', ' ', trim($ocr['text'])), 1200, ''),
-                'text_length' => mb_strlen($ocr['text']),
-                'scores' => $match['scores'],
-                'matched_keywords' => $match['matched_keywords'],
-            ],
-        ]);
-    }
     public function evaluateText(string $selectedIdType, string $text): array
     {
         $scores = [];
@@ -228,6 +125,61 @@ class CustomerIdentityScanService
         ];
     }
 
+    private function scanLocalFile(string $selectedIdType, string $path, bool $deleteAfter = false): array
+    {
+        $base = $this->baseResult($selectedIdType);
+
+        if (in_array(strtolower((string) pathinfo($path, PATHINFO_EXTENSION)), ['pdf'], true)) {
+            if ($deleteAfter && is_file($path)) {
+                @unlink($path);
+            }
+
+            return array_replace_recursive($base, [
+                'scan_status' => 'unsupported_file',
+                'id_type_match_status' => 'needs_review',
+                'id_type_match_warning' => 'OCR currently supports image uploads only. Please scan or upload a JPG, PNG, or WebP image.',
+                'scan_result' => [
+                    'engine' => $this->ocrDriver(),
+                    'error' => 'pdf_not_supported',
+                ],
+            ]);
+        }
+
+        $ocr = $this->runOcr($path);
+        if ($deleteAfter && is_file($path)) {
+            @unlink($path);
+        }
+
+        if (!$ocr['ok']) {
+            return array_replace_recursive($base, [
+                'scan_status' => $ocr['status'],
+                'id_type_match_status' => 'needs_review',
+                'id_type_match_warning' => $ocr['message'],
+                'scan_result' => [
+                    'engine' => $ocr['engine'] ?? $this->ocrDriver(),
+                    'error' => $ocr['error'],
+                    'message' => $ocr['message'],
+                ],
+            ]);
+        }
+
+        $match = $this->evaluateText($selectedIdType, $ocr['text']);
+
+        return array_replace_recursive($base, [
+            'scan_status' => 'scanned',
+            'id_type_match_status' => $match['status'],
+            'id_type_scan_detected' => $match['detected_id_type'],
+            'id_type_match_warning' => $match['warning'],
+            'scan_result' => [
+                'engine' => $ocr['engine'] ?? $this->ocrDriver(),
+                'text_preview' => Str::limit(preg_replace('/\s+/', ' ', trim($ocr['text'])), 1200, ''),
+                'text_length' => mb_strlen($ocr['text']),
+                'scores' => $match['scores'],
+                'matched_keywords' => $match['matched_keywords'],
+            ],
+        ]);
+    }
+
     private function baseResult(string $selectedIdType): array
     {
         return [
@@ -238,6 +190,199 @@ class CustomerIdentityScanService
             'id_type_match_warning' => null,
             'scan_result' => [],
         ];
+    }
+
+    private function runOcr(string $path): array
+    {
+        return $this->ocrDriver() === 'http'
+            ? $this->runHttpOcr($path)
+            : $this->runTesseract($path);
+    }
+
+    private function ocrDriver(): string
+    {
+        $driver = strtolower((string) config('services.ocr.driver', 'auto'));
+        if ($driver === 'auto') {
+            return filled(config('services.ocr.service_url')) ? 'http' : 'local';
+        }
+
+        return in_array($driver, ['http', 'local'], true) ? $driver : 'local';
+    }
+
+    private function healthCheckHttp(): array
+    {
+        $url = $this->ocrHealthUrl();
+        $timeout = max(3, min(30, (int) config('services.ocr.service_timeout', 20)));
+
+        if (!$url) {
+            return [
+                'ok' => false,
+                'driver' => 'http',
+                'binary' => 'external OCR service',
+                'language' => (string) config('services.ocr.tesseract_lang', 'eng'),
+                'timeout' => $timeout,
+                'version' => null,
+                'error' => 'missing_ocr_service_url',
+                'message' => 'OCR HTTP service URL is not configured.',
+                'details' => 'Set OCR_SERVICE_URL in Laravel Cloud.',
+            ];
+        }
+
+        try {
+            $response = $this->ocrHttpClient($timeout)->get($url);
+        } catch (\Throwable $e) {
+            Log::warning('Customer ID OCR HTTP health check unavailable', ['message' => $e->getMessage()]);
+
+            return [
+                'ok' => false,
+                'driver' => 'http',
+                'binary' => 'external OCR service',
+                'language' => (string) config('services.ocr.tesseract_lang', 'eng'),
+                'timeout' => $timeout,
+                'version' => null,
+                'error' => 'ocr_service_unavailable',
+                'message' => 'OCR service is unreachable from this server.',
+                'details' => Str::limit($e->getMessage(), 500, ''),
+            ];
+        }
+
+        $data = $response->json() ?: [];
+        $ok = $response->ok() && (bool) ($data['ok'] ?? false);
+
+        return [
+            'ok' => $ok,
+            'driver' => 'http',
+            'binary' => 'external OCR service',
+            'language' => (string) ($data['language'] ?? config('services.ocr.tesseract_lang', 'eng')),
+            'timeout' => $timeout,
+            'version' => (string) ($data['version'] ?? 'Not detected'),
+            'error' => $ok ? null : (string) ($data['error'] ?? 'ocr_service_failed'),
+            'message' => $ok ? 'OCR HTTP service is available.' : (string) ($data['message'] ?? 'OCR HTTP service failed the health check.'),
+            'details' => Str::limit((string) ($data['details'] ?? $response->body()), 500, ''),
+            'status_code' => $response->status(),
+        ];
+    }
+
+    private function healthCheckTesseract(): array
+    {
+        $binary = (string) config('services.ocr.tesseract_binary', 'tesseract');
+        $language = (string) config('services.ocr.tesseract_lang', 'eng');
+        $timeout = max(3, min(15, (int) config('services.ocr.tesseract_timeout', 20)));
+
+        try {
+            $result = Process::timeout($timeout)->run([$binary, '--version']);
+        } catch (\Throwable $e) {
+            Log::warning('Customer ID OCR health check unavailable', ['message' => $e->getMessage()]);
+
+            return [
+                'ok' => false,
+                'driver' => 'local',
+                'binary' => $binary,
+                'language' => $language,
+                'timeout' => $timeout,
+                'version' => null,
+                'error' => 'ocr_unavailable',
+                'message' => 'OCR engine is unavailable. The server cannot run the configured Tesseract binary.',
+                'details' => Str::limit($e->getMessage(), 500, ''),
+            ];
+        }
+
+        $output = trim($result->output() ?: $result->errorOutput());
+        $firstLine = trim((string) strtok($output, "\r\n"));
+
+        if (!$result->successful()) {
+            Log::warning('Customer ID OCR health check failed', [
+                'exit_code' => $result->exitCode(),
+                'error' => Str::limit($result->errorOutput(), 500, ''),
+            ]);
+
+            return [
+                'ok' => false,
+                'driver' => 'local',
+                'binary' => $binary,
+                'language' => $language,
+                'timeout' => $timeout,
+                'version' => $firstLine ?: null,
+                'error' => 'ocr_failed',
+                'message' => 'OCR engine responded but failed the health check.',
+                'details' => Str::limit($result->errorOutput() ?: $result->output(), 500, ''),
+                'exit_code' => $result->exitCode(),
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'driver' => 'local',
+            'binary' => $binary,
+            'language' => $language,
+            'timeout' => $timeout,
+            'version' => $firstLine ?: 'Tesseract available',
+            'error' => null,
+            'message' => 'OCR engine is available and can run on this server.',
+            'details' => Str::limit($output, 500, ''),
+        ];
+    }
+
+    private function runHttpOcr(string $path): array
+    {
+        $url = trim((string) config('services.ocr.service_url', ''));
+        $language = (string) config('services.ocr.tesseract_lang', 'eng');
+        $timeout = max(5, min(60, (int) config('services.ocr.service_timeout', 20)));
+
+        if ($url === '') {
+            return [
+                'ok' => false,
+                'engine' => 'http',
+                'status' => 'ocr_unavailable',
+                'error' => 'missing_ocr_service_url',
+                'message' => 'OCR HTTP service URL is not configured. Please review the uploaded ID manually.',
+            ];
+        }
+
+        try {
+            $response = $this->ocrHttpClient($timeout)
+                ->attach('file', fopen($path, 'r'), basename($path))
+                ->post($url, ['lang' => $language]);
+        } catch (\Throwable $e) {
+            Log::warning('Customer ID OCR HTTP service unavailable', ['message' => $e->getMessage()]);
+
+            return [
+                'ok' => false,
+                'engine' => 'http',
+                'status' => 'ocr_unavailable',
+                'error' => 'ocr_service_unavailable',
+                'message' => 'OCR service is not available. Please review the uploaded ID manually.',
+            ];
+        }
+
+        $data = $response->json() ?: [];
+        if (!$response->ok() || !($data['ok'] ?? false)) {
+            Log::warning('Customer ID OCR HTTP service failed', [
+                'status' => $response->status(),
+                'error' => Str::limit($response->body(), 500, ''),
+            ]);
+
+            return [
+                'ok' => false,
+                'engine' => 'http',
+                'status' => 'needs_review',
+                'error' => (string) ($data['error'] ?? 'ocr_service_failed'),
+                'message' => (string) ($data['message'] ?? 'OCR service could not read this ID clearly. Please review it manually.'),
+            ];
+        }
+
+        $text = trim((string) ($data['text'] ?? ''));
+        if ($text === '') {
+            return [
+                'ok' => false,
+                'engine' => 'http',
+                'status' => 'needs_review',
+                'error' => 'empty_text',
+                'message' => 'OCR service ran but did not find readable text. Please review the ID manually.',
+            ];
+        }
+
+        return ['ok' => true, 'engine' => 'http', 'text' => $text];
     }
 
     private function runTesseract(string $path): array
@@ -253,6 +398,7 @@ class CustomerIdentityScanService
 
             return [
                 'ok' => false,
+                'engine' => 'tesseract',
                 'status' => 'ocr_unavailable',
                 'error' => 'ocr_unavailable',
                 'message' => 'OCR engine is not available. Please review the uploaded ID manually.',
@@ -267,6 +413,7 @@ class CustomerIdentityScanService
 
             return [
                 'ok' => false,
+                'engine' => 'tesseract',
                 'status' => 'needs_review',
                 'error' => 'ocr_failed',
                 'message' => 'OCR could not read this ID clearly. Please review it manually.',
@@ -277,13 +424,37 @@ class CustomerIdentityScanService
         if ($text === '') {
             return [
                 'ok' => false,
+                'engine' => 'tesseract',
                 'status' => 'needs_review',
                 'error' => 'empty_text',
                 'message' => 'OCR ran but did not find readable text. Please review the ID manually.',
             ];
         }
 
-        return ['ok' => true, 'text' => $text];
+        return ['ok' => true, 'engine' => 'tesseract', 'text' => $text];
+    }
+
+    private function ocrHttpClient(int $timeout)
+    {
+        $token = trim((string) config('services.ocr.service_token', ''));
+        $client = Http::timeout($timeout)->acceptJson();
+
+        return $token === '' ? $client : $client->withToken($token);
+    }
+
+    private function ocrHealthUrl(): ?string
+    {
+        $explicit = trim((string) config('services.ocr.service_health_url', ''));
+        if ($explicit !== '') {
+            return $explicit;
+        }
+
+        $url = trim((string) config('services.ocr.service_url', ''));
+        if ($url === '') {
+            return null;
+        }
+
+        return rtrim(preg_replace('~/ocr/?$~', '', $url) ?: $url, '/') . '/health';
     }
 
     private function resolveFile(?string $urlOrPath): array
@@ -348,13 +519,6 @@ class CustomerIdentityScanService
             Log::warning('Customer ID OCR remote download failed', ['message' => $e->getMessage()]);
 
             return ['path' => null, 'error' => 'remote_download_exception'];
-        }
-    }
-
-    private function cleanupTempFile(array $file): void
-    {
-        if (!empty($file['temp']) && !empty($file['path']) && is_file($file['path'])) {
-            @unlink($file['path']);
         }
     }
 

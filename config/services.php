@@ -44,8 +44,13 @@ return [
     ],
 
     'ocr' => [
+        'driver' => env('OCR_DRIVER', 'auto'),
         'tesseract_binary' => env('OCR_TESSERACT_BINARY', 'tesseract'),
         'tesseract_lang' => env('OCR_TESSERACT_LANG', 'eng'),
         'tesseract_timeout' => (int) env('OCR_TESSERACT_TIMEOUT', 20),
+        'service_url' => env('OCR_SERVICE_URL'),
+        'service_health_url' => env('OCR_SERVICE_HEALTH_URL'),
+        'service_token' => env('OCR_SERVICE_TOKEN'),
+        'service_timeout' => (int) env('OCR_SERVICE_TIMEOUT', 30),
     ],
 ];
