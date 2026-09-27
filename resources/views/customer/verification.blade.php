@@ -125,7 +125,7 @@
           @if($status === 'rejected' && $latest?->rejection_reason)
             <div class="alert alert-danger border-0"><strong>Reason:</strong> {{ $latest->rejection_reason }}</div>
           @endif
-          <form action="{{ route('customer.verification.store') }}" method="POST" enctype="multipart/form-data" id="verificationWizardForm" data-scan-url="{{ route('customer.verification.scan_front') }}" data-prevent-double-submit>
+          <form action="{{ route('customer.verification.store') }}" method="POST" enctype="multipart/form-data" id="verificationWizardForm" data-scan-url="{{ route('customer.verification.scan_front') }}" data-face-url="{{ route('customer.verification.compare_face') }}" data-prevent-double-submit>
             @csrf
             <div class="mb-3">
               <label class="form-label fw-semibold small">ID Type</label>
@@ -294,12 +294,13 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!form) return;
 
   var scanUrl = form.dataset.scanUrl;
+  var faceUrl = form.dataset.faceUrl;
   var token = form.querySelector('input[name="_token"]')?.value || '';
   var idType = document.getElementById('verificationIdType');
   var submitButton = document.getElementById('verificationSubmitButton');
   var launchButton = document.getElementById('openVerificationScanner');
   var modalEl = document.getElementById('verificationScannerModal');
-  var state = { front:false, back:false, selfie:false, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', lastLive:{}, autoStarting:false, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false } };
+  var state = { front:false, back:false, selfie:false, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false } };
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
   function setStatus(inputId, message, type) {
@@ -334,7 +335,7 @@ document.addEventListener('DOMContentLoaded', function () {
       state.liveness.unsupported = true;
       document.getElementById('livenessResultInput').value = 'browser_not_supported';
       document.getElementById('livenessMethodInput').value = 'manual_admin_review';
-      setLiveness('Browser liveness is not supported.', 'Selfie can continue, but admin must manually review face match and liveness.');
+      setLiveness('Live movement challenge is not supported here.', 'Keep your face clear. The server will still compare your selfie with your ID.');
       return true;
     }
     var video = stage ? stage.querySelector('video') : null;
@@ -365,7 +366,7 @@ document.addEventListener('DOMContentLoaded', function () {
       state.liveness.unsupported = true;
       document.getElementById('livenessResultInput').value = 'detector_error';
       document.getElementById('livenessMethodInput').value = 'manual_admin_review';
-      setLiveness('Liveness needs manual review.', 'Your browser could not complete automatic liveness detection.');
+      setLiveness('Live movement challenge needs review.', 'Keep your face clear. The server will still compare your selfie with your ID.');
       return true;
     }
   }
@@ -473,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (metrics.brightness < 40) return { ok:false, score:45, message:'Too dark. Add light and try again.' };
     if (metrics.brightness > 238) return { ok:false, score:45, message:'Too bright or has glare. Tilt slightly and avoid reflections.' };
     if (metrics.contrast < 18) return { ok:false, score:58, message:'Details look washed out. Use a clearer photo.' };
-    if (metrics.sharpness < 9) return { ok:false, score:55, message:'Image looks blurry. Hold steady and retake.' };
+    if (metrics.sharpness < (kind === 'selfie' ? 7 : 9)) return { ok:false, score:55, message: kind === 'selfie' ? 'Hold steady and keep your full face inside the oval.' : 'Image looks blurry. Hold steady and retake.' };
     return { ok:true, score:92, message: kind === 'selfie' ? 'Face photo looks clear.' : 'ID image looks clear.' };
   }
   async function validateQuality(file, kind) {
@@ -489,6 +490,48 @@ document.addEventListener('DOMContentLoaded', function () {
       } catch (e) {}
     }
     return null;
+  }
+  function resetFaceCompare() {
+    state.faceCompare = { lastAt:0, inFlight:false, status:null, score:null, message:null };
+  }
+  function faceCompareMessage(result) {
+    if (!result || !result.status) return 'Comparing your selfie with the ID...';
+    var scoreText = typeof result.score === 'number' ? ' (' + Math.round(result.score * 100) + '%)' : '';
+    if (result.status === 'match') return 'Face matched with ID' + scoreText + '. Hold steady.';
+    if (result.status === 'mismatch') return result.message || 'Face does not match the ID. Keep scanning with the correct person.';
+    return result.message || 'Face comparison needs review, but scanning can continue.';
+  }
+  async function compareFaceFrame(selfieFile, force) {
+    var frontInput = inputForStep('front');
+    var frontFile = frontInput && frontInput.files && frontInput.files[0] ? frontInput.files[0] : null;
+    if (!faceUrl || !frontFile || !selfieFile) {
+      return { status:'needs_review', score:null, message:'Front ID is not ready for live face comparison yet.' };
+    }
+    var now = Date.now();
+    if (!force && state.faceCompare.inFlight) return state.faceCompare;
+    if (!force && state.faceCompare.status && now - state.faceCompare.lastAt < 1800) return state.faceCompare;
+
+    state.faceCompare.inFlight = true;
+    var body = new FormData();
+    body.append('_token', token);
+    body.append('id_front', frontFile);
+    body.append('selfie', selfieFile, 'live-selfie.jpg');
+    try {
+      var response = await fetch(faceUrl, { method:'POST', body:body, headers:{ 'Accept':'application/json' } });
+      var data = response.ok ? await response.json() : { status:'needs_review', message:'Live face comparison is not available. Final submit will re-check.' };
+      state.faceCompare = {
+        lastAt:Date.now(),
+        inFlight:false,
+        status:data.status || 'needs_review',
+        score:typeof data.score === 'number' ? data.score : null,
+        message:data.message || null,
+        can_continue:data.can_continue !== false
+      };
+      return state.faceCompare;
+    } catch (e) {
+      state.faceCompare = { lastAt:Date.now(), inFlight:false, status:'needs_review', score:null, message:'Live face comparison is not available. Final submit will re-check.', can_continue:true };
+      return state.faceCompare;
+    }
   }
   async function captureFromStage(input, stage, auto) {
     var video = stage ? stage.querySelector('video') : null;
@@ -510,9 +553,19 @@ document.addEventListener('DOMContentLoaded', function () {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob(function (blob) {
+    canvas.toBlob(async function (blob) {
       if (!blob) { state.processing = false; return; }
-      setLive(stage, auto ? 'Clear image captured automatically.' : 'Captured. Checking image...', 96);
+      if (input.id === 'selfieInput') {
+        var faceResult = await compareFaceFrame(blob, true);
+        if (faceResult.status === 'mismatch') {
+          state.processing = false;
+          state.stableFrames = 0;
+          setStatus(input.id, faceResult.message || 'Selfie does not match the ID face. Keep scanning.', 'text-danger');
+          setLive(stage, faceCompareMessage(faceResult), 38, true);
+          return;
+        }
+      }
+      setLive(stage, auto ? 'Clear image captured automatically.' : 'Captured. Checking image...', 96, true);
       setInputFile(input, blob, input.id + '.jpg');
     }, 'image/jpeg', 0.94);
   }
@@ -564,14 +617,22 @@ document.addEventListener('DOMContentLoaded', function () {
         setLive(document.querySelector('[data-step="back"]'), 'Back ID accepted.', 100);
         showStep('selfie');
       } else {
+        var uploadedFaceResult = await compareFaceFrame(file, true);
+        if (uploadedFaceResult.status === 'mismatch') {
+          input.value = '';
+          state.processing = false;
+          setStatus(input.id, uploadedFaceResult.message || 'Selfie does not match the ID face. Please retake it.', 'text-danger');
+          setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), 38, true);
+          return;
+        }
         if (document.getElementById('livenessResultInput').value === 'not_started') {
           document.getElementById('livenessResultInput').value = 'uploaded_manual_review';
           document.getElementById('livenessMethodInput').value = 'upload_manual_review';
           document.getElementById('livenessChallengeInput').value = 'upload_fallback';
         }
         state.selfie = true;
-        setStatus(input.id, 'Face image captured. You may submit for review.', 'text-success');
-        setLive(document.querySelector('[data-step="selfie"]'), 'Face image accepted. Ready to submit.', 100);
+        setStatus(input.id, uploadedFaceResult.status === 'match' ? 'Face matched. You may submit for review.' : 'Face captured. Server will review the match.', 'text-success');
+        setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), uploadedFaceResult.status === 'match' ? 100 : 82, true);
         stopCamera();
       }
       state.processing = false;
@@ -604,8 +665,17 @@ document.addEventListener('DOMContentLoaded', function () {
         metrics.height = video.videoHeight;
         var quality = scoreMetrics(metrics, step);
         var livenessOk = step === 'selfie' && quality.ok ? await checkLiveness(stage) : true;
-        setLive(stage, quality.ok ? (livenessOk ? 'Hold steady. Capturing automatically...' : 'Complete the liveness challenge.') : quality.message, livenessOk ? quality.score : 65);
-        state.stableFrames = quality.ok && livenessOk ? state.stableFrames + 1 : 0;
+        var faceOk = true;
+        var liveMessage = quality.ok ? (livenessOk ? 'Hold steady. Capturing automatically...' : 'Complete the liveness challenge.') : quality.message;
+        var liveScore = livenessOk ? quality.score : 65;
+        if (step === 'selfie' && quality.ok && livenessOk) {
+          var faceResult = await compareFaceFrame(blob, false);
+          faceOk = faceResult.status !== 'mismatch' && !!faceResult.status;
+          liveMessage = faceCompareMessage(faceResult);
+          liveScore = faceResult.status === 'match' ? 96 : (faceResult.status === 'mismatch' ? 38 : 76);
+        }
+        setLive(stage, liveMessage, liveScore);
+        state.stableFrames = quality.ok && livenessOk && faceOk ? state.stableFrames + 1 : 0;
         if (state.stableFrames >= 5 && !state.processing) {
           captureFromStage(input, stage, true);
           return;
@@ -677,7 +747,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   if (idType) {
     idType.addEventListener('change', function () {
-      state.front = false; state.back = false; state.selfie = false; resetLiveness();
+      state.front = false; state.back = false; state.selfie = false; resetLiveness(); resetFaceCompare();
       ['idFrontInput','idBackInput','selfieInput'].forEach(function (id) {
         var input = document.getElementById(id);
         if (input) input.value = '';
@@ -686,7 +756,7 @@ document.addEventListener('DOMContentLoaded', function () {
       setStatus('idBackInput', 'Waiting for back ID scan.');
       setStatus('selfieInput', 'Waiting for face verification.');
       document.getElementById('idUploadSummary').innerHTML = '';
-      resetLiveness(); showStep('front'); updateSubmit(); stopCamera();
+      resetLiveness(); resetFaceCompare(); showStep('front'); updateSubmit(); stopCamera();
     });
   }
   if (modalEl) {

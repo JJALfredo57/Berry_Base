@@ -57,6 +57,27 @@ class VerificationController extends Controller
         ]);
     }
 
+    public function compareFace(Request $request, CustomerFaceMatchService $faceMatcher)
+    {
+        $request->validate([
+            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'selfie' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+        ]);
+
+        $faceMatch = $faceMatcher->compareUploadedFiles($request->file('id_front'), $request->file('selfie'));
+        $status = $faceMatch['status'] ?? 'needs_review';
+
+        return response()->json([
+            'ok' => $status === 'match',
+            'can_continue' => $status !== 'mismatch',
+            'status' => $status,
+            'score' => $faceMatch['score'] ?? null,
+            'threshold' => $faceMatch['threshold'] ?? null,
+            'engine' => $faceMatch['engine'] ?? 'external_face_compare',
+            'message' => $faceMatch['message'] ?? ($status === 'mismatch' ? 'Selfie does not match the ID face.' : 'Face comparison needs review.'),
+        ]);
+    }
+
     public function store(Request $request, IdentityVerificationSettingsService $identitySettings, CustomerIdentityScanService $identityScanner, CustomerFaceMatchService $faceMatcher)
     {
         $idTypes = $identitySettings->typeNames();

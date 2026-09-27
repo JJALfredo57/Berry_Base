@@ -408,6 +408,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::get('/rewards',         [\App\Http\Controllers\Customer\RewardController::class, 'index'])->name('rewards');
     Route::get('/verification',    [\App\Http\Controllers\Customer\VerificationController::class, 'show'])->name('verification');
     Route::post('/verification/scan-front', [\App\Http\Controllers\Customer\VerificationController::class, 'scanFront'])->name('verification.scan_front');
+    Route::post('/verification/compare-face', [\App\Http\Controllers\Customer\VerificationController::class, 'compareFace'])->name('verification.compare_face');
     Route::post('/verification',   [\App\Http\Controllers\Customer\VerificationController::class, 'store'])->name('verification.store');
     Route::get('/profile/password',               [CustomerProfile::class, 'changePasswordShow'])->name('profile.password.show');
     Route::post('/profile/password/send-otp',     [CustomerProfile::class, 'changePasswordSendOtp'])->name('profile.password.send_otp');
