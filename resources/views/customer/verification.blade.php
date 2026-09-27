@@ -468,13 +468,13 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
   function scoreMetrics(metrics, kind) {
-    var minWidth = kind === 'selfie' ? 480 : 650;
-    var minHeight = kind === 'selfie' ? 480 : 400;
-    if (metrics.width < minWidth || metrics.height < minHeight) return { ok:false, score:25, message:'Image is too small or cropped. Use the original photo or move closer.' };
-    if (metrics.brightness < 40) return { ok:false, score:45, message:'Too dark. Add light and try again.' };
-    if (metrics.brightness > 238) return { ok:false, score:45, message:'Too bright or has glare. Tilt slightly and avoid reflections.' };
-    if (metrics.contrast < 18) return { ok:false, score:58, message:'Details look washed out. Use a clearer photo.' };
-    if (metrics.sharpness < (kind === 'selfie' ? 7 : 9)) return { ok:false, score:55, message: kind === 'selfie' ? 'Hold steady and keep your full face inside the oval.' : 'Image looks blurry. Hold steady and retake.' };
+    var minWidth = kind === 'selfie' ? 360 : 520;
+    var minHeight = kind === 'selfie' ? 360 : 320;
+    if (metrics.width < minWidth || metrics.height < minHeight) return { ok:false, score:35, message: kind === 'selfie' ? 'Move a little closer and keep your face inside the oval.' : 'Move closer so the ID fills more of the frame.' };
+    if (metrics.brightness < 28) return { ok:false, score:48, message:'Too dark. Add light and try again.' };
+    if (metrics.brightness > 248) return { ok:false, score:48, message:'Too bright or has glare. Tilt slightly and avoid reflections.' };
+    if (metrics.contrast < 10) return { ok:false, score:64, message:'Details look low contrast. Add light or move closer.' };
+    if (metrics.sharpness < 5) return { ok:false, score:62, message: kind === 'selfie' ? 'Hold steady and keep your full face inside the oval.' : 'Hold steady and keep the ID inside the frame.' };
     return { ok:true, score:92, message: kind === 'selfie' ? 'Face photo looks clear.' : 'ID image looks clear.' };
   }
   async function validateQuality(file, kind) {
@@ -608,8 +608,9 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         state.front = true;
-        setStatus(input.id, result.message || 'Front ID matched.', 'text-success');
-        setLive(document.querySelector('[data-step="front"]'), 'Front ID verified. Flip to the back side.', 100);
+        var frontMatched = result.match_status === 'match';
+        setStatus(input.id, result.message || (frontMatched ? 'Front ID matched.' : 'Front ID accepted for admin review.'), frontMatched ? 'text-success' : 'text-warning');
+        setLive(document.querySelector('[data-step="front"]'), frontMatched ? 'Front ID verified. Flip to the back side.' : 'ID photo accepted. Admin will review the ID type.', frontMatched ? 100 : 82, true);
         showStep('back');
       } else if (step === 'back') {
         state.back = true;

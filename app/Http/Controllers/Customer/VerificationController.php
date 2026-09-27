@@ -37,7 +37,7 @@ class VerificationController extends Controller
 
         $request->validate([
             'id_type' => ['required', 'string', 'max:60', Rule::in($idTypes)],
-            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=650,min_height=400|max:5120',
+            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=480,min_height=300|max:5120',
         ]);
 
         $selectedIdType = trim($request->input('id_type'));
@@ -45,15 +45,17 @@ class VerificationController extends Controller
         $status = $scan['id_type_match_status'] ?? 'needs_review';
 
         return response()->json([
-            'ok' => $status === 'match',
-            'can_continue' => $status === 'match',
+            'ok' => $status !== 'mismatch',
+            'can_continue' => $status !== 'mismatch',
             'match_status' => $status,
             'scan_status' => $scan['scan_status'] ?? 'needs_review',
             'expected_id_type' => $scan['id_type_scan_expected'] ?? $selectedIdType,
             'detected_id_type' => $scan['id_type_scan_detected'] ?? null,
             'message' => $status === 'match'
                 ? 'ID type matched. You may scan the back of the ID.'
-                : ($scan['id_type_match_warning'] ?? 'ID scan could not verify the selected ID type. Please retake the front ID photo.'),
+                : ($status === 'mismatch'
+                    ? ($scan['id_type_match_warning'] ?? 'Selected ID type does not match the uploaded ID.')
+                    : 'ID photo accepted, but OCR could not fully read the ID type. Admin will review it.'),
         ]);
     }
 
@@ -84,9 +86,9 @@ class VerificationController extends Controller
 
         $request->validate([
             'id_type' => ['required', 'string', 'max:60', Rule::in($idTypes)],
-            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=650,min_height=400|max:5120',
-            'id_back' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=650,min_height=400|max:5120',
-            'selfie' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=480,min_height=480|max:5120',
+            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=480,min_height=300|max:5120',
+            'id_back' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=480,min_height=300|max:5120',
+            'selfie' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=360,min_height=360|max:5120',
             'customer_note' => 'nullable|string|max:500',
             'liveness_challenge' => 'nullable|string|max:80',
             'liveness_result' => 'nullable|string|max:40',
@@ -95,10 +97,10 @@ class VerificationController extends Controller
 
         $selectedIdType = trim($request->input('id_type'));
         $scan = $identityScanner->scanUploadedFile($selectedIdType, $request->file('id_front'));
-        if (($scan['id_type_match_status'] ?? 'needs_review') !== 'match') {
+        if (($scan['id_type_match_status'] ?? 'needs_review') === 'mismatch') {
             return back()
                 ->withInput()
-                ->with('error', $scan['id_type_match_warning'] ?? 'The front ID scan did not match the selected ID type. Please retake the front ID photo.');
+                ->with('error', $scan['id_type_match_warning'] ?? 'The front ID scan detected a different ID type. Please retake the correct ID photo.');
         }
 
         $faceMatch = $faceMatcher->compareUploadedFiles($request->file('id_front'), $request->file('selfie'));
@@ -150,8 +152,8 @@ class VerificationController extends Controller
         if (Schema::hasColumn('customer_verifications', 'review_flags')) {
             $verificationData['review_flags'] = json_encode([
                 'ocr_pending' => false,
-                'ocr_needs_review' => false,
-                'id_type_mismatch' => false,
+                'ocr_needs_review' => ($scan['id_type_match_status'] ?? 'needs_review') !== 'match',
+                'id_type_mismatch' => ($scan['id_type_match_status'] ?? null) === 'mismatch',
                 'selfie_required' => true,
                 'guided_capture' => true,
                 'face_match_required' => true,
