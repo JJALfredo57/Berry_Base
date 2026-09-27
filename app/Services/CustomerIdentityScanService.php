@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 
@@ -30,13 +31,43 @@ class CustomerIdentityScanService
             ]);
         }
 
-        if (in_array(strtolower((string) pathinfo($file['path'], PATHINFO_EXTENSION)), ['pdf'], true)) {
-            $this->cleanupTempFile($file);
+        return $this->scanLocalFile($selectedIdType, $file['path'], !empty($file['temp']));
+    }
+
+    public function scanUploadedFile(string $selectedIdType, UploadedFile $file): array
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
+        if (!in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'pdf'], true)) {
+            $extension = 'jpg';
+        }
+
+        $tmp = tempnam(storage_path('app'), 'ocr_upload_');
+        $target = $tmp . '.' . $extension;
+        rename($tmp, $target);
+        copy($file->getRealPath(), $target);
+
+        try {
+            return $this->scanLocalFile($selectedIdType, $target, true);
+        } catch (\Throwable $e) {
+            if (is_file($target)) {
+                @unlink($target);
+            }
+            throw $e;
+        }
+    }
+    private function scanLocalFile(string $selectedIdType, string $path, bool $deleteAfter = false): array
+    {
+        $base = $this->baseResult($selectedIdType);
+
+        if (in_array(strtolower((string) pathinfo($path, PATHINFO_EXTENSION)), ['pdf'], true)) {
+            if ($deleteAfter && is_file($path)) {
+                @unlink($path);
+            }
 
             return array_replace_recursive($base, [
                 'scan_status' => 'unsupported_file',
                 'id_type_match_status' => 'needs_review',
-                'id_type_match_warning' => 'OCR currently supports image uploads only. Please review this PDF manually.',
+                'id_type_match_warning' => 'OCR currently supports image uploads only. Please scan or upload a JPG, PNG, or WebP image.',
                 'scan_result' => [
                     'engine' => 'tesseract',
                     'error' => 'pdf_not_supported',
@@ -44,8 +75,10 @@ class CustomerIdentityScanService
             ]);
         }
 
-        $ocr = $this->runTesseract($file['path']);
-        $this->cleanupTempFile($file);
+        $ocr = $this->runTesseract($path);
+        if ($deleteAfter && is_file($path)) {
+            @unlink($path);
+        }
 
         if (!$ocr['ok']) {
             return array_replace_recursive($base, [
@@ -76,7 +109,6 @@ class CustomerIdentityScanService
             ],
         ]);
     }
-
     public function evaluateText(string $selectedIdType, string $text): array
     {
         $scores = [];
