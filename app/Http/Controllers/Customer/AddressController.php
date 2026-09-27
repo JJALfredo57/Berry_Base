@@ -144,8 +144,10 @@ class AddressController extends Controller
         $lat = $request->input('latitude') !== '' ? (float)$request->input('latitude') : 0;
         $lng = $request->input('longitude') !== '' ? (float)$request->input('longitude') : 0;
 
-        if ($address === '' || $lat == 0 || $lng == 0) {
-            return ['ok' => false, 'message' => 'Please pin your exact location and enter the complete address.'];
+        $validation = app(\App\Services\DeliveryLocationValidationService::class)
+            ->validate($address, $lat ?: null, $lng ?: null, null, false);
+        if (!$validation['ok']) {
+            return ['ok' => false, 'message' => $validation['message']];
         }
 
         return ['ok' => true, 'label' => substr($label, 0, 60), 'address' => $address, 'lat' => $lat, 'lng' => $lng];

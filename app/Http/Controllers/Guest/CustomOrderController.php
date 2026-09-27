@@ -374,6 +374,14 @@ class CustomOrderController extends Controller
             }
         }
 
+        if ($fulfillment === 'Delivery') {
+            $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
+                ->validate($address, $lat, $lng, $zone, true);
+            if (!$locationValidation['ok']) {
+                return back()->with('error', $locationValidation['message'])->withInput();
+            }
+        }
+
         $unitPrice = $basePrice + $sizeSurcharge + $layerSurcharge + $complexitySurcharge;
         $total     = ($unitPrice * $qty) + $addonTotal + ($fulfillment === 'Delivery' ? $deliveryFee + $serviceCharge : 0);
 
@@ -424,7 +432,7 @@ class CustomOrderController extends Controller
             'fulfillment_type'=>$fulfillment,'delivery_zone'=>$zone??'',
             'delivery_fee'=>$deliveryFee,'service_charge'=>$serviceCharge,
             'selected_size'=>$sizeLabel?:null,'selected_size_price'=>$unitPrice,
-            'delivery_address'=>$address??'','latitude'=>$lat??0,
+            'delivery_address'=>$address??'','latitude'=>$lat??0,'longitude'=>$lng??0,
             'schedule_date'=>$sdate,'schedule_time'=>$timeSlot,
             'payment_method'=>$payment,'payment_status'=>'Unpaid','created_at'=>now(),
         ];
@@ -620,6 +628,14 @@ class CustomOrderController extends Controller
             foreach ($addons as $addon) {
                 $addonTotal += (float) $addon->price;
                 $validAddons[] = ['id' => $addon->id, 'name' => $addon->name, 'price' => (float) $addon->price];
+            }
+        }
+
+        if ($fulfillment === 'Delivery') {
+            $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
+                ->validate($address, $lat, $lng, $zone, true);
+            if (!$locationValidation['ok']) {
+                return ['ok' => false, 'message' => $locationValidation['message']];
             }
         }
 

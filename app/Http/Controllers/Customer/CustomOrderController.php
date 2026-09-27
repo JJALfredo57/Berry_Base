@@ -221,6 +221,7 @@ class CustomOrderController extends Controller
         $addonInstructions = trim($request->input('addon_instructions', ''));
 
         // Save reference images
+
         $refImages = [];
         if ($request->hasFile('reference_images')) {
             foreach ($request->file('reference_images') as $file) {
@@ -330,6 +331,14 @@ class CustomOrderController extends Controller
             }
         }
 
+        if ($fulfillment === 'Delivery') {
+            $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
+                ->validate($address, $lat, $lng, $zone, true);
+            if (!$locationValidation['ok']) {
+                return back()->with('error', $locationValidation['message'])->withInput();
+            }
+        }
+
         if ($fulfillment === 'Delivery' && !$surprise['enabled'] && $request->has('save_default_address')) {
             DB::table('user_addresses')->where('user_id', $uid)->update(['is_default' => 0]);
             DB::table('user_addresses')->insert([
@@ -416,6 +425,8 @@ class CustomOrderController extends Controller
             'selected_size'    => $sizeLabel ?: null,
             'selected_size_price' => $unitPrice,
             'delivery_address' => $address ?? '',
+            'latitude'         => $lat,
+            'longitude'        => $lng,
             'schedule_date'    => $sdate,
             'schedule_time'    => $timeSlot,
             'payment_method'   => $payment,
@@ -612,6 +623,14 @@ class CustomOrderController extends Controller
                 $nearestZone = $this->nearestCoverageZone($lat, $lng, $shopId);
                 if (!$nearestZone) return ['ok' => false, 'message' => 'Sorry, your delivery address is outside this shop delivery coverage area.'];
                 $zone = $nearestZone->barangay ?? $zone;
+            }
+        }
+
+        if ($fulfillment === 'Delivery') {
+            $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
+                ->validate($address, $lat, $lng, $zone, true);
+            if (!$locationValidation['ok']) {
+                return ['ok' => false, 'message' => $locationValidation['message']];
             }
         }
 
