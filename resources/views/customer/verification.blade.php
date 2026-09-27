@@ -48,6 +48,7 @@
 .verify-scan-stage{border:1px solid rgba(148,163,184,.22);border-radius:8px;padding:1rem;background:rgba(15,23,42,.7)}
 .verify-camera-frame{position:relative;aspect-ratio:16/10;background:#020617;border-radius:8px;overflow:hidden;display:grid;place-items:center;height:clamp(320px,55vh,560px);min-height:0}
 .verify-camera-frame video{width:100%;height:100%;object-fit:cover;background:#020617}
+.verify-camera-frame.is-selfie video{transform:scaleX(-1)}
 .verify-camera-frame:after{content:"";position:absolute;left:8%;right:8%;top:50%;height:2px;background:linear-gradient(90deg,transparent,rgba(56,189,248,.85),transparent);box-shadow:0 0 20px rgba(56,189,248,.6);animation:verifyScanLine 1.9s ease-in-out infinite;opacity:.8}
 .verify-frame-guide{position:absolute;inset:10% 7%;border:2px solid rgba(255,255,255,.92);border-radius:8px;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 26px rgba(56,189,248,.22)}
 .verify-face-guide{position:absolute;width:min(44%,250px);aspect-ratio:3/4;border:2px solid rgba(255,255,255,.92);border-radius:50%;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 26px rgba(56,189,248,.22)}
@@ -56,6 +57,18 @@
 .verify-live-meter span{display:block;height:100%;width:0;background:#ef4444;transition:width .22s ease,background .22s ease}
 .verify-live-meter.is-good span{background:#22c55e}.verify-live-meter.is-warn span{background:#f59e0b}
 .verify-liveness-card{border:1px solid rgba(56,189,248,.35);border-radius:8px;background:rgba(14,165,233,.1);padding:.75rem;color:#e0f2fe}
+.verify-scanner-modal.is-selfie-step .modal-content{background:#f8fbff;color:#142033}
+.verify-scanner-modal.is-selfie-step .modal-header,.verify-scanner-modal.is-selfie-step .modal-footer{background:#fff;border-color:#dbe7f3;color:#142033}
+.verify-scanner-modal.is-selfie-step .btn-close{filter:none}
+.verify-scanner-modal.is-selfie-step .verify-scan-stage[data-step="selfie"]{background:#fff;border-color:#cbd5e1;box-shadow:0 0 0 999px rgba(255,255,255,.55)}
+.verify-scanner-modal.is-selfie-step .verify-liveness-card{background:#eef8ff;border-color:#7dd3fc;color:#0f2a3f}
+.verify-scanner-modal.is-selfie-step .verify-upload-hint{color:#475569}
+.verify-scanner-modal.is-selfie-step .verify-wizard-step{background:#fff;color:#475569;border-color:#dbe7f3}
+.verify-scanner-modal.is-selfie-step .verify-wizard-step.active{background:#fff1f7;color:var(--primary);border-color:rgba(var(--primary-rgb,233,30,99),.55)}
+.verify-scanner-modal.is-selfie-step .verify-screen-light-note{display:inline-flex}
+.verify-scanner-modal.is-selfie-step .btn-outline-light{color:#0f172a;border-color:#94a3b8}
+.verify-scanner-modal.is-selfie-step .btn-outline-light:hover{background:#e2e8f0;color:#0f172a}
+.verify-screen-light-note{display:none;align-items:center;gap:.35rem;font-size:.74rem;color:#0f766e;background:#ccfbf1;border:1px solid #5eead4;border-radius:999px;padding:.25rem .55rem}
 .verify-scanner-modal .verify-upload-status.text-danger{color:#fca5a5!important}.verify-scanner-modal .verify-upload-status.text-success{color:#86efac!important}.verify-scanner-modal .verify-upload-status.text-warning{color:#fde68a!important}
 @keyframes verifyScanLine{0%,100%{transform:translateY(-22vh);opacity:.25}50%{transform:translateY(22vh);opacity:.9}}
 .verify-upload-status.text-danger{color:#dc2626!important}.verify-upload-status.text-success{color:#15803d!important}
@@ -204,7 +217,7 @@
                     <div class="verify-scan-stage d-none" data-step="selfie">
                       <div class="d-flex align-items-start gap-2 mb-2">
                         <div class="verify-upload-icon"><i class="bi bi-person-bounding-box"></i></div>
-                        <div><div class="fw-semibold">Face verification</div><div class="verify-upload-hint">Complete the live camera challenge before the selfie is accepted.</div></div>
+                        <div><div class="fw-semibold">Face verification</div><div class="verify-upload-hint">Keep your face centered. The screen brightens to help the front camera.</div><div class="verify-screen-light-note mt-1"><i class="bi bi-brightness-high"></i>Screen light active</div></div>
                       </div>
                       <div class="verify-liveness-card mb-2"><div class="small text-uppercase fw-semibold" style="letter-spacing:.04em">Liveness Challenge</div><div class="fw-semibold" id="livenessPrompt">Open the front camera to receive a live challenge.</div><div class="small" id="livenessProgress">This helps prevent uploaded fake selfies.</div></div>
                       <div class="verify-camera-frame is-selfie"><video playsinline muted></video><canvas hidden></canvas><div class="verify-face-guide"></div><div class="verify-live-panel"><span data-live-hint>Open front camera and center your face.</span><div class="verify-live-meter"><span></span></div></div></div>
@@ -319,9 +332,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   function resetLiveness() {
     var challenges = [
-      { key:'move_closer', prompt:'Slowly move your face closer to the camera.', pass:function (base, box) { return base && box && box.width >= base.width * 1.18; } },
-      { key:'move_left', prompt:'Slowly move your face to the left side of the frame.', pass:function (base, box) { return base && box && box.x <= base.x - (base.width * 0.12); } },
-      { key:'move_right', prompt:'Slowly move your face to the right side of the frame.', pass:function (base, box) { return base && box && box.x >= base.x + (base.width * 0.12); } }
+      { key:'move_closer', prompt:'Slowly move your face closer to the camera.', pass:function (base, box) { return base && box && box.width >= base.width * 1.14; } }
     ];
     state.liveness = { challenge: challenges[Math.floor(Math.random() * challenges.length)], baseline:null, passed:false, unsupported:false };
     document.getElementById('livenessChallengeInput').value = state.liveness.challenge.key;
@@ -397,6 +408,7 @@ document.addEventListener('DOMContentLoaded', function () {
       el.classList.toggle('active', el.dataset.stepLabel === step);
       el.classList.toggle('done', !!state[el.dataset.stepLabel]);
     });
+    if (modalEl) modalEl.classList.toggle('is-selfie-step', step === 'selfie');
     stopCamera();
     if (modalEl && modalEl.classList.contains('show')) {
       setTimeout(function () { startCameraForStep(step); }, 220);
@@ -413,6 +425,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (state.stream) state.stream.getTracks().forEach(function (track) { track.stop(); });
     state.stream = null;
     document.querySelectorAll('video').forEach(function (video) { video.srcObject = null; });
+    if (modalEl && state.currentStep !== 'selfie') modalEl.classList.remove('is-selfie-step');
   }
   function inputStep(input) {
     if (input.id === 'idFrontInput') return 'front';
@@ -761,7 +774,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
   if (modalEl) {
-    modalEl.addEventListener('hidden.bs.modal', stopCamera);
+    modalEl.addEventListener('hidden.bs.modal', function () {
+      stopCamera();
+      modalEl.classList.remove('is-selfie-step');
+    });
     modalEl.addEventListener('shown.bs.modal', function () {
       var input = inputForStep(state.currentStep);
       var stage = activeStage();
