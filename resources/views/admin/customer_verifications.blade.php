@@ -14,13 +14,14 @@
   <div class="card">
     <div class="table-responsive">
       <table class="table align-middle mb-0">
-        <thead><tr><th>Customer</th><th>ID Type</th><th>Status</th><th>OCR / Review Check</th><th>Files</th><th>Submitted</th><th>Action</th></tr></thead>
+        <thead><tr><th>Customer</th><th>ID Type</th><th>Status</th><th>OCR / Face Review</th><th>Files</th><th>Submitted</th><th>Action</th></tr></thead>
         <tbody>
           @forelse($rows as $row)
             @php
               $matchStatus = $row->id_type_match_status ?? 'not_scanned';
               $scanStatus = $row->scan_status ?? 'manual_review';
               $scanResult = json_decode($row->scan_result ?? '', true) ?: [];
+              $reviewFlags = json_decode($row->review_flags ?? '', true) ?: [];
               $ocrPreview = $scanResult['text_preview'] ?? null;
               $expectedType = $row->id_type_scan_expected ?: $row->id_type;
               $detectedType = $row->id_type_scan_detected ?: null;
@@ -28,8 +29,13 @@
               $textLength = $scanResult['text_length'] ?? null;
               $scores = is_array($scanResult['scores'] ?? null) ? $scanResult['scores'] : [];
               $matchedKeywords = is_array($scanResult['matched_keywords'] ?? null) ? $scanResult['matched_keywords'] : [];
+              $livenessResult = $reviewFlags['liveness_result'] ?? 'not_recorded';
+              $livenessMethod = $reviewFlags['liveness_method'] ?? 'not_available';
+              $livenessChallenge = $reviewFlags['liveness_challenge'] ?? null;
+              $faceMatchStatus = $reviewFlags['face_match_status'] ?? 'manual_review';
               $isMismatch = $matchStatus === 'mismatch';
               $isMatched = $matchStatus === 'match';
+              $livenessPassed = $livenessResult === 'passed';
             @endphp
             <tr>
               <td><div class="fw-semibold">{{ $row->fullname }}</div><div class="text-muted small">{{ $row->email }} &bull; {{ $row->phone }}</div></td>
@@ -39,7 +45,7 @@
                 <div class="small {{ $detectedType ? '' : 'text-muted' }}">Detected: {{ $detectedType ?: 'Not detected' }}</div>
               </td>
               <td><span class="badge {{ $row->status === 'approved' ? 'text-bg-success' : ($row->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning') }}">{{ ucfirst($row->status) }}</span></td>
-              <td class="small" style="min-width:320px;max-width:440px">
+              <td class="small" style="min-width:340px;max-width:460px">
                 @if($isMismatch)
                   <span class="badge text-bg-danger mb-2"><i class="bi bi-exclamation-triangle me-1"></i>ID type mismatch</span>
                   <div class="text-danger fw-semibold">{{ $row->id_type_match_warning ?? 'Selected ID type does not match the uploaded ID.' }}</div>
@@ -55,13 +61,19 @@
                   <div class="d-flex flex-wrap gap-2 mb-1">
                     <span class="badge text-bg-light">Engine: {{ strtoupper($engine) }}</span>
                     <span class="badge {{ $scanStatus === 'scanned' ? 'text-bg-primary' : 'text-bg-light' }}">Scan: {{ ucfirst(str_replace('_', ' ', $scanStatus)) }}</span>
-                    <span class="badge {{ $isMatched ? 'text-bg-success' : ($isMismatch ? 'text-bg-danger' : 'text-bg-warning') }}">Match: {{ ucfirst(str_replace('_', ' ', $matchStatus)) }}</span>
+                    <span class="badge {{ $isMatched ? 'text-bg-success' : ($isMismatch ? 'text-bg-danger' : 'text-bg-warning') }}">ID match: {{ ucfirst(str_replace('_', ' ', $matchStatus)) }}</span>
+                    <span class="badge {{ $livenessPassed ? 'text-bg-success' : 'text-bg-warning' }}">Liveness: {{ ucfirst(str_replace('_', ' ', $livenessResult)) }}</span>
+                    <span class="badge text-bg-light">Face match: {{ ucfirst(str_replace('_', ' ', $faceMatchStatus)) }}</span>
                   </div>
                   <div class="row g-1 text-muted">
                     <div class="col-sm-6">Expected: <strong class="text-body">{{ $expectedType ?: 'N/A' }}</strong></div>
                     <div class="col-sm-6">Detected: <strong class="text-body">{{ $detectedType ?: 'N/A' }}</strong></div>
                     @if($textLength !== null)
                       <div class="col-sm-6">OCR text length: <strong class="text-body">{{ number_format((int) $textLength) }}</strong></div>
+                    @endif
+                    <div class="col-sm-6">Liveness method: <strong class="text-body">{{ ucfirst(str_replace('_', ' ', $livenessMethod)) }}</strong></div>
+                    @if($livenessChallenge)
+                      <div class="col-12">Challenge: <strong class="text-body">{{ ucfirst(str_replace('_', ' ', $livenessChallenge)) }}</strong></div>
                     @endif
                   </div>
                 </div>

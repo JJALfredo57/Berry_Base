@@ -66,6 +66,9 @@ class VerificationController extends Controller
             'id_back' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=650,min_height=400|max:5120',
             'selfie' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=480,min_height=480|max:5120',
             'customer_note' => 'nullable|string|max:500',
+            'liveness_challenge' => 'nullable|string|max:80',
+            'liveness_result' => 'nullable|string|max:40',
+            'liveness_method' => 'nullable|string|max:60',
         ]);
 
         $selectedIdType = trim($request->input('id_type'));
@@ -122,6 +125,11 @@ class VerificationController extends Controller
                 'id_type_mismatch' => false,
                 'selfie_required' => true,
                 'guided_capture' => true,
+                'face_match_required' => true,
+                'face_match_status' => 'manual_review',
+                'liveness_challenge' => trim((string) $request->input('liveness_challenge')) ?: null,
+                'liveness_result' => trim((string) $request->input('liveness_result')) ?: 'not_verified',
+                'liveness_method' => trim((string) $request->input('liveness_method')) ?: 'not_available',
             ]);
         }
 
