@@ -170,6 +170,60 @@ class CheckoutController extends Controller
         return $nearest;
     }
 
+    private function normalizeLocationText(string $value): string
+    {
+        $value = strtolower($value);
+        $value = preg_replace('/[^a-z0-9]+/', ' ', $value) ?? '';
+        return trim(preg_replace('/\s+/', ' ', $value) ?? '');
+    }
+
+    private function addressMentionsZone(string $address, ?string $zone): bool
+    {
+        $zone = trim((string) $zone);
+        if ($zone === '') return true;
+
+        $addressText = $this->normalizeLocationText($address);
+        $zoneText = $this->normalizeLocationText($zone);
+        if ($addressText === '' || $zoneText === '') return false;
+        if (str_contains($addressText, $zoneText)) return true;
+
+        $ignore = ['barangay', 'brgy', 'zone', 'area'];
+        $zoneWords = array_values(array_filter(
+            explode(' ', $zoneText),
+            fn ($word) => strlen($word) >= 3 && !in_array($word, $ignore, true)
+        ));
+        if (!$zoneWords) return true;
+
+        $matches = 0;
+        foreach ($zoneWords as $word) {
+            if (str_contains($addressText, $word)) $matches++;
+        }
+
+        return $matches >= min(2, count($zoneWords));
+    }
+
+    private function validateDeliveryLocationInput(string $address, ?float $lat, ?float $lng, ?string $zone): ?string
+    {
+        if ($address === '' || $lat === null || $lng === null) {
+            return 'Please pin your location on the map and enter your complete delivery address.';
+        }
+
+        if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180 || (abs($lat) < 0.000001 && abs($lng) < 0.000001)) {
+            return 'The pinned delivery location is invalid. Please pin your exact location again.';
+        }
+
+        $plainAddress = $this->normalizeLocationText($address);
+        $wordCount = count(array_filter(explode(' ', $plainAddress), fn ($word) => strlen($word) >= 2));
+        if (strlen($plainAddress) < 18 || $wordCount < 4) {
+            return 'Please enter a complete delivery address with house/building, street or subdivision, barangay, and landmark.';
+        }
+
+        if (!$this->addressMentionsZone($address, $zone)) {
+            return "Your typed address does not match the pinned delivery area ({$zone}). Please correct the address or move the map pin.";
+        }
+
+        return null;
+    }
     private function submissionKey(Request $request, string $scope): ?string
     {
         $token = trim((string) $request->input('_submit_token', ''));
@@ -378,6 +432,13 @@ class CheckoutController extends Controller
                 $freeKm      = max(0, (int)($settings->free_delivery_radius ?? 0)) / 1000;
                 $chargeKm    = max(0, $km - $freeKm);
                 $deliveryFee = $chargeKm <= 0 ? 0 : (int) ceil($baseFee + ($feePerKm * $chargeKm));
+            }
+        }
+
+        if ($fulfillment === 'Delivery') {
+            $locationError = $this->validateDeliveryLocationInput($address, $lat, $lng, $zone);
+            if ($locationError) {
+                return back()->with('error', $locationError)->withInput();
             }
         }
 
@@ -598,6 +659,8 @@ class CheckoutController extends Controller
             'points_redeemed' => $pointsRedeemed,
             'final_unit_price' => $pricing['final_unit_price'],
             'delivery_address' => $address ?? '',
+            'latitude'         => $lat,
+            'longitude'        => $lng,
             'schedule_date'    => $sdate,
             'schedule_time'    => $stime,
             'payment_method'   => $payment,
