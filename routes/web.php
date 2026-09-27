@@ -95,6 +95,9 @@ Route::get('/session/continue', function () {
 })->name('session.continue');
 
 Route::get('/asset-download', AssetDownloadController::class)->name('asset.download');
+Route::get('/api/psgc/provinces', [\App\Http\Controllers\PsgcController::class, 'provinces'])->name('api.psgc.provinces');
+Route::get('/api/psgc/cities-municipalities', [\App\Http\Controllers\PsgcController::class, 'citiesMunicipalities'])->name('api.psgc.cities_municipalities');
+Route::get('/api/psgc/barangays', [\App\Http\Controllers\PsgcController::class, 'barangays'])->name('api.psgc.barangays');
 
 // ── Public Catalog (no login needed) ─────────────────────────────────────
 Route::get('/catalog', function (\Illuminate\Http\Request $request) {

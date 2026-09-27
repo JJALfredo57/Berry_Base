@@ -41,8 +41,7 @@ class AddressController extends Controller
             $this->clearDefault($uid);
             $makeDefault = 1;
         }
-
-        DB::table('user_addresses')->insert([
+        $payload = array_merge([
             'user_id' => $uid,
             'label_name' => $data['label'],
             'full_address' => $data['address'],
@@ -50,7 +49,10 @@ class AddressController extends Controller
             'longitude' => $data['lng'],
             'is_default' => $makeDefault,
             'created_at' => now(),
-        ]);
+        ], $data['address_codes']);
+        $payload = array_filter($payload, fn ($value, $column) => Schema::hasColumn('user_addresses', $column), ARRAY_FILTER_USE_BOTH);
+
+        DB::table('user_addresses')->insert($payload);
 
         return redirect()->route('customer.addresses')->with('msg', 'Address saved.');
     }
@@ -66,14 +68,16 @@ class AddressController extends Controller
 
         $makeDefault = $request->has('make_default') ? 1 : (int)($address->is_default ?? 0);
         if ($makeDefault) $this->clearDefault($uid);
-
-        DB::table('user_addresses')->where('id', $id)->where('user_id', $uid)->update([
+        $payload = array_merge([
             'label_name' => $data['label'],
             'full_address' => $data['address'],
             'latitude' => $data['lat'],
             'longitude' => $data['lng'],
             'is_default' => $makeDefault,
-        ]);
+        ], $data['address_codes']);
+        $payload = array_filter($payload, fn ($value, $column) => Schema::hasColumn('user_addresses', $column), ARRAY_FILTER_USE_BOTH);
+
+        DB::table('user_addresses')->where('id', $id)->where('user_id', $uid)->update($payload);
 
         return redirect()->route('customer.addresses')->with('msg', 'Address updated.');
     }
@@ -150,7 +154,7 @@ class AddressController extends Controller
             return ['ok' => false, 'message' => $validation['message']];
         }
 
-        return ['ok' => true, 'label' => substr($label, 0, 60), 'address' => $address, 'lat' => $lat, 'lng' => $lng];
+        return ['ok' => true, 'label' => substr($label, 0, 60), 'address' => $address, 'lat' => $lat, 'lng' => $lng, 'address_codes' => app(\App\Services\PsgcService::class)->addressCodesFromRequest($request)];
     }
 
     private function activeAddressQuery(string $uid)

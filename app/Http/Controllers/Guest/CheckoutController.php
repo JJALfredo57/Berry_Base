@@ -379,6 +379,7 @@ class CheckoutController extends Controller
         $address       = app(\App\Services\DeliveryLocationValidationService::class)->addressFromRequest($request, 'address');
         $lat           = $request->input('latitude') !== '' ? (float)$request->input('latitude') : null;
         $lng           = $request->input('longitude') !== '' ? (float)$request->input('longitude') : null;
+        $addressCodes  = app(\App\Services\PsgcService::class)->addressCodesFromRequest($request);
         $sdate         = trim($request->input('schedule_date','')) ?: null;
         $stime         = trim($request->input('schedule_time','')) ?: null;
         $payment       = $request->input('payment_method','COD');
@@ -625,6 +626,12 @@ class CheckoutController extends Controller
             'delivery_address'    => $address ?? '',
             'latitude'            => $lat,
             'longitude'           => $lng,
+            'province_code'      => $addressCodes['province_code'] ?? null,
+            'province_name'      => $addressCodes['province_name'] ?? null,
+            'city_municipality_code' => $addressCodes['city_municipality_code'] ?? null,
+            'city_municipality_name' => $addressCodes['city_municipality_name'] ?? null,
+            'barangay_code'      => $addressCodes['barangay_code'] ?? null,
+            'barangay_name'      => $addressCodes['barangay_name'] ?? null,
             'schedule_date'       => $sdate,
             'schedule_time'       => $stime,
             'payment_method'      => $payment,

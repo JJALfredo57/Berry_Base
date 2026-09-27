@@ -28,6 +28,15 @@ class DeliveryLocationValidationService
             if ($invalid) {
                 return ['ok' => false, 'message' => 'Please enter a real, readable delivery address. Check these fields: ' . implode(', ', $invalid) . '.'];
             }
+
+            $psgcValidation = app(\App\Services\PsgcService::class)->validateHierarchy(
+                $request->input('address_province_code'),
+                $request->input('address_city_code'),
+                $request->input('address_barangay_code')
+            );
+            if (!$psgcValidation['ok']) {
+                return ['ok' => false, 'message' => $psgcValidation['message']];
+            }
         }
 
         return $this->validate($this->addressFromRequest($request, $fallbackField), $lat, $lng, $zone, $requireZoneMatch);

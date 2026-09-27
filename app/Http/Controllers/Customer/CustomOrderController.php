@@ -268,6 +268,7 @@ class CustomOrderController extends Controller
         $address     = app(\App\Services\DeliveryLocationValidationService::class)->addressFromRequest($request, 'address');
         $lat         = $request->input('latitude') !== '' ? (float)$request->input('latitude') : null;
         $lng         = $request->input('longitude') !== '' ? (float)$request->input('longitude') : null;
+        $addressCodes = app(\App\Services\PsgcService::class)->addressCodesFromRequest($request);
         $sdate       = $request->input('schedule_date') ?: null;
         $payment     = $request->input('payment_method', 'COD');
         $surprise = $this->surpriseDeliveryData($request, $fulfillment);
@@ -341,7 +342,7 @@ class CustomOrderController extends Controller
 
         if ($fulfillment === 'Delivery' && !$surprise['enabled'] && $request->has('save_default_address')) {
             DB::table('user_addresses')->where('user_id', $uid)->update(['is_default' => 0]);
-            DB::table('user_addresses')->insert([
+            $defaultAddressPayload = array_merge([
                 'user_id'      => $uid,
                 'label_name'   => 'Default',
                 'full_address' => $address,
@@ -349,7 +350,9 @@ class CustomOrderController extends Controller
                 'longitude'    => $lng ?? 0,
                 'is_default'   => 1,
                 'created_at'   => now(),
-            ]);
+            ], $addressCodes);
+            $defaultAddressPayload = array_filter($defaultAddressPayload, fn ($value, $column) => \Illuminate\Support\Facades\Schema::hasColumn('user_addresses', $column), ARRAY_FILTER_USE_BOTH);
+            DB::table('user_addresses')->insert($defaultAddressPayload);
         }
 
         $unitPrice = $basePrice + $sizeSurcharge + $layerSurcharge + $complexitySurcharge;
@@ -427,6 +430,12 @@ class CustomOrderController extends Controller
             'delivery_address' => $address ?? '',
             'latitude'         => $lat,
             'longitude'        => $lng,
+            'province_code'   => $addressCodes['province_code'] ?? null,
+            'province_name'   => $addressCodes['province_name'] ?? null,
+            'city_municipality_code' => $addressCodes['city_municipality_code'] ?? null,
+            'city_municipality_name' => $addressCodes['city_municipality_name'] ?? null,
+            'barangay_code'   => $addressCodes['barangay_code'] ?? null,
+            'barangay_name'   => $addressCodes['barangay_name'] ?? null,
             'schedule_date'    => $sdate,
             'schedule_time'    => $timeSlot,
             'payment_method'   => $payment,
