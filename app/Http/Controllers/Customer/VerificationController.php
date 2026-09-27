@@ -25,7 +25,7 @@ class VerificationController extends Controller
         $limitations = $verification->limitations($status);
         $loyaltyOverview = app(\App\Services\LoyaltyService::class)->membershipOverview($uid);
         $idTypes = $identitySettings->typeNames();
-        $selfieRequired = $identitySettings->selfieRequired();
+        $selfieRequired = true;
 
         return view('customer.verification', compact('latest', 'status', 'benefits', 'limitations', 'loyaltyOverview', 'idTypes', 'selfieRequired'));
     }
@@ -33,7 +33,7 @@ class VerificationController extends Controller
     public function store(Request $request, IdentityVerificationSettingsService $identitySettings, CustomerIdentityScanService $identityScanner)
     {
         $idTypes = $identitySettings->typeNames();
-        $selfieRule = $identitySettings->selfieRequired() ? 'required' : 'nullable';
+        $selfieRule = 'required';
 
         $request->validate([
             'id_type' => ['required', 'string', 'max:60', Rule::in($idTypes)],
@@ -86,7 +86,7 @@ class VerificationController extends Controller
                 'ocr_pending' => false,
                 'ocr_needs_review' => ($scan['id_type_match_status'] ?? 'needs_review') === 'needs_review',
                 'id_type_mismatch' => ($scan['id_type_match_status'] ?? null) === 'mismatch',
-                'selfie_required' => $identitySettings->selfieRequired(),
+                'selfie_required' => true,
             ]);
         }
 

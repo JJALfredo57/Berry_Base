@@ -132,7 +132,7 @@ class PlatformSettingsController extends Controller
         $effectiveLiveSecret = $liveSecret ?: (string) ($existing->paymongo_live_secret ?? '');
 
         if ($mode === 'live' && ($effectiveLiveSecret === '' || $effectiveLivePublic === '')) {
-            return back()->with('err', 'Cannot switch to Live mode â€” enter your Live Secret Key and Live Public Key first.');
+            return back()->with('err', 'Cannot switch to Live mode - enter your Live Secret Key and Live Public Key first.');
         }
 
         $updates = ['paymongo_mode' => $mode, 'updated_at' => now()];
@@ -168,7 +168,7 @@ class PlatformSettingsController extends Controller
                 'updated_at' => now(),
             ]);
         }
-        $status = $devMode ? 'ON â€” OTP and SMS previews are now visible on screen.' : 'OFF â€” SMS previews are hidden.';
+        $status = $devMode ? 'ON - OTP and SMS previews are now visible on screen.' : 'OFF - SMS previews are hidden.';
         return redirect()->route('superadmin.settings', ['tab' => 'platform'])->with('msg', "Developer Mode {$status}");
     }
 
@@ -235,7 +235,6 @@ class PlatformSettingsController extends Controller
             'id_types.*' => 'nullable|string|max:60',
             'id_keywords' => 'nullable|array|max:20',
             'id_keywords.*' => 'nullable|string|max:500',
-            'verification_selfie_required' => 'nullable|boolean',
         ]);
 
         $types = $identitySettings->normalizeInput($validated['id_types'] ?? [], $validated['id_keywords'] ?? []);

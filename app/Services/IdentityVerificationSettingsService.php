@@ -40,13 +40,7 @@ class IdentityVerificationSettingsService
 
     public function selfieRequired(): bool
     {
-        if (!Schema::hasTable('platform_settings') || !Schema::hasColumn('platform_settings', 'verification_selfie_required')) {
-            return true;
-        }
-
-        $value = DB::table('platform_settings')->value('verification_selfie_required');
-
-        return $value === null ? true : (bool) $value;
+        return true;
     }
 
     public function isAllowed(string $name): bool
