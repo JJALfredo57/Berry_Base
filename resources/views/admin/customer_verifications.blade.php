@@ -22,31 +22,73 @@
               $scanStatus = $row->scan_status ?? 'manual_review';
               $scanResult = json_decode($row->scan_result ?? '', true) ?: [];
               $ocrPreview = $scanResult['text_preview'] ?? null;
+              $expectedType = $row->id_type_scan_expected ?: $row->id_type;
+              $detectedType = $row->id_type_scan_detected ?: null;
+              $engine = $scanResult['engine'] ?? ($scanStatus === 'scanned' ? 'ocr' : 'manual');
+              $textLength = $scanResult['text_length'] ?? null;
+              $scores = is_array($scanResult['scores'] ?? null) ? $scanResult['scores'] : [];
+              $matchedKeywords = is_array($scanResult['matched_keywords'] ?? null) ? $scanResult['matched_keywords'] : [];
+              $isMismatch = $matchStatus === 'mismatch';
+              $isMatched = $matchStatus === 'match';
             @endphp
             <tr>
               <td><div class="fw-semibold">{{ $row->fullname }}</div><div class="text-muted small">{{ $row->email }} &bull; {{ $row->phone }}</div></td>
               <td>
                 <div class="fw-semibold small">Selected: {{ $row->id_type }}</div>
-                @if(!empty($row->id_type_scan_detected))
-                  <div class="text-muted small">Detected: {{ $row->id_type_scan_detected }}</div>
-                @endif
+                <div class="text-muted small">Expected: {{ $expectedType }}</div>
+                <div class="small {{ $detectedType ? '' : 'text-muted' }}">Detected: {{ $detectedType ?: 'Not detected' }}</div>
               </td>
               <td><span class="badge {{ $row->status === 'approved' ? 'text-bg-success' : ($row->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning') }}">{{ ucfirst($row->status) }}</span></td>
-              <td class="small" style="min-width:260px;max-width:360px">
-                @if($matchStatus === 'mismatch')
-                  <span class="badge text-bg-danger mb-1"><i class="bi bi-exclamation-triangle me-1"></i>ID type mismatch</span>
-                  <div class="text-danger">{{ $row->id_type_match_warning ?? 'Selected ID type does not match the uploaded ID.' }}</div>
-                @elseif($matchStatus === 'match')
-                  <span class="badge text-bg-success mb-1"><i class="bi bi-check-circle me-1"></i>ID type matched by OCR</span>
+              <td class="small" style="min-width:320px;max-width:440px">
+                @if($isMismatch)
+                  <span class="badge text-bg-danger mb-2"><i class="bi bi-exclamation-triangle me-1"></i>ID type mismatch</span>
+                  <div class="text-danger fw-semibold">{{ $row->id_type_match_warning ?? 'Selected ID type does not match the uploaded ID.' }}</div>
+                @elseif($isMatched)
+                  <span class="badge text-bg-success mb-2"><i class="bi bi-check-circle me-1"></i>ID type matched by OCR</span>
                   <div class="text-muted">OCR found keywords for the selected ID type. Manual identity review is still required.</div>
                 @else
-                  <span class="badge text-bg-light mb-1"><i class="bi bi-person-check me-1"></i>{{ ucfirst(str_replace('_', ' ', $scanStatus)) }}</span>
+                  <span class="badge text-bg-light mb-2"><i class="bi bi-person-check me-1"></i>{{ ucfirst(str_replace('_', ' ', $scanStatus)) }}</span>
                   <div class="text-muted">{{ $row->id_type_match_warning ?: 'Check the uploaded ID manually before approving.' }}</div>
                 @endif
-                @if($ocrPreview)
+
+                <div class="mt-2 p-2 rounded" style="background:#f8fafc;border:1px solid #e5e7eb">
+                  <div class="d-flex flex-wrap gap-2 mb-1">
+                    <span class="badge text-bg-light">Engine: {{ strtoupper($engine) }}</span>
+                    <span class="badge {{ $scanStatus === 'scanned' ? 'text-bg-primary' : 'text-bg-light' }}">Scan: {{ ucfirst(str_replace('_', ' ', $scanStatus)) }}</span>
+                    <span class="badge {{ $isMatched ? 'text-bg-success' : ($isMismatch ? 'text-bg-danger' : 'text-bg-warning') }}">Match: {{ ucfirst(str_replace('_', ' ', $matchStatus)) }}</span>
+                  </div>
+                  <div class="row g-1 text-muted">
+                    <div class="col-sm-6">Expected: <strong class="text-body">{{ $expectedType ?: 'N/A' }}</strong></div>
+                    <div class="col-sm-6">Detected: <strong class="text-body">{{ $detectedType ?: 'N/A' }}</strong></div>
+                    @if($textLength !== null)
+                      <div class="col-sm-6">OCR text length: <strong class="text-body">{{ number_format((int) $textLength) }}</strong></div>
+                    @endif
+                  </div>
+                </div>
+
+                @if(count($scores) || count($matchedKeywords) || $ocrPreview)
                   <details class="mt-2">
-                    <summary class="text-muted" style="cursor:pointer">OCR text preview</summary>
-                    <div class="mt-1 p-2 rounded" style="background:#f8fafc;border:1px solid #e5e7eb;max-height:120px;overflow:auto;white-space:normal">{{ $ocrPreview }}</div>
+                    <summary class="text-muted" style="cursor:pointer">OCR evidence</summary>
+                    <div class="mt-2 p-2 rounded" style="background:#fff;border:1px solid #e5e7eb;max-height:220px;overflow:auto">
+                      @if(count($scores))
+                        <div class="fw-semibold mb-1">Detected scores</div>
+                        <div class="d-flex flex-wrap gap-1 mb-2">
+                          @foreach($scores as $type => $score)
+                            <span class="badge text-bg-light">{{ $type }}: {{ $score }}</span>
+                          @endforeach
+                        </div>
+                      @endif
+                      @if(count($matchedKeywords))
+                        <div class="fw-semibold mb-1">Matched keywords</div>
+                        @foreach($matchedKeywords as $type => $keywords)
+                          <div class="mb-1"><span class="text-muted">{{ $type }}:</span> {{ implode(', ', array_unique($keywords)) }}</div>
+                        @endforeach
+                      @endif
+                      @if($ocrPreview)
+                        <div class="fw-semibold mt-2 mb-1">OCR text preview</div>
+                        <div style="white-space:normal">{{ $ocrPreview }}</div>
+                      @endif
+                    </div>
                   </details>
                 @endif
               </td>
@@ -59,7 +101,11 @@
               <td style="min-width:320px">
                 @if($row->status === 'pending')
                   <div class="d-flex flex-wrap gap-2 mb-2">
-                    <form action="{{ route($routePrefix . 'customer_verifications.approve', $row->id) }}" method="POST">@csrf<button class="btn btn-success btn-sm" title="Approve"><i class="bi bi-check-lg"></i></button></form>
+                    @if($isMismatch)
+                      <button class="btn btn-secondary btn-sm" disabled title="Cannot approve while ID type mismatch is flagged"><i class="bi bi-lock"></i></button>
+                    @else
+                      <form action="{{ route($routePrefix . 'customer_verifications.approve', $row->id) }}" method="POST">@csrf<button class="btn btn-success btn-sm" title="Approve"><i class="bi bi-check-lg"></i></button></form>
+                    @endif
                     <form action="{{ route($routePrefix . 'customer_verifications.reject', $row->id) }}" method="POST" class="d-flex gap-1">
                       @csrf
                       <input class="form-control form-control-sm" name="reason" placeholder="Reject reason" required>
@@ -68,8 +114,8 @@
                   </div>
                   <form action="{{ route($routePrefix . 'customer_verifications.flag_id_type', $row->id) }}" method="POST" class="d-flex flex-wrap gap-1">
                     @csrf
-                    <input class="form-control form-control-sm" name="detected_id_type" placeholder="Actual ID type seen" style="max-width:150px">
-                    <input class="form-control form-control-sm" name="warning" placeholder="Mismatch warning" value="Selected ID type does not match the uploaded ID." required style="max-width:260px">
+                    <input class="form-control form-control-sm" name="detected_id_type" placeholder="Actual ID type seen" value="{{ $detectedType }}" style="max-width:150px">
+                    <input class="form-control form-control-sm" name="warning" placeholder="Mismatch warning" value="{{ $row->id_type_match_warning ?: 'Selected ID type does not match the uploaded ID.' }}" required style="max-width:260px">
                     <button class="btn btn-outline-warning btn-sm" title="Flag mismatch"><i class="bi bi-flag"></i></button>
                   </form>
                 @else
