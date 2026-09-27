@@ -43,4 +43,9 @@ return [
         'mobile_registration_enabled' => filter_var(env('FCM_MOBILE_REGISTRATION_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     ],
 
+    'ocr' => [
+        'tesseract_binary' => env('OCR_TESSERACT_BINARY', 'tesseract'),
+        'tesseract_lang' => env('OCR_TESSERACT_LANG', 'eng'),
+        'tesseract_timeout' => (int) env('OCR_TESSERACT_TIMEOUT', 20),
+    ],
 ];

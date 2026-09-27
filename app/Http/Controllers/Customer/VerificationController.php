@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Services\CustomerIdentityScanService;
 use App\Services\CustomerVerificationService;
 use App\Services\IdentityVerificationSettingsService;
 use App\Traits\UploadsFiles;
@@ -29,7 +30,7 @@ class VerificationController extends Controller
         return view('customer.verification', compact('latest', 'status', 'benefits', 'limitations', 'loyaltyOverview', 'idTypes', 'selfieRequired'));
     }
 
-    public function store(Request $request, IdentityVerificationSettingsService $identitySettings)
+    public function store(Request $request, IdentityVerificationSettingsService $identitySettings, CustomerIdentityScanService $identityScanner)
     {
         $idTypes = $identitySettings->typeNames();
         $selfieRule = $identitySettings->selfieRequired() ? 'required' : 'nullable';
@@ -48,6 +49,7 @@ class VerificationController extends Controller
         $back = $request->hasFile('id_back') ? $this->uploadFile($request->file('id_back'), 'uploads/customer-ids') : null;
         $selfie = $request->hasFile('selfie') ? $this->uploadFile($request->file('selfie'), 'uploads/customer-ids') : null;
         $selectedIdType = trim($request->input('id_type'));
+        $scan = $identityScanner->scan($selectedIdType, $front);
 
         $verificationData = [
             'user_id' => session('user')['id'],
@@ -62,17 +64,28 @@ class VerificationController extends Controller
         ];
 
         if (Schema::hasColumn('customer_verifications', 'scan_status')) {
-            $verificationData['scan_status'] = 'manual_review';
+            $verificationData['scan_status'] = $scan['scan_status'] ?? 'needs_review';
         }
         if (Schema::hasColumn('customer_verifications', 'id_type_match_status')) {
-            $verificationData['id_type_match_status'] = 'not_scanned';
+            $verificationData['id_type_match_status'] = $scan['id_type_match_status'] ?? 'needs_review';
         }
         if (Schema::hasColumn('customer_verifications', 'id_type_scan_expected')) {
-            $verificationData['id_type_scan_expected'] = $selectedIdType;
+            $verificationData['id_type_scan_expected'] = $scan['id_type_scan_expected'] ?? $selectedIdType;
+        }
+        if (Schema::hasColumn('customer_verifications', 'id_type_scan_detected')) {
+            $verificationData['id_type_scan_detected'] = $scan['id_type_scan_detected'] ?? null;
+        }
+        if (Schema::hasColumn('customer_verifications', 'id_type_match_warning')) {
+            $verificationData['id_type_match_warning'] = $scan['id_type_match_warning'] ?? null;
+        }
+        if (Schema::hasColumn('customer_verifications', 'scan_result')) {
+            $verificationData['scan_result'] = json_encode($scan['scan_result'] ?? []);
         }
         if (Schema::hasColumn('customer_verifications', 'review_flags')) {
             $verificationData['review_flags'] = json_encode([
-                'ocr_pending' => true,
+                'ocr_pending' => false,
+                'ocr_needs_review' => ($scan['id_type_match_status'] ?? 'needs_review') === 'needs_review',
+                'id_type_mismatch' => ($scan['id_type_match_status'] ?? null) === 'mismatch',
                 'selfie_required' => $identitySettings->selfieRequired(),
             ]);
         }

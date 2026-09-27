@@ -108,11 +108,11 @@
     $tabs = [
       'rewards'  => 'Rewards',
       'verification' => 'ID Verification',
-      'platform' => 'ðŸ¢ Platform',
-      'paymongo' => 'ðŸ’³ PayMongo',
-      'sms'      => 'ðŸ“± PhilSMS',
-      'logs'     => 'ðŸ“‹ Activity Logs',
-      'backup'   => 'ðŸ’¾ Backup',
+      'platform' => 'Ã°Å¸ÂÂ¢ Platform',
+      'paymongo' => 'Ã°Å¸â€™Â³ PayMongo',
+      'sms'      => 'Ã°Å¸â€œÂ± PhilSMS',
+      'logs'     => 'Ã°Å¸â€œâ€¹ Activity Logs',
+      'backup'   => 'Ã°Å¸â€™Â¾ Backup',
     ];
   @endphp
   <ul class="nav nav-tabs mb-4 border-0 gap-1 flex-wrap">
@@ -127,7 +127,7 @@
     @endforeach
   </ul>
 
-  {{-- â”€â”€ PLATFORM TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
+  {{-- Ã¢â€â‚¬Ã¢â€â‚¬ PLATFORM TAB Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ --}}
   @if($tab === 'platform')
   <form action="{{ route('superadmin.settings.update') }}" method="POST" enctype="multipart/form-data" novalidate>
     @csrf
@@ -195,7 +195,7 @@
                 <div class="form-text">Applies to buttons, links, and accents across the entire platform.</div>
               </div>
 
-              {{-- â”€â”€ Dashboard Background â”€â”€ --}}
+              {{-- Ã¢â€â‚¬Ã¢â€â‚¬ Dashboard Background Ã¢â€â‚¬Ã¢â€â‚¬ --}}
               <div class="col-12">
                 <div style="border-top:1.5px solid var(--gray-100);margin:.25rem 0 1rem"></div>
                 <div style="font-size:.88rem;font-weight:700;color:var(--gray-900);margin-bottom:.75rem"><i class="bi bi-image me-1" style="color:var(--primary)"></i> Dashboard Background</div>
@@ -239,13 +239,13 @@
                            style="width:44px;height:38px;padding:2px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);cursor:pointer"
                            oninput="updatePbgGradPreview()">
                   </div>
-                  <div class="form-text">135Â° diagonal gradient from left to right.</div>
+                  <div class="form-text">135Ã‚Â° diagonal gradient from left to right.</div>
                 </div>
 
                 {{-- Image --}}
                 <div id="pbg-image" style="display:{{ $curBgType==='image' ? 'block' : 'none' }};margin-bottom:.75rem">
                   <input type="file" class="form-control" name="platform_bg_image" id="platformBgImageInput" accept=".jpg,.jpeg,.png,.webp" style="font-size:.8rem" onchange="previewPlatformBgImage(this)">
-                  <div class="form-text">JPG, PNG or WebP Â· Max 5 MB. Leave blank to keep current image.</div>
+                  <div class="form-text">JPG, PNG or WebP Ã‚Â· Max 5 MB. Leave blank to keep current image.</div>
                   <div style="margin-top:.65rem">
                     <label class="form-label fw-semibold" style="font-size:.8rem">Image Opacity: <span id="pbgOpacityVal">{{ number_format(($platform->platform_bg_opacity ?? 1.0) * 100) }}%</span></label>
                     <input type="range" name="platform_bg_opacity" min="0.1" max="1" step="0.05"
@@ -277,7 +277,7 @@
     </div>
   </form>
 
-  {{-- â”€â”€ Developer Mode Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
+  {{-- Ã¢â€â‚¬Ã¢â€â‚¬ Developer Mode Card Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ --}}
   <div class="row g-4 mt-0">
     <div class="col-12">
       <div style="background:#fff;border-radius:var(--radius-lg);border:2px dashed rgba(245,158,11,0.45);overflow:hidden">
@@ -297,13 +297,13 @@
                   OTP &amp; SMS Screen Preview
                 </div>
                 <div style="font-size:.8rem;color:var(--gray-500);line-height:1.65;margin-bottom:.6rem">
-                  When <strong style="color:#16a34a">ON</strong> â€” OTP codes appear below the input field (with customer name &amp; number),
+                  When <strong style="color:#16a34a">ON</strong> Ã¢â‚¬â€ OTP codes appear below the input field (with customer name &amp; number),
                   and SMS notifications flash at the top of the admin screen for 15 seconds.<br>
-                  When <strong style="color:#dc2626">OFF</strong> â€” all previews are hidden.
+                  When <strong style="color:#dc2626">OFF</strong> Ã¢â‚¬â€ all previews are hidden.
                 </div>
                 <div style="font-size:.75rem;color:#d97706;font-weight:500;display:flex;align-items:center;gap:.3rem">
                   <i class="bi bi-exclamation-triangle-fill"></i>
-                  Turn OFF in production â€” OTP codes become visible to anyone on the screen.
+                  Turn OFF in production Ã¢â‚¬â€ OTP codes become visible to anyone on the screen.
                 </div>
               </div>
               <div style="display:flex;flex-direction:column;align-items:center;gap:.5rem;padding-top:.25rem">
@@ -344,7 +344,7 @@
     </div>
   </div>
 
-  {{-- â”€â”€ PAYMONGO TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
+  {{-- Ã¢â€â‚¬Ã¢â€â‚¬ PAYMONGO TAB Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ --}}
 
   @elseif($tab === 'verification')
   @php
@@ -370,7 +370,7 @@
       <div style="padding:1.5rem">
         <div class="alert alert-info border-0 d-flex gap-2 align-items-start">
           <i class="bi bi-info-circle flex-shrink-0"></i>
-          <div>Phase 1 validates the selected ID type and prepares manual mismatch warnings. Phase 2 OCR will use the keywords below to detect if the uploaded ID matches the selected type.</div>
+          <div>Phase 2A now uses OCR to compare the uploaded ID text against the keywords below. If the selected ID type and detected ID type differ, the request is flagged as mismatch and cannot be approved until reviewed/resubmitted.</div>
         </div>
 
         <div class="row g-3 mb-3">
@@ -559,7 +559,7 @@
         </div>
         <div id="pmLiveWarning" style="display:{{ $pmMode==='live' ? 'block' : 'none' }};margin-top:.5rem">
           <div class="alert alert-warning py-2 mb-0" style="font-size:.82rem">
-            <i class="bi bi-exclamation-triangle-fill me-1"></i> <strong>Live mode</strong> â€” real money will be charged to customers.
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> <strong>Live mode</strong> Ã¢â‚¬â€ real money will be charged to customers.
           </div>
         </div>
       </div>
@@ -581,7 +581,7 @@
               <label class="form-label">Secret Key</label>
               <div class="input-group">
                 <input type="password" class="form-control" name="paymongo_test_secret" id="pmTestSecret"
-                       placeholder="{{ !empty($platform->paymongo_test_secret) ? 'Set â€” leave blank to keep' : 'sk_test_...' }}">
+                       placeholder="{{ !empty($platform->paymongo_test_secret) ? 'Set Ã¢â‚¬â€ leave blank to keep' : 'sk_test_...' }}">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="toggleKey('pmTestSecret',this)"
                         style="border:1.5px solid var(--gray-200);border-left:0;background:var(--gray-50);padding:.5rem .75rem">
                   <i class="bi bi-eye" style="color:var(--gray-500)"></i>
@@ -611,7 +611,7 @@
               <label class="form-label">Secret Key</label>
               <div class="input-group">
                 <input type="password" class="form-control" name="paymongo_live_secret" id="pmLiveSecret"
-                       placeholder="{{ !empty($platform->paymongo_live_secret) ? 'Set â€” leave blank to keep' : 'sk_live_...' }}">
+                       placeholder="{{ !empty($platform->paymongo_live_secret) ? 'Set Ã¢â‚¬â€ leave blank to keep' : 'sk_live_...' }}">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="toggleKey('pmLiveSecret',this)"
                         style="border:1.5px solid var(--gray-200);border-left:0;background:var(--gray-50);padding:.5rem .75rem">
                   <i class="bi bi-eye" style="color:var(--gray-500)"></i>
@@ -630,7 +630,7 @@
     </form>
   </div>
 
-  {{-- â”€â”€ PHILSMS TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
+  {{-- Ã¢â€â‚¬Ã¢â€â‚¬ PHILSMS TAB Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ --}}
   @elseif($tab === 'sms')
   @php $hasSms = !empty($platform->philsms_token); @endphp
   <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);overflow:hidden">
@@ -714,7 +714,7 @@
     </div>
   </div>
 
-  {{-- â”€â”€ ACTIVITY LOGS TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
+  {{-- Ã¢â€â‚¬Ã¢â€â‚¬ ACTIVITY LOGS TAB Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ --}}
   @elseif($tab === 'logs')
   @php
     $logs = \Illuminate\Support\Facades\DB::table('activity_logs as l')
@@ -729,7 +729,7 @@
     </div>
     <div class="d-flex flex-wrap align-items-center gap-2">
       <input type="text" id="logSearch" class="form-control form-control-sm"
-             placeholder="Search logsâ€¦" oninput="filterLogs()" style="flex:1;min-width:0;max-width:250px">
+             placeholder="Search logsÃ¢â‚¬Â¦" oninput="filterLogs()" style="flex:1;min-width:0;max-width:250px">
       <select id="logRoleFilter" class="form-select form-select-sm" style="flex:1;min-width:0;max-width:160px" onchange="filterLogs()">
         <option value="">All Roles</option>
         <option value="superadmin">Super Admin</option>
@@ -751,7 +751,7 @@
               data-search="{{ strtolower(($l->fullname ?? '') . ' ' . ($l->username ?? '') . ' ' . $l->action . ' ' . ($l->details ?? '')) }}"
               data-filter="{{ $l->role }}">
             <td class="ps-3 text-muted" style="white-space:nowrap">{{ \Carbon\Carbon::parse($l->created_at)->format('M d, Y H:i') }}</td>
-            <td class="fw-semibold">{{ $l->fullname ?? $l->username ?? 'â€”' }}</td>
+            <td class="fw-semibold">{{ $l->fullname ?? $l->username ?? 'Ã¢â‚¬â€' }}</td>
             <td>
               <span class="badge rounded-pill
                 {{ $l->role==='superadmin' ? 'bg-danger' : ($l->role==='admin' ? 'bg-dark' : ($l->role==='seller' ? 'bg-warning text-dark' : 'bg-secondary')) }}">
@@ -787,14 +787,14 @@
       if (!el) return;
       if (total <= 1) { el.innerHTML = ''; return; }
       let h = '<div class="cs-pagination">';
-      h += `<button class="cs-page-btn" onclick="logGo(${cur-1})" ${cur===1?'disabled':''}>â€¹</button>`;
+      h += `<button class="cs-page-btn" onclick="logGo(${cur-1})" ${cur===1?'disabled':''}>Ã¢â‚¬Â¹</button>`;
       for (let p=1;p<=total;p++) {
         if (total>7 && p>2 && p<total-1 && Math.abs(p-cur)>1) {
-          if (p===3||p===total-2) h += '<button class="cs-page-btn dots">â€¦</button>'; continue;
+          if (p===3||p===total-2) h += '<button class="cs-page-btn dots">Ã¢â‚¬Â¦</button>'; continue;
         }
         h += `<button class="cs-page-btn ${p===cur?'active':''}" onclick="logGo(${p})">${p}</button>`;
       }
-      h += `<button class="cs-page-btn" onclick="logGo(${cur+1})" ${cur===total?'disabled':''}>â€º</button></div>`;
+      h += `<button class="cs-page-btn" onclick="logGo(${cur+1})" ${cur===total?'disabled':''}>Ã¢â‚¬Âº</button></div>`;
       el.innerHTML = h;
     }
     window.logGo = function(p) {
@@ -813,7 +813,7 @@
   </script>
   @endpush
 
-  {{-- â”€â”€ BACKUP TAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
+  {{-- Ã¢â€â‚¬Ã¢â€â‚¬ BACKUP TAB Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ --}}
   @elseif($tab === 'backup')
   @php
     $totalBackupSize = array_sum(array_map(fn($f) => (int) ($f['size'] ?? 0), $files));

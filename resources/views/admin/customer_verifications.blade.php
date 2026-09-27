@@ -14,31 +14,40 @@
   <div class="card">
     <div class="table-responsive">
       <table class="table align-middle mb-0">
-        <thead><tr><th>Customer</th><th>ID Type</th><th>Status</th><th>Review Check</th><th>Files</th><th>Submitted</th><th>Action</th></tr></thead>
+        <thead><tr><th>Customer</th><th>ID Type</th><th>Status</th><th>OCR / Review Check</th><th>Files</th><th>Submitted</th><th>Action</th></tr></thead>
         <tbody>
           @forelse($rows as $row)
             @php
               $matchStatus = $row->id_type_match_status ?? 'not_scanned';
               $scanStatus = $row->scan_status ?? 'manual_review';
+              $scanResult = json_decode($row->scan_result ?? '', true) ?: [];
+              $ocrPreview = $scanResult['text_preview'] ?? null;
             @endphp
             <tr>
               <td><div class="fw-semibold">{{ $row->fullname }}</div><div class="text-muted small">{{ $row->email }} &bull; {{ $row->phone }}</div></td>
               <td>
-                <div class="fw-semibold small">{{ $row->id_type }}</div>
+                <div class="fw-semibold small">Selected: {{ $row->id_type }}</div>
                 @if(!empty($row->id_type_scan_detected))
                   <div class="text-muted small">Detected: {{ $row->id_type_scan_detected }}</div>
                 @endif
               </td>
               <td><span class="badge {{ $row->status === 'approved' ? 'text-bg-success' : ($row->status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning') }}">{{ ucfirst($row->status) }}</span></td>
-              <td class="small" style="min-width:220px">
+              <td class="small" style="min-width:260px;max-width:360px">
                 @if($matchStatus === 'mismatch')
                   <span class="badge text-bg-danger mb-1"><i class="bi bi-exclamation-triangle me-1"></i>ID type mismatch</span>
                   <div class="text-danger">{{ $row->id_type_match_warning ?? 'Selected ID type does not match the uploaded ID.' }}</div>
                 @elseif($matchStatus === 'match')
-                  <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>ID type matched</span>
+                  <span class="badge text-bg-success mb-1"><i class="bi bi-check-circle me-1"></i>ID type matched by OCR</span>
+                  <div class="text-muted">OCR found keywords for the selected ID type. Manual identity review is still required.</div>
                 @else
-                  <span class="badge text-bg-light"><i class="bi bi-person-check me-1"></i>Manual review</span>
-                  <div class="text-muted mt-1">{{ $scanStatus === 'manual_review' ? 'OCR not connected yet. Check the uploaded ID manually.' : ucfirst(str_replace('_', ' ', $scanStatus)) }}</div>
+                  <span class="badge text-bg-light mb-1"><i class="bi bi-person-check me-1"></i>{{ ucfirst(str_replace('_', ' ', $scanStatus)) }}</span>
+                  <div class="text-muted">{{ $row->id_type_match_warning ?: 'Check the uploaded ID manually before approving.' }}</div>
+                @endif
+                @if($ocrPreview)
+                  <details class="mt-2">
+                    <summary class="text-muted" style="cursor:pointer">OCR text preview</summary>
+                    <div class="mt-1 p-2 rounded" style="background:#f8fafc;border:1px solid #e5e7eb;max-height:120px;overflow:auto;white-space:normal">{{ $ocrPreview }}</div>
+                  </details>
                 @endif
               </td>
               <td class="small">
