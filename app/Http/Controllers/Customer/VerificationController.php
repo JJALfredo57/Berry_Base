@@ -36,7 +36,7 @@ class VerificationController extends Controller
 
         $request->validate([
             'id_type' => ['required', 'string', 'max:60', Rule::in($idTypes)],
-            'id_front' => 'required|file|mimes:jpg,jpeg,png,webp|max:5120',
+            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=650,min_height=400|max:5120',
         ]);
 
         $selectedIdType = trim($request->input('id_type'));
@@ -62,9 +62,9 @@ class VerificationController extends Controller
 
         $request->validate([
             'id_type' => ['required', 'string', 'max:60', Rule::in($idTypes)],
-            'id_front' => 'required|file|mimes:jpg,jpeg,png,webp|max:5120',
-            'id_back' => 'required|file|mimes:jpg,jpeg,png,webp|max:5120',
-            'selfie' => 'required|file|mimes:jpg,jpeg,png,webp|max:5120',
+            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=650,min_height=400|max:5120',
+            'id_back' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=650,min_height=400|max:5120',
+            'selfie' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=480,min_height=480|max:5120',
             'customer_note' => 'nullable|string|max:500',
         ]);
 

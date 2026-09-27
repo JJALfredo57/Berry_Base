@@ -34,13 +34,30 @@
 .verify-wizard-step span{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#eef2f7;color:#64748b;font-weight:700;font-size:.72rem}
 .verify-wizard-step.active{border-color:var(--primary);color:var(--primary);background:rgba(var(--primary-rgb,233,30,99),.06)}
 .verify-wizard-step.active span,.verify-wizard-step.done span{background:var(--primary);color:#fff}
-.verify-scan-stage{border:1px solid #e5e7eb;border-radius:8px;padding:1rem;background:#fff}
-.verify-camera-frame{position:relative;aspect-ratio:4/3;background:#0f172a;border-radius:8px;overflow:hidden;display:grid;place-items:center;max-height:360px}
-.verify-camera-frame video{width:100%;height:100%;object-fit:cover;background:#0f172a}
-.verify-frame-guide{position:absolute;inset:14%;border:2px solid rgba(255,255,255,.9);border-radius:8px;box-shadow:0 0 0 999px rgba(15,23,42,.26)}
-.verify-face-guide{position:absolute;width:42%;aspect-ratio:3/4;border:2px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 0 999px rgba(15,23,42,.26)}
+.verify-ready-panel{border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;padding:1rem}
+.verify-scanner-modal .modal-content{background:#08111f;color:#e5eefb;border:0;min-height:100%}
+.verify-scanner-modal .modal-header,.verify-scanner-modal .modal-footer{border-color:rgba(148,163,184,.22);background:rgba(8,17,31,.96)}
+.verify-scanner-modal .btn-close{filter:invert(1) grayscale(100%)}
+.verify-scanner-modal .verify-upload-hint{color:#9fb0c8}
+.verify-scanner-modal .verify-wizard-step{background:rgba(15,23,42,.82);border-color:rgba(148,163,184,.28);color:#a8b5c8}
+.verify-scanner-modal .verify-wizard-step span{background:#172235;color:#a8b5c8}
+.verify-scanner-modal .verify-wizard-step.active{background:rgba(var(--primary-rgb,233,30,99),.18);border-color:rgba(var(--primary-rgb,233,30,99),.72);color:#fff}
+.verify-scanner-modal .verify-wizard-step.done{border-color:rgba(34,197,94,.72);color:#d1fae5}
+.verify-scanner-modal .verify-wizard-step.done span{background:#15803d;color:#fff}
+.verify-scan-stage{border:1px solid rgba(148,163,184,.22);border-radius:8px;padding:1rem;background:rgba(15,23,42,.7)}
+.verify-camera-frame{position:relative;aspect-ratio:16/10;background:#020617;border-radius:8px;overflow:hidden;display:grid;place-items:center;min-height:min(62vh,620px)}
+.verify-camera-frame video{width:100%;height:100%;object-fit:cover;background:#020617}
+.verify-camera-frame:after{content:"";position:absolute;left:8%;right:8%;top:50%;height:2px;background:linear-gradient(90deg,transparent,rgba(56,189,248,.85),transparent);box-shadow:0 0 20px rgba(56,189,248,.6);animation:verifyScanLine 1.9s ease-in-out infinite;opacity:.8}
+.verify-frame-guide{position:absolute;inset:10% 7%;border:2px solid rgba(255,255,255,.92);border-radius:8px;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 26px rgba(56,189,248,.22)}
+.verify-face-guide{position:absolute;width:min(44%,250px);aspect-ratio:3/4;border:2px solid rgba(255,255,255,.92);border-radius:50%;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 26px rgba(56,189,248,.22)}
+.verify-live-panel{position:absolute;left:1rem;right:1rem;bottom:1rem;display:flex;gap:.75rem;align-items:center;justify-content:space-between;padding:.75rem .85rem;border-radius:8px;background:rgba(2,6,23,.82);backdrop-filter:blur(10px);color:#fff;font-size:.84rem}
+.verify-live-meter{width:120px;height:8px;background:rgba(148,163,184,.38);border-radius:999px;overflow:hidden;flex:0 0 auto}
+.verify-live-meter span{display:block;height:100%;width:0;background:#ef4444;transition:width .2s,background .2s}
+.verify-live-meter.is-good span{background:#22c55e}.verify-live-meter.is-warn span{background:#f59e0b}
+.verify-scanner-modal .verify-upload-status.text-danger{color:#fca5a5!important}.verify-scanner-modal .verify-upload-status.text-success{color:#86efac!important}.verify-scanner-modal .verify-upload-status.text-warning{color:#fde68a!important}
+@keyframes verifyScanLine{0%,100%{transform:translateY(-22vh);opacity:.25}50%{transform:translateY(22vh);opacity:.9}}
 .verify-upload-status.text-danger{color:#dc2626!important}.verify-upload-status.text-success{color:#15803d!important}
-@media (max-width:575.98px){.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}}
+@media (max-width:575.98px){.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}.upload-panel{padding:1rem!important}.verify-camera-frame{min-height:calc(100vh - 240px);border-radius:0}.verify-scan-stage{margin-left:-1rem;margin-right:-1rem;border-left:0;border-right:0;border-radius:0}.verify-live-panel{left:.75rem;right:.75rem;bottom:.75rem;align-items:flex-start;flex-direction:column}.verify-live-meter{width:100%}}
 </style>
 
 <div class="container-fluid py-4">
@@ -117,61 +134,88 @@
               </select>
             </div>
 
-            <div class="verify-wizard mb-3">
-              <div class="verify-wizard-step active" data-step-label="front"><span>1</span> Front ID</div>
-              <div class="verify-wizard-step" data-step-label="back"><span>2</span> Back ID</div>
-              <div class="verify-wizard-step" data-step-label="selfie"><span>3</span> Face</div>
-            </div>
-
             <input type="file" class="verify-file-input" id="idFrontInput" name="id_front" accept="image/*" capture="environment" required>
             <input type="file" class="verify-file-input" id="idBackInput" name="id_back" accept="image/*" capture="environment" required>
             <input type="file" class="verify-file-input" id="selfieInput" name="selfie" accept="image/*" capture="user" required>
 
-            <div class="verify-scan-stage" data-step="front">
-              <div class="d-flex align-items-start gap-2 mb-2">
-                <div class="verify-upload-icon"><i class="bi bi-credit-card-2-front"></i></div>
-                <div><div class="fw-semibold">Scan front of ID</div><div class="verify-upload-hint">Place the front side inside the frame. The selected ID type must match the OCR result.</div></div>
+            <div class="verify-ready-panel d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+              <div>
+                <div class="fw-semibold">Smart ID scanner</div>
+                <div class="verify-upload-hint">Full-screen camera, auto capture, upload checks, and ID type matching before review.</div>
               </div>
-              <div class="verify-camera-frame"><video playsinline muted></video><canvas hidden></canvas><div class="verify-frame-guide"></div></div>
-              <div class="d-flex flex-wrap gap-2 mt-3">
-                <button type="button" class="btn btn-outline-primary btn-sm" data-camera-start="idFrontInput" data-facing="environment"><i class="bi bi-camera-video me-1"></i>Open Camera</button>
-                <button type="button" class="btn btn-primary btn-sm" data-camera-capture="idFrontInput"><i class="bi bi-camera me-1"></i>Capture Front</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-upload-trigger="idFrontInput"><i class="bi bi-upload me-1"></i>Upload Picture</button>
-              </div>
-              <div class="verify-upload-status mt-2" data-upload-status-for="idFrontInput">Waiting for front ID scan.</div>
+              <button type="button" class="btn btn-primary" id="openVerificationScanner" data-bs-toggle="modal" data-bs-target="#verificationScannerModal" disabled>
+                <i class="bi bi-upc-scan me-1"></i>Start Verification
+              </button>
             </div>
-
-            <div class="verify-scan-stage d-none" data-step="back">
-              <div class="d-flex align-items-start gap-2 mb-2">
-                <div class="verify-upload-icon"><i class="bi bi-arrow-repeat"></i></div>
-                <div><div class="fw-semibold">Flip ID and scan back</div><div class="verify-upload-hint">Capture the back side after the front ID type is confirmed.</div></div>
-              </div>
-              <div class="verify-camera-frame"><video playsinline muted></video><canvas hidden></canvas><div class="verify-frame-guide"></div></div>
-              <div class="d-flex flex-wrap gap-2 mt-3">
-                <button type="button" class="btn btn-outline-primary btn-sm" data-camera-start="idBackInput" data-facing="environment"><i class="bi bi-camera-video me-1"></i>Open Camera</button>
-                <button type="button" class="btn btn-primary btn-sm" data-camera-capture="idBackInput"><i class="bi bi-camera me-1"></i>Capture Back</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-upload-trigger="idBackInput"><i class="bi bi-upload me-1"></i>Upload Picture</button>
-              </div>
-              <div class="verify-upload-status mt-2" data-upload-status-for="idBackInput">Waiting for back ID scan.</div>
-            </div>
-
-            <div class="verify-scan-stage d-none" data-step="selfie">
-              <div class="d-flex align-items-start gap-2 mb-2">
-                <div class="verify-upload-icon"><i class="bi bi-person-bounding-box"></i></div>
-                <div><div class="fw-semibold">Face verification</div><div class="verify-upload-hint">Look at the camera clearly. Submit becomes available after this step.</div></div>
-              </div>
-              <div class="verify-camera-frame is-selfie"><video playsinline muted></video><canvas hidden></canvas><div class="verify-face-guide"></div></div>
-              <div class="d-flex flex-wrap gap-2 mt-3">
-                <button type="button" class="btn btn-outline-primary btn-sm" data-camera-start="selfieInput" data-facing="user"><i class="bi bi-camera-video me-1"></i>Open Camera</button>
-                <button type="button" class="btn btn-primary btn-sm" data-camera-capture="selfieInput"><i class="bi bi-person-bounding-box me-1"></i>Capture Selfie</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-upload-trigger="selfieInput"><i class="bi bi-upload me-1"></i>Upload Selfie</button>
-              </div>
-              <div class="verify-upload-status mt-2" data-upload-status-for="selfieInput">Waiting for face verification.</div>
-            </div>
-
             <div id="idUploadSummary" class="mt-3"></div>
             <div class="small text-muted mt-3"><i class="bi bi-lock me-1"></i>Your ID is checked before submit and then reviewed by authorized admins.</div>
-            <button class="btn btn-primary mt-3" id="verificationSubmitButton" disabled><i class="bi bi-shield-check me-1"></i>Submit for Review</button>
+
+            <div class="modal fade verify-scanner-modal" id="verificationScannerModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+              <div class="modal-dialog modal-fullscreen-sm-down modal-xl modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <div>
+                      <h5 class="modal-title fw-bold mb-0">Smart ID Verification</h5>
+                      <div class="verify-upload-hint">Auto-captures only when the image is clear enough.</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <div class="verify-wizard mb-3">
+                      <div class="verify-wizard-step active" data-step-label="front"><span>1</span> Front ID</div>
+                      <div class="verify-wizard-step" data-step-label="back"><span>2</span> Back ID</div>
+                      <div class="verify-wizard-step" data-step-label="selfie"><span>3</span> Face</div>
+                    </div>
+
+                    <div class="verify-scan-stage" data-step="front">
+                      <div class="d-flex align-items-start gap-2 mb-2">
+                        <div class="verify-upload-icon"><i class="bi bi-credit-card-2-front"></i></div>
+                        <div><div class="fw-semibold">Scan front of ID</div><div class="verify-upload-hint">Place the selected ID inside the frame. The system will capture when the card is clear and steady.</div></div>
+                      </div>
+                      <div class="verify-camera-frame"><video playsinline muted></video><canvas hidden></canvas><div class="verify-frame-guide"></div><div class="verify-live-panel"><span data-live-hint>Open camera or upload a clear front ID.</span><div class="verify-live-meter"><span></span></div></div></div>
+                      <div class="d-flex flex-wrap gap-2 mt-3">
+                        <button type="button" class="btn btn-primary btn-sm" data-camera-start="idFrontInput" data-facing="environment"><i class="bi bi-camera-video me-1"></i>Start Auto Scan</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" data-camera-capture="idFrontInput"><i class="bi bi-camera me-1"></i>Capture Now</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" data-upload-trigger="idFrontInput"><i class="bi bi-upload me-1"></i>Upload Picture</button>
+                      </div>
+                      <div class="verify-upload-status mt-2" data-upload-status-for="idFrontInput">Waiting for front ID scan.</div>
+                    </div>
+
+                    <div class="verify-scan-stage d-none" data-step="back">
+                      <div class="d-flex align-items-start gap-2 mb-2">
+                        <div class="verify-upload-icon"><i class="bi bi-arrow-repeat"></i></div>
+                        <div><div class="fw-semibold">Flip ID and scan back</div><div class="verify-upload-hint">Capture the back side after the front ID type is confirmed.</div></div>
+                      </div>
+                      <div class="verify-camera-frame"><video playsinline muted></video><canvas hidden></canvas><div class="verify-frame-guide"></div><div class="verify-live-panel"><span data-live-hint>Flip the ID and keep it inside the frame.</span><div class="verify-live-meter"><span></span></div></div></div>
+                      <div class="d-flex flex-wrap gap-2 mt-3">
+                        <button type="button" class="btn btn-primary btn-sm" data-camera-start="idBackInput" data-facing="environment"><i class="bi bi-camera-video me-1"></i>Start Auto Scan</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" data-camera-capture="idBackInput"><i class="bi bi-camera me-1"></i>Capture Now</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" data-upload-trigger="idBackInput"><i class="bi bi-upload me-1"></i>Upload Picture</button>
+                      </div>
+                      <div class="verify-upload-status mt-2" data-upload-status-for="idBackInput">Waiting for back ID scan.</div>
+                    </div>
+
+                    <div class="verify-scan-stage d-none" data-step="selfie">
+                      <div class="d-flex align-items-start gap-2 mb-2">
+                        <div class="verify-upload-icon"><i class="bi bi-person-bounding-box"></i></div>
+                        <div><div class="fw-semibold">Face verification</div><div class="verify-upload-hint">Center your face. The system will capture when your face is clear.</div></div>
+                      </div>
+                      <div class="verify-camera-frame is-selfie"><video playsinline muted></video><canvas hidden></canvas><div class="verify-face-guide"></div><div class="verify-live-panel"><span data-live-hint>Open front camera and center your face.</span><div class="verify-live-meter"><span></span></div></div></div>
+                      <div class="d-flex flex-wrap gap-2 mt-3">
+                        <button type="button" class="btn btn-primary btn-sm" data-camera-start="selfieInput" data-facing="user"><i class="bi bi-camera-video me-1"></i>Start Auto Scan</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" data-camera-capture="selfieInput"><i class="bi bi-person-bounding-box me-1"></i>Capture Now</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" data-upload-trigger="selfieInput"><i class="bi bi-upload me-1"></i>Upload Selfie</button>
+                      </div>
+                      <div class="verify-upload-status mt-2" data-upload-status-for="selfieInput">Waiting for face verification.</div>
+                    </div>
+                  </div>
+                  <div class="modal-footer justify-content-between">
+                    <div class="verify-upload-hint"><i class="bi bi-shield-lock me-1"></i>Server checks the front ID again before saving.</div>
+                    <button class="btn btn-success" id="verificationSubmitButton" disabled><i class="bi bi-shield-check me-1"></i>Submit for Review</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </form>
         @endif
       </div>
@@ -246,7 +290,9 @@ document.addEventListener('DOMContentLoaded', function () {
   var token = form.querySelector('input[name="_token"]')?.value || '';
   var idType = document.getElementById('verificationIdType');
   var submitButton = document.getElementById('verificationSubmitButton');
-  var state = { front:false, back:false, selfie:false, stream:null, activeInput:null };
+  var launchButton = document.getElementById('openVerificationScanner');
+  var modalEl = document.getElementById('verificationScannerModal');
+  var state = { front:false, back:false, selfie:false, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front' };
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
   function setStatus(inputId, message, type) {
@@ -256,23 +302,49 @@ document.addEventListener('DOMContentLoaded', function () {
     el.classList.remove('text-success','text-danger','text-warning');
     if (type) el.classList.add(type);
   }
+  function activeStage() { return document.querySelector('[data-step="' + state.currentStep + '"]'); }
+  function setLive(stage, message, score) {
+    if (!stage) return;
+    var hint = stage.querySelector('[data-live-hint]');
+    var meter = stage.querySelector('.verify-live-meter');
+    var fill = meter ? meter.querySelector('span') : null;
+    if (hint) hint.textContent = message;
+    if (fill) fill.style.width = Math.max(0, Math.min(100, score || 0)) + '%';
+    if (meter) {
+      meter.classList.toggle('is-good', score >= 86);
+      meter.classList.toggle('is-warn', score >= 60 && score < 86);
+    }
+  }
   function showStep(step) {
+    state.currentStep = step;
     document.querySelectorAll('[data-step]').forEach(function (el) { el.classList.toggle('d-none', el.dataset.step !== step); });
     document.querySelectorAll('[data-step-label]').forEach(function (el) {
       el.classList.toggle('active', el.dataset.stepLabel === step);
       el.classList.toggle('done', !!state[el.dataset.stepLabel]);
     });
+    stopCamera();
   }
-  function updateSubmit() { submitButton.disabled = !(state.front && state.back && state.selfie); }
+  function updateSubmit() {
+    if (submitButton) submitButton.disabled = !(state.front && state.back && state.selfie);
+    if (launchButton) launchButton.disabled = !idType.value;
+  }
   function stopCamera() {
+    state.activeLoop += 1;
+    state.stableFrames = 0;
+    state.processing = false;
     if (state.stream) state.stream.getTracks().forEach(function (track) { track.stop(); });
     state.stream = null;
+    document.querySelectorAll('video').forEach(function (video) { video.srcObject = null; });
   }
   function inputStep(input) {
     if (input.id === 'idFrontInput') return 'front';
     if (input.id === 'idBackInput') return 'back';
     return 'selfie';
   }
+  function inputForStep(step) {
+    return document.getElementById(step === 'front' ? 'idFrontInput' : (step === 'back' ? 'idBackInput' : 'selfieInput'));
+  }
+  function nextStep(step) { return step === 'front' ? 'back' : (step === 'back' ? 'selfie' : 'selfie'); }
   function setInputFile(input, blob, filename) {
     var file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
     var transfer = new DataTransfer();
@@ -283,35 +355,81 @@ document.addEventListener('DOMContentLoaded', function () {
   function imageMetrics(file) {
     return new Promise(function (resolve, reject) {
       var img = new Image();
+      var objectUrl = URL.createObjectURL(file);
       img.onload = function () {
         var canvas = document.createElement('canvas');
-        var w = Math.min(320, img.width);
+        var w = Math.min(360, img.width);
         var h = Math.max(1, Math.round(img.height * (w / img.width)));
         canvas.width = w; canvas.height = h;
-        var ctx = canvas.getContext('2d');
+        var ctx = canvas.getContext('2d', { willReadFrequently:true });
         ctx.drawImage(img, 0, 0, w, h);
         var data = ctx.getImageData(0, 0, w, h).data;
         var total = 0;
-        for (var i = 0; i < data.length; i += 4) total += (data[i] + data[i+1] + data[i+2]) / 3;
-        resolve({ width: img.width, height: img.height, brightness: total / (data.length / 4), image: img });
+        var totalSq = 0;
+        var sharp = 0;
+        var samples = 0;
+        for (var y = 1; y < h - 1; y += 3) {
+          for (var x = 1; x < w - 1; x += 3) {
+            var idx = (y * w + x) * 4;
+            var gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+            total += gray; totalSq += gray * gray; samples++;
+            var right = ((y * w + (x + 1)) * 4);
+            var down = (((y + 1) * w + x) * 4);
+            var gRight = (data[right] + data[right + 1] + data[right + 2]) / 3;
+            var gDown = (data[down] + data[down + 1] + data[down + 2]) / 3;
+            sharp += Math.abs(gray - gRight) + Math.abs(gray - gDown);
+          }
+        }
+        var brightness = total / Math.max(1, samples);
+        var variance = (totalSq / Math.max(1, samples)) - (brightness * brightness);
+        URL.revokeObjectURL(objectUrl);
+        resolve({ width: img.width, height: img.height, brightness: brightness, contrast: Math.sqrt(Math.max(0, variance)), sharpness: sharp / Math.max(1, samples), image: img });
       };
-      img.onerror = reject;
-      img.src = URL.createObjectURL(file);
+      img.onerror = function () { URL.revokeObjectURL(objectUrl); reject(); };
+      img.src = objectUrl;
     });
+  }
+  function scoreMetrics(metrics, kind) {
+    var minWidth = kind === 'selfie' ? 480 : 650;
+    var minHeight = kind === 'selfie' ? 480 : 400;
+    if (metrics.width < minWidth || metrics.height < minHeight) return { ok:false, score:25, message:'Image is too small or cropped. Use the original photo or move closer.' };
+    if (metrics.brightness < 40) return { ok:false, score:45, message:'Too dark. Add light and try again.' };
+    if (metrics.brightness > 238) return { ok:false, score:45, message:'Too bright or has glare. Tilt slightly and avoid reflections.' };
+    if (metrics.contrast < 18) return { ok:false, score:58, message:'Details look washed out. Use a clearer photo.' };
+    if (metrics.sharpness < 9) return { ok:false, score:55, message:'Image looks blurry. Hold steady and retake.' };
+    return { ok:true, score:92, message: kind === 'selfie' ? 'Face photo looks clear.' : 'ID image looks clear.' };
   }
   async function validateQuality(file, kind) {
     var metrics = await imageMetrics(file);
-    if (metrics.width < 500 || metrics.height < 320) return 'Picture is too small. Move closer and retake it.';
-    if (metrics.brightness < 35) return 'Picture is too dark. Add light and retake it.';
-    if (metrics.brightness > 245) return 'Picture is too bright. Avoid glare and retake it.';
+    var quality = scoreMetrics(metrics, kind);
+    if (!quality.ok) return quality.message;
     if (kind === 'selfie' && 'FaceDetector' in window) {
       try {
         var detector = new FaceDetector({ fastMode:true, maxDetectedFaces:2 });
         var faces = await detector.detect(metrics.image);
         if (!faces.length) return 'No face detected. Center your face and retake the selfie.';
+        if (faces.length > 1) return 'More than one face detected. Take the selfie alone.';
       } catch (e) {}
     }
     return null;
+  }
+  function captureFromStage(input, stage, auto) {
+    var video = stage ? stage.querySelector('video') : null;
+    var canvas = stage ? stage.querySelector('canvas') : null;
+    if (!input || !video || !canvas || !video.videoWidth) {
+      if (input) setStatus(input.id, 'Open the camera first or upload a picture.', 'text-danger');
+      return;
+    }
+    if (state.processing) return;
+    state.processing = true;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(function (blob) {
+      if (!blob) { state.processing = false; return; }
+      setLive(stage, auto ? 'Clear image captured automatically.' : 'Captured. Checking image...', 96);
+      setInputFile(input, blob, input.id + '.jpg');
+    }, 'image/jpeg', 0.94);
   }
   async function scanFront(file) {
     var selected = idType.value;
@@ -321,7 +439,7 @@ document.addEventListener('DOMContentLoaded', function () {
     body.append('id_type', selected);
     body.append('id_front', file);
     var response = await fetch(scanUrl, { method:'POST', body:body, headers:{ 'Accept':'application/json' } });
-    if (!response.ok) return { ok:false, message:'ID scan failed. Please retake the front ID photo.' };
+    if (!response.ok) return { ok:false, message:'ID scan failed. Please retake or upload a clearer front ID photo.' };
     return await response.json();
   }
   async function handleFile(input) {
@@ -331,12 +449,14 @@ document.addEventListener('DOMContentLoaded', function () {
     updateSubmit();
     if (!file) return;
 
-    setStatus(input.id, 'Checking picture quality...', 'text-warning');
+    setStatus(input.id, 'Checking image quality...', 'text-warning');
     try {
       var qualityError = await validateQuality(file, step);
       if (qualityError) {
         input.value = '';
+        state.processing = false;
         setStatus(input.id, qualityError, 'text-danger');
+        setLive(document.querySelector('[data-step="' + step + '"]'), qualityError, 35);
         return;
       }
       if (step === 'front') {
@@ -344,25 +464,64 @@ document.addEventListener('DOMContentLoaded', function () {
         var result = await scanFront(file);
         if (!result.ok) {
           input.value = '';
+          state.processing = false;
           setStatus(input.id, result.message || 'Selected ID type does not match the scanned ID.', 'text-danger');
+          setLive(document.querySelector('[data-step="front"]'), result.message || 'Wrong ID type detected.', 40);
           return;
         }
         state.front = true;
         setStatus(input.id, result.message || 'Front ID matched.', 'text-success');
+        setLive(document.querySelector('[data-step="front"]'), 'Front ID verified. Flip to the back side.', 100);
         showStep('back');
       } else if (step === 'back') {
         state.back = true;
         setStatus(input.id, 'Back ID captured. Continue to face verification.', 'text-success');
+        setLive(document.querySelector('[data-step="back"]'), 'Back ID accepted.', 100);
         showStep('selfie');
       } else {
         state.selfie = true;
         setStatus(input.id, 'Face image captured. You may submit for review.', 'text-success');
+        setLive(document.querySelector('[data-step="selfie"]'), 'Face image accepted. Ready to submit.', 100);
+        stopCamera();
       }
+      state.processing = false;
       updateSubmit();
     } catch (e) {
       input.value = '';
-      setStatus(input.id, 'Could not check this image. Please retake it.', 'text-danger');
+      state.processing = false;
+      setStatus(input.id, 'Could not check this image. Retake or upload a clearer file.', 'text-danger');
     }
+  }
+  async function monitorCamera(input, stage, loopId) {
+    var video = stage.querySelector('video');
+    var canvas = stage.querySelector('canvas');
+    var step = inputStep(input);
+    if (!video || !canvas || loopId !== state.activeLoop) return;
+    if (!video.videoWidth || state.processing) {
+      requestAnimationFrame(function () { monitorCamera(input, stage, loopId); });
+      return;
+    }
+    var scale = Math.min(1, 360 / video.videoWidth);
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    var ctx = canvas.getContext('2d', { willReadFrequently:true });
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(async function (blob) {
+      if (!blob || loopId !== state.activeLoop) return;
+      try {
+        var metrics = await imageMetrics(blob);
+        metrics.width = video.videoWidth;
+        metrics.height = video.videoHeight;
+        var quality = scoreMetrics(metrics, step);
+        setLive(stage, quality.ok ? 'Hold steady. Capturing automatically...' : quality.message, quality.score);
+        state.stableFrames = quality.ok ? state.stableFrames + 1 : 0;
+        if (state.stableFrames >= 10 && !state.processing) {
+          captureFromStage(input, stage, true);
+          return;
+        }
+      } catch (e) {}
+      setTimeout(function () { monitorCamera(input, stage, loopId); }, 180);
+    }, 'image/jpeg', 0.82);
   }
 
   document.querySelectorAll('[data-upload-trigger]').forEach(function (button) {
@@ -383,13 +542,21 @@ document.addEventListener('DOMContentLoaded', function () {
         if (input) input.click();
         return;
       }
+      if (!idType.value) {
+        setStatus(input.id, 'Select an ID type before scanning.', 'text-danger');
+        return;
+      }
       stopCamera();
       state.activeInput = input;
+      state.activeLoop += 1;
+      var loopId = state.activeLoop;
       try {
-        state.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: button.dataset.facing || 'environment' }, audio:false });
+        state.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: button.dataset.facing || 'environment', width:{ ideal:1920 }, height:{ ideal:1080 } }, audio:false });
         video.srcObject = state.stream;
         await video.play();
-        setStatus(input.id, 'Camera ready. Align the subject inside the frame, then capture.', 'text-warning');
+        setStatus(input.id, 'Camera ready. Hold steady; capture is automatic when clear.', 'text-warning');
+        setLive(stage, 'Align inside the frame. Auto scan is watching.', 55);
+        monitorCamera(input, stage, loopId);
       } catch (e) {
         setStatus(input.id, 'Camera unavailable. Upload a clear picture instead.', 'text-danger');
         input.click();
@@ -400,19 +567,7 @@ document.addEventListener('DOMContentLoaded', function () {
     button.addEventListener('click', function () {
       var input = document.getElementById(button.dataset.cameraCapture);
       var stage = button.closest('[data-step]');
-      var video = stage ? stage.querySelector('video') : null;
-      var canvas = stage ? stage.querySelector('canvas') : null;
-      if (!input || !video || !canvas || !video.videoWidth) {
-        if (input) setStatus(input.id, 'Open the camera first or upload a picture.', 'text-danger');
-        return;
-      }
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(function (blob) {
-        if (!blob) return;
-        setInputFile(input, blob, input.id + '.jpg');
-      }, 'image/jpeg', 0.9);
+      captureFromStage(input, stage, false);
     });
   });
   if (idType) {
@@ -425,7 +580,16 @@ document.addEventListener('DOMContentLoaded', function () {
       setStatus('idFrontInput', 'Waiting for front ID scan.');
       setStatus('idBackInput', 'Waiting for back ID scan.');
       setStatus('selfieInput', 'Waiting for face verification.');
+      document.getElementById('idUploadSummary').innerHTML = '';
       showStep('front'); updateSubmit(); stopCamera();
+    });
+  }
+  if (modalEl) {
+    modalEl.addEventListener('hidden.bs.modal', stopCamera);
+    modalEl.addEventListener('shown.bs.modal', function () {
+      var input = inputForStep(state.currentStep);
+      var stage = activeStage();
+      setLive(stage, input && input.files.length ? 'Step already has an accepted image.' : 'Start auto scan or upload a clear picture.', input && input.files.length ? 100 : 45);
     });
   }
   form.addEventListener('submit', function (event) {
@@ -438,3 +602,5 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endsection
+
+
