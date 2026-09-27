@@ -350,7 +350,9 @@
   @php
     $identitySettings = app(\App\Services\IdentityVerificationSettingsService::class);
     $verificationTypes = $identitySettings->types();
+    $ocrHealth = session('ocr_health');
   @endphp
+  <form action="{{ route('superadmin.settings.verification.ocr_health') }}" method="POST" id="ocrHealthCheckForm" class="d-none">@csrf</form>
   <form action="{{ route('superadmin.settings.verification') }}" method="POST" novalidate id="idVerificationSettingsForm">
     @csrf
     <div style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid var(--gray-100);overflow:hidden">
@@ -376,6 +378,37 @@
             <div class="fw-semibold">Selfie with ID is always required.</div>
             <div class="text-muted small">Customers must submit a selfie with their ID for every verification request. This setting cannot be turned off.</div>
           </div>
+        </div>
+        <div class="mb-3" style="border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;padding:1rem">
+          <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+            <div>
+              <div class="fw-semibold d-flex align-items-center gap-2">
+                <i class="bi bi-cpu" style="color:var(--primary)"></i> OCR Engine Health
+              </div>
+              <div class="text-muted small mt-1">Checks if the online server can run the configured Tesseract OCR binary.</div>
+            </div>
+            <button type="submit" class="btn btn-outline-primary btn-sm" form="ocrHealthCheckForm">
+              <i class="bi bi-activity me-1"></i> Check OCR
+            </button>
+          </div>
+          @if(is_array($ocrHealth))
+            <div class="mt-3 p-3" style="border-radius:8px;background:#fff;border:1px solid {{ !empty($ocrHealth['ok']) ? '#bbf7d0' : '#fecaca' }}">
+              <div class="d-flex align-items-center gap-2 fw-semibold {{ !empty($ocrHealth['ok']) ? 'text-success' : 'text-danger' }}">
+                <i class="bi {{ !empty($ocrHealth['ok']) ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill' }}"></i>
+                {{ !empty($ocrHealth['ok']) ? 'OCR Available' : 'OCR Unavailable' }}
+              </div>
+              <div class="row g-2 mt-2 small">
+                <div class="col-md-6"><span class="text-muted">Binary:</span> <code>{{ $ocrHealth['binary'] ?? 'tesseract' }}</code></div>
+                <div class="col-md-3"><span class="text-muted">Language:</span> <code>{{ $ocrHealth['language'] ?? 'eng' }}</code></div>
+                <div class="col-md-3"><span class="text-muted">Timeout:</span> <code>{{ $ocrHealth['timeout'] ?? 20 }}s</code></div>
+                <div class="col-12"><span class="text-muted">Version:</span> <code>{{ $ocrHealth['version'] ?? 'Not detected' }}</code></div>
+                <div class="col-12 text-muted">{{ $ocrHealth['message'] ?? '' }}</div>
+                @if(!empty($ocrHealth['details']))
+                  <div class="col-12"><pre class="mb-0 small" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:.75rem;max-height:140px;overflow:auto">{{ $ocrHealth['details'] }}</pre></div>
+                @endif
+              </div>
+            </div>
+          @endif
         </div>
         <div class="table-responsive">
           <table class="table align-middle mb-0">

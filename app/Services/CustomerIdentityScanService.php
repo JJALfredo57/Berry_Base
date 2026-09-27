@@ -14,6 +14,63 @@ class CustomerIdentityScanService
     {
     }
 
+    public function healthCheck(): array
+    {
+        $binary = (string) config('services.ocr.tesseract_binary', 'tesseract');
+        $language = (string) config('services.ocr.tesseract_lang', 'eng');
+        $timeout = max(3, min(15, (int) config('services.ocr.tesseract_timeout', 20)));
+
+        try {
+            $result = Process::timeout($timeout)->run([$binary, '--version']);
+        } catch (\Throwable $e) {
+            Log::warning('Customer ID OCR health check unavailable', ['message' => $e->getMessage()]);
+
+            return [
+                'ok' => false,
+                'binary' => $binary,
+                'language' => $language,
+                'timeout' => $timeout,
+                'version' => null,
+                'error' => 'ocr_unavailable',
+                'message' => 'OCR engine is unavailable. The server cannot run the configured Tesseract binary.',
+                'details' => Str::limit($e->getMessage(), 500, ''),
+            ];
+        }
+
+        $output = trim($result->output() ?: $result->errorOutput());
+        $firstLine = trim((string) strtok($output, "\r\n"));
+
+        if (!$result->successful()) {
+            Log::warning('Customer ID OCR health check failed', [
+                'exit_code' => $result->exitCode(),
+                'error' => Str::limit($result->errorOutput(), 500, ''),
+            ]);
+
+            return [
+                'ok' => false,
+                'binary' => $binary,
+                'language' => $language,
+                'timeout' => $timeout,
+                'version' => $firstLine ?: null,
+                'error' => 'ocr_failed',
+                'message' => 'OCR engine responded but failed the health check.',
+                'details' => Str::limit($result->errorOutput() ?: $result->output(), 500, ''),
+                'exit_code' => $result->exitCode(),
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'binary' => $binary,
+            'language' => $language,
+            'timeout' => $timeout,
+            'version' => $firstLine ?: 'Tesseract available',
+            'error' => null,
+            'message' => 'OCR engine is available and can run on this server.',
+            'details' => Str::limit($output, 500, ''),
+        ];
+    }
+
     public function scan(string $selectedIdType, ?string $frontPath): array
     {
         $base = $this->baseResult($selectedIdType);

@@ -620,6 +620,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/platform-settings/dev-mode',  [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveDevMode'])->name('settings.dev_mode');
     Route::post('/platform-settings/rewards',   [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveRewards'])->name('settings.rewards');
     Route::post('/platform-settings/verification', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'saveVerification'])->name('settings.verification');
+    Route::post('/platform-settings/verification/ocr-health', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'checkOcr'])->name('settings.verification.ocr_health');
     Route::post('/platform-settings/backup',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'createBackup'])->name('settings.backup');
     Route::post('/platform-settings/full-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'createFullBackup'])->name('settings.full_backup');
     Route::post('/platform-settings/upload-backup', [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'uploadBackup'])->name('settings.upload_backup');

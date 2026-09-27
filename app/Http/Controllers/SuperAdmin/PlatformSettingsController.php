@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
 use App\Services\BackupService;
+use App\Services\CustomerIdentityScanService;
 use App\Services\IdentityVerificationSettingsService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -241,7 +242,7 @@ class PlatformSettingsController extends Controller
 
         $updates = [
             'verification_id_types' => json_encode($types),
-            'verification_selfie_required' => $request->boolean('verification_selfie_required'),
+            'verification_selfie_required' => true,
             'updated_at' => now(),
         ];
 
@@ -255,6 +256,20 @@ class PlatformSettingsController extends Controller
         }
 
         return redirect()->route('superadmin.settings', ['tab' => 'verification'])->with('msg', 'ID verification settings saved.');
+    }
+
+    public function checkOcr(CustomerIdentityScanService $identityScanner)
+    {
+        $health = $identityScanner->healthCheck();
+        $flashKey = !empty($health['ok']) ? 'msg' : 'err';
+        $summary = !empty($health['ok'])
+            ? 'OCR health check passed: ' . ($health['version'] ?? 'Tesseract available') . '.'
+            : 'OCR health check failed: ' . ($health['message'] ?? 'OCR engine is unavailable.');
+
+        return redirect()
+            ->route('superadmin.settings', ['tab' => 'verification'])
+            ->with($flashKey, $summary)
+            ->with('ocr_health', $health);
     }
     public function savePhilsms(Request $request)
     {
