@@ -33,6 +33,10 @@
               $livenessMethod = $reviewFlags['liveness_method'] ?? 'not_available';
               $livenessChallenge = $reviewFlags['liveness_challenge'] ?? null;
               $faceMatchStatus = $reviewFlags['face_match_status'] ?? 'manual_review';
+              $faceMatchScore = isset($reviewFlags['face_match_score']) && is_numeric($reviewFlags['face_match_score']) ? (float) $reviewFlags['face_match_score'] : null;
+              $faceMatchMessage = $reviewFlags['face_match_message'] ?? null;
+              $faceMatchEngine = $reviewFlags['face_match_engine'] ?? null;
+              $isFaceMismatch = $faceMatchStatus === 'mismatch';
               $isMismatch = $matchStatus === 'mismatch';
               $isMatched = $matchStatus === 'match';
               $livenessPassed = $livenessResult === 'passed';
@@ -63,7 +67,7 @@
                     <span class="badge {{ $scanStatus === 'scanned' ? 'text-bg-primary' : 'text-bg-light' }}">Scan: {{ ucfirst(str_replace('_', ' ', $scanStatus)) }}</span>
                     <span class="badge {{ $isMatched ? 'text-bg-success' : ($isMismatch ? 'text-bg-danger' : 'text-bg-warning') }}">ID match: {{ ucfirst(str_replace('_', ' ', $matchStatus)) }}</span>
                     <span class="badge {{ $livenessPassed ? 'text-bg-success' : 'text-bg-warning' }}">Liveness: {{ ucfirst(str_replace('_', ' ', $livenessResult)) }}</span>
-                    <span class="badge text-bg-light">Face match: {{ ucfirst(str_replace('_', ' ', $faceMatchStatus)) }}</span>
+                    <span class="badge {{ $faceMatchStatus === 'match' ? 'text-bg-success' : ($isFaceMismatch ? 'text-bg-danger' : 'text-bg-warning') }}">Face match: {{ ucfirst(str_replace('_', ' ', $faceMatchStatus)) }}</span>
                   </div>
                   <div class="row g-1 text-muted">
                     <div class="col-sm-6">Expected: <strong class="text-body">{{ $expectedType ?: 'N/A' }}</strong></div>
@@ -72,6 +76,15 @@
                       <div class="col-sm-6">OCR text length: <strong class="text-body">{{ number_format((int) $textLength) }}</strong></div>
                     @endif
                     <div class="col-sm-6">Liveness method: <strong class="text-body">{{ ucfirst(str_replace('_', ' ', $livenessMethod)) }}</strong></div>
+                    @if($faceMatchScore !== null)
+                      <div class="col-sm-6">Face score: <strong class="text-body">{{ number_format($faceMatchScore * 100, 1) }}%</strong></div>
+                    @endif
+                    @if($faceMatchEngine)
+                      <div class="col-sm-6">Face engine: <strong class="text-body">{{ ucfirst(str_replace('_', ' ', $faceMatchEngine)) }}</strong></div>
+                    @endif
+                    @if($faceMatchMessage)
+                      <div class="col-12 {{ $isFaceMismatch ? 'text-danger fw-semibold' : '' }}">Face note: <strong class="text-body">{{ $faceMatchMessage }}</strong></div>
+                    @endif
                     @if($livenessChallenge)
                       <div class="col-12">Challenge: <strong class="text-body">{{ ucfirst(str_replace('_', ' ', $livenessChallenge)) }}</strong></div>
                     @endif
@@ -113,8 +126,8 @@
               <td style="min-width:320px">
                 @if($row->status === 'pending')
                   <div class="d-flex flex-wrap gap-2 mb-2">
-                    @if($isMismatch)
-                      <button class="btn btn-secondary btn-sm" disabled title="Cannot approve while ID type mismatch is flagged"><i class="bi bi-lock"></i></button>
+                    @if($isMismatch || $isFaceMismatch)
+                      <button class="btn btn-secondary btn-sm" disabled title="Cannot approve while an ID or face mismatch is flagged"><i class="bi bi-lock"></i></button>
                     @else
                       <form action="{{ route($routePrefix . 'customer_verifications.approve', $row->id) }}" method="POST">@csrf<button class="btn btn-success btn-sm" title="Approve"><i class="bi bi-check-lg"></i></button></form>
                     @endif

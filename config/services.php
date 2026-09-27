@@ -53,4 +53,10 @@ return [
         'service_token' => env('OCR_SERVICE_TOKEN'),
         'service_timeout' => (int) env('OCR_SERVICE_TIMEOUT', 30),
     ],
+
+    'face_compare' => [
+        'service_url' => env('FACE_COMPARE_SERVICE_URL'),
+        'service_token' => env('FACE_COMPARE_SERVICE_TOKEN', env('OCR_SERVICE_TOKEN')),
+        'timeout' => (int) env('FACE_COMPARE_SERVICE_TIMEOUT', env('OCR_SERVICE_TIMEOUT', 30)),
+    ],
 ];

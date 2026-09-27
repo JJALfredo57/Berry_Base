@@ -31,6 +31,11 @@ class CustomerVerificationController extends Controller
             return back()->with('err', 'Cannot approve this request because the selected ID type does not match the reviewed ID. Reject it and ask the customer to resubmit the correct ID.');
         }
 
+        $reviewFlags = json_decode($row->review_flags ?? '', true) ?: [];
+        if (($reviewFlags['face_match_status'] ?? null) === 'mismatch') {
+            return back()->with('err', 'Cannot approve this request because the selfie does not match the ID face. Reject it and ask the customer to resubmit.');
+        }
+
         DB::table('customer_verifications')->where('id', $id)->update([
             'status' => 'approved',
             'rejection_reason' => null,

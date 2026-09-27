@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Services\CustomerFaceMatchService;
 use App\Services\CustomerIdentityScanService;
 use App\Services\CustomerVerificationService;
 use App\Services\IdentityVerificationSettingsService;
@@ -56,7 +57,7 @@ class VerificationController extends Controller
         ]);
     }
 
-    public function store(Request $request, IdentityVerificationSettingsService $identitySettings, CustomerIdentityScanService $identityScanner)
+    public function store(Request $request, IdentityVerificationSettingsService $identitySettings, CustomerIdentityScanService $identityScanner, CustomerFaceMatchService $faceMatcher)
     {
         $idTypes = $identitySettings->typeNames();
 
@@ -77,6 +78,13 @@ class VerificationController extends Controller
             return back()
                 ->withInput()
                 ->with('error', $scan['id_type_match_warning'] ?? 'The front ID scan did not match the selected ID type. Please retake the front ID photo.');
+        }
+
+        $faceMatch = $faceMatcher->compareUploadedFiles($request->file('id_front'), $request->file('selfie'));
+        if (($faceMatch['status'] ?? 'needs_review') === 'mismatch') {
+            return back()
+                ->withInput()
+                ->with('error', $faceMatch['message'] ?? 'Selfie does not match the face on the ID. Please retake your ID and selfie.');
         }
 
         $front = $this->uploadFile($request->file('id_front'), 'uploads/customer-ids');
@@ -126,7 +134,12 @@ class VerificationController extends Controller
                 'selfie_required' => true,
                 'guided_capture' => true,
                 'face_match_required' => true,
-                'face_match_status' => 'manual_review',
+                'face_match_status' => $faceMatch['status'] ?? 'needs_review',
+                'face_match_score' => $faceMatch['score'] ?? null,
+                'face_match_threshold' => $faceMatch['threshold'] ?? null,
+                'face_match_engine' => $faceMatch['engine'] ?? 'external_face_compare',
+                'face_match_message' => $faceMatch['message'] ?? null,
+                'face_match_error' => $faceMatch['error'] ?? null,
                 'liveness_challenge' => trim((string) $request->input('liveness_challenge')) ?: null,
                 'liveness_result' => trim((string) $request->input('liveness_result')) ?: 'not_verified',
                 'liveness_method' => trim((string) $request->input('liveness_method')) ?: 'not_available',
