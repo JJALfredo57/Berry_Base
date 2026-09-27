@@ -25,7 +25,7 @@
 .verify-upload-card .form-control{font-size:.86rem}
 .verify-upload-hint{font-size:.76rem;color:#64748b}
 .verify-file-input{position:absolute;inline-size:1px;block-size:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0)}
-.verify-upload-status{font-size:.76rem;color:#64748b;min-height:1.1rem}
+.verify-upload-status{font-size:.76rem;color:#64748b;min-height:1.1rem;transition:color .18s ease,opacity .18s ease}
 .verify-member-tier{border:1px solid #e5e7eb;border-radius:8px;padding:.8rem;background:#fff}
 .verify-member-tier.is-current{border-color:var(--primary);box-shadow:0 10px 24px rgba(var(--primary-rgb,233,30,99),.1)}
 .verify-member-tier.is-locked{background:#f8fafc;color:#64748b}
@@ -51,9 +51,9 @@
 .verify-camera-frame:after{content:"";position:absolute;left:8%;right:8%;top:50%;height:2px;background:linear-gradient(90deg,transparent,rgba(56,189,248,.85),transparent);box-shadow:0 0 20px rgba(56,189,248,.6);animation:verifyScanLine 1.9s ease-in-out infinite;opacity:.8}
 .verify-frame-guide{position:absolute;inset:10% 7%;border:2px solid rgba(255,255,255,.92);border-radius:8px;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 26px rgba(56,189,248,.22)}
 .verify-face-guide{position:absolute;width:min(44%,250px);aspect-ratio:3/4;border:2px solid rgba(255,255,255,.92);border-radius:50%;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 26px rgba(56,189,248,.22)}
-.verify-live-panel{position:absolute;left:1rem;right:1rem;bottom:1rem;display:flex;gap:.75rem;align-items:center;justify-content:space-between;padding:.75rem .85rem;border-radius:8px;background:rgba(2,6,23,.82);backdrop-filter:blur(10px);color:#fff;font-size:.84rem}
+.verify-live-panel{position:absolute;left:1rem;right:1rem;bottom:1rem;display:flex;gap:.75rem;align-items:center;justify-content:space-between;padding:.75rem .85rem;border-radius:8px;background:rgba(2,6,23,.82);backdrop-filter:blur(10px);color:#fff;font-size:.84rem;transition:background .18s ease,transform .18s ease}
 .verify-live-meter{width:120px;height:8px;background:rgba(148,163,184,.38);border-radius:999px;overflow:hidden;flex:0 0 auto}
-.verify-live-meter span{display:block;height:100%;width:0;background:#ef4444;transition:width .2s,background .2s}
+.verify-live-meter span{display:block;height:100%;width:0;background:#ef4444;transition:width .22s ease,background .22s ease}
 .verify-live-meter.is-good span{background:#22c55e}.verify-live-meter.is-warn span{background:#f59e0b}
 .verify-liveness-card{border:1px solid rgba(56,189,248,.35);border-radius:8px;background:rgba(14,165,233,.1);padding:.75rem;color:#e0f2fe}
 .verify-scanner-modal .verify-upload-status.text-danger{color:#fca5a5!important}.verify-scanner-modal .verify-upload-status.text-success{color:#86efac!important}.verify-scanner-modal .verify-upload-status.text-warning{color:#fde68a!important}
@@ -299,13 +299,13 @@ document.addEventListener('DOMContentLoaded', function () {
   var submitButton = document.getElementById('verificationSubmitButton');
   var launchButton = document.getElementById('openVerificationScanner');
   var modalEl = document.getElementById('verificationScannerModal');
-  var state = { front:false, back:false, selfie:false, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', liveness:{ challenge:null, baseline:null, passed:false, unsupported:false } };
+  var state = { front:false, back:false, selfie:false, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', lastLive:{}, autoStarting:false, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false } };
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
   function setStatus(inputId, message, type) {
     var el = statusFor(inputId);
     if (!el) return;
-    el.textContent = message;
+    if (el.textContent !== message) el.textContent = message;
     el.classList.remove('text-success','text-danger','text-warning');
     if (type) el.classList.add(type);
   }
@@ -369,16 +369,24 @@ document.addEventListener('DOMContentLoaded', function () {
       return true;
     }
   }
-  function setLive(stage, message, score) {
+  function setLive(stage, message, score, force) {
     if (!stage) return;
     var hint = stage.querySelector('[data-live-hint]');
     var meter = stage.querySelector('.verify-live-meter');
     var fill = meter ? meter.querySelector('span') : null;
-    if (hint) hint.textContent = message;
-    if (fill) fill.style.width = Math.max(0, Math.min(100, score || 0)) + '%';
+    var clamped = Math.max(0, Math.min(100, score || 0));
+    var key = stage.dataset.step || 'active';
+    var now = Date.now();
+    var last = state.lastLive[key] || { message:'', at:0, score:0 };
+    var shouldUpdateText = force || (message !== last.message && (now - last.at > 650 || clamped >= 86 || clamped < last.score - 18));
+    if (hint && shouldUpdateText) {
+      hint.textContent = message;
+      state.lastLive[key] = { message:message, at:now, score:clamped };
+    }
+    if (fill) fill.style.width = clamped + '%';
     if (meter) {
-      meter.classList.toggle('is-good', score >= 86);
-      meter.classList.toggle('is-warn', score >= 60 && score < 86);
+      meter.classList.toggle('is-good', clamped >= 86);
+      meter.classList.toggle('is-warn', clamped >= 60 && clamped < 86);
     }
   }
   function showStep(step) {
@@ -389,6 +397,9 @@ document.addEventListener('DOMContentLoaded', function () {
       el.classList.toggle('done', !!state[el.dataset.stepLabel]);
     });
     stopCamera();
+    if (modalEl && modalEl.classList.contains('show')) {
+      setTimeout(function () { startCameraForStep(step); }, 220);
+    }
   }
   function updateSubmit() {
     if (submitButton) submitButton.disabled = !(state.front && state.back && state.selfie);
@@ -595,12 +606,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var livenessOk = step === 'selfie' && quality.ok ? await checkLiveness(stage) : true;
         setLive(stage, quality.ok ? (livenessOk ? 'Hold steady. Capturing automatically...' : 'Complete the liveness challenge.') : quality.message, livenessOk ? quality.score : 65);
         state.stableFrames = quality.ok && livenessOk ? state.stableFrames + 1 : 0;
-        if (state.stableFrames >= 10 && !state.processing) {
+        if (state.stableFrames >= 5 && !state.processing) {
           captureFromStage(input, stage, true);
           return;
         }
       } catch (e) {}
-      setTimeout(function () { monitorCamera(input, stage, loopId); }, 180);
+      setTimeout(function () { monitorCamera(input, stage, loopId); }, 140);
     }, 'image/jpeg', 0.82);
   }
 
@@ -613,35 +624,48 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('.verify-file-input').forEach(function (input) {
     input.addEventListener('change', function () { handleFile(input); });
   });
+  async function startCameraForStep(step) {
+    var targetStep = step || state.currentStep;
+    var input = inputForStep(targetStep);
+    var stage = document.querySelector('[data-step="' + targetStep + '"]');
+    var button = stage ? stage.querySelector('[data-camera-start]') : null;
+    var video = stage ? stage.querySelector('video') : null;
+    if (!input || !stage || !video || state.autoStarting) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus(input.id, 'Camera is not supported here. Upload a clear picture instead.', 'text-danger');
+      setLive(stage, 'Camera is not supported here. Upload a clear picture instead.', 35, true);
+      return;
+    }
+    if (!idType.value) {
+      setStatus(input.id, 'Select an ID type before scanning.', 'text-danger');
+      return;
+    }
+    state.autoStarting = true;
+    stopCamera();
+    state.activeInput = input;
+    state.activeLoop += 1;
+    var loopId = state.activeLoop;
+    try {
+      if (input.id === 'selfieInput') resetLiveness();
+      setStatus(input.id, 'Opening camera...', 'text-warning');
+      setLive(stage, 'Opening camera...', 30, true);
+      state.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: button?.dataset.facing || (input.id === 'selfieInput' ? 'user' : 'environment'), width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
+      video.srcObject = state.stream;
+      await video.play();
+      setStatus(input.id, 'Camera ready. Hold steady; capture is automatic when clear.', 'text-warning');
+      setLive(stage, input.id === 'selfieInput' ? 'Center your face and follow the challenge.' : 'Align inside the frame. Auto scan is watching.', 58, true);
+      monitorCamera(input, stage, loopId);
+    } catch (e) {
+      setStatus(input.id, 'Camera unavailable. Upload a clear picture instead.', 'text-danger');
+      setLive(stage, 'Camera unavailable. Upload a clear picture instead.', 35, true);
+    } finally {
+      state.autoStarting = false;
+    }
+  }
   document.querySelectorAll('[data-camera-start]').forEach(function (button) {
-    button.addEventListener('click', async function () {
+    button.addEventListener('click', function () {
       var input = document.getElementById(button.dataset.cameraStart);
-      var stage = button.closest('[data-step]');
-      var video = stage ? stage.querySelector('video') : null;
-      if (!input || !video || !navigator.mediaDevices?.getUserMedia) {
-        if (input) input.click();
-        return;
-      }
-      if (!idType.value) {
-        setStatus(input.id, 'Select an ID type before scanning.', 'text-danger');
-        return;
-      }
-      stopCamera();
-      state.activeInput = input;
-      state.activeLoop += 1;
-      var loopId = state.activeLoop;
-      try {
-        if (input.id === 'selfieInput') resetLiveness();
-        state.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: button.dataset.facing || 'environment', width:{ ideal:1920 }, height:{ ideal:1080 } }, audio:false });
-        video.srcObject = state.stream;
-        await video.play();
-        setStatus(input.id, 'Camera ready. Hold steady; capture is automatic when clear.', 'text-warning');
-        setLive(stage, 'Align inside the frame. Auto scan is watching.', 55);
-        monitorCamera(input, stage, loopId);
-      } catch (e) {
-        setStatus(input.id, 'Camera unavailable. Upload a clear picture instead.', 'text-danger');
-        input.click();
-      }
+      startCameraForStep(input ? inputStep(input) : state.currentStep);
     });
   });
   document.querySelectorAll('[data-camera-capture]').forEach(function (button) {
@@ -670,7 +694,12 @@ document.addEventListener('DOMContentLoaded', function () {
     modalEl.addEventListener('shown.bs.modal', function () {
       var input = inputForStep(state.currentStep);
       var stage = activeStage();
-      setLive(stage, input && input.files.length ? 'Step already has an accepted image.' : 'Start auto scan or upload a clear picture.', input && input.files.length ? 100 : 45);
+      if (input && input.files.length) {
+        setLive(stage, 'Step already has an accepted image.', 100, true);
+      } else {
+        setLive(stage, 'Opening camera automatically...', 45, true);
+        setTimeout(function () { startCameraForStep(state.currentStep); }, 260);
+      }
     });
   }
   form.addEventListener('submit', function (event) {
