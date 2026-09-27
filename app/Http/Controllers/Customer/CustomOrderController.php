@@ -265,7 +265,7 @@ class CustomOrderController extends Controller
         $fulfillment = $request->input('fulfillment_type', 'Pickup');
         $zone        = $request->input('delivery_zone', '');
         $deliveryFee = (float)$request->input('delivery_fee', 0);
-        $address     = trim($request->input('address', ''));
+        $address     = app(\App\Services\DeliveryLocationValidationService::class)->addressFromRequest($request, 'address');
         $lat         = $request->input('latitude') !== '' ? (float)$request->input('latitude') : null;
         $lng         = $request->input('longitude') !== '' ? (float)$request->input('longitude') : null;
         $sdate       = $request->input('schedule_date') ?: null;
@@ -333,7 +333,7 @@ class CustomOrderController extends Controller
 
         if ($fulfillment === 'Delivery') {
             $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
-                ->validate($address, $lat, $lng, $zone, true);
+                ->validateRequest($request, $lat, $lng, $zone, true);
             if (!$locationValidation['ok']) {
                 return back()->with('error', $locationValidation['message'])->withInput();
             }
@@ -592,7 +592,7 @@ class CustomOrderController extends Controller
         $fulfillment = $request->input('fulfillment_type', 'Pickup');
         $zone = $request->input('delivery_zone', '');
         $deliveryFee = (float) $request->input('delivery_fee', 0);
-        $address = trim($request->input('address', ''));
+        $address = app(\App\Services\DeliveryLocationValidationService::class)->addressFromRequest($request, 'address');
         $lat = $request->input('latitude') !== '' ? (float) $request->input('latitude') : null;
         $lng = $request->input('longitude') !== '' ? (float) $request->input('longitude') : null;
         $sdate = $request->input('schedule_date') ?: null;
@@ -628,7 +628,7 @@ class CustomOrderController extends Controller
 
         if ($fulfillment === 'Delivery') {
             $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
-                ->validate($address, $lat, $lng, $zone, true);
+                ->validateRequest($request, $lat, $lng, $zone, true);
             if (!$locationValidation['ok']) {
                 return ['ok' => false, 'message' => $locationValidation['message']];
             }

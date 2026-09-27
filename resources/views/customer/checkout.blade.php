@@ -202,7 +202,8 @@ document.body.style.paddingRight = '';
                     Fetching address…
                   </span>
                 </label>
-                <textarea class="form-control" name="address" id="addressField" rows="2"
+                @include('partials.delivery_address_fields', ['prefix' => 'checkout', 'title' => 'Detailed Delivery Address'])
+                    <textarea class="form-control" name="address" id="addressField" rows="2"
                   placeholder="Pin your location on the map to auto-fill, or type your address">{{ $defaultAddr ? $defaultAddr->full_address : '' }}</textarea>
               </div>
               <div class="form-check mb-1">
@@ -737,3 +738,4 @@ if (HAS_PRODUCT_DISCOUNT) {
 updatePaymentMethodLabel();
 </script>
 @endpush
+

@@ -140,12 +140,12 @@ class AddressController extends Controller
     private function validatedAddressPayload(Request $request): array
     {
         $label = trim($request->input('label_name', 'Home')) ?: 'Address';
-        $address = trim($request->input('full_address', ''));
+        $address = app(\App\Services\DeliveryLocationValidationService::class)->addressFromRequest($request, 'full_address');
         $lat = $request->input('latitude') !== '' ? (float)$request->input('latitude') : 0;
         $lng = $request->input('longitude') !== '' ? (float)$request->input('longitude') : 0;
 
         $validation = app(\App\Services\DeliveryLocationValidationService::class)
-            ->validate($address, $lat ?: null, $lng ?: null, null, false);
+            ->validateRequest($request, $lat ?: null, $lng ?: null, null, false, 'full_address');
         if (!$validation['ok']) {
             return ['ok' => false, 'message' => $validation['message']];
         }

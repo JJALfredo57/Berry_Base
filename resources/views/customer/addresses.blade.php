@@ -73,9 +73,12 @@
                   <label class="form-label small fw-semibold">Label</label>
                   <input class="form-control pill" name="label_name" value="{{ $a->label_name ?: 'Address' }}">
                 </div>
+                <div class="col-12">
+                  @include('partials.delivery_address_fields', ['prefix' => 'edit' . $a->id, 'title' => 'Detailed Delivery Address'])
+                </div>
                 <div class="col-sm-7">
-                  <label class="form-label small fw-semibold">Complete Address <span class="address-loading" id="editAddressLoading{{ $a->id }}"><span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>Fetching address...</span></label>
-                  <textarea class="form-control pill" name="full_address" id="editFullAddress{{ $a->id }}" rows="2" required>{{ $a->full_address }}</textarea>
+                  <label class="form-label small fw-semibold">Map Address Summary <span class="address-loading" id="editAddressLoading{{ $a->id }}"><span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>Fetching address...</span></label>
+                  <textarea class="form-control pill" name="full_address" id="editFullAddress{{ $a->id }}" rows="2">{{ $a->full_address }}</textarea>
                 </div>
               </div>
               <div class="mt-3">
@@ -126,7 +129,8 @@
             <button type="button" class="btn btn-outline-primary btn-sm pill mt-2" id="detectAddressBtn" onclick="detectMyLocation()"><i class="bi bi-crosshair me-1"></i>Detect My Location</button>
             <div class="small text-muted mt-2"><i class="bi bi-pin-map me-1"></i>Use detection or click the map to pin your exact delivery location.</div>
           </div>
-          <div class="mb-2"><label class="form-label">Complete Address <span class="address-loading" id="addressLoading"><span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>Fetching address...</span></label><textarea class="form-control pill" name="full_address" id="address" rows="2" placeholder="House no., Street, Barangay, City/Province" required>{{ old('full_address') }}</textarea></div>
+          @include('partials.delivery_address_fields', ['prefix' => 'new', 'title' => 'Detailed Delivery Address'])
+          <div class="mb-2"><label class="form-label">Map Address Summary <span class="address-loading" id="addressLoading"><span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>Fetching address...</span></label><textarea class="form-control pill" name="full_address" id="address" rows="2" placeholder="Map result or address summary">{{ old('full_address') }}</textarea></div>
           <div class="form-check mb-3"><input class="form-check-input" type="checkbox" value="1" id="makeDefault" name="make_default"><label class="form-check-label" for="makeDefault">Set as Default</label></div>
           <button class="btn btn-primary pill"><i class="bi bi-save me-1"></i>Save Address</button>
         </form>
@@ -254,3 +258,4 @@ map.on('click', e => setMarkerAt(e.latlng));
 </script>
 @endpush
 @endsection
+

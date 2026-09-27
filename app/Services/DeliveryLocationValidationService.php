@@ -4,6 +4,86 @@ namespace App\Services;
 
 class DeliveryLocationValidationService
 {
+    public function addressFromRequest($request, string $fallbackField = 'address'): string
+    {
+        $parts = $this->structuredParts($request);
+        if ($this->hasStructuredInput($parts)) {
+            return $this->composeStructuredAddress($parts);
+        }
+
+        return trim((string) $request->input($fallbackField, ''));
+    }
+
+    public function validateRequest($request, ?float $lat, ?float $lng, ?string $zone = null, bool $requireZoneMatch = false, string $fallbackField = 'address'): array
+    {
+        $parts = $this->structuredParts($request);
+        $structuredRequired = $request->boolean('_structured_address') || $this->hasStructuredInput($parts);
+        if ($structuredRequired) {
+            $missing = $this->missingStructuredFields($parts);
+            if ($missing) {
+                return ['ok' => false, 'message' => 'Please complete these delivery address details: ' . implode(', ', $missing) . '.'];
+            }
+        }
+
+        return $this->validate($this->addressFromRequest($request, $fallbackField), $lat, $lng, $zone, $requireZoneMatch);
+    }
+
+    private function structuredParts($request): array
+    {
+        return [
+            'house' => trim((string) $request->input('address_house', '')),
+            'street' => trim((string) $request->input('address_street', '')),
+            'subdivision' => trim((string) $request->input('address_subdivision', '')),
+            'barangay' => trim((string) $request->input('address_barangay', '')),
+            'city' => trim((string) $request->input('address_city', '')),
+            'province' => trim((string) $request->input('address_province', '')),
+            'postal_code' => trim((string) $request->input('address_postal_code', '')),
+            'landmark' => trim((string) $request->input('address_landmark', '')),
+        ];
+    }
+
+    private function hasStructuredInput(array $parts): bool
+    {
+        return collect($parts)->filter(fn ($value) => $value !== '')->isNotEmpty();
+    }
+
+    private function missingStructuredFields(array $parts): array
+    {
+        $labels = [
+            'house' => 'House / unit / building no.',
+            'street' => 'Street / road',
+            'barangay' => 'Barangay',
+            'city' => 'City / municipality',
+            'province' => 'Province',
+            'landmark' => 'Landmark',
+        ];
+
+        $missing = [];
+        foreach ($labels as $key => $label) {
+            if (($parts[$key] ?? '') === '') $missing[] = $label;
+        }
+        return $missing;
+    }
+
+    private function composeStructuredAddress(array $parts): string
+    {
+        $main = array_filter([
+            $parts['house'] ?? '',
+            $parts['street'] ?? '',
+            $parts['subdivision'] ?? '',
+            ($parts['barangay'] ?? '') !== '' ? 'Barangay ' . $parts['barangay'] : '',
+            $parts['city'] ?? '',
+            $parts['province'] ?? '',
+            $parts['postal_code'] ?? '',
+        ]);
+
+        $address = implode(', ', $main);
+        if (($parts['landmark'] ?? '') !== '') {
+            $address .= '. Landmark: ' . $parts['landmark'];
+        }
+
+        return trim($address);
+    }
     public function validate(?string $address, ?float $lat, ?float $lng, ?string $zone = null, bool $requireZoneMatch = false): array
     {
         $address = trim((string) $address);
@@ -65,3 +145,4 @@ class DeliveryLocationValidationService
         return $matches >= min(2, count($zoneWords));
     }
 }
+

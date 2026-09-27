@@ -267,6 +267,7 @@ document.body.style.paddingRight = '';
                         Fetching address…
                       </span>
                     </label>
+                    @include('partials.delivery_address_fields', ['prefix' => 'checkout', 'title' => 'Detailed Delivery Address'])
                     <textarea class="form-control" name="address" id="addressField" rows="2"
                       placeholder="Click the map to pin your location and auto-fill address"></textarea>
                     <div class="form-text"><i class="bi bi-pin-map me-1"></i>Add your house number, street name, or a landmark for easier delivery (e.g. House #12, Rizal St., near the blue gate).</div>
@@ -1287,3 +1288,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 </script>
+

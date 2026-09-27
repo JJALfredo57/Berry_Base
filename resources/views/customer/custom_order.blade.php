@@ -308,6 +308,7 @@
                         Fetching address…
                       </span>
                     </label>
+                    @include('partials.delivery_address_fields', ['prefix' => 'checkout', 'title' => 'Detailed Delivery Address'])
                     <textarea class="form-control" name="address" id="addressField" rows="2"
                       placeholder="Pin your location on the map to auto-fill, or type your address">{{ $defaultAddr ? $defaultAddr->full_address : '' }}</textarea>
                   </div>
@@ -1158,7 +1159,4 @@ function checkCustCoAvailability() {
 }
 </script>
 @endpush
-
-
-
 
