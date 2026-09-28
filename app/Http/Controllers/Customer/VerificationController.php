@@ -95,9 +95,16 @@ class VerificationController extends Controller
             'liveness_challenge' => 'nullable|string|max:80',
             'liveness_result' => 'nullable|string|max:40',
             'liveness_method' => 'nullable|string|max:60',
+            'selfie_capture_source' => 'required|string|max:40',
             'id_front_hash' => ['nullable', 'string', 'regex:/^[01]{64}$/'],
             'id_back_hash' => ['nullable', 'string', 'regex:/^[01]{64}$/'],
         ]);
+
+        if ($request->input('selfie_capture_source') !== 'live_camera') {
+            return back()
+                ->withInput()
+                ->with('error', 'Face verification requires the live camera. Selfie upload is not accepted.');
+        }
 
         $selectedIdType = trim($request->input('id_type'));
         $scan = $identityScanner->scanUploadedFile($selectedIdType, $request->file('id_front'));
@@ -171,6 +178,7 @@ class VerificationController extends Controller
                 'front_back_same_check' => 'passed',
                 'selfie_required' => true,
                 'guided_capture' => true,
+                'selfie_capture_source' => $request->input('selfie_capture_source'),
                 'face_match_required' => true,
                 'face_match_status' => $faceMatch['status'] ?? 'needs_review',
                 'face_match_score' => $faceMatch['score'] ?? null,
