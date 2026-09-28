@@ -57,7 +57,7 @@ def normalize_ocr_gray(image: np.ndarray, target: float) -> np.ndarray:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image.copy()
     h, w = gray.shape[:2]
     longest = max(1, max(w, h))
-    scale = min(2.5, target / longest)
+    scale = min(2.4, target / longest)
     if scale < 0.98:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
     elif scale > 1.05:
@@ -74,25 +74,94 @@ def crop_gray_region(gray: np.ndarray, x1: float, y1: float, x2: float, y2: floa
     return gray[top:bottom, left:right]
 
 
-def prepare_id_type_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
-    gray = normalize_ocr_gray(image, 1200.0)
-    variants: list[tuple[str, np.ndarray]] = []
+def rotate_if_portrait(image: np.ndarray) -> np.ndarray:
+    h, w = image.shape[:2]
+    if h > w * 1.12:
+        return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    return image
 
+
+def find_document_crop(image: np.ndarray) -> np.ndarray | None:
+    work = rotate_if_portrait(image)
+    gray = normalize_ocr_gray(work, 950.0)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    edges = cv2.Canny(blur, 45, 140)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 5))
+    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, iterations=2)
+    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    h, w = gray.shape[:2]
+    image_area = float(h * w)
+    candidates = []
+    for contour in contours:
+        x, y, cw, ch = cv2.boundingRect(contour)
+        area = cw * ch
+        if area < image_area * 0.16 or area > image_area * 0.94:
+            continue
+        ratio = cw / max(1, ch)
+        if 1.25 <= ratio <= 2.45:
+            candidates.append((area, x, y, cw, ch))
+
+    if not candidates:
+        return None
+
+    _, x, y, cw, ch = max(candidates, key=lambda item: item[0])
+    pad_x = int(cw * 0.035)
+    pad_y = int(ch * 0.05)
+    x1 = max(0, x - pad_x)
+    y1 = max(0, y - pad_y)
+    x2 = min(w, x + cw + pad_x)
+    y2 = min(h, y + ch + pad_y)
+    crop = work[y1:y2, x1:x2]
+
+    if crop.size == 0:
+        return None
+    return crop
+
+
+def clean_text_variant(gray: np.ndarray, clip: float = 2.0) -> np.ndarray:
+    gray = normalize_ocr_gray(gray, 1350.0)
+    gray = cv2.bilateralFilter(gray, 5, 45, 45)
+    clahe = cv2.createCLAHE(clipLimit=clip, tileGridSize=(8, 8)).apply(gray)
+    sharpen_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+    return cv2.filter2D(clahe, -1, sharpen_kernel)
+
+
+def prepare_id_type_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
+    bases: list[tuple[str, np.ndarray]] = [("frame", rotate_if_portrait(image))]
+    document = find_document_crop(image)
+    if document is not None:
+        bases.insert(0, ("card", document))
+
+    variants: list[tuple[str, np.ndarray]] = []
+    seen: set[tuple[int, int, str]] = set()
     regions = [
-        ("header", crop_gray_region(gray, 0.04, 0.02, 0.96, 0.46)),
-        ("body", crop_gray_region(gray, 0.22, 0.24, 0.98, 0.82)),
+        ("full", 0.00, 0.00, 1.00, 1.00),
+        ("top", 0.02, 0.00, 0.98, 0.42),
+        ("right_text", 0.30, 0.16, 0.98, 0.82),
+        ("center", 0.10, 0.20, 0.98, 0.90),
+        ("bottom", 0.04, 0.55, 0.98, 0.98),
     ]
 
-    for name, region in regions:
-        if region.size == 0:
-            continue
-        enlarged = normalize_ocr_gray(region, 1450.0)
-        clahe = cv2.createCLAHE(clipLimit=1.8, tileGridSize=(8, 8)).apply(enlarged)
-        variants.append((f"{name}_gray", clahe))
-        _, binary = cv2.threshold(clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        variants.append((f"{name}_binary", binary))
+    for base_name, base in bases:
+        gray = normalize_ocr_gray(base, 1250.0)
+        for region_name, x1, y1, x2, y2 in regions:
+            region = crop_gray_region(gray, x1, y1, x2, y2)
+            if region.size == 0 or min(region.shape[:2]) < 80:
+                continue
 
-    return variants or [("gray", normalize_ocr_gray(image, 900.0))]
+            cleaned = clean_text_variant(region, 1.9)
+            key = (cleaned.shape[1], cleaned.shape[0], f"{base_name}_{region_name}")
+            if key in seen:
+                continue
+            seen.add(key)
+            variants.append((f"{base_name}_{region_name}_clean", cleaned))
+
+            if region_name in {"top", "right_text", "center"}:
+                _, binary = cv2.threshold(cleaned, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                variants.append((f"{base_name}_{region_name}_binary", binary))
+
+    return variants[:10] or [("gray", normalize_ocr_gray(image, 900.0))]
 
 
 def prepare_ocr_variants(image: np.ndarray, fast: bool = True, id_type: bool = False) -> list[tuple[str, np.ndarray]]:
@@ -142,6 +211,23 @@ def ocr_score(text: str) -> int:
     return alpha_num + (len(words) * 4) + (long_words * 8)
 
 
+
+def id_type_signal_score(text: str) -> int:
+    normalized = " ".join(text.lower().replace("'", " ").split())
+    compact = "".join(char for char in normalized if char.isalnum())
+    signals = [
+        "driver", "drivers", "license", "licence", "liciense", "lto", "land transportation", "restriction", "conditions", "agency code",
+        "philsys", "philid", "phil id", "national id", "national identification", "psn",
+        "postal", "phlpost", "postal corporation",
+        "umid", "unified multi purpose", "crn",
+    ]
+    score = 0
+    for signal in signals:
+        signal_compact = "".join(char for char in signal if char.isalnum())
+        if signal in normalized or signal_compact in compact:
+            score += 1
+    return score
+
 def run_tesseract_file(path: str, lang: str, config: list[str], timeout: int) -> tuple[int, str, str]:
     result = subprocess.run(
         [TESSERACT_BINARY, path, "stdout", "-l", lang or DEFAULT_LANG, *config],
@@ -161,12 +247,14 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
     mode = (mode or "fast").lower()
     id_type = mode == "id_type"
     fast = mode != "full"
-    configs = [["--oem", "1", "--psm", "6"]]
-    if not fast:
+    configs = [["--oem", "1", "--psm", "6", "--dpi", "220", "-c", "preserve_interword_spaces=1"]]
+    if id_type:
+        configs.append(["--oem", "1", "--psm", "11", "--dpi", "220"])
+    elif not fast:
         configs.append(["--oem", "1", "--psm", "11"])
 
-    budget = max(5, min(TIMEOUT, 7 if id_type else (8 if fast else 20)))
-    per_pass_timeout = max(2, min(2 if id_type else (5 if fast else 8), budget))
+    budget = max(6, min(TIMEOUT, 10 if id_type else (8 if fast else 20)))
+    per_pass_timeout = max(2, min(3 if id_type else (5 if fast else 8), budget))
     started = time.monotonic()
     best_text = ""
     best_details: dict = {"variant": None, "psm": None, "score": 0, "mode": "id_type" if id_type else ("fast" if fast else "full")}
@@ -185,15 +273,19 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
                 try:
                     code, stdout, stderr = run_tesseract_file(tmp_path, lang, config, per_pass_timeout)
                 except subprocess.TimeoutExpired:
-                    errors.append(f"{variant_name}/psm{config[-1]} timed out")
+                    psm = config[3] if len(config) > 3 else config[-1]
+                    errors.append(f"{variant_name}/psm{psm} timed out")
                     continue
 
                 text = (stdout or "").strip()
                 score = ocr_score(text)
-                if score > int(best_details["score"]):
+                signal_score = id_type_signal_score(text) if id_type else 0
+                combined_score = score + (signal_score * 45)
+                psm = config[3] if len(config) > 3 else config[-1]
+                if combined_score > int(best_details["score"]):
                     best_text = text
-                    best_details = {"variant": variant_name, "psm": config[-1], "score": score, "mode": "id_type" if id_type else ("fast" if fast else "full")}
-                if score >= (35 if id_type else 90):
+                    best_details = {"variant": variant_name, "psm": psm, "score": combined_score, "ocr_score": score, "signal_score": signal_score, "mode": "id_type" if id_type else ("fast" if fast else "full")}
+                if (id_type and (signal_score >= 1 or score >= 45)) or (not id_type and score >= 90):
                     return {"ok": True, "text": best_text, "details": best_details}
                 if code != 0 and stderr:
                     errors.append(stderr.strip()[:240])
