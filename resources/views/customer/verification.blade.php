@@ -390,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var resetButton = document.getElementById('resetVerificationScan');
   var resetFooterButton = document.getElementById('resetVerificationScanFooter');
   var modalEl = document.getElementById('verificationScannerModal');
-  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, backRequired:true, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false, faceLandmarkerStartedAt:0, torchOn:false, torchTrack:null, faceReady:false };
+  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, backRequired:true, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false, faceLandmarkerStartedAt:0, torchOn:false, torchTrack:null, faceReady:false, faceScanStartedAt:0, selfieServerMatched:false, selfieMatchedResult:null };
   var BACK_SIDE_SAME_HASH_DISTANCE = 72;
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
@@ -883,6 +883,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   function resetFaceCompare() {
     state.faceCompare = { lastAt:0, inFlight:false, status:null, score:null, message:null };
+    state.selfieServerMatched = false;
+    state.selfieMatchedResult = null;
   }
   function faceCompareMessage(result) {
     if (!result || !result.status) return 'Comparing your selfie with the ID...';
@@ -946,18 +948,25 @@ document.addEventListener('DOMContentLoaded', function () {
     canvas.toBlob(async function (blob) {
       if (!blob) { state.processing = false; return; }
       if (input.id === 'selfieInput') {
-        setLiveness('Verifying face with ID...', 'Hold steady while the system compares your selfie to the ID photo.');
-        setLive(stage, 'Verifying face with ID...', 82, true);
+        setLiveness('Comparing with ID photo...', 'Hold steady. This should only take a moment.');
+        setLive(stage, 'Comparing with ID photo...', 86, true);
         var faceResult = await compareFaceFrame(blob, true);
-        if (faceResult.status === 'mismatch') {
+        if (faceResult.status !== 'match') {
           state.processing = false;
           state.stableFrames = 0;
-          setStatus(input.id, faceResult.message || 'Face must match the ID before submit. Keep scanning with the correct person.', 'text-danger');
+          state.selfieServerMatched = false;
+          state.selfieMatchedResult = null;
+          var message = faceResult.message || 'Face must clearly match the ID before continuing. Retake the selfie or retake the front ID.';
+          setStatus(input.id, message, 'text-danger');
+          setLiveness('Face verification did not pass.', message);
           setLive(stage, faceCompareMessage(faceResult), 38, true);
+          stopCamera();
           return;
         }
+        state.selfieServerMatched = true;
+        state.selfieMatchedResult = faceResult;
       }
-      setLive(stage, auto ? 'Clear image captured automatically.' : 'Captured. Checking image...', 96, true);
+      setLive(stage, input.id === 'selfieInput' ? 'Face matched. Saving selfie...' : (auto ? 'Clear image captured automatically.' : 'Captured. Checking image...'), 96, true);
       setInputFile(input, blob, input.id + '.jpg');
     }, 'image/jpeg', 0.94);
   }
@@ -1029,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', function () {
     state[step] = false;
     if (step === 'front') { state.frontFile = null; resetFaceCompare(); }
     if (step === 'back') state.backFile = null;
-    if (step === 'selfie') state.selfieFile = null;
+    if (step === 'selfie') { state.selfieFile = null; if (!fromCamera) { state.selfieServerMatched = false; state.selfieMatchedResult = null; } }
     updateSubmit();
     if (!file) return;
 
@@ -1118,10 +1127,14 @@ document.addEventListener('DOMContentLoaded', function () {
         setLive(document.querySelector('[data-step="back"]'), 'Back ID accepted.', 100, true);
         showStep('selfie');
       } else {
-        var uploadedFaceResult = await compareFaceFrame(file, true);
+        var uploadedFaceResult = fromCamera && state.selfieServerMatched && state.selfieMatchedResult
+          ? state.selfieMatchedResult
+          : await compareFaceFrame(file, true);
         if (uploadedFaceResult.status !== 'match') {
           input.value = '';
           state.processing = false;
+          state.selfieServerMatched = false;
+          state.selfieMatchedResult = null;
           setStatus(input.id, uploadedFaceResult.message || 'Face must clearly match the ID before submit. Please retake with the correct person.', 'text-danger');
           setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), 38, true);
           return;
@@ -1168,21 +1181,22 @@ document.addEventListener('DOMContentLoaded', function () {
         metrics.width = video.videoWidth;
         metrics.height = video.videoHeight;
         var quality = scoreMetrics(metrics, step);
-        var livenessOk = step === 'selfie' && quality.ok ? await checkLiveness(stage) : true;
-        var faceOk = true;
-        var liveMessage = quality.ok ? (livenessOk ? 'Hold steady. Verifying your face with the ID...' : 'Align your face and follow the prompt.') : quality.message;
-        var liveScore = livenessOk ? quality.score : 65;
-        if (step === 'selfie' && quality.ok && livenessOk) {
-          setLiveness('Verifying face with ID...', 'Hold steady while the system compares your selfie to the ID photo.');
-          setLive(stage, 'Verifying face with ID...', 82, true);
-          var faceResult = await compareFaceFrame(blob, false);
-          faceOk = faceResult.status === 'match';
-          liveMessage = faceCompareMessage(faceResult);
-          liveScore = faceResult.status === 'match' ? 96 : (faceResult.status === 'mismatch' ? 38 : 76);
+        var elapsed = step === 'selfie' && state.faceScanStartedAt ? Date.now() - state.faceScanStartedAt : 0;
+        if (step === 'selfie' && elapsed > 15000) {
+          state.processing = false;
+          state.stableFrames = 0;
+          setStatus(input.id, 'Face scan took too long. Retake the selfie in brighter light and keep your face inside the oval.', 'text-danger');
+          setLiveness('Face scan timed out.', 'Retake with a brighter background and keep your face centered.');
+          setLive(stage, 'Face scan timed out. Tap Open Camera to try again.', 35, true);
+          stopCamera();
+          return;
         }
+        var livenessOk = step === 'selfie' && quality.ok ? await checkLiveness(stage) : true;
+        var liveMessage = quality.ok ? (livenessOk ? 'Face ready. Capturing best selfie now...' : 'Align your face and follow the prompt.') : quality.message;
+        var liveScore = livenessOk ? quality.score : 65;
         setLive(stage, liveMessage, liveScore);
-        state.stableFrames = quality.ok && livenessOk && faceOk ? state.stableFrames + 1 : 0;
-        var requiredFrames = 1;
+        state.stableFrames = quality.ok && livenessOk ? state.stableFrames + 1 : 0;
+        var requiredFrames = step === 'selfie' ? 2 : 1;
         if (state.stableFrames >= requiredFrames && !state.processing) {
           captureFromStage(input, stage, true);
           return;
@@ -1260,6 +1274,8 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       if (input.id === 'selfieInput') {
         resetLiveness();
+        resetFaceCompare();
+        state.faceScanStartedAt = Date.now();
         loadFaceLandmarker();
       }
       setStatus(input.id, 'Opening camera...', 'text-warning');
@@ -1367,7 +1383,7 @@ document.addEventListener('DOMContentLoaded', function () {
     state.front = false; state.back = false; state.selfie = false;
     state.frontFile = null; state.backFile = null; state.selfieFile = null;
     state.backRequired = selectedRequiresBack();
-    state.stableFrames = 0; state.processing = false; state.lastLive = {}; state.faceReady = false;
+    state.stableFrames = 0; state.processing = false; state.lastLive = {}; state.faceReady = false; state.faceScanStartedAt = 0; state.selfieServerMatched = false; state.selfieMatchedResult = null;
     setIdTypeLocked(false);
     ['idFrontInput','idBackInput','selfieInput'].forEach(function (id) {
       var input = document.getElementById(id);
