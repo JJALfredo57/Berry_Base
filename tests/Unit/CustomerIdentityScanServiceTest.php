@@ -98,6 +98,27 @@ class CustomerIdentityScanServiceTest extends TestCase
         $this->assertSame('mismatch', $result['id_type_match_status']);
         $this->assertSame("Driver's License", $result['id_type_scan_detected']);
     }
+    public function test_driver_license_layout_hints_can_match_when_ocr_misses_exact_phrase(): void
+    {
+        $result = $this->service()->evaluateText(
+            "Driver's License",
+            'Republic of the Philippines Land Transportation Office Barrozo Jose Alfredo Expiration Date Agency Code Conditions Restriction'
+        );
+
+        $this->assertSame('match', $result['status']);
+        $this->assertSame("Driver's License", $result['detected_id_type']);
+    }
+
+    public function test_driver_license_layout_hints_reject_wrong_selected_id_type(): void
+    {
+        $result = $this->service()->evaluateText(
+            'National ID',
+            'Republic of the Philippines Land Transportation Office Barrozo Jose Alfredo Expiration Date Agency Code Conditions Restriction'
+        );
+
+        $this->assertSame('mismatch', $result['status']);
+        $this->assertSame("Driver's License", $result['detected_id_type']);
+    }
 
     public function test_unclear_ocr_text_falls_back_to_manual_review(): void
     {

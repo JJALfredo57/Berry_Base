@@ -170,6 +170,11 @@ class CustomerIdentityScanService
             }
         }
 
+        foreach ($this->heuristicScores($normalizedText) as $name => $score) {
+            $scores[$name] = ($scores[$name] ?? 0) + $score;
+            $matchedKeywords[$name][] = 'OCR layout hints';
+        }
+
         arsort($scores);
         $detected = array_key_first($scores);
 
@@ -628,6 +633,51 @@ class CustomerIdentityScanService
         }
     }
 
+    private function heuristicScores(string $normalizedText): array
+    {
+        $scores = [];
+        $driverHints = 0;
+        foreach (['driver', 'drivers', 'license', 'licence', 'liciense', 'licencee', 'ltcense', 'transportation', 'lto', 'restriction', 'agency code', 'expiration date', 'conditions'] as $hint) {
+            if (str_contains($normalizedText, $hint)) {
+                $driverHints++;
+            }
+        }
+        if ($driverHints >= 2) {
+            $scores["Driver's License"] = 8 + $driverHints;
+        }
+
+        $nationalHints = 0;
+        foreach (['philsys', 'philid', 'national id', 'national identification', 'psn'] as $hint) {
+            if (str_contains($normalizedText, $hint)) {
+                $nationalHints++;
+            }
+        }
+        if ($nationalHints >= 1) {
+            $scores['National ID'] = 8 + $nationalHints;
+        }
+
+        $postalHints = 0;
+        foreach (['postal', 'phlpost', 'postal corporation'] as $hint) {
+            if (str_contains($normalizedText, $hint)) {
+                $postalHints++;
+            }
+        }
+        if ($postalHints >= 1) {
+            $scores['Postal ID'] = 8 + $postalHints;
+        }
+
+        $umidHints = 0;
+        foreach (['umid', 'unified multi purpose', 'crn'] as $hint) {
+            if (str_contains($normalizedText, $hint)) {
+                $umidHints++;
+            }
+        }
+        if ($umidHints >= 1) {
+            $scores['UMID'] = 8 + $umidHints;
+        }
+
+        return $scores;
+    }
     private function builtInAliasesFor(string $idType): array
     {
         $normalized = $this->normalizeForMatch($idType);
