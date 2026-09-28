@@ -17,8 +17,8 @@ class VerificationController extends Controller
 {
     use UploadsFiles;
 
-    private const BACK_SIDE_HARD_SAME_HASH_DISTANCE = 72;
-    private const BACK_SIDE_REVIEW_HASH_DISTANCE = 112;
+    private const BACK_SIDE_HARD_SAME_HASH_DISTANCE = 128;
+    private const BACK_SIDE_REVIEW_HASH_DISTANCE = 128;
 
     public function show(CustomerVerificationService $verification, IdentityVerificationSettingsService $identitySettings)
     {
@@ -270,31 +270,31 @@ class VerificationController extends Controller
         }
 
         $distance = $this->hashDistance($frontHash, $backHash);
-        if ($distance <= self::BACK_SIDE_HARD_SAME_HASH_DISTANCE) {
+        $backSignal = $this->uploadedBackIdSignal($request->file('id_back'));
+        if (!($backSignal['ok'] ?? true)) {
             return [
                 'ok' => false,
-                'status' => 'front_side_again',
-                'message' => 'This looks like the front side again. Flip the ID and scan the back side.',
+                'status' => 'back_id_not_detected',
+                'message' => 'Back ID must show the actual back side of the ID inside the guide. Retake it closer and clearer.',
                 'scan_result' => [
-                    'method' => 'fast_hash_check',
+                    'method' => 'fast_hash_and_detail_check',
                     'hash_distance' => $distance,
                     'hard_threshold' => self::BACK_SIDE_HARD_SAME_HASH_DISTANCE,
-                    'review_threshold' => self::BACK_SIDE_REVIEW_HASH_DISTANCE,
+                    'image_signal' => $backSignal,
                 ],
             ];
         }
 
-        if ($distance <= self::BACK_SIDE_REVIEW_HASH_DISTANCE) {
+        if ($distance <= self::BACK_SIDE_HARD_SAME_HASH_DISTANCE) {
             return [
-                'ok' => true,
-                'status' => 'accepted_needs_review',
-                'message' => 'Back ID captured. Admin will double-check the back side during review.',
+                'ok' => false,
+                'status' => 'front_side_again',
+                'message' => 'This still looks like the front side. Flip the ID and scan the actual back side.',
                 'scan_result' => [
-                    'method' => 'fast_hash_check',
+                    'method' => 'fast_hash_and_detail_check',
                     'hash_distance' => $distance,
                     'hard_threshold' => self::BACK_SIDE_HARD_SAME_HASH_DISTANCE,
-                    'review_threshold' => self::BACK_SIDE_REVIEW_HASH_DISTANCE,
-                    'review_reason' => 'front_back_visual_similarity',
+                    'image_signal' => $backSignal,
                 ],
             ];
         }
@@ -304,15 +304,102 @@ class VerificationController extends Controller
             'status' => 'accepted',
             'message' => 'Back ID captured. Continue to face verification.',
             'scan_result' => [
-                'method' => 'fast_hash_check',
+                'method' => 'fast_hash_and_detail_check',
                 'hash_distance' => $distance,
                 'hard_threshold' => self::BACK_SIDE_HARD_SAME_HASH_DISTANCE,
-                'review_threshold' => self::BACK_SIDE_REVIEW_HASH_DISTANCE,
+                'image_signal' => $backSignal,
             ],
         ];
     }
 
 
+
+    private function uploadedBackIdSignal($file): array
+    {
+        if (!$file) {
+            return ['ok' => true, 'reason' => 'no_uploaded_file'];
+        }
+
+        $signal = $this->uploadedImageSignal($file);
+        if (!($signal['ok'] ?? false)) {
+            return $signal;
+        }
+
+        $hasEnoughDetail = ($signal['edge_density'] ?? 0) >= 0.035;
+        $hasEnoughContrast = ($signal['contrast'] ?? 0) >= 8.0;
+        $hasUsefulSize = ($signal['width'] ?? 0) >= 260 && ($signal['height'] ?? 0) >= 160;
+
+        return $signal + [
+            'ok' => $hasEnoughDetail && $hasEnoughContrast && $hasUsefulSize,
+            'required_edge_density' => 0.035,
+            'required_contrast' => 8.0,
+            'reason' => $hasEnoughDetail && $hasEnoughContrast && $hasUsefulSize ? 'id_like_detail_detected' : 'not_enough_id_detail',
+        ];
+    }
+
+    private function uploadedImageSignal($file): array
+    {
+        if (!$file || !function_exists('imagecreatefromstring')) {
+            return ['ok' => false, 'reason' => 'image_tools_unavailable'];
+        }
+
+        $contents = @file_get_contents($file->getRealPath());
+        if (!$contents) {
+            return ['ok' => false, 'reason' => 'empty_image'];
+        }
+
+        $source = @imagecreatefromstring($contents);
+        if (!$source) {
+            return ['ok' => false, 'reason' => 'invalid_image'];
+        }
+
+        $sourceWidth = imagesx($source);
+        $sourceHeight = imagesy($source);
+        $width = 96;
+        $height = 64;
+        $thumb = imagecreatetruecolor($width, $height);
+        imagecopyresampled($thumb, $source, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight);
+
+        $total = 0.0;
+        $totalSq = 0.0;
+        $grays = [];
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $width; $x++) {
+                $rgb = imagecolorat($thumb, $x, $y);
+                $gray = ((($rgb >> 16) & 0xFF) + (($rgb >> 8) & 0xFF) + ($rgb & 0xFF)) / 3;
+                $grays[$y][$x] = $gray;
+                $total += $gray;
+                $totalSq += $gray * $gray;
+            }
+        }
+
+        $edges = 0;
+        $comparisons = 0;
+        for ($y = 0; $y < $height - 1; $y++) {
+            for ($x = 0; $x < $width - 1; $x++) {
+                if (abs($grays[$y][$x] - $grays[$y][$x + 1]) > 18 || abs($grays[$y][$x] - $grays[$y + 1][$x]) > 18) {
+                    $edges++;
+                }
+                $comparisons++;
+            }
+        }
+
+        imagedestroy($source);
+        imagedestroy($thumb);
+
+        $pixels = $width * $height;
+        $brightness = $total / $pixels;
+        $variance = ($totalSq / $pixels) - ($brightness * $brightness);
+
+        return [
+            'ok' => true,
+            'width' => $sourceWidth,
+            'height' => $sourceHeight,
+            'brightness' => round($brightness, 2),
+            'contrast' => round(sqrt(max(0, $variance)), 2),
+            'edge_density' => round($edges / max(1, $comparisons), 4),
+        ];
+    }
     private function frontBackHashes(Request $request): array
     {
         return [

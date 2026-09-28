@@ -56,7 +56,9 @@
 .verify-frame-guide{position:absolute;left:50%;top:50%;width:min(86%,680px);aspect-ratio:1.586/1;max-height:72%;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.92);border-radius:8px;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 26px rgba(56,189,248,.22)}
 .verify-frame-guide:before{content:"ALIGN ID INSIDE";position:absolute;left:50%;top:.45rem;transform:translateX(-50%);font-size:.68rem;font-weight:800;letter-spacing:.08em;color:#fff;background:rgba(2,6,23,.62);border:1px solid rgba(255,255,255,.34);border-radius:999px;padding:.18rem .5rem;white-space:nowrap}
 .verify-frame-guide:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent calc(50% - 1px),rgba(255,255,255,.62) 50%,transparent calc(50% + 1px)),linear-gradient(0deg,transparent calc(50% - 1px),rgba(255,255,255,.62) 50%,transparent calc(50% + 1px));opacity:.75;pointer-events:none}
-.verify-face-guide{position:absolute;width:min(44%,250px);aspect-ratio:3/4;border:2px solid rgba(255,255,255,.92);border-radius:50%;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 26px rgba(56,189,248,.22)}
+.verify-face-guide{position:absolute;width:min(48%,260px);aspect-ratio:3/4;border:3px solid rgba(255,255,255,.96);border-radius:50%;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 28px rgba(56,189,248,.28)}
+.verify-face-guide:before{content:"ALIGN FACE";position:absolute;left:50%;top:10%;transform:translateX(-50%);font-size:.68rem;font-weight:800;letter-spacing:.08em;color:#fff;background:rgba(2,6,23,.62);border:1px solid rgba(255,255,255,.34);border-radius:999px;padding:.18rem .5rem;white-space:nowrap}
+.verify-face-guide:after{content:"";position:absolute;left:50%;top:50%;width:62%;height:2px;transform:translate(-50%,-50%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.82),transparent);box-shadow:0 -42px 0 -1px rgba(255,255,255,.34),0 42px 0 -1px rgba(255,255,255,.34)}
 .verify-live-panel{position:absolute;left:1rem;right:1rem;bottom:1rem;display:flex;gap:.75rem;align-items:center;justify-content:space-between;padding:.75rem .85rem;border-radius:8px;background:rgba(2,6,23,.82);backdrop-filter:blur(10px);color:#fff;font-size:.84rem;transition:background .18s ease,transform .18s ease}
 .verify-live-meter{width:120px;height:8px;background:rgba(148,163,184,.38);border-radius:999px;overflow:hidden;flex:0 0 auto}
 .verify-live-meter span{display:block;height:100%;width:0;background:#ef4444;transition:width .22s ease,background .22s ease}
@@ -79,7 +81,7 @@
 .verify-scanner-modal.is-selfie-step .verify-wizard-step.active{background:#fff1f7;color:var(--primary);border-color:rgba(var(--primary-rgb,233,30,99),.55)}
 .verify-scanner-modal.is-selfie-step .verify-screen-light-note{display:inline-flex}
 .verify-scanner-modal.is-selfie-step .verify-camera-frame.is-selfie{height:clamp(300px,58dvh,620px);max-height:none;flex:1 1 auto}
-.verify-scanner-modal.is-selfie-step .verify-face-guide{width:min(42%,190px)}
+.verify-scanner-modal.is-selfie-step .verify-face-guide{width:min(48%,220px)}
 .verify-scanner-modal.is-selfie-step [data-step="selfie"] > .d-flex:first-child{margin-bottom:.45rem!important}
 .verify-scanner-modal.is-selfie-step [data-step="selfie"] .verify-upload-hint{font-size:.72rem}
 .verify-scanner-modal.is-selfie-step .btn-outline-light{color:#0f172a;border-color:#94a3b8}
@@ -357,7 +359,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var resetFooterButton = document.getElementById('resetVerificationScanFooter');
   var modalEl = document.getElementById('verificationScannerModal');
   var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, backRequired:true, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false, faceLandmarkerStartedAt:0, torchOn:false, torchTrack:null };
-  var BACK_SIDE_SAME_HASH_DISTANCE = 72;
+  var BACK_SIDE_SAME_HASH_DISTANCE = 128;
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
   function setStatus(inputId, message, type) {
@@ -716,8 +718,23 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var brightness = total / Math.max(1, samples);
         var variance = (totalSq / Math.max(1, samples)) - (brightness * brightness);
+        var edgeDensity = 0;
+        var edgeSamples = 0;
+        for (var ey = 1; ey < h - 1; ey += 2) {
+          for (var ex = 1; ex < w - 1; ex += 2) {
+            var eIdx = (ey * w + ex) * 4;
+            var eGray = (data[eIdx] + data[eIdx + 1] + data[eIdx + 2]) / 3;
+            var eRightIdx = (ey * w + (ex + 1)) * 4;
+            var eDownIdx = ((ey + 1) * w + ex) * 4;
+            var eRight = (data[eRightIdx] + data[eRightIdx + 1] + data[eRightIdx + 2]) / 3;
+            var eDown = (data[eDownIdx] + data[eDownIdx + 1] + data[eDownIdx + 2]) / 3;
+            if (Math.abs(eGray - eRight) > 18 || Math.abs(eGray - eDown) > 18) edgeDensity++;
+            edgeSamples++;
+          }
+        }
+        edgeDensity = edgeDensity / Math.max(1, edgeSamples);
         URL.revokeObjectURL(objectUrl);
-        resolve({ width: img.width, height: img.height, brightness: brightness, contrast: Math.sqrt(Math.max(0, variance)), sharpness: sharp / Math.max(1, samples), hash: differenceHash(img), image: img });
+        resolve({ width: img.width, height: img.height, brightness: brightness, contrast: Math.sqrt(Math.max(0, variance)), sharpness: sharp / Math.max(1, samples), edgeDensity: edgeDensity, hash: differenceHash(img), image: img });
       };
       img.onerror = function () { URL.revokeObjectURL(objectUrl); reject(); };
       img.src = objectUrl;
@@ -762,6 +779,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (kind !== 'selfie') {
       if (metrics.width < 260 || metrics.height < 160) return { ok:false, score:62, message:'Move the ID a little closer inside the guide.' };
       if (metrics.brightness < 6) return { ok:false, score:68, message:'Add a little light so the ID can be read.' };
+      if (metrics.contrast < 8 || metrics.edgeDensity < 0.03) return { ok:false, score:45, message:'Place the actual ID inside the guide. Random background cannot be accepted.' };
+      if (kind === 'back' && (metrics.contrast < 9 || metrics.edgeDensity < 0.035)) return { ok:false, score:42, message:'Back ID must show real ID details. Retake the actual back side closer and clearer.' };
       return { ok:true, score:96, message:'ID image is readable.' };
     }
     if (metrics.width < 220 || metrics.height < 220) return { ok:false, score:58, message:'Move a bit closer and keep your face inside the oval.' };
@@ -997,8 +1016,8 @@ document.addEventListener('DOMContentLoaded', function () {
           input.value = '';
           setIdHash('back', '');
           state.processing = false;
-          setStatus(input.id, 'This looks like the front side again. Flip the ID and scan the back side.', 'text-danger');
-          setLive(document.querySelector('[data-step="back"]'), 'Please flip the ID. The back side must be different from the front.', 38, true);
+          setStatus(input.id, 'This still looks like the front side. Flip the ID and scan the actual back side.', 'text-danger');
+          setLive(document.querySelector('[data-step="back"]'), 'Please flip the ID. The scanner must see the actual back side.', 38, true);
           return;
         }
         setStatus(input.id, 'Checking that this is the back side of the ID...', 'text-warning');
@@ -1008,8 +1027,8 @@ document.addEventListener('DOMContentLoaded', function () {
           input.value = '';
           setIdHash('back', '');
           state.processing = false;
-          setStatus(input.id, backResult.message || 'This looks like the front side again. Flip the ID and scan the back side.', 'text-danger');
-          setLive(document.querySelector('[data-step="back"]'), backResult.message || 'Please flip the ID. The back side must be different from the front.', 38, true);
+          setStatus(input.id, backResult.message || 'This still looks like the front side. Flip the ID and scan the actual back side.', 'text-danger');
+          setLive(document.querySelector('[data-step="back"]'), backResult.message || 'Please flip the ID. The scanner must see the actual back side.', 38, true);
           return;
         }
         state.back = true;
@@ -1128,7 +1147,23 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       setStatus(input.id, 'Opening camera...', 'text-warning');
       setLive(stage, 'Opening camera...', 30, true);
-      state.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: button?.dataset.facing || (input.id === 'selfieInput' ? 'user' : 'environment'), width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
+      var baseVideo = { width:{ ideal:1280 }, height:{ ideal:720 } };
+      if (input.id === 'selfieInput') {
+        try {
+          state.stream = await navigator.mediaDevices.getUserMedia({ video:Object.assign({}, baseVideo, { facingMode:{ exact:'user' } }), audio:false });
+        } catch (frontError) {
+          state.stream = await navigator.mediaDevices.getUserMedia({ video:Object.assign({}, baseVideo, { facingMode:'user' }), audio:false });
+        }
+        var selfieTrack = state.stream.getVideoTracks ? state.stream.getVideoTracks()[0] : null;
+        var selfieSettings = selfieTrack && selfieTrack.getSettings ? selfieTrack.getSettings() : {};
+        if (selfieSettings.facingMode === 'environment') {
+          state.stream.getTracks().forEach(function (track) { track.stop(); });
+          state.stream = null;
+          throw new Error('front_camera_required');
+        }
+      } else {
+        state.stream = await navigator.mediaDevices.getUserMedia({ video:Object.assign({}, baseVideo, { facingMode:button?.dataset.facing || 'environment' }), audio:false });
+      }
       video.srcObject = state.stream;
       await video.play();
       prepareTorchForStage(stage, input);
@@ -1136,8 +1171,8 @@ document.addEventListener('DOMContentLoaded', function () {
       setLive(stage, input.id === 'selfieInput' ? (state.torchTrack ? 'Center your face. Use Flashlight if supported and needed.' : 'Center your face. Screen light is active.') : (state.torchTrack ? 'Align the ID inside the guide. Use Flashlight if needed.' : 'Align the landscape card inside the guide.'), 58, true);
       if (input.id === 'selfieInput') monitorCamera(input, stage, loopId);
     } catch (e) {
-      setStatus(input.id, 'Camera unavailable. Upload a clear picture instead.', 'text-danger');
-      setLive(stage, 'Camera unavailable. Upload a clear picture instead.', 35, true);
+      setStatus(input.id, input.id === 'selfieInput' ? 'Front camera is required for live face verification. Allow the selfie camera and try again.' : 'Camera unavailable. Upload a clear picture instead.', 'text-danger');
+      setLive(stage, input.id === 'selfieInput' ? 'Front camera is required for live face verification.' : 'Camera unavailable. Upload a clear picture instead.', 35, true);
     } finally {
       state.autoStarting = false;
     }
