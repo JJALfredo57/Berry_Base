@@ -59,4 +59,16 @@ return [
         'service_token' => env('FACE_COMPARE_SERVICE_TOKEN', env('OCR_SERVICE_TOKEN')),
         'timeout' => (int) env('FACE_COMPARE_SERVICE_TIMEOUT', env('OCR_SERVICE_TIMEOUT', 30)),
     ],
+
+    'customer_identity' => [
+        'provider' => env('CUSTOMER_ID_PROVIDER', 'current'),
+        'staging_user_ids' => env('CUSTOMER_ID_STAGING_USER_IDS', ''),
+    ],
+
+    'openbiometrics' => [
+        'base_url' => env('OPENBIOMETRICS_BASE_URL'),
+        'api_key' => env('OPENBIOMETRICS_API_KEY'),
+        'timeout' => (int) env('OPENBIOMETRICS_TIMEOUT', 30),
+        'face_threshold' => (float) env('OPENBIOMETRICS_FACE_THRESHOLD', 0.4),
+    ],
 ];
