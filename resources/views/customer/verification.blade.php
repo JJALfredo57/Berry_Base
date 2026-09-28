@@ -62,13 +62,18 @@
 .verify-live-meter span{display:block;height:100%;width:0;background:#ef4444;transition:width .22s ease,background .22s ease}
 .verify-live-meter.is-good span{background:#22c55e}.verify-live-meter.is-warn span{background:#f59e0b}
 .verify-liveness-card{border:1px solid rgba(56,189,248,.35);border-radius:8px;background:rgba(14,165,233,.1);padding:.75rem;color:#e0f2fe}
-.verify-scanner-modal.is-selfie-step .modal-content{background:#f8fbff;color:#142033}
+.verify-face-instructions{border:1px solid rgba(125,211,252,.38);border-radius:8px;background:rgba(14,165,233,.08);padding:.65rem .75rem;color:#dbeafe}
+.verify-face-instructions ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem .75rem;margin:0;padding:0;list-style:none;font-size:.76rem}
+.verify-face-instructions li{display:flex;gap:.35rem;align-items:flex-start}
+.verify-face-instructions i{color:#7dd3fc;margin-top:.03rem}
+.verify-scanner-modal.is-selfie-step .modal-content{background:#fff;color:#142033;box-shadow:0 0 0 999px rgba(255,255,255,.72)}
 .verify-scanner-modal.is-selfie-step .modal-header,.verify-scanner-modal.is-selfie-step .modal-footer{background:#fff;border-color:#dbe7f3;color:#142033}
 .verify-scanner-modal.is-selfie-step .btn-close{filter:none}
 .verify-scanner-modal.is-selfie-step .modal-body{padding-top:.55rem}
 .verify-scanner-modal.is-selfie-step .verify-wizard{margin-bottom:.45rem!important}
 .verify-scanner-modal.is-selfie-step .verify-scan-stage[data-step="selfie"]{background:#fff;border-color:#cbd5e1;box-shadow:0 0 0 999px rgba(255,255,255,.55);padding:.65rem;display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
 .verify-scanner-modal.is-selfie-step .verify-liveness-card{background:#eef8ff;border-color:#7dd3fc;color:#0f2a3f;padding:.5rem;margin-bottom:.45rem!important}
+.verify-scanner-modal.is-selfie-step .verify-face-instructions{background:#fff;border-color:#bae6fd;color:#0f2a3f}
 .verify-scanner-modal.is-selfie-step .verify-upload-hint{color:#475569}
 .verify-scanner-modal.is-selfie-step .verify-wizard-step{background:#fff;color:#475569;border-color:#dbe7f3}
 .verify-scanner-modal.is-selfie-step .verify-wizard-step.active{background:#fff1f7;color:var(--primary);border-color:rgba(var(--primary-rgb,233,30,99),.55)}
@@ -83,7 +88,7 @@
 .verify-scanner-modal .verify-upload-status.text-danger{color:#fca5a5!important}.verify-scanner-modal .verify-upload-status.text-success{color:#86efac!important}.verify-scanner-modal .verify-upload-status.text-warning{color:#fde68a!important}
 @keyframes verifyScanLine{0%,100%{transform:translateY(-22vh);opacity:.25}50%{transform:translateY(22vh);opacity:.9}}
 .verify-upload-status.text-danger{color:#dc2626!important}.verify-upload-status.text-success{color:#15803d!important}
-@media (max-width:575.98px){.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}.upload-panel{padding:1rem!important}.verify-scanner-modal{padding:.35rem}.verify-scanner-modal .modal-dialog{margin:0;max-width:none;width:100%;height:calc(100dvh - .7rem);max-height:calc(100dvh - .7rem)}.verify-scanner-modal .modal-content{height:100%;min-height:0}.verify-scanner-modal .modal-header{padding:.7rem .85rem}.verify-scanner-modal .modal-title{font-size:.95rem}.verify-scanner-modal .modal-title + .small{font-size:.72rem}.verify-scanner-modal .modal-body{padding:.75rem;min-height:0}.verify-scanner-modal .modal-footer{padding:.65rem .75rem;gap:.5rem}.verify-scanner-modal .modal-footer .btn{flex:1 1 auto;padding:.55rem .6rem;font-size:.82rem}.verify-scanner-modal .verify-wizard{gap:.35rem;flex-wrap:nowrap;overflow-x:auto;padding-bottom:.15rem}.verify-scanner-modal .verify-wizard-step{flex:0 0 auto;padding:.42rem .55rem;font-size:.74rem}.verify-scanner-modal .verify-wizard-step span{width:19px;height:19px;font-size:.66rem}.verify-scan-stage{padding:.65rem;border-radius:8px}.verify-scan-stage .d-flex{gap:.5rem!important;align-items:flex-start!important}.verify-scan-stage h6{font-size:.88rem}.verify-scan-stage .small{font-size:.72rem}.verify-camera-frame{height:min(46dvh,340px);min-height:220px;max-height:calc(100dvh - 300px);aspect-ratio:auto;border-radius:8px}.verify-frame-guide{width:90%;max-height:64%}.verify-face-guide{width:min(50%,180px)}.verify-live-panel{left:.5rem;right:.5rem;bottom:.5rem;align-items:flex-start;flex-direction:column;gap:.45rem;padding:.55rem .6rem;font-size:.74rem;max-height:38%;overflow:auto}.verify-live-meter{width:100%;height:7px}.verify-liveness-card{padding:.55rem;font-size:.78rem}.verify-scanner-modal.is-selfie-step .modal-header{padding:.52rem .75rem}.verify-scanner-modal.is-selfie-step .modal-body{padding:.5rem .65rem}.verify-scanner-modal.is-selfie-step .modal-footer{padding:.5rem .65rem}.verify-scanner-modal.is-selfie-step .verify-wizard-step{padding:.34rem .48rem;font-size:.7rem}.verify-scanner-modal.is-selfie-step .verify-upload-icon{width:30px;height:30px}.verify-scanner-modal.is-selfie-step .verify-liveness-card{font-size:.72rem}.verify-scanner-modal.is-selfie-step .verify-camera-frame.is-selfie{height:auto;min-height:320px;max-height:none;flex:1 1 auto}}
+@media (max-width:575.98px){.verify-face-instructions ul{grid-template-columns:1fr;font-size:.7rem;gap:.24rem}.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}.upload-panel{padding:1rem!important}.verify-scanner-modal{padding:.35rem}.verify-scanner-modal .modal-dialog{margin:0;max-width:none;width:100%;height:calc(100dvh - .7rem);max-height:calc(100dvh - .7rem)}.verify-scanner-modal .modal-content{height:100%;min-height:0}.verify-scanner-modal .modal-header{padding:.7rem .85rem}.verify-scanner-modal .modal-title{font-size:.95rem}.verify-scanner-modal .modal-title + .small{font-size:.72rem}.verify-scanner-modal .modal-body{padding:.75rem;min-height:0}.verify-scanner-modal .modal-footer{padding:.65rem .75rem;gap:.5rem}.verify-scanner-modal .modal-footer .btn{flex:1 1 auto;padding:.55rem .6rem;font-size:.82rem}.verify-scanner-modal .verify-wizard{gap:.35rem;flex-wrap:nowrap;overflow-x:auto;padding-bottom:.15rem}.verify-scanner-modal .verify-wizard-step{flex:0 0 auto;padding:.42rem .55rem;font-size:.74rem}.verify-scanner-modal .verify-wizard-step span{width:19px;height:19px;font-size:.66rem}.verify-scan-stage{padding:.65rem;border-radius:8px}.verify-scan-stage .d-flex{gap:.5rem!important;align-items:flex-start!important}.verify-scan-stage h6{font-size:.88rem}.verify-scan-stage .small{font-size:.72rem}.verify-camera-frame{height:min(46dvh,340px);min-height:220px;max-height:calc(100dvh - 300px);aspect-ratio:auto;border-radius:8px}.verify-frame-guide{width:90%;max-height:64%}.verify-face-guide{width:min(50%,180px)}.verify-live-panel{left:.5rem;right:.5rem;bottom:.5rem;align-items:flex-start;flex-direction:column;gap:.45rem;padding:.55rem .6rem;font-size:.74rem;max-height:38%;overflow:auto}.verify-live-meter{width:100%;height:7px}.verify-liveness-card{padding:.55rem;font-size:.78rem}.verify-scanner-modal.is-selfie-step .modal-header{padding:.52rem .75rem}.verify-scanner-modal.is-selfie-step .modal-body{padding:.5rem .65rem}.verify-scanner-modal.is-selfie-step .modal-footer{padding:.5rem .65rem}.verify-scanner-modal.is-selfie-step .verify-wizard-step{padding:.34rem .48rem;font-size:.7rem}.verify-scanner-modal.is-selfie-step .verify-upload-icon{width:30px;height:30px}.verify-scanner-modal.is-selfie-step .verify-liveness-card{font-size:.72rem}.verify-scanner-modal.is-selfie-step .verify-camera-frame.is-selfie{height:auto;min-height:320px;max-height:none;flex:1 1 auto}}
 @media (max-width:360px){.verify-camera-frame{height:40dvh;min-height:200px;max-height:calc(100dvh - 320px)}.verify-scanner-modal .modal-footer .btn{font-size:.76rem;padding:.5rem .45rem}.verify-live-panel{font-size:.7rem}.verify-scanner-modal.is-selfie-step .verify-camera-frame.is-selfie{min-height:300px}}
 </style>
 
@@ -239,13 +244,22 @@
                     <div class="verify-scan-stage d-none" data-step="selfie">
                       <div class="d-flex align-items-start gap-2 mb-2">
                         <div class="verify-upload-icon"><i class="bi bi-person-bounding-box"></i></div>
-                        <div><div class="fw-semibold">Face verification</div><div class="verify-upload-hint">Keep your face centered. The screen brightens to help the front camera.</div><div class="verify-screen-light-note mt-1"><i class="bi bi-brightness-high"></i>Screen light active</div></div>
+                        <div><div class="fw-semibold">Face verification</div><div class="verify-upload-hint">Prepare your face before opening the front camera.</div><div class="verify-screen-light-note mt-1"><i class="bi bi-brightness-high"></i>Screen light active</div></div>
                       </div>
-                      <div class="verify-liveness-card mb-2"><div class="small text-uppercase fw-semibold" style="letter-spacing:.04em">Liveness Challenge</div><div class="fw-semibold" id="livenessPrompt">Open the front camera to receive a live challenge.</div><div class="small" id="livenessProgress">This helps prevent uploaded fake selfies.</div></div>
+                      <div class="verify-face-instructions mb-2">
+                        <ul>
+                          <li><i class="bi bi-brightness-high"></i><span>Use a bright place. Avoid dark rooms.</span></li>
+                          <li><i class="bi bi-person-square"></i><span>Keep a clear, plain background.</span></li>
+                          <li><i class="bi bi-eyeglasses"></i><span>Remove glasses, shades, mask, and cap.</span></li>
+                          <li><i class="bi bi-bullseye"></i><span>Center your face and look at the camera.</span></li>
+                        </ul>
+                      </div>
+                      <div class="verify-liveness-card mb-2"><div class="small text-uppercase fw-semibold" style="letter-spacing:.04em">Liveness Challenge</div><div class="fw-semibold" id="livenessPrompt">Read the instructions, then tap Start Auto Scan.</div><div class="small" id="livenessProgress">This helps prevent uploaded fake selfies.</div></div>
                       <div class="verify-camera-frame is-selfie"><video playsinline muted></video><canvas hidden></canvas><div class="verify-face-guide"></div><div class="verify-live-panel"><span data-live-hint>Open front camera and center your face.</span><div class="verify-live-meter"><span></span></div></div></div>
                       <div class="d-flex flex-wrap gap-2 mt-3">
                         <button type="button" class="btn btn-primary btn-sm" data-camera-start="selfieInput" data-facing="user"><i class="bi bi-camera-video me-1"></i>Start Auto Scan</button>
                         <button type="button" class="btn btn-outline-light btn-sm" data-camera-capture="selfieInput"><i class="bi bi-person-bounding-box me-1"></i>Capture Now</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" data-torch-toggle disabled><i class="bi bi-lightbulb me-1"></i>Flashlight</button>
                         <span class="verify-upload-hint align-self-center"><i class="bi bi-camera-video me-1"></i>Live camera only. Selfie upload is disabled.</span>
                       </div>
                       <div class="verify-upload-status mt-2" data-upload-status-for="selfieInput">Waiting for face verification.</div>
@@ -367,6 +381,11 @@ document.addEventListener('DOMContentLoaded', function () {
       setStatus('idFrontInput', 'Mobile mode: use live camera scan for front ID.');
       setStatus('idBackInput', 'Mobile mode: use live camera scan for back ID.');
     }
+  }
+  function manualStartMessage(step) {
+    if (step === 'back') return 'Flip the ID, then tap Start Auto Scan when the back side is ready.';
+    if (step === 'selfie') return 'Read the face instructions, then tap Start Auto Scan.';
+    return 'Tap Start Auto Scan when the front ID is ready.';
   }
   function hasAnyScan() { return !!(state.front || state.back || state.selfie || state.frontFile || state.backFile || state.selfieFile); }
   function setIdTypeLocked(locked) {
@@ -508,9 +527,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     if (modalEl) modalEl.classList.toggle('is-selfie-step', step === 'selfie');
     stopCamera();
-    if (modalEl && modalEl.classList.contains('show')) {
-      setTimeout(function () { startCameraForStep(step); }, 220);
-    }
+    var stage = activeStage();
+    var input = inputForStep(step);
+    setLive(stage, manualStartMessage(step), step === 'selfie' ? 62 : 45, true);
+    if (input) setStatus(input.id, manualStartMessage(step), 'text-warning');
   }
   function updateSubmit() {
     if (submitButton) submitButton.disabled = !(state.front && state.back && state.selfie && state.lockedIdType && state.lockedIdType === idType.value);
@@ -533,7 +553,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   function setTorchButton(button, enabled, on) {
     if (!button) return;
-    button.hidden = !enabled;
+    button.hidden = false;
     button.disabled = !enabled;
     button.classList.toggle('btn-warning', !!on);
     button.classList.toggle('btn-outline-light', !on);
@@ -561,7 +581,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   function prepareTorchForStage(stage, input) {
     resetTorchControls();
-    if (!state.stream || !stage || !input || input.id === 'selfieInput') return;
+    if (!state.stream || !stage || !input) return;
     var track = state.stream.getVideoTracks ? state.stream.getVideoTracks()[0] : null;
     var caps = track && track.getCapabilities ? track.getCapabilities() : {};
     var button = torchButtonForStage(stage);
@@ -1091,8 +1111,8 @@ document.addEventListener('DOMContentLoaded', function () {
       video.srcObject = state.stream;
       await video.play();
       prepareTorchForStage(stage, input);
-      setStatus(input.id, 'Camera ready. Align inside the guide; capture is automatic.', 'text-warning');
-      setLive(stage, input.id === 'selfieInput' ? 'Center your face and follow the challenge.' : (state.torchTrack ? 'Align the ID inside the guide. Use Flashlight if needed.' : 'Align the landscape card inside the guide.'), 58, true);
+      setStatus(input.id, input.id === 'selfieInput' ? 'Camera ready. Keep your face clear and centered.' : 'Camera ready. Align inside the guide; capture is automatic.', 'text-warning');
+      setLive(stage, input.id === 'selfieInput' ? (state.torchTrack ? 'Center your face. Use Flashlight if supported and needed.' : 'Center your face. Screen light is active.') : (state.torchTrack ? 'Align the ID inside the guide. Use Flashlight if needed.' : 'Align the landscape card inside the guide.'), 58, true);
       monitorCamera(input, stage, loopId);
     } catch (e) {
       setStatus(input.id, 'Camera unavailable. Upload a clear picture instead.', 'text-danger');
@@ -1111,7 +1131,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var ok = await setTorch(!state.torchOn);
       var active = activeStage();
       if (!ok) setLive(active, 'Flashlight is not supported on this camera.', 45, true);
-      else setLive(active, state.torchOn ? 'Flashlight on. Keep the ID inside the guide.' : 'Flashlight off.', state.torchOn ? 72 : 58, true);
+      else setLive(active, state.torchOn ? 'Flashlight on. Keep the subject inside the guide.' : 'Flashlight off.', state.torchOn ? 72 : 58, true);
     });
   });
   document.querySelectorAll('[data-camera-start]').forEach(function (button) {
@@ -1181,8 +1201,8 @@ document.addEventListener('DOMContentLoaded', function () {
       if (input && input.files.length) {
         setLive(stage, 'Step already has an accepted image.', 100, true);
       } else {
-        setLive(stage, 'Opening camera automatically...', 45, true);
-        setTimeout(function () { startCameraForStep(state.currentStep); }, 260);
+        setLive(stage, manualStartMessage(state.currentStep), state.currentStep === 'selfie' ? 62 : 45, true);
+        if (input) setStatus(input.id, manualStartMessage(state.currentStep), 'text-warning');
       }
     });
   }
