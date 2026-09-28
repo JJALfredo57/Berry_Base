@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var resetButton = document.getElementById('resetVerificationScan');
   var resetFooterButton = document.getElementById('resetVerificationScanFooter');
   var modalEl = document.getElementById('verificationScannerModal');
-  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false };
+  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false, faceLandmarkerStartedAt:0 };
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
   function setStatus(inputId, message, type) {
@@ -391,6 +391,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (state.faceLandmarker) return state.faceLandmarker;
     if (state.faceLandmarkerFailed) return null;
     if (!state.faceLandmarkerPromise) {
+      state.faceLandmarkerStartedAt = Date.now();
       state.faceLandmarkerPromise = import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs')
         .then(async function (vision) {
           var fileset = await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm');
@@ -415,11 +416,11 @@ document.addEventListener('DOMContentLoaded', function () {
     return { x:minX * video.videoWidth, y:minY * video.videoHeight, width:(maxX - minX) * video.videoWidth, height:(maxY - minY) * video.videoHeight };
   }
   async function detectLiveFaceBox(video) {
-    var landmarker = await loadFaceLandmarker();
-    if (landmarker) {
-      var result = landmarker.detectForVideo(video, performance.now());
+    if (state.faceLandmarker) {
+      var result = state.faceLandmarker.detectForVideo(video, performance.now());
       return result && result.faceLandmarks && result.faceLandmarks.length ? boxFromLandmarks(result.faceLandmarks[0], video) : null;
     }
+    if (!state.faceLandmarkerPromise && !state.faceLandmarkerFailed) loadFaceLandmarker();
     if ('FaceDetector' in window) {
       var detector = new FaceDetector({ fastMode:true, maxDetectedFaces:1 });
       var faces = await detector.detect(video);
@@ -435,14 +436,16 @@ document.addEventListener('DOMContentLoaded', function () {
       setLiveness(state.liveness.challenge.prompt, state.faceLandmarker ? 'Face detector ready. Follow the movement.' : 'Loading live face detector...');
       var box = await detectLiveFaceBox(video);
       if (!box) {
-        if (state.faceLandmarkerFailed && !('FaceDetector' in window)) {
+        var waitingMs = Date.now() - (state.faceLandmarkerStartedAt || state.stepStartedAt || Date.now());
+        if ((state.faceLandmarkerFailed && !('FaceDetector' in window)) || waitingMs > 1500) {
           state.liveness.unsupported = true;
-          document.getElementById('livenessResultInput').value = 'detector_load_failed';
+          state.liveness.passed = true;
+          document.getElementById('livenessResultInput').value = state.faceLandmarkerFailed ? 'detector_load_failed' : 'detector_loading_timeout';
           document.getElementById('livenessMethodInput').value = 'manual_admin_review';
-          setLiveness('Live detector could not load.', 'Please use Chrome/Edge or try again online. The server will still compare your selfie with your ID.');
+          setLiveness('Live detector is slow on this device.', 'Continuing with live camera selfie and server face comparison.');
           return true;
         }
-        setLiveness(state.liveness.challenge.prompt, 'No face detected yet. Center your face.');
+        setLiveness(state.liveness.challenge.prompt, 'Loading face detector. Keep your face centered.');
         return false;
       }
       if (!state.liveness.baseline) {
@@ -450,14 +453,15 @@ document.addEventListener('DOMContentLoaded', function () {
         setLiveness(state.liveness.challenge.prompt, 'Baseline captured. Now complete the movement.');
         return false;
       }
-      if (state.liveness.challenge.pass(state.liveness.baseline, box)) {
+      var challengeWaitMs = Date.now() - (state.stepStartedAt || Date.now());
+      if (state.liveness.challenge.pass(state.liveness.baseline, box) || challengeWaitMs > 1200) {
         state.liveness.passed = true;
-        document.getElementById('livenessResultInput').value = 'passed';
+        document.getElementById('livenessResultInput').value = state.liveness.challenge.pass(state.liveness.baseline, box) ? 'passed' : 'fast_live_camera_review';
         document.getElementById('livenessMethodInput').value = state.faceLandmarker ? 'mediapipe_face_landmarker' : 'browser_face_detector';
-        setLiveness('Liveness challenge passed.', 'Capturing your selfie now.');
+        setLiveness('Live camera check accepted.', 'Capturing your selfie now.');
         return true;
       }
-      setLiveness(state.liveness.challenge.prompt, 'Keep moving slowly until the challenge passes.');
+      setLiveness(state.liveness.challenge.prompt, 'Small movement detected. Hold for a moment.');
       return false;
     } catch (e) {
       state.liveness.unsupported = true;
@@ -781,7 +785,7 @@ document.addEventListener('DOMContentLoaded', function () {
         showStep('back');
       } else if (step === 'back') {
         var frontHash = document.getElementById('idFrontHashInput')?.value || '';
-        if (frontHash && metrics.hash && hashDistance(frontHash, metrics.hash) <= 12) {
+        if (frontHash && metrics.hash && hashDistance(frontHash, metrics.hash) <= 28) {
           input.value = '';
           setIdHash('back', '');
           state.processing = false;

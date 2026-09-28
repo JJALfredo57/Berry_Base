@@ -215,7 +215,7 @@ class VerificationController extends Controller
             return false;
         }
 
-        return $this->hashDistance($frontHash, $backHash) <= 12;
+        return $this->hashDistance($frontHash, $backHash) <= 28;
     }
 
     private function uploadedImageHash($file): ?string
