@@ -391,9 +391,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (state.faceLandmarker) return state.faceLandmarker;
     if (state.faceLandmarkerFailed) return null;
     if (!state.faceLandmarkerPromise) {
-      state.faceLandmarkerPromise = import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs')
+      state.faceLandmarkerPromise = import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.mjs')
         .then(async function (vision) {
-          var fileset = await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm');
+          var fileset = await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm');
           state.faceLandmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
             baseOptions: { modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task' },
             runningMode:'VIDEO',
@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', function () {
           });
           return state.faceLandmarker;
         })
-        .catch(function () { state.faceLandmarkerFailed = true; return null; });
+        .catch(function (error) { state.faceLandmarkerFailed = true; state.faceLandmarkerError = error && error.message ? error.message : 'load_failed'; return null; });
     }
     return await state.faceLandmarkerPromise;
   }
@@ -901,7 +901,10 @@ document.addEventListener('DOMContentLoaded', function () {
     state.activeLoop += 1;
     var loopId = state.activeLoop;
     try {
-      if (input.id === 'selfieInput') resetLiveness();
+      if (input.id === 'selfieInput') {
+        resetLiveness();
+        loadFaceLandmarker();
+      }
       setStatus(input.id, 'Opening camera...', 'text-warning');
       setLive(stage, 'Opening camera...', 30, true);
       state.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: button?.dataset.facing || (input.id === 'selfieInput' ? 'user' : 'environment'), width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
