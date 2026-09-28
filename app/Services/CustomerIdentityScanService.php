@@ -63,6 +63,75 @@ class CustomerIdentityScanService
         }
     }
 
+    public function validateBackSide(string $selectedIdType, UploadedFile $frontFile, UploadedFile $backFile): array
+    {
+        $front = $this->scanUploadedFileForText($frontFile);
+        $back = $this->scanUploadedFileForText($backFile);
+        $textCheck = $this->evaluateBackSideText((string) ($front['text'] ?? ''), (string) ($back['text'] ?? ''));
+
+        return [
+            'ok' => $textCheck['status'] !== 'front_side_again',
+            'status' => $textCheck['status'],
+            'message' => $textCheck['message'],
+            'front_scan_status' => $front['status'],
+            'back_scan_status' => $back['status'],
+            'scan_result' => [
+                'engine' => $back['engine'] ?? $front['engine'] ?? $this->ocrDriver(),
+                'front_text_length' => mb_strlen((string) ($front['text'] ?? '')),
+                'back_text_length' => mb_strlen((string) ($back['text'] ?? '')),
+                'shared_token_count' => $textCheck['shared_token_count'],
+                'back_overlap_ratio' => $textCheck['back_overlap_ratio'],
+                'front_overlap_ratio' => $textCheck['front_overlap_ratio'],
+                'distinctive_back_token_count' => $textCheck['distinctive_back_token_count'],
+                'front_preview' => Str::limit(preg_replace('/\s+/', ' ', trim((string) ($front['text'] ?? ''))), 500, ''),
+                'back_preview' => Str::limit(preg_replace('/\s+/', ' ', trim((string) ($back['text'] ?? ''))), 500, ''),
+            ],
+        ];
+    }
+
+    public function evaluateBackSideText(string $frontText, string $backText): array
+    {
+        $frontTokens = $this->distinctiveTokens($frontText);
+        $backTokens = $this->distinctiveTokens($backText);
+        $frontCount = count($frontTokens);
+        $backCount = count($backTokens);
+
+        if ($frontCount < 10 || $backCount < 10) {
+            return [
+                'status' => 'needs_review',
+                'message' => 'Back ID image captured. OCR could not confidently compare the side, so admins will review it manually.',
+                'shared_token_count' => 0,
+                'back_overlap_ratio' => 0.0,
+                'front_overlap_ratio' => 0.0,
+                'distinctive_back_token_count' => $backCount,
+            ];
+        }
+
+        $shared = array_values(array_intersect($frontTokens, $backTokens));
+        $sharedCount = count($shared);
+        $backOverlap = $sharedCount / max(1, $backCount);
+        $frontOverlap = $sharedCount / max(1, $frontCount);
+
+        if ($sharedCount >= 10 && $backOverlap >= 0.78 && $frontOverlap >= 0.55) {
+            return [
+                'status' => 'front_side_again',
+                'message' => 'This looks like the front side again. Flip the ID and scan the back side.',
+                'shared_token_count' => $sharedCount,
+                'back_overlap_ratio' => $backOverlap,
+                'front_overlap_ratio' => $frontOverlap,
+                'distinctive_back_token_count' => $backCount,
+            ];
+        }
+
+        return [
+            'status' => 'accepted',
+            'message' => 'Back ID captured. Continue to face verification.',
+            'shared_token_count' => $sharedCount,
+            'back_overlap_ratio' => $backOverlap,
+            'front_overlap_ratio' => $frontOverlap,
+            'distinctive_back_token_count' => $backCount,
+        ];
+    }
     public function evaluateText(string $selectedIdType, string $text): array
     {
         $scores = [];
@@ -132,6 +201,35 @@ class CustomerIdentityScanService
         ];
     }
 
+    private function scanUploadedFileForText(UploadedFile $file): array
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
+        if (!in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+            $extension = 'jpg';
+        }
+
+        $tmp = tempnam(storage_path('app'), 'ocr_side_');
+        $target = $tmp . '.' . $extension;
+        rename($tmp, $target);
+        copy($file->getRealPath(), $target);
+
+        try {
+            $ocr = $this->runOcr($target);
+        } finally {
+            if (is_file($target)) {
+                @unlink($target);
+            }
+        }
+
+        return [
+            'ok' => (bool) ($ocr['ok'] ?? false),
+            'status' => (string) ($ocr['status'] ?? (($ocr['ok'] ?? false) ? 'scanned' : 'needs_review')),
+            'engine' => (string) ($ocr['engine'] ?? $this->ocrDriver()),
+            'text' => (string) ($ocr['text'] ?? ''),
+            'message' => (string) ($ocr['message'] ?? ''),
+            'error' => (string) ($ocr['error'] ?? ''),
+        ];
+    }
     private function scanLocalFile(string $selectedIdType, string $path, bool $deleteAfter = false): array
     {
         $base = $this->baseResult($selectedIdType);
@@ -529,6 +627,33 @@ class CustomerIdentityScanService
         }
     }
 
+    private function distinctiveTokens(string $text): array
+    {
+        $normalized = $this->normalizeForMatch($text);
+        if ($normalized === '') {
+            return [];
+        }
+
+        $stopWords = array_flip([
+            'the', 'and', 'for', 'with', 'this', 'that', 'from', 'your', 'card', 'valid', 'identity',
+            'identification', 'republic', 'philippines', 'philippine', 'gov', 'government', 'office',
+            'date', 'birth', 'issued', 'expiry', 'expires', 'signature', 'address', 'name', 'number',
+            'national', 'license', 'driver', 'postal', 'student', 'unified', 'multi', 'purpose',
+        ]);
+
+        $tokens = [];
+        foreach (explode(' ', $normalized) as $token) {
+            if (mb_strlen($token) < 3 || isset($stopWords[$token])) {
+                continue;
+            }
+            if (preg_match('/^\d{1,2}$/', $token)) {
+                continue;
+            }
+            $tokens[$token] = true;
+        }
+
+        return array_keys($tokens);
+    }
     private function normalizeForMatch(string $value): string
     {
         $value = mb_strtolower($value);

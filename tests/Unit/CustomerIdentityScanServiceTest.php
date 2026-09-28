@@ -118,4 +118,24 @@ class CustomerIdentityScanServiceTest extends TestCase
         $this->assertSame('http', $result['driver']);
         $this->assertSame('tesseract v5.3.0', $result['version']);
     }
+    public function test_back_side_text_rejects_front_side_scanned_again(): void
+    {
+        $front = 'Juan Dela Cruz Quezon City Metro Manila Male Filipino PhilSys card serial alpha bravo charlie delta echo foxtrot golf hotel';
+        $back = 'Juan Dela Cruz Quezon City Metro Manila Male Filipino PhilSys card serial alpha bravo charlie delta echo foxtrot golf hotel';
+
+        $result = $this->service()->evaluateBackSideText($front, $back);
+
+        $this->assertSame('front_side_again', $result['status']);
+        $this->assertStringContainsString('front side again', $result['message']);
+    }
+
+    public function test_back_side_text_accepts_distinct_back_side_content(): void
+    {
+        $front = 'Juan Dela Cruz Quezon City Metro Manila Male Filipino PhilSys card serial alpha bravo charlie delta echo foxtrot golf hotel';
+        $back = 'Emergency contact Maria Santos restrictions barcode reference magnetic consent reminder return found document registry security privacy terms';
+
+        $result = $this->service()->evaluateBackSideText($front, $back);
+
+        $this->assertSame('accepted', $result['status']);
+    }
 }

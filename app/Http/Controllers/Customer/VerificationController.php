@@ -61,6 +61,38 @@ class VerificationController extends Controller
         ]);
     }
 
+    public function scanBack(Request $request, IdentityVerificationSettingsService $identitySettings, CustomerIdentityScanService $identityScanner)
+    {
+        $idTypes = $identitySettings->typeNames();
+
+        $request->validate([
+            'id_type' => ['required', 'string', 'max:60', Rule::in($idTypes)],
+            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'id_back' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'id_front_hash' => ['nullable', 'string', 'regex:/^(?:[01]{64}|[01]{240})$/'],
+            'id_back_hash' => ['nullable', 'string', 'regex:/^(?:[01]{64}|[01]{240})$/'],
+        ]);
+
+        if ($this->frontAndBackLookSame($request)) {
+            return response()->json([
+                'ok' => false,
+                'can_continue' => false,
+                'status' => 'front_side_again',
+                'message' => 'This looks like the front side again. Flip the ID and scan the back side.',
+            ]);
+        }
+
+        $selectedIdType = trim($request->input('id_type'));
+        $backCheck = $identityScanner->validateBackSide($selectedIdType, $request->file('id_front'), $request->file('id_back'));
+
+        return response()->json([
+            'ok' => (bool) ($backCheck['ok'] ?? false),
+            'can_continue' => (bool) ($backCheck['ok'] ?? false),
+            'status' => $backCheck['status'] ?? 'needs_review',
+            'message' => $backCheck['message'] ?? 'Back ID captured. Continue to face verification.',
+            'scan_result' => $backCheck['scan_result'] ?? [],
+        ]);
+    }
     public function compareFace(Request $request, CustomerFaceMatchService $faceMatcher)
     {
         $request->validate([
@@ -124,6 +156,13 @@ class VerificationController extends Controller
                 ->with('error', 'The back ID photo looks like the front side again. Please flip the ID and scan the back side.');
         }
 
+        $backSideCheck = $identityScanner->validateBackSide($selectedIdType, $request->file('id_front'), $request->file('id_back'));
+        if (!($backSideCheck['ok'] ?? false)) {
+            return back()
+                ->withInput()
+                ->with('error', $backSideCheck['message'] ?? 'The back ID photo looks like the front side again. Please flip the ID and scan the back side.');
+        }
+
         $faceMatch = $faceMatcher->compareUploadedFiles($request->file('id_front'), $request->file('selfie'));
         if (($faceMatch['status'] ?? 'needs_review') !== 'match') {
             return back()
@@ -176,6 +215,9 @@ class VerificationController extends Controller
                 'ocr_needs_review' => ($scan['id_type_match_status'] ?? 'needs_review') !== 'match',
                 'id_type_mismatch' => ($scan['id_type_match_status'] ?? null) === 'mismatch',
                 'front_back_same_check' => 'passed',
+                'back_side_check_status' => $backSideCheck['status'] ?? 'needs_review',
+                'back_side_check_message' => $backSideCheck['message'] ?? null,
+                'back_side_check_result' => $backSideCheck['scan_result'] ?? [],
                 'selfie_required' => true,
                 'guided_capture' => true,
                 'selfie_capture_source' => $request->input('selfie_capture_source'),

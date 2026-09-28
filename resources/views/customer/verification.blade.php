@@ -149,7 +149,7 @@
           @if($status === 'rejected' && $latest?->rejection_reason)
             <div class="alert alert-danger border-0"><strong>Reason:</strong> {{ $latest->rejection_reason }}</div>
           @endif
-          <form action="{{ route('customer.verification.store') }}" method="POST" enctype="multipart/form-data" id="verificationWizardForm" data-scan-url="{{ route('customer.verification.scan_front') }}" data-face-url="{{ route('customer.verification.compare_face') }}" data-prevent-double-submit>
+          <form action="{{ route('customer.verification.store') }}" method="POST" enctype="multipart/form-data" id="verificationWizardForm" data-scan-url="{{ route('customer.verification.scan_front') }}" data-back-scan-url="{{ route('customer.verification.scan_back') }}" data-face-url="{{ route('customer.verification.compare_face') }}" data-prevent-double-submit>
             @csrf
             <div class="mb-3">
               <label class="form-label fw-semibold small">ID Type</label>
@@ -330,6 +330,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!form) return;
 
   var scanUrl = form.dataset.scanUrl;
+  var backScanUrl = form.dataset.backScanUrl;
   var faceUrl = form.dataset.faceUrl;
   var token = form.querySelector('input[name="_token"]')?.value || '';
   var idType = document.getElementById('verificationIdType');
@@ -739,6 +740,28 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     return await response.json();
   }
+  async function scanBack(file, backHash) {
+    var selected = idType.value;
+    var frontFile = state.frontFile || (inputForStep('front') && inputForStep('front').files && inputForStep('front').files[0] ? inputForStep('front').files[0] : null);
+    var frontHash = document.getElementById('idFrontHashInput')?.value || '';
+    if (!selected) return { ok:false, message:'Select an ID type first.' };
+    if (!frontFile || !frontHash) return { ok:false, message:'Please scan the front ID first before scanning the back.' };
+    var body = new FormData();
+    body.append('_token', token);
+    body.append('id_type', selected);
+    body.append('id_front', frontFile);
+    body.append('id_back', file);
+    if (frontHash) body.append('id_front_hash', frontHash);
+    if (backHash) body.append('id_back_hash', backHash);
+    var response = await fetch(backScanUrl, { method:'POST', body:body, headers:{ 'Accept':'application/json' } });
+    if (!response.ok) {
+      var errorData = null;
+      try { errorData = await response.json(); } catch (e) {}
+      var firstError = errorData && errorData.errors ? Object.values(errorData.errors).flat()[0] : null;
+      return { ok:false, message:firstError || (errorData && errorData.message) || ('Back ID scan could not start. Server returned HTTP ' + response.status + '. Please try again.') };
+    }
+    return await response.json();
+  }
   async function handleFile(input) {
     var file = input.files && input.files[0] ? input.files[0] : null;
     var step = inputStep(input);
@@ -813,6 +836,17 @@ document.addEventListener('DOMContentLoaded', function () {
           state.processing = false;
           setStatus(input.id, 'This looks like the front side again. Flip the ID and scan the back side.', 'text-danger');
           setLive(document.querySelector('[data-step="back"]'), 'Please flip the ID. The back side must be different from the front.', 38, true);
+          return;
+        }
+        setStatus(input.id, 'Checking that this is the back side of the ID...', 'text-warning');
+        setLive(document.querySelector('[data-step="back"]'), 'Checking that this is the back side...', 72, true);
+        var backResult = await scanBack(file, metrics.hash);
+        if (!backResult.ok) {
+          input.value = '';
+          setIdHash('back', '');
+          state.processing = false;
+          setStatus(input.id, backResult.message || 'This looks like the front side again. Flip the ID and scan the back side.', 'text-danger');
+          setLive(document.querySelector('[data-step="back"]'), backResult.message || 'Please flip the ID. The back side must be different from the front.', 38, true);
           return;
         }
         state.back = true;
