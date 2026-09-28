@@ -54,6 +54,8 @@
 .verify-camera-frame.is-selfie video{transform:scaleX(-1)}
 .verify-camera-frame:after{content:"";position:absolute;left:8%;right:8%;top:50%;height:2px;background:linear-gradient(90deg,transparent,rgba(56,189,248,.85),transparent);box-shadow:0 0 20px rgba(56,189,248,.6);animation:verifyScanLine 1.9s ease-in-out infinite;opacity:.8}
 .verify-frame-guide{position:absolute;inset:10% 7%;border:2px solid rgba(255,255,255,.92);border-radius:8px;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 26px rgba(56,189,248,.22)}
+.verify-frame-guide:before{content:"ALIGN ID INSIDE";position:absolute;left:50%;top:.45rem;transform:translateX(-50%);font-size:.68rem;font-weight:800;letter-spacing:.08em;color:#fff;background:rgba(2,6,23,.62);border:1px solid rgba(255,255,255,.34);border-radius:999px;padding:.18rem .5rem;white-space:nowrap}
+.verify-frame-guide:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent calc(50% - 1px),rgba(255,255,255,.62) 50%,transparent calc(50% + 1px)),linear-gradient(0deg,transparent calc(50% - 1px),rgba(255,255,255,.62) 50%,transparent calc(50% + 1px));opacity:.75;pointer-events:none}
 .verify-face-guide{position:absolute;width:min(44%,250px);aspect-ratio:3/4;border:2px solid rgba(255,255,255,.92);border-radius:50%;box-shadow:0 0 0 999px rgba(2,6,23,.42),0 0 26px rgba(56,189,248,.22)}
 .verify-live-panel{position:absolute;left:1rem;right:1rem;bottom:1rem;display:flex;gap:.75rem;align-items:center;justify-content:space-between;padding:.75rem .85rem;border-radius:8px;background:rgba(2,6,23,.82);backdrop-filter:blur(10px);color:#fff;font-size:.84rem;transition:background .18s ease,transform .18s ease}
 .verify-live-meter{width:120px;height:8px;background:rgba(148,163,184,.38);border-radius:999px;overflow:hidden;flex:0 0 auto}
@@ -644,7 +646,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var scoreText = typeof result.score === 'number' ? ' (' + Math.round(result.score * 100) + '%)' : '';
     if (result.status === 'match') return 'Face matched with ID' + scoreText + '. Hold steady.';
     if (result.status === 'mismatch') return result.message || 'Face does not match the ID. Keep scanning with the correct person.';
-    return result.message || 'Face comparison needs review, but scanning can continue.';
+    return result.message || 'Face must match the ID before submit. Keep your face centered and try again.';
   }
   async function compareFaceFrame(selfieFile, force) {
     var frontInput = inputForStep('front');
@@ -663,7 +665,7 @@ document.addEventListener('DOMContentLoaded', function () {
     body.append('selfie', selfieFile, 'live-selfie.jpg');
     try {
       var response = await fetch(faceUrl, { method:'POST', body:body, headers:{ 'Accept':'application/json' } });
-      var data = response.ok ? await response.json() : { status:'needs_review', message:'Live face comparison is not available. Final submit will re-check.' };
+      var data = response.ok ? await response.json() : { status:'needs_review', message:'Face check is not ready. Keep your face centered and try again.' };
       state.faceCompare = {
         lastAt:Date.now(),
         inFlight:false,
@@ -674,7 +676,7 @@ document.addEventListener('DOMContentLoaded', function () {
       };
       return state.faceCompare;
     } catch (e) {
-      state.faceCompare = { lastAt:Date.now(), inFlight:false, status:'needs_review', score:null, message:'Live face comparison is not available. Final submit will re-check.', can_continue:true };
+      state.faceCompare = { lastAt:Date.now(), inFlight:false, status:'needs_review', score:null, message:'Face check is not ready. Keep your face centered and try again.', can_continue:true };
       return state.faceCompare;
     }
   }
@@ -702,11 +704,11 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!blob) { state.processing = false; return; }
       if (input.id === 'selfieInput') {
         var faceResult = await compareFaceFrame(blob, true);
-        if (faceResult.status === 'mismatch') {
+        if (faceResult.status !== 'match') {
           state.processing = false;
           state.stableFrames = 0;
-          setStatus(input.id, faceResult.message || 'Selfie does not match the ID face. Keep scanning.', 'text-danger');
-          setLive(stage, faceCompareMessage(faceResult), 38, true);
+          setStatus(input.id, faceResult.message || 'Face must match the ID before submit. Keep scanning with the correct person.', 'text-danger');
+          setLive(stage, faceCompareMessage(faceResult), faceResult.status === 'mismatch' ? 38 : 60, true);
           return;
         }
       }
@@ -801,11 +803,11 @@ document.addEventListener('DOMContentLoaded', function () {
         showStep('selfie');
       } else {
         var uploadedFaceResult = await compareFaceFrame(file, true);
-        if (uploadedFaceResult.status === 'mismatch') {
+        if (uploadedFaceResult.status !== 'match') {
           input.value = '';
           state.processing = false;
-          setStatus(input.id, uploadedFaceResult.message || 'Selfie does not match the ID face. Please retake it.', 'text-danger');
-          setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), 38, true);
+          setStatus(input.id, uploadedFaceResult.message || 'Face must match the ID before submit. Please retake with the correct person.', 'text-danger');
+          setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), uploadedFaceResult.status === 'mismatch' ? 38 : 60, true);
           return;
         }
         if (document.getElementById('livenessResultInput').value === 'not_started') {
@@ -816,8 +818,8 @@ document.addEventListener('DOMContentLoaded', function () {
         state.selfie = true;
         state.selfieFile = file;
         document.getElementById('selfieCaptureSourceInput').value = fromCamera ? 'live_camera' : 'blocked_upload';
-        setStatus(input.id, uploadedFaceResult.status === 'match' ? 'Face matched. You may submit for review.' : 'Face captured. Server will review the match.', 'text-success');
-        setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), uploadedFaceResult.status === 'match' ? 100 : 82, true);
+        setStatus(input.id, 'Face matched the ID. You may submit for review.', 'text-success');
+        setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), 100, true);
         stopCamera();
       }
       state.processing = false;
@@ -856,14 +858,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var liveScore = livenessOk ? quality.score : 65;
         if (step === 'selfie' && quality.ok && livenessOk) {
           var faceResult = await compareFaceFrame(blob, false);
-          faceOk = faceResult.status !== 'mismatch' && !!faceResult.status;
+          faceOk = faceResult.status === 'match';
           liveMessage = faceCompareMessage(faceResult);
-          liveScore = faceResult.status === 'match' ? 96 : (faceResult.status === 'mismatch' ? 38 : 76);
+          liveScore = faceResult.status === 'match' ? 96 : (faceResult.status === 'mismatch' ? 38 : 60);
         }
         setLive(stage, liveMessage, liveScore);
-        var elapsed = Date.now() - (state.stepStartedAt || Date.now());
-        var needsReviewGrace = step === 'selfie' && faceResult && faceResult.status === 'needs_review' && elapsed > 2500;
-        state.stableFrames = quality.ok && livenessOk && (faceOk || needsReviewGrace) ? state.stableFrames + 1 : 0;
+        state.stableFrames = quality.ok && livenessOk && faceOk ? state.stableFrames + 1 : 0;
         var requiredFrames = 1;
         if (state.stableFrames >= requiredFrames && !state.processing) {
           captureFromStage(input, stage, true);
