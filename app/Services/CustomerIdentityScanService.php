@@ -453,7 +453,7 @@ class CustomerIdentityScanService
         try {
             $response = $this->ocrHttpClient($timeout)
                 ->attach('file', fopen($path, 'r'), basename($path))
-                ->post($url, ['lang' => $language, 'mode' => 'fast']);
+                ->post($url, ['lang' => $language, 'mode' => 'id_type']);
         } catch (\Throwable $e) {
             Log::warning('Customer ID OCR HTTP service unavailable', ['message' => $e->getMessage()]);
 

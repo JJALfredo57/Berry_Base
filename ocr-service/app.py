@@ -53,12 +53,12 @@ def decode_image(content: bytes) -> np.ndarray | None:
     return cv2.imdecode(data, cv2.IMREAD_COLOR)
 
 
-def prepare_ocr_variants(image: np.ndarray, fast: bool = True) -> list[tuple[str, np.ndarray]]:
+def prepare_ocr_variants(image: np.ndarray, fast: bool = True, id_type: bool = False) -> list[tuple[str, np.ndarray]]:
     variants: list[tuple[str, np.ndarray]] = []
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape[:2]
     longest = max(1, max(w, h))
-    target = 1250.0 if fast else 1800.0
+    target = 900.0 if id_type else (1250.0 if fast else 1800.0)
     scale = min(2.0 if fast else 3.0, target / longest)
     if scale < 0.98:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
@@ -66,6 +66,9 @@ def prepare_ocr_variants(image: np.ndarray, fast: bool = True) -> list[tuple[str
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
 
     variants.append(("gray", gray))
+
+    if id_type:
+        return variants
 
     clahe = cv2.createCLAHE(clipLimit=2.0 if fast else 2.2, tileGridSize=(8, 8)).apply(gray)
     variants.append(("clahe", clahe))
@@ -121,19 +124,21 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
     if image is None:
         return {"ok": False, "error": "invalid_image", "message": "Could not read the uploaded image.", "details": ""}
 
+    mode = (mode or "fast").lower()
+    id_type = mode == "id_type"
     fast = mode != "full"
     configs = [["--oem", "1", "--psm", "6"]]
     if not fast:
         configs.append(["--oem", "1", "--psm", "11"])
 
-    budget = max(4, min(TIMEOUT, 8 if fast else 20))
-    per_pass_timeout = max(3, min(5 if fast else 8, budget))
+    budget = max(3, min(TIMEOUT, 4 if id_type else (8 if fast else 20)))
+    per_pass_timeout = max(2, min(3 if id_type else (5 if fast else 8), budget))
     started = time.monotonic()
     best_text = ""
-    best_details: dict = {"variant": None, "psm": None, "score": 0, "mode": "fast" if fast else "full"}
+    best_details: dict = {"variant": None, "psm": None, "score": 0, "mode": "id_type" if id_type else ("fast" if fast else "full")}
     errors: list[str] = []
 
-    for variant_name, variant in prepare_ocr_variants(image, fast=fast):
+    for variant_name, variant in prepare_ocr_variants(image, fast=fast, id_type=id_type):
         if time.monotonic() - started >= budget:
             break
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
@@ -153,8 +158,8 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
                 score = ocr_score(text)
                 if score > int(best_details["score"]):
                     best_text = text
-                    best_details = {"variant": variant_name, "psm": config[-1], "score": score, "mode": "fast" if fast else "full"}
-                if score >= 90:
+                    best_details = {"variant": variant_name, "psm": config[-1], "score": score, "mode": "id_type" if id_type else ("fast" if fast else "full")}
+                if score >= (35 if id_type else 90):
                     return {"ok": True, "text": best_text, "details": best_details}
                 if code != 0 and stderr:
                     errors.append(stderr.strip()[:240])
