@@ -15,7 +15,7 @@ class CustomerFaceMatchService
         $timeout = max(5, min(90, (int) config('services.face_compare.timeout', 30)));
 
         if (!$url) {
-            return $this->needsReview('missing_face_compare_service_url', 'Face comparison service is not configured. Admin must review the ID photo and selfie manually.');
+            return $this->needsReview('missing_face_compare_service_url', 'Face comparison service is not configured. Face verification cannot continue right now.');
         }
 
         try {
@@ -26,7 +26,7 @@ class CustomerFaceMatchService
         } catch (\Throwable $e) {
             Log::warning('Customer face compare service unavailable', ['message' => $e->getMessage()]);
 
-            return $this->needsReview('face_compare_unavailable', 'Face comparison service is unavailable. Admin must review the ID photo and selfie manually.');
+            return $this->needsReview('face_compare_unavailable', 'Face comparison service is unavailable. Please try again when face verification is ready.');
         }
 
         $data = $response->json() ?: [];
@@ -38,7 +38,7 @@ class CustomerFaceMatchService
 
             return $this->needsReview(
                 (string) ($data['error'] ?? 'face_compare_failed'),
-                (string) ($data['message'] ?? 'Face comparison could not verify the images. Admin must review them manually.'),
+                (string) ($data['message'] ?? 'Face comparison could not verify the images. Please retake a clearer ID photo and live selfie.'),
                 $data
             );
         }
@@ -79,7 +79,7 @@ class CustomerFaceMatchService
         return match ($status) {
             'match' => 'Selfie appears to match the face on the ID.',
             'mismatch' => 'Selfie does not appear to match the face on the ID. Please resubmit using your own valid ID.',
-            default => 'Face comparison needs manual admin review.',
+            default => 'Face must be clearly detected and matched before submission.',
         };
     }
 

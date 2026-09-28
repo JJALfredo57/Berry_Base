@@ -236,9 +236,10 @@ class PlatformSettingsController extends Controller
             'id_types.*' => 'nullable|string|max:60',
             'id_keywords' => 'nullable|array|max:20',
             'id_keywords.*' => 'nullable|string|max:500',
+            'id_requires_back' => 'nullable|array|max:20',
         ]);
 
-        $types = $identitySettings->normalizeInput($validated['id_types'] ?? [], $validated['id_keywords'] ?? []);
+        $types = $identitySettings->normalizeInput($validated['id_types'] ?? [], $validated['id_keywords'] ?? [], $request->input('id_requires_back', []));
 
         $updates = [
             'verification_id_types' => json_encode($types),

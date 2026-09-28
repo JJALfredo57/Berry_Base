@@ -412,12 +412,18 @@
         </div>
         <div class="table-responsive">
           <table class="table align-middle mb-0">
-            <thead><tr><th style="width:34%">Accepted ID Type</th><th>OCR Keywords / Aliases</th><th style="width:120px">Action</th></tr></thead>
+            <thead><tr><th style="width:28%">Accepted ID Type</th><th>OCR Keywords / Aliases</th><th style="width:150px">Back Required</th><th style="width:120px">Action</th></tr></thead>
             <tbody id="idTypeRows">
               @foreach($verificationTypes as $type)
                 <tr data-id-type-row>
                   <td><input class="form-control" name="id_types[]" value="{{ $type['name'] }}" maxlength="60" required></td>
                   <td><input class="form-control" name="id_keywords[]" value="{{ implode(', ', $type['keywords'] ?? []) }}" maxlength="500" placeholder="Example: LTO, Driver License"></td>
+                  <td>
+                    <input type="hidden" name="id_requires_back[{{ $loop->index }}]" value="0">
+                    <div class="form-check form-switch m-0">
+                      <input class="form-check-input" type="checkbox" name="id_requires_back[{{ $loop->index }}]" value="1" {{ !empty($type['requires_back']) ? 'checked' : '' }}>
+                    </div>
+                  </td>
                   <td><button type="button" class="btn btn-outline-danger btn-sm" data-remove-id-type title="Remove ID type"><i class="bi bi-trash"></i></button></td>
                 </tr>
               @endforeach
@@ -450,10 +456,12 @@
     }
     rows.querySelectorAll('[data-remove-id-type]').forEach(bindRemove);
     addButton.addEventListener('click', function () {
+      var index = rows.querySelectorAll('[data-id-type-row]').length;
       var tr = document.createElement('tr');
       tr.setAttribute('data-id-type-row', '1');
       tr.innerHTML = '<td><input class="form-control" name="id_types[]" maxlength="60" required placeholder="Add ID type"></td>'
         + '<td><input class="form-control" name="id_keywords[]" maxlength="500" placeholder="Optional aliases, comma separated"></td>'
+        + '<td><input type="hidden" name="id_requires_back[' + index + ']" value="0"><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" name="id_requires_back[' + index + ']" value="1" checked></div></td>'
         + '<td><button type="button" class="btn btn-outline-danger btn-sm" data-remove-id-type title="Remove ID type"><i class="bi bi-trash"></i></button></td>';
       rows.appendChild(tr);
       bindRemove(tr.querySelector('[data-remove-id-type]'));
