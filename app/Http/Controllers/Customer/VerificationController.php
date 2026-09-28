@@ -59,7 +59,7 @@ class VerificationController extends Controller
         ]);
     }
 
-    public function scanBack(Request $request, IdentityVerificationSettingsService $identitySettings, CustomerIdentityScanService $identityScanner)
+    public function scanBack(Request $request, IdentityVerificationSettingsService $identitySettings)
     {
         $idTypes = $identitySettings->typeNames();
 
@@ -71,17 +71,7 @@ class VerificationController extends Controller
             'id_back_hash' => ['nullable', 'string', 'regex:/^(?:[01]{64}|[01]{240})$/'],
         ]);
 
-        if ($this->frontAndBackLookSame($request)) {
-            return response()->json([
-                'ok' => false,
-                'can_continue' => false,
-                'status' => 'front_side_again',
-                'message' => 'This looks like the front side again. Flip the ID and scan the back side.',
-            ]);
-        }
-
-        $selectedIdType = trim($request->input('id_type'));
-        $backCheck = $identityScanner->validateBackSide($selectedIdType, $request->file('id_front'), $request->file('id_back'));
+        $backCheck = $this->backSideFastCheck($request);
 
         return response()->json([
             'ok' => (bool) ($backCheck['ok'] ?? false),
@@ -147,13 +137,7 @@ class VerificationController extends Controller
                     : 'The scanner could not confirm that this ID matches the selected ID type. Please choose the correct ID type or retake a clearer front ID photo.');
         }
 
-        if ($this->frontAndBackLookSame($request)) {
-            return back()
-                ->withInput()
-                ->with('error', 'The back ID photo looks like the front side again. Please flip the ID and scan the back side.');
-        }
-
-        $backSideCheck = $identityScanner->validateBackSide($selectedIdType, $request->file('id_front'), $request->file('id_back'));
+        $backSideCheck = $this->backSideFastCheck($request);
         if (!($backSideCheck['ok'] ?? false)) {
             return back()
                 ->withInput()
@@ -245,16 +229,44 @@ class VerificationController extends Controller
         return redirect()->route('customer.verification')->with('msg', 'Valid ID submitted. We will review it soon.');
     }
 
-    private function frontAndBackLookSame(Request $request): bool
+    private function backSideFastCheck(Request $request): array
     {
-        $frontHash = $this->uploadedImageHash($request->file('id_front')) ?: trim((string) $request->input('id_front_hash'));
-        $backHash = $this->uploadedImageHash($request->file('id_back')) ?: trim((string) $request->input('id_back_hash'));
+        [$frontHash, $backHash] = $this->frontBackHashes($request);
 
         if (!preg_match('/^(?:[01]{64}|[01]{240})$/', $frontHash) || !preg_match('/^(?:[01]{64}|[01]{240})$/', $backHash)) {
-            return false;
+            return [
+                'ok' => false,
+                'status' => 'side_check_unavailable',
+                'message' => 'Back ID check could not compare both sides. Please tap Reset and scan the front and back ID again.',
+                'scan_result' => ['method' => 'fast_hash_check', 'error' => 'missing_hash'],
+            ];
         }
 
-        return $this->hashDistance($frontHash, $backHash) <= 72;
+        $distance = $this->hashDistance($frontHash, $backHash);
+        if ($distance <= 72) {
+            return [
+                'ok' => false,
+                'status' => 'front_side_again',
+                'message' => 'This looks like the front side again. Flip the ID and scan the back side.',
+                'scan_result' => ['method' => 'fast_hash_check', 'hash_distance' => $distance],
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'status' => 'accepted',
+            'message' => 'Back ID captured. Continue to face verification.',
+            'scan_result' => ['method' => 'fast_hash_check', 'hash_distance' => $distance],
+        ];
+    }
+
+
+    private function frontBackHashes(Request $request): array
+    {
+        return [
+            $this->uploadedImageHash($request->file('id_front')) ?: trim((string) $request->input('id_front_hash')),
+            $this->uploadedImageHash($request->file('id_back')) ?: trim((string) $request->input('id_back_hash')),
+        ];
     }
 
     private function uploadedImageHash($file): ?string
