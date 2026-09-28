@@ -130,15 +130,17 @@ def clean_text_variant(gray: np.ndarray, clip: float = 2.0, target: float = 900.
 
 def stack_regions_for_ocr(regions: list[np.ndarray]) -> np.ndarray | None:
     cleaned_regions = []
-    target_width = 900
+    target_width = 640
     for region in regions:
         if region.size == 0 or min(region.shape[:2]) < 45:
             continue
-        cleaned = clean_text_variant(region, 1.9, 900.0)
+        cleaned = clean_text_variant(region, 1.7, 760.0)
         h, w = cleaned.shape[:2]
         scale = min(1.0, target_width / max(1, w))
         if scale < 0.98:
-            cleaned = cv2.resize(cleaned, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+            cleaned = cv2.resize(cleaned, (max(1, int(w * scale)), max(1, int(h * scale))), interpolation=cv2.INTER_AREA)
+        cleaned = cv2.GaussianBlur(cleaned, (3, 3), 0)
+        _, cleaned = cv2.threshold(cleaned, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         cleaned_regions.append(cleaned)
 
     if not cleaned_regions:
@@ -148,29 +150,33 @@ def stack_regions_for_ocr(regions: list[np.ndarray]) -> np.ndarray | None:
     padded = []
     for region in cleaned_regions:
         h, w = region.shape[:2]
-        canvas = np.full((h + 24, width + 24), 255, dtype=np.uint8)
-        canvas[12:12 + h, 12:12 + w] = region
+        canvas = np.full((h + 14, width + 14), 255, dtype=np.uint8)
+        canvas[7:7 + h, 7:7 + w] = region
         padded.append(canvas)
 
-    return np.vstack(padded)
+    combined = np.vstack(padded)
+    max_height = 1100
+    if combined.shape[0] > max_height:
+        scale = max_height / combined.shape[0]
+        combined = cv2.resize(combined, (max(1, int(combined.shape[1] * scale)), max_height), interpolation=cv2.INTER_AREA)
+    return combined
 
 
 def prepare_id_type_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
     document = find_document_crop(image)
     base = document if document is not None else rotate_if_portrait(image)
-    gray = normalize_ocr_gray(base, 1050.0)
+    gray = normalize_ocr_gray(base, 850.0)
     regions = [
-        crop_gray_region(gray, 0.02, 0.00, 0.98, 0.40),
-        crop_gray_region(gray, 0.26, 0.12, 0.98, 0.78),
-        crop_gray_region(gray, 0.08, 0.18, 0.98, 0.86),
-        crop_gray_region(gray, 0.04, 0.52, 0.98, 0.98),
+        crop_gray_region(gray, 0.02, 0.00, 0.98, 0.38),
+        crop_gray_region(gray, 0.24, 0.12, 0.98, 0.74),
+        crop_gray_region(gray, 0.08, 0.20, 0.98, 0.78),
     ]
 
     combined = stack_regions_for_ocr(regions)
     if combined is not None:
         return [("id_type_combined", combined)]
 
-    return [("id_type_full", clean_text_variant(gray, 1.9, 950.0))]
+    return [("id_type_full", clean_text_variant(gray, 1.7, 760.0))]
 
 
 def prepare_ocr_variants(image: np.ndarray, fast: bool = True, id_type: bool = False) -> list[tuple[str, np.ndarray]]:
@@ -256,7 +262,7 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
     mode = (mode or "fast").lower()
     id_type = mode == "id_type"
     fast = mode != "full"
-    configs = [["--oem", "1", "--psm", "6", "--dpi", "180", "-c", "preserve_interword_spaces=1"]]
+    configs = [["--oem", "1", "--psm", "6", "--dpi", "140", "-c", "preserve_interword_spaces=1"]]
     if not id_type and not fast:
         configs.append(["--oem", "1", "--psm", "11"])
 
