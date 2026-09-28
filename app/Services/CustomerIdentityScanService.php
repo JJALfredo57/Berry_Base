@@ -334,7 +334,7 @@ class CustomerIdentityScanService
     {
         $url = trim((string) config('services.ocr.service_url', ''));
         $language = (string) config('services.ocr.tesseract_lang', 'eng');
-        $timeout = max(5, min(60, (int) config('services.ocr.service_timeout', 20)));
+        $timeout = max(5, min(12, (int) config('services.ocr.service_timeout', 10)));
 
         if ($url === '') {
             return [
@@ -349,7 +349,7 @@ class CustomerIdentityScanService
         try {
             $response = $this->ocrHttpClient($timeout)
                 ->attach('file', fopen($path, 'r'), basename($path))
-                ->post($url, ['lang' => $language]);
+                ->post($url, ['lang' => $language, 'mode' => 'fast']);
         } catch (\Throwable $e) {
             Log::warning('Customer ID OCR HTTP service unavailable', ['message' => $e->getMessage()]);
 
@@ -358,7 +358,7 @@ class CustomerIdentityScanService
                 'engine' => 'http',
                 'status' => 'ocr_unavailable',
                 'error' => 'ocr_service_unavailable',
-                'message' => 'OCR service is not available. Please review the uploaded ID manually.',
+                'message' => 'ID scan is taking too long. Please retake the photo closer and steadier, then try again.',
             ];
         }
 

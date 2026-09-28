@@ -1,6 +1,7 @@
-﻿import os
+import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 import cv2
@@ -52,29 +53,37 @@ def decode_image(content: bytes) -> np.ndarray | None:
     return cv2.imdecode(data, cv2.IMREAD_COLOR)
 
 
-def prepare_ocr_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
+def prepare_ocr_variants(image: np.ndarray, fast: bool = True) -> list[tuple[str, np.ndarray]]:
     variants: list[tuple[str, np.ndarray]] = []
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape[:2]
-    scale = max(1.0, min(3.0, 1800.0 / max(1, max(w, h))))
-    if scale > 1.01:
+    longest = max(1, max(w, h))
+    target = 1250.0 if fast else 1800.0
+    scale = min(2.0 if fast else 3.0, target / longest)
+    if scale < 0.98:
+        gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+    elif scale > 1.05:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
 
     variants.append(("gray", gray))
 
-    denoised = cv2.fastNlMeansDenoising(gray, None, 12, 7, 21)
-    clahe = cv2.createCLAHE(clipLimit=2.2, tileGridSize=(8, 8)).apply(denoised)
+    clahe = cv2.createCLAHE(clipLimit=2.0 if fast else 2.2, tileGridSize=(8, 8)).apply(gray)
     variants.append(("clahe", clahe))
 
     sharpen_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
     sharpened = cv2.filter2D(clahe, -1, sharpen_kernel)
     variants.append(("sharpened", sharpened))
 
-    _, otsu = cv2.threshold(sharpened, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    if fast:
+        return variants
+
+    denoised = cv2.fastNlMeansDenoising(gray, None, 12, 7, 21)
+    denoised_clahe = cv2.createCLAHE(clipLimit=2.2, tileGridSize=(8, 8)).apply(denoised)
+    _, otsu = cv2.threshold(denoised_clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     variants.append(("otsu", otsu))
 
     adaptive = cv2.adaptiveThreshold(
-        sharpened,
+        denoised_clahe,
         255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY,
@@ -107,31 +116,46 @@ def run_tesseract_file(path: str, lang: str, config: list[str], timeout: int) ->
     return result.returncode, result.stdout or "", result.stderr or ""
 
 
-def run_best_ocr(content: bytes, suffix: str, lang: str) -> dict:
+def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> dict:
     image = decode_image(content)
     if image is None:
         return {"ok": False, "error": "invalid_image", "message": "Could not read the uploaded image.", "details": ""}
 
-    configs = [
-        ["--oem", "1", "--psm", "6"],
-        ["--oem", "1", "--psm", "11"],
-    ]
+    fast = mode != "full"
+    configs = [["--oem", "1", "--psm", "6"]]
+    if not fast:
+        configs.append(["--oem", "1", "--psm", "11"])
+
+    budget = max(4, min(TIMEOUT, 8 if fast else 20))
+    per_pass_timeout = max(3, min(5 if fast else 8, budget))
+    started = time.monotonic()
     best_text = ""
-    best_details: dict = {"variant": None, "psm": None, "score": 0}
+    best_details: dict = {"variant": None, "psm": None, "score": 0, "mode": "fast" if fast else "full"}
     errors: list[str] = []
 
-    for variant_name, variant in prepare_ocr_variants(image):
+    for variant_name, variant in prepare_ocr_variants(image, fast=fast):
+        if time.monotonic() - started >= budget:
+            break
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
             tmp_path = tmp.name
         try:
             cv2.imwrite(tmp_path, variant)
             for config in configs:
-                code, stdout, stderr = run_tesseract_file(tmp_path, lang, config, max(5, min(TIMEOUT, 20)))
+                if time.monotonic() - started >= budget:
+                    break
+                try:
+                    code, stdout, stderr = run_tesseract_file(tmp_path, lang, config, per_pass_timeout)
+                except subprocess.TimeoutExpired:
+                    errors.append(f"{variant_name}/psm{config[-1]} timed out")
+                    continue
+
                 text = (stdout or "").strip()
                 score = ocr_score(text)
                 if score > int(best_details["score"]):
                     best_text = text
-                    best_details = {"variant": variant_name, "psm": config[-1], "score": score}
+                    best_details = {"variant": variant_name, "psm": config[-1], "score": score, "mode": "fast" if fast else "full"}
+                if score >= 90:
+                    return {"ok": True, "text": best_text, "details": best_details}
                 if code != 0 and stderr:
                     errors.append(stderr.strip()[:240])
         finally:
@@ -140,16 +164,16 @@ def run_best_ocr(content: bytes, suffix: str, lang: str) -> dict:
             except OSError:
                 pass
 
-    if not best_text:
-        return {
-            "ok": False,
-            "error": "empty_text",
-            "message": "No readable text found.",
-            "details": " | ".join(errors[:3]),
-        }
+    if best_text:
+        return {"ok": True, "text": best_text, "details": best_details}
 
-    return {"ok": True, "text": best_text, "details": best_details}
-
+    timeout_hit = any("timed out" in error for error in errors)
+    return {
+        "ok": False,
+        "error": "ocr_timeout" if timeout_hit else "empty_text",
+        "message": "ID scan took too long. Please retake the photo closer and steadier." if timeout_hit else "No readable text found.",
+        "details": " | ".join(errors[:3]),
+    }
 
 def largest_face(image: np.ndarray) -> tuple[np.ndarray | None, dict]:
     if FACE_CASCADE.empty():
@@ -239,6 +263,7 @@ def health(authorization: str | None = Header(default=None)):
 async def ocr(
     file: UploadFile = File(...),
     lang: str = Form(default=DEFAULT_LANG),
+    mode: str = Form(default="fast"),
     authorization: str | None = Header(default=None),
 ):
     check_auth(authorization)
@@ -251,7 +276,7 @@ async def ocr(
 
     suffix = Path(file.filename or "upload.jpg").suffix or ".jpg"
     try:
-        ocr_result = run_best_ocr(content, suffix, lang or DEFAULT_LANG)
+        ocr_result = run_best_ocr(content, suffix, lang or DEFAULT_LANG, mode or "fast")
     except subprocess.TimeoutExpired:
         return JSONResponse({"ok": False, "error": "ocr_timeout", "message": "OCR timed out."}, status_code=504)
     except Exception as exc:
