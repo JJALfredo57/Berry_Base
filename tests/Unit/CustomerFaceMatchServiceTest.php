@@ -97,35 +97,4 @@ class CustomerFaceMatchServiceTest extends TestCase
         $this->assertSame('needs_review', $result['status']);
         $this->assertSame('missing_face_compare_service_url', $result['error']);
     }
-
-    public function test_openbiometrics_staging_user_uses_document_verify(): void
-    {
-        config()->set('services.customer_identity.provider', 'staging');
-        config()->set('services.customer_identity.staging_user_ids', '57');
-        config()->set('services.openbiometrics.base_url', 'https://bio.example.test');
-        config()->set('services.openbiometrics.api_key', 'bio-token');
-        config()->set('services.openbiometrics.face_threshold', 0.45);
-        session(['user' => ['id' => 57]]);
-
-        Http::fake([
-            'bio.example.test/api/v1/documents/verify' => Http::response([
-                'is_match' => true,
-                'similarity' => 0.87,
-            ]),
-        ]);
-
-        $result = app(CustomerFaceMatchService::class)->compareUploadedFiles(
-            $this->upload('front.jpg'),
-            $this->upload('selfie.jpg'),
-        );
-
-        $this->assertTrue($result['ok']);
-        $this->assertSame('match', $result['status']);
-        $this->assertSame(0.87, $result['score']);
-        $this->assertSame(0.45, $result['threshold']);
-        $this->assertSame('openbiometrics_document_verify', $result['engine']);
-
-        Http::assertSent(fn ($request) => $request->url() === 'https://bio.example.test/api/v1/documents/verify'
-            && $request->hasHeader('Authorization', 'Bearer bio-token'));
-    }
 }

@@ -98,7 +98,6 @@ class CustomerIdentityScanServiceTest extends TestCase
         $this->assertSame('mismatch', $result['id_type_match_status']);
         $this->assertSame("Driver's License", $result['id_type_scan_detected']);
     }
-
     public function test_driver_license_layout_hints_can_match_when_ocr_misses_exact_phrase(): void
     {
         $result = $this->service()->evaluateText(
@@ -152,57 +151,6 @@ class CustomerIdentityScanServiceTest extends TestCase
         Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer test-token'));
     }
 
-
-    public function test_openbiometrics_staging_user_uses_document_ocr(): void
-    {
-        config()->set('services.customer_identity.provider', 'staging');
-        config()->set('services.customer_identity.staging_user_ids', '57');
-        config()->set('services.openbiometrics.base_url', 'https://bio.example.test');
-        config()->set('services.openbiometrics.api_key', 'bio-token');
-        session(['user' => ['id' => 57]]);
-
-        Http::fake([
-            'bio.example.test/api/v1/documents/ocr' => Http::response([
-                'full_text' => 'Republic of the Philippines PhilSys PhilID National Identification Card',
-                'confidence' => 0.96,
-            ]),
-        ]);
-
-        $image = UploadedFile::fake()->create('front.jpg', 10, 'image/jpeg');
-        $result = $this->service()->scanUploadedFile('National ID', $image);
-
-        $this->assertSame('match', $result['id_type_match_status']);
-        $this->assertSame('openbiometrics', $result['scan_result']['engine']);
-
-        Http::assertSent(fn ($request) => $request->url() === 'https://bio.example.test/api/v1/documents/ocr'
-            && $request->hasHeader('Authorization', 'Bearer bio-token'));
-    }
-
-    public function test_openbiometrics_staging_does_not_affect_other_users(): void
-    {
-        config()->set('services.customer_identity.provider', 'staging');
-        config()->set('services.customer_identity.staging_user_ids', '57');
-        config()->set('services.openbiometrics.base_url', 'https://bio.example.test');
-        config()->set('services.ocr.driver', 'http');
-        config()->set('services.ocr.service_url', 'https://ocr.example.test/ocr');
-        session(['user' => ['id' => 99]]);
-
-        Http::fake([
-            'ocr.example.test/ocr' => Http::response([
-                'ok' => true,
-                'text' => 'Republic of the Philippines PhilSys PhilID National Identification Card',
-            ]),
-        ]);
-
-        $image = UploadedFile::fake()->create('front.jpg', 10, 'image/jpeg');
-        $result = $this->service()->scanUploadedFile('National ID', $image);
-
-        $this->assertSame('match', $result['id_type_match_status']);
-        $this->assertSame('http', $result['scan_result']['engine']);
-
-        Http::assertSent(fn ($request) => $request->url() === 'https://ocr.example.test/ocr');
-    }
-
     public function test_http_ocr_empty_text_is_blocked_with_clear_message(): void
     {
         config()->set('services.ocr.driver', 'http');
@@ -246,7 +194,6 @@ class CustomerIdentityScanServiceTest extends TestCase
         $this->assertNull($result['id_type_scan_detected']);
         $this->assertSame('ocr_timeout', $result['scan_result']['error']);
     }
-
     public function test_http_ocr_health_check_reports_available_service(): void
     {
         config()->set('services.ocr.driver', 'http');
@@ -266,7 +213,6 @@ class CustomerIdentityScanServiceTest extends TestCase
         $this->assertSame('http', $result['driver']);
         $this->assertSame('tesseract v5.3.0', $result['version']);
     }
-
     public function test_back_side_text_rejects_front_side_scanned_again(): void
     {
         $front = 'Juan Dela Cruz Quezon City Metro Manila Male Filipino PhilSys card serial alpha bravo charlie delta echo foxtrot golf hotel';

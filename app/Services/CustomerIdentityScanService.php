@@ -132,7 +132,6 @@ class CustomerIdentityScanService
             'distinctive_back_token_count' => $backCount,
         ];
     }
-
     public function evaluateText(string $selectedIdType, string $text): array
     {
         $scores = [];
@@ -237,7 +236,6 @@ class CustomerIdentityScanService
             'error' => (string) ($ocr['error'] ?? ''),
         ];
     }
-
     private function scanLocalFile(string $selectedIdType, string $path, bool $deleteAfter = false): array
     {
         $base = $this->baseResult($selectedIdType);
@@ -307,30 +305,9 @@ class CustomerIdentityScanService
 
     private function runOcr(string $path): array
     {
-        if ($this->identityProvider() === 'openbiometrics') {
-            return $this->runOpenBiometricsOcr($path);
-        }
-
         return $this->ocrDriver() === 'http'
             ? $this->runHttpOcr($path)
             : $this->runTesseract($path);
-    }
-
-    private function identityProvider(): string
-    {
-        $provider = strtolower((string) config('services.customer_identity.provider', 'current'));
-        if ($provider === 'openbiometrics') {
-            return $this->openBiometricsBaseUrl() ? 'openbiometrics' : 'current';
-        }
-
-        if ($provider !== 'staging' || !$this->openBiometricsBaseUrl()) {
-            return 'current';
-        }
-
-        $userId = (string) (session('user.id') ?? data_get(session('user'), 'id', ''));
-        $stagingIds = array_filter(array_map('trim', explode(',', (string) config('services.customer_identity.staging_user_ids', ''))));
-
-        return $userId !== '' && in_array($userId, $stagingIds, true) ? 'openbiometrics' : 'current';
     }
 
     private function ocrDriver(): string
@@ -521,77 +498,6 @@ class CustomerIdentityScanService
         return ['ok' => true, 'engine' => 'http', 'text' => $text];
     }
 
-
-    private function runOpenBiometricsOcr(string $path): array
-    {
-        $baseUrl = $this->openBiometricsBaseUrl();
-        $timeout = max(5, min(90, (int) config('services.openbiometrics.timeout', 30)));
-
-        if (!$baseUrl) {
-            return [
-                'ok' => false,
-                'engine' => 'openbiometrics',
-                'status' => 'ocr_unavailable',
-                'error' => 'missing_openbiometrics_base_url',
-                'message' => 'OpenBiometrics is not configured yet. Current scanner remains available.',
-            ];
-        }
-
-        try {
-            $response = $this->openBiometricsClient($timeout)
-                ->attach('image', fopen($path, 'r'), basename($path))
-                ->post($baseUrl . '/api/v1/documents/ocr');
-        } catch (\Throwable $e) {
-            Log::warning('OpenBiometrics document OCR unavailable', ['message' => $e->getMessage()]);
-
-            return [
-                'ok' => false,
-                'engine' => 'openbiometrics',
-                'status' => 'ocr_unavailable',
-                'error' => 'openbiometrics_unavailable',
-                'message' => 'OpenBiometrics scanner is unavailable. Please try again in a moment.',
-            ];
-        }
-
-        $data = $response->json() ?: [];
-        if (!$response->ok()) {
-            Log::warning('OpenBiometrics document OCR failed', [
-                'status' => $response->status(),
-                'error' => Str::limit($response->body(), 500, ''),
-            ]);
-
-            return [
-                'ok' => false,
-                'engine' => 'openbiometrics',
-                'status' => 'needs_review',
-                'error' => (string) ($data['error'] ?? 'openbiometrics_ocr_failed'),
-                'message' => (string) ($data['message'] ?? 'OpenBiometrics could not read this ID. Please retake a clearer photo.'),
-            ];
-        }
-
-        $text = trim((string) ($data['full_text'] ?? data_get($data, 'ocr.full_text', '')));
-        if ($text === '' && is_array($data['lines'] ?? null)) {
-            $text = trim(collect($data['lines'])->pluck('text')->filter()->implode("\n"));
-        }
-
-        if ($text === '') {
-            return [
-                'ok' => false,
-                'engine' => 'openbiometrics',
-                'status' => 'needs_review',
-                'error' => 'empty_text',
-                'message' => 'OpenBiometrics ran but did not find readable ID text. Retake the front ID closer and clearer.',
-            ];
-        }
-
-        return [
-            'ok' => true,
-            'engine' => 'openbiometrics',
-            'text' => $text,
-            'confidence' => is_numeric($data['confidence'] ?? null) ? (float) $data['confidence'] : null,
-        ];
-    }
-
     private function runTesseract(string $path): array
     {
         $binary = (string) config('services.ocr.tesseract_binary', 'tesseract');
@@ -647,21 +553,6 @@ class CustomerIdentityScanService
         $client = Http::timeout($timeout)->acceptJson();
 
         return $token === '' ? $client : $client->withToken($token);
-    }
-
-    private function openBiometricsClient(int $timeout)
-    {
-        $token = trim((string) config('services.openbiometrics.api_key', ''));
-        $client = Http::timeout($timeout)->acceptJson();
-
-        return $token === '' ? $client : $client->withToken($token);
-    }
-
-    private function openBiometricsBaseUrl(): ?string
-    {
-        $url = rtrim(trim((string) config('services.openbiometrics.base_url', '')), '/');
-
-        return $url === '' ? null : $url;
     }
 
     private function ocrHealthUrl(): ?string
@@ -789,7 +680,6 @@ class CustomerIdentityScanService
 
         return $scores;
     }
-
     private function builtInAliasesFor(string $idType): array
     {
         $normalized = $this->normalizeForMatch($idType);
@@ -821,7 +711,6 @@ class CustomerIdentityScanService
 
         return [];
     }
-
     private function distinctiveTokens(string $text): array
     {
         $normalized = $this->normalizeForMatch($text);
@@ -849,7 +738,6 @@ class CustomerIdentityScanService
 
         return array_keys($tokens);
     }
-
     private function normalizeForMatch(string $value): string
     {
         $value = mb_strtolower($value);
