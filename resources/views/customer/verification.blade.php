@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var resetButton = document.getElementById('resetVerificationScan');
   var resetFooterButton = document.getElementById('resetVerificationScanFooter');
   var modalEl = document.getElementById('verificationScannerModal');
-  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false } };
+  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false };
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
   function setStatus(inputId, message, type) {
@@ -384,28 +384,67 @@ document.addEventListener('DOMContentLoaded', function () {
     state.liveness = { challenge: challenges[Math.floor(Math.random() * challenges.length)], baseline:null, passed:false, unsupported:false };
     document.getElementById('livenessChallengeInput').value = state.liveness.challenge.key;
     document.getElementById('livenessResultInput').value = 'pending';
-    document.getElementById('livenessMethodInput').value = 'browser_face_detector';
+    document.getElementById('livenessMethodInput').value = 'mediapipe_face_landmarker';
     setLiveness(state.liveness.challenge.prompt, 'Center your face first, then follow the challenge.');
+  }
+  async function loadFaceLandmarker() {
+    if (state.faceLandmarker) return state.faceLandmarker;
+    if (state.faceLandmarkerFailed) return null;
+    if (!state.faceLandmarkerPromise) {
+      state.faceLandmarkerPromise = import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs')
+        .then(async function (vision) {
+          var fileset = await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm');
+          state.faceLandmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
+            baseOptions: { modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task' },
+            runningMode:'VIDEO',
+            numFaces:1
+          });
+          return state.faceLandmarker;
+        })
+        .catch(function () { state.faceLandmarkerFailed = true; return null; });
+    }
+    return await state.faceLandmarkerPromise;
+  }
+  function boxFromLandmarks(landmarks, video) {
+    if (!landmarks || !landmarks.length || !video || !video.videoWidth) return null;
+    var minX = 1, minY = 1, maxX = 0, maxY = 0;
+    landmarks.forEach(function (point) {
+      minX = Math.min(minX, point.x); minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x); maxY = Math.max(maxY, point.y);
+    });
+    return { x:minX * video.videoWidth, y:minY * video.videoHeight, width:(maxX - minX) * video.videoWidth, height:(maxY - minY) * video.videoHeight };
+  }
+  async function detectLiveFaceBox(video) {
+    var landmarker = await loadFaceLandmarker();
+    if (landmarker) {
+      var result = landmarker.detectForVideo(video, performance.now());
+      return result && result.faceLandmarks && result.faceLandmarks.length ? boxFromLandmarks(result.faceLandmarks[0], video) : null;
+    }
+    if ('FaceDetector' in window) {
+      var detector = new FaceDetector({ fastMode:true, maxDetectedFaces:1 });
+      var faces = await detector.detect(video);
+      return faces.length ? faces[0].boundingBox : null;
+    }
+    return null;
   }
   async function checkLiveness(stage) {
     if (state.currentStep !== 'selfie' || state.liveness.passed) return true;
-    if (!('FaceDetector' in window)) {
-      state.liveness.unsupported = true;
-      document.getElementById('livenessResultInput').value = 'browser_not_supported';
-      document.getElementById('livenessMethodInput').value = 'manual_admin_review';
-      setLiveness('Live movement challenge is not supported here.', 'Keep your face clear. The server will still compare your selfie with your ID.');
-      return true;
-    }
     var video = stage ? stage.querySelector('video') : null;
     if (!video || !video.videoWidth) return false;
     try {
-      var detector = new FaceDetector({ fastMode:true, maxDetectedFaces:1 });
-      var faces = await detector.detect(video);
-      if (!faces.length) {
+      setLiveness(state.liveness.challenge.prompt, state.faceLandmarker ? 'Face detector ready. Follow the movement.' : 'Loading live face detector...');
+      var box = await detectLiveFaceBox(video);
+      if (!box) {
+        if (state.faceLandmarkerFailed && !('FaceDetector' in window)) {
+          state.liveness.unsupported = true;
+          document.getElementById('livenessResultInput').value = 'detector_load_failed';
+          document.getElementById('livenessMethodInput').value = 'manual_admin_review';
+          setLiveness('Live detector could not load.', 'Please use Chrome/Edge or try again online. The server will still compare your selfie with your ID.');
+          return true;
+        }
         setLiveness(state.liveness.challenge.prompt, 'No face detected yet. Center your face.');
         return false;
       }
-      var box = faces[0].boundingBox;
       if (!state.liveness.baseline) {
         state.liveness.baseline = { x:box.x, y:box.y, width:box.width, height:box.height };
         setLiveness(state.liveness.challenge.prompt, 'Baseline captured. Now complete the movement.');
@@ -414,7 +453,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (state.liveness.challenge.pass(state.liveness.baseline, box)) {
         state.liveness.passed = true;
         document.getElementById('livenessResultInput').value = 'passed';
-        document.getElementById('livenessMethodInput').value = 'browser_face_detector';
+        document.getElementById('livenessMethodInput').value = state.faceLandmarker ? 'mediapipe_face_landmarker' : 'browser_face_detector';
         setLiveness('Liveness challenge passed.', 'Capturing your selfie now.');
         return true;
       }
@@ -576,12 +615,19 @@ document.addEventListener('DOMContentLoaded', function () {
     var metrics = await imageMetrics(file);
     var quality = scoreMetrics(metrics, kind);
     if (!quality.ok) return quality.message;
-    if (kind === 'selfie' && 'FaceDetector' in window) {
+    if (kind === 'selfie') {
       try {
-        var detector = new FaceDetector({ fastMode:true, maxDetectedFaces:2 });
-        var faces = await detector.detect(metrics.image);
-        if (!faces.length) return 'No face detected. Center your face and retake the selfie.';
-        if (faces.length > 1) return 'More than one face detected. Take the selfie alone.';
+        var landmarker = await loadFaceLandmarker();
+        if (landmarker) {
+          var result = landmarker.detect(metrics.image);
+          if (!result.faceLandmarks.length) return 'No face detected. Center your face and retake the selfie.';
+          if (result.faceLandmarks.length > 1) return 'More than one face detected. Take the selfie alone.';
+        } else if ('FaceDetector' in window) {
+          var detector = new FaceDetector({ fastMode:true, maxDetectedFaces:2 });
+          var faces = await detector.detect(metrics.image);
+          if (!faces.length) return 'No face detected. Center your face and retake the selfie.';
+          if (faces.length > 1) return 'More than one face detected. Take the selfie alone.';
+        }
       } catch (e) {}
     }
     return null;
