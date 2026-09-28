@@ -35,9 +35,10 @@
 .verify-wizard-step.active{border-color:var(--primary);color:var(--primary);background:rgba(var(--primary-rgb,233,30,99),.06)}
 .verify-wizard-step.active span,.verify-wizard-step.done span{background:var(--primary);color:#fff}
 .verify-ready-panel{border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;padding:1rem}
-.verify-scanner-modal{position:fixed!important;inset:0!important;overflow:hidden!important}
-.verify-scanner-modal .modal-dialog{height:100dvh;max-height:100dvh;margin:0 auto;display:flex;align-items:stretch}
-.verify-scanner-modal .modal-content{background:#08111f;color:#e5eefb;border:0;min-height:0;height:100dvh;max-height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+.verify-scanner-modal{position:fixed!important;inset:0!important;overflow:hidden!important;padding:.75rem}
+.verify-scanner-modal.show{display:flex!important;align-items:center;justify-content:center}
+.verify-scanner-modal .modal-dialog{width:100%;height:min(100dvh - 1.5rem,900px);max-height:calc(100dvh - 1.5rem);margin:0 auto;display:flex;align-items:stretch}
+.verify-scanner-modal .modal-content{background:#08111f;color:#e5eefb;border:0;min-height:0;height:100%;max-height:100%;overflow:hidden;display:flex;flex-direction:column}
 .verify-scanner-modal .modal-header,.verify-scanner-modal .modal-footer{border-color:rgba(148,163,184,.22);background:rgba(8,17,31,.96);flex:0 0 auto}
 .verify-scanner-modal .modal-body{overflow:hidden;min-height:0;flex:1 1 auto;display:flex;flex-direction:column}
 .verify-scanner-modal .btn-close{filter:invert(1) grayscale(100%)}
@@ -80,7 +81,7 @@
 .verify-scanner-modal .verify-upload-status.text-danger{color:#fca5a5!important}.verify-scanner-modal .verify-upload-status.text-success{color:#86efac!important}.verify-scanner-modal .verify-upload-status.text-warning{color:#fde68a!important}
 @keyframes verifyScanLine{0%,100%{transform:translateY(-22vh);opacity:.25}50%{transform:translateY(22vh);opacity:.9}}
 .verify-upload-status.text-danger{color:#dc2626!important}.verify-upload-status.text-success{color:#15803d!important}
-@media (max-width:575.98px){.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}.upload-panel{padding:1rem!important}.verify-scanner-modal .modal-dialog{margin:0;max-width:none;width:100%;height:100dvh}.verify-scanner-modal .modal-content{height:100dvh;min-height:0}.verify-scanner-modal .modal-header{padding:.7rem .85rem}.verify-scanner-modal .modal-title{font-size:.95rem}.verify-scanner-modal .modal-title + .small{font-size:.72rem}.verify-scanner-modal .modal-body{padding:.75rem;min-height:0}.verify-scanner-modal .modal-footer{padding:.65rem .75rem;gap:.5rem}.verify-scanner-modal .modal-footer .btn{flex:1 1 auto;padding:.55rem .6rem;font-size:.82rem}.verify-scanner-modal .verify-wizard{gap:.35rem;flex-wrap:nowrap;overflow-x:auto;padding-bottom:.15rem}.verify-scanner-modal .verify-wizard-step{flex:0 0 auto;padding:.42rem .55rem;font-size:.74rem}.verify-scanner-modal .verify-wizard-step span{width:19px;height:19px;font-size:.66rem}.verify-scan-stage{padding:.65rem;border-radius:8px}.verify-scan-stage .d-flex{gap:.5rem!important;align-items:flex-start!important}.verify-scan-stage h6{font-size:.88rem}.verify-scan-stage .small{font-size:.72rem}.verify-camera-frame{height:min(46dvh,340px);min-height:220px;max-height:calc(100dvh - 300px);aspect-ratio:auto;border-radius:8px}.verify-frame-guide{inset:12% 6%}.verify-face-guide{width:min(50%,180px)}.verify-live-panel{left:.5rem;right:.5rem;bottom:.5rem;align-items:flex-start;flex-direction:column;gap:.45rem;padding:.55rem .6rem;font-size:.74rem;max-height:38%;overflow:auto}.verify-live-meter{width:100%;height:7px}.verify-liveness-card{padding:.55rem;font-size:.78rem}.verify-scanner-modal.is-selfie-step .modal-header{padding:.52rem .75rem}.verify-scanner-modal.is-selfie-step .modal-body{padding:.5rem .65rem}.verify-scanner-modal.is-selfie-step .modal-footer{padding:.5rem .65rem}.verify-scanner-modal.is-selfie-step .verify-wizard-step{padding:.34rem .48rem;font-size:.7rem}.verify-scanner-modal.is-selfie-step .verify-upload-icon{width:30px;height:30px}.verify-scanner-modal.is-selfie-step .verify-liveness-card{font-size:.72rem}.verify-scanner-modal.is-selfie-step .verify-camera-frame.is-selfie{height:auto;min-height:320px;max-height:none;flex:1 1 auto}}
+@media (max-width:575.98px){.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}.upload-panel{padding:1rem!important}.verify-scanner-modal{padding:.35rem}.verify-scanner-modal .modal-dialog{margin:0;max-width:none;width:100%;height:calc(100dvh - .7rem);max-height:calc(100dvh - .7rem)}.verify-scanner-modal .modal-content{height:100%;min-height:0}.verify-scanner-modal .modal-header{padding:.7rem .85rem}.verify-scanner-modal .modal-title{font-size:.95rem}.verify-scanner-modal .modal-title + .small{font-size:.72rem}.verify-scanner-modal .modal-body{padding:.75rem;min-height:0}.verify-scanner-modal .modal-footer{padding:.65rem .75rem;gap:.5rem}.verify-scanner-modal .modal-footer .btn{flex:1 1 auto;padding:.55rem .6rem;font-size:.82rem}.verify-scanner-modal .verify-wizard{gap:.35rem;flex-wrap:nowrap;overflow-x:auto;padding-bottom:.15rem}.verify-scanner-modal .verify-wizard-step{flex:0 0 auto;padding:.42rem .55rem;font-size:.74rem}.verify-scanner-modal .verify-wizard-step span{width:19px;height:19px;font-size:.66rem}.verify-scan-stage{padding:.65rem;border-radius:8px}.verify-scan-stage .d-flex{gap:.5rem!important;align-items:flex-start!important}.verify-scan-stage h6{font-size:.88rem}.verify-scan-stage .small{font-size:.72rem}.verify-camera-frame{height:min(46dvh,340px);min-height:220px;max-height:calc(100dvh - 300px);aspect-ratio:auto;border-radius:8px}.verify-frame-guide{inset:12% 6%}.verify-face-guide{width:min(50%,180px)}.verify-live-panel{left:.5rem;right:.5rem;bottom:.5rem;align-items:flex-start;flex-direction:column;gap:.45rem;padding:.55rem .6rem;font-size:.74rem;max-height:38%;overflow:auto}.verify-live-meter{width:100%;height:7px}.verify-liveness-card{padding:.55rem;font-size:.78rem}.verify-scanner-modal.is-selfie-step .modal-header{padding:.52rem .75rem}.verify-scanner-modal.is-selfie-step .modal-body{padding:.5rem .65rem}.verify-scanner-modal.is-selfie-step .modal-footer{padding:.5rem .65rem}.verify-scanner-modal.is-selfie-step .verify-wizard-step{padding:.34rem .48rem;font-size:.7rem}.verify-scanner-modal.is-selfie-step .verify-upload-icon{width:30px;height:30px}.verify-scanner-modal.is-selfie-step .verify-liveness-card{font-size:.72rem}.verify-scanner-modal.is-selfie-step .verify-camera-frame.is-selfie{height:auto;min-height:320px;max-height:none;flex:1 1 auto}}
 @media (max-width:360px){.verify-camera-frame{height:40dvh;min-height:200px;max-height:calc(100dvh - 320px)}.verify-scanner-modal .modal-footer .btn{font-size:.76rem;padding:.5rem .45rem}.verify-live-panel{font-size:.7rem}.verify-scanner-modal.is-selfie-step .verify-camera-frame.is-selfie{min-height:300px}}
 </style>
 
@@ -323,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var submitButton = document.getElementById('verificationSubmitButton');
   var launchButton = document.getElementById('openVerificationScanner');
   var modalEl = document.getElementById('verificationScannerModal');
-  var state = { front:false, back:false, selfie:false, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false } };
+  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false } };
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
   function setStatus(inputId, message, type) {
@@ -413,6 +414,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   function showStep(step) {
     state.currentStep = step;
+    state.stepStartedAt = Date.now();
+    if (step === 'selfie') state.lastCompareStartedAt = Date.now();
     document.querySelectorAll('[data-step]').forEach(function (el) { el.classList.toggle('d-none', el.dataset.step !== step); });
     document.querySelectorAll('[data-step-label]').forEach(function (el) {
       el.classList.toggle('active', el.dataset.stepLabel === step);
@@ -452,6 +455,7 @@ document.addEventListener('DOMContentLoaded', function () {
     transfer.items.add(file);
     input.files = transfer.files;
     input.dispatchEvent(new Event('change', { bubbles:true }));
+    return file;
   }
   function imageMetrics(file) {
     return new Promise(function (resolve, reject) {
@@ -555,7 +559,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   async function compareFaceFrame(selfieFile, force) {
     var frontInput = inputForStep('front');
-    var frontFile = frontInput && frontInput.files && frontInput.files[0] ? frontInput.files[0] : null;
+    var frontFile = state.frontFile || (frontInput && frontInput.files && frontInput.files[0] ? frontInput.files[0] : null);
     if (!faceUrl || !frontFile || !selfieFile) {
       return { status:'needs_review', score:null, message:'Front ID is not ready for live face comparison yet.' };
     }
@@ -636,6 +640,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var file = input.files && input.files[0] ? input.files[0] : null;
     var step = inputStep(input);
     state[step] = false;
+    if (step === 'front') { state.frontFile = null; resetFaceCompare(); }
+    if (step === 'back') state.backFile = null;
+    if (step === 'selfie') state.selfieFile = null;
     updateSubmit();
     if (!file) return;
 
@@ -663,6 +670,7 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         state.front = true;
+        state.frontFile = file;
         setIdHash('front', metrics.hash);
         setStatus(input.id, result.message || 'Front ID matched.', 'text-success');
         setLive(document.querySelector('[data-step="front"]'), 'Front ID verified. Flip to the back side.', 100, true);
@@ -678,6 +686,7 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         state.back = true;
+        state.backFile = file;
         setIdHash('back', metrics.hash);
         setStatus(input.id, 'Back ID captured. Continue to face verification.', 'text-success');
         setLive(document.querySelector('[data-step="back"]'), 'Back ID accepted.', 100, true);
@@ -697,11 +706,13 @@ document.addEventListener('DOMContentLoaded', function () {
           document.getElementById('livenessChallengeInput').value = 'upload_fallback';
         }
         state.selfie = true;
+        state.selfieFile = file;
         setStatus(input.id, uploadedFaceResult.status === 'match' ? 'Face matched. You may submit for review.' : 'Face captured. Server will review the match.', 'text-success');
         setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), uploadedFaceResult.status === 'match' ? 100 : 82, true);
         stopCamera();
       }
       state.processing = false;
+      state.stableFrames = 0;
       updateSubmit();
     } catch (e) {
       input.value = '';
@@ -741,8 +752,11 @@ document.addEventListener('DOMContentLoaded', function () {
           liveScore = faceResult.status === 'match' ? 96 : (faceResult.status === 'mismatch' ? 38 : 76);
         }
         setLive(stage, liveMessage, liveScore);
-        state.stableFrames = quality.ok && livenessOk && faceOk ? state.stableFrames + 1 : 0;
-        if (state.stableFrames >= 5 && !state.processing) {
+        var elapsed = Date.now() - (state.stepStartedAt || Date.now());
+        var needsReviewGrace = step === 'selfie' && faceResult && faceResult.status === 'needs_review' && elapsed > 6500;
+        state.stableFrames = quality.ok && livenessOk && (faceOk || needsReviewGrace) ? state.stableFrames + 1 : 0;
+        var requiredFrames = step === 'selfie' ? (faceResult && faceResult.status === 'match' ? 2 : (needsReviewGrace ? 2 : 3)) : 2;
+        if (state.stableFrames >= requiredFrames && !state.processing) {
           captureFromStage(input, stage, true);
           return;
         }
@@ -813,7 +827,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   if (idType) {
     idType.addEventListener('change', function () {
-      state.front = false; state.back = false; state.selfie = false; resetLiveness(); resetFaceCompare();
+      state.front = false; state.back = false; state.selfie = false; state.frontFile = null; state.backFile = null; state.selfieFile = null; resetLiveness(); resetFaceCompare();
       ['idFrontInput','idBackInput','selfieInput'].forEach(function (id) {
         var input = document.getElementById(id);
         if (input) input.value = '';
