@@ -786,7 +786,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var scoreText = typeof result.score === 'number' ? ' (' + Math.round(result.score * 100) + '%)' : '';
     if (result.status === 'match') return 'Face matched with ID' + scoreText + '. Hold steady.';
     if (result.status === 'mismatch') return result.message || 'Face does not match the ID. Keep scanning with the correct person.';
-    return result.message || 'Face must match the ID before submit. Keep your face centered and try again.';
+    return result.message || 'Face check needs admin review. You can submit for review.';
   }
   async function compareFaceFrame(selfieFile, force) {
     var frontInput = inputForStep('front');
@@ -844,11 +844,11 @@ document.addEventListener('DOMContentLoaded', function () {
       if (!blob) { state.processing = false; return; }
       if (input.id === 'selfieInput') {
         var faceResult = await compareFaceFrame(blob, true);
-        if (faceResult.status !== 'match') {
+        if (faceResult.status === 'mismatch') {
           state.processing = false;
           state.stableFrames = 0;
           setStatus(input.id, faceResult.message || 'Face must match the ID before submit. Keep scanning with the correct person.', 'text-danger');
-          setLive(stage, faceCompareMessage(faceResult), faceResult.status === 'mismatch' ? 38 : 60, true);
+          setLive(stage, faceCompareMessage(faceResult), 38, true);
           return;
         }
       }
@@ -999,11 +999,11 @@ document.addEventListener('DOMContentLoaded', function () {
         showStep('selfie');
       } else {
         var uploadedFaceResult = await compareFaceFrame(file, true);
-        if (uploadedFaceResult.status !== 'match') {
+        if (uploadedFaceResult.status === 'mismatch') {
           input.value = '';
           state.processing = false;
           setStatus(input.id, uploadedFaceResult.message || 'Face must match the ID before submit. Please retake with the correct person.', 'text-danger');
-          setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), uploadedFaceResult.status === 'mismatch' ? 38 : 60, true);
+          setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), 38, true);
           return;
         }
         if (document.getElementById('livenessResultInput').value === 'not_started') {
@@ -1014,8 +1014,9 @@ document.addEventListener('DOMContentLoaded', function () {
         state.selfie = true;
         state.selfieFile = file;
         document.getElementById('selfieCaptureSourceInput').value = fromCamera ? 'live_camera' : 'blocked_upload';
-        setStatus(input.id, 'Face matched the ID. You may submit for review.', 'text-success');
-        setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), 100, true);
+        var selfieNeedsReview = uploadedFaceResult.status && uploadedFaceResult.status !== 'match';
+        setStatus(input.id, selfieNeedsReview ? 'Face check needs admin review. You may submit for review.' : 'Face matched the ID. You may submit for review.', selfieNeedsReview ? 'text-warning' : 'text-success');
+        setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), selfieNeedsReview ? 82 : 100, true);
         stopCamera();
       }
       state.processing = false;
@@ -1054,9 +1055,9 @@ document.addEventListener('DOMContentLoaded', function () {
         var liveScore = livenessOk ? quality.score : 65;
         if (step === 'selfie' && quality.ok && livenessOk) {
           var faceResult = await compareFaceFrame(blob, false);
-          faceOk = faceResult.status === 'match';
+          faceOk = faceResult.status !== 'mismatch';
           liveMessage = faceCompareMessage(faceResult);
-          liveScore = faceResult.status === 'match' ? 96 : (faceResult.status === 'mismatch' ? 38 : 60);
+          liveScore = faceResult.status === 'match' ? 96 : (faceResult.status === 'mismatch' ? 38 : 76);
         }
         setLive(stage, liveMessage, liveScore);
         state.stableFrames = quality.ok && livenessOk && faceOk ? state.stableFrames + 1 : 0;

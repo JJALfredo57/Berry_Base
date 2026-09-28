@@ -95,9 +95,11 @@ class VerificationController extends Controller
         $faceMatch = $faceMatcher->compareUploadedFiles($request->file('id_front'), $request->file('selfie'));
         $status = $faceMatch['status'] ?? 'needs_review';
 
+        $canContinue = $status !== 'mismatch';
+
         return response()->json([
-            'ok' => $status === 'match',
-            'can_continue' => $status === 'match',
+            'ok' => $canContinue,
+            'can_continue' => $canContinue,
             'status' => $status,
             'score' => $faceMatch['score'] ?? null,
             'threshold' => $faceMatch['threshold'] ?? null,
@@ -147,7 +149,7 @@ class VerificationController extends Controller
         }
 
         $faceMatch = $faceMatcher->compareUploadedFiles($request->file('id_front'), $request->file('selfie'));
-        if (($faceMatch['status'] ?? 'needs_review') !== 'match') {
+        if (($faceMatch['status'] ?? 'needs_review') === 'mismatch') {
             return back()
                 ->withInput()
                 ->with('error', $faceMatch['message'] ?? 'Face verification must match the face on the ID before submission. Please retake your selfie with the correct person.');
