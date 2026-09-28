@@ -536,11 +536,63 @@ document.addEventListener('DOMContentLoaded', function () {
   function setInputFile(input, blob, filename) {
     var file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
     state.cameraCaptureInput = input ? input.id : null;
+    replaceInputFile(input, file, true);
+    return file;
+  }
+  function replaceInputFile(input, file, dispatchChange) {
     var transfer = new DataTransfer();
     transfer.items.add(file);
     input.files = transfer.files;
-    input.dispatchEvent(new Event('change', { bubbles:true }));
-    return file;
+    if (dispatchChange) input.dispatchEvent(new Event('change', { bubbles:true }));
+  }
+  function optimizedIdFileName(step) {
+    return (step === 'back' ? 'id-back' : 'id-front') + '-scan.jpg';
+  }
+  function optimizeIdImageFile(file, step, cropToGuide) {
+    return new Promise(function (resolve) {
+      if (!file || !file.type || !file.type.startsWith('image/')) return resolve(file);
+      var img = new Image();
+      var objectUrl = URL.createObjectURL(file);
+      img.onload = function () {
+        var sourceW = img.width;
+        var sourceH = img.height;
+        var sx = 0;
+        var sy = 0;
+        var sw = sourceW;
+        var sh = sourceH;
+        var cardRatio = 1.586;
+
+        if (cropToGuide && sourceW > 0 && sourceH > 0) {
+          sw = sourceW * 0.86;
+          sh = sw / cardRatio;
+          var maxGuideH = sourceH * 0.74;
+          if (sh > maxGuideH) {
+            sh = maxGuideH;
+            sw = sh * cardRatio;
+          }
+          sx = Math.max(0, (sourceW - sw) / 2);
+          sy = Math.max(0, (sourceH - sh) / 2);
+        }
+
+        var targetW = Math.min(1100, Math.max(640, Math.round(sw)));
+        if (sw < 640) targetW = Math.round(sw);
+        var targetH = Math.max(1, Math.round(sh * (targetW / sw)));
+        var canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        var ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+        URL.revokeObjectURL(objectUrl);
+        canvas.toBlob(function (blob) {
+          if (!blob) return resolve(file);
+          resolve(new File([blob], optimizedIdFileName(step), { type:'image/jpeg', lastModified:Date.now() }));
+        }, 'image/jpeg', 0.82);
+      };
+      img.onerror = function () { URL.revokeObjectURL(objectUrl); resolve(file); };
+      img.src = objectUrl;
+    });
   }
   function imageMetrics(file) {
     return new Promise(function (resolve, reject) {
@@ -801,6 +853,15 @@ document.addEventListener('DOMContentLoaded', function () {
         setStatus(input.id, qualityError, 'text-danger');
         setLive(document.querySelector('[data-step="' + step + '"]'), qualityError, 35);
         return;
+      }
+      if (step !== 'selfie') {
+        setStatus(input.id, 'Preparing a faster ID scan image...', 'text-warning');
+        var optimizedFile = await optimizeIdImageFile(file, step, fromCamera);
+        if (optimizedFile && optimizedFile !== file) {
+          file = optimizedFile;
+          replaceInputFile(input, file, false);
+          metrics = await imageMetrics(file);
+        }
       }
       if (step === 'front') {
         setStatus(input.id, 'Scanning front ID and checking selected ID type...', 'text-warning');
