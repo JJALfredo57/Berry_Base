@@ -155,7 +155,8 @@ def stack_regions_for_ocr(regions: list[np.ndarray]) -> np.ndarray | None:
 
 
 def prepare_id_type_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
-    base = find_document_crop(image) or rotate_if_portrait(image)
+    document = find_document_crop(image)
+    base = document if document is not None else rotate_if_portrait(image)
     gray = normalize_ocr_gray(base, 1050.0)
     regions = [
         crop_gray_region(gray, 0.02, 0.00, 0.98, 0.40),
