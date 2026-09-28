@@ -563,14 +563,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (input) input.value = hash || '';
   }
   function scoreMetrics(metrics, kind) {
-    var minWidth = kind === 'selfie' ? 360 : 520;
-    var minHeight = kind === 'selfie' ? 360 : 320;
-    if (metrics.width < minWidth || metrics.height < minHeight) return { ok:false, score:35, message: kind === 'selfie' ? 'Move a little closer and keep your face inside the oval.' : 'Move closer so the ID fills more of the frame.' };
-    if (metrics.brightness < 28) return { ok:false, score:48, message:'Too dark. Add light and try again.' };
-    if (metrics.brightness > 248) return { ok:false, score:48, message:'Too bright or has glare. Tilt slightly and avoid reflections.' };
-    if (metrics.contrast < 10) return { ok:false, score:64, message:'Details look low contrast. Add light or move closer.' };
-    if (metrics.sharpness < 5) return { ok:false, score:62, message: kind === 'selfie' ? 'Hold steady and keep your full face inside the oval.' : 'Hold steady and keep the ID inside the frame.' };
-    return { ok:true, score:92, message: kind === 'selfie' ? 'Face photo looks clear.' : 'ID image looks clear.' };
+    var minWidth = kind === 'selfie' ? 300 : 430;
+    var minHeight = kind === 'selfie' ? 300 : 260;
+    if (metrics.width < minWidth || metrics.height < minHeight) return { ok:false, score:46, message: kind === 'selfie' ? 'Move slightly closer and keep your face inside the oval.' : 'Move slightly closer so the ID fills more of the frame.' };
+    if (metrics.brightness < 18) return { ok:false, score:56, message:'A little too dark. Add light or face the screen.' };
+    if (metrics.brightness > 254) return { ok:false, score:56, message:'Too much glare. Tilt slightly away from direct light.' };
+    if (metrics.contrast < 6) return { ok:false, score:72, message:'Details are a bit low contrast. Hold steady or add light.' };
+    if (metrics.sharpness < 2.8) return { ok:false, score:70, message: kind === 'selfie' ? 'Hold steady for a moment.' : 'Hold steady and keep the ID inside the frame.' };
+    return { ok:true, score:94, message: kind === 'selfie' ? 'Face photo looks clear.' : 'ID image looks clear.' };
   }
   async function validateQuality(file, kind) {
     var metrics = await imageMetrics(file);
@@ -812,9 +812,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         setLive(stage, liveMessage, liveScore);
         var elapsed = Date.now() - (state.stepStartedAt || Date.now());
-        var needsReviewGrace = step === 'selfie' && faceResult && faceResult.status === 'needs_review' && elapsed > 6500;
+        var needsReviewGrace = step === 'selfie' && faceResult && faceResult.status === 'needs_review' && elapsed > 4500;
         state.stableFrames = quality.ok && livenessOk && (faceOk || needsReviewGrace) ? state.stableFrames + 1 : 0;
-        var requiredFrames = step === 'selfie' ? (faceResult && faceResult.status === 'match' ? 2 : (needsReviewGrace ? 2 : 3)) : 2;
+        var requiredFrames = step === 'selfie' ? 2 : 2;
         if (state.stableFrames >= requiredFrames && !state.processing) {
           captureFromStage(input, stage, true);
           return;
