@@ -147,7 +147,8 @@ class CustomerIdentityScanService
 
             $phrases = array_values(array_unique(array_filter(array_merge(
                 [$name],
-                is_array($type['keywords'] ?? null) ? $type['keywords'] : []
+                is_array($type['keywords'] ?? null) ? $type['keywords'] : [],
+                $this->builtInAliasesFor($name)
             ))));
 
             foreach ($phrases as $phrase) {
@@ -627,6 +628,37 @@ class CustomerIdentityScanService
         }
     }
 
+    private function builtInAliasesFor(string $idType): array
+    {
+        $normalized = $this->normalizeForMatch($idType);
+
+        if (str_contains($normalized, 'driver') || str_contains($normalized, 'license') || str_contains($normalized, 'licence')) {
+            return [
+                'Driver License',
+                "Driver's License",
+                'Driver Licence',
+                "Driver's Licence",
+                'Land Transportation Office',
+                'LTO',
+                'Non Professional Driver License',
+                'Professional Driver License',
+            ];
+        }
+
+        if (str_contains($normalized, 'national') || str_contains($normalized, 'phil')) {
+            return ['PhilID', 'Phil ID', 'PhilSys', 'Philippine Identification', 'National Identification'];
+        }
+
+        if (str_contains($normalized, 'postal')) {
+            return ['Postal ID', 'PHLPost', 'Philippine Postal Corporation'];
+        }
+
+        if (str_contains($normalized, 'umid') || str_contains($normalized, 'unified')) {
+            return ['UMID', 'Unified Multi Purpose ID', 'Unified Multi-Purpose ID'];
+        }
+
+        return [];
+    }
     private function distinctiveTokens(string $text): array
     {
         $normalized = $this->normalizeForMatch($text);

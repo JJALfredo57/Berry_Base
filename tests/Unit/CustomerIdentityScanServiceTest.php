@@ -68,6 +68,37 @@ class CustomerIdentityScanServiceTest extends TestCase
         $this->assertStringContainsString('National ID', $result['warning']);
     }
 
+    public function test_driver_license_scan_is_mismatch_when_another_id_type_is_selected(): void
+    {
+        $result = $this->service()->evaluateText(
+            'National ID',
+            'Republic of the Philippines Land Transportation Office LTO Non Professional Driver License'
+        );
+
+        $this->assertSame('mismatch', $result['status']);
+        $this->assertSame("Driver's License", $result['detected_id_type']);
+    }
+
+    public function test_http_driver_license_scan_does_not_match_selected_national_id(): void
+    {
+        config()->set('services.ocr.driver', 'http');
+        config()->set('services.ocr.service_url', 'https://ocr.example.test/ocr');
+
+        Http::fake([
+            'ocr.example.test/ocr' => Http::response([
+                'ok' => true,
+                'text' => 'Republic of the Philippines Land Transportation Office LTO Driver Licence',
+            ]),
+        ]);
+
+        $image = UploadedFile::fake()->create('front.jpg', 10, 'image/jpeg');
+        $result = $this->service()->scanUploadedFile('National ID', $image);
+
+        $this->assertSame('scanned', $result['scan_status']);
+        $this->assertSame('mismatch', $result['id_type_match_status']);
+        $this->assertSame("Driver's License", $result['id_type_scan_detected']);
+    }
+
     public function test_unclear_ocr_text_falls_back_to_manual_review(): void
     {
         $result = $this->service()->evaluateText("Driver's License", 'blurred unreadable text only');

@@ -11,7 +11,7 @@ class IdentityVerificationSettingsService
     {
         return [
             ['name' => 'National ID', 'keywords' => ['PhilID', 'PhilSys', 'National Identification']],
-            ['name' => "Driver's License", 'keywords' => ['Driver License', "Driver's License", 'LTO']],
+            ['name' => "Driver's License", 'keywords' => ['Driver License', "Driver's License", 'Driver Licence', "Driver's Licence", 'Land Transportation Office', 'LTO']],
             ['name' => 'UMID', 'keywords' => ['Unified Multi-Purpose ID', 'UMID']],
             ['name' => 'Postal ID', 'keywords' => ['Postal ID', 'PHLPost']],
             ['name' => 'Student ID', 'keywords' => ['Student ID', 'School ID']],

@@ -45,8 +45,8 @@ class VerificationController extends Controller
         $status = $scan['id_type_match_status'] ?? 'needs_review';
 
         return response()->json([
-            'ok' => $status === 'match' || ($scan['scan_status'] ?? null) === 'ocr_unavailable',
-            'can_continue' => $status === 'match' || ($scan['scan_status'] ?? null) === 'ocr_unavailable',
+            'ok' => $status === 'match',
+            'can_continue' => $status === 'match',
             'match_status' => $status,
             'scan_status' => $scan['scan_status'] ?? 'needs_review',
             'expected_id_type' => $scan['id_type_scan_expected'] ?? $selectedIdType,
@@ -55,9 +55,7 @@ class VerificationController extends Controller
                 ? 'ID type matched. You may scan the back of the ID.'
                 : ($status === 'mismatch'
                     ? ($scan['id_type_match_warning'] ?? 'Selected ID type does not match the uploaded ID.')
-                    : (($scan['scan_status'] ?? null) === 'ocr_unavailable'
-                        ? 'OCR service is unavailable. Admin will review the ID type manually.'
-                        : 'OCR could not confirm the selected ID type. Please retake a clearer front ID photo.')),
+                    : 'The scanner could not confirm that this ID matches the selected ID type. Please choose the correct ID type or retake a clearer front ID photo.'),
         ]);
     }
 
@@ -140,14 +138,13 @@ class VerificationController extends Controller
 
         $selectedIdType = trim($request->input('id_type'));
         $scan = $identityScanner->scanUploadedFile($selectedIdType, $request->file('id_front'));
-        $scanStatus = $scan['scan_status'] ?? 'needs_review';
         $matchStatus = $scan['id_type_match_status'] ?? 'needs_review';
-        if ($matchStatus !== 'match' && $scanStatus !== 'ocr_unavailable') {
+        if ($matchStatus !== 'match') {
             return back()
                 ->withInput()
                 ->with('error', $matchStatus === 'mismatch'
                     ? ($scan['id_type_match_warning'] ?? 'The front ID scan detected a different ID type. Please retake the correct ID photo.')
-                    : 'OCR could not confirm the selected ID type. Please retake a clearer front ID photo.');
+                    : 'The scanner could not confirm that this ID matches the selected ID type. Please choose the correct ID type or retake a clearer front ID photo.');
         }
 
         if ($this->frontAndBackLookSame($request)) {
