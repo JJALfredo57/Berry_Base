@@ -601,7 +601,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return bits.join('');
   }
   function hashDistance(a, b) {
-    if (!a || !b || a.length !== b.length) return 64;
+    if (!a || !b || a.length !== b.length) return Number.POSITIVE_INFINITY;
     var distance = 0;
     for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) distance++;
     return distance;
@@ -799,7 +799,15 @@ document.addEventListener('DOMContentLoaded', function () {
         showStep('back');
       } else if (step === 'back') {
         var frontHash = document.getElementById('idFrontHashInput')?.value || '';
-        if (frontHash && metrics.hash && hashDistance(frontHash, metrics.hash) <= 36) {
+        if (!frontHash || !metrics.hash || frontHash.length !== metrics.hash.length) {
+          input.value = '';
+          setIdHash('back', '');
+          state.processing = false;
+          setStatus(input.id, 'Please tap Reset and scan the front ID again before scanning the back.', 'text-danger');
+          setLive(document.querySelector('[data-step="back"]'), 'Scanner needs a fresh front scan before checking the back side.', 35, true);
+          return;
+        }
+        if (hashDistance(frontHash, metrics.hash) <= 72) {
           input.value = '';
           setIdHash('back', '');
           state.processing = false;

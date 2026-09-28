@@ -211,11 +211,11 @@ class VerificationController extends Controller
         $frontHash = $this->uploadedImageHash($request->file('id_front')) ?: trim((string) $request->input('id_front_hash'));
         $backHash = $this->uploadedImageHash($request->file('id_back')) ?: trim((string) $request->input('id_back_hash'));
 
-        if (!preg_match('/^[01]{64}$/', $frontHash) || !preg_match('/^[01]{64}$/', $backHash)) {
+        if (!preg_match('/^(?:[01]{64}|[01]{240})$/', $frontHash) || !preg_match('/^(?:[01]{64}|[01]{240})$/', $backHash)) {
             return false;
         }
 
-        return $this->hashDistance($frontHash, $backHash) <= 36;
+        return $this->hashDistance($frontHash, $backHash) <= 72;
     }
 
     private function uploadedImageHash($file): ?string
