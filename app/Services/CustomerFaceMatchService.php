@@ -38,7 +38,7 @@ class CustomerFaceMatchService
 
             return $this->needsReview(
                 (string) ($data['error'] ?? 'face_compare_failed'),
-                (string) ($data['message'] ?? 'Face comparison could not verify the images. Please retake a clearer ID photo and live selfie.'),
+                (string) ($data['message'] ?? 'Face comparison could not verify the images. Please retake a clearer ID photo and selfie.'),
                 $data
             );
         }

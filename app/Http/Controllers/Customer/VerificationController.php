@@ -136,10 +136,10 @@ class VerificationController extends Controller
                 ->with('error', 'Back ID is required for the selected ID type.');
         }
 
-        if ($request->input('selfie_capture_source') !== 'live_camera') {
+        if (!in_array($request->input('selfie_capture_source'), ['upload', 'camera_capture'], true)) {
             return back()
                 ->withInput()
-                ->with('error', 'Face verification requires the live camera. Selfie upload is not accepted.');
+                ->with('error', 'Selfie verification must be completed before submit.');
         }
 
         $scan = $identityScanner->scanUploadedFile($selectedIdType, $request->file('id_front'));
@@ -227,7 +227,7 @@ class VerificationController extends Controller
                 'back_side_check_message' => $backSideCheck['message'] ?? null,
                 'back_side_check_result' => $backSideCheck['scan_result'] ?? [],
                 'selfie_required' => true,
-                'guided_capture' => true,
+                'guided_capture' => $request->input('selfie_capture_source') === 'camera_capture',
                 'selfie_capture_source' => $request->input('selfie_capture_source'),
                 'face_match_required' => true,
                 'face_match_status' => $faceMatch['status'] ?? 'needs_review',
@@ -237,8 +237,8 @@ class VerificationController extends Controller
                 'face_match_message' => $faceMatch['message'] ?? null,
                 'face_match_error' => $faceMatch['error'] ?? null,
                 'liveness_challenge' => trim((string) $request->input('liveness_challenge')) ?: null,
-                'liveness_result' => trim((string) $request->input('liveness_result')) ?: 'not_verified',
-                'liveness_method' => trim((string) $request->input('liveness_method')) ?: 'not_available',
+                'liveness_result' => trim((string) $request->input('liveness_result')) ?: 'not_required',
+                'liveness_method' => trim((string) $request->input('liveness_method')) ?: 'selfie_image_compare',
             ]);
         }
 
