@@ -53,25 +53,56 @@ def decode_image(content: bytes) -> np.ndarray | None:
     return cv2.imdecode(data, cv2.IMREAD_COLOR)
 
 
-def prepare_ocr_variants(image: np.ndarray, fast: bool = True, id_type: bool = False) -> list[tuple[str, np.ndarray]]:
-    variants: list[tuple[str, np.ndarray]] = []
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+def normalize_ocr_gray(image: np.ndarray, target: float) -> np.ndarray:
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image.copy()
     h, w = gray.shape[:2]
     longest = max(1, max(w, h))
-    target = 900.0 if id_type else (1250.0 if fast else 1800.0)
-    scale = min(2.0 if fast else 3.0, target / longest)
+    scale = min(2.5, target / longest)
     if scale < 0.98:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
     elif scale > 1.05:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    return gray
+
+
+def crop_gray_region(gray: np.ndarray, x1: float, y1: float, x2: float, y2: float) -> np.ndarray:
+    h, w = gray.shape[:2]
+    left = max(0, min(w - 1, int(w * x1)))
+    top = max(0, min(h - 1, int(h * y1)))
+    right = max(left + 1, min(w, int(w * x2)))
+    bottom = max(top + 1, min(h, int(h * y2)))
+    return gray[top:bottom, left:right]
+
+
+def prepare_id_type_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
+    gray = normalize_ocr_gray(image, 1200.0)
+    variants: list[tuple[str, np.ndarray]] = []
+
+    regions = [
+        ("header", crop_gray_region(gray, 0.04, 0.02, 0.96, 0.46)),
+        ("body", crop_gray_region(gray, 0.22, 0.24, 0.98, 0.82)),
+    ]
+
+    for name, region in regions:
+        if region.size == 0:
+            continue
+        enlarged = normalize_ocr_gray(region, 1450.0)
+        clahe = cv2.createCLAHE(clipLimit=1.8, tileGridSize=(8, 8)).apply(enlarged)
+        variants.append((f"{name}_gray", clahe))
+        _, binary = cv2.threshold(clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        variants.append((f"{name}_binary", binary))
+
+    return variants or [("gray", normalize_ocr_gray(image, 900.0))]
+
+
+def prepare_ocr_variants(image: np.ndarray, fast: bool = True, id_type: bool = False) -> list[tuple[str, np.ndarray]]:
+    if id_type:
+        return prepare_id_type_variants(image)
+
+    variants: list[tuple[str, np.ndarray]] = []
+    gray = normalize_ocr_gray(image, 1250.0 if fast else 1800.0)
 
     variants.append(("gray", gray))
-
-    if id_type:
-        id_clahe = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(8, 8)).apply(gray)
-        _, id_binary = cv2.threshold(id_clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        variants.append(("id_binary", id_binary))
-        return variants
 
     clahe = cv2.createCLAHE(clipLimit=2.0 if fast else 2.2, tileGridSize=(8, 8)).apply(gray)
     variants.append(("clahe", clahe))
@@ -134,7 +165,7 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
     if not fast:
         configs.append(["--oem", "1", "--psm", "11"])
 
-    budget = max(3, min(TIMEOUT, 5 if id_type else (8 if fast else 20)))
+    budget = max(5, min(TIMEOUT, 7 if id_type else (8 if fast else 20)))
     per_pass_timeout = max(2, min(2 if id_type else (5 if fast else 8), budget))
     started = time.monotonic()
     best_text = ""
