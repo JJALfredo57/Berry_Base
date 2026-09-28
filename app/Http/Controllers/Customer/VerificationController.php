@@ -37,7 +37,7 @@ class VerificationController extends Controller
 
         $request->validate([
             'id_type' => ['required', 'string', 'max:60', Rule::in($idTypes)],
-            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=480,min_height=300|max:5120',
+            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=260,min_height=160|max:5120',
         ]);
 
         $selectedIdType = trim($request->input('id_type'));
@@ -88,9 +88,9 @@ class VerificationController extends Controller
 
         $request->validate([
             'id_type' => ['required', 'string', 'max:60', Rule::in($idTypes)],
-            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=480,min_height=300|max:5120',
-            'id_back' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=480,min_height=300|max:5120',
-            'selfie' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=360,min_height=360|max:5120',
+            'id_front' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=260,min_height=160|max:5120',
+            'id_back' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=260,min_height=160|max:5120',
+            'selfie' => 'required|image|mimes:jpg,jpeg,png,webp|dimensions:min_width=220,min_height=220|max:5120',
             'customer_note' => 'nullable|string|max:500',
             'liveness_challenge' => 'nullable|string|max:80',
             'liveness_result' => 'nullable|string|max:40',

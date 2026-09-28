@@ -725,7 +725,12 @@ document.addEventListener('DOMContentLoaded', function () {
     body.append('id_type', selected);
     body.append('id_front', file);
     var response = await fetch(scanUrl, { method:'POST', body:body, headers:{ 'Accept':'application/json' } });
-    if (!response.ok) return { ok:false, message:'ID scan failed. Please retake or upload a clearer front ID photo.' };
+    if (!response.ok) {
+      var errorData = null;
+      try { errorData = await response.json(); } catch (e) {}
+      var firstError = errorData && errorData.errors ? Object.values(errorData.errors).flat()[0] : null;
+      return { ok:false, message:firstError || (errorData && errorData.message) || 'ID scan could not start. Please align the landscape card inside the guide and scan again.' };
+    }
     return await response.json();
   }
   async function handleFile(input) {
