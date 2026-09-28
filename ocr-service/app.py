@@ -120,7 +120,7 @@ def find_document_crop(image: np.ndarray) -> np.ndarray | None:
 
 
 def clean_text_variant(gray: np.ndarray, clip: float = 2.0) -> np.ndarray:
-    gray = normalize_ocr_gray(gray, 1350.0)
+    gray = normalize_ocr_gray(gray, 1050.0)
     gray = cv2.bilateralFilter(gray, 5, 45, 45)
     clahe = cv2.createCLAHE(clipLimit=clip, tileGridSize=(8, 8)).apply(gray)
     sharpen_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
@@ -136,18 +136,18 @@ def prepare_id_type_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
     variants: list[tuple[str, np.ndarray]] = []
     seen: set[tuple[int, int, str]] = set()
     regions = [
+        ("top", 0.02, 0.00, 0.98, 0.40),
+        ("right_text", 0.28, 0.14, 0.98, 0.78),
+        ("center", 0.08, 0.18, 0.98, 0.84),
+        ("bottom", 0.04, 0.54, 0.98, 0.98),
         ("full", 0.00, 0.00, 1.00, 1.00),
-        ("top", 0.02, 0.00, 0.98, 0.42),
-        ("right_text", 0.30, 0.16, 0.98, 0.82),
-        ("center", 0.10, 0.20, 0.98, 0.90),
-        ("bottom", 0.04, 0.55, 0.98, 0.98),
     ]
 
     for base_name, base in bases:
         gray = normalize_ocr_gray(base, 1250.0)
         for region_name, x1, y1, x2, y2 in regions:
             region = crop_gray_region(gray, x1, y1, x2, y2)
-            if region.size == 0 or min(region.shape[:2]) < 80:
+            if region.size == 0 or min(region.shape[:2]) < 70:
                 continue
 
             cleaned = clean_text_variant(region, 1.9)
@@ -161,7 +161,7 @@ def prepare_id_type_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
                 _, binary = cv2.threshold(cleaned, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
                 variants.append((f"{base_name}_{region_name}_binary", binary))
 
-    return variants[:10] or [("gray", normalize_ocr_gray(image, 900.0))]
+    return variants[:8] or [("gray", normalize_ocr_gray(image, 900.0))]
 
 
 def prepare_ocr_variants(image: np.ndarray, fast: bool = True, id_type: bool = False) -> list[tuple[str, np.ndarray]]:
@@ -247,14 +247,12 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
     mode = (mode or "fast").lower()
     id_type = mode == "id_type"
     fast = mode != "full"
-    configs = [["--oem", "1", "--psm", "6", "--dpi", "220", "-c", "preserve_interword_spaces=1"]]
-    if id_type:
-        configs.append(["--oem", "1", "--psm", "11", "--dpi", "220"])
-    elif not fast:
+    configs = [["--oem", "1", "--psm", "6", "--dpi", "180", "-c", "preserve_interword_spaces=1"]]
+    if not id_type and not fast:
         configs.append(["--oem", "1", "--psm", "11"])
 
-    budget = max(6, min(TIMEOUT, 10 if id_type else (8 if fast else 20)))
-    per_pass_timeout = max(2, min(3 if id_type else (5 if fast else 8), budget))
+    budget = max(5, min(TIMEOUT, 8 if id_type else (8 if fast else 20)))
+    per_pass_timeout = max(2, min(2 if id_type else (5 if fast else 8), budget))
     started = time.monotonic()
     best_text = ""
     best_details: dict = {"variant": None, "psm": None, "score": 0, "mode": "id_type" if id_type else ("fast" if fast else "full")}
