@@ -342,6 +342,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var resetFooterButton = document.getElementById('resetVerificationScanFooter');
   var modalEl = document.getElementById('verificationScannerModal');
   var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false, faceLandmarkerStartedAt:0, torchOn:false, torchTrack:null };
+  var BACK_SIDE_SAME_HASH_DISTANCE = 112;
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
   function setStatus(inputId, message, type) {
@@ -951,7 +952,7 @@ document.addEventListener('DOMContentLoaded', function () {
           setLive(document.querySelector('[data-step="back"]'), 'Scanner needs a fresh front scan before checking the back side.', 35, true);
           return;
         }
-        if (hashDistance(frontHash, metrics.hash) <= 72) {
+        if (hashDistance(frontHash, metrics.hash) <= BACK_SIDE_SAME_HASH_DISTANCE) {
           input.value = '';
           setIdHash('back', '');
           state.processing = false;

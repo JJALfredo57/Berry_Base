@@ -17,6 +17,8 @@ class VerificationController extends Controller
 {
     use UploadsFiles;
 
+    private const BACK_SIDE_SAME_HASH_DISTANCE = 112;
+
     public function show(CustomerVerificationService $verification, IdentityVerificationSettingsService $identitySettings)
     {
         $uid = session('user')['id'];
@@ -243,7 +245,7 @@ class VerificationController extends Controller
         }
 
         $distance = $this->hashDistance($frontHash, $backHash);
-        if ($distance <= 72) {
+        if ($distance <= self::BACK_SIDE_SAME_HASH_DISTANCE) {
             return [
                 'ok' => false,
                 'status' => 'front_side_again',
