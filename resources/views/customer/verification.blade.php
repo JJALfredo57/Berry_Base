@@ -950,8 +950,8 @@ document.addEventListener('DOMContentLoaded', function () {
           input.value = '';
           setIdHash('front', '');
           state.processing = false;
-          setStatus(input.id, result.message || 'Selected ID type does not match the scanned ID.', 'text-danger');
-          setLive(document.querySelector('[data-step="front"]'), result.message || 'Wrong ID type detected.', 40, true);
+          setStatus(input.id, result.message || 'The scanner must confirm the selected ID type before continuing.', 'text-danger');
+          setLive(document.querySelector('[data-step="front"]'), result.message || 'Retake a clearer front ID photo with the selected ID type.', 40, true);
           return;
         }
         state.front = true;
