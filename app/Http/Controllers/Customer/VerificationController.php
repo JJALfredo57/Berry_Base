@@ -17,7 +17,8 @@ class VerificationController extends Controller
 {
     use UploadsFiles;
 
-    private const BACK_SIDE_SAME_HASH_DISTANCE = 112;
+    private const BACK_SIDE_HARD_SAME_HASH_DISTANCE = 72;
+    private const BACK_SIDE_REVIEW_HASH_DISTANCE = 112;
 
     public function show(CustomerVerificationService $verification, IdentityVerificationSettingsService $identitySettings)
     {
@@ -249,12 +250,32 @@ class VerificationController extends Controller
         }
 
         $distance = $this->hashDistance($frontHash, $backHash);
-        if ($distance <= self::BACK_SIDE_SAME_HASH_DISTANCE) {
+        if ($distance <= self::BACK_SIDE_HARD_SAME_HASH_DISTANCE) {
             return [
                 'ok' => false,
                 'status' => 'front_side_again',
                 'message' => 'This looks like the front side again. Flip the ID and scan the back side.',
-                'scan_result' => ['method' => 'fast_hash_check', 'hash_distance' => $distance],
+                'scan_result' => [
+                    'method' => 'fast_hash_check',
+                    'hash_distance' => $distance,
+                    'hard_threshold' => self::BACK_SIDE_HARD_SAME_HASH_DISTANCE,
+                    'review_threshold' => self::BACK_SIDE_REVIEW_HASH_DISTANCE,
+                ],
+            ];
+        }
+
+        if ($distance <= self::BACK_SIDE_REVIEW_HASH_DISTANCE) {
+            return [
+                'ok' => true,
+                'status' => 'accepted_needs_review',
+                'message' => 'Back ID captured. Admin will double-check the back side during review.',
+                'scan_result' => [
+                    'method' => 'fast_hash_check',
+                    'hash_distance' => $distance,
+                    'hard_threshold' => self::BACK_SIDE_HARD_SAME_HASH_DISTANCE,
+                    'review_threshold' => self::BACK_SIDE_REVIEW_HASH_DISTANCE,
+                    'review_reason' => 'front_back_visual_similarity',
+                ],
             ];
         }
 
@@ -262,7 +283,12 @@ class VerificationController extends Controller
             'ok' => true,
             'status' => 'accepted',
             'message' => 'Back ID captured. Continue to face verification.',
-            'scan_result' => ['method' => 'fast_hash_check', 'hash_distance' => $distance],
+            'scan_result' => [
+                'method' => 'fast_hash_check',
+                'hash_distance' => $distance,
+                'hard_threshold' => self::BACK_SIDE_HARD_SAME_HASH_DISTANCE,
+                'review_threshold' => self::BACK_SIDE_REVIEW_HASH_DISTANCE,
+            ],
         ];
     }
 

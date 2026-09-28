@@ -21,16 +21,17 @@ class CustomerVerificationControllerTest extends TestCase
         ]));
     }
 
-    public function test_back_side_fast_check_rejects_front_like_hash_above_old_threshold(): void
+    public function test_back_side_fast_check_accepts_borderline_visual_similarity_for_review(): void
     {
         $frontHash = str_repeat('0', 240);
         $backHash = str_repeat('1', 100).str_repeat('0', 140);
 
         $result = $this->runBackSideFastCheck($frontHash, $backHash);
 
-        $this->assertFalse($result['ok']);
-        $this->assertSame('front_side_again', $result['status']);
+        $this->assertTrue($result['ok']);
+        $this->assertSame('accepted_needs_review', $result['status']);
         $this->assertSame(100, $result['scan_result']['hash_distance']);
+        $this->assertSame('front_back_visual_similarity', $result['scan_result']['review_reason']);
     }
 
     public function test_back_side_fast_check_accepts_distinct_back_hash(): void
@@ -43,5 +44,17 @@ class CustomerVerificationControllerTest extends TestCase
         $this->assertTrue($result['ok']);
         $this->assertSame('accepted', $result['status']);
         $this->assertSame(130, $result['scan_result']['hash_distance']);
+    }
+
+    public function test_back_side_fast_check_rejects_very_same_front_hash(): void
+    {
+        $frontHash = str_repeat('0', 240);
+        $backHash = str_repeat('1', 60).str_repeat('0', 180);
+
+        $result = $this->runBackSideFastCheck($frontHash, $backHash);
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('front_side_again', $result['status']);
+        $this->assertSame(60, $result['scan_result']['hash_distance']);
     }
 }
