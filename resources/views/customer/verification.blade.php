@@ -215,6 +215,7 @@
                       <div class="d-flex flex-wrap gap-2 mt-3">
                         <button type="button" class="btn btn-primary btn-sm" data-camera-start="idFrontInput" data-facing="environment"><i class="bi bi-camera-video me-1"></i>Start Auto Scan</button>
                         <button type="button" class="btn btn-outline-light btn-sm" data-camera-capture="idFrontInput"><i class="bi bi-camera me-1"></i>Capture Now</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" data-torch-toggle hidden disabled><i class="bi bi-lightbulb me-1"></i>Flashlight</button>
                         <button type="button" class="btn btn-outline-light btn-sm" data-upload-trigger="idFrontInput" data-desktop-upload><i class="bi bi-upload me-1"></i>Upload ID Photo</button>
                       </div>
                       <div class="verify-upload-status mt-2" data-upload-status-for="idFrontInput">Waiting for front ID scan.</div>
@@ -229,6 +230,7 @@
                       <div class="d-flex flex-wrap gap-2 mt-3">
                         <button type="button" class="btn btn-primary btn-sm" data-camera-start="idBackInput" data-facing="environment"><i class="bi bi-camera-video me-1"></i>Start Auto Scan</button>
                         <button type="button" class="btn btn-outline-light btn-sm" data-camera-capture="idBackInput"><i class="bi bi-camera me-1"></i>Capture Now</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" data-torch-toggle hidden disabled><i class="bi bi-lightbulb me-1"></i>Flashlight</button>
                         <button type="button" class="btn btn-outline-light btn-sm" data-upload-trigger="idBackInput" data-desktop-upload><i class="bi bi-upload me-1"></i>Upload ID Photo</button>
                       </div>
                       <div class="verify-upload-status mt-2" data-upload-status-for="idBackInput">Waiting for back ID scan.</div>
@@ -339,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var resetButton = document.getElementById('resetVerificationScan');
   var resetFooterButton = document.getElementById('resetVerificationScanFooter');
   var modalEl = document.getElementById('verificationScannerModal');
-  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false, faceLandmarkerStartedAt:0 };
+  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false, faceLandmarkerStartedAt:0, torchOn:false, torchTrack:null };
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
   function setStatus(inputId, message, type) {
@@ -516,6 +518,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (resetFooterButton) resetFooterButton.disabled = !hasAnyScan();
   }
   function stopCamera() {
+    resetTorchControls();
     state.activeLoop += 1;
     state.stableFrames = 0;
     state.processing = false;
@@ -523,6 +526,50 @@ document.addEventListener('DOMContentLoaded', function () {
     state.stream = null;
     document.querySelectorAll('video').forEach(function (video) { video.srcObject = null; });
     if (modalEl && state.currentStep !== 'selfie') modalEl.classList.remove('is-selfie-step');
+  }
+  function torchButtonForStage(stage) {
+    return stage ? stage.querySelector('[data-torch-toggle]') : null;
+  }
+  function setTorchButton(button, enabled, on) {
+    if (!button) return;
+    button.hidden = !enabled;
+    button.disabled = !enabled;
+    button.classList.toggle('btn-warning', !!on);
+    button.classList.toggle('btn-outline-light', !on);
+    button.innerHTML = on ? '<i class="bi bi-lightbulb-fill me-1"></i>Flash On' : '<i class="bi bi-lightbulb me-1"></i>Flashlight';
+  }
+  function resetTorchControls() {
+    state.torchOn = false;
+    state.torchTrack = null;
+    document.querySelectorAll('[data-torch-toggle]').forEach(function (button) { setTorchButton(button, false, false); });
+  }
+  async function setTorch(on) {
+    var track = state.torchTrack;
+    if (!track) return false;
+    try {
+      await track.applyConstraints({ advanced:[{ torch: !!on }] });
+      state.torchOn = !!on;
+      setTorchButton(torchButtonForStage(activeStage()), true, state.torchOn);
+      return true;
+    } catch (e) {
+      state.torchOn = false;
+      state.torchTrack = null;
+      setTorchButton(torchButtonForStage(activeStage()), false, false);
+      return false;
+    }
+  }
+  function prepareTorchForStage(stage, input) {
+    resetTorchControls();
+    if (!state.stream || !stage || !input || input.id === 'selfieInput') return;
+    var track = state.stream.getVideoTracks ? state.stream.getVideoTracks()[0] : null;
+    var caps = track && track.getCapabilities ? track.getCapabilities() : {};
+    var button = torchButtonForStage(stage);
+    if (track && caps && caps.torch) {
+      state.torchTrack = track;
+      setTorchButton(button, true, false);
+    } else {
+      setTorchButton(button, false, false);
+    }
   }
   function inputStep(input) {
     if (input.id === 'idFrontInput') return 'front';
@@ -1029,8 +1076,9 @@ document.addEventListener('DOMContentLoaded', function () {
       state.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: button?.dataset.facing || (input.id === 'selfieInput' ? 'user' : 'environment'), width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
       video.srcObject = state.stream;
       await video.play();
+      prepareTorchForStage(stage, input);
       setStatus(input.id, 'Camera ready. Align inside the guide; capture is automatic.', 'text-warning');
-      setLive(stage, input.id === 'selfieInput' ? 'Center your face and follow the challenge.' : 'Align the landscape card inside the guide.', 58, true);
+      setLive(stage, input.id === 'selfieInput' ? 'Center your face and follow the challenge.' : (state.torchTrack ? 'Align the ID inside the guide. Use Flashlight if needed.' : 'Align the landscape card inside the guide.'), 58, true);
       monitorCamera(input, stage, loopId);
     } catch (e) {
       setStatus(input.id, 'Camera unavailable. Upload a clear picture instead.', 'text-danger');
@@ -1039,6 +1087,19 @@ document.addEventListener('DOMContentLoaded', function () {
       state.autoStarting = false;
     }
   }
+  document.querySelectorAll('[data-torch-toggle]').forEach(function (button) {
+    button.addEventListener('click', async function () {
+      if (!state.torchTrack) {
+        var stage = button.closest('[data-step]');
+        setLive(stage, 'Flashlight is not supported on this camera.', 45, true);
+        return;
+      }
+      var ok = await setTorch(!state.torchOn);
+      var active = activeStage();
+      if (!ok) setLive(active, 'Flashlight is not supported on this camera.', 45, true);
+      else setLive(active, state.torchOn ? 'Flashlight on. Keep the ID inside the guide.' : 'Flashlight off.', state.torchOn ? 72 : 58, true);
+    });
+  });
   document.querySelectorAll('[data-camera-start]').forEach(function (button) {
     button.addEventListener('click', function () {
       var input = document.getElementById(button.dataset.cameraStart);
