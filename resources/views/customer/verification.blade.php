@@ -610,9 +610,9 @@ document.addEventListener('DOMContentLoaded', function () {
         var cardRatio = 1.586;
 
         if (cropToGuide && sourceW > 0 && sourceH > 0) {
-          sw = sourceW * 0.86;
+          sw = sourceW * 0.92;
           sh = sw / cardRatio;
-          var maxGuideH = sourceH * 0.74;
+          var maxGuideH = sourceH * 0.82;
           if (sh > maxGuideH) {
             sh = maxGuideH;
             sw = sh * cardRatio;
@@ -621,8 +621,8 @@ document.addEventListener('DOMContentLoaded', function () {
           sy = Math.max(0, (sourceH - sh) / 2);
         }
 
-        var targetW = Math.min(1100, Math.max(640, Math.round(sw)));
-        if (sw < 640) targetW = Math.round(sw);
+        var targetW = Math.min(1280, Math.max(900, Math.round(sw)));
+        if (sw < 900) targetW = Math.round(sw);
         var targetH = Math.max(1, Math.round(sh * (targetW / sw)));
         var canvas = document.createElement('canvas');
         canvas.width = targetW;
@@ -631,11 +631,23 @@ document.addEventListener('DOMContentLoaded', function () {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+        try {
+          var imageData = ctx.getImageData(0, 0, targetW, targetH);
+          var data = imageData.data;
+          var contrast = 1.08;
+          var brighten = 4;
+          for (var i = 0; i < data.length; i += 4) {
+            data[i] = Math.max(0, Math.min(255, ((data[i] - 128) * contrast) + 128 + brighten));
+            data[i + 1] = Math.max(0, Math.min(255, ((data[i + 1] - 128) * contrast) + 128 + brighten));
+            data[i + 2] = Math.max(0, Math.min(255, ((data[i + 2] - 128) * contrast) + 128 + brighten));
+          }
+          ctx.putImageData(imageData, 0, 0);
+        } catch (e) {}
         URL.revokeObjectURL(objectUrl);
         canvas.toBlob(function (blob) {
           if (!blob) return resolve(file);
           resolve(new File([blob], optimizedIdFileName(step), { type:'image/jpeg', lastModified:Date.now() }));
-        }, 'image/jpeg', 0.82);
+        }, 'image/jpeg', 0.90);
       };
       img.onerror = function () { URL.revokeObjectURL(objectUrl); resolve(file); };
       img.src = objectUrl;

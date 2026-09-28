@@ -68,6 +68,8 @@ def prepare_ocr_variants(image: np.ndarray, fast: bool = True, id_type: bool = F
     variants.append(("gray", gray))
 
     if id_type:
+        clahe = cv2.createCLAHE(clipLimit=1.8, tileGridSize=(8, 8)).apply(gray)
+        variants.append(("id_clahe", clahe))
         return variants
 
     clahe = cv2.createCLAHE(clipLimit=2.0 if fast else 2.2, tileGridSize=(8, 8)).apply(gray)
@@ -128,11 +130,13 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
     id_type = mode == "id_type"
     fast = mode != "full"
     configs = [["--oem", "1", "--psm", "6"]]
-    if not fast:
+    if id_type:
+        configs.append(["--oem", "1", "--psm", "11"])
+    elif not fast:
         configs.append(["--oem", "1", "--psm", "11"])
 
-    budget = max(3, min(TIMEOUT, 4 if id_type else (8 if fast else 20)))
-    per_pass_timeout = max(2, min(3 if id_type else (5 if fast else 8), budget))
+    budget = max(4, min(TIMEOUT, 6 if id_type else (8 if fast else 20)))
+    per_pass_timeout = max(2, min(2 if id_type else (5 if fast else 8), budget))
     started = time.monotonic()
     best_text = ""
     best_details: dict = {"variant": None, "psm": None, "score": 0, "mode": "id_type" if id_type else ("fast" if fast else "full")}
@@ -176,7 +180,7 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
     return {
         "ok": False,
         "error": "ocr_timeout" if timeout_hit else "empty_text",
-        "message": "ID scan took too long. Please retake the photo closer and steadier." if timeout_hit else "No readable text found.",
+        "message": "ID scan took too long. Please retake the photo closer and steadier." if timeout_hit else "No readable text found. Move the ID closer, fill the guide, and avoid glare.",
         "details": " | ".join(errors[:3]),
     }
 

@@ -151,6 +151,49 @@ class CustomerIdentityScanServiceTest extends TestCase
         Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer test-token'));
     }
 
+    public function test_http_ocr_empty_text_is_blocked_with_clear_message(): void
+    {
+        config()->set('services.ocr.driver', 'http');
+        config()->set('services.ocr.service_url', 'https://ocr.example.test/ocr');
+
+        Http::fake([
+            'ocr.example.test/ocr' => Http::response([
+                'ok' => false,
+                'error' => 'empty_text',
+                'message' => 'No readable text found. Move the ID closer, fill the guide, and avoid glare.',
+            ], 422),
+        ]);
+
+        $image = UploadedFile::fake()->create('front.jpg', 10, 'image/jpeg');
+        $result = $this->service()->scanUploadedFile("Driver's License", $image);
+
+        $this->assertSame('needs_review', $result['scan_status']);
+        $this->assertSame('needs_review', $result['id_type_match_status']);
+        $this->assertSame('empty_text', $result['scan_result']['error']);
+        $this->assertStringContainsString('Move the ID closer', $result['id_type_match_warning']);
+    }
+
+    public function test_http_ocr_timeout_is_blocked_without_matching_id_type(): void
+    {
+        config()->set('services.ocr.driver', 'http');
+        config()->set('services.ocr.service_url', 'https://ocr.example.test/ocr');
+
+        Http::fake([
+            'ocr.example.test/ocr' => Http::response([
+                'ok' => false,
+                'error' => 'ocr_timeout',
+                'message' => 'ID scan took too long. Please retake the photo closer and steadier.',
+                'details' => 'gray/psm6 timed out',
+            ], 422),
+        ]);
+
+        $image = UploadedFile::fake()->create('front.jpg', 10, 'image/jpeg');
+        $result = $this->service()->scanUploadedFile("Driver's License", $image);
+
+        $this->assertSame('needs_review', $result['id_type_match_status']);
+        $this->assertNull($result['id_type_scan_detected']);
+        $this->assertSame('ocr_timeout', $result['scan_result']['error']);
+    }
     public function test_http_ocr_health_check_reports_available_service(): void
     {
         config()->set('services.ocr.driver', 'http');

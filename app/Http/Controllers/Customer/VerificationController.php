@@ -55,7 +55,7 @@ class VerificationController extends Controller
                 ? 'ID type matched. You may scan the back of the ID.'
                 : ($status === 'mismatch'
                     ? ($scan['id_type_match_warning'] ?? 'Selected ID type does not match the uploaded ID.')
-                    : 'The scanner could not confirm that this ID matches the selected ID type. Please choose the correct ID type or retake a clearer front ID photo.'),
+                    : ($scan['id_type_match_warning'] ?? 'The scanner could not confirm that this ID matches the selected ID type. Move the ID closer, fill the guide, avoid glare, then retake the front ID photo.')),
         ]);
     }
 
