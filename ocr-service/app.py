@@ -119,49 +119,56 @@ def find_document_crop(image: np.ndarray) -> np.ndarray | None:
     return crop
 
 
-def clean_text_variant(gray: np.ndarray, clip: float = 2.0) -> np.ndarray:
-    gray = normalize_ocr_gray(gray, 1050.0)
+def clean_text_variant(gray: np.ndarray, clip: float = 2.0, target: float = 900.0) -> np.ndarray:
+    gray = normalize_ocr_gray(gray, target)
     gray = cv2.bilateralFilter(gray, 5, 45, 45)
     clahe = cv2.createCLAHE(clipLimit=clip, tileGridSize=(8, 8)).apply(gray)
     sharpen_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
     return cv2.filter2D(clahe, -1, sharpen_kernel)
 
 
-def prepare_id_type_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
-    bases: list[tuple[str, np.ndarray]] = [("frame", rotate_if_portrait(image))]
-    document = find_document_crop(image)
-    if document is not None:
-        bases.insert(0, ("card", document))
+def stack_regions_for_ocr(regions: list[np.ndarray]) -> np.ndarray | None:
+    cleaned_regions = []
+    target_width = 900
+    for region in regions:
+        if region.size == 0 or min(region.shape[:2]) < 45:
+            continue
+        cleaned = clean_text_variant(region, 1.9, 900.0)
+        h, w = cleaned.shape[:2]
+        scale = min(1.0, target_width / max(1, w))
+        if scale < 0.98:
+            cleaned = cv2.resize(cleaned, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        cleaned_regions.append(cleaned)
 
-    variants: list[tuple[str, np.ndarray]] = []
-    seen: set[tuple[int, int, str]] = set()
+    if not cleaned_regions:
+        return None
+
+    width = max(region.shape[1] for region in cleaned_regions)
+    padded = []
+    for region in cleaned_regions:
+        h, w = region.shape[:2]
+        canvas = np.full((h + 24, width + 24), 255, dtype=np.uint8)
+        canvas[12:12 + h, 12:12 + w] = region
+        padded.append(canvas)
+
+    return np.vstack(padded)
+
+
+def prepare_id_type_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
+    base = find_document_crop(image) or rotate_if_portrait(image)
+    gray = normalize_ocr_gray(base, 1050.0)
     regions = [
-        ("top", 0.02, 0.00, 0.98, 0.40),
-        ("right_text", 0.28, 0.14, 0.98, 0.78),
-        ("center", 0.08, 0.18, 0.98, 0.84),
-        ("bottom", 0.04, 0.54, 0.98, 0.98),
-        ("full", 0.00, 0.00, 1.00, 1.00),
+        crop_gray_region(gray, 0.02, 0.00, 0.98, 0.40),
+        crop_gray_region(gray, 0.26, 0.12, 0.98, 0.78),
+        crop_gray_region(gray, 0.08, 0.18, 0.98, 0.86),
+        crop_gray_region(gray, 0.04, 0.52, 0.98, 0.98),
     ]
 
-    for base_name, base in bases:
-        gray = normalize_ocr_gray(base, 1250.0)
-        for region_name, x1, y1, x2, y2 in regions:
-            region = crop_gray_region(gray, x1, y1, x2, y2)
-            if region.size == 0 or min(region.shape[:2]) < 70:
-                continue
+    combined = stack_regions_for_ocr(regions)
+    if combined is not None:
+        return [("id_type_combined", combined)]
 
-            cleaned = clean_text_variant(region, 1.9)
-            key = (cleaned.shape[1], cleaned.shape[0], f"{base_name}_{region_name}")
-            if key in seen:
-                continue
-            seen.add(key)
-            variants.append((f"{base_name}_{region_name}_clean", cleaned))
-
-            if region_name in {"top", "right_text", "center"}:
-                _, binary = cv2.threshold(cleaned, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                variants.append((f"{base_name}_{region_name}_binary", binary))
-
-    return variants[:8] or [("gray", normalize_ocr_gray(image, 900.0))]
+    return [("id_type_full", clean_text_variant(gray, 1.9, 950.0))]
 
 
 def prepare_ocr_variants(image: np.ndarray, fast: bool = True, id_type: bool = False) -> list[tuple[str, np.ndarray]]:
@@ -251,8 +258,8 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
     if not id_type and not fast:
         configs.append(["--oem", "1", "--psm", "11"])
 
-    budget = max(5, min(TIMEOUT, 8 if id_type else (8 if fast else 20)))
-    per_pass_timeout = max(2, min(2 if id_type else (5 if fast else 8), budget))
+    budget = max(8, min(TIMEOUT, 10 if id_type else (8 if fast else 20)))
+    per_pass_timeout = max(4, min(9 if id_type else (5 if fast else 8), budget))
     started = time.monotonic()
     best_text = ""
     best_details: dict = {"variant": None, "psm": None, "score": 0, "mode": "id_type" if id_type else ("fast" if fast else "full")}
