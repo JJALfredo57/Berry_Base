@@ -45,8 +45,8 @@ class VerificationController extends Controller
         $status = $scan['id_type_match_status'] ?? 'needs_review';
 
         return response()->json([
-            'ok' => $status !== 'mismatch',
-            'can_continue' => $status !== 'mismatch',
+            'ok' => $status === 'match' || ($scan['scan_status'] ?? null) === 'ocr_unavailable',
+            'can_continue' => $status === 'match' || ($scan['scan_status'] ?? null) === 'ocr_unavailable',
             'match_status' => $status,
             'scan_status' => $scan['scan_status'] ?? 'needs_review',
             'expected_id_type' => $scan['id_type_scan_expected'] ?? $selectedIdType,
@@ -55,7 +55,9 @@ class VerificationController extends Controller
                 ? 'ID type matched. You may scan the back of the ID.'
                 : ($status === 'mismatch'
                     ? ($scan['id_type_match_warning'] ?? 'Selected ID type does not match the uploaded ID.')
-                    : 'ID photo accepted, but OCR could not fully read the ID type. Admin will review it.'),
+                    : (($scan['scan_status'] ?? null) === 'ocr_unavailable'
+                        ? 'OCR service is unavailable. Admin will review the ID type manually.'
+                        : 'OCR could not confirm the selected ID type. Please retake a clearer front ID photo.')),
         ]);
     }
 
@@ -93,14 +95,26 @@ class VerificationController extends Controller
             'liveness_challenge' => 'nullable|string|max:80',
             'liveness_result' => 'nullable|string|max:40',
             'liveness_method' => 'nullable|string|max:60',
+            'id_front_hash' => ['nullable', 'string', 'regex:/^[01]{64}$/'],
+            'id_back_hash' => ['nullable', 'string', 'regex:/^[01]{64}$/'],
         ]);
 
         $selectedIdType = trim($request->input('id_type'));
         $scan = $identityScanner->scanUploadedFile($selectedIdType, $request->file('id_front'));
-        if (($scan['id_type_match_status'] ?? 'needs_review') === 'mismatch') {
+        $scanStatus = $scan['scan_status'] ?? 'needs_review';
+        $matchStatus = $scan['id_type_match_status'] ?? 'needs_review';
+        if ($matchStatus !== 'match' && $scanStatus !== 'ocr_unavailable') {
             return back()
                 ->withInput()
-                ->with('error', $scan['id_type_match_warning'] ?? 'The front ID scan detected a different ID type. Please retake the correct ID photo.');
+                ->with('error', $matchStatus === 'mismatch'
+                    ? ($scan['id_type_match_warning'] ?? 'The front ID scan detected a different ID type. Please retake the correct ID photo.')
+                    : 'OCR could not confirm the selected ID type. Please retake a clearer front ID photo.');
+        }
+
+        if ($this->frontAndBackLookSame($request)) {
+            return back()
+                ->withInput()
+                ->with('error', 'The back ID photo looks like the front side again. Please flip the ID and scan the back side.');
         }
 
         $faceMatch = $faceMatcher->compareUploadedFiles($request->file('id_front'), $request->file('selfie'));
@@ -154,6 +168,7 @@ class VerificationController extends Controller
                 'ocr_pending' => false,
                 'ocr_needs_review' => ($scan['id_type_match_status'] ?? 'needs_review') !== 'match',
                 'id_type_mismatch' => ($scan['id_type_match_status'] ?? null) === 'mismatch',
+                'front_back_same_check' => 'passed',
                 'selfie_required' => true,
                 'guided_capture' => true,
                 'face_match_required' => true,
@@ -181,5 +196,69 @@ class VerificationController extends Controller
         ]);
 
         return redirect()->route('customer.verification')->with('msg', 'Valid ID submitted. We will review it soon.');
+    }
+
+    private function frontAndBackLookSame(Request $request): bool
+    {
+        $frontHash = $this->uploadedImageHash($request->file('id_front')) ?: trim((string) $request->input('id_front_hash'));
+        $backHash = $this->uploadedImageHash($request->file('id_back')) ?: trim((string) $request->input('id_back_hash'));
+
+        if (!preg_match('/^[01]{64}$/', $frontHash) || !preg_match('/^[01]{64}$/', $backHash)) {
+            return false;
+        }
+
+        return $this->hashDistance($frontHash, $backHash) <= 12;
+    }
+
+    private function uploadedImageHash($file): ?string
+    {
+        if (!$file || !function_exists('imagecreatefromstring')) {
+            return null;
+        }
+
+        $contents = @file_get_contents($file->getRealPath());
+        if (!$contents) {
+            return null;
+        }
+
+        $source = @imagecreatefromstring($contents);
+        if (!$source) {
+            return null;
+        }
+
+        $thumb = imagecreatetruecolor(8, 8);
+        imagecopyresampled($thumb, $source, 0, 0, 0, 0, 8, 8, imagesx($source), imagesy($source));
+
+        $grays = [];
+        $total = 0;
+        for ($y = 0; $y < 8; $y++) {
+            for ($x = 0; $x < 8; $x++) {
+                $rgb = imagecolorat($thumb, $x, $y);
+                $r = ($rgb >> 16) & 0xFF;
+                $g = ($rgb >> 8) & 0xFF;
+                $b = $rgb & 0xFF;
+                $gray = ($r + $g + $b) / 3;
+                $grays[] = $gray;
+                $total += $gray;
+            }
+        }
+
+        imagedestroy($source);
+        imagedestroy($thumb);
+
+        $average = $total / max(1, count($grays));
+        return implode('', array_map(fn ($gray) => $gray >= $average ? '1' : '0', $grays));
+    }
+
+    private function hashDistance(string $a, string $b): int
+    {
+        $distance = 0;
+        for ($i = 0; $i < min(strlen($a), strlen($b)); $i++) {
+            if ($a[$i] !== $b[$i]) {
+                $distance++;
+            }
+        }
+
+        return $distance + abs(strlen($a) - strlen($b));
     }
 }

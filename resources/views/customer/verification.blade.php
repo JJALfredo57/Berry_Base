@@ -156,6 +156,8 @@
             <input type="hidden" name="liveness_challenge" id="livenessChallengeInput">
             <input type="hidden" name="liveness_result" id="livenessResultInput" value="not_started">
             <input type="hidden" name="liveness_method" id="livenessMethodInput" value="not_available">
+            <input type="hidden" name="id_front_hash" id="idFrontHashInput">
+            <input type="hidden" name="id_back_hash" id="idBackHashInput">
 
             <div class="verify-ready-panel d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
               <div>
@@ -474,11 +476,40 @@ document.addEventListener('DOMContentLoaded', function () {
         var brightness = total / Math.max(1, samples);
         var variance = (totalSq / Math.max(1, samples)) - (brightness * brightness);
         URL.revokeObjectURL(objectUrl);
-        resolve({ width: img.width, height: img.height, brightness: brightness, contrast: Math.sqrt(Math.max(0, variance)), sharpness: sharp / Math.max(1, samples), image: img });
+        resolve({ width: img.width, height: img.height, brightness: brightness, contrast: Math.sqrt(Math.max(0, variance)), sharpness: sharp / Math.max(1, samples), hash: averageHash(img), image: img });
       };
       img.onerror = function () { URL.revokeObjectURL(objectUrl); reject(); };
       img.src = objectUrl;
     });
+  }
+  function averageHash(img) {
+    var size = 8;
+    var canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    var ctx = canvas.getContext('2d', { willReadFrequently:true });
+    ctx.drawImage(img, 0, 0, size, size);
+    var data = ctx.getImageData(0, 0, size, size).data;
+    var grays = [];
+    var total = 0;
+    for (var i = 0; i < data.length; i += 4) {
+      var gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      grays.push(gray); total += gray;
+    }
+    var avg = total / Math.max(1, grays.length);
+    return grays.map(function (gray) { return gray >= avg ? '1' : '0'; }).join('');
+  }
+  function hashDistance(a, b) {
+    if (!a || !b || a.length !== b.length) return 64;
+    var distance = 0;
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) distance++;
+    return distance;
+  }
+  function hashInputForStep(step) {
+    return document.getElementById(step === 'front' ? 'idFrontHashInput' : 'idBackHashInput');
+  }
+  function setIdHash(step, hash) {
+    var input = hashInputForStep(step);
+    if (input) input.value = hash || '';
   }
   function scoreMetrics(metrics, kind) {
     var minWidth = kind === 'selfie' ? 360 : 520;
@@ -602,7 +633,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     setStatus(input.id, 'Checking image quality...', 'text-warning');
     try {
-      var qualityError = await validateQuality(file, step);
+      var metrics = await imageMetrics(file);
+      var quality = scoreMetrics(metrics, step);
+      var qualityError = quality.ok ? null : quality.message;
       if (qualityError) {
         input.value = '';
         state.processing = false;
@@ -615,20 +648,31 @@ document.addEventListener('DOMContentLoaded', function () {
         var result = await scanFront(file);
         if (!result.ok) {
           input.value = '';
+          setIdHash('front', '');
           state.processing = false;
           setStatus(input.id, result.message || 'Selected ID type does not match the scanned ID.', 'text-danger');
-          setLive(document.querySelector('[data-step="front"]'), result.message || 'Wrong ID type detected.', 40);
+          setLive(document.querySelector('[data-step="front"]'), result.message || 'Wrong ID type detected.', 40, true);
           return;
         }
         state.front = true;
-        var frontMatched = result.match_status === 'match';
-        setStatus(input.id, result.message || (frontMatched ? 'Front ID matched.' : 'Front ID accepted for admin review.'), frontMatched ? 'text-success' : 'text-warning');
-        setLive(document.querySelector('[data-step="front"]'), frontMatched ? 'Front ID verified. Flip to the back side.' : 'ID photo accepted. Admin will review the ID type.', frontMatched ? 100 : 82, true);
+        setIdHash('front', metrics.hash);
+        setStatus(input.id, result.message || 'Front ID matched.', 'text-success');
+        setLive(document.querySelector('[data-step="front"]'), 'Front ID verified. Flip to the back side.', 100, true);
         showStep('back');
       } else if (step === 'back') {
+        var frontHash = document.getElementById('idFrontHashInput')?.value || '';
+        if (frontHash && metrics.hash && hashDistance(frontHash, metrics.hash) <= 12) {
+          input.value = '';
+          setIdHash('back', '');
+          state.processing = false;
+          setStatus(input.id, 'This looks like the front side again. Flip the ID and scan the back side.', 'text-danger');
+          setLive(document.querySelector('[data-step="back"]'), 'Please flip the ID. The back side must be different from the front.', 38, true);
+          return;
+        }
         state.back = true;
+        setIdHash('back', metrics.hash);
         setStatus(input.id, 'Back ID captured. Continue to face verification.', 'text-success');
-        setLive(document.querySelector('[data-step="back"]'), 'Back ID accepted.', 100);
+        setLive(document.querySelector('[data-step="back"]'), 'Back ID accepted.', 100, true);
         showStep('selfie');
       } else {
         var uploadedFaceResult = await compareFaceFrame(file, true);
@@ -768,6 +812,8 @@ document.addEventListener('DOMContentLoaded', function () {
       });
       setStatus('idFrontInput', 'Waiting for front ID scan.');
       setStatus('idBackInput', 'Waiting for back ID scan.');
+      setIdHash('front', '');
+      setIdHash('back', '');
       setStatus('selfieInput', 'Waiting for face verification.');
       document.getElementById('idUploadSummary').innerHTML = '';
       resetLiveness(); resetFaceCompare(); showStep('front'); updateSubmit(); stopCamera();
