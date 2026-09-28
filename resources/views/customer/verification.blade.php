@@ -937,8 +937,9 @@ document.addEventListener('DOMContentLoaded', function () {
         state.frontFile = file;
         setIdTypeLocked(true);
         setIdHash('front', metrics.hash);
-        setStatus(input.id, result.message || 'Front ID matched.', 'text-success');
-        setLive(document.querySelector('[data-step="front"]'), 'Front ID verified. Flip to the back side.', 100, true);
+        var needsReview = result.match_status && result.match_status !== 'match';
+        setStatus(input.id, result.message || (needsReview ? 'Front ID captured for admin review.' : 'Front ID matched.'), needsReview ? 'text-warning' : 'text-success');
+        setLive(document.querySelector('[data-step="front"]'), needsReview ? 'Front ID captured. Admins will review the ID type.' : 'Front ID verified. Flip to the back side.', needsReview ? 86 : 100, true);
         showStep('back');
       } else if (step === 'back') {
         var frontHash = document.getElementById('idFrontHashInput')?.value || '';

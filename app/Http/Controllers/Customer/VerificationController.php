@@ -44,9 +44,11 @@ class VerificationController extends Controller
         $scan = $identityScanner->scanUploadedFile($selectedIdType, $request->file('id_front'));
         $status = $scan['id_type_match_status'] ?? 'needs_review';
 
+        $canContinue = $status !== 'mismatch';
+
         return response()->json([
-            'ok' => $status === 'match',
-            'can_continue' => $status === 'match',
+            'ok' => $canContinue,
+            'can_continue' => $canContinue,
             'match_status' => $status,
             'scan_status' => $scan['scan_status'] ?? 'needs_review',
             'expected_id_type' => $scan['id_type_scan_expected'] ?? $selectedIdType,
@@ -55,7 +57,7 @@ class VerificationController extends Controller
                 ? 'ID type matched. You may scan the back of the ID.'
                 : ($status === 'mismatch'
                     ? ($scan['id_type_match_warning'] ?? 'Selected ID type does not match the uploaded ID.')
-                    : ($scan['id_type_match_warning'] ?? 'The scanner could not confirm that this ID matches the selected ID type. Move the ID closer, fill the guide, avoid glare, then retake the front ID photo.')),
+                    : 'Could not auto-read the ID type. You can continue; admins will review the front ID photo.'),
         ]);
     }
 
@@ -129,12 +131,10 @@ class VerificationController extends Controller
         $selectedIdType = trim($request->input('id_type'));
         $scan = $identityScanner->scanUploadedFile($selectedIdType, $request->file('id_front'));
         $matchStatus = $scan['id_type_match_status'] ?? 'needs_review';
-        if ($matchStatus !== 'match') {
+        if ($matchStatus === 'mismatch') {
             return back()
                 ->withInput()
-                ->with('error', $matchStatus === 'mismatch'
-                    ? ($scan['id_type_match_warning'] ?? 'The front ID scan detected a different ID type. Please retake the correct ID photo.')
-                    : 'The scanner could not confirm that this ID matches the selected ID type. Please choose the correct ID type or retake a clearer front ID photo.');
+                ->with('error', $scan['id_type_match_warning'] ?? 'The front ID scan detected a different ID type. Please retake the correct ID photo.');
         }
 
         $backSideCheck = $this->backSideFastCheck($request);
