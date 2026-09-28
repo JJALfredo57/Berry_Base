@@ -100,6 +100,7 @@
 .verify-scanner-modal .verify-wizard-step{justify-content:center;border-radius:999px;padding:.48rem .55rem;background:transparent}
 .verify-scanner-modal .verify-wizard-step span{width:20px;height:20px}
 .verify-scan-stage{border:0;border-radius:0;padding:0;background:transparent;min-height:0;display:flex;flex-direction:column;gap:.75rem;flex:1 1 auto}
+.verify-scan-stage.d-none{display:none!important}
 .verify-step-heading{display:flex;align-items:center;gap:.65rem;min-height:42px}
 .verify-step-heading .verify-upload-icon{width:34px;height:34px}
 .verify-step-copy{min-width:0}
@@ -570,13 +571,16 @@ document.addEventListener('DOMContentLoaded', function () {
     state.backRequired = selectedRequiresBack();
     var backInput = document.getElementById('idBackInput');
     if (backInput) backInput.required = state.backRequired;
-    document.querySelectorAll('[data-step-label="back"],[data-step="back"]').forEach(function (el) {
+    document.querySelectorAll('[data-step-label="back"]').forEach(function (el) {
       el.classList.toggle('d-none', !state.backRequired);
     });
+    var backStage = document.querySelector('[data-step="back"]');
+    if (backStage && !state.backRequired) backStage.classList.add('d-none');
     if (!state.backRequired && !state.back) setStatus('idBackInput', 'Back ID is not required for this ID type.', 'text-success');
   }
   function updateSubmit() {
     updateBackRequirementUI();
+    updateStepControls();
     var backOk = state.backRequired ? state.back : true;
     if (submitButton) submitButton.disabled = !(state.front && backOk && state.selfie && state.lockedIdType && state.lockedIdType === idType.value);
     if (launchButton) launchButton.disabled = !idType.value;
@@ -641,6 +645,21 @@ document.addEventListener('DOMContentLoaded', function () {
     if (input.id === 'idFrontInput') return 'front';
     if (input.id === 'idBackInput') return 'back';
     return 'selfie';
+  }
+  function stepAllowed(step) {
+    if (step === 'front') return !!(idType && idType.value);
+    if (step === 'back') return !!(state.front && state.lockedIdType && state.lockedIdType === idType.value && state.backRequired);
+    if (step === 'selfie') return !!(state.front && (state.backRequired ? state.back : true) && state.lockedIdType && state.lockedIdType === idType.value);
+    return false;
+  }
+  function updateStepControls() {
+    document.querySelectorAll('[data-step]').forEach(function (stage) {
+      var allowed = stepAllowed(stage.dataset.step);
+      stage.querySelectorAll('button').forEach(function (button) {
+        if (button.id === 'verificationSubmitButton') return;
+        button.disabled = !allowed || button.disabled && button.hasAttribute('data-torch-toggle');
+      });
+    });
   }
   function inputForStep(step) {
     return document.getElementById(step === 'front' ? 'idFrontInput' : (step === 'back' ? 'idBackInput' : 'selfieInput'));
@@ -959,6 +978,12 @@ document.addEventListener('DOMContentLoaded', function () {
   async function handleFile(input) {
     var file = input.files && input.files[0] ? input.files[0] : null;
     var step = inputStep(input);
+    if (file && !stepAllowed(step)) {
+      input.value = '';
+      setStatus(input.id, step === 'back' ? 'Complete the front ID first.' : 'Complete the required ID steps first.', 'text-warning');
+      updateSubmit();
+      return;
+    }
     var fromCamera = state.cameraCaptureInput === input.id;
     state.cameraCaptureInput = null;
     if (step === 'selfie' && file && !fromCamera) {
@@ -1144,6 +1169,11 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-upload-trigger]').forEach(function (button) {
     button.addEventListener('click', function () {
       var input = document.getElementById(button.dataset.uploadTrigger);
+      var step = input ? inputStep(input) : state.currentStep;
+      if (!stepAllowed(step)) {
+        if (input) setStatus(input.id, step === 'back' ? 'Complete the front ID first.' : 'Complete the required ID steps first.', 'text-warning');
+        return;
+      }
       if (input) input.click();
     });
   });
@@ -1179,6 +1209,10 @@ document.addEventListener('DOMContentLoaded', function () {
     var button = stage ? stage.querySelector('[data-camera-start]') : null;
     var video = stage ? stage.querySelector('video') : null;
     if (!input || !stage || !video || state.autoStarting) return;
+    if (!stepAllowed(targetStep)) {
+      setStatus(input.id, targetStep === 'back' ? 'Complete the front ID first.' : 'Complete the required ID steps first.', 'text-warning');
+      return;
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setStatus(input.id, 'Camera is not supported here. Upload a clear picture instead.', 'text-danger');
       setLive(stage, 'Camera is not supported here. Upload a clear picture instead.', 35, true);
