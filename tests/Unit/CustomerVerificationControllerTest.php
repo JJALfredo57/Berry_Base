@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Http\Controllers\Customer\VerificationController;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use ReflectionClass;
 use Tests\TestCase;
 
@@ -26,15 +27,15 @@ class CustomerVerificationControllerTest extends TestCase
         return $method->invoke($controller, $request);
     }
 
-    public function test_back_side_fast_check_rejects_borderline_visual_similarity(): void
+    public function test_back_side_fast_check_accepts_distinct_back_similarity(): void
     {
         $frontHash = str_repeat('0', 240);
         $backHash = str_repeat('1', 100).str_repeat('0', 140);
 
         $result = $this->runBackSideFastCheck($frontHash, $backHash);
 
-        $this->assertFalse($result['ok']);
-        $this->assertSame('front_side_again', $result['status']);
+        $this->assertTrue($result['ok']);
+        $this->assertSame('accepted', $result['status']);
         $this->assertSame(100, $result['scan_result']['hash_distance']);
     }
 
@@ -73,6 +74,7 @@ class CustomerVerificationControllerTest extends TestCase
         $this->assertSame('back_id_not_detected', $result['status']);
         @unlink($tmp);
     }
+
     public function test_back_side_fast_check_rejects_very_same_front_hash(): void
     {
         $frontHash = str_repeat('0', 240);

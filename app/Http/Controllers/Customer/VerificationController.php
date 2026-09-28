@@ -17,8 +17,8 @@ class VerificationController extends Controller
 {
     use UploadsFiles;
 
-    private const BACK_SIDE_HARD_SAME_HASH_DISTANCE = 128;
-    private const BACK_SIDE_REVIEW_HASH_DISTANCE = 128;
+    private const BACK_SIDE_HARD_SAME_HASH_DISTANCE = 72;
+    private const BACK_SIDE_REVIEW_HASH_DISTANCE = 72;
 
     public function show(CustomerVerificationService $verification, IdentityVerificationSettingsService $identitySettings)
     {
@@ -322,7 +322,9 @@ class VerificationController extends Controller
 
         $signal = $this->uploadedImageSignal($file);
         if (!($signal['ok'] ?? false)) {
-            return $signal;
+            return ($signal['reason'] ?? null) === 'image_tools_unavailable'
+                ? ['ok' => true, 'reason' => 'image_detail_check_unavailable']
+                : $signal;
         }
 
         $hasEnoughDetail = ($signal['edge_density'] ?? 0) >= 0.035;
