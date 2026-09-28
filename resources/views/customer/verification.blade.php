@@ -63,6 +63,15 @@
 .verify-live-meter{width:120px;height:8px;background:rgba(148,163,184,.38);border-radius:999px;overflow:hidden;flex:0 0 auto}
 .verify-live-meter span{display:block;height:100%;width:0;background:#ef4444;transition:width .22s ease,background .22s ease}
 .verify-live-meter.is-good span{background:#22c55e}.verify-live-meter.is-warn span{background:#f59e0b}
+.verify-face-help-button{position:absolute;right:.75rem;top:.75rem;z-index:5;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.72);background:rgba(2,6,23,.7);color:#fff;display:grid;place-items:center;font-weight:800;box-shadow:0 12px 28px rgba(2,6,23,.22)}
+.verify-face-precheck{position:absolute;inset:0;z-index:6;display:grid;place-items:center;padding:1rem;background:linear-gradient(180deg,rgba(2,6,23,.82),rgba(2,6,23,.68));color:#fff}
+.verify-face-precheck-panel{width:min(92%,360px);border:1px solid rgba(186,230,253,.62);border-radius:8px;background:rgba(15,23,42,.82);padding:1rem;box-shadow:0 18px 48px rgba(2,6,23,.32)}
+.verify-face-precheck-title{display:flex;align-items:center;gap:.55rem;font-weight:800;margin-bottom:.65rem}
+.verify-face-precheck-list{display:grid;gap:.48rem;margin:0 0 .85rem;padding:0;list-style:none;font-size:.84rem}
+.verify-face-precheck-list li{display:flex;gap:.48rem;align-items:flex-start}
+.verify-face-precheck-list i{color:#7dd3fc;flex:0 0 auto}
+.verify-camera-frame.is-face-ready .verify-face-precheck{display:none}
+.verify-camera-frame.is-selfie:not(.is-face-ready) video,.verify-camera-frame.is-selfie:not(.is-face-ready) .verify-face-guide{opacity:.25}
 .verify-liveness-card{border:1px solid rgba(56,189,248,.35);border-radius:8px;background:rgba(14,165,233,.1);padding:.75rem;color:#e0f2fe}
 .verify-face-instructions{border:1px solid rgba(125,211,252,.38);border-radius:8px;background:rgba(14,165,233,.08);padding:.65rem .75rem;color:#dbeafe}
 .verify-face-instructions ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem .75rem;margin:0;padding:0;list-style:none;font-size:.76rem}
@@ -280,16 +289,8 @@
                         <div class="verify-upload-icon"><i class="bi bi-person-bounding-box"></i></div>
                         <div class="verify-step-copy"><div class="verify-step-title">Live Face Check</div><div class="verify-upload-hint">Use the front camera and keep your face inside the oval.</div><div class="verify-screen-light-note mt-1"><i class="bi bi-brightness-high"></i>Screen light active</div></div>
                       </div>
-                      <div class="verify-face-instructions mb-2">
-                        <ul>
-                          <li><i class="bi bi-brightness-high"></i><span>Use a bright place. Avoid dark rooms.</span></li>
-                          <li><i class="bi bi-person-square"></i><span>Keep a clear, plain background.</span></li>
-                          <li><i class="bi bi-eyeglasses"></i><span>Remove glasses, shades, mask, and cap.</span></li>
-                          <li><i class="bi bi-bullseye"></i><span>Center your face and look at the camera.</span></li>
-                        </ul>
-                      </div>
-                      <div class="verify-liveness-card mb-2"><div class="small text-uppercase fw-semibold" style="letter-spacing:.04em">Liveness Challenge</div><div class="fw-semibold" id="livenessPrompt">Read the instructions, then tap Open Camera.</div><div class="small" id="livenessProgress">This helps prevent uploaded fake selfies.</div></div>
-                      <div class="verify-camera-frame is-selfie"><video playsinline muted></video><canvas hidden></canvas><div class="verify-face-guide"></div><div class="verify-live-panel"><span data-live-hint>Open front camera and center your face.</span><div class="verify-live-meter"><span></span></div></div></div>
+                      <div class="verify-liveness-card mb-2"><div class="small text-uppercase fw-semibold" style="letter-spacing:.04em">Live Face Status</div><div class="fw-semibold" id="livenessPrompt">Review the face instructions first.</div><div class="small" id="livenessProgress">Tap I'm Ready when your face and background are prepared.</div></div>
+                      <div class="verify-camera-frame is-selfie" id="faceCameraFrame"><video playsinline muted></video><canvas hidden></canvas><button type="button" class="verify-face-help-button d-none" id="faceInstructionHelp" aria-label="Show face instructions"><i class="bi bi-question-lg"></i></button><div class="verify-face-guide"></div><div class="verify-face-precheck" id="faceInstructionPanel"><div class="verify-face-precheck-panel"><div class="verify-face-precheck-title"><i class="bi bi-person-check"></i><span>Before face scan</span></div><ul class="verify-face-precheck-list"><li><i class="bi bi-brightness-high"></i><span>Use a bright place. Do not scan in a dark room.</span></li><li><i class="bi bi-person-square"></i><span>Keep a clear, plain background behind you.</span></li><li><i class="bi bi-eyeglasses"></i><span>Remove glasses, shades, mask, and cap.</span></li><li><i class="bi bi-bullseye"></i><span>Center your face inside the oval and look at the camera.</span></li></ul><button type="button" class="btn btn-primary w-100" id="faceReadyButton"><i class="bi bi-camera-video me-1"></i>I'm Ready</button></div></div><div class="verify-live-panel"><span data-live-hint>Read instructions, then tap I'm Ready.</span><div class="verify-live-meter"><span></span></div></div></div>
                       <div class="verify-scan-actions">
                         <button type="button" class="btn btn-primary btn-sm" data-camera-start="selfieInput" data-facing="user"><i class="bi bi-camera-video me-1"></i>Open Camera</button>
                         <button type="button" class="btn btn-outline-light btn-sm d-none" data-camera-capture="selfieInput"><i class="bi bi-person-bounding-box me-1"></i>Capture Now</button>
@@ -389,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var resetButton = document.getElementById('resetVerificationScan');
   var resetFooterButton = document.getElementById('resetVerificationScanFooter');
   var modalEl = document.getElementById('verificationScannerModal');
-  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, backRequired:true, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false, faceLandmarkerStartedAt:0, torchOn:false, torchTrack:null };
+  var state = { front:false, back:false, selfie:false, frontFile:null, backFile:null, selfieFile:null, backRequired:true, lockedIdType:null, isMobileDevice:false, cameraCaptureInput:null, stream:null, activeInput:null, activeLoop:0, stableFrames:0, processing:false, currentStep:'front', stepStartedAt:0, lastCompareStartedAt:0, lastLive:{}, autoStarting:false, faceCompare:{ lastAt:0, inFlight:false, status:null, score:null, message:null }, liveness:{ challenge:null, baseline:null, passed:false, unsupported:false }, faceLandmarker:null, faceLandmarkerPromise:null, faceLandmarkerFailed:false, faceLandmarkerStartedAt:0, torchOn:false, torchTrack:null, faceReady:false };
   var BACK_SIDE_SAME_HASH_DISTANCE = 72;
 
   function statusFor(inputId) { return document.querySelector('[data-upload-status-for="' + inputId + '"]'); }
@@ -414,7 +415,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   function manualStartMessage(step) {
     if (step === 'back') return 'Upload the back ID photo or open the camera and tap Capture Now.';
-    if (step === 'selfie') return 'Read the face instructions, then tap Open Camera.';
+    if (step === 'selfie') return state.faceReady ? 'Open front camera and center your face inside the oval.' : 'Read the instructions, then tap I\'m Ready.';
     return 'Upload the front ID photo or open the camera and tap Capture Now.';
   }
   function hasAnyScan() { return !!(state.front || state.back || state.selfie || state.frontFile || state.backFile || state.selfieFile); }
@@ -431,6 +432,24 @@ document.addEventListener('DOMContentLoaded', function () {
     var progressEl = document.getElementById('livenessProgress');
     if (prompt && message) prompt.textContent = message;
     if (progressEl && progress) progressEl.textContent = progress;
+  }
+  function setFaceInstructionVisible(visible) {
+    var frame = document.getElementById('faceCameraFrame');
+    var panel = document.getElementById('faceInstructionPanel');
+    var help = document.getElementById('faceInstructionHelp');
+    if (frame) frame.classList.toggle('is-face-ready', !visible && state.faceReady);
+    if (panel) panel.classList.toggle('d-none', !visible);
+    if (help) help.classList.toggle('d-none', visible || !state.faceReady);
+  }
+  function resetFaceReady() {
+    state.faceReady = false;
+    setFaceInstructionVisible(true);
+  }
+  function prepareFaceStepInstructions() {
+    resetFaceReady();
+    setLiveness('Review the face instructions first.', 'Tap I\'m Ready when your face and background are prepared.');
+    setStatus('selfieInput', 'Read the instructions, then tap I\'m Ready.', 'text-warning');
+    setLive(document.querySelector('[data-step="selfie"]'), 'Read instructions, then tap I\'m Ready.', 52, true);
   }
   function resetLiveness() {
     var challenges = [
@@ -488,7 +507,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var video = stage ? stage.querySelector('video') : null;
     if (!video || !video.videoWidth) return false;
     try {
-      setLiveness(state.liveness.challenge.prompt, state.faceLandmarker ? 'Face detector ready. Follow the movement.' : 'Loading live face detector...');
+      setLiveness(state.liveness.challenge.prompt, state.faceLandmarker ? 'Face aligned. Follow the movement prompt.' : 'Loading face alignment detector...');
       var box = await detectLiveFaceBox(video);
       if (!box) {
         var waitingMs = Date.now() - (state.faceLandmarkerStartedAt || state.stepStartedAt || Date.now());
@@ -500,12 +519,12 @@ document.addEventListener('DOMContentLoaded', function () {
           setLiveness('Live detector is slow on this device.', 'Continue with the live camera selfie. Server face matching must still pass.');
           return true;
         }
-        setLiveness(state.liveness.challenge.prompt, 'Loading face detector. Keep your face centered.');
+        setLiveness(state.liveness.challenge.prompt, 'Finding your face. Center it inside the oval.');
         return false;
       }
       if (!state.liveness.baseline) {
         state.liveness.baseline = { x:box.x, y:box.y, width:box.width, height:box.height };
-        setLiveness(state.liveness.challenge.prompt, 'Baseline captured. Now complete the movement.');
+        setLiveness(state.liveness.challenge.prompt, 'Face aligned. Move slowly and stay inside the oval.');
         return false;
       }
       var challengeWaitMs = Date.now() - (state.stepStartedAt || Date.now());
@@ -513,7 +532,7 @@ document.addEventListener('DOMContentLoaded', function () {
         state.liveness.passed = true;
         document.getElementById('livenessResultInput').value = state.liveness.challenge.pass(state.liveness.baseline, box) ? 'passed' : 'fast_live_camera_review';
         document.getElementById('livenessMethodInput').value = state.faceLandmarker ? 'mediapipe_face_landmarker' : 'browser_face_detector';
-        setLiveness('Live camera check accepted.', 'Capturing your selfie now.');
+        setLiveness('Live camera check accepted.', 'Hold steady. Matching your face with the ID now.');
         return true;
       }
       setLiveness(state.liveness.challenge.prompt, 'Small movement detected. Hold for a moment.');
@@ -559,9 +578,12 @@ document.addEventListener('DOMContentLoaded', function () {
     stopCamera();
     var stage = activeStage();
     var input = inputForStep(step);
-    setLive(stage, manualStartMessage(step), step === 'selfie' ? 62 : 45, true);
-    if (input) setStatus(input.id, manualStartMessage(step), 'text-warning');
-    if (step === 'selfie') setTimeout(function () { if (state.currentStep === 'selfie' && !state.stream && !state.selfie) startCameraForStep('selfie'); }, 250);
+    if (step === 'selfie' && !state.selfie) {
+      prepareFaceStepInstructions();
+    } else {
+      setLive(stage, manualStartMessage(step), step === 'selfie' ? 62 : 45, true);
+      if (input) setStatus(input.id, manualStartMessage(step), 'text-warning');
+    }
   }
   function selectedRequiresBack() {
     var option = idType ? idType.options[idType.selectedIndex] : null;
@@ -924,6 +946,8 @@ document.addEventListener('DOMContentLoaded', function () {
     canvas.toBlob(async function (blob) {
       if (!blob) { state.processing = false; return; }
       if (input.id === 'selfieInput') {
+        setLiveness('Verifying face with ID...', 'Hold steady while the system compares your selfie to the ID photo.');
+        setLive(stage, 'Verifying face with ID...', 82, true);
         var faceResult = await compareFaceFrame(blob, true);
         if (faceResult.status === 'mismatch') {
           state.processing = false;
@@ -1146,9 +1170,11 @@ document.addEventListener('DOMContentLoaded', function () {
         var quality = scoreMetrics(metrics, step);
         var livenessOk = step === 'selfie' && quality.ok ? await checkLiveness(stage) : true;
         var faceOk = true;
-        var liveMessage = quality.ok ? (livenessOk ? 'Hold steady. Capturing automatically...' : 'Complete the liveness challenge.') : quality.message;
+        var liveMessage = quality.ok ? (livenessOk ? 'Hold steady. Verifying your face with the ID...' : 'Align your face and follow the prompt.') : quality.message;
         var liveScore = livenessOk ? quality.score : 65;
         if (step === 'selfie' && quality.ok && livenessOk) {
+          setLiveness('Verifying face with ID...', 'Hold steady while the system compares your selfie to the ID photo.');
+          setLive(stage, 'Verifying face with ID...', 82, true);
           var faceResult = await compareFaceFrame(blob, false);
           faceOk = faceResult.status === 'match';
           liveMessage = faceCompareMessage(faceResult);
@@ -1213,6 +1239,10 @@ document.addEventListener('DOMContentLoaded', function () {
       setStatus(input.id, targetStep === 'back' ? 'Complete the front ID first.' : 'Complete the required ID steps first.', 'text-warning');
       return;
     }
+    if (input.id === 'selfieInput' && !state.faceReady) {
+      prepareFaceStepInstructions();
+      return;
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setStatus(input.id, 'Camera is not supported here. Upload a clear picture instead.', 'text-danger');
       setLive(stage, 'Camera is not supported here. Upload a clear picture instead.', 35, true);
@@ -1260,6 +1290,30 @@ document.addEventListener('DOMContentLoaded', function () {
       state.autoStarting = false;
     }
   }
+  var faceReadyButton = document.getElementById('faceReadyButton');
+  if (faceReadyButton) {
+    faceReadyButton.addEventListener('click', function () {
+      if (!stepAllowed('selfie')) {
+        setStatus('selfieInput', 'Complete the required ID steps first.', 'text-warning');
+        return;
+      }
+      state.faceReady = true;
+      setFaceInstructionVisible(false);
+      var stage = document.querySelector('[data-step="selfie"]');
+      setLiveness('Face scan ready.', 'Center your face in the oval and follow the live prompt.');
+      setLive(stage, 'Opening front camera for face verification...', 58, true);
+      setStatus('selfieInput', 'Opening front camera for face verification...', 'text-warning');
+      if (!state.stream && !state.selfie) startCameraForStep('selfie');
+    });
+  }
+  var faceInstructionHelp = document.getElementById('faceInstructionHelp');
+  if (faceInstructionHelp) {
+    faceInstructionHelp.addEventListener('click', function () {
+      setFaceInstructionVisible(true);
+      setLiveness('Review the face instructions.', 'Tap I\'m Ready to return to live face scanning.');
+      setLive(document.querySelector('[data-step="selfie"]'), 'Review instructions, then tap I\'m Ready.', 58, true);
+    });
+  }
   document.querySelectorAll('[data-torch-toggle]').forEach(function (button) {
     button.addEventListener('click', async function () {
       if (!state.torchTrack) {
@@ -1293,7 +1347,7 @@ document.addEventListener('DOMContentLoaded', function () {
         setStatus('idFrontInput', 'Use Reset Scan before changing the ID type.', 'text-warning');
         return;
       }
-      state.front = false; state.back = false; state.selfie = false; state.frontFile = null; state.backFile = null; state.selfieFile = null; state.backRequired = selectedRequiresBack(); resetLiveness(); resetFaceCompare();
+      state.front = false; state.back = false; state.selfie = false; state.frontFile = null; state.backFile = null; state.selfieFile = null; state.backRequired = selectedRequiresBack(); resetLiveness(); resetFaceCompare(); resetFaceReady();
       ['idFrontInput','idBackInput','selfieInput'].forEach(function (id) {
         var input = document.getElementById(id);
         if (input) input.value = '';
@@ -1313,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', function () {
     state.front = false; state.back = false; state.selfie = false;
     state.frontFile = null; state.backFile = null; state.selfieFile = null;
     state.backRequired = selectedRequiresBack();
-    state.stableFrames = 0; state.processing = false; state.lastLive = {};
+    state.stableFrames = 0; state.processing = false; state.lastLive = {}; state.faceReady = false;
     setIdTypeLocked(false);
     ['idFrontInput','idBackInput','selfieInput'].forEach(function (id) {
       var input = document.getElementById(id);
@@ -1340,6 +1394,8 @@ document.addEventListener('DOMContentLoaded', function () {
       var stage = activeStage();
       if (input && input.files.length) {
         setLive(stage, 'Step already has an accepted image.', 100, true);
+      } else if (state.currentStep === 'selfie' && !state.selfie) {
+        prepareFaceStepInstructions();
       } else {
         setLive(stage, manualStartMessage(state.currentStep), state.currentStep === 'selfie' ? 62 : 45, true);
         if (input) setStatus(input.id, manualStartMessage(state.currentStep), 'text-warning');
