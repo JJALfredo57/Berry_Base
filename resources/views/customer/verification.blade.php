@@ -793,7 +793,7 @@ document.addEventListener('DOMContentLoaded', function () {
         showStep('back');
       } else if (step === 'back') {
         var frontHash = document.getElementById('idFrontHashInput')?.value || '';
-        if (frontHash && metrics.hash && hashDistance(frontHash, metrics.hash) <= 16) {
+        if (frontHash && metrics.hash && hashDistance(frontHash, metrics.hash) <= 6) {
           input.value = '';
           setIdHash('back', '');
           state.processing = false;
