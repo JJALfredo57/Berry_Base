@@ -35,9 +35,11 @@
 .verify-wizard-step.active{border-color:var(--primary);color:var(--primary);background:rgba(var(--primary-rgb,233,30,99),.06)}
 .verify-wizard-step.active span,.verify-wizard-step.done span{background:var(--primary);color:#fff}
 .verify-ready-panel{border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;padding:1rem}
-.verify-scanner-modal .modal-content{background:#08111f;color:#e5eefb;border:0;min-height:100%;max-height:100dvh;overflow:hidden}
+.verify-scanner-modal{position:fixed!important;inset:0!important;overflow:hidden!important}
+.verify-scanner-modal .modal-dialog{height:100dvh;max-height:100dvh;margin:0 auto;display:flex;align-items:stretch}
+.verify-scanner-modal .modal-content{background:#08111f;color:#e5eefb;border:0;min-height:0;height:100dvh;max-height:100dvh;overflow:hidden;display:flex;flex-direction:column}
 .verify-scanner-modal .modal-header,.verify-scanner-modal .modal-footer{border-color:rgba(148,163,184,.22);background:rgba(8,17,31,.96);flex:0 0 auto}
-.verify-scanner-modal .modal-body{overflow-y:auto}
+.verify-scanner-modal .modal-body{overflow:hidden;min-height:0;flex:1 1 auto;display:flex;flex-direction:column}
 .verify-scanner-modal .btn-close{filter:invert(1) grayscale(100%)}
 .verify-scanner-modal .verify-upload-hint{color:#9fb0c8}
 .verify-scanner-modal .verify-wizard-step{background:rgba(15,23,42,.82);border-color:rgba(148,163,184,.28);color:#a8b5c8}
@@ -60,20 +62,26 @@
 .verify-scanner-modal.is-selfie-step .modal-content{background:#f8fbff;color:#142033}
 .verify-scanner-modal.is-selfie-step .modal-header,.verify-scanner-modal.is-selfie-step .modal-footer{background:#fff;border-color:#dbe7f3;color:#142033}
 .verify-scanner-modal.is-selfie-step .btn-close{filter:none}
-.verify-scanner-modal.is-selfie-step .verify-scan-stage[data-step="selfie"]{background:#fff;border-color:#cbd5e1;box-shadow:0 0 0 999px rgba(255,255,255,.55)}
-.verify-scanner-modal.is-selfie-step .verify-liveness-card{background:#eef8ff;border-color:#7dd3fc;color:#0f2a3f}
+.verify-scanner-modal.is-selfie-step .modal-body{padding-top:.55rem}
+.verify-scanner-modal.is-selfie-step .verify-wizard{margin-bottom:.45rem!important}
+.verify-scanner-modal.is-selfie-step .verify-scan-stage[data-step="selfie"]{background:#fff;border-color:#cbd5e1;box-shadow:0 0 0 999px rgba(255,255,255,.55);padding:.65rem;display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
+.verify-scanner-modal.is-selfie-step .verify-liveness-card{background:#eef8ff;border-color:#7dd3fc;color:#0f2a3f;padding:.5rem;margin-bottom:.45rem!important}
 .verify-scanner-modal.is-selfie-step .verify-upload-hint{color:#475569}
 .verify-scanner-modal.is-selfie-step .verify-wizard-step{background:#fff;color:#475569;border-color:#dbe7f3}
 .verify-scanner-modal.is-selfie-step .verify-wizard-step.active{background:#fff1f7;color:var(--primary);border-color:rgba(var(--primary-rgb,233,30,99),.55)}
 .verify-scanner-modal.is-selfie-step .verify-screen-light-note{display:inline-flex}
+.verify-scanner-modal.is-selfie-step .verify-camera-frame.is-selfie{height:clamp(300px,58dvh,620px);max-height:none;flex:1 1 auto}
+.verify-scanner-modal.is-selfie-step .verify-face-guide{width:min(42%,190px)}
+.verify-scanner-modal.is-selfie-step [data-step="selfie"] > .d-flex:first-child{margin-bottom:.45rem!important}
+.verify-scanner-modal.is-selfie-step [data-step="selfie"] .verify-upload-hint{font-size:.72rem}
 .verify-scanner-modal.is-selfie-step .btn-outline-light{color:#0f172a;border-color:#94a3b8}
 .verify-scanner-modal.is-selfie-step .btn-outline-light:hover{background:#e2e8f0;color:#0f172a}
 .verify-screen-light-note{display:none;align-items:center;gap:.35rem;font-size:.74rem;color:#0f766e;background:#ccfbf1;border:1px solid #5eead4;border-radius:999px;padding:.25rem .55rem}
 .verify-scanner-modal .verify-upload-status.text-danger{color:#fca5a5!important}.verify-scanner-modal .verify-upload-status.text-success{color:#86efac!important}.verify-scanner-modal .verify-upload-status.text-warning{color:#fde68a!important}
 @keyframes verifyScanLine{0%,100%{transform:translateY(-22vh);opacity:.25}50%{transform:translateY(22vh);opacity:.9}}
 .verify-upload-status.text-danger{color:#dc2626!important}.verify-upload-status.text-success{color:#15803d!important}
-@media (max-width:575.98px){.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}.upload-panel{padding:1rem!important}.verify-scanner-modal .modal-dialog{margin:0}.verify-scanner-modal .modal-content{height:100dvh;min-height:0}.verify-scanner-modal .modal-header{padding:.7rem .85rem}.verify-scanner-modal .modal-title{font-size:.95rem}.verify-scanner-modal .modal-title + .small{font-size:.72rem}.verify-scanner-modal .modal-body{padding:.75rem;min-height:0}.verify-scanner-modal .modal-footer{padding:.65rem .75rem;gap:.5rem}.verify-scanner-modal .modal-footer .btn{flex:1 1 auto;padding:.55rem .6rem;font-size:.82rem}.verify-scanner-modal .verify-wizard{gap:.35rem;flex-wrap:nowrap;overflow-x:auto;padding-bottom:.15rem}.verify-scanner-modal .verify-wizard-step{flex:0 0 auto;padding:.42rem .55rem;font-size:.74rem}.verify-scanner-modal .verify-wizard-step span{width:19px;height:19px;font-size:.66rem}.verify-scan-stage{padding:.65rem;border-radius:8px}.verify-scan-stage .d-flex{gap:.5rem!important;align-items:flex-start!important}.verify-scan-stage h6{font-size:.88rem}.verify-scan-stage .small{font-size:.72rem}.verify-camera-frame{height:min(46dvh,340px);min-height:220px;max-height:calc(100dvh - 300px);aspect-ratio:auto;border-radius:8px}.verify-frame-guide{inset:12% 6%}.verify-face-guide{width:min(50%,180px)}.verify-live-panel{left:.5rem;right:.5rem;bottom:.5rem;align-items:flex-start;flex-direction:column;gap:.45rem;padding:.55rem .6rem;font-size:.74rem;max-height:38%;overflow:auto}.verify-live-meter{width:100%;height:7px}.verify-liveness-card{padding:.55rem;font-size:.78rem}}
-@media (max-width:360px){.verify-camera-frame{height:40dvh;min-height:200px;max-height:calc(100dvh - 320px)}.verify-scanner-modal .modal-footer .btn{font-size:.76rem;padding:.5rem .45rem}.verify-live-panel{font-size:.7rem}}
+@media (max-width:575.98px){.verify-hero{border-radius:0;margin-left:-.75rem;margin-right:-.75rem}.benefit-card{padding:.85rem}.upload-panel{padding:1rem!important}.verify-scanner-modal .modal-dialog{margin:0;max-width:none;width:100%;height:100dvh}.verify-scanner-modal .modal-content{height:100dvh;min-height:0}.verify-scanner-modal .modal-header{padding:.7rem .85rem}.verify-scanner-modal .modal-title{font-size:.95rem}.verify-scanner-modal .modal-title + .small{font-size:.72rem}.verify-scanner-modal .modal-body{padding:.75rem;min-height:0}.verify-scanner-modal .modal-footer{padding:.65rem .75rem;gap:.5rem}.verify-scanner-modal .modal-footer .btn{flex:1 1 auto;padding:.55rem .6rem;font-size:.82rem}.verify-scanner-modal .verify-wizard{gap:.35rem;flex-wrap:nowrap;overflow-x:auto;padding-bottom:.15rem}.verify-scanner-modal .verify-wizard-step{flex:0 0 auto;padding:.42rem .55rem;font-size:.74rem}.verify-scanner-modal .verify-wizard-step span{width:19px;height:19px;font-size:.66rem}.verify-scan-stage{padding:.65rem;border-radius:8px}.verify-scan-stage .d-flex{gap:.5rem!important;align-items:flex-start!important}.verify-scan-stage h6{font-size:.88rem}.verify-scan-stage .small{font-size:.72rem}.verify-camera-frame{height:min(46dvh,340px);min-height:220px;max-height:calc(100dvh - 300px);aspect-ratio:auto;border-radius:8px}.verify-frame-guide{inset:12% 6%}.verify-face-guide{width:min(50%,180px)}.verify-live-panel{left:.5rem;right:.5rem;bottom:.5rem;align-items:flex-start;flex-direction:column;gap:.45rem;padding:.55rem .6rem;font-size:.74rem;max-height:38%;overflow:auto}.verify-live-meter{width:100%;height:7px}.verify-liveness-card{padding:.55rem;font-size:.78rem}.verify-scanner-modal.is-selfie-step .modal-header{padding:.52rem .75rem}.verify-scanner-modal.is-selfie-step .modal-body{padding:.5rem .65rem}.verify-scanner-modal.is-selfie-step .modal-footer{padding:.5rem .65rem}.verify-scanner-modal.is-selfie-step .verify-wizard-step{padding:.34rem .48rem;font-size:.7rem}.verify-scanner-modal.is-selfie-step .verify-upload-icon{width:30px;height:30px}.verify-scanner-modal.is-selfie-step .verify-liveness-card{font-size:.72rem}.verify-scanner-modal.is-selfie-step .verify-camera-frame.is-selfie{height:auto;min-height:320px;max-height:none;flex:1 1 auto}}
+@media (max-width:360px){.verify-camera-frame{height:40dvh;min-height:200px;max-height:calc(100dvh - 320px)}.verify-scanner-modal .modal-footer .btn{font-size:.76rem;padding:.5rem .45rem}.verify-live-panel{font-size:.7rem}.verify-scanner-modal.is-selfie-step .verify-camera-frame.is-selfie{min-height:300px}}
 </style>
 
 <div class="container-fluid py-4">
@@ -171,8 +179,8 @@
             <div id="idUploadSummary" class="mt-3"></div>
             <div class="small text-muted mt-3"><i class="bi bi-lock me-1"></i>Your ID is checked before submit and then reviewed by authorized admins.</div>
 
-            <div class="modal fade verify-scanner-modal" id="verificationScannerModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-              <div class="modal-dialog modal-fullscreen-sm-down modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal fade verify-scanner-modal" id="verificationScannerModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+              <div class="modal-dialog modal-fullscreen-sm-down modal-xl">
                 <div class="modal-content">
                   <div class="modal-header">
                     <div>
