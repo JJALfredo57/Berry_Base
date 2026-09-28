@@ -608,14 +608,15 @@ document.addEventListener('DOMContentLoaded', function () {
     if (input) input.value = hash || '';
   }
   function scoreMetrics(metrics, kind) {
-    var minWidth = kind === 'selfie' ? 240 : 340;
-    var minHeight = kind === 'selfie' ? 240 : 210;
-    if (metrics.width < minWidth || metrics.height < minHeight) return { ok:false, score:58, message: kind === 'selfie' ? 'Move a bit closer and keep your face inside the oval.' : 'Move a bit closer so the ID is readable.' };
-    if (metrics.brightness < 10) return { ok:false, score:64, message:'Too dark. Add a little light.' };
-    if (metrics.brightness > 255) return { ok:false, score:64, message:'Too much glare. Tilt slightly away from direct light.' };
-    if (metrics.contrast < 3) return { ok:false, score:78, message:'Hold steady for a moment.' };
-    if (metrics.sharpness < 1.2) return { ok:false, score:78, message: kind === 'selfie' ? 'Hold steady for a moment.' : 'Hold steady and keep the ID inside the frame.' };
-    return { ok:true, score:96, message: kind === 'selfie' ? 'Face photo looks clear.' : 'ID image looks clear.' };
+    if (kind !== 'selfie') {
+      if (metrics.width < 260 || metrics.height < 160) return { ok:false, score:62, message:'Move the ID a little closer inside the guide.' };
+      if (metrics.brightness < 6) return { ok:false, score:68, message:'Add a little light so the ID can be read.' };
+      return { ok:true, score:96, message:'ID image is readable.' };
+    }
+    if (metrics.width < 220 || metrics.height < 220) return { ok:false, score:58, message:'Move a bit closer and keep your face inside the oval.' };
+    if (metrics.brightness < 8) return { ok:false, score:64, message:'Too dark. Add a little light.' };
+    if (metrics.contrast < 2 || metrics.sharpness < 0.8) return { ok:false, score:78, message:'Hold steady for a moment.' };
+    return { ok:true, score:96, message:'Face photo looks clear.' };
   }
   async function validateQuality(file, kind) {
     var metrics = await imageMetrics(file);
@@ -755,7 +756,7 @@ document.addEventListener('DOMContentLoaded', function () {
     updateSubmit();
     if (!file) return;
 
-    setStatus(input.id, 'Checking image quality...', 'text-warning');
+    setStatus(input.id, 'Checking image...', 'text-warning');
     try {
       var metrics = await imageMetrics(file);
       var quality = scoreMetrics(metrics, step);
@@ -914,7 +915,7 @@ document.addEventListener('DOMContentLoaded', function () {
       state.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: button?.dataset.facing || (input.id === 'selfieInput' ? 'user' : 'environment'), width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
       video.srcObject = state.stream;
       await video.play();
-      setStatus(input.id, 'Camera ready. Hold steady; capture is automatic when clear.', 'text-warning');
+      setStatus(input.id, 'Camera ready. Align inside the guide; capture is automatic.', 'text-warning');
       setLive(stage, input.id === 'selfieInput' ? 'Center your face and follow the challenge.' : 'Align inside the frame. Auto scan is watching.', 58, true);
       monitorCamera(input, stage, loopId);
     } catch (e) {
