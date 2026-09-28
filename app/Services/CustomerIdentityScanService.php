@@ -478,7 +478,9 @@ class CustomerIdentityScanService
                 'engine' => 'http',
                 'status' => 'needs_review',
                 'error' => (string) ($data['error'] ?? 'ocr_service_failed'),
-                'message' => (string) ($data['message'] ?? 'OCR service could not read this ID clearly. Please review it manually.'),
+                'message' => ($data['error'] ?? '') === 'ocr_timeout'
+                    ? 'ID scanner is busy. Please tap Capture Now again with the ID filling the guide.'
+                    : (string) ($data['message'] ?? 'OCR service could not read this ID clearly. Please review it manually.'),
             ];
         }
 

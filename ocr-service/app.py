@@ -58,7 +58,7 @@ def prepare_ocr_variants(image: np.ndarray, fast: bool = True, id_type: bool = F
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape[:2]
     longest = max(1, max(w, h))
-    target = 900.0 if id_type else (1250.0 if fast else 1800.0)
+    target = 700.0 if id_type else (1250.0 if fast else 1800.0)
     scale = min(2.0 if fast else 3.0, target / longest)
     if scale < 0.98:
         gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
@@ -68,8 +68,6 @@ def prepare_ocr_variants(image: np.ndarray, fast: bool = True, id_type: bool = F
     variants.append(("gray", gray))
 
     if id_type:
-        clahe = cv2.createCLAHE(clipLimit=1.8, tileGridSize=(8, 8)).apply(gray)
-        variants.append(("id_clahe", clahe))
         return variants
 
     clahe = cv2.createCLAHE(clipLimit=2.0 if fast else 2.2, tileGridSize=(8, 8)).apply(gray)
@@ -130,13 +128,11 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
     id_type = mode == "id_type"
     fast = mode != "full"
     configs = [["--oem", "1", "--psm", "6"]]
-    if id_type:
-        configs.append(["--oem", "1", "--psm", "11"])
-    elif not fast:
+    if not fast:
         configs.append(["--oem", "1", "--psm", "11"])
 
-    budget = max(4, min(TIMEOUT, 6 if id_type else (8 if fast else 20)))
-    per_pass_timeout = max(2, min(2 if id_type else (5 if fast else 8), budget))
+    budget = max(2, min(TIMEOUT, 3 if id_type else (8 if fast else 20)))
+    per_pass_timeout = max(1, min(2 if id_type else (5 if fast else 8), budget))
     started = time.monotonic()
     best_text = ""
     best_details: dict = {"variant": None, "psm": None, "score": 0, "mode": "id_type" if id_type else ("fast" if fast else "full")}
@@ -156,6 +152,13 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
                     code, stdout, stderr = run_tesseract_file(tmp_path, lang, config, per_pass_timeout)
                 except subprocess.TimeoutExpired:
                     errors.append(f"{variant_name}/psm{config[-1]} timed out")
+                    if id_type:
+                        return {
+                            "ok": False,
+                            "error": "ocr_timeout",
+                            "message": "ID scan is busy. Please tap Capture Now again with the ID filling the guide.",
+                            "details": " | ".join(errors[:1]),
+                        }
                     continue
 
                 text = (stdout or "").strip()

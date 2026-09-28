@@ -621,8 +621,8 @@ document.addEventListener('DOMContentLoaded', function () {
           sy = Math.max(0, (sourceH - sh) / 2);
         }
 
-        var targetW = Math.min(1280, Math.max(900, Math.round(sw)));
-        if (sw < 900) targetW = Math.round(sw);
+        var targetW = Math.min(960, Math.max(720, Math.round(sw)));
+        if (sw < 720) targetW = Math.round(sw);
         var targetH = Math.max(1, Math.round(sh * (targetW / sw)));
         var canvas = document.createElement('canvas');
         canvas.width = targetW;
@@ -647,7 +647,7 @@ document.addEventListener('DOMContentLoaded', function () {
         canvas.toBlob(function (blob) {
           if (!blob) return resolve(file);
           resolve(new File([blob], optimizedIdFileName(step), { type:'image/jpeg', lastModified:Date.now() }));
-        }, 'image/jpeg', 0.90);
+        }, 'image/jpeg', 0.86);
       };
       img.onerror = function () { URL.revokeObjectURL(objectUrl); resolve(file); };
       img.src = objectUrl;
