@@ -15,6 +15,7 @@ TOKEN = os.getenv("OCR_SERVICE_TOKEN", "").strip()
 TESSERACT_BINARY = os.getenv("TESSERACT_BINARY", "tesseract")
 DEFAULT_LANG = os.getenv("TESSERACT_LANG", "eng")
 TIMEOUT = int(os.getenv("TESSERACT_TIMEOUT", "30"))
+ID_TYPE_TIMEOUT = int(os.getenv("ID_TYPE_OCR_TIMEOUT", "25"))
 MAX_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(8 * 1024 * 1024)))
 FACE_MATCH_THRESHOLD = float(os.getenv("FACE_MATCH_THRESHOLD", "0.60"))
 FACE_MISMATCH_THRESHOLD = float(os.getenv("FACE_MISMATCH_THRESHOLD", "0.42"))
@@ -259,8 +260,8 @@ def run_best_ocr(content: bytes, suffix: str, lang: str, mode: str = "fast") -> 
     if not id_type and not fast:
         configs.append(["--oem", "1", "--psm", "11"])
 
-    budget = max(8, min(TIMEOUT, 10 if id_type else (8 if fast else 20)))
-    per_pass_timeout = max(4, min(9 if id_type else (5 if fast else 8), budget))
+    budget = max(8, min(TIMEOUT, ID_TYPE_TIMEOUT if id_type else (8 if fast else 20)))
+    per_pass_timeout = max(4, min(ID_TYPE_TIMEOUT if id_type else (5 if fast else 8), budget))
     started = time.monotonic()
     best_text = ""
     best_details: dict = {"variant": None, "psm": None, "score": 0, "mode": "id_type" if id_type else ("fast" if fast else "full")}

@@ -438,7 +438,7 @@ class CustomerIdentityScanService
     {
         $url = trim((string) config('services.ocr.service_url', ''));
         $language = (string) config('services.ocr.tesseract_lang', 'eng');
-        $timeout = max(5, min(12, (int) config('services.ocr.service_timeout', 10)));
+        $timeout = max(5, min(45, (int) config('services.ocr.service_timeout', 30)));
 
         if ($url === '') {
             return [
