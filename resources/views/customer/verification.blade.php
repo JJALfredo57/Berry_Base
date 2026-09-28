@@ -729,7 +729,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var errorData = null;
       try { errorData = await response.json(); } catch (e) {}
       var firstError = errorData && errorData.errors ? Object.values(errorData.errors).flat()[0] : null;
-      return { ok:false, message:firstError || (errorData && errorData.message) || 'ID scan could not start. Please align the landscape card inside the guide and scan again.' };
+      return { ok:false, message:firstError || (errorData && errorData.message) || ('ID scan could not start. Server returned HTTP ' + response.status + '. Please try again.') };
     }
     return await response.json();
   }
