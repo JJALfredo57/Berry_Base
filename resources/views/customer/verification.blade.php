@@ -572,27 +572,33 @@ document.addEventListener('DOMContentLoaded', function () {
         var brightness = total / Math.max(1, samples);
         var variance = (totalSq / Math.max(1, samples)) - (brightness * brightness);
         URL.revokeObjectURL(objectUrl);
-        resolve({ width: img.width, height: img.height, brightness: brightness, contrast: Math.sqrt(Math.max(0, variance)), sharpness: sharp / Math.max(1, samples), hash: averageHash(img), image: img });
+        resolve({ width: img.width, height: img.height, brightness: brightness, contrast: Math.sqrt(Math.max(0, variance)), sharpness: sharp / Math.max(1, samples), hash: differenceHash(img), image: img });
       };
       img.onerror = function () { URL.revokeObjectURL(objectUrl); reject(); };
       img.src = objectUrl;
     });
   }
-  function averageHash(img) {
-    var size = 8;
+  function differenceHash(img) {
+    var width = 16;
+    var height = 16;
     var canvas = document.createElement('canvas');
-    canvas.width = size; canvas.height = size;
+    canvas.width = width; canvas.height = height;
     var ctx = canvas.getContext('2d', { willReadFrequently:true });
-    ctx.drawImage(img, 0, 0, size, size);
-    var data = ctx.getImageData(0, 0, size, size).data;
+    ctx.drawImage(img, 0, 0, width, height);
+    var data = ctx.getImageData(0, 0, width, height).data;
     var grays = [];
-    var total = 0;
     for (var i = 0; i < data.length; i += 4) {
-      var gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
-      grays.push(gray); total += gray;
+      grays.push((data[i] + data[i + 1] + data[i + 2]) / 3);
     }
-    var avg = total / Math.max(1, grays.length);
-    return grays.map(function (gray) { return gray >= avg ? '1' : '0'; }).join('');
+    var bits = [];
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width - 1; x++) {
+        var left = grays[(y * width) + x];
+        var right = grays[(y * width) + x + 1];
+        bits.push(left > right ? '1' : '0');
+      }
+    }
+    return bits.join('');
   }
   function hashDistance(a, b) {
     if (!a || !b || a.length !== b.length) return 64;
@@ -793,7 +799,7 @@ document.addEventListener('DOMContentLoaded', function () {
         showStep('back');
       } else if (step === 'back') {
         var frontHash = document.getElementById('idFrontHashInput')?.value || '';
-        if (frontHash && metrics.hash && hashDistance(frontHash, metrics.hash) <= 6) {
+        if (frontHash && metrics.hash && hashDistance(frontHash, metrics.hash) <= 36) {
           input.value = '';
           setIdHash('back', '');
           state.processing = false;

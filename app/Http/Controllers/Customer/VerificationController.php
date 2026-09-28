@@ -96,8 +96,8 @@ class VerificationController extends Controller
             'liveness_result' => 'nullable|string|max:40',
             'liveness_method' => 'nullable|string|max:60',
             'selfie_capture_source' => 'required|string|max:40',
-            'id_front_hash' => ['nullable', 'string', 'regex:/^[01]{64}$/'],
-            'id_back_hash' => ['nullable', 'string', 'regex:/^[01]{64}$/'],
+            'id_front_hash' => ['nullable', 'string', 'regex:/^(?:[01]{64}|[01]{240})$/'],
+            'id_back_hash' => ['nullable', 'string', 'regex:/^(?:[01]{64}|[01]{240})$/'],
         ]);
 
         if ($request->input('selfie_capture_source') !== 'live_camera') {
@@ -215,7 +215,7 @@ class VerificationController extends Controller
             return false;
         }
 
-        return $this->hashDistance($frontHash, $backHash) <= 6;
+        return $this->hashDistance($frontHash, $backHash) <= 36;
     }
 
     private function uploadedImageHash($file): ?string
@@ -234,28 +234,35 @@ class VerificationController extends Controller
             return null;
         }
 
-        $thumb = imagecreatetruecolor(8, 8);
-        imagecopyresampled($thumb, $source, 0, 0, 0, 0, 8, 8, imagesx($source), imagesy($source));
+        $width = 16;
+        $height = 16;
+        $thumb = imagecreatetruecolor($width, $height);
+        imagecopyresampled($thumb, $source, 0, 0, 0, 0, $width, $height, imagesx($source), imagesy($source));
 
         $grays = [];
-        $total = 0;
-        for ($y = 0; $y < 8; $y++) {
-            for ($x = 0; $x < 8; $x++) {
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $width; $x++) {
                 $rgb = imagecolorat($thumb, $x, $y);
                 $r = ($rgb >> 16) & 0xFF;
                 $g = ($rgb >> 8) & 0xFF;
                 $b = $rgb & 0xFF;
-                $gray = ($r + $g + $b) / 3;
-                $grays[] = $gray;
-                $total += $gray;
+                $grays[] = ($r + $g + $b) / 3;
             }
         }
 
         imagedestroy($source);
         imagedestroy($thumb);
 
-        $average = $total / max(1, count($grays));
-        return implode('', array_map(fn ($gray) => $gray >= $average ? '1' : '0', $grays));
+        $bits = [];
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $width - 1; $x++) {
+                $left = $grays[($y * $width) + $x];
+                $right = $grays[($y * $width) + $x + 1];
+                $bits[] = $left > $right ? '1' : '0';
+            }
+        }
+
+        return implode('', $bits);
     }
 
     private function hashDistance(string $a, string $b): int
