@@ -68,6 +68,7 @@ class CustomerIdentityScanService
         $scores = [];
         $matchedKeywords = [];
         $normalizedText = $this->normalizeForMatch($text);
+        $compactText = str_replace(' ', '', $normalizedText);
 
         foreach ($this->settings->types() as $type) {
             $name = (string) ($type['name'] ?? '');
@@ -86,8 +87,14 @@ class CustomerIdentityScanService
                     continue;
                 }
 
-                if (str_contains($normalizedText, $normalizedPhrase)) {
-                    $scores[$name] = ($scores[$name] ?? 0) + max(1, substr_count($normalizedPhrase, ' ') + 1);
+                $compactPhrase = str_replace(' ', '', $normalizedPhrase);
+                $phraseTokens = array_values(array_filter(explode(' ', $normalizedPhrase), fn ($token) => mb_strlen($token) >= 3));
+                $hasExact = str_contains($normalizedText, $normalizedPhrase);
+                $hasCompact = $compactPhrase !== '' && mb_strlen($compactPhrase) >= 3 && str_contains($compactText, $compactPhrase);
+                $hasAllTokens = count($phraseTokens) >= 2 && collect($phraseTokens)->every(fn ($token) => str_contains($normalizedText, $token));
+
+                if ($hasExact || $hasCompact || $hasAllTokens) {
+                    $scores[$name] = ($scores[$name] ?? 0) + max(1, substr_count($normalizedPhrase, ' ') + 1) + ($hasExact ? 2 : 0) + ($hasCompact ? 1 : 0);
                     $matchedKeywords[$name][] = $phrase;
                 }
             }

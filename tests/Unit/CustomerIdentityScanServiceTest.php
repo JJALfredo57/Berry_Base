@@ -37,6 +37,24 @@ class CustomerIdentityScanServiceTest extends TestCase
         $this->assertSame("Driver's License", $result['detected_id_type']);
     }
 
+    public function test_ocr_text_with_spacing_or_token_variations_can_match_id_type(): void
+    {
+        $national = $this->service()->evaluateText(
+            'National ID',
+            'Republic of the Philippines Phil ID National Identification Card'
+        );
+
+        $driver = $this->service()->evaluateText(
+            "Driver's License",
+            'Republic of the Philippines Land Transportation Office Driver Licence L T O'
+        );
+
+        $this->assertSame('match', $national['status']);
+        $this->assertSame('National ID', $national['detected_id_type']);
+        $this->assertSame('match', $driver['status']);
+        $this->assertSame("Driver's License", $driver['detected_id_type']);
+    }
+
     public function test_ocr_text_detecting_different_id_type_is_marked_mismatch(): void
     {
         $result = $this->service()->evaluateText(

@@ -52,6 +52,105 @@ def decode_image(content: bytes) -> np.ndarray | None:
     return cv2.imdecode(data, cv2.IMREAD_COLOR)
 
 
+def prepare_ocr_variants(image: np.ndarray) -> list[tuple[str, np.ndarray]]:
+    variants: list[tuple[str, np.ndarray]] = []
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    h, w = gray.shape[:2]
+    scale = max(1.0, min(3.0, 1800.0 / max(1, max(w, h))))
+    if scale > 1.01:
+        gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+
+    variants.append(("gray", gray))
+
+    denoised = cv2.fastNlMeansDenoising(gray, None, 12, 7, 21)
+    clahe = cv2.createCLAHE(clipLimit=2.2, tileGridSize=(8, 8)).apply(denoised)
+    variants.append(("clahe", clahe))
+
+    sharpen_kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+    sharpened = cv2.filter2D(clahe, -1, sharpen_kernel)
+    variants.append(("sharpened", sharpened))
+
+    _, otsu = cv2.threshold(sharpened, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    variants.append(("otsu", otsu))
+
+    adaptive = cv2.adaptiveThreshold(
+        sharpened,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        31,
+        8,
+    )
+    variants.append(("adaptive", adaptive))
+
+    return variants
+
+
+def ocr_score(text: str) -> int:
+    clean = " ".join(text.split())
+    if not clean:
+        return 0
+    alpha_num = sum(1 for char in clean if char.isalnum())
+    words = [word for word in clean.split() if any(char.isalnum() for char in word)]
+    long_words = sum(1 for word in words if len(word) >= 3)
+    return alpha_num + (len(words) * 4) + (long_words * 8)
+
+
+def run_tesseract_file(path: str, lang: str, config: list[str], timeout: int) -> tuple[int, str, str]:
+    result = subprocess.run(
+        [TESSERACT_BINARY, path, "stdout", "-l", lang or DEFAULT_LANG, *config],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+    return result.returncode, result.stdout or "", result.stderr or ""
+
+
+def run_best_ocr(content: bytes, suffix: str, lang: str) -> dict:
+    image = decode_image(content)
+    if image is None:
+        return {"ok": False, "error": "invalid_image", "message": "Could not read the uploaded image.", "details": ""}
+
+    configs = [
+        ["--oem", "1", "--psm", "6"],
+        ["--oem", "1", "--psm", "11"],
+    ]
+    best_text = ""
+    best_details: dict = {"variant": None, "psm": None, "score": 0}
+    errors: list[str] = []
+
+    for variant_name, variant in prepare_ocr_variants(image):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            tmp_path = tmp.name
+        try:
+            cv2.imwrite(tmp_path, variant)
+            for config in configs:
+                code, stdout, stderr = run_tesseract_file(tmp_path, lang, config, max(5, min(TIMEOUT, 20)))
+                text = (stdout or "").strip()
+                score = ocr_score(text)
+                if score > int(best_details["score"]):
+                    best_text = text
+                    best_details = {"variant": variant_name, "psm": config[-1], "score": score}
+                if code != 0 and stderr:
+                    errors.append(stderr.strip()[:240])
+        finally:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+    if not best_text:
+        return {
+            "ok": False,
+            "error": "empty_text",
+            "message": "No readable text found.",
+            "details": " | ".join(errors[:3]),
+        }
+
+    return {"ok": True, "text": best_text, "details": best_details}
+
+
 def largest_face(image: np.ndarray) -> tuple[np.ndarray | None, dict]:
     if FACE_CASCADE.empty():
         return None, {"error": "face_cascade_unavailable"}
@@ -151,41 +250,22 @@ async def ocr(
         return JSONResponse({"ok": False, "error": "file_too_large", "message": "Uploaded file is too large."}, status_code=413)
 
     suffix = Path(file.filename or "upload.jpg").suffix or ".jpg"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name
-
     try:
-        result = subprocess.run(
-            [TESSERACT_BINARY, tmp_path, "stdout", "-l", lang or DEFAULT_LANG],
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT,
-            check=False,
-        )
+        ocr_result = run_best_ocr(content, suffix, lang or DEFAULT_LANG)
     except subprocess.TimeoutExpired:
         return JSONResponse({"ok": False, "error": "ocr_timeout", "message": "OCR timed out."}, status_code=504)
     except Exception as exc:
         return JSONResponse({"ok": False, "error": "ocr_unavailable", "message": str(exc)}, status_code=500)
-    finally:
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
 
-    text = (result.stdout or "").strip()
-    if result.returncode != 0:
+    if not ocr_result["ok"]:
         return JSONResponse({
             "ok": False,
-            "error": "ocr_failed",
-            "message": "Tesseract could not read the uploaded image.",
-            "details": (result.stderr or result.stdout or "")[:1000],
+            "error": ocr_result.get("error", "ocr_failed"),
+            "message": ocr_result.get("message", "Tesseract could not read the uploaded image."),
+            "details": str(ocr_result.get("details", ""))[:1000],
         }, status_code=422)
 
-    if not text:
-        return JSONResponse({"ok": False, "error": "empty_text", "message": "No readable text found."}, status_code=422)
-
-    return {"ok": True, "engine": "tesseract", "text": text}
+    return {"ok": True, "engine": "tesseract", "text": ocr_result["text"], "details": ocr_result.get("details", {})}
 
 
 @app.post("/face-compare")
