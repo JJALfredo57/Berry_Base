@@ -449,7 +449,7 @@
                 <div class="d-flex align-items-center justify-content-between gap-2">
                   <div>
                     <div class="fw-semibold small">{{ $tier['name'] }} Member</div>
-                    <div class="text-muted" style="font-size:.76rem">{{ number_format($tier['min_lifetime_points']) }} earned pts - {{ rtrim(rtrim(number_format($tier['points_multiplier'], 2), '0'), '.') }}x points</div>
+                    <div class="text-muted" style="font-size:.76rem">{{ number_format($tier['min_lifetime_points']) }} earned pts required</div>
                   </div>
                   <span class="badge {{ $tier['is_current'] ? 'text-white' : ($tier['is_unlocked'] ? 'text-bg-success' : 'text-bg-light') }}" @if($tier['is_current']) style="background:var(--primary)" @endif>
                     {{ $tier['is_current'] ? 'Current' : ($tier['is_unlocked'] ? 'Unlocked' : 'Locked') }}

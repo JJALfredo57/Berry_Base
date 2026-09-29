@@ -560,7 +560,7 @@
                     <input type="number" name="tiers[{{ $tier->id }}][min_lifetime_points]" class="form-control" min="0" value="{{ (int) $tier->min_lifetime_points }}" required>
                   </div>
                   <div class="col-6">
-                    <label class="form-label small fw-semibold">Multiplier</label>
+                    <label class="form-label small fw-semibold">Earning Rate</label>
                     <input type="number" name="tiers[{{ $tier->id }}][points_multiplier]" class="form-control" min="0" step="0.01" value="{{ number_format((float) $tier->points_multiplier, 2, '.', '') }}" required>
                   </div>
                 </div>

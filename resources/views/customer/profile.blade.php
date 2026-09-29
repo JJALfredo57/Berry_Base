@@ -101,7 +101,7 @@
                       {{ $tier['is_current'] ? 'Current' : ($tier['is_unlocked'] ? 'Unlocked' : 'Locked') }}
                     </span>
                   </div>
-                  <div class="small fw-semibold mb-2">{{ rtrim(rtrim(number_format($tier['points_multiplier'], 2), '0'), '.') }}x points multiplier</div>
+                  
                   @foreach($tier['benefits'] as $item)
                     <div class="membership-benefit"><i class="bi bi-check-circle"></i><span>{{ $item }}</span></div>
                   @endforeach

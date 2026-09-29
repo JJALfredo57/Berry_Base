@@ -64,14 +64,14 @@ class LoyaltyService
                 'name' => 'Silver',
                 'min_lifetime_points' => 250,
                 'points_multiplier' => 1.25,
-                'perk_summary' => 'Earn more points and unlock verified-only promos.',
+                'perk_summary' => 'Unlock verified-only promos and Silver member rewards.',
                 'is_active' => true,
             ],
             (object) [
                 'name' => 'Gold',
                 'min_lifetime_points' => 750,
                 'points_multiplier' => 1.5,
-                'perk_summary' => 'Highest rewards rate and Customer Loyalty Trust benefits.',
+                'perk_summary' => 'Gold member rewards and Customer Loyalty Trust benefits.',
                 'is_active' => true,
             ],
         ]);
@@ -173,9 +173,9 @@ class LoyaltyService
         $tier = strtolower($tierName);
         $bonusPercent = max(0, (int) round(($multiplier - 1) * 100));
         if ($bonusPercent > 0) {
-            $benefits[] = "Earn {$bonusPercent}% more points than the base rate.";
+            $benefits[] = $tierName . ' member rewards apply to eligible completed orders.';
         } else {
-            $benefits[] = 'Earn points at the base rewards rate.';
+            $benefits[] = $tierName . ' member rewards apply to eligible completed orders.';
         }
 
         if ($tier === 'bronze') {
