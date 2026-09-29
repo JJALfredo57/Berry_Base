@@ -168,10 +168,10 @@ class VerificationController extends Controller
         }
 
         $faceMatch = $faceMatcher->compareUploadedFiles($request->file('id_front'), $request->file('selfie'));
-        if (($faceMatch['status'] ?? 'needs_review') !== 'match') {
+        if (!self::faceStatusCanSubmitForReview($faceMatch)) {
             return back()
                 ->withInput()
-                ->with('error', $faceMatch['message'] ?? 'Face verification must clearly detect and match the face on the ID before submission. Please retake the front ID and selfie.');
+                ->with('error', $faceMatch['message'] ?? 'Selfie does not match the face on the ID. Please retake the front ID and selfie.');
         }
 
         $front = $this->uploadFile($request->file('id_front'), 'uploads/customer-ids');
@@ -256,6 +256,10 @@ class VerificationController extends Controller
         return redirect()->route('customer.verification')->with('msg', 'Valid ID submitted. We will review it soon.');
     }
 
+    public static function faceStatusCanSubmitForReview(array $faceMatch): bool
+    {
+        return ($faceMatch['status'] ?? 'needs_review') !== 'mismatch';
+    }
     private function backSideFastCheck(Request $request): array
     {
         [$frontHash, $backHash] = $this->frontBackHashes($request);

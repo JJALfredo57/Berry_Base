@@ -86,4 +86,17 @@ class CustomerVerificationControllerTest extends TestCase
         $this->assertSame('front_side_again', $result['status']);
         $this->assertSame(60, $result['scan_result']['hash_distance']);
     }
+    public function test_face_needs_review_is_submittable_for_manual_review(): void
+    {
+        $faceMatch = ['status' => 'needs_review', 'message' => 'Admin must review manually.'];
+
+        $this->assertTrue(VerificationController::faceStatusCanSubmitForReview($faceMatch));
+    }
+
+    public function test_face_mismatch_is_not_submittable_for_manual_review(): void
+    {
+        $faceMatch = ['status' => 'mismatch', 'message' => 'Face does not match.'];
+
+        $this->assertFalse(VerificationController::faceStatusCanSubmitForReview($faceMatch));
+    }
 }

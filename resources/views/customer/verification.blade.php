@@ -995,12 +995,12 @@ document.addEventListener('DOMContentLoaded', function () {
         setLiveness('Comparing with ID photo...', 'Hold steady. This should only take a moment.');
         setLive(stage, 'Comparing with ID photo...', 86, true);
         var faceResult = await compareFaceFrame(blob, true);
-        if (faceResult.status !== 'match') {
+        if (faceResult.status === 'mismatch') {
           state.processing = false;
           state.stableFrames = 0;
           state.selfieServerMatched = false;
           state.selfieMatchedResult = null;
-          var message = faceResult.message || 'Face must clearly match the ID before continuing. Retake the selfie or retake the front ID.';
+          var message = faceResult.message || 'Face does not match the ID. Retake the selfie or retake the front ID.';
           setStatus(input.id, message, 'text-danger');
           setLiveness('Face verification did not pass.', message);
           setLive(stage, faceCompareMessage(faceResult), 38, true);
@@ -1169,12 +1169,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var uploadedFaceResult = fromCamera && state.selfieServerMatched && state.selfieMatchedResult
           ? state.selfieMatchedResult
           : await compareFaceFrame(file, true);
-        if (uploadedFaceResult.status !== 'match') {
+        if (uploadedFaceResult.status === 'mismatch') {
           input.value = '';
           state.processing = false;
           state.selfieServerMatched = false;
           state.selfieMatchedResult = null;
-          setStatus(input.id, uploadedFaceResult.message || 'Face must clearly match the ID before submit. Please retake with the correct person.', 'text-danger');
+          setStatus(input.id, uploadedFaceResult.message || 'Face does not match the ID. Please retake with the correct person.', 'text-danger');
           setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), 38, true);
           return;
         }
@@ -1185,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', function () {
         state.selfieFile = file;
         setFramePreview(input.id, file);
         document.getElementById('selfieCaptureSourceInput').value = fromCamera ? 'camera_capture' : 'upload';
-        setStatus(input.id, 'Face matched the ID. You may submit for review.', 'text-success');
+        setStatus(input.id, uploadedFaceResult.status === 'match' ? 'Face matched the ID. You may submit for review.' : 'Face needs admin review. You may submit for manual review.', uploadedFaceResult.status === 'match' ? 'text-success' : 'text-warning');
         setLive(document.querySelector('[data-step="selfie"]'), faceCompareMessage(uploadedFaceResult), 100, true);
         stopCamera();
       }
