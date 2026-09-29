@@ -30,7 +30,7 @@
   <i class="bi bi-info-circle-fill fs-5"></i>
   <div>
     <strong>Important payout rule:</strong> seller money is only payable after payment is collected, the order is delivered, and the hold period has passed.
-    Automatic mode prepares eligible payout batches; final PayMongo disbursement should be enabled only after Wallet/Disbursements setup is confirmed.
+    Berry Base may process eligible customer refunds before seller payout is released. Automatic mode prepares eligible payout batches; final PayMongo disbursement should be enabled only after Wallet/Disbursements setup is confirmed.
   </div>
 </div>
 

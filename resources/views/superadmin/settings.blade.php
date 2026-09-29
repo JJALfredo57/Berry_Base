@@ -473,9 +473,9 @@
   @php
     $earnOn = (bool) ($platform->loyalty_earn_enabled ?? true);
     $redeemOn = (bool) ($platform->loyalty_redeem_enabled ?? true);
-    $baseAmount = (float) ($platform->loyalty_points_base_amount ?? 50);
-    $pointValue = (float) ($platform->loyalty_point_value ?? 1);
-    $maxRedeemPercent = (float) ($platform->loyalty_max_redemption_percent ?? 50);
+    $baseAmount = (float) ($platform->loyalty_points_base_amount ?? 100);
+    $pointValue = (float) ($platform->loyalty_point_value ?? 0.10);
+    $maxRedeemPercent = (float) ($platform->loyalty_max_redemption_percent ?? 20);
     $requiresVerified = (bool) ($platform->loyalty_redemption_requires_verified ?? true);
   @endphp
   <form action="{{ route('superadmin.settings.rewards') }}" method="POST" novalidate>
@@ -486,7 +486,7 @@
           <span style="font-size:.95rem;font-weight:700;color:var(--gray-900);display:flex;align-items:center;gap:.6rem">
             <i class="bi bi-award" style="color:var(--primary)"></i> Rewards, Points, and Membership
           </span>
-          <div style="font-size:.78rem;color:var(--gray-500);margin-top:.2rem">Controls customer-facing points rules, redemption limits, and membership tiers.</div>
+          <div style="font-size:.78rem;color:var(--gray-500);margin-top:.2rem">Controls customer-facing earned points, capped discounts, and balance-based membership tiers.</div>
         </div>
         <button type="submit" class="btn btn-primary btn-sm" style="padding:.55rem 1rem;font-weight:600">
           <i class="bi bi-save me-1"></i> Save Rewards
@@ -516,7 +516,7 @@
               <span class="input-group-text">PHP</span>
               <input type="number" name="loyalty_points_base_amount" class="form-control" min="1" step="0.01" value="{{ number_format($baseAmount, 2, '.', '') }}" required>
             </div>
-            <div class="form-text">Example: 50 means PHP 50 earns 1 base point.</div>
+            <div class="form-text">Recommended: PHP 100 product item subtotal earns 1 base point.</div>
           </div>
           <div class="col-md-6 col-xl-3">
             <label class="form-label fw-semibold">Point Value</label>
@@ -524,7 +524,7 @@
               <span class="input-group-text">PHP</span>
               <input type="number" name="loyalty_point_value" class="form-control" min="0.01" step="0.01" value="{{ number_format($pointValue, 2, '.', '') }}" required>
             </div>
-            <div class="form-text">Discount value of 1 redeemed point.</div>
+            <div class="form-text">Recommended low value: PHP 0.10 per redeemed point.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label fw-semibold">Max Points Discount Per Order</label>
@@ -532,7 +532,7 @@
               <input type="number" name="loyalty_max_redemption_percent" class="form-control" min="0" max="100" step="0.01" value="{{ number_format($maxRedeemPercent, 2, '.', '') }}" required>
               <span class="input-group-text">%</span>
             </div>
-            <div class="form-text">Applied to product subtotal after voucher. Delivery fee is not discounted by points.</div>
+            <div class="form-text">Applied to product subtotal after voucher. Delivery fee, service charge, and seller payout controls stay separate from points.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label fw-semibold">Verification Rule</label>
@@ -546,7 +546,7 @@
 
         <div style="border-top:1.5px solid var(--gray-100);margin:1.5rem 0 1rem"></div>
         <div class="fw-bold mb-1" style="color:var(--gray-900)">Membership Tiers</div>
-        <div class="text-muted small mb-3">Lifetime points unlock tiers. Redeeming points does not lower lifetime points.</div>
+        <div class="text-muted small mb-3">Current earned points unlock tiers. Redeeming points may lower the customer membership level.</div>
         <div class="row g-3">
           @forelse($loyaltyTiers as $tier)
             <div class="col-lg-4">
@@ -556,7 +556,7 @@
                 <input type="text" name="tiers[{{ $tier->id }}][name]" class="form-control mb-2" maxlength="40" value="{{ $tier->name }}" required>
                 <div class="row g-2">
                   <div class="col-6">
-                    <label class="form-label small fw-semibold">Lifetime Points</label>
+                    <label class="form-label small fw-semibold">Required Earned Points</label>
                     <input type="number" name="tiers[{{ $tier->id }}][min_lifetime_points]" class="form-control" min="0" value="{{ (int) $tier->min_lifetime_points }}" required>
                   </div>
                   <div class="col-6">
@@ -577,7 +577,7 @@
           @endforelse
         </div>
         <div class="alert alert-info mt-4 mb-0">
-          <i class="bi bi-info-circle me-1"></i> Customer pages automatically use these rules after saving.
+          <i class="bi bi-info-circle me-1"></i> Customer pages automatically use these rules after saving. Berry Base can hold customer payments until completion, deduct platform commission, release seller payouts after review, and process eligible refunds before payout release.
         </div>
       </div>
     </div>

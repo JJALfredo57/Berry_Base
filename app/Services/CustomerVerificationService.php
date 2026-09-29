@@ -50,8 +50,8 @@ class CustomerVerificationService
             ],
             [
                 'icon' => 'bi-shield-check',
-                'title' => 'Higher order trust',
-                'copy' => 'Large COD/COP orders are easier to approve with verified identity.',
+                'title' => 'Customer Loyalty Trust',
+                'copy' => 'Verified identity supports Customer Loyalty Trust for larger COD/COP orders.',
                 'unlocked' => $status === 'approved',
             ],
         ];

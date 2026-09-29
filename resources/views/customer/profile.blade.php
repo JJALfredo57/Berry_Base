@@ -57,13 +57,13 @@
           <div class="row g-3 mt-3">
             <div class="col-sm-4">
               <div class="rounded-3 p-3 bg-white border">
-                <div class="small text-muted">Available Points</div>
+                <div class="small text-muted">Earned Points</div>
                 <div class="fw-bold">{{ (int)($membership['balance'] ?? ($loyalty->points_balance ?? 0)) }}</div>
               </div>
             </div>
             <div class="col-sm-4">
               <div class="rounded-3 p-3 bg-white border">
-                <div class="small text-muted">Lifetime Points</div>
+                <div class="small text-muted">Total Points Earned</div>
                 <div class="fw-bold">{{ (int)($membership['lifetime_points'] ?? ($loyalty->lifetime_points ?? 0)) }}</div>
               </div>
             </div>
@@ -94,7 +94,7 @@
                       <div class="membership-icon"><i class="bi {{ $tier['is_unlocked'] ? 'bi-patch-check-fill' : 'bi-lock' }}"></i></div>
                       <div>
                         <div class="fw-bold">{{ $tier['name'] }}</div>
-                        <div class="small text-muted">{{ number_format($tier['min_lifetime_points']) }} lifetime pts</div>
+                        <div class="small text-muted">{{ number_format($tier['min_lifetime_points']) }} earned pts</div>
                       </div>
                     </div>
                     <span class="badge {{ $tier['is_current'] ? 'text-white' : ($tier['is_unlocked'] ? 'text-bg-success' : 'text-bg-light') }}" @if($tier['is_current']) style="background:var(--primary)" @endif>
@@ -118,7 +118,7 @@
             <div>
               <h6 class="fw-bold mb-1"><i class="bi bi-shield-check me-2" style="color:var(--primary)"></i>Verification & Rewards</h6>
               <div class="text-muted small">
-                {{ ($verificationStatus ?? 'not_submitted') === 'approved' ? 'Verified benefits are active.' : 'Verify your account to unlock rewards redemption, verified-only vouchers, and higher trust limits.' }}
+                {{ ($verificationStatus ?? 'not_submitted') === 'approved' ? 'Verified benefits are active.' : 'Verify your account to unlock rewards redemption, verified-only vouchers, and Customer Loyalty Trust benefits.' }}
               </div>
             </div>
             <a href="{{ route('customer.verification') }}" class="btn btn-outline-primary btn-sm">
@@ -135,12 +135,12 @@
             <div class="col-sm-4">
               <div class="rounded-3 p-3" style="background:#f8fafc;border:1px solid #e5e7eb">
                 <div class="small text-muted">Membership</div>
-                <div class="fw-bold">{{ $loyalty->tier ?? 'Bronze' }}</div>
+                <div class="fw-bold">{{ $currentMembership }}</div>
               </div>
             </div>
             <div class="col-sm-4">
               <div class="rounded-3 p-3" style="background:#f8fafc;border:1px solid #e5e7eb">
-                <div class="small text-muted">Points</div>
+                <div class="small text-muted">Earned Points</div>
                 <div class="fw-bold">{{ (int)($loyalty->points_balance ?? 0) }}</div>
               </div>
             </div>

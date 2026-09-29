@@ -147,7 +147,7 @@ return new class extends Migration {
             DB::table('loyalty_tiers')->insert([
                 ['name' => 'Bronze', 'min_lifetime_points' => 0, 'points_multiplier' => 1, 'perk_summary' => 'Earn rewards on completed orders.', 'is_active' => 1, 'created_at' => now(), 'updated_at' => now()],
                 ['name' => 'Silver', 'min_lifetime_points' => 250, 'points_multiplier' => 1.25, 'perk_summary' => 'Earn more points and unlock verified-only promos.', 'is_active' => 1, 'created_at' => now(), 'updated_at' => now()],
-                ['name' => 'Gold', 'min_lifetime_points' => 750, 'points_multiplier' => 1.5, 'perk_summary' => 'Highest rewards rate and priority trust signals.', 'is_active' => 1, 'created_at' => now(), 'updated_at' => now()],
+                ['name' => 'Gold', 'min_lifetime_points' => 750, 'points_multiplier' => 1.5, 'perk_summary' => 'Highest rewards rate and Customer Loyalty Trust benefits.', 'is_active' => 1, 'created_at' => now(), 'updated_at' => now()],
             ]);
         }
 

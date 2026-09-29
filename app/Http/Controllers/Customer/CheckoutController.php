@@ -749,7 +749,7 @@ class CheckoutController extends Controller
                     'label' => 'Rewards points',
                     'code' => null,
                     'amount' => $loyaltyDiscount,
-                    'meta' => json_encode(['points' => $pointsRedeemed, 'point_value' => (float) ($loyaltySettings['point_value'] ?? 1)]),
+                    'meta' => json_encode(['points' => $pointsRedeemed, 'point_value' => (float) ($loyaltySettings['point_value'] ?? 0.10)]),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

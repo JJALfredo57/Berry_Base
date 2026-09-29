@@ -23,10 +23,10 @@
       ? $checkoutItems->sum(fn($item) => (float)$item->discount_amount_snapshot * (int)$item->quantity)
       : $pricing['discount_amount'] * $checkout['quantity'];
   $checkoutCover = $shop->shop_cover ?? $shopSettings->bg_image_path ?? '';
-  $loyaltySettings = $loyaltySettings ?? ['earn_enabled' => true, 'redeem_enabled' => true, 'points_base_amount' => 50, 'point_value' => 1, 'max_redemption_percent' => 50, 'redemption_requires_verified' => true];
-  $pointValue = (float) ($loyaltySettings['point_value'] ?? 1);
-  $maxRedeemPercent = (float) ($loyaltySettings['max_redemption_percent'] ?? 50);
-  $earnBaseAmount = (float) ($loyaltySettings['points_base_amount'] ?? 50);
+  $loyaltySettings = $loyaltySettings ?? ['earn_enabled' => true, 'redeem_enabled' => true, 'points_base_amount' => 100, 'point_value' => 0.10, 'max_redemption_percent' => 20, 'redemption_requires_verified' => true];
+  $pointValue = (float) ($loyaltySettings['point_value'] ?? 0.10);
+  $maxRedeemPercent = (float) ($loyaltySettings['max_redemption_percent'] ?? 20);
+  $earnBaseAmount = (float) ($loyaltySettings['points_base_amount'] ?? 100);
   $requiresVerifiedToRedeem = (bool) ($loyaltySettings['redemption_requires_verified'] ?? true);
   $readyPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($product->shop_id ?? null);
   $readyPrepDays = (int) $readyPrepSettings->ready_made_prep_days;
@@ -445,9 +445,9 @@ document.body.style.paddingRight = '';
             </div>
             <div class="form-text">
               @if($verificationStatus === 'approved')
-                1 point = PHP {{ number_format($pointValue, 2) }} discount. Points can cover up to {{ rtrim(rtrim(number_format($maxRedeemPercent, 2), '0'), '.') }}% of product subtotal after vouchers.
+                Each point gives a small PHP {{ number_format($pointValue, 2) }} discount. Points can cover up to {{ rtrim(rtrim(number_format($maxRedeemPercent, 2), '0'), '.') }}% of product subtotal after vouchers.
               @else
-                {{ $requiresVerifiedToRedeem ? 'Verify your account first to redeem points.' : 'Rewards redemption is available for your account.' }} You can still earn points from paid completed orders.
+                {{ $requiresVerifiedToRedeem ? 'Verify your account first to redeem points.' : 'Rewards redemption is available for your account.' }} You can still earn points from paid completed product item subtotals.
               @endif
             </div>
             @if(!empty($loyaltyEarnEstimate['enabled']))
@@ -1299,4 +1299,3 @@ document.getElementById('voucherCodeInput')?.addEventListener('input', () => {
 document.getElementById('pointsToRedeem')?.addEventListener('input', () => updateTotal(getCurrentAddonTotal()));
 </script>
 @endpush
-

@@ -50,7 +50,7 @@
   <i class="bi bi-info-circle-fill fs-5"></i>
   <div>
     <strong>Reminder:</strong> earnings become available only after an order is paid, delivered, and cleared by the platform hold period.
-    Keep your account name and number exact. Incorrect payout details can delay or fail transfers.
+    Eligible refunds may be handled before payout release. Keep your account name and number exact because incorrect payout details can delay or fail transfers.
   </div>
 </div>
 

@@ -575,8 +575,8 @@
               @php
                 $coVoucherOptions = $customOrderVouchers[$co->id] ?? [];
                 $coLoyaltyQuote = $customOrderLoyaltyQuotes[$co->id] ?? ['balance' => 0, 'max' => 0];
-                $coPointValue = (float)($loyaltySettings['point_value'] ?? 1);
-                $coMaxRedeemPercent = (float)($loyaltySettings['max_redemption_percent'] ?? 50);
+                $coPointValue = (float)($loyaltySettings['point_value'] ?? 0.10);
+                $coMaxRedeemPercent = (float)($loyaltySettings['max_redemption_percent'] ?? 20);
               @endphp
               <div class="custom-final-discounts mb-2"
                    data-base="{{ number_format($acceptTotal, 2, '.', '') }}"
@@ -761,8 +761,8 @@
                     @php
                       $coVoucherOptions = $customOrderVouchers[$co->id] ?? [];
                       $coLoyaltyQuote = $customOrderLoyaltyQuotes[$co->id] ?? ['balance' => 0, 'max' => 0];
-                      $coPointValue = (float)($loyaltySettings['point_value'] ?? 1);
-                      $coMaxRedeemPercent = (float)($loyaltySettings['max_redemption_percent'] ?? 50);
+                      $coPointValue = (float)($loyaltySettings['point_value'] ?? 0.10);
+                      $coMaxRedeemPercent = (float)($loyaltySettings['max_redemption_percent'] ?? 20);
                     @endphp
                     <div class="custom-final-discounts mb-2"
                          data-base="{{ number_format($acceptTotal, 2, '.', '') }}"
@@ -1758,7 +1758,7 @@ function setupDepositAmountForms() {
 
       const pointBalance = parseInt(discountBox.dataset.pointBalance || '0', 10) || 0;
       const pointValue = Math.max(0.01, parseFloat(discountBox.dataset.pointValue || '1') || 1);
-      const maxRedeemPercent = Math.max(0, parseFloat(discountBox.dataset.maxRedeemPercent || '50') || 0);
+      const maxRedeemPercent = Math.max(0, parseFloat(discountBox.dataset.maxRedeemPercent || '20') || 0);
       const subtotalAfterVoucher = Math.max(0, base - voucherDiscount);
       const maxPointsBySubtotal = Math.floor((subtotalAfterVoucher * (maxRedeemPercent / 100)) / pointValue);
       const maxPoints = Math.max(0, Math.min(pointBalance, maxPointsBySubtotal));

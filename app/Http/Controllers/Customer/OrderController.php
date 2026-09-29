@@ -198,7 +198,7 @@ class OrderController extends Controller
                 'amount' => (float) $discounts['loyalty_discount'],
                 'meta' => json_encode([
                     'points' => (int) $discounts['points_redeemed'],
-                    'point_value' => (float) (app(LoyaltyService::class)->settings()['point_value'] ?? 1),
+                    'point_value' => (float) (app(LoyaltyService::class)->settings()['point_value'] ?? 0.10),
                     'applied_to' => 'custom_final_price',
                 ]),
                 'created_at' => now(),

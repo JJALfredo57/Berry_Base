@@ -10,9 +10,9 @@ class LoyaltyService
     private const DEFAULT_SETTINGS = [
         'earn_enabled' => true,
         'redeem_enabled' => true,
-        'points_base_amount' => 50.0,
-        'point_value' => 1.0,
-        'max_redemption_percent' => 50.0,
+        'points_base_amount' => 100.0,
+        'point_value' => 0.10,
+        'max_redemption_percent' => 20.0,
         'redemption_requires_verified' => true,
     ];
 
@@ -71,7 +71,7 @@ class LoyaltyService
                 'name' => 'Gold',
                 'min_lifetime_points' => 750,
                 'points_multiplier' => 1.5,
-                'perk_summary' => 'Highest rewards rate and priority trust signals.',
+                'perk_summary' => 'Highest rewards rate and Customer Loyalty Trust benefits.',
                 'is_active' => true,
             ],
         ]);
@@ -116,20 +116,29 @@ class LoyaltyService
         $account = $this->account($userId);
         $tiers = $this->tiers()->values();
         $settings = $this->settings();
-        $lifetime = (int) ($account->lifetime_points ?? 0);
         $balance = (int) ($account->points_balance ?? 0);
+        $lifetime = (int) ($account->lifetime_points ?? 0);
         $computedCurrent = $tiers
-            ->filter(fn ($tier) => (int) $tier->min_lifetime_points <= $lifetime)
+            ->filter(fn ($tier) => (int) $tier->min_lifetime_points <= $balance)
             ->last();
         $currentTier = (string) ($computedCurrent->name ?? $account->tier ?? 'Bronze');
-        $nextTier = $tiers->first(fn ($tier) => (int) $tier->min_lifetime_points > $lifetime);
+        $nextTier = $tiers->first(fn ($tier) => (int) $tier->min_lifetime_points > $balance);
         $currentMin = (int) ($computedCurrent->min_lifetime_points ?? 0);
         $nextMin = $nextTier ? (int) $nextTier->min_lifetime_points : null;
         $progress = $nextMin
-            ? min(100, max(0, (int) floor((($lifetime - $currentMin) / max(1, $nextMin - $currentMin)) * 100)))
+            ? min(100, max(0, (int) floor((($balance - $currentMin) / max(1, $nextMin - $currentMin)) * 100)))
             : 100;
 
-        $tierCards = $tiers->map(function ($tier) use ($lifetime, $currentTier) {
+        if ($account && ($account->tier ?? null) !== $currentTier) {
+            DB::table('loyalty_accounts')->where('user_id', $userId)->update([
+                'tier' => $currentTier,
+                'tier_updated_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $account = DB::table('loyalty_accounts')->where('user_id', $userId)->first();
+        }
+
+        $tierCards = $tiers->map(function ($tier) use ($balance, $currentTier) {
             $name = (string) $tier->name;
             return [
                 'name' => $name,
@@ -138,7 +147,7 @@ class LoyaltyService
                 'perk_summary' => (string) ($tier->perk_summary ?? ''),
                 'benefits' => $this->tierBenefits($name, (string) ($tier->perk_summary ?? ''), (float) ($tier->points_multiplier ?? 1)),
                 'is_current' => strcasecmp($name, $currentTier) === 0,
-                'is_unlocked' => $lifetime >= (int) $tier->min_lifetime_points,
+                'is_unlocked' => $balance >= (int) $tier->min_lifetime_points,
             ];
         })->all();
 
@@ -148,7 +157,7 @@ class LoyaltyService
             'lifetime_points' => $lifetime,
             'current_tier' => $currentTier,
             'next_tier' => $nextTier,
-            'points_to_next' => $nextMin ? max(0, $nextMin - $lifetime) : 0,
+            'points_to_next' => $nextMin ? max(0, $nextMin - $balance) : 0,
             'progress' => $progress,
             'tiers' => $tierCards,
             'settings' => $settings,
@@ -174,7 +183,7 @@ class LoyaltyService
         } elseif ($tier === 'silver') {
             $benefits[] = 'Better access to verified-only promos once your ID is approved.';
         } elseif ($tier === 'gold') {
-            $benefits[] = 'Priority trust signal for larger COD/COP orders.';
+            $benefits[] = 'Customer Loyalty Trust benefits for larger COD/COP orders.';
         } else {
             $benefits[] = 'Tier benefits follow the current BerryBase rewards settings.';
         }
@@ -227,7 +236,7 @@ class LoyaltyService
     {
         $settings = $this->settings();
         $account = $this->account($userId);
-        $tierName = (string) ($account->tier ?? $this->tierForPoints((int) ($account->lifetime_points ?? 0)));
+        $tierName = $this->tierForPoints((int) ($account->points_balance ?? 0));
         $tier = $this->tiers()->first(fn ($item) => strcasecmp((string) $item->name, $tierName) === 0);
         $multiplier = (float) ($tier->points_multiplier ?? 1);
         $basePoints = $settings['earn_enabled']
@@ -255,8 +264,11 @@ class LoyaltyService
             }
 
             $balance = (int) $account->points_balance - $points;
+            $newTier = $this->tierForPoints($balance);
             DB::table('loyalty_accounts')->where('user_id', $userId)->update([
                 'points_balance' => $balance,
+                'tier' => $newTier,
+                'tier_updated_at' => $newTier !== ($account->tier ?? 'Bronze') ? now() : $account->tier_updated_at,
                 'updated_at' => now(),
             ]);
 
@@ -294,19 +306,20 @@ class LoyaltyService
         $account = $this->account($order->user_id);
         if (!$account) return;
 
+        $tierName = $this->tierForPoints((int) ($account->points_balance ?? 0));
         $tier = Schema::hasTable('loyalty_tiers')
-            ? DB::table('loyalty_tiers')->where('name', $account->tier ?? 'Bronze')->where('is_active', true)->first()
-            : $this->tiers()->first(fn ($item) => strcasecmp((string) $item->name, (string) ($account->tier ?? 'Bronze')) === 0);
+            ? DB::table('loyalty_tiers')->where('name', $tierName)->where('is_active', true)->first()
+            : $this->tiers()->first(fn ($item) => strcasecmp((string) $item->name, $tierName) === 0);
 
-        $net = max(0, (float) ($order->total_price ?? 0) - (float) ($order->delivery_fee ?? 0) - (float) ($order->service_charge ?? 0));
-        $basePoints = (int) floor($net / max(1, (float) $settings['points_base_amount']));
+        $eligibleSubtotal = $this->eligibleProductSubtotal($order);
+        $basePoints = (int) floor($eligibleSubtotal / max(1, (float) $settings['points_base_amount']));
         $multiplier = (float) ($tier->points_multiplier ?? 1);
         $points = max(0, (int) floor($basePoints * $multiplier));
         if ($points <= 0) return;
 
         $balance = (int) $account->points_balance + $points;
         $lifetime = (int) $account->lifetime_points + $points;
-        $newTier = $this->tierForPoints($lifetime);
+        $newTier = $this->tierForPoints($balance);
 
         DB::table('loyalty_transactions')->insert([
             'user_id' => $order->user_id,
@@ -322,7 +335,7 @@ class LoyaltyService
         DB::table('loyalty_accounts')->where('user_id', $order->user_id)->update([
             'points_balance' => $balance,
             'lifetime_points' => $lifetime,
-            'lifetime_spend' => round((float) $account->lifetime_spend + $net, 2),
+            'lifetime_spend' => round((float) $account->lifetime_spend + $eligibleSubtotal, 2),
             'tier' => $newTier,
             'tier_updated_at' => $newTier !== ($account->tier ?? 'Bronze') ? now() : $account->tier_updated_at,
             'updated_at' => now(),
@@ -333,18 +346,39 @@ class LoyaltyService
         }
     }
 
-    public function tierForPoints(int $lifetimePoints): string
+    private function eligibleProductSubtotal(object $order): float
+    {
+        if (!empty($order->id) && Schema::hasTable('order_items')) {
+            $subtotal = (float) DB::table('order_items')
+                ->where('order_id', $order->id)
+                ->selectRaw('COALESCE(SUM(final_unit_price_snapshot * quantity), 0) as subtotal')
+                ->value('subtotal');
+
+            if ($subtotal > 0) {
+                return round($subtotal, 2);
+            }
+        }
+
+        return round(max(
+            0,
+            (float) ($order->total_price ?? 0)
+            - (float) ($order->delivery_fee ?? 0)
+            - (float) ($order->service_charge ?? 0)
+        ), 2);
+    }
+
+    public function tierForPoints(int $earnedPoints): string
     {
         if (!Schema::hasTable('loyalty_tiers')) {
             return $this->tiers()
-                ->filter(fn ($tier) => (int) $tier->min_lifetime_points <= $lifetimePoints)
+                ->filter(fn ($tier) => (int) $tier->min_lifetime_points <= $earnedPoints)
                 ->last()
                 ->name ?? 'Bronze';
         }
 
         $tier = DB::table('loyalty_tiers')
             ->where('is_active', true)
-            ->where('min_lifetime_points', '<=', $lifetimePoints)
+            ->where('min_lifetime_points', '<=', $earnedPoints)
             ->orderByDesc('min_lifetime_points')
             ->first();
 

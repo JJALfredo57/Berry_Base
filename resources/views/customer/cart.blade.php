@@ -222,7 +222,7 @@
           <div class="d-flex justify-content-between mb-3"><span class="fw-semibold">Subtotal</span><span class="fw-bold">PHP {{ number_format($subtotal, 2) }}</span></div>
           <div class="rounded-3 p-3 mb-3" style="background:#f8fafc;border:1px solid #e5e7eb">
             <div class="small fw-semibold"><i class="bi bi-stars me-1" style="color:var(--primary)"></i>{{ $loyalty->tier ?? 'Bronze' }} Member</div>
-            <div class="text-muted small">{{ (int)($loyalty->points_balance ?? 0) }} points available</div>
+            <div class="text-muted small">{{ (int)($loyalty->points_balance ?? 0) }} earned points</div>
           </div>
           @if($verificationStatus !== 'approved')
             <a href="{{ route('customer.verification') }}" class="btn btn-outline-primary w-100 btn-sm">

@@ -167,7 +167,7 @@
           <span class="small fw-semibold">{{ $statusLabel }}</span>
         </div>
         <h3 class="fw-bold mb-2">Verify your BerryBase account</h3>
-        <p class="text-muted mb-0">Upload a valid ID once to unlock rewards redemption, verified-only vouchers, and higher trust for larger COD/COP orders.</p>
+        <p class="text-muted mb-0">Upload a valid ID once to unlock rewards redemption, verified-only vouchers, and Customer Loyalty Trust for larger COD/COP orders.</p>
       </div>
       <div class="col-lg-5">
         <div class="bg-white rounded-3 p-3 border">
@@ -351,7 +351,7 @@
             {{ $status === 'approved' ? 'Verified redemption is active.' : 'Earn points now. Verify your account to redeem rewards and unlock verified-only vouchers.' }}
           </div>
           <div class="d-flex justify-content-between small mb-1">
-            <span>{{ (int)($membership['lifetime_points'] ?? 0) }} lifetime points</span>
+            <span>{{ (int)($membership['balance'] ?? 0) }} earned points</span>
             <span>
               @if($nextMembership)
                 {{ $membership['points_to_next'] ?? 0 }} to {{ $nextMembership->name }}
@@ -369,7 +369,7 @@
                 <div class="d-flex align-items-center justify-content-between gap-2">
                   <div>
                     <div class="fw-semibold small">{{ $tier['name'] }} Member</div>
-                    <div class="text-muted" style="font-size:.76rem">{{ number_format($tier['min_lifetime_points']) }} lifetime pts - {{ rtrim(rtrim(number_format($tier['points_multiplier'], 2), '0'), '.') }}x points</div>
+                    <div class="text-muted" style="font-size:.76rem">{{ number_format($tier['min_lifetime_points']) }} earned pts - {{ rtrim(rtrim(number_format($tier['points_multiplier'], 2), '0'), '.') }}x points</div>
                   </div>
                   <span class="badge {{ $tier['is_current'] ? 'text-white' : ($tier['is_unlocked'] ? 'text-bg-success' : 'text-bg-light') }}" @if($tier['is_current']) style="background:var(--primary)" @endif>
                     {{ $tier['is_current'] ? 'Current' : ($tier['is_unlocked'] ? 'Unlocked' : 'Locked') }}
