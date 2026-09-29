@@ -152,6 +152,41 @@
   .verify-selfie-tips{gap:.38rem}
   .verify-selfie-tip{padding:.42rem .52rem;font-size:.68rem}
 }
+.verify-progress-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem}
+.verify-progress-tile{position:relative;min-height:112px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;padding:.85rem;overflow:hidden;box-shadow:0 10px 24px rgba(15,23,42,.05);transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.verify-progress-tile:before{content:"";position:absolute;left:.85rem;right:.85rem;top:.52rem;height:3px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+.verify-progress-tile.is-active{border-color:rgba(var(--primary-rgb,233,30,99),.42);box-shadow:0 14px 30px rgba(var(--primary-rgb,233,30,99),.11)}
+.verify-progress-tile.is-active:before{background:linear-gradient(90deg,var(--primary),#22c55e);animation:verifyProgressPulse 1.8s ease-in-out infinite}
+.verify-progress-tile:hover{transform:translateY(-2px)}
+.verify-progress-icon{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#f8fafc;color:#64748b;margin-top:.25rem;margin-bottom:.55rem}
+.verify-progress-tile.is-active .verify-progress-icon{background:rgba(var(--primary-rgb,233,30,99),.1);color:var(--primary)}
+.verify-progress-label{font-weight:800;font-size:.82rem;color:#0f172a;line-height:1.15}
+.verify-progress-copy{font-size:.72rem;color:#64748b;line-height:1.25;margin-top:.25rem}
+.verify-reminder-shell{border:1px solid #e5e7eb;border-radius:8px;background:#fff;padding:1rem;box-shadow:0 12px 30px rgba(15,23,42,.05)}
+.verify-reminder-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
+.verify-flip-card{border:0;background:transparent;padding:0;text-align:left;min-height:132px;perspective:900px;display:block;width:100%}
+.verify-flip-inner{position:relative;min-height:132px;height:100%;transform-style:preserve-3d;transition:transform .48s cubic-bezier(.2,.7,.2,1)}
+.verify-flip-card.is-flipped .verify-flip-inner,.verify-flip-card:focus-visible .verify-flip-inner{transform:rotateY(180deg)}
+.verify-flip-face{position:absolute;inset:0;border:1px solid #e5e7eb;border-radius:8px;background:#fff;padding:.82rem;backface-visibility:hidden;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 22px rgba(15,23,42,.05)}
+.verify-flip-back{transform:rotateY(180deg);background:#f8fbff;border-color:#cfe4ff}
+.verify-flip-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.55rem}
+.verify-flip-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(var(--primary-rgb,233,30,99),.1);color:var(--primary);flex:0 0 auto}
+.verify-help-dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8;font-weight:800;flex:0 0 auto}
+.verify-flip-title{font-weight:800;font-size:.82rem;color:#0f172a;line-height:1.16;margin-top:.65rem}
+.verify-flip-copy{font-size:.72rem;color:#64748b;line-height:1.3;margin-top:.3rem}
+.verify-flip-hint{font-size:.68rem;color:#94a3b8;margin-top:.55rem}
+.verify-lock-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}
+.verify-lock-tile{border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;padding:.75rem;display:flex;gap:.55rem;align-items:flex-start;min-height:86px}
+.verify-lock-tile i{color:#64748b;flex:0 0 auto;margin-top:.1rem}
+.verify-lock-tile span{font-size:.76rem;color:#475569;line-height:1.28}
+.verify-selfie-help-toggle{border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:.28rem .6rem;font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;gap:.35rem}
+.verify-selfie-tip-panel{display:none;border:1px solid #cfe4ff;border-radius:8px;background:#f8fbff;padding:.65rem .75rem;color:#334155;font-size:.74rem;line-height:1.35}
+.verify-selfie-tip-panel.is-open{display:block;animation:verifySlideIn .24s ease-out}
+.verify-selfie-tools{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.45rem}
+@keyframes verifyProgressPulse{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes verifySlideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+@media (max-width:991.98px){.verify-progress-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.verify-reminder-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:575.98px){.verify-progress-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem}.verify-progress-tile{min-height:104px;padding:.7rem}.verify-progress-label{font-size:.76rem}.verify-progress-copy{font-size:.68rem}.verify-reminder-shell{padding:.75rem}.verify-reminder-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem}.verify-flip-card,.verify-flip-inner{min-height:124px}.verify-flip-face{padding:.68rem}.verify-flip-title{font-size:.76rem}.verify-flip-copy{font-size:.68rem}.verify-lock-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}.verify-lock-tile{min-height:96px;padding:.62rem}.verify-lock-tile span{font-size:.68rem}.verify-selfie-tools{align-items:stretch}.verify-selfie-help-toggle{width:100%;justify-content:center}}
 </style>
 
 <div class="container-fluid py-4">
@@ -159,30 +194,48 @@
   @if(session('error'))<div class="alert alert-danger border-0">{{ session('error') }}</div>@endif
   @if($errors->any())<div class="alert alert-danger border-0">{{ $errors->first() }}</div>@endif
 
+  @php
+    $reviewStarted = in_array($status, ['pending','approved','rejected'], true);
+    $progressItems = [
+      ['icon' => 'bi-card-checklist', 'label' => 'Choose ID', 'copy' => 'Pick the exact ID type before scanning.', 'active' => true],
+      ['icon' => 'bi-upc-scan', 'label' => 'Scan ID', 'copy' => 'Front and back photos are checked clearly.', 'active' => $reviewStarted],
+      ['icon' => 'bi-person-bounding-box', 'label' => 'Face Match', 'copy' => 'Selfie is compared with the ID photo.', 'active' => $reviewStarted],
+      ['icon' => 'bi-shield-check', 'label' => 'Admin Review', 'copy' => $status === 'approved' ? 'Verified benefits are active.' : 'Authorized admins make the final decision.', 'active' => $reviewStarted],
+    ];
+    $verifyReminders = [
+      ['icon' => 'bi-credit-card-2-front', 'title' => 'Front ID', 'short' => 'Show the full front side.', 'detail' => 'Keep all corners visible. Avoid glare, blur, and cropped text.'],
+      ['icon' => 'bi-arrow-repeat', 'title' => 'Back ID', 'short' => 'Use the same actual ID.', 'detail' => 'Do not upload the front side again. The back must be clear when required.'],
+      ['icon' => 'bi-person-square', 'title' => 'Selfie', 'short' => 'Only your face should show.', 'detail' => 'Use a plain background and look straight at the camera.'],
+      ['icon' => 'bi-brightness-high', 'title' => 'Lighting', 'short' => 'Bright, even light helps.', 'detail' => 'Avoid heavy shadows and strong glare on the ID or face.'],
+      ['icon' => 'bi-eyeglasses', 'title' => 'No Covers', 'short' => 'Remove mask, cap, shades.', 'detail' => 'Anything covering the eyes or face can make the match inconclusive.'],
+      ['icon' => 'bi-hourglass-split', 'title' => 'Review', 'short' => 'Admins check final result.', 'detail' => 'Needs review is not automatic rejection. Admin approval or rejection is manual.'],
+    ];
+  @endphp
+
   <div class="verify-hero p-4 p-md-5 mb-4">
     <div class="row g-4 align-items-center position-relative" style="z-index:1">
-      <div class="col-lg-7">
+      <div class="col-lg-5">
         <div class="d-inline-flex align-items-center gap-2 rounded-pill px-3 py-1 mb-3" style="background:#fff;border:1px solid #f3d6e5">
           <i class="bi {{ $statusIcon }}" style="color:var(--primary)"></i>
           <span class="small fw-semibold">{{ $statusLabel }}</span>
         </div>
         <h3 class="fw-bold mb-2">Verify your BerryBase account</h3>
-        <p class="text-muted mb-0">Upload a valid ID once to unlock rewards redemption, verified-only vouchers, and Customer Loyalty Trust for larger COD/COP orders.</p>
+        <p class="text-muted mb-3">Upload a valid ID once to unlock rewards redemption, verified-only vouchers, and Customer Loyalty Trust for larger COD/COP orders.</p>
+        <div class="d-flex flex-wrap gap-2 small">
+          <span class="badge text-bg-light"><i class="bi bi-lock me-1"></i>Private review</span>
+          <span class="badge text-bg-light"><i class="bi bi-camera me-1"></i>Guided scan</span>
+          <span class="badge text-bg-light"><i class="bi bi-question-circle me-1"></i>Tap cards for reminders</span>
+        </div>
       </div>
-      <div class="col-lg-5">
-        <div class="bg-white rounded-3 p-3 border">
-          <div class="verify-step {{ in_array($status, ['pending','approved','rejected'], true) ? 'active' : '' }} mb-3">
-            <div class="dot"><i class="bi bi-cloud-arrow-up"></i></div>
-            <div><div class="fw-semibold small">Upload ID</div><div class="text-muted small">Submit clear front/back images.</div></div>
-          </div>
-          <div class="verify-step {{ in_array($status, ['pending','approved','rejected'], true) ? 'active' : '' }} mb-3">
-            <div class="dot"><i class="bi bi-search"></i></div>
-            <div><div class="fw-semibold small">Admin review</div><div class="text-muted small">Only authorized admins can review.</div></div>
-          </div>
-          <div class="verify-step {{ $status === 'approved' ? 'active' : '' }}">
-            <div class="dot"><i class="bi bi-stars"></i></div>
-            <div><div class="fw-semibold small">Benefits unlocked</div><div class="text-muted small">Use rewards and verified promos.</div></div>
-          </div>
+      <div class="col-lg-7">
+        <div class="verify-progress-grid">
+          @foreach($progressItems as $item)
+            <div class="verify-progress-tile {{ $item['active'] ? 'is-active' : '' }}">
+              <div class="verify-progress-icon"><i class="bi {{ $item['icon'] }}"></i></div>
+              <div class="verify-progress-label">{{ $item['label'] }}</div>
+              <div class="verify-progress-copy">{{ $item['copy'] }}</div>
+            </div>
+          @endforeach
         </div>
       </div>
     </div>
@@ -190,7 +243,7 @@
 
   <div class="row g-3 mb-4">
     @foreach($benefits as $benefit)
-      <div class="col-sm-6 col-xl-3">
+      <div class="col-6 col-lg-3">
         <div class="benefit-card {{ $benefit['unlocked'] ? '' : 'locked' }}">
           <div class="d-flex align-items-center justify-content-between mb-2">
             <i class="bi {{ $benefit['icon'] }}" style="font-size:1.4rem;color:{{ $benefit['unlocked'] ? 'var(--primary)' : '#94a3b8' }}"></i>
@@ -201,6 +254,33 @@
         </div>
       </div>
     @endforeach
+  </div>
+
+  <div class="verify-reminder-shell mb-4">
+    <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+      <div>
+        <h6 class="fw-bold mb-1"><i class="bi bi-question-circle me-2" style="color:var(--primary)"></i>Scan Reminders</h6>
+        <div class="text-muted small">Tap a card to flip it and see the reminder.</div>
+      </div>
+    </div>
+    <div class="verify-reminder-grid">
+      @foreach($verifyReminders as $reminder)
+        <button type="button" class="verify-flip-card" aria-pressed="false">
+          <span class="verify-flip-inner">
+            <span class="verify-flip-face">
+              <span class="verify-flip-top"><span class="verify-flip-icon"><i class="bi {{ $reminder['icon'] }}"></i></span><span class="verify-help-dot">?</span></span>
+              <span><span class="verify-flip-title">{{ $reminder['title'] }}</span><span class="verify-flip-copy d-block">{{ $reminder['short'] }}</span></span>
+              <span class="verify-flip-hint">Tap for detail</span>
+            </span>
+            <span class="verify-flip-face verify-flip-back">
+              <span class="verify-flip-top"><span class="verify-flip-icon"><i class="bi bi-info-circle"></i></span><span class="verify-help-dot">?</span></span>
+              <span><span class="verify-flip-title">{{ $reminder['title'] }}</span><span class="verify-flip-copy d-block">{{ $reminder['detail'] }}</span></span>
+              <span class="verify-flip-hint">Tap to close</span>
+            </span>
+          </span>
+        </button>
+      @endforeach
+    </div>
   </div>
 
   <div class="row g-4">
@@ -313,7 +393,7 @@
                         <div class="verify-step-copy"><div class="verify-step-title">Selfie Verification</div><div class="verify-upload-hint">Upload a clear selfie or capture one with the front camera.</div><div class="verify-screen-light-note mt-1"><i class="bi bi-brightness-high"></i>Screen light active when camera opens</div></div>
                       </div>
                       <div class="verify-liveness-card mb-2"><div class="small text-uppercase fw-semibold" style="letter-spacing:.04em">Face Match Status</div><div class="fw-semibold" id="livenessPrompt">Add a clear selfie for matching.</div><div class="small" id="livenessProgress">The system compares your selfie with the face on the front ID.</div></div>
-                      <div class="verify-selfie-tips mb-2"><div class="verify-selfie-tip"><i class="bi bi-brightness-high"></i><span>Use bright light and avoid heavy shadows.</span></div><div class="verify-selfie-tip"><i class="bi bi-person-square"></i><span>Use a plain background with only your face visible.</span></div><div class="verify-selfie-tip"><i class="bi bi-eyeglasses"></i><span>Remove glasses, shades, mask, and cap.</span></div><div class="verify-selfie-tip"><i class="bi bi-bullseye"></i><span>Look straight at the camera for the best match.</span></div></div>
+                      <div class="verify-selfie-tools"><div class="verify-selfie-tips"><div class="verify-selfie-tip"><i class="bi bi-brightness-high"></i><span>Bright light</span></div><div class="verify-selfie-tip"><i class="bi bi-person-square"></i><span>Plain background</span></div><div class="verify-selfie-tip"><i class="bi bi-eyeglasses"></i><span>No mask or shades</span></div><div class="verify-selfie-tip"><i class="bi bi-bullseye"></i><span>Look straight</span></div></div><button type="button" class="verify-selfie-help-toggle" aria-expanded="false"><i class="bi bi-question-circle"></i>Selfie reminders</button></div><div class="verify-selfie-tip-panel mb-2">Use bright light, keep only your face visible, remove glasses/shades/mask/cap, and look straight at the camera so admin review has a clear face match.</div>
                       <div class="verify-camera-frame is-selfie is-face-ready" id="faceCameraFrame"><video playsinline muted></video><canvas hidden></canvas><img class="verify-preview-image" alt="Accepted selfie preview"><div class="verify-face-guide"></div><div class="verify-live-panel"><span data-live-hint>Upload a selfie or open the front camera.</span><div class="verify-live-meter"><span></span></div></div></div>
                       <div class="verify-scan-actions">
                         <button type="button" class="btn btn-primary btn-sm" data-upload-trigger="selfieInput"><i class="bi bi-upload me-1"></i>Upload Photo</button>
@@ -398,6 +478,23 @@
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('click', function (event) {
+  var flipCard = event.target.closest('.verify-flip-card');
+  if (flipCard) {
+    flipCard.classList.toggle('is-flipped');
+    flipCard.setAttribute('aria-pressed', flipCard.classList.contains('is-flipped') ? 'true' : 'false');
+    return;
+  }
+  var selfieToggle = event.target.closest('.verify-selfie-help-toggle');
+  if (selfieToggle) {
+    var selfieStage = selfieToggle.closest('[data-step="selfie"]');
+    var panel = selfieStage ? selfieStage.querySelector('.verify-selfie-tip-panel') : null;
+    if (panel) {
+      panel.classList.toggle('is-open');
+      selfieToggle.setAttribute('aria-expanded', panel.classList.contains('is-open') ? 'true' : 'false');
+    }
+  }
+});
   var form = document.getElementById('verificationWizardForm');
   if (!form) return;
 
