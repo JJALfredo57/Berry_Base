@@ -5,6 +5,8 @@ namespace Tests\Unit;
 use App\Services\DeliveryLocationValidationService;
 use App\Services\PsgcService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class DeliveryLocationValidationServiceTest extends TestCase
@@ -16,19 +18,70 @@ class DeliveryLocationValidationServiceTest extends TestCase
         $this->app->instance(PsgcService::class, new class extends PsgcService {
             public function validateHierarchy(?string $provinceCode, ?string $cityCode, ?string $barangayCode): array
             {
-                if ($provinceCode === '015500000' && $cityCode === '015506000' && $barangayCode === '015506001') {
+                $valid = [
+                    '015500000|015506000|015506001' => ['Pangasinan', 'Bautista', 'Poblacion'],
+                    '015500000|015506000|015506002' => ['Pangasinan', 'Bautista', 'Other Barangay'],
+                    '015500000|015546000|015546001' => ['Pangasinan', 'Urdaneta City', 'Poblacion'],
+                    '036900000|036916000|036916001' => ['Tarlac', 'Tarlac City', 'Poblacion'],
+                ];
+                $key = $provinceCode . '|' . $cityCode . '|' . $barangayCode;
+                if (isset($valid[$key])) {
                     return [
                         'ok' => true,
                         'message' => null,
-                        'province' => ['code' => '015500000', 'name' => 'Pangasinan'],
-                        'city' => ['code' => '015506000', 'name' => 'Bautista'],
-                        'barangay' => ['code' => '015506001', 'name' => 'Poblacion'],
+                        'province' => ['code' => $provinceCode, 'name' => $valid[$key][0]],
+                        'city' => ['code' => $cityCode, 'name' => $valid[$key][1]],
+                        'barangay' => ['code' => $barangayCode, 'name' => $valid[$key][2]],
                     ];
                 }
 
                 return ['ok' => false, 'message' => 'Please choose a province, city/municipality, and barangay from the list.'];
             }
         });
+
+        if (!Schema::hasTable('delivery_zones')) {
+            Schema::create('delivery_zones', function ($table) {
+                $table->increments('id');
+                $table->string('shop_id')->nullable();
+                $table->string('barangay');
+                $table->string('zone_address')->nullable();
+                $table->boolean('is_active')->default(true);
+            });
+        }
+        DB::table('delivery_zones')->truncate();
+
+        if (!Schema::hasTable('psgc_cities_municipalities')) {
+            Schema::create('psgc_cities_municipalities', function ($table) {
+                $table->string('code')->primary();
+                $table->string('name');
+                $table->string('province_code')->nullable();
+                $table->string('province_name')->nullable();
+            });
+        }
+        DB::table('psgc_cities_municipalities')->truncate();
+        DB::table('psgc_cities_municipalities')->insert([
+            ['code' => '015506000', 'name' => 'Bautista', 'province_code' => '015500000', 'province_name' => 'Pangasinan'],
+            ['code' => '015546000', 'name' => 'Urdaneta City', 'province_code' => '015500000', 'province_name' => 'Pangasinan'],
+            ['code' => '036916000', 'name' => 'Tarlac City', 'province_code' => '036900000', 'province_name' => 'Tarlac'],
+        ]);
+    }
+
+    private function structuredRequest(array $overrides = []): Request
+    {
+        return Request::create('/checkout', 'POST', array_merge([
+            '_structured_address' => '1',
+            'address_house' => 'House 12',
+            'address_street' => 'Rizal Street',
+            'address_subdivision' => 'Purok 2',
+            'address_barangay' => 'Poblacion',
+            'address_barangay_code' => '015506001',
+            'address_city' => 'Bautista',
+            'address_city_code' => '015506000',
+            'address_province' => 'Pangasinan',
+            'address_province_code' => '015500000',
+            'address_postal_code' => '2424',
+            'address_landmark' => 'Near the blue gate',
+        ], $overrides));
     }
 
     public function test_structured_delivery_address_requires_core_details(): void
@@ -129,6 +182,58 @@ class DeliveryLocationValidationServiceTest extends TestCase
         $this->assertStringContainsString('choose a province, city/municipality, and barangay', $result['message']);
     }
 
+    public function test_shop_coverage_allows_address_inside_delivery_zone(): void
+    {
+        DB::table('delivery_zones')->insert([
+            'shop_id' => 'shop123',
+            'barangay' => 'Poblacion, Bautista',
+            'is_active' => true,
+        ]);
+
+        $result = (new DeliveryLocationValidationService())
+            ->validateRequest($this->structuredRequest(), 15.8095, 120.4988, 'Poblacion, Bautista', true, 'address', 'shop123');
+
+        $this->assertTrue($result['ok']);
+    }
+
+    public function test_shop_coverage_rejects_address_outside_shop_province_or_city(): void
+    {
+        DB::table('delivery_zones')->insert([
+            'shop_id' => 'shop123',
+            'barangay' => 'Poblacion, Bautista',
+            'is_active' => true,
+        ]);
+
+        $result = (new DeliveryLocationValidationService())
+            ->validateRequest($this->structuredRequest([
+                'address_province' => 'Tarlac',
+                'address_province_code' => '036900000',
+                'address_city' => 'Tarlac City',
+                'address_city_code' => '036916000',
+                'address_barangay_code' => '036916001',
+            ]), 15.8095, 120.4988, 'Poblacion, Bautista', true, 'address', 'shop123');
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('selected province', $result['message']);
+    }
+
+    public function test_shop_coverage_rejects_uncovered_barangay(): void
+    {
+        DB::table('delivery_zones')->insert([
+            'shop_id' => 'shop123',
+            'barangay' => 'Poblacion, Bautista',
+            'is_active' => true,
+        ]);
+
+        $result = (new DeliveryLocationValidationService())
+            ->validateRequest($this->structuredRequest([
+                'address_barangay' => 'Other Barangay',
+                'address_barangay_code' => '015506002',
+            ]), 15.8095, 120.4988, 'Poblacion, Bautista', true, 'address', 'shop123');
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('Selected barangay is not covered', $result['message']);
+    }
     public function test_saved_address_can_validate_full_address_fallback(): void
     {
         $request = Request::create('/addresses', 'POST', [

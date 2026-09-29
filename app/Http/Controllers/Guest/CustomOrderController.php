@@ -377,7 +377,7 @@ class CustomOrderController extends Controller
 
         if ($fulfillment === 'Delivery') {
             $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
-                ->validateRequest($request, $lat, $lng, $zone, true);
+                ->validateRequest($request, $lat, $lng, $zone, true, 'address', $shopId);
             if (!$locationValidation['ok']) {
                 return back()->with('error', $locationValidation['message'])->withInput();
             }
@@ -637,7 +637,7 @@ class CustomOrderController extends Controller
 
         if ($fulfillment === 'Delivery') {
             $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
-                ->validateRequest($request, $lat, $lng, $zone, true);
+                ->validateRequest($request, $lat, $lng, $zone, true, 'address', $shopId);
             if (!$locationValidation['ok']) {
                 return ['ok' => false, 'message' => $locationValidation['message']];
             }

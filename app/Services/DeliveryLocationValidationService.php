@@ -14,7 +14,7 @@ class DeliveryLocationValidationService
         return trim((string) $request->input($fallbackField, ''));
     }
 
-    public function validateRequest($request, ?float $lat, ?float $lng, ?string $zone = null, bool $requireZoneMatch = false, string $fallbackField = 'address'): array
+    public function validateRequest($request, ?float $lat, ?float $lng, ?string $zone = null, bool $requireZoneMatch = false, string $fallbackField = 'address', ?string $shopId = null): array
     {
         $parts = $this->structuredParts($request);
         $structuredRequired = $request->boolean('_structured_address') || $this->hasStructuredInput($parts);
@@ -36,6 +36,13 @@ class DeliveryLocationValidationService
             );
             if (!$psgcValidation['ok']) {
                 return ['ok' => false, 'message' => $psgcValidation['message']];
+            }
+
+            if ($shopId !== null) {
+                $coverageValidation = $this->validateShopCoverage($psgcValidation, $shopId);
+                if (!$coverageValidation['ok']) {
+                    return $coverageValidation;
+                }
             }
         }
 
@@ -177,6 +184,107 @@ class DeliveryLocationValidationService
         return trim(preg_replace('/\s+/', ' ', $value) ?? '');
     }
 
+    private function validateShopCoverage(array $psgcValidation, string $shopId): array
+    {
+        $zoneColumns = ['barangay'];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('delivery_zones', 'zone_address')) {
+            $zoneColumns[] = 'zone_address';
+        }
+        $zones = \Illuminate\Support\Facades\DB::table('delivery_zones')
+            ->where('shop_id', $shopId)
+            ->where('is_active', true)
+            ->get($zoneColumns);
+
+        if ($zones->isEmpty()) {
+            return ['ok' => true, 'message' => null];
+        }
+
+        $provinceCode = (string) ($psgcValidation['province']['code'] ?? '');
+        $provinceName = $this->normalizeLocationText((string) ($psgcValidation['province']['name'] ?? ''));
+        $cityCode = (string) ($psgcValidation['city']['code'] ?? '');
+        $cityName = $this->normalizeLocationText((string) ($psgcValidation['city']['name'] ?? ''));
+        $barangayName = $this->normalizeLocationText((string) ($psgcValidation['barangay']['name'] ?? ''));
+
+        $allowed = $this->allowedPsgcAreasFromZones($zones);
+        if (!empty($allowed['province_codes']) && !in_array($provinceCode, $allowed['province_codes'], true)) {
+            return ['ok' => false, 'message' => 'This shop does not deliver to the selected province. Please choose an address inside the shop delivery coverage or choose pickup.'];
+        }
+        if (empty($allowed['province_codes']) && !empty($allowed['province_names']) && !in_array($provinceName, $allowed['province_names'], true)) {
+            return ['ok' => false, 'message' => 'This shop does not deliver to the selected province. Please choose an address inside the shop delivery coverage or choose pickup.'];
+        }
+
+        if (!empty($allowed['city_codes']) && !in_array($cityCode, $allowed['city_codes'], true)) {
+            return ['ok' => false, 'message' => 'This shop does not deliver to the selected city/municipality. Please choose an address inside the shop delivery coverage or choose pickup.'];
+        }
+        if (empty($allowed['city_codes']) && !empty($allowed['city_names']) && !in_array($cityName, $allowed['city_names'], true)) {
+            return ['ok' => false, 'message' => 'This shop does not deliver to the selected city/municipality. Please choose an address inside the shop delivery coverage or choose pickup.'];
+        }
+
+        foreach ($zones as $zone) {
+            $zoneText = $this->normalizeLocationText(trim((string) ($zone->barangay ?? '') . ' ' . (string) ($zone->zone_address ?? '')));
+            if ($zoneText !== '' && $barangayName !== '' && (str_contains($zoneText, $barangayName) || str_contains($barangayName, $zoneText))) {
+                return ['ok' => true, 'message' => null];
+            }
+        }
+
+        return ['ok' => false, 'message' => 'Selected barangay is not covered by this shop. Please choose a covered barangay or choose pickup.'];
+    }
+
+    private function allowedPsgcAreasFromZones($zones): array
+    {
+        $cityNames = [];
+        foreach ($zones as $zone) {
+            $text = trim((string) ($zone->barangay ?? '') . ', ' . (string) ($zone->zone_address ?? ''));
+            foreach ($this->areaCandidates($text) as $candidate) {
+                $cityNames[$candidate] = true;
+            }
+        }
+
+        $allowed = [
+            'city_names' => array_map(fn ($name) => $this->normalizeLocationText($name), array_keys($cityNames)),
+            'city_codes' => [],
+            'province_names' => [],
+            'province_codes' => [],
+        ];
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('psgc_cities_municipalities') && !empty($cityNames)) {
+            $cities = \Illuminate\Support\Facades\DB::table('psgc_cities_municipalities')
+                ->whereIn('name', array_keys($cityNames))
+                ->get(['code', 'name', 'province_code', 'province_name']);
+            foreach ($cities as $city) {
+                $allowed['city_codes'][] = (string) $city->code;
+                $allowed['city_names'][] = $this->normalizeLocationText((string) $city->name);
+                if (!empty($city->province_code)) $allowed['province_codes'][] = (string) $city->province_code;
+                if (!empty($city->province_name)) $allowed['province_names'][] = $this->normalizeLocationText((string) $city->province_name);
+            }
+        }
+
+        $allowed['city_names'] = array_values(array_unique(array_filter($allowed['city_names'])));
+        $allowed['city_codes'] = array_values(array_unique(array_filter($allowed['city_codes'])));
+        $allowed['province_names'] = array_values(array_unique(array_filter($allowed['province_names'])));
+        $allowed['province_codes'] = array_values(array_unique(array_filter($allowed['province_codes'])));
+
+        return $allowed;
+    }
+
+    private function areaCandidates(string $text): array
+    {
+        $candidates = [];
+        if (preg_match_all('/\(([^)]+)\)/', $text, $matches)) {
+            foreach ($matches[1] as $match) {
+                $candidate = trim($match);
+                if ($candidate !== '') $candidates[] = $candidate;
+            }
+        }
+
+        foreach (explode(',', $text) as $index => $part) {
+            if ($index === 0) continue;
+            $candidate = trim(preg_replace('/\([^)]*\)/', '', $part) ?? '');
+            if ($candidate !== '') $candidates[] = $candidate;
+        }
+
+        return array_values(array_unique($candidates));
+    }
     private function addressMentionsZone(string $address, string $zone): bool
     {
         $addressText = $this->normalizeLocationText($address);
