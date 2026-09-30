@@ -428,7 +428,7 @@
             <span class="badge text-bg-light">{{ $membership['current_tier'] ?? 'Bronze' }}</span>
           </div>
           <div class="text-muted small mb-3">
-            {{ $status === 'approved' ? 'Verified redemption is active.' : 'Earn points now. Verify your account to redeem rewards and unlock verified-only vouchers.' }}
+            {{ $status === 'approved' ? 'Verified redemption is active.' : 'Earn points now. Verify your account to redeem rewards and current verified-only vouchers.' }}
           </div>
           <div class="d-flex justify-content-between small mb-1">
             <span>{{ (int)($membership['balance'] ?? 0) }} earned points</span>

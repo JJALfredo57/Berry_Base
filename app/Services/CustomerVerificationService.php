@@ -63,9 +63,9 @@ class CustomerVerificationService
 
         return [
             'You can still order, but rewards redemption stays locked.',
-            'Verified-only vouchers will not apply yet.',
+            'Only verified voucher applies',
             'High-value COD/COP orders may require stricter review or deposit.',
-            'Your account will not show a verified badge to sellers.',
+            'Verified badge will be viewed privately',
         ];
     }
 }
