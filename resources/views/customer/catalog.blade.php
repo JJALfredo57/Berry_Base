@@ -624,7 +624,7 @@
                 <div class="mb-3">
                   <div class="p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:#fff0f5">
                     <span class="small text-muted">Total Price:</span>
-                    <span class="fw-bold" style="color:{{ !empty($pricing['has_discount']) ? ''#dc2626'' : ''var(--primary)'' }};font-size:1.05rem" id="modalPrice{{ $p->id }}"
+                    <span class="fw-bold" style="color:{{ !empty($pricing['has_discount']) ? '#dc2626' : 'var(--primary)' }};font-size:1.05rem" id="modalPrice{{ $p->id }}"
                           data-base-price="{{ $pricing['final_unit_price'] ?? $p->price }}"
                           data-discount-type=""
                           data-discount-value="0">
