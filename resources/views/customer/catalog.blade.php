@@ -195,11 +195,12 @@
       $sweetDealQty = ($activeDiscount && property_exists($activeDiscount, 'deal_quantity_limit')) ? (int) ($activeDiscount->deal_quantity_limit ?? 0) : 0;
       $bestEnjoyedBy = ($activeDiscount && property_exists($activeDiscount, 'best_enjoyed_by') && !empty($activeDiscount->best_enjoyed_by)) ? \Carbon\Carbon::parse($activeDiscount->best_enjoyed_by) : null;
       $stockTracked = property_exists($p, 'available_quantity');
-      $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
+      $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : 0;
       $hasSizeOptions = count($sizes) > 0;
-      $hasStock = $hasSizeOptions
-        ? collect($sizes)->contains(fn($sz) => !property_exists($sz, 'available_quantity') || (int) $sz->available_quantity > 0)
-        : (!$stockTracked || $stockQty > 0);
+      $sizeStockTotal = $hasSizeOptions
+        ? collect($sizes)->sum(fn($sz) => max(0, (int) ($sz->available_quantity ?? 0)))
+        : null;
+      $hasStock = $hasSizeOptions ? $sizeStockTotal > 0 : ($stockTracked && $stockQty > 0);
     @endphp
     @php
       $latestReview = $reviews[0] ?? null;
@@ -279,13 +280,15 @@
           @endif
           <div class="mb-2">
             @if($hasSizeOptions)
-              <span class="badge rounded-pill" style="background:#f8fafc;color:#475569;border:1px solid #e2e8f0;font-size:.78rem"><i class="bi bi-rulers me-1"></i>Stock varies by size</span>
+              <span class="badge rounded-pill" style="background:{{ $sizeStockTotal <= 0 ? '#fef2f2' : ($sizeStockTotal <= 3 ? '#fffbeb' : '#ecfdf5') }};color:{{ $sizeStockTotal <= 0 ? '#b91c1c' : ($sizeStockTotal <= 3 ? '#92400e' : '#047857') }};border:1px solid {{ $sizeStockTotal <= 0 ? '#fecaca' : ($sizeStockTotal <= 3 ? '#fde68a' : '#a7f3d0') }};font-size:.78rem">
+                <i class="bi {{ $sizeStockTotal <= 0 ? 'bi-exclamation-circle' : 'bi-box-seam' }} me-1"></i>{{ $sizeStockTotal <= 0 ? 'Out of stock' : ($sizeStockTotal <= 3 ? 'Only '.$sizeStockTotal.' left' : $sizeStockTotal.' available') }}
+              </span>
             @elseif($stockTracked)
               <span class="badge rounded-pill" style="background:{{ $stockQty <= 0 ? '#fef2f2' : ($stockQty <= 3 ? '#fffbeb' : '#ecfdf5') }};color:{{ $stockQty <= 0 ? '#b91c1c' : ($stockQty <= 3 ? '#92400e' : '#047857') }};border:1px solid {{ $stockQty <= 0 ? '#fecaca' : ($stockQty <= 3 ? '#fde68a' : '#a7f3d0') }};font-size:.78rem">
                 <i class="bi {{ $stockQty <= 0 ? 'bi-exclamation-circle' : 'bi-box-seam' }} me-1"></i>{{ $stockQty <= 0 ? 'Out of stock' : ($stockQty <= 3 ? 'Only '.$stockQty.' left' : $stockQty.' available') }}
               </span>
             @else
-              <span class="badge rounded-pill" style="background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;font-size:.78rem"><i class="bi bi-check-circle me-1"></i>Available</span>
+              <span class="badge rounded-pill" style="background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;font-size:.78rem"><i class="bi bi-exclamation-circle me-1"></i>Out of stock</span>
             @endif
           </div>
           <p class="text-muted small flex-grow-1 mb-2">{{ Str::limit($p->description, 80) }}</p>
@@ -470,9 +473,9 @@
                 <div class="d-flex flex-wrap gap-2">
                   @foreach($sizes as $sz)
                   @php
-                    $sizeStockTracked = property_exists($sz, 'available_quantity');
-                    $sizeStockQty = $sizeStockTracked ? max(0, (int) $sz->available_quantity) : null;
-                    $sizeOut = $sizeStockTracked && $sizeStockQty <= 0;
+                    $sizeStockTracked = true;
+                    $sizeStockQty = max(0, (int) ($sz->available_quantity ?? 0));
+                    $sizeOut = $sizeStockQty <= 0;
                   @endphp
                   <button type="button"
                           class="size-choice-btn px-3 py-1 rounded-pill border bg-white {{ $loop->iteration > 4 ? 'd-none is-extra-size' : '' }}"
@@ -480,15 +483,13 @@
                           data-base-price="{{ $p->price }}"
                           data-size-label="{{ $sz->label }}"
                           data-price="{{ $sz->price }}"
-                          data-stock-tracked="{{ $sizeStockTracked ? '1' : '0' }}"
-                          data-stock-qty="{{ $sizeStockQty ?? '' }}"
+                          data-stock-tracked="1"
+                          data-stock-qty="{{ $sizeStockQty }}"
                           {{ $sizeOut ? 'disabled' : '' }}
                           onclick="selectModalSize(this)">
                     <span class="fw-semibold">{{ $sz->label }}</span>
                     <span class="text-muted ms-1">- PHP {{ number_format($sz->price,2) }}</span>
-                    @if($sizeStockTracked)
-                      <span class="text-muted ms-1">{{ $sizeOut ? 'Out' : $sizeStockQty.' left' }}</span>
-                    @endif
+                    <span class="text-muted ms-1">{{ $sizeOut ? 'Out' : $sizeStockQty.' left' }}</span>
                   </button>
                 @endforeach
                 </div>
@@ -556,9 +557,9 @@
                        data-discount-value="{{ $pricing['discount_value'] ?? 0 }}">
                     @foreach($sizes as $sz)
                       @php
-                        $sizeStockTracked = property_exists($sz, 'available_quantity');
-                        $sizeStockQty = $sizeStockTracked ? max(0, (int) $sz->available_quantity) : null;
-                        $sizeOut = $sizeStockTracked && $sizeStockQty <= 0;
+                        $sizeStockTracked = true;
+                        $sizeStockQty = max(0, (int) ($sz->available_quantity ?? 0));
+                        $sizeOut = $sizeStockQty <= 0;
                       @endphp
                       <button type="button"
                               class="size-choice-btn px-3 py-1 rounded-pill border bg-white {{ $loop->iteration > 4 ? 'd-none is-extra-size' : '' }}"
@@ -566,15 +567,13 @@
                               data-base-price="{{ $p->price }}"
                               data-size-label="{{ $sz->label }}"
                               data-price="{{ $sz->price }}"
-                              data-stock-tracked="{{ $sizeStockTracked ? '1' : '0' }}"
-                              data-stock-qty="{{ $sizeStockQty ?? '' }}"
+                              data-stock-tracked="1"
+                              data-stock-qty="{{ $sizeStockQty }}"
                               {{ $sizeOut ? 'disabled' : '' }}
                               onclick="selectModalSize(this)">
                         <span class="fw-semibold">{{ $sz->label }}</span>
                         <span class="text-muted ms-1">- PHP {{ number_format($sz->price,2) }}</span>
-                        @if($sizeStockTracked)
-                          <span class="text-muted ms-1">{{ $sizeOut ? 'Out' : $sizeStockQty.' left' }}</span>
-                        @endif
+                        <span class="text-muted ms-1">{{ $sizeOut ? 'Out' : $sizeStockQty.' left' }}</span>
                       </button>
                     @endforeach
                     @if(count($sizes) > 4)
