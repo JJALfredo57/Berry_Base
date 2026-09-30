@@ -194,11 +194,11 @@
       $sweetDealNote = ($activeDiscount && property_exists($activeDiscount, 'deal_note')) ? trim((string) ($activeDiscount->deal_note ?? '')) : '';
       $sweetDealQty = ($activeDiscount && property_exists($activeDiscount, 'deal_quantity_limit')) ? (int) ($activeDiscount->deal_quantity_limit ?? 0) : 0;
       $bestEnjoyedBy = ($activeDiscount && property_exists($activeDiscount, 'best_enjoyed_by') && !empty($activeDiscount->best_enjoyed_by)) ? \Carbon\Carbon::parse($activeDiscount->best_enjoyed_by) : null;
-      $stockTracked = property_exists($p, 'available_quantity') && $p->available_quantity !== null;
+      $stockTracked = property_exists($p, 'available_quantity');
       $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
       $hasSizeOptions = count($sizes) > 0;
       $hasStock = $hasSizeOptions
-        ? collect($sizes)->contains(fn($sz) => !property_exists($sz, 'available_quantity') || $sz->available_quantity === null || (int) $sz->available_quantity > 0)
+        ? collect($sizes)->contains(fn($sz) => !property_exists($sz, 'available_quantity') || (int) $sz->available_quantity > 0)
         : (!$stockTracked || $stockQty > 0);
     @endphp
     @php
@@ -470,7 +470,7 @@
                 <div class="d-flex flex-wrap gap-2">
                   @foreach($sizes as $sz)
                   @php
-                    $sizeStockTracked = property_exists($sz, 'available_quantity') && $sz->available_quantity !== null;
+                    $sizeStockTracked = property_exists($sz, 'available_quantity');
                     $sizeStockQty = $sizeStockTracked ? max(0, (int) $sz->available_quantity) : null;
                     $sizeOut = $sizeStockTracked && $sizeStockQty <= 0;
                   @endphp
@@ -556,7 +556,7 @@
                        data-discount-value="{{ $pricing['discount_value'] ?? 0 }}">
                     @foreach($sizes as $sz)
                       @php
-                        $sizeStockTracked = property_exists($sz, 'available_quantity') && $sz->available_quantity !== null;
+                        $sizeStockTracked = property_exists($sz, 'available_quantity');
                         $sizeStockQty = $sizeStockTracked ? max(0, (int) $sz->available_quantity) : null;
                         $sizeOut = $sizeStockTracked && $sizeStockQty <= 0;
                       @endphp
@@ -620,6 +620,19 @@
                 @endif
                 @endif
 
+                @if(count($sizes) === 0)
+                <div class="mb-3">
+                  <div class="p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:#fff0f5">
+                    <span class="small text-muted">Total Price:</span>
+                    <span class="fw-bold" style="color:{{ !empty($pricing['has_discount']) ? ''#dc2626'' : ''var(--primary)'' }};font-size:1.05rem" id="modalPrice{{ $p->id }}"
+                          data-base-price="{{ $pricing['final_unit_price'] ?? $p->price }}"
+                          data-discount-type=""
+                          data-discount-value="0">
+                      &#8369;{{ number_format($pricing['final_unit_price'] ?? $p->price,2) }}
+                    </span>
+                  </div>
+                </div>
+                @endif
                 {{-- Quantity --}}
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">Quantity</label>
@@ -631,7 +644,7 @@
                             onclick="changeQty('{{ $p->id }}', -1)">−</button>
                     <input type="number" class="form-control text-center fw-bold"
                            name="quantity" id="qty{{ $p->id }}"
-                           min="1" max="{{ $stockTracked ? min(20, max(1, $stockQty)) : 20 }}" value="1" required style="width:70px">
+                           min="1" max="{{ $stockTracked ? min(20, max(1, $stockQty)) : 20 }}" value="1" required oninput="syncQtyTotal('{{ $p->id }}')" onchange="syncQtyTotal('{{ $p->id }}')" style="width:70px">
                     <button type="button" class="btn btn-outline-secondary btn-sm px-3"
                             onclick="changeQty('{{ $p->id }}', 1)">+</button>
                   </div>
@@ -681,7 +694,7 @@
                       <option value="">Choose the size you want the seller to bake</option>
                       @foreach($sizes as $sz)
                         @php
-                          $requestSizeTracked = property_exists($sz, 'available_quantity') && $sz->available_quantity !== null;
+                          $requestSizeTracked = property_exists($sz, 'available_quantity');
                           $requestSizeQty = $requestSizeTracked ? max(0, (int) $sz->available_quantity) : null;
                         @endphp
                         <option value="{{ $sz->label }}" {{ old('selected_size') === $sz->label ? 'selected' : '' }}>
@@ -900,38 +913,59 @@ function confirmOrder(form) {
   return false;
 }
 
+function modalPriceButton(productId) {
+  return document.querySelector('.size-choice-btn.is-selected[data-product-id="' + productId + '"]');
+}
+
+function modalQty(productId) {
+  const input = document.getElementById('qty' + productId);
+  if (!input) return 1;
+  const max = parseInt(input.getAttribute('max') || input.dataset.defaultMax || '20', 10) || 20;
+  let qty = parseInt(input.value || '1', 10) || 1;
+  if (qty < 1) qty = 1;
+  if (qty > max) qty = max;
+  input.value = qty;
+  return qty;
+}
+
 function updateModalPrice(productId, basePrice, priceSource) {
+  const el = document.getElementById('modalPrice' + productId);
+  const source = (priceSource && priceSource.dataset) ? priceSource : modalPriceButton(productId);
   const selectedOption = priceSource && priceSource.options ? priceSource.options[priceSource.selectedIndex] : null;
-  const priceDataset = priceSource && priceSource.dataset ? priceSource.dataset.price : null;
+  const priceDataset = source && source.dataset ? source.dataset.price : null;
   const optionDataset = selectedOption && selectedOption.dataset ? selectedOption.dataset.price : null;
-  const price = priceDataset ? parseFloat(priceDataset) : (optionDataset ? parseFloat(optionDataset) : basePrice);
-  const picker = priceSource && priceSource.closest ? priceSource.closest('[data-size-picker]') : null;
-  const priceEl = document.getElementById('modalPrice' + productId);
-  const discountType = (picker && picker.dataset.discountType) || (priceEl && priceEl.dataset.discountType) || (priceSource && priceSource.dataset ? priceSource.dataset.discountType : '') || '';
-  const discountValue = parseFloat((picker && picker.dataset.discountValue) || (priceEl && priceEl.dataset.discountValue) || (priceSource && priceSource.dataset ? priceSource.dataset.discountValue : '0') || '0');
-  let finalPrice = price;
+  const fallbackPrice = basePrice !== undefined ? basePrice : (el && el.dataset ? el.dataset.basePrice : 0);
+  const unitPrice = priceDataset ? parseFloat(priceDataset) : (optionDataset ? parseFloat(optionDataset) : parseFloat(fallbackPrice || '0'));
+  const picker = source && source.closest ? source.closest('[data-size-picker]') : null;
+  const discountType = (picker && picker.dataset.discountType) || (el && el.dataset.discountType) || (source && source.dataset ? source.dataset.discountType : '') || '';
+  const discountValue = parseFloat((picker && picker.dataset.discountValue) || (el && el.dataset.discountValue) || (source && source.dataset ? source.dataset.discountValue : '0') || '0');
+  let finalUnitPrice = Number.isFinite(unitPrice) ? unitPrice : 0;
 
   if (discountType === 'percent' && discountValue > 0) {
-    finalPrice = price - (price * (discountValue / 100));
+    finalUnitPrice = finalUnitPrice - (finalUnitPrice * (discountValue / 100));
   } else if (discountType === 'fixed' && discountValue > 0) {
-    finalPrice = price - discountValue;
+    finalUnitPrice = finalUnitPrice - discountValue;
   }
 
-  finalPrice = Math.max(0, finalPrice);
-  const el    = document.getElementById('modalPrice' + productId);
-  if (el) el.textContent = '₱' + finalPrice.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+  finalUnitPrice = Math.max(0, finalUnitPrice);
+  const totalPrice = finalUnitPrice * modalQty(productId);
+  if (el) el.textContent = String.fromCharCode(8369) + totalPrice.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function syncQtyTotal(productId) {
+  updateModalPrice(productId);
 }
 
 function changeQty(productId, delta) {
   const input = document.getElementById('qty' + productId);
   if (!input) return;
-  let val = parseInt(input.value) + delta;
+  const max = parseInt(input.getAttribute('max') || input.dataset.defaultMax || '20', 10) || 20;
+  let val = (parseInt(input.value || '1', 10) || 1) + delta;
   if (val < 1) val = 1;
-  const max = parseInt(input.getAttribute('max') || '20', 10);
   if (val > max) val = max;
   input.value = val;
+  syncQtyTotal(productId);
 }
-
 // ── Long press to open lightbox ──────────────────────────────
 let lpTimer = null;
 let lpFired  = false;

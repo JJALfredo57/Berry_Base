@@ -11,7 +11,7 @@ class ProductSizeController extends Controller
         $label = trim($request->input('label', ''));
         $price = (float) $request->input('price', 0);
         $availableQuantity = $request->input('available_quantity');
-        $availableQuantity = $availableQuantity === null || $availableQuantity === '' ? null : max(0, min(9999, (int) $availableQuantity));
+        $availableQuantity = $availableQuantity === null || $availableQuantity === '' ? 0 : max(0, min(9999, (int) $availableQuantity));
 
         if (!$label || $price < 0) return back()->with('err', 'Label and price are required.');
 
@@ -41,7 +41,7 @@ class ProductSizeController extends Controller
         if (!$size) return back()->with('err', 'Size not found.');
 
         $value = $request->input('available_quantity');
-        $availableQuantity = $value === null || $value === '' ? null : max(0, min(9999, (int) $value));
+        $availableQuantity = $value === null || $value === '' ? 0 : max(0, min(9999, (int) $value));
 
         DB::table('product_sizes')->where('id', $id)->update([
             'available_quantity' => $availableQuantity,

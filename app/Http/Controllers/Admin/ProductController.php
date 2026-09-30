@@ -61,6 +61,7 @@ class ProductController extends Controller
         $classification = $request->input('classification', 'Standard');
         $flavor         = trim($request->input('flavor', ''));
         $maxPerDay      = max(0, (int)$request->input('max_per_day', 0));
+        $availableQuantity = max(0, min(9999, (int)$request->input('available_quantity', 0)));
 
         if (!$name || $price <= 0) return redirect()->route('admin.products.index')->with('err', 'Name and valid price are required.');
 
@@ -86,6 +87,7 @@ class ProductController extends Controller
             'classification' => $classification,
             'flavor'         => $flavor ?: null,
             'max_per_day'    => $maxPerDay,
+            'available_quantity' => $availableQuantity,
             'created_at'     => now(),
         ]);
 
@@ -124,6 +126,7 @@ class ProductController extends Controller
         $classification = $request->input('classification', 'Standard');
         $flavor         = trim($request->input('flavor', ''));
         $maxPerDay      = max(0, (int)$request->input('max_per_day', 0));
+        $availableQuantity = max(0, min(9999, (int)$request->input('available_quantity', 0)));
 
         // Duplicate check — exclude self
         $dupExists = DB::table('products')
@@ -140,6 +143,7 @@ class ProductController extends Controller
             'classification' => $classification,
             'flavor'         => $flavor ?: null,
             'max_per_day'    => $maxPerDay,
+            'available_quantity' => $availableQuantity,
         ];
 
         if ($request->hasFile('image')) {

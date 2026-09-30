@@ -74,7 +74,7 @@
             <div class="d-flex flex-wrap gap-1 mt-1">
               @foreach($sizes as $sz)
               <span class="badge" style="background:var(--primary-light);color:var(--primary);font-size:clamp(.66rem,1.3vw,.7rem)">
-                {{ $sz->label }} - PHP {{ number_format($sz->price,2) }} @if($sz->available_quantity !== null) ({{ max(0, (int)$sz->available_quantity) }} stock) @else (open stock) @endif
+                {{ $sz->label }} - PHP {{ number_format($sz->price,2) }} ({{ max(0, (int)$sz->available_quantity) }} stock)
               </span>
               @endforeach
             </div>
@@ -206,7 +206,7 @@
                     <span class="text-muted small ms-2">PHP {{ number_format($sz->price,2) }}</span>
                     <form action="{{ route('admin.products.sizes.stock',$sz->id) }}" method="POST" class="d-flex gap-1 mt-1" style="max-width:180px">
                       @csrf
-                      <input type="number" class="form-control form-control-sm" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" placeholder="Open stock">
+                      <input type="number" class="form-control form-control-sm" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" placeholder="0">
                       <button type="submit" class="btn btn-outline-primary btn-sm py-0 px-2" title="Save stock"><i class="bi bi-check2"></i></button>
                     </form>
                   </div>
@@ -243,8 +243,8 @@
                     <input type="number" step="0.01" min="0" class="form-control" name="price" placeholder="500.00" required>
                   </div>
                   <div class="col-12">
-                    <label class="form-label fw-semibold small">Stock <span class="text-muted fw-normal">(blank = open stock)</span></label>
-                    <input type="number" min="0" max="9999" step="1" class="form-control" name="available_quantity" placeholder="e.g. 2">
+                    <label class="form-label fw-semibold small">Stock <span class="text-muted fw-normal">(blank = 0)</span></label>
+                    <input type="number" min="0" max="9999" step="1" class="form-control" name="available_quantity" placeholder="0">
                   </div>
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm w-100 mt-3">
@@ -296,7 +296,10 @@
                 <label class="form-label fw-semibold small">Flavor <span class="text-muted fw-normal">(optional)</span></label>
                 <input type="text" class="form-control" name="flavor" value="{{ $p->flavor }}" placeholder="e.g. Chocolate, Red Velvet, Ube">
               </div>
-
+              <div class="mb-3">
+                <label class="form-label fw-semibold small">Available Cakes <span class="text-muted fw-normal">(blank = 0)</span></label>
+                <input type="number" min="0" max="9999" step="1" class="form-control" name="available_quantity" value="{{ $p->available_quantity ?? 0 }}" placeholder="0">
+              </div>
               <div class="mb-3">
                 <label class="form-label fw-semibold small">Image <span class="text-muted fw-normal">(leave blank to keep current)</span></label>
                 <input type="file" class="form-control" name="image" accept="image/*">
@@ -358,7 +361,10 @@
             <label class="form-label fw-semibold small">Flavor <span class="text-muted fw-normal">(optional)</span></label>
             <input type="text" class="form-control" name="flavor" placeholder="e.g. Chocolate, Red Velvet, Ube">
           </div>
-
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Available Cakes <span class="text-muted fw-normal">(blank = 0)</span></label>
+            <input type="number" min="0" max="9999" step="1" class="form-control" name="available_quantity" placeholder="0">
+          </div>
           <div class="mb-3">
             <label class="form-label fw-semibold small">Image</label>
             <input type="file" class="form-control" name="image" accept="image/*">

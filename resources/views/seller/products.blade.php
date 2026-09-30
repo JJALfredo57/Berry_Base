@@ -113,10 +113,10 @@
                placeholder="e.g. Chocolate, Ube, Red Velvet" maxlength="100">
       </div>
       <div class="col-md-3">
-        <label class="form-label">Available Cakes <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
+        <label class="form-label">Available Cakes <span style="color:var(--gray-400);font-weight:400">(blank = 0)</span></label>
         <input type="number" class="form-control" name="available_quantity" value="{{ old('available_quantity') }}"
                min="0" max="9999" step="1" placeholder="e.g. 12">
-        <div style="font-size:.72rem;color:var(--gray-500);margin-top:.25rem">Leave blank to keep it generally available.</div>
+        <div style="font-size:.72rem;color:var(--gray-500);margin-top:.25rem">Leave blank to save 0 and show out of stock.</div>
       </div>
       <div class="col-md-3">
         <label class="form-label">Product Photo <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
@@ -143,8 +143,8 @@
   $sweetDealBadge = ($discount && property_exists($discount, 'deal_badge_label')) ? trim((string) ($discount->deal_badge_label ?? '')) : '';
   $sweetDealNote = ($discount && property_exists($discount, 'deal_note')) ? trim((string) ($discount->deal_note ?? '')) : '';
   $sweetDealQty = ($discount && property_exists($discount, 'deal_quantity_limit')) ? (int) ($discount->deal_quantity_limit ?? 0) : 0;
-  $stockTracked = $p->available_quantity !== null;
-  $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : null;
+  $stockTracked = property_exists($p, 'available_quantity');
+  $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : 0;
 @endphp
 <div class="seller-product-item"
      data-search="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? ''))) }}"
@@ -180,7 +180,7 @@
             <i class="bi {{ $stockQty <= 0 ? 'bi-exclamation-circle' : 'bi-box-seam' }}"></i> {{ $stockQty <= 0 ? 'Out of stock' : $stockQty.' available' }}
           </span>
         @else
-          <span style="background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px"><i class="bi bi-infinity"></i> Open stock</span>
+          <span style="background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px"><i class="bi bi-exclamation-circle"></i> Out of stock</span>
         @endif
       </div>
       <div style="font-size:.875rem;font-weight:700;color:var(--primary);margin:.2rem 0">₱{{ number_format($p->price,2) }} base</div>
@@ -256,12 +256,12 @@
       @foreach($sizes as $sz)
       <span style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:var(--gray-700);display:inline-flex;align-items:center;gap:.4rem">
         <span>{{ $sz->label }} - PHP {{ number_format($sz->price,2) }}</span>
-        <span style="color:{{ $sz->available_quantity === null ? 'var(--gray-500)' : ((int)$sz->available_quantity <= 0 ? '#b91c1c' : ((int)$sz->available_quantity <= 3 ? '#92400e' : '#047857')) }}">
-          {{ $sz->available_quantity === null ? 'Stock: open' : 'Stock: '.max(0, (int)$sz->available_quantity) }}
+        <span style="color:{{ (int)$sz->available_quantity <= 0 ? '#b91c1c' : ((int)$sz->available_quantity <= 3 ? '#92400e' : '#047857') }}">
+          {{ 'Stock: '.max(0, (int)$sz->available_quantity) }}
         </span>
         <form action="{{ route('seller.products.sizes.stock', $sz->id) }}" method="POST" class="d-inline-flex align-items-center gap-1">
           @csrf
-          <input type="number" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" placeholder="Open" title="Size stock" style="width:72px;border:1px solid var(--gray-200);border-radius:6px;padding:.12rem .35rem;font-size:.72rem">
+          <input type="number" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" placeholder="0" title="Size stock" style="width:72px;border:1px solid var(--gray-200);border-radius:6px;padding:.12rem .35rem;font-size:.72rem">
           <button type="submit" title="Save size stock" style="background:none;border:none;color:var(--primary);cursor:pointer;padding:0;font-size:.78rem;line-height:1"><i class="bi bi-check2-circle"></i></button>
         </form>
         <form action="{{ route('seller.products.sizes.archive', $sz->id) }}" method="POST" class="d-inline"
@@ -281,8 +281,8 @@
       @foreach($archivedSz as $sz)
       <span style="background:#fffbeb;border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:#92400e;display:inline-flex;align-items:center;gap:.4rem;opacity:.8">
         <span>{{ $sz->label }} - PHP {{ number_format($sz->price,2) }}</span>
-        <span style="color:{{ $sz->available_quantity === null ? 'var(--gray-500)' : ((int)$sz->available_quantity <= 0 ? '#b91c1c' : ((int)$sz->available_quantity <= 3 ? '#92400e' : '#047857')) }}">
-          {{ $sz->available_quantity === null ? 'Stock: open' : 'Stock: '.max(0, (int)$sz->available_quantity) }}
+        <span style="color:{{ (int)$sz->available_quantity <= 0 ? '#b91c1c' : ((int)$sz->available_quantity <= 3 ? '#92400e' : '#047857') }}">
+          {{ 'Stock: '.max(0, (int)$sz->available_quantity) }}
         </span>
         <form action="{{ route('seller.products.sizes.restore', $sz->id) }}" method="POST" class="d-inline">
           @csrf
@@ -418,7 +418,7 @@
         </div>
         <div class="col-md-3">
           <label class="form-label">Available Cakes</label>
-          <input type="number" class="form-control" name="available_quantity" value="{{ $p->available_quantity }}" min="0" max="9999" step="1" placeholder="Leave blank">
+          <input type="number" class="form-control" name="available_quantity" value="{{ $p->available_quantity }}" min="0" max="9999" step="1" placeholder="0">
           <div style="font-size:.72rem;color:var(--gray-500);margin-top:.25rem">Set 0 to show out of stock.</div>
         </div>
         <div class="col-md-4">

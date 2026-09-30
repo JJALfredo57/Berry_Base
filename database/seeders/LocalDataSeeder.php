@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class LocalDataSeeder extends Seeder
 {
@@ -64,6 +65,19 @@ class LocalDataSeeder extends Seeder
             ['id'=>'Z18tsQ3CYV','shop_id'=>'zwn37a5y0g0h','name'=>'Mr & Mrs Wedding Cake','description'=>'Stunning two-tier wedding cake with teal fondant base, gold leaf accents, white roses, and a Mr & Mrs acrylic topper. Perfect for weddings and anniversaries.','price'=>3500.00,'image_path'=>'/storage/uploads/products/20260414105849_3b2a26e47e61.jpg','classification'=>'Fondant','flavor'=>'Vanilla','is_available'=>1,'sort_order'=>0,'created_at'=>'2026-04-20 06:34:13','updated_at'=>'2026-04-20 08:31:11'],
         ], ['id'], ['name','price','updated_at']);
 
+        $simpleProductStock = [
+            '4m1yg6CA9w' => 3, '71KQuX0ZZ5' => 5, '8yqDYKMrgQ' => 2, '90aiTkkl0N' => 0,
+            'C8cl0r1lyJ' => 8, 'cEyDq3rg8V' => 2, 'CthMkIqd78' => 4, 'CzLwa3ZEsM' => 6,
+            'dYPpHnL6WW' => 3, 'EDiAAD5c37' => 7, 'GUOrWJXU5j' => 0, 'GVE7mYzBN6' => 5,
+            'JwQgBNllKf' => 8, 'Kc9q0H4ofL' => 2, 'LNqNWuj4cE' => 3, 'orHymHTk1l' => 5,
+            'oUrd8qDicb' => 0, 'TlW5zEZ8nm' => 4, 'ugEJM1Psm2' => 6, 'vP10pJUHQk' => 3,
+            'x0qCd5r66a' => 8, 'XGpmi7p4qi' => 5, 'YagyXUFUbS' => 2, 'Z18tsQ3CYV' => 0,
+        ];
+        if (Schema::hasColumn('products', 'available_quantity')) {
+            foreach ($simpleProductStock as $productId => $quantity) {
+                DB::table('products')->where('id', $productId)->update(['available_quantity' => $quantity, 'updated_at' => now()]);
+            }
+        }
         // Riders
         DB::table('riders')->upsert([
             ['id'=>1,'shop_id'=>'zwn37a5y0g0h','name'=>'Jhustyn jhay datuin','nickname'=>'JAB','phone'=>'+639104587030','license_plate'=>'AR4425','vehicle_type'=>'Motorcycle','is_active'=>1,'created_at'=>'2026-04-24 17:45:08','updated_at'=>'2026-04-24 17:45:08'],
@@ -245,6 +259,7 @@ class LocalDataSeeder extends Seeder
                         'price'      => $product->price + $add,
                         'sort_order' => $i + 1,
                         'is_active'  => true,
+                        'available_quantity' => ['6"' => 3, '8"' => 5, '10"' => 2, '12"' => 0][$label] ?? 4,
                         'created_at' => now(),
                     ];
                 }
@@ -259,6 +274,7 @@ class LocalDataSeeder extends Seeder
                         'price'      => $product->price + $add,
                         'sort_order' => $i + 1,
                         'is_active'  => true,
+                        'available_quantity' => ['6"' => 3, '8"' => 5, '10"' => 2, '12"' => 0][$label] ?? 4,
                         'created_at' => now(),
                     ];
                 }

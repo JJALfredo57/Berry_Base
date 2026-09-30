@@ -137,7 +137,7 @@ class ProductController extends Controller
             'image_path'     => $img,
             'classification' => $validated['classification'],
             'flavor'         => $validated['flavor'] ?? null,
-            'available_quantity' => array_key_exists('available_quantity', $validated) ? $validated['available_quantity'] : null,
+            'available_quantity' => array_key_exists('available_quantity', $validated) ? (int) $validated['available_quantity'] : 0,
             'is_available' => true,
             'created_at'     => now(),
             'updated_at'     => now(),
@@ -181,7 +181,7 @@ class ProductController extends Controller
             'price'          => $validated['price'],
             'classification' => $validated['classification'],
             'flavor'         => $validated['flavor'] ?? null,
-            'available_quantity' => array_key_exists('available_quantity', $validated) ? $validated['available_quantity'] : null,
+            'available_quantity' => array_key_exists('available_quantity', $validated) ? (int) $validated['available_quantity'] : 0,
             'updated_at'     => now(),
         ];
 
@@ -362,7 +362,7 @@ class ProductController extends Controller
             'product_id' => $productId,
             'label'      => $validated['label'],
             'price'      => $validated['price'],
-            'available_quantity' => array_key_exists('available_quantity', $validated) ? $validated['available_quantity'] : null,
+            'available_quantity' => array_key_exists('available_quantity', $validated) ? (int) $validated['available_quantity'] : 0,
             'is_active' => true,
             'sort_order' => $maxSort + 1,
             'created_at' => now(),
@@ -387,7 +387,7 @@ class ProductController extends Controller
         ]);
 
         DB::table('product_sizes')->where('id', $sizeId)->update([
-            'available_quantity' => array_key_exists('available_quantity', $validated) ? $validated['available_quantity'] : null,
+            'available_quantity' => array_key_exists('available_quantity', $validated) ? (int) $validated['available_quantity'] : 0,
             'updated_at' => now(),
         ]);
 

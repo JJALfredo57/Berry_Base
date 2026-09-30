@@ -10,12 +10,12 @@ class ProductStockService
 {
     public function isTracked(?object $product): bool
     {
-        return $product && property_exists($product, 'available_quantity') && $product->available_quantity !== null;
+        return $product && property_exists($product, 'available_quantity');
     }
 
     public function isSizeTracked(?object $size): bool
     {
-        return $size && property_exists($size, 'available_quantity') && $size->available_quantity !== null;
+        return $size && property_exists($size, 'available_quantity');
     }
 
     public function stockLabel(?object $product): string
