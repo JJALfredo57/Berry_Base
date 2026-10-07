@@ -871,26 +871,22 @@ class CheckoutController extends Controller
 
         $request->session()->forget('checkout');
 
+        $successMsg = $payment === 'GCash'
+            ? 'Order placed! Please pay from the tracking page below.'
+            : 'Order placed! Please pay your 50% deposit from the tracking page below.';
+
         if ($payment === 'GCash') {
             $request->session()->put('last_order_id', $oid);
-            if ($submitKey) {
-                Cache::put($submitKey . ':result', [
-                    'route' => 'customer.pay_gcash',
-                    'params' => ['order_id' => $oid],
-                    'message' => "Order #{$oid} was already placed.",
-                ], now()->addMinutes(10));
-            }
-            return redirect()->route('customer.pay_gcash', ['order_id' => $oid]);
         }
 
-        // COD / Pickup  require deposit before seller sees the order
         if ($submitKey) {
             Cache::put($submitKey . ':result', [
-                'route' => 'customer.pay_deposit',
-                'params' => [$oid],
+                'route' => 'track.order',
+                'params' => [$trackCode],
                 'message' => "Order #{$oid} was already placed.",
             ], now()->addMinutes(10));
         }
-        return redirect()->route('customer.pay_deposit', $oid);
+
+        return redirect()->route('track.order', $trackCode)->with('msg', $successMsg);
     }
 }
