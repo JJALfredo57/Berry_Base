@@ -568,7 +568,7 @@ document.body.style.paddingRight = '';
 <script>
 const FULFILLMENT_SCHEDULE = {
   readyPrep: {{ (int)($scheduleSettings->ready_made_prep_minutes ?? 90) }},
-  pickupBuffer: {{ (int)($scheduleSettings->pickup_buffer_minutes ?? 0) }},
+  pickupBuffer: {{ max(15, (int)($scheduleSettings->pickup_buffer_minutes ?? 15)) }},
   deliveryBaseBuffer: {{ (int)($scheduleSettings->delivery_base_buffer_minutes ?? 30) }},
   deliveryMinutesPerKm: {{ (int)($scheduleSettings->delivery_minutes_per_km ?? 5) }},
   shopOpen: @json(substr($scheduleSettings->shop_open_time ?? '09:00', 0, 5)),
@@ -588,6 +588,10 @@ function formatScheduleTime(totalMinutes) {
   const suffix = h >= 12 ? 'PM' : 'AM';
   const hh = ((h + 11) % 12) + 1;
   return `${hh}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+function formatInputTime(totalMinutes) {
+  totalMinutes = Math.max(0, Math.min(1439, Math.ceil(totalMinutes)));
+  return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
 }
 function activeFulfillment() {
   return document.querySelector('[name="fulfillment_type"]:checked')?.value || 'Pickup';
@@ -627,7 +631,7 @@ function updateRegularScheduleSlots(dateId, timeId, noticeId) {
 
   const openMins = minutesOf(FULFILLMENT_SCHEDULE.shopOpen || '09:00');
   const closeMins = minutesOf(FULFILLMENT_SCHEDULE.shopClose || '19:00');
-  timeEl.min = FULFILLMENT_SCHEDULE.shopOpen || '09:00';
+  const openingAllowed = openMins + requiredLeadMinutes();
   timeEl.max = FULFILLMENT_SCHEDULE.shopClose || '19:00';
   timeEl.setCustomValidity('');
 
@@ -635,7 +639,8 @@ function updateRegularScheduleSlots(dateId, timeId, noticeId) {
   const selectedMins = minutesOf(timeEl.value);
   const today = SERVER_NOW.toISOString().slice(0, 10);
   const earliestMins = SERVER_NOW.getHours() * 60 + SERVER_NOW.getMinutes() + requiredLeadMinutes();
-  const earliestAllowed = selectedDate === today ? Math.max(openMins, earliestMins) : openMins;
+  const earliestAllowed = selectedDate === today ? Math.max(openingAllowed, earliestMins) : openingAllowed;
+  timeEl.min = formatInputTime(Math.min(closeMins, earliestAllowed));
   const hoursText = `${formatScheduleTime(openMins)} to ${formatScheduleTime(closeMins)}`;
 
   if (!selectedDate) {
@@ -660,12 +665,12 @@ function updateRegularScheduleSlots(dateId, timeId, noticeId) {
     setScheduleNotice(notice, '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle-fill me-1"></i>Please choose a time within shop hours: ' + hoursText + '.</span>', 'error');
     return false;
   }
-  if (selectedDate === today && selectedMins < earliestAllowed) {
+  if (selectedMins < earliestAllowed) {
     timeEl.setCustomValidity('That time is too soon for preparation.');
-    setScheduleNotice(notice, '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle-fill me-1"></i>Earliest available today is ' + formatScheduleTime(earliestAllowed) + '.</span>', 'error');
+    setScheduleNotice(notice, '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle-fill me-1"></i>Earliest available time is ' + formatScheduleTime(earliestAllowed) + '.</span>', 'error');
     return false;
   }
-  setScheduleNotice(notice, selectedDate === today ? '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>This time has enough preparation allowance.</span>' : '', 'ok');
+  setScheduleNotice(notice, '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>This time has enough preparation allowance.</span>', 'ok');
   return true;
 }
 document.addEventListener('DOMContentLoaded', function() {

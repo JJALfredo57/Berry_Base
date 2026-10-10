@@ -143,7 +143,7 @@ class CartController extends Controller
         $prepDate = $prep->validateDate($shopId, $scheduleDate, 'custom');
         if (!$prepDate['ok']) return back()->with('error', $prepDate['message']);
 
-        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($scheduleDate, $scheduleTime, $shopId, 'custom', $fulfillment, $lat, $lng, false);
+        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($scheduleDate, $scheduleTime, $shopId, 'custom', $fulfillment, $lat, $lng, true);
         if (!$scheduleCheck['ok']) return back()->with('error', $scheduleCheck['message']);
 
         $capacity = app(\App\Services\DailyCapacityService::class)->validate($shopId, $scheduleDate, $quantity);

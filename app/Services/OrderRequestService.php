@@ -276,7 +276,7 @@ class OrderRequestService
             'Pickup',
             null,
             null,
-            false
+            true
         );
         if (!$schedule['ok']) return ['ok' => false, 'message' => $schedule['message']];
 

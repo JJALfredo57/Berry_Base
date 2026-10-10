@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Schema;
 
 class FulfillmentScheduleService
 {
+    private const MINIMUM_OPENING_BUFFER_MINUTES = 15;
+
     public function settings(?string $shopId): object
     {
         $settings = $shopId
@@ -24,7 +26,7 @@ class FulfillmentScheduleService
             'shop_close_time' => $this->timeColumnValue($settings, 'shop_close_time', '19:00'),
             'ready_made_prep_minutes' => $this->columnValue($settings, 'ready_made_prep_minutes', 90),
             'custom_cake_prep_minutes' => $this->columnValue($settings, 'custom_cake_prep_minutes', 0),
-            'pickup_buffer_minutes' => $this->columnValue($settings, 'pickup_buffer_minutes', 0),
+            'pickup_buffer_minutes' => $this->columnValue($settings, 'pickup_buffer_minutes', self::MINIMUM_OPENING_BUFFER_MINUTES),
             'delivery_base_buffer_minutes' => $this->columnValue($settings, 'delivery_base_buffer_minutes', 30),
             'delivery_minutes_per_km' => $this->columnValue($settings, 'delivery_minutes_per_km', 5),
             'shop_lat' => $settings->shop_lat ?? null,
@@ -110,20 +112,38 @@ class FulfillmentScheduleService
             ];
         }
 
+        $requiredMinutes = $this->requiredLeadMinutes($shopId, $orderType, $fulfillment, $lat, $lng);
+        $selectedAt = Carbon::parse($date . ' ' . $time, config('app.timezone'));
+        $openingEarliest = Carbon::parse($selectedDate->toDateString() . ' ' . $open, config('app.timezone'))
+            ->addMinutes($requiredMinutes);
+        $earliest = $openingEarliest;
         if ($enforceLeadTime && $selectedDate->isSameDay($today)) {
-            $requiredMinutes = $this->requiredLeadMinutes($shopId, $orderType, $fulfillment, $lat, $lng);
-            $earliest = $now->copy()->addMinutes($requiredMinutes);
-            $selectedAt = Carbon::parse($date . ' ' . $time, config('app.timezone'));
-            if ($selectedAt->lt($earliest)) {
-                return [
-                    'ok' => false,
-                    'message' => $this->hasOpenSlotToday($shopId, $orderType, $fulfillment, $lat, $lng)
-                        ? 'That time is too soon for preparation' . ($this->isDelivery($fulfillment) ? ' and delivery travel time.' : '.')
-                        : 'No more times can be fulfilled today. Please choose another date.',
-                    'earliest_time' => $earliest->format('g:i A'),
-                    'required_minutes' => $requiredMinutes,
-                ];
-            }
+            $earliest = $openingEarliest->max($now->copy()->addMinutes($requiredMinutes));
+        }
+        $closeAt = Carbon::parse($selectedDate->toDateString() . ' ' . $close, config('app.timezone'));
+
+        if ($earliest->gt($closeAt)) {
+            return [
+                'ok' => false,
+                'message' => $selectedDate->isSameDay($today)
+                    ? 'No more times can be fulfilled today. Please choose another date.'
+                    : 'No available time on this date has enough preparation allowance. Please choose another date.',
+                'earliest_time' => $earliest->format('g:i A'),
+                'required_minutes' => $requiredMinutes,
+            ];
+        }
+
+        if ($selectedAt->lt($earliest)) {
+            $message = $selectedDate->isSameDay($today) && $enforceLeadTime
+                ? 'That time is too soon for preparation' . ($this->isDelivery($fulfillment) ? ' and delivery travel time.' : '.')
+                : 'Please choose a time at least ' . $requiredMinutes . ' minutes after shop opening.';
+
+            return [
+                'ok' => false,
+                'message' => $message . ' Earliest available time is ' . $earliest->format('g:i A') . '.',
+                'earliest_time' => $earliest->format('g:i A'),
+                'required_minutes' => $requiredMinutes,
+            ];
         }
 
         return [
@@ -148,9 +168,11 @@ class FulfillmentScheduleService
         $today = $now->toDateString();
         $earliest = $now->copy()->addMinutes($this->requiredLeadMinutes($shopId, $orderType, $fulfillment, $lat, $lng));
         $settings = $this->settings($shopId);
+        $open = Carbon::parse($today . ' ' . $settings->shop_open_time, config('app.timezone'))
+            ->addMinutes($this->requiredLeadMinutes($shopId, $orderType, $fulfillment, $lat, $lng));
         $close = Carbon::parse($today . ' ' . $settings->shop_close_time, config('app.timezone'));
 
-        return $earliest->lte($close);
+        return $earliest->max($open)->lte($close);
     }
 
     public function requiredLeadMinutes(
@@ -167,14 +189,14 @@ class FulfillmentScheduleService
 
         $buffer = $this->isDelivery($fulfillment)
             ? (int) $settings->delivery_base_buffer_minutes
-            : (int) $settings->pickup_buffer_minutes;
+            : max(self::MINIMUM_OPENING_BUFFER_MINUTES, (int) $settings->pickup_buffer_minutes);
 
         if ($this->isDelivery($fulfillment) && $lat !== null && $lng !== null && $settings->shop_lat && $settings->shop_lng) {
             $km = $this->distanceKm((float) $settings->shop_lat, (float) $settings->shop_lng, $lat, $lng);
             $buffer += (int) ceil($km * max(0, (int) $settings->delivery_minutes_per_km));
         }
 
-        return max(0, $prep + $buffer);
+        return max(self::MINIMUM_OPENING_BUFFER_MINUTES, $prep + $buffer);
     }
 
     public function label(string $start, string $end): string

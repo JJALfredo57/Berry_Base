@@ -116,7 +116,7 @@ class SettingsController extends Controller
             'custom_cart_hold_minutes' => min(120, max(1, (int)$request->input('custom_cart_hold_minutes', 15))),
             'ready_made_prep_minutes' => min(1440, max(0, (int)$request->input('ready_made_prep_minutes', 90))),
             'custom_cake_prep_minutes' => min(1440, max(0, (int)$request->input('custom_cake_prep_minutes', 0))),
-            'pickup_buffer_minutes' => 0,
+            'pickup_buffer_minutes' => min(480, max(15, (int)$request->input('pickup_buffer_minutes', 15))),
             'delivery_base_buffer_minutes' => min(480, max(0, (int)$request->input('delivery_base_buffer_minutes', 30))),
             'delivery_minutes_per_km' => 5,
         ]);

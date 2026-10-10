@@ -470,19 +470,69 @@ function customFormatTime(totalMinutes) {
   const hh = ((h + 11) % 12) + 1;
   return `${hh}:${String(m).padStart(2, '0')} ${suffix}`;
 }
+function customInputTime(totalMinutes) {
+  totalMinutes = Math.max(0, Math.min(1439, Math.ceil(totalMinutes)));
+  return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+}
+const CUSTOM_FULFILLMENT_SCHEDULE = {
+  customPrep: {{ (int)($customScheduleSettings->custom_cake_prep_minutes ?? 0) }},
+  pickupBuffer: {{ max(15, (int)($customScheduleSettings->pickup_buffer_minutes ?? 15)) }},
+  deliveryBaseBuffer: {{ (int)($customScheduleSettings->delivery_base_buffer_minutes ?? 30) }},
+  deliveryMinutesPerKm: {{ (int)($customScheduleSettings->delivery_minutes_per_km ?? 5) }},
+  shopLat: {{ $customScheduleSettings->shop_lat !== null ? (float)$customScheduleSettings->shop_lat : 'null' }},
+  shopLng: {{ $customScheduleSettings->shop_lng !== null ? (float)$customScheduleSettings->shop_lng : 'null' }}
+};
+const CUSTOM_SERVER_NOW = new Date(@json(now(config('app.timezone'))->format('Y-m-d H:i:s')));
+function customActiveFulfillment() {
+  return document.querySelector('[name="fulfillment_type"]:checked')?.value || 'Pickup';
+}
+function customDistanceKm(lat1, lng1, lat2, lng2) {
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function customRequiredLeadMinutes() {
+  let minutes = Number(CUSTOM_FULFILLMENT_SCHEDULE.customPrep || 0);
+  if (customActiveFulfillment() === 'Delivery') {
+    minutes += Number(CUSTOM_FULFILLMENT_SCHEDULE.deliveryBaseBuffer || 0);
+    const lat = parseFloat(document.getElementById('lat')?.value || document.querySelector('[name="latitude"]')?.value || '');
+    const lng = parseFloat(document.getElementById('lng')?.value || document.querySelector('[name="longitude"]')?.value || '');
+    if (!Number.isNaN(lat) && !Number.isNaN(lng) && CUSTOM_FULFILLMENT_SCHEDULE.shopLat !== null && CUSTOM_FULFILLMENT_SCHEDULE.shopLng !== null) {
+      minutes += Math.ceil(customDistanceKm(Number(CUSTOM_FULFILLMENT_SCHEDULE.shopLat), Number(CUSTOM_FULFILLMENT_SCHEDULE.shopLng), lat, lng) * Number(CUSTOM_FULFILLMENT_SCHEDULE.deliveryMinutesPerKm || 0));
+    }
+  } else {
+    minutes += Number(CUSTOM_FULFILLMENT_SCHEDULE.pickupBuffer || 0);
+  }
+  return Math.max(15, minutes);
+}
 function updateCustomScheduleSlots() {
   const timeEl = document.getElementById('customFieldTime') || document.querySelector('[name="time_slot"]');
   if (!timeEl) return true;
+  const dateEl = document.getElementById('customFieldDate') || document.querySelector('[name="schedule_date"]');
   const open = @json(substr($customScheduleSettings->shop_open_time ?? '09:00', 0, 5));
   const close = @json(substr($customScheduleSettings->shop_close_time ?? '19:00', 0, 5));
   const openMins = customMinutesOf(open);
   const closeMins = customMinutesOf(close);
   const selectedMins = customMinutesOf(timeEl.value);
-  timeEl.min = open;
+  const openingAllowed = openMins + customRequiredLeadMinutes();
+  const today = CUSTOM_SERVER_NOW.toISOString().slice(0, 10);
+  const currentAllowed = CUSTOM_SERVER_NOW.getHours() * 60 + CUSTOM_SERVER_NOW.getMinutes() + customRequiredLeadMinutes();
+  const earliestAllowed = dateEl?.value === today ? Math.max(openingAllowed, currentAllowed) : openingAllowed;
+  timeEl.min = customInputTime(Math.min(closeMins, earliestAllowed));
   timeEl.max = close;
   timeEl.setCustomValidity('');
+  if (earliestAllowed > closeMins) {
+    timeEl.setCustomValidity('No available time on this date has enough preparation allowance. Please choose another date.');
+    return false;
+  }
   if (timeEl.value && (selectedMins < openMins || selectedMins > closeMins)) {
     timeEl.setCustomValidity(`Please choose a time within shop hours: ${customFormatTime(openMins)} to ${customFormatTime(closeMins)}.`);
+    return false;
+  }
+  if (timeEl.value && selectedMins < earliestAllowed) {
+    timeEl.setCustomValidity(`Earliest available time is ${customFormatTime(earliestAllowed)}.`);
     return false;
   }
   return true;

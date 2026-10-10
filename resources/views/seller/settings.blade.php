@@ -387,6 +387,12 @@
                     <div class="form-text">Default: 30 minutes for packing and rider handoff. Distance is estimated automatically.</div>
                   </div>
                   <div class="col-md-4">
+                    <label class="form-label fw-semibold">Pickup Handling Minutes</label>
+                    <input type="number" min="15" max="480" class="form-control" name="pickup_buffer_minutes"
+                           value="{{ old('pickup_buffer_minutes', max(15, (int)($shopSettings->pickup_buffer_minutes ?? 15))) }}" oninput="updateCapacityPreview()">
+                    <div class="form-text">Minimum: 15 minutes after opening so the shop has time to prepare handoff.</div>
+                  </div>
+                  <div class="col-md-4">
                     <label class="form-label fw-semibold">Custom Cake Prep Days</label>
                     <input type="number" min="0" max="30" class="form-control" name="custom_cake_prep_days"
                            value="{{ old('custom_cake_prep_days', $shopSettings->custom_cake_prep_days ?? 3) }}" oninput="updateCapacityPreview()">

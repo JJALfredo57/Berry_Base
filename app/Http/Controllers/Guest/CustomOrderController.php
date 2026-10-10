@@ -323,7 +323,7 @@ class CustomOrderController extends Controller
 
         $rush = app(\App\Services\OrderRequestService::class)->rushSnapshot($shopId, $sdate, $timeSlot, 'custom');
 
-        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng, false);
+        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng, true);
         if (!$scheduleCheck['ok']) return back()->with('error', $scheduleCheck['message'])->withInput();
         $slotLabel = $scheduleCheck['slot']->label ?? $timeSlot;
 
@@ -590,7 +590,7 @@ class CustomOrderController extends Controller
         if (!$sdate) return ['ok' => false, 'message' => 'Please select your preferred date.'];
         $rush = app(\App\Services\OrderRequestService::class)->rushSnapshot($shopId, $sdate, $timeSlot, 'custom');
 
-        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng, false);
+        $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng, true);
         if (!$scheduleCheck['ok']) return ['ok' => false, 'message' => $scheduleCheck['message']];
         $slotLabel = $scheduleCheck['slot']->label ?? $timeSlot;
 

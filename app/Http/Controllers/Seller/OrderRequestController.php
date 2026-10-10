@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
+use App\Services\FulfillmentScheduleService;
 use App\Services\MobileNotificationService;
 use App\Services\OrderRequestService;
 use Illuminate\Http\Request;
@@ -109,6 +110,16 @@ class OrderRequestController extends Controller
             if ($acceptedPrice <= 0) return back()->with('err', 'Please set a valid accepted price before sending the offer.')->withInput();
             $acceptedDate = $request->input('accepted_date') ?: $orderRequest->preferred_date;
             $acceptedTime = substr((string) ($request->input('accepted_time') ?: $orderRequest->preferred_time), 0, 5);
+            $scheduleCheck = app(FulfillmentScheduleService::class)->validate(
+                $shop->id,
+                $acceptedDate,
+                $acceptedTime,
+                ($orderRequest->type ?? '') === 'custom' ? 'custom' : 'regular',
+                'Pickup'
+            );
+            if (!$scheduleCheck['ok']) {
+                return back()->with('err', $scheduleCheck['message'])->withInput();
+            }
             $data['status'] = 'accepted';
             $data['accepted_price'] = $acceptedPrice;
             $data['accepted_date'] = $acceptedDate;
@@ -126,6 +137,16 @@ class OrderRequestController extends Controller
             $data['status'] = 'schedule_suggested';
             $data['suggested_date'] = $request->input('suggested_date');
             $data['suggested_time'] = substr((string) $request->input('suggested_time'), 0, 5);
+            $scheduleCheck = app(FulfillmentScheduleService::class)->validate(
+                $shop->id,
+                $data['suggested_date'],
+                $data['suggested_time'],
+                ($orderRequest->type ?? '') === 'custom' ? 'custom' : 'regular',
+                'Pickup'
+            );
+            if (!$scheduleCheck['ok']) {
+                return back()->with('err', $scheduleCheck['message'])->withInput();
+            }
             $message = 'Suggested schedule sent.';
         } elseif ($action === 'offer_alternative') {
             if (!$request->input('alternative_product_id') && $response === '') {
