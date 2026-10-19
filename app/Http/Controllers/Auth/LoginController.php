@@ -64,6 +64,9 @@ class LoginController extends Controller
 
     public function show()
     {
+        if ((session('user')['role'] ?? null) === 'customer') {
+            if ($response = app(\App\Services\PurchaseIntentService::class)->resume(request())) return $response;
+        }
         if (session('rider')) {
             return redirect()->route('rider.dashboard');
         }
@@ -108,6 +111,10 @@ class LoginController extends Controller
 
             $request->session()->regenerate();
             $request->session()->forget('rider');
+            $draftOwner = $request->session()->get('checkout.customer_id', $request->session()->get('user.id', ''));
+            if ((string) $draftOwner !== (string) $user->id) {
+                $request->session()->forget(['checkout', 'last_order_id']);
+            }
             $request->session()->put('user', [
                 'id' => $user->id,
                 'fullname' => $user->fullname,
@@ -119,6 +126,14 @@ class LoginController extends Controller
             ]);
 
             CakeshopHelper::logActivity($user->id, $user->role, 'Login', ucfirst($user->role) . ' logged in');
+
+            if ($user->role === 'customer') {
+                if ($response = app(\App\Services\PurchaseIntentService::class)->resume($request)) return $response;
+                $intended = $request->session()->pull('customer_intended_url');
+                if (is_string($intended) && str_starts_with($intended, '/') && !str_starts_with($intended, '//')) {
+                    return redirect()->to(url($intended));
+                }
+            }
 
             return match ($user->role) {
                 'seller' => redirect()->route('seller.dashboard'),

@@ -51,6 +51,7 @@ class CatalogController extends Controller
         if ($n = trim($request->input('custom_note', '')))  $parts[] = $n;
 
         $request->session()->put('checkout', [
+            'customer_id' => (string) session('user')['id'],
             'product_id'    => $pid,
             'quantity'      => $qty,
             'custom_note'   => implode(' | ', $parts),

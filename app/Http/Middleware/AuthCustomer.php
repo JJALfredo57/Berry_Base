@@ -10,6 +10,12 @@ class AuthCustomer
         $user = session('user');
 
         if (!$user) {
+            if ($request->isMethod('GET')) {
+                $request->session()->put('customer_intended_url', '/'.$request->path().($request->getQueryString() ? '?'.$request->getQueryString() : ''));
+            }
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'error' => 'Please log in to continue.', 'redirect_url' => route('login')], 401);
+            }
             return redirect()->route('login');
         }
 
@@ -25,6 +31,10 @@ class AuthCustomer
             return redirect()->route('platform.home');
         }
 
+        $draftOwner = $request->session()->get('checkout.customer_id');
+        if ($draftOwner && (string) $draftOwner !== (string) $user['id']) {
+            $request->session()->forget('checkout');
+        }
         $response = $next($request);
         $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
         $response->headers->set('Pragma', 'no-cache');

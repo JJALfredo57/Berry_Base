@@ -651,20 +651,12 @@
 
             <div class="alert border-0 py-2 small mb-3" style="background:#fff0f5;border-radius:.7rem">
               <i class="bi bi-info-circle me-1" style="color:var(--primary)"></i>
-              You'll choose pickup/delivery on the next step.
-            </div>
-
-            <div class="form-check d-flex align-items-start gap-2 mb-3 p-3" style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:.75rem">
-              <input class="form-check-input mt-1" type="checkbox" name="stay_on_catalog" value="1" id="guestStayCatalog{{ $p->id }}" checked>
-              <label class="form-check-label small" for="guestStayCatalog{{ $p->id }}">
-                <span class="fw-semibold d-block">Stay on catalog after adding to cart</span>
-                <span class="text-muted">Uncheck this if you want to open your cart right after adding.</span>
-              </label>
+              Sign in or create an account to continue. Your cake selection will be kept during sign-in.
             </div>
 
             <div class="d-grid gap-2">
               <button type="submit" class="btn btn-primary py-2 fw-semibold">
-                <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
+                <i class="bi bi-arrow-right-circle me-1"></i>Buy Now
               </button>
               <button type="submit" class="btn btn-outline-primary py-2 fw-semibold" formaction="{{ route('cart.add') }}">
                 <i class="bi bi-cart-plus me-1"></i>Add to Cart
@@ -680,40 +672,7 @@
             <form action="{{ route('order_requests.store') }}" method="POST" class="row g-2">
               @csrf
               <input type="hidden" name="product_id" value="{{ $p->id }}">
-              <input type="hidden" name="type" value="ready_made">
-              <input type="hidden" name="source" value="catalog">
-              <input type="hidden" name="request_reason" value="{{ count($sizes) > 0 ? 'size_out_of_stock' : 'out_of_stock' }}">
-              @if(count($sizes) > 0)
-              <div class="col-12">
-                <label class="form-label small fw-semibold">Requested size <span class="text-danger">*</span></label>
-                <select name="selected_size" class="form-select form-select-sm" required>
-                  <option value="">Choose the size you want the seller to bake</option>
-                  @foreach($sizes as $sz)
-                    @php
-                      $requestSizeTracked = property_exists($sz, 'available_quantity');
-                      $requestSizeQty = $requestSizeTracked ? max(0, (int) $sz->available_quantity) : null;
-                    @endphp
-                    <option value="{{ $sz->label }}" {{ old('selected_size') === $sz->label ? 'selected' : '' }}>
-                      {{ $sz->label }} - PHP {{ number_format($sz->price, 2) }}{{ $requestSizeTracked ? ($requestSizeQty <= 0 ? ' - out of stock' : ' - '.$requestSizeQty.' left') : '' }}
-                    </option>
-                  @endforeach
-                </select>
-              </div>
-              @endif
-              <div class="col-md-6">
-                <label class="form-label small fw-semibold">Full name <span class="text-danger">*</span></label>
-                <input type="text" name="guest_name" class="form-control form-control-sm" value="{{ old('guest_name') }}" maxlength="120" required>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label small fw-semibold">Mobile number <span class="text-danger">*</span></label>
-                <input type="tel" name="guest_phone" class="form-control form-control-sm" value="{{ old('guest_phone') }}" placeholder="09XXXXXXXXX" required>
-              </div>
-              <div class="col-4"><label class="form-label small fw-semibold">Qty</label><input type="number" name="quantity" min="1" max="20" value="1" class="form-control form-control-sm" required></div>
-              <div class="col-8 col-md-4"><label class="form-label small fw-semibold">Preferred date</label><input type="date" name="preferred_date" min="{{ now()->toDateString() }}" class="form-control form-control-sm" required></div>
-              <div class="col-12 col-md-4"><label class="form-label small fw-semibold">Preferred time</label><input type="time" name="preferred_time" class="form-control form-control-sm" required></div>
-              <div class="col-12"><label class="form-label small fw-semibold">Allow similar cake? <span class="text-muted" title="Seller may offer a close design, flavor, or size if the exact cake is not possible."><i class="bi bi-info-circle"></i></span></label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="allow_similar_cake" value="1" id="catalogAllowSimilar{{ $p->id }}"><label class="form-check-label small text-muted" for="catalogAllowSimilar{{ $p->id }}">Yes, seller may offer a close alternative.</label></div></div>
-              <div class="col-12"><label class="form-label small fw-semibold">Note to seller</label><textarea name="customer_note" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Occasion, timing, or exact request"></textarea></div>
-              <div class="col-12"><button type="submit" class="btn btn-primary w-100 fw-semibold"><i class="bi bi-send me-1"></i>Send Kitchen Request</button><div class="small text-muted mt-2">No payment yet. This becomes an order only after seller confirmation.</div></div>
+              <div class="col-12"><button class="btn btn-primary w-100" type="submit" formnovalidate>Sign in to Request This Cake</button></div>
             </form>
           </div>
           @else

@@ -13,7 +13,7 @@
         {{ $step == 1 ? 'Create Account' : 'Verify & Set Password' }}
       </h1>
       <p style="color:var(--gray-500);font-size:.875rem;margin:0">
-        {{ $step == 1 ? 'Join the platform as a customer' : 'Enter the OTP sent to you' }}
+        {{ $step == 1 ? (session()->has('purchase_intent') ? 'Create your customer account to continue your cake selection' : 'Join the platform as a customer') : 'Enter the OTP sent to you' }}
       </p>
     </div>
 

@@ -295,6 +295,30 @@ class CheckoutController extends Controller
     }
     public function placeOrder(Request $request)
     {
+        $request->validate([
+            'fulfillment_type' => 'nullable|in:Pickup,Delivery',
+            'payment_method' => 'nullable|in:COD,COP,GCash',
+            'schedule_date' => 'nullable|date_format:Y-m-d',
+            'schedule_time' => 'nullable|date_format:H:i',
+            'custom_note' => 'nullable|string|max:1000',
+            'selected_size' => 'nullable|string|max:120',
+            'delivery_zone' => 'nullable|string|max:200',
+            'delivery_fee' => 'nullable|numeric|min:0',
+            'address' => 'nullable|string|max:2000',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'item_notes' => 'nullable|array',
+            'item_notes.*' => 'nullable|string|max:1000',
+            '_submit_token' => 'nullable|string|max:200',
+            'voucher_code' => 'nullable|string|max:100',
+            'points_to_redeem' => 'nullable|integer|min:0',
+            'recipient_name' => 'nullable|string|max:120',
+            'recipient_phone' => 'nullable|string|max:30',
+            'gift_message' => 'nullable|string|max:500',
+            'sender_display_name' => 'nullable|string|max:120',
+            'delivery_instructions' => 'nullable|string|max:500',
+            'surprise_contact_policy' => 'nullable|in:sender_first,recipient_if_needed,recipient_ok',
+        ]);
         $uid      = session('user')['id'];
         $checkout = $request->session()->get('checkout');
         if (!$checkout) return redirect()->route('customer.catalog');
@@ -377,7 +401,7 @@ class CheckoutController extends Controller
         $sdate         = $request->input('schedule_date') ?: null;
         $stime         = $request->input('schedule_time') ?: null;
         $payment       = $request->input('payment_method', 'COD');
-        $selectedSize  = trim($request->input('selected_size', $checkout['selected_size'] ?? ''));
+        $selectedSize  = trim((string) $request->input('selected_size', $checkout['selected_size'] ?? ''));
         if (!empty($checkout['request_offer_checkout'])) {
             $sdate = $checkout['schedule_date'] ?? $sdate;
             $stime = $checkout['schedule_time'] ?? $stime;

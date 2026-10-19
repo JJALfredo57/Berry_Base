@@ -189,6 +189,7 @@ class CartController extends Controller
         if (!$item) return redirect()->route('customer.cart')->with('error', 'Cart item not found.');
 
         $request->session()->put('checkout', [
+            'customer_id' => (string) $uid,
             'cart_id' => $cart->id,
             'cart_item_id' => $item->id,
             'product_id' => $item->product_id,
@@ -251,6 +252,7 @@ class CartController extends Controller
             return ($meta['cart_type'] ?? '') !== 'custom_cake';
         }) ?: $items->first();
         $request->session()->put('checkout', [
+            'customer_id' => (string) $uid,
             'cart_id' => $cart->id,
             'cart_shop_id' => $shopKey,
             'cart_item_ids' => $items->pluck('id')->map(fn ($id) => (int) $id)->values()->all(),

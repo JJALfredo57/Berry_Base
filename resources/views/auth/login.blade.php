@@ -52,7 +52,8 @@ body.seller-login-page .customer-wrap {
   align-items:center;
   justify-content:center;
   padding:clamp(.75rem,2vw,1.25rem);
-  overflow:hidden;
+  overflow-x:hidden;
+  overflow-y:auto;
   isolation:isolate;
   background:#1c0903;
 }
@@ -79,8 +80,8 @@ body.seller-login-page .customer-wrap {
 }
 .login-box  {
   width:min(100%,420px);
-  max-height:calc(100dvh - clamp(1.5rem,4vw,2.5rem));
-  overflow:hidden;
+  flex-shrink:0;
+  margin-block:auto;
   animation:csSlideUp .45s cubic-bezier(.34,1.56,.64,1) both;
 }
 .login-card {
@@ -151,7 +152,7 @@ document.body.classList.add('seller-login-page');
         </div>
       @endif
       <h1 class="login-title">BerryBase Login</h1>
-      <p class="login-sub">Sign in as seller, customer, admin, or rider</p>
+      <p class="login-sub">{{ session()->has('purchase_intent') ? 'Sign in as a customer to continue your cake selection' : 'Sign in as seller, customer, admin, or rider' }}</p>
     </div>
 
     {{-- Card --}}

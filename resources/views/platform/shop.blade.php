@@ -845,12 +845,12 @@
 
                 <div class="alert border-0 py-2 small mb-3" style="background:#fff0f5;border-radius:.7rem">
                   <i class="bi bi-info-circle me-1" style="color:var(--primary)"></i>
-                  You'll choose pickup/delivery on the next step.
+                  {{ $viewerRole ? "You'll choose pickup/delivery on the next step." : 'Sign in or create an account to continue. Your cake selection will be kept during sign-in.' }}
                 </div>
 
                 {{-- Date Availability --}}
                 <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" {{ $hasStock ? '' : 'disabled' }}>
-                  <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
+                  <i class="bi bi-arrow-right-circle me-1"></i>{{ $viewerRole === 'customer' ? 'Proceed to Checkout' : 'Buy Now' }}
                 </button>
               </form>
 
@@ -870,6 +870,10 @@
                 @endif
                   @csrf
                   <input type="hidden" name="product_id" value="{{ $p->id }}">
+                  @if($viewerRole !== 'customer')
+                  <div class="col-12"><button class="btn btn-primary w-100" type="submit" formnovalidate>Sign in to Request This Cake</button></div>
+                  @endif
+                  @if($viewerRole === 'customer')
                   <input type="hidden" name="type" value="ready_made">
                   <input type="hidden" name="source" value="shop">
                   <input type="hidden" name="request_reason" value="{{ count($sizes) > 0 ? 'size_out_of_stock' : 'out_of_stock' }}">
@@ -929,6 +933,7 @@
                     <button type="submit" class="btn btn-primary w-100 fw-semibold"><i class="bi bi-send me-1"></i>Send Kitchen Request</button>
                     <div class="small text-muted mt-2">No payment yet. This becomes an order only after the seller accepts and confirms the next step.</div>
                   </div>
+                  @endif
                 </form>
               </div>
               @endif
@@ -1269,7 +1274,7 @@ function confirmCustomCake(event, el) {
 
   shopDialogOpen({
     title: 'Start a Custom Cake Order?',
-    message: 'You will be taken to the custom cake request form for this shop.',
+    message: viewerRole === 'guest' ? 'Sign in or create a customer account to continue to this shop’s custom cake form.' : 'You will be taken to the custom cake request form for this shop.',
     icon: 'bi-palette-fill',
     iconBg: '#fce7f3',
     iconColor: 'var(--primary)',
@@ -1307,7 +1312,7 @@ function confirmOrder(form) {
   if (typeof cakeConfirm === 'function') {
     cakeConfirm({
       title: 'Proceed to Checkout?',
-      message: 'You will be redirected to the checkout page.',
+      message: viewerRole === 'guest' ? 'Sign in or create a customer account to continue. Your cake selection will be kept during sign-in.' : 'You will be redirected to the checkout page.',
       icon: 'bi-cart-check',
       iconBg: '#dbeafe',
       iconColor: '#2563eb',
@@ -1321,7 +1326,7 @@ function confirmOrder(form) {
   pendingCheckoutForm = form;
   shopDialogOpen({
     title: 'Proceed to Checkout?',
-    message: 'Your selected item will be prepared for checkout. You can review delivery and payment details on the next page.',
+    message: viewerRole === 'guest' ? 'Sign in or create a customer account to continue. Your cake selection will be kept during sign-in.' : 'Your selected item will be prepared for checkout. You can review delivery and payment details on the next page.',
     icon: 'bi-cart-check',
     iconBg: '#dbeafe',
     iconColor: '#2563eb',

@@ -55,7 +55,7 @@ class AppServiceProvider extends ServiceProvider
                 $user = session('user');
                 $role = $user['role'] ?? null;
 
-                if ($role && $role !== 'customer') {
+                if ($role !== 'customer') {
                     $view->with('topbarCartCount', 0);
                     return;
                 }

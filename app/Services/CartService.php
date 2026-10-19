@@ -11,6 +11,8 @@ class CartService
 {
     public function cart(Request $request, ?string $userId = null): ?object
     {
+        // Visitors may browse, but account carts are created only after sign-in.
+        if (!$userId) return null;
         if (!Schema::hasTable('customer_carts')) return null;
 
         $sessionId = $request->session()->getId();
@@ -110,7 +112,8 @@ class CartService
             ->first();
 
         if ($existing) {
-            $nextQuantity = min(99, (int) $existing->quantity + max(1, $quantity));
+            $nextQuantity = (int) $existing->quantity + max(1, $quantity);
+            if ($nextQuantity > 99) return ['ok' => false, 'message' => 'Your cart would exceed 99 pieces of this cake. Please review the quantity in your cart.'];
             $stock = app(ProductStockService::class)->validateProductQuantity($productId, $nextQuantity, $selectedSize);
             if (!$stock['ok']) return ['ok' => false, 'message' => $stock['message']];
             if ((float) ($existing->discount_amount_snapshot ?? 0) > 0) {

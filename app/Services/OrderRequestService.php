@@ -142,6 +142,7 @@ class OrderRequestService
             ]);
         }
         $checkout['request_offer_status'] = 'customer_accepted';
+        if ($customer) $checkout['customer_id'] = (string) $request->session()->get('user.id');
 
         $request->session()->put($customer ? 'checkout' : 'guest_checkout', $checkout);
         return ['ok' => true, 'checkout' => $checkout];

@@ -10,14 +10,28 @@ class OrderRequestController extends Controller
     public function store(Request $request, OrderRequestService $requests)
     {
         $role = session('user')['role'] ?? null;
+        if ($role !== 'customer') {
+            return redirect()->route('login')->with('error', 'Please use a customer account to submit a cake request.');
+        }
+        $request->validate([
+            'product_id' => 'required|string|max:80',
+            'type' => 'nullable|string|max:40',
+            'source' => 'nullable|string|max:40',
+            'request_reason' => 'nullable|string|max:80',
+            'quantity' => 'nullable|integer|min:1|max:20',
+            'selected_size' => 'nullable|string|max:120',
+            'preferred_date' => 'nullable|date_format:Y-m-d',
+            'preferred_time' => 'nullable|date_format:H:i',
+            'customer_note' => 'nullable|string|max:500',
+        ]);
         $userId = $role === 'customer' ? (string) (session('user')['id'] ?? '') : null;
         $fullname = $role === 'customer' ? (string) (session('user')['fullname'] ?? '') : null;
         $phone = $role === 'customer' ? (string) (session('user')['phone'] ?? '') : null;
 
         $result = $requests->createReadyMade([
             'user_id' => $userId ?: null,
-            'guest_name' => $request->input('guest_name', $fullname),
-            'guest_phone' => $request->input('guest_phone', $phone),
+            'guest_name' => $fullname,
+            'guest_phone' => $phone,
             'product_id' => $request->input('product_id'),
             'type' => $request->input('type', 'ready_made'),
             'source' => $request->input('source', 'shop'),

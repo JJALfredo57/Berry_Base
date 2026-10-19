@@ -21,6 +21,13 @@ class RegisterController extends Controller
 
     public function store(Request $request)
     {
+        $request->validate([
+            'fullname' => 'required|string|max:100',
+            'email' => 'required|string|max:150',
+            'phone' => 'required|string|max:30',
+            'username' => 'required|string|max:60',
+            'otp_channel' => 'nullable|in:email,sms',
+        ]);
         $fullname = trim($request->input('fullname', ''));
         $email    = strtolower(trim($request->input('email', '')));
         $phone    = trim($request->input('phone', ''));
@@ -90,9 +97,14 @@ class RegisterController extends Controller
 
     public function verifyOtp(Request $request)
     {
-        $otpIn    = trim($request->input('otp', ''));
-        $password = $request->input('password', '');
-        $confirm  = $request->input('confirm_password', '');
+        $request->validate([
+            'otp' => 'required|string|max:10',
+            'password' => 'nullable|string|max:256',
+            'confirm_password' => 'nullable|string|max:256',
+        ]);
+        $otpIn    = trim((string) $request->input('otp', ''));
+        $password = (string) $request->input('password', '');
+        $confirm  = (string) $request->input('confirm_password', '');
         $pending  = $request->session()->get('reg_pending');
 
         if (!$pending) {
@@ -145,7 +157,21 @@ class RegisterController extends Controller
 
         CakeshopHelper::logActivity($newId, 'customer', 'Register', 'New customer registered');
         $request->session()->forget(['reg_pending','reg_step']);
-        return redirect()->route('login')->with('msg', 'Registration successful! You can now login.');
+        $request->session()->regenerate();
+        $request->session()->forget('rider');
+        $request->session()->put('user', [
+            'id' => $newId,
+            'fullname' => $pending['fullname'],
+            'email' => $pending['email'],
+            'phone' => $pending['phone'],
+            'username' => $pending['username'],
+            'role' => 'customer',
+            'profile_photo' => null,
+        ]);
+        if ($response = app(\App\Services\PurchaseIntentService::class)->resume($request)) return $response;
+        $intended = $request->session()->pull('customer_intended_url');
+        if (is_string($intended) && str_starts_with($intended, '/') && !str_starts_with($intended, '//')) return redirect()->to(url($intended));
+        return redirect()->route('customer.catalog')->with('msg', 'Your account is ready. You are now signed in.');
     }
 
     public function back(Request $request)

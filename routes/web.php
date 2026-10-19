@@ -118,6 +118,9 @@ Route::get('/catalog', function (\Illuminate\Http\Request $request) {
     return app(GuestCatalog::class)->index($request);
 })->name('catalog');
 Route::get('/catalog/products/{productId}/reviews', [GuestCatalog::class, 'reviews'])->name('catalog.reviews');
+Route::get('/purchase/resume', function (\Illuminate\Http\Request $request, \App\Services\PurchaseIntentService $intent) {
+    return $intent->resume($request) ?? redirect()->route('customer.catalog');
+})->middleware('auth.customer')->name('purchase.resume');
 Route::post('/catalog/select',  [GuestCatalog::class, 'selectProduct'])->name('catalog.select');
 Route::post('/order-requests', [\App\Http\Controllers\OrderRequestController::class, 'store'])->name('order_requests.store');
 Route::get('/order-requests/{id}/{token}', [\App\Http\Controllers\OrderRequestOfferController::class, 'show'])->name('order_requests.show_token');
@@ -834,3 +837,23 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::get('/logs', [LogController::class, 'index'])->name('logs.index');
     Route::get('/notifications/mark-read', [NotificationController::class, 'markReadAdmin'])->name('notifications.mark_read');
 });
+
+// New purchases require customer authentication. Existing guest records retain access.
+$purchaseRoutes = [
+    'catalog.select', 'order_requests.store', 'cart', 'cart.add',
+    'cart.items.update', 'cart.items.remove', 'cart.items.checkout',
+    'cart.items.refresh_custom_hold', 'cart.items.reschedule_custom_hold',
+    'cart.shops.checkout', 'guest.checkout', 'guest.checkout.send_otp',
+    'guest.checkout.place', 'guest.custom_order', 'guest.custom_order.send_otp',
+    'guest.custom_order.store', 'guest.feedback', 'guest.feedback.store',
+];
+foreach (Route::getRoutes() as $registeredRoute) {
+    $routeName = $registeredRoute->getName() ?? '';
+    if (in_array($routeName, $purchaseRoutes, true)) {
+        $registeredRoute->middleware(\App\Http\Middleware\GuestPurchaseGate::class);
+    }
+    if (in_array('trackCode', $registeredRoute->parameterNames(), true)
+        || in_array($routeName, ['guest.custom_order.accept_price', 'guest.custom_order.cancel_price'], true)) {
+        $registeredRoute->middleware(\App\Http\Middleware\OrderAccountAccess::class);
+    }
+}
