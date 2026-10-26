@@ -446,7 +446,12 @@ class OrderHistoryPurgeService
             $path = substr($path, strlen('storage/'));
         }
 
-        foreach (['uploads/payout_receipts/', 'uploads/refund_receipts/', 'uploads/delivery/'] as $prefix) {
+        foreach ([
+            'uploads/payout_receipts/',
+            'uploads/refund_receipts/',
+            'uploads/rider_remittances/',
+            'uploads/delivery/',
+        ] as $prefix) {
             if (str_starts_with($path, $prefix) && !str_contains($path, '..')) {
                 return $path;
             }

@@ -58,7 +58,7 @@ class OrderHistoryPurgeServiceTest extends TestCase
         foreach ([
             'uploads/payout_receipts/payout.jpg',
             'uploads/refund_receipts/refund.jpg',
-            'uploads/delivery/remittance.jpg',
+            'uploads/rider_remittances/remittance.jpg',
         ] as $path) {
             Storage::disk('public')->put($path, 'receipt');
         }
@@ -91,7 +91,7 @@ class OrderHistoryPurgeServiceTest extends TestCase
                 'id' => 1,
                 'order_id' => 'ORDER1',
                 'batch_id' => 1,
-                'receipt_path' => Storage::disk('public')->url('uploads/delivery/remittance.jpg'),
+                'receipt_path' => Storage::disk('public')->url('uploads/rider_remittances/remittance.jpg'),
             ],
         ]);
 
@@ -115,7 +115,7 @@ class OrderHistoryPurgeServiceTest extends TestCase
         $this->assertDatabaseCount('products', 1);
         $this->assertFalse(Storage::disk('public')->exists('uploads/payout_receipts/payout.jpg'));
         $this->assertFalse(Storage::disk('public')->exists('uploads/refund_receipts/refund.jpg'));
-        $this->assertFalse(Storage::disk('public')->exists('uploads/delivery/remittance.jpg'));
+        $this->assertFalse(Storage::disk('public')->exists('uploads/rider_remittances/remittance.jpg'));
     }
 
     public function test_purge_refuses_when_payout_group_contains_records_outside_scope(): void
