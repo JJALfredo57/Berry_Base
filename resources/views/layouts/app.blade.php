@@ -40,6 +40,29 @@
   $pbgGradEnd   = $platformBrand->platform_bg_gradient_end   ?? '#ffe3f1';
   $pbgImage   = $platformBrand->platform_bg_image   ?? '';
   $pbgOpacity = (float)($platformBrand->platform_bg_opacity ?? 1.0);
+  if ($sessionRole === 'admin') {
+      $adminPrimary = (string) ($settings['primary_color'] ?? '');
+      if (preg_match('/^#[0-9A-Fa-f]{6}$/', $adminPrimary)) {
+          $rawPrimary = $adminPrimary;
+      }
+
+      $adminBgType = in_array($settings['bg_type'] ?? '', ['color', 'gradient', 'image'], true)
+          ? $settings['bg_type']
+          : 'color';
+      $safeColor = function ($value, string $fallback): string {
+          $value = (string) $value;
+          return preg_match('/^#[0-9A-Fa-f]{6}$/', $value) ? $value : $fallback;
+      };
+      $pbgType = $adminBgType;
+      $pbgColor = $safeColor($settings['bg_color'] ?? null, '#FFF8F8');
+      $pbgGradStart = $safeColor($settings['gradient_start'] ?? null, '#fff7fb');
+      $pbgGradEnd = $safeColor($settings['gradient_end'] ?? null, '#ffe3f1');
+      $pbgImage = (string) ($settings['bg_image_path'] ?? '');
+      $pbgOpacity = max(0.05, min(1.0, (float) ($settings['bg_image_opacity'] ?? 1.0)));
+      $bodyBgCss = $pbgType === 'gradient'
+          ? "background: linear-gradient(135deg, {$pbgGradStart} 0%, {$pbgGradEnd} 100%);"
+          : "background: {$pbgColor};";
+  }
   if ($pbgType === 'gradient') {
       $bodyBgCss = "background: linear-gradient(135deg, {$pbgGradStart} 0%, {$pbgGradEnd} 100%);";
   } elseif ($pbgType === 'image' && $pbgImage) {
@@ -708,7 +731,7 @@
 
     /* ═══════════ ADMIN SIDEBAR LAYOUT ═══════════ */
     @if($isAdmin || $isSeller)
-    body { background:{{ ($settings['bg_type'] ?? 'gradient') === 'image' && !empty($settings['bg_image_path']) ? 'transparent' : '#f0f2f8' }}; }
+    body { {!! $bodyBgCss ?? '' !!} }
 
     .cs-dashboard-bg-layer {
       position:fixed;
@@ -823,7 +846,7 @@
     @endif
     {{-- ── Seller Sidebar CSS ── --}}
     @if($isSeller)
-    body { background: var(--gray-50,#FAFAFA); }
+    body { {!! $bodyBgCss ?? '' !!} }
     #sellerSidebar {
       position:fixed;top:0;left:0;bottom:0;z-index:1040;
       width:var(--sidebar-w);background:var(--sidebar-bg);color:#fff;

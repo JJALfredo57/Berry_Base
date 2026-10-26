@@ -257,8 +257,6 @@ Route::get('/device/push-config-check', function () {
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Guest Checkout Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 Route::get('/checkout',             [GuestCheckout::class, 'show'])->name('guest.checkout');
-Route::post('/checkout/send-otp',   [GuestCheckout::class, 'sendOtp'])->name('guest.checkout.send_otp');
-Route::post('/checkout/place',      [GuestCheckout::class, 'placeOrder'])->name('guest.checkout.place');
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Guest Custom Order Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // Ã¢â€â‚¬Ã¢â€â‚¬ Seller Application (public) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
@@ -269,8 +267,6 @@ Route::post('/seller/apply/submit',     [\App\Http\Controllers\Seller\Applicatio
 Route::get('/seller/apply/success',     [\App\Http\Controllers\Seller\ApplicationController::class, 'success'])->name('seller.apply.success');
 
 Route::get('/custom-order',              [GuestCustomOrder::class, 'show'])->name('guest.custom_order');
-Route::post('/custom-order/send-otp',    [GuestCustomOrder::class, 'sendOtp'])->name('guest.custom_order.send_otp');
-Route::post('/custom-order/place',       [GuestCustomOrder::class, 'store'])->name('guest.custom_order.store');
 Route::post('/custom-order/{id}/accept-price', [GuestCustomOrder::class, 'acceptPrice'])->name('guest.custom_order.accept_price');
 Route::post('/custom-order/{id}/cancel-price', [GuestCustomOrder::class, 'cancelPrice'])->name('guest.custom_order.cancel_price');
 
@@ -843,9 +839,7 @@ $purchaseRoutes = [
     'catalog.select', 'order_requests.store', 'cart', 'cart.add',
     'cart.items.update', 'cart.items.remove', 'cart.items.checkout',
     'cart.items.refresh_custom_hold', 'cart.items.reschedule_custom_hold',
-    'cart.shops.checkout', 'guest.checkout', 'guest.checkout.send_otp',
-    'guest.checkout.place', 'guest.custom_order', 'guest.custom_order.send_otp',
-    'guest.custom_order.store', 'guest.feedback', 'guest.feedback.store',
+    'cart.shops.checkout', 'guest.checkout', 'guest.custom_order',
 ];
 foreach (Route::getRoutes() as $registeredRoute) {
     $routeName = $registeredRoute->getName() ?? '';

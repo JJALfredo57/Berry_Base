@@ -36,7 +36,7 @@ class OrderRequestOfferController extends Controller
         $result = $service->prepareCheckoutFromOffer($request, $offer, (bool) $userId);
         if (!$result['ok']) return back()->with('error', $result['message']);
 
-        return redirect()->route($userId ? 'customer.checkout' : 'guest.checkout')
+        return redirect()->route('customer.checkout')
             ->with('msg', 'Offer accepted. Please complete checkout details to place the order.');
     }
 

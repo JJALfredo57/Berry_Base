@@ -16,7 +16,7 @@
 @media (hover: hover) {
   .catalog-card:hover {
     transform: translateY(-8px) scale(1.02) !important;
-    box-shadow: 0 20px 40px rgba(233,30,99,.18) !important;
+    box-shadow: 0 20px 40px color-mix(in srgb, var(--primary) 18%, transparent) !important;
   }
 }
 @media(max-width:600px){
@@ -45,20 +45,24 @@
   color:#111827;
   transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease;
 }
-.size-choice-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(233,30,99,.12)}
-.size-choice-btn.is-selected{background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important;box-shadow:0 8px 20px rgba(233,30,99,.24)}
+.size-choice-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px color-mix(in srgb, var(--primary) 12%, transparent)}
+.size-choice-btn.is-selected{background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important;box-shadow:0 8px 20px color-mix(in srgb, var(--primary) 24%, transparent)}
 .size-choice-btn.is-selected .text-muted{color:rgba(255,255,255,.78)!important}
-.size-choice-btn:focus{box-shadow:0 0 0 .16rem rgba(233,30,99,.18)}
+.size-choice-btn:focus{box-shadow:0 0 0 .16rem color-mix(in srgb, var(--primary) 18%, transparent)}
 .size-view-more-btn{font-size:.78rem;font-weight:700;color:var(--primary);background:#fff;border:1px dashed var(--primary);border-radius:999px;padding:.25rem .75rem}
 .catalog-see-more-wrap{display:none}
-.catalog-see-more-btn{border-radius:999px;padding:.7rem 1.25rem;font-weight:800;box-shadow:0 10px 24px rgba(233,30,99,.14)}
+.catalog-see-more-btn{border-radius:999px;padding:.7rem 1.25rem;font-weight:800;box-shadow:0 10px 24px color-mix(in srgb, var(--primary) 14%, transparent)}
+@media(prefers-reduced-motion:reduce){
+  .catalog-item,.filter-panel,.size-choice-btn{transition-duration:.01ms!important}
+  .catalog-card:hover,.size-choice-btn:hover{transform:none!important}
+}
 </style>
 
   <div class="text-center mb-5">
     <h3 class="fw-bold" style="color:var(--primary)">
       <i class="bi bi-cake2 me-2"></i>{{ $settings['tagline'] ?? 'Our Cakes' }}
     </h3>
-    <p class="text-muted">Choose your cake and place your order</p>
+    <p class="text-muted">Choose your cake. Sign in or create an account to place an order.</p>
   </div>
 
   @if(session('msg'))
@@ -69,10 +73,10 @@
   <div class="mb-5" id="bestSellerSection">
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
       <div>
-        <h5 class="fw-bold mb-1" style="color:#9d174d"><i class="bi bi-fire me-2"></i>Best Seller Cakes</h5>
+        <h5 class="fw-bold mb-1" style="color:var(--primary-dark)"><i class="bi bi-fire me-2"></i>Best Seller Cakes</h5>
         <p class="text-muted small mb-0">Most ordered favorites from customers</p>
       </div>
-      <span class="badge rounded-pill" style="background:#fff1f2;color:#be123c;font-size:.78rem">Live ranking from completed and active orders</span>
+      <span class="badge rounded-pill" style="background:var(--primary-bg);color:var(--primary);font-size:.78rem">Live ranking from completed and active orders</span>
     </div>
     <div class="best-seller-grid" id="bestSellerGrid">
       @foreach($bestSellers as $p)
@@ -90,7 +94,7 @@
         <div class="position-relative" style="height:180px">
           <img src="{{ $p->image_path }}" alt="{{ $p->name }}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover"
                onerror="this.src='https://placehold.co/480x320/fce4ec/e91e63?text=Cake'">
-          <span class="position-absolute top-0 start-0 m-2 badge best-seller-rank" style="background:#be123c;color:#fff">
+          <span class="position-absolute top-0 start-0 m-2 badge best-seller-rank" style="background:var(--primary);color:#fff">
             <i class="bi bi-trophy-fill me-1"></i>Top {{ $loop->iteration }}
           </span>
         </div>
@@ -102,7 +106,7 @@
               <i class="bi bi-star-fill me-1"></i>{{ $avgRating ? number_format($avgRating, 1) : 'New' }}
               <span class="text-muted ms-1">({{ $reviewCount }} review{{ $reviewCount != 1 ? 's' : '' }})</span>
             </div>
-            <div class="small fw-semibold" style="color:#be123c">{{ number_format($p->total_sold) }} sold</div>
+            <div class="small fw-semibold" style="color:var(--primary)">{{ number_format($p->total_sold) }} sold</div>
           </div>
         </div>
       </button>
@@ -178,7 +182,7 @@
       $classification = $p->classification ?? 'Standard';
       $classColors = [
         'Standard'   => ['bg'=>'#dbeafe','color'=>'#1e40af','icon'=>'bi-cake2'],
-        'Fondant'    => ['bg'=>'#fce7f3','color'=>'#9d174d','icon'=>'bi-stars'],
+        'Fondant'    => ['bg'=>'var(--primary-bg)','color'=>'var(--primary-dark)','icon'=>'bi-stars'],
         'Perishable' => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'bi-snow'],
       ];
       $cls         = $classColors[$classification] ?? $classColors['Standard'];
@@ -242,7 +246,7 @@
               <i class="bi bi-stars me-1"></i>{{ $sweetDealBadge }}
             </span>
             @if(!empty($pricing['badge_text']))
-              <span class="badge" style="background:rgba(255,255,255,.92);color:#be123c;border:1px solid #fecdd3;font-size:clamp(.66rem,1.3vw,.72rem);font-weight:800">{{ $pricing['badge_text'] }}</span>
+              <span class="badge" style="background:rgba(255,255,255,.92);color:var(--primary);border:1px solid color-mix(in srgb, var(--primary) 24%, white);font-size:clamp(.66rem,1.3vw,.72rem);font-weight:800">{{ $pricing['badge_text'] }}</span>
             @endif
           </div>
           @endif
@@ -322,7 +326,7 @@
               @if(!empty($pricing['has_discount']))
                 <div class="text-muted text-decoration-line-through" style="font-size:.85rem">₱{{ number_format($pricing['original_unit_price'],2) }}</div>
                 <span class="fw-bold fs-5" style="color:#dc2626">₱{{ number_format($pricing['final_unit_price'],2) }}</span>
-                <div style="font-size:.8rem;color:#be123c;font-weight:700">{{ $sweetDealBadge ?: $pricing['badge_text'] }}</div>
+                <div style="font-size:.8rem;color:var(--primary);font-weight:700">{{ $sweetDealBadge ?: $pricing['badge_text'] }}</div>
                 @if($sweetDealNote || $sweetDealQty > 0 || $bestEnjoyedBy)
                   <div class="d-flex flex-wrap gap-1 mt-1" style="max-width:220px">
                     @if($sweetDealNote)
@@ -332,7 +336,7 @@
                       <span class="badge rounded-pill" style="background:#f8fafc;color:#475569;border:1px solid #e2e8f0;font-size:.68rem;font-weight:700">{{ $sweetDealQty }} deal pcs</span>
                     @endif
                     @if($bestEnjoyedBy)
-                      <span class="badge rounded-pill" style="background:#fff1f2;color:#be123c;border:1px solid #fecdd3;font-size:.68rem;font-weight:700">Fresh until {{ $bestEnjoyedBy->format('M d, g:i A') }}</span>
+                      <span class="badge rounded-pill" style="background:var(--primary-bg);color:var(--primary);border:1px solid color-mix(in srgb, var(--primary) 24%, white);font-size:.68rem;font-weight:700">Fresh until {{ $bestEnjoyedBy->format('M d, g:i A') }}</span>
                     @endif
                   </div>
                 @endif
@@ -430,7 +434,7 @@
                     @if(!empty($pricing['has_discount']))
                       <div class="text-muted text-decoration-line-through" style="font-size:.72rem">₱{{ number_format($pricing['original_unit_price'],2) }}</div>
                       <div class="fw-bold" style="color:#dc2626;font-size:1.15rem">₱{{ number_format($pricing['final_unit_price'],2) }}</div>
-                      <div style="font-size:.68rem;color:#be123c;font-weight:700">{{ $pricing['badge_text'] }}</div>
+                      <div style="font-size:.68rem;color:var(--primary);font-weight:700">{{ $pricing['badge_text'] }}</div>
                     @else
                       <div class="fw-bold" style="color:var(--primary);font-size:1.15rem">₱{{ number_format($p->price,2) }}</div>
                     @endif
@@ -511,7 +515,7 @@
                   </div>
                 @endif
                 <div class="flex-grow-1">
-                  <div class="fw-semibold" style="font-size:.82rem;color:#9d174d">{{ $p->shop_name }}</div>
+                  <div class="fw-semibold" style="font-size:.82rem;color:var(--primary-dark)">{{ $p->shop_name }}</div>
                   <div class="text-muted" style="font-size:.7rem">Tap to view shop &rarr;</div>
                 </div>
                 <i class="bi bi-chevron-right" style="color:#d1d5db;font-size:.75rem"></i>
@@ -583,7 +587,7 @@
                     @endif
                   </div>
                   <div class="small text-danger mt-1 d-none" data-size-error>Please select a size.</div>
-                  <div class="mt-2 p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:#fff0f5">
+                  <div class="mt-2 p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:var(--primary-bg)">
                     <span class="small text-muted">Total Price:</span>
                     <span class="fw-bold" style="color:{{ !empty($pricing['has_discount']) ? '#dc2626' : 'var(--primary)' }};font-size:1.05rem" id="modalPrice{{ $p->id }}"
                           data-base-price="{{ $p->price }}"
@@ -609,7 +613,7 @@
                       </option>
                     @endforeach
                   </select>
-                  <div class="mt-2 p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:#fff0f5">
+                  <div class="mt-2 p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:var(--primary-bg)">
                     <span class="small text-muted">Total Price:</span>
                     <span class="fw-bold" style="color:{{ !empty($pricing['has_discount']) ? '#dc2626' : 'var(--primary)' }};font-size:1.05rem" id="modalPrice{{ $p->id }}">
                       ₱{{ number_format($pricing['final_unit_price'] ?? $p->price,2) }}
@@ -621,7 +625,7 @@
 
                 @if(count($sizes) === 0)
                 <div class="mb-3">
-                  <div class="p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:#fff0f5">
+                  <div class="p-2 rounded-2 d-flex align-items-center justify-content-between" style="background:var(--primary-bg)">
                     <span class="small text-muted">Total Price:</span>
                     <span class="fw-bold" style="color:{{ !empty($pricing['has_discount']) ? '#dc2626' : 'var(--primary)' }};font-size:1.05rem" id="modalPrice{{ $p->id }}"
                           data-base-price="{{ $pricing['final_unit_price'] ?? $p->price }}"
@@ -649,7 +653,7 @@
                   </div>
                 </div>
 
-                <div class="alert border-0 py-2 small mb-3" style="background:#fff0f5;border-radius:.7rem">
+                <div class="alert border-0 py-2 small mb-3" style="background:var(--primary-bg);border-radius:.7rem">
                   <i class="bi bi-info-circle me-1" style="color:var(--primary)"></i>
                   You'll choose pickup/delivery on the next step.
                 </div>
@@ -675,10 +679,10 @@
                 </div>
               </form>
               @elseif($isAvailable && !$hasStock)
-              <div class="p-3 rounded-3" style="background:#fff7fb;border:1px solid #fbcfe8">
+              <div class="p-3 rounded-3" style="background:var(--primary-bg);border:1px solid var(--primary-light)">
                 <div class="d-flex align-items-start gap-2 mb-2">
-                  <div style="width:34px;height:34px;border-radius:10px;background:#e91e63;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><i class="bi bi-send"></i></div>
-                  <div><div class="fw-bold" style="color:#9d174d">Request to Bake</div><div class="small text-muted">This goes to the seller kitchen first. If your date is earlier than their prep time, it is marked as rush automatically.</div></div>
+                  <div style="width:34px;height:34px;border-radius:10px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><i class="bi bi-send"></i></div>
+                  <div><div class="fw-bold" style="color:var(--primary-dark)">Request to Bake</div><div class="small text-muted">This goes to seller review first. If accepted and checked out, it will go to kitchen. Rush timing is marked automatically.</div></div>
                 </div>
                 <form action="{{ route('customer.order_requests.store') }}" method="POST" class="row g-2">
                   @csrf

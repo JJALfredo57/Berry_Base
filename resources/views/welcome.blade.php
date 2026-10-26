@@ -49,9 +49,7 @@
   $continueText = $hasActiveAccount
       ? 'Continue as ' . ($continueName !== '' ? $continueName : ucfirst($continueRole))
       : 'Browse Our Cakes';
-  $secondaryCtaUrl = $continueRole === 'customer' ? route('customer.orders') : route('track.recover');
-  $secondaryCtaIcon = $continueRole === 'customer' ? 'bi-bag-check' : 'bi-key-fill';
-  $secondaryCtaText = $continueRole === 'customer' ? 'My Orders' : 'Forgot tracking code?';
+  $showOrdersCta = $continueRole === 'customer';
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -768,6 +766,15 @@
       .right-panel { width:44%; }
       .logo-stage  { width:min(43vw,350px); height:min(43vw,350px); }
     }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-delay: 0ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -826,7 +833,7 @@
       <div class="ms-dv-diamond"></div>
       <div class="ms-dv-line" style="transform:scaleX(-1)"></div>
     </div>
-    <p class="ms-desc">Browse our handcrafted cakes, place your order online, and enjoy seamless pickup or delivery &mdash; made fresh every single day.</p>
+    <p class="ms-desc">Browse our handcrafted cakes and discover flavors, designs, and shops. Sign in or create an account when you are ready to order.</p>
     <div class="ms-features">
       <span class="ms-fbadge"><i class="bi bi-cake2"></i> Custom Cakes</span>
       <span class="ms-fbadge"><i class="bi bi-truck"></i> Delivery</span>
@@ -839,9 +846,11 @@
         <path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </button>
-    <a href="{{ $secondaryCtaUrl }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;color:#7B3A0F;text-decoration:none;font-size:.82rem;font-weight:700">
-      <i class="bi {{ $secondaryCtaIcon }}"></i>{{ $secondaryCtaText }}
-    </a>
+    @if($showOrdersCta)
+      <a href="{{ route('customer.orders') }}" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;color:#7B3A0F;text-decoration:none;font-size:.82rem;font-weight:700">
+        <i class="bi bi-bag-check"></i>My Orders
+      </a>
+    @endif
     <div class="ms-hint">
       <div class="ms-hint-line"></div>
       Freshly baked with love
@@ -890,7 +899,7 @@
       <div class="dv-line-r"></div>
     </div>
 
-    <p class="desc">Browse our handcrafted cakes, place your order online, and enjoy seamless pickup or delivery within our service areas &mdash; made fresh every single day.</p>
+    <p class="desc">Browse our handcrafted cakes and discover flavors, designs, and shops. Sign in or create an account when you are ready to order.</p>
 
     <div class="features">
       <span class="fbadge"><i class="bi bi-cake2"></i> Custom Cakes</span>
@@ -906,10 +915,12 @@
           <path d="M3 8H13M9 4L13 8L9 12" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
-      <a class="btn-secondary" href="{{ $secondaryCtaUrl }}">
-        <i class="bi {{ $secondaryCtaIcon }}"></i>
-        {{ $secondaryCtaText }}
-      </a>
+      @if($showOrdersCta)
+        <a class="btn-secondary" href="{{ route('customer.orders') }}">
+          <i class="bi bi-bag-check"></i>
+          My Orders
+        </a>
+      @endif
     </div>
 
     <div class="hint">
@@ -1033,7 +1044,7 @@
     });
   }
 
-  var isMobile = window.innerWidth <= 700 ||
+  var isCompactView = window.innerWidth <= 1024 ||
     (window.innerWidth <= 767 && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(navigator.userAgent));
 
   function goToContinue() {
@@ -1069,7 +1080,7 @@
 
   function initWelcome() {
     refreshContinueState();
-    if (isMobile) {
+    if (isCompactView) {
       var w = document.getElementById('mobile-warning');
       if (w) w.style.display = 'none';
       showMobileSplash();

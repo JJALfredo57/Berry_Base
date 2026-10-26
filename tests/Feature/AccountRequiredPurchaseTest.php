@@ -139,9 +139,12 @@ class AccountRequiredPurchaseTest extends TestCase
         $this->assertDatabaseCount('orders', 0);
     }
 
-    public function test_all_new_guest_submission_routes_require_authentication(): void
+    public function test_guest_new_order_submission_endpoints_are_removed_and_cart_requires_authentication(): void
     {
-        foreach (['/checkout/place', '/checkout/send-otp', '/custom-order/place', '/custom-order/send-otp', '/cart/items/1/update', '/cart/items/1/checkout', '/cart/shops/SHOP1/checkout'] as $url) {
+        foreach (['/checkout/place', '/checkout/send-otp', '/custom-order/place', '/custom-order/send-otp'] as $url) {
+            $this->post($url)->assertNotFound();
+        }
+        foreach (['/cart/items/1/update', '/cart/items/1/checkout', '/cart/shops/SHOP1/checkout'] as $url) {
             $this->post($url)->assertRedirect(route('login'));
         }
         $this->post('/order-requests', ['product_id' => 'CAKE1'])->assertRedirect(route('login'));
@@ -149,9 +152,18 @@ class AccountRequiredPurchaseTest extends TestCase
         $this->assertDatabaseCount('customer_carts', 0);
     }
 
-    public function test_json_guest_submission_returns_401_instead_of_an_html_or_server_error(): void
+    public function test_json_guest_order_endpoint_is_removed_and_cart_requires_login(): void
     {
-        $this->postJson('/checkout/place')->assertUnauthorized()->assertJsonPath('redirect_url', route('login'));
+        $this->postJson('/checkout/place')->assertNotFound();
+        $this->postJson('/cart/add', ['product_id' => 'CAKE1'])->assertUnauthorized()
+            ->assertJsonPath('redirect_url', route('login'));
+    }
+
+    public function test_guests_can_still_access_legacy_tracking_and_public_feedback(): void
+    {
+        $this->assertNotNull(route('track.order', ['trackCode' => 'OLDTRACK']));
+        $this->get('/track/recover')->assertOk();
+        $this->get('/feedback')->assertOk();
     }
 
     public function test_account_order_tracking_requires_its_owner(): void
