@@ -87,7 +87,7 @@ Artisan::command('rider-assignments:expire', function (RiderAssignmentService $a
 
 Schedule::command('rider-assignments:expire')->everyMinute();
 
-Artisan::command('orders:purge-history {--force : Delete order history after a reviewed dry run}', function (OrderHistoryPurgeService $purge) {
+Artisan::command('orders:purge-history {--force : Delete order history after a reviewed dry run} {--confirm= : Snapshot token printed by the dry run}', function (OrderHistoryPurgeService $purge) {
     $driver = DB::connection()->getDriverName();
     $this->line('Environment: ' . app()->environment() . ' | Database driver: ' . $driver);
 
@@ -98,17 +98,33 @@ Artisan::command('orders:purge-history {--force : Delete order history after a r
         ->all());
 
     if ($preview['financial_rows']) {
-        $this->error('Deletion blocked because order-linked financial records exist:');
+        $this->line('Order-linked financial records included in the reviewed purge scope:');
         $this->table(['Financial records', 'Rows'], collect($preview['financial_rows'])
+            ->map(fn ($count, $table) => [$table, $count])
+            ->values()
+            ->all());
+    }
+
+    if ($preview['financial_blockers']) {
+        $this->error('Deletion blocked because some financial groups include records outside this purge scope:');
+        $this->table(['Unresolved financial relationships', 'Rows'], collect($preview['financial_blockers'])
             ->map(fn ($count, $table) => [$table, $count])
             ->values()
             ->all());
         return 1;
     }
 
+    $this->line('Dry-run snapshot: ' . $preview['snapshot']);
+
     if (!$this->option('force')) {
-        $this->warn('Dry run only. Re-run with --force after reviewing these counts.');
+        $this->warn('Dry run only. After reviewing these counts, pass --force and this exact snapshot using --confirm=...');
         return 0;
+    }
+
+    $confirmation = (string) $this->option('confirm');
+    if ($confirmation === '') {
+        $this->error('Deletion requires the snapshot token from the reviewed dry run. No data was deleted.');
+        return 1;
     }
 
     if (!app()->environment('production') || $driver !== 'pgsql') {
@@ -116,8 +132,8 @@ Artisan::command('orders:purge-history {--force : Delete order history after a r
         return 1;
     }
 
-    $deleted = $purge->purge();
-    $this->info('Order history and directly linked records deleted.');
+    $deleted = $purge->purge($confirmation);
+    $this->info('Order history and all safely linked financial records deleted.');
     $this->warn('Customer accounts, products, shops, settings, and unrelated order requests were retained.');
     $this->table(['Deleted data', 'Rows'], collect($deleted)
         ->map(fn ($count, $table) => [$table, $count])
@@ -125,7 +141,7 @@ Artisan::command('orders:purge-history {--force : Delete order history after a r
         ->all());
 
     return 0;
-})->purpose('Preview or delete order history and directly linked customer records');
+})->purpose('Preview or delete order history and directly linked financial records');
 
 Artisan::command('cleanup:customer-data {--force : Actually delete customer accounts and customer activity data}', function () {
     $tables = [
