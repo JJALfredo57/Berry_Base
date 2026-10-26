@@ -10,6 +10,7 @@ use App\Helpers\CakeshopHelper;
 use App\Services\CustomerIdentityService;
 use App\Services\BackupService;
 use App\Services\RiderAssignmentService;
+use App\Services\OrderHistoryPurgeService;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -85,6 +86,46 @@ Artisan::command('rider-assignments:expire', function (RiderAssignmentService $a
 })->purpose('Expire rider assignments that were not accepted in time');
 
 Schedule::command('rider-assignments:expire')->everyMinute();
+
+Artisan::command('orders:purge-history {--force : Delete order history after a reviewed dry run}', function (OrderHistoryPurgeService $purge) {
+    $driver = DB::connection()->getDriverName();
+    $this->line('Environment: ' . app()->environment() . ' | Database driver: ' . $driver);
+
+    $preview = $purge->preview();
+    $this->table(['Order data', 'Rows'], collect($preview['counts'])
+        ->map(fn ($count, $table) => [$table, $count])
+        ->values()
+        ->all());
+
+    if ($preview['financial_rows']) {
+        $this->error('Deletion blocked because order-linked financial records exist:');
+        $this->table(['Financial records', 'Rows'], collect($preview['financial_rows'])
+            ->map(fn ($count, $table) => [$table, $count])
+            ->values()
+            ->all());
+        return 1;
+    }
+
+    if (!$this->option('force')) {
+        $this->warn('Dry run only. Re-run with --force after reviewing these counts.');
+        return 0;
+    }
+
+    if (!app()->environment('production') || $driver !== 'pgsql') {
+        $this->error('Deletion requires the production PostgreSQL connection. No data was deleted.');
+        return 1;
+    }
+
+    $deleted = $purge->purge();
+    $this->info('Order history and directly linked records deleted.');
+    $this->warn('Customer accounts, products, shops, settings, and unrelated order requests were retained.');
+    $this->table(['Deleted data', 'Rows'], collect($deleted)
+        ->map(fn ($count, $table) => [$table, $count])
+        ->values()
+        ->all());
+
+    return 0;
+})->purpose('Preview or delete order history and directly linked customer records');
 
 Artisan::command('cleanup:customer-data {--force : Actually delete customer accounts and customer activity data}', function () {
     $tables = [
