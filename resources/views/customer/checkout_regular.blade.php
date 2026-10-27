@@ -338,15 +338,24 @@ document.body.style.paddingRight = '';
               {{-- Address (only when changing / no saved location) --}}
               <fieldset id="newAddressBox" class="mb-3 border-0 p-0 m-0 min-width-0" data-error-target="address" {{ $useSavedAddress ? 'disabled style=display:none' : '' }}>
                 <label class="form-label fw-semibold small">
-                  Full Address
+                  Delivery Address
                   <span id="addressLoading" style="display:none;font-size:.75rem;color:var(--primary);font-weight:400">
                     <span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>
-                    Fetching address…
+                    Matching pin to address…
                   </span>
                 </label>
+                <div class="form-text mt-0 mb-2">Pin your location on the map and the Province, City and Barangay fill in automatically. Then add your House / Street.</div>
+                <div id="pinMismatch" class="alert alert-warning py-2 px-3 small mb-2" style="display:none">
+                  <div id="pinMismatchText"></div>
+                  <div class="d-flex gap-2 mt-2">
+                    <button type="button" class="btn btn-sm btn-warning" id="pinMismatchUse">Use pin location</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pinMismatchKeep">Keep mine</button>
+                  </div>
+                </div>
                 @include('partials.delivery_address_fields', ['prefix' => 'checkout', 'title' => 'Detailed Delivery Address'])
-                <textarea class="form-control" name="address" id="addressField" rows="2"
-                  placeholder="Pin your location on the map to auto-fill, or type your address">{{ old('address', '') }}</textarea>
+                <label class="form-label fw-semibold small mb-1" for="addressField"><i class="bi bi-geo-alt me-1"></i>Your delivery address</label>
+                <textarea class="form-control bg-light" name="address" id="addressField" rows="2" readonly
+                  placeholder="Your address appears here as you fill in the fields above">{{ old('address', '') }}</textarea>
                 <div class="form-check mt-2 mb-1">
                   <input class="form-check-input" type="checkbox" name="save_default_address" id="saveAddr" {{ old('save_default_address') ? 'checked' : '' }}>
                   <label class="form-check-label small" for="saveAddr">Save as my default location</label>
@@ -1202,13 +1211,20 @@ async function reverseGeocode(lat, lng) {
     const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl.signal });
     const data = await res.json();
     if (lookupId === addressLookupSeq && data && data.display_name) {
-      field.value = formatNominatimAddress(data);
-      // Also store area name as delivery zone
-      const area = getDetectedAreaName(data);
-      document.getElementById('deliveryZoneInput').value = area || field.value.split(',')[0] || '';
+      lastPinPlace = placeFromGeo(data);
+      let zone = getDetectedAreaName(data);
+      const block = window.csPsgcBlocks && window.csPsgcBlocks.checkout;
+      if (block) {
+        const filled = await block.fillFromPlace(lastPinPlace);
+        if (lookupId !== addressLookupSeq) return data;
+        if (filled.barangay) zone = document.getElementById('checkoutAddressBarangay').value;
+      }
+      document.getElementById('deliveryZoneInput').value = zone || '';
+      hidePinMismatch();
+      refreshAddressSummary();
       const cMsg = document.getElementById('coverageMsg');
-      if (cMsg && area && cMsg.dataset.base && cMsg.textContent === cMsg.dataset.base) {
-        cMsg.textContent = 'Pin location: ' + area + '. ' + cMsg.dataset.base;
+      if (cMsg && zone && cMsg.dataset.base && cMsg.textContent === cMsg.dataset.base) {
+        cMsg.textContent = 'Pin location: ' + zone + '. ' + cMsg.dataset.base;
         cMsg.dataset.base = cMsg.textContent;
       }
     }
@@ -1250,8 +1266,9 @@ function setAddressMode(useSaved) {
   if (useSaved) {
     document.getElementById('deliveryZoneInput').value = SAVED_ADDRESS.zone || '';
     document.getElementById('addressField').value = SAVED_ADDRESS.text;
-  } else if (map) {
-    setTimeout(() => map.invalidateSize(), 50);
+  } else {
+    refreshAddressSummary();
+    if (map) setTimeout(() => map.invalidateSize(), 50);
   }
   clearCheckoutErrors();
   refreshInfoAddress();
@@ -1259,9 +1276,73 @@ function setAddressMode(useSaved) {
 
 function composeFormAddress() {
   const val = id => (document.getElementById(id)?.value || '').trim();
-  const parts = ['House', 'Street', 'Subdivision', 'Barangay', 'City', 'Province', 'Postal'].map(k => val('checkoutAddress' + k)).filter(Boolean);
+  const parts = ['House', 'Street', 'Subdivision', 'Barangay', 'City', 'Province'].map(k => val('checkoutAddress' + k)).filter(Boolean);
   return parts.length ? parts.join(', ') : val('addressField');
 }
+
+let lastPinPlace = null;
+let pinMismatchDismissed = false;
+
+function placeFromGeo(data) {
+  const a = data?.address || {};
+  return {
+    province: a.state || a.province || a.region || '',
+    city: a.city || a.town || a.municipality || a.county || '',
+    barangays: [a.suburb, a.village, a.neighbourhood, a.quarter, a.hamlet, a.city_district].filter(Boolean)
+  };
+}
+
+function refreshAddressSummary() {
+  const field = document.getElementById('addressField');
+  if (!field || usingSavedAddress()) return;
+  const val = id => (document.getElementById(id)?.value || '').trim();
+  const parts = ['House', 'Street', 'Subdivision', 'Barangay', 'City', 'Province'].map(k => val('checkoutAddress' + k)).filter(Boolean);
+  field.value = parts.join(', ');
+}
+
+function hidePinMismatch() {
+  pinMismatchDismissed = false;
+  const box = document.getElementById('pinMismatch');
+  if (box) box.style.display = 'none';
+}
+
+function checkPinMismatch() {
+  const box = document.getElementById('pinMismatch');
+  if (!box || !lastPinPlace || pinMismatchDismissed || !window.csPsgcNorm) return;
+  const norm = window.csPsgcNorm;
+  const val = id => (document.getElementById(id)?.value || '').trim();
+  const city = val('checkoutAddressCity');
+  const barangay = val('checkoutAddressBarangay');
+  const cityBad = city && lastPinPlace.city && norm(city) !== norm(lastPinPlace.city);
+  const brgyBad = barangay && lastPinPlace.barangays.length && !lastPinPlace.barangays.some(b => norm(b) === norm(barangay));
+  if (!cityBad && !brgyBad) { box.style.display = 'none'; return; }
+  const where = [lastPinPlace.barangays[0], lastPinPlace.city].filter(Boolean).join(', ');
+  document.getElementById('pinMismatchText').textContent =
+    'Your pin is near ' + where + ', but the address fields say something different. Make sure the pin is on your address.';
+  box.style.display = '';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const addressBox = document.getElementById('newAddressBox');
+  if (addressBox) {
+    ['input', 'change'].forEach(evt => addressBox.addEventListener(evt, e => {
+      if (e.target && e.target.id !== 'addressField') { refreshAddressSummary(); refreshInfoAddress(); }
+      if (evt === 'change') checkPinMismatch();
+    }));
+  }
+  document.getElementById('pinMismatchKeep')?.addEventListener('click', () => {
+    pinMismatchDismissed = true;
+    document.getElementById('pinMismatch').style.display = 'none';
+  });
+  document.getElementById('pinMismatchUse')?.addEventListener('click', async () => {
+    const block = window.csPsgcBlocks && window.csPsgcBlocks.checkout;
+    if (block && lastPinPlace) await block.fillFromPlace(lastPinPlace);
+    hidePinMismatch();
+    refreshAddressSummary();
+    refreshInfoAddress();
+  });
+  if (!usingSavedAddress() && !document.getElementById('addressField')?.value) refreshAddressSummary();
+});
 
 function refreshInfoAddress() {
   const box = document.getElementById('infoAddress');
