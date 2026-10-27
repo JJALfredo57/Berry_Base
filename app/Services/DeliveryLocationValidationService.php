@@ -31,7 +31,11 @@ class DeliveryLocationValidationService
 
             $psgcValidation = app(\App\Services\PsgcService::class)->resolveFromRequest($request);
             if (!$psgcValidation['ok']) {
-                return ['ok' => false, 'message' => $psgcValidation['message']];
+                return [
+                    'ok' => false,
+                    'message' => $psgcValidation['message'],
+                    'field' => $psgcValidation['field'] ?? 'address',
+                ];
             }
 
             if ($shopId !== null) {
@@ -54,7 +58,6 @@ class DeliveryLocationValidationService
             'barangay' => trim((string) $request->input('address_barangay', '')),
             'city' => trim((string) $request->input('address_city', '')),
             'province' => trim((string) $request->input('address_province', '')),
-            'postal_code' => trim((string) $request->input('address_postal_code', '')),
             'landmark' => trim((string) $request->input('address_landmark', '')),
         ];
     }
@@ -99,10 +102,6 @@ class DeliveryLocationValidationService
             }
         }
 
-        if (($parts['postal_code'] ?? '') !== '' && !preg_match('/^\d{4}$/', $parts['postal_code'])) {
-            $invalid[] = 'Postal Code';
-        }
-
         return $invalid;
     }
 
@@ -131,7 +130,6 @@ class DeliveryLocationValidationService
             ($parts['barangay'] ?? '') !== '' ? 'Barangay ' . $parts['barangay'] : '',
             $parts['city'] ?? '',
             $parts['province'] ?? '',
-            $parts['postal_code'] ?? '',
         ]);
 
         $address = implode(', ', $main);
@@ -307,4 +305,3 @@ class DeliveryLocationValidationService
         return $matches >= min(2, count($zoneWords));
     }
 }
-

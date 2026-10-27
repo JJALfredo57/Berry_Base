@@ -1370,6 +1370,9 @@ function inferErrorField(message) {
     ['points', /reward|points/],
     ['surprise', /recipient|surprise/],
     ['schedule', /schedule|preferred (date|time)|preparation|time slot|opening|closing|capacity|lead time|date/],
+    ['province', /\bprovince\b/],
+    ['city', /\bcity\b|municipality/],
+    ['barangay', /\bbarangay\b/],
     ['address', /pin|address|barangay|province|city|municipality|landmark|coverage|delivery area|location/],
     ['payment', /gcash|payment|deposit/],
   ];

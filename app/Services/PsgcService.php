@@ -116,10 +116,6 @@ class PsgcService
         ];
     }
 
-    /**
-     * Accepts official PSGC codes when they are valid; otherwise falls back to the typed place names
-     * (matching them to PSGC records when possible) so a typed-in province/city/barangay is never blocked.
-     */
     public function resolveFromRequest($request): array
     {
         $strict = $this->validateHierarchy(
@@ -127,28 +123,86 @@ class PsgcService
             $request->input('address_city_code'),
             $request->input('address_barangay_code')
         );
-        if ($strict['ok']) return $strict;
-
         $names = [
             'province' => trim((string) $request->input('address_province', '')),
             'city' => trim((string) $request->input('address_city', '')),
             'barangay' => trim((string) $request->input('address_barangay', '')),
         ];
+
+        if ($strict['ok']) {
+            $namesMatchCodes = true;
+            foreach ($names as $key => $name) {
+                if ($name !== '' && !$this->samePlaceName($name, $strict[$key]['name'])) {
+                    $namesMatchCodes = false;
+                    break;
+                }
+            }
+            if ($namesMatchCodes) return $strict;
+        }
+
         if (in_array('', $names, true)) {
-            return ['ok' => false, 'message' => 'Please enter the province, city/municipality, and barangay.'];
+            $missing = array_search('', $names, true);
+            return [
+                'ok' => false,
+                'field' => $missing,
+                'message' => 'Please enter the ' . ($missing === 'city' ? 'city/municipality' : $missing) . '.',
+            ];
         }
 
         $province = $this->findByName('psgc_provinces', $names['province']);
-        $city = $this->findByName('psgc_cities_municipalities', $names['city'], $province ? ['province_code' => (string) $province->code] : []);
-        $barangay = $city ? $this->findByName('psgc_barangays', $names['barangay'], ['city_municipality_code' => (string) $city->code]) : null;
+        if (!$province) {
+            $province = $this->findExactItem($this->provinces($names['province']), $names['province']);
+        }
+        if (!$province) {
+            return ['ok' => false, 'field' => 'province', 'message' => 'Please select a valid province from the official list.'];
+        }
+
+        $city = $this->findByName('psgc_cities_municipalities', $names['city'], ['province_code' => (string) $province->code]);
+        if (!$city) {
+            $city = $this->findExactItem(
+                $this->citiesMunicipalities((string) $province->code, $names['city']),
+                $names['city']
+            );
+        }
+        if (!$city) {
+            return ['ok' => false, 'field' => 'city', 'message' => 'Please select a valid city/municipality under the selected province.'];
+        }
+
+        $barangay = $this->findByName('psgc_barangays', $names['barangay'], ['city_municipality_code' => (string) $city->code]);
+        if (!$barangay) {
+            $barangay = $this->findExactItem(
+                $this->barangays((string) $city->code, $names['barangay']),
+                $names['barangay']
+            );
+        }
+        if (!$barangay) {
+            return ['ok' => false, 'field' => 'barangay', 'message' => 'Please select a valid barangay under the selected city/municipality.'];
+        }
 
         return [
             'ok' => true,
             'message' => null,
-            'province' => ['code' => (string) ($province->code ?? ''), 'name' => (string) ($province->name ?? $names['province'])],
-            'city' => ['code' => (string) ($city->code ?? ''), 'name' => (string) ($city->name ?? $names['city'])],
-            'barangay' => ['code' => (string) ($barangay->code ?? ''), 'name' => (string) ($barangay->name ?? $names['barangay'])],
+            'province' => ['code' => (string) $province->code, 'name' => (string) $province->name],
+            'city' => ['code' => (string) $city->code, 'name' => (string) $city->name],
+            'barangay' => ['code' => (string) $barangay->code, 'name' => (string) $barangay->name],
         ];
+    }
+
+    private function findExactItem(array $items, string $name): ?object
+    {
+        foreach ($items as $item) {
+            if ($this->samePlaceName($name, (string) ($item['name'] ?? ''))) {
+                return (object) $item;
+            }
+        }
+
+        return null;
+    }
+
+    private function samePlaceName(string $left, string $right): bool
+    {
+        $normalize = static fn (string $value): string => mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $value)));
+        return $normalize($left) === $normalize($right);
     }
 
     private function findByName(string $table, string $name, array $where = []): ?object
@@ -306,4 +360,3 @@ class PsgcService
         });
     }
 }
-

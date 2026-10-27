@@ -20,32 +20,28 @@
     </div>
     <div class="col-sm-6">
       <label class="form-label small fw-semibold">Province</label>
-      <input class="form-control js-psgc-province" name="address_province" id="{{ $prefix }}AddressProvince" value="{{ old('address_province') }}" list="{{ $prefix }}ProvinceList" autocomplete="off" placeholder="Type to search province">
+      <input class="form-control js-psgc-province" name="address_province" id="{{ $prefix }}AddressProvince" data-error-target="province" value="{{ old('address_province') }}" list="{{ $prefix }}ProvinceList" autocomplete="off" placeholder="Type to search province">
       <input type="hidden" name="address_province_code" id="{{ $prefix }}AddressProvinceCode" value="{{ old('address_province_code') }}">
       <datalist id="{{ $prefix }}ProvinceList"></datalist>
     </div>
     <div class="col-sm-6">
       <label class="form-label small fw-semibold">City / Municipality</label>
-      <input class="form-control js-psgc-city" name="address_city" id="{{ $prefix }}AddressCity" value="{{ old('address_city') }}" list="{{ $prefix }}CityList" autocomplete="off" placeholder="Choose province first" disabled>
+      <input class="form-control js-psgc-city" name="address_city" id="{{ $prefix }}AddressCity" data-error-target="city" value="{{ old('address_city') }}" list="{{ $prefix }}CityList" autocomplete="off" placeholder="Choose province first" disabled>
       <input type="hidden" name="address_city_code" id="{{ $prefix }}AddressCityCode" value="{{ old('address_city_code') }}">
       <datalist id="{{ $prefix }}CityList"></datalist>
     </div>
     <div class="col-sm-6">
       <label class="form-label small fw-semibold">Barangay</label>
-      <input class="form-control js-psgc-barangay" name="address_barangay" id="{{ $prefix }}AddressBarangay" value="{{ old('address_barangay') }}" list="{{ $prefix }}BarangayList" autocomplete="off" placeholder="Choose city/municipality first" disabled>
+      <input class="form-control js-psgc-barangay" name="address_barangay" id="{{ $prefix }}AddressBarangay" data-error-target="barangay" value="{{ old('address_barangay') }}" list="{{ $prefix }}BarangayList" autocomplete="off" placeholder="Choose city/municipality first" disabled>
       <input type="hidden" name="address_barangay_code" id="{{ $prefix }}AddressBarangayCode" value="{{ old('address_barangay_code') }}">
       <datalist id="{{ $prefix }}BarangayList"></datalist>
-    </div>
-    <div class="col-sm-4">
-      <label class="form-label small fw-semibold">Postal Code</label>
-      <input class="form-control" name="address_postal_code" id="{{ $prefix }}AddressPostal" value="{{ old('address_postal_code') }}" inputmode="numeric" placeholder="2424">
     </div>
     <div class="col-12">
       <label class="form-label small fw-semibold">Landmark</label>
       <input class="form-control" name="address_landmark" id="{{ $prefix }}AddressLandmark" value="{{ old('address_landmark') }}" placeholder="Near 7-Eleven, blue gate, beside chapel">
     </div>
   </div>
-  <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Province, city/municipality, and barangay can be typed freely; pick a suggestion when one appears.</div>
+  <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Province, city/municipality, and barangay must match the official list. Choose a matching suggestion.</div>
 </div>
 
 @once
@@ -106,7 +102,7 @@
       if (level === 'province') { cityCode.value = ''; cityList.innerHTML = ''; }
       if (level === 'province' || level === 'city') { barangayCode.value = ''; barangayList.innerHTML = ''; }
     };
-    // Fields stay free-text: official codes are matched when possible, the server accepts plain place names too.
+    // Keep fields typeable; the server checks each typed value against its official PSGC hierarchy.
     const resolveCode = async (input, codeEl, list, url, params) => {
       const value = (input.value || '').trim();
       if (!value) { codeEl.value = ''; return; }

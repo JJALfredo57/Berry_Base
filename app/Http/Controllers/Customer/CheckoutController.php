@@ -492,7 +492,7 @@ class CheckoutController extends Controller
                 : app(\App\Services\DeliveryLocationValidationService::class)
                     ->validateRequest($request, $lat, $lng, $zone, true, 'address', $product->shop_id ?? null);
             if (!$locationValidation['ok']) {
-                return back()->with('error', $locationValidation['message'])->with('error_field', 'address')->withInput();
+                return back()->with('error', $locationValidation['message'])->with('error_field', $locationValidation['field'] ?? 'address')->withInput();
             }
         }
 

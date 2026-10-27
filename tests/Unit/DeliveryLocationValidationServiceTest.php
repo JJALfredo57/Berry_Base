@@ -16,6 +16,35 @@ class DeliveryLocationValidationServiceTest extends TestCase
         parent::setUp();
 
         $this->app->instance(PsgcService::class, new class extends PsgcService {
+            public function provinces(?string $query = null, int $limit = 50): array
+            {
+                return $this->filterFixtureItems([
+                    ['code' => '015500000', 'name' => 'Pangasinan'],
+                    ['code' => '036900000', 'name' => 'Tarlac'],
+                ], $query, $limit);
+            }
+
+            public function citiesMunicipalities(string $provinceCode, ?string $query = null, int $limit = 80): array
+            {
+                $items = array_values(array_filter([
+                    ['code' => '015506000', 'name' => 'Bautista', 'province_code' => '015500000'],
+                    ['code' => '015546000', 'name' => 'Urdaneta City', 'province_code' => '015500000'],
+                    ['code' => '036916000', 'name' => 'Tarlac City', 'province_code' => '036900000'],
+                ], fn ($item) => $item['province_code'] === $provinceCode));
+                return $this->filterFixtureItems($items, $query, $limit);
+            }
+
+            public function barangays(string $cityMunicipalityCode, ?string $query = null, int $limit = 120): array
+            {
+                $items = array_values(array_filter([
+                    ['code' => '015506001', 'name' => 'Poblacion', 'city_municipality_code' => '015506000'],
+                    ['code' => '015506002', 'name' => 'Other Barangay', 'city_municipality_code' => '015506000'],
+                    ['code' => '015546001', 'name' => 'Poblacion', 'city_municipality_code' => '015546000'],
+                    ['code' => '036916001', 'name' => 'Poblacion', 'city_municipality_code' => '036916000'],
+                ], fn ($item) => $item['city_municipality_code'] === $cityMunicipalityCode));
+                return $this->filterFixtureItems($items, $query, $limit);
+            }
+
             public function validateHierarchy(?string $provinceCode, ?string $cityCode, ?string $barangayCode): array
             {
                 $valid = [
@@ -36,6 +65,12 @@ class DeliveryLocationValidationServiceTest extends TestCase
                 }
 
                 return ['ok' => false, 'message' => 'Please choose a province, city/municipality, and barangay from the list.'];
+            }
+
+            private function filterFixtureItems(array $items, ?string $query, int $limit): array
+            {
+                $query = mb_strtolower(trim((string) $query));
+                return array_slice(array_values(array_filter($items, fn ($item) => $query === '' || str_contains(mb_strtolower($item['name']), $query))), 0, $limit);
             }
         });
 
@@ -98,7 +133,7 @@ class DeliveryLocationValidationServiceTest extends TestCase
         $this->assertStringContainsString('Landmark', $result['message']);
     }
 
-    public function test_structured_delivery_address_composes_valid_full_address(): void
+    public function test_structured_delivery_address_composes_valid_full_address_without_postal_code(): void
     {
         $request = Request::create('/checkout', 'POST', [
             '_structured_address' => '1',
@@ -119,7 +154,7 @@ class DeliveryLocationValidationServiceTest extends TestCase
 
         $this->assertTrue($service->validateRequest($request, 15.8095, 120.4988, 'Poblacion', true)['ok']);
         $this->assertSame(
-            'House 12, Rizal Street, Purok 2, Barangay Poblacion, Bautista, Pangasinan, 2424. Landmark: Near the blue gate',
+            'House 12, Rizal Street, Purok 2, Barangay Poblacion, Bautista, Pangasinan. Landmark: Near the blue gate',
             $service->addressFromRequest($request)
         );
     }
@@ -143,7 +178,7 @@ class DeliveryLocationValidationServiceTest extends TestCase
         $this->assertStringContainsString('real, readable delivery address', $result['message']);
     }
 
-    public function test_structured_delivery_address_rejects_invalid_postal_code(): void
+    public function test_structured_delivery_address_ignores_legacy_postal_code_input(): void
     {
         $request = Request::create('/addresses', 'POST', [
             '_structured_address' => '1',
@@ -159,8 +194,8 @@ class DeliveryLocationValidationServiceTest extends TestCase
         $result = (new DeliveryLocationValidationService())
             ->validateRequest($request, 15.8095, 120.4988, null, false, 'full_address');
 
-        $this->assertFalse($result['ok']);
-        $this->assertStringContainsString('Postal Code', $result['message']);
+        $this->assertTrue($result['ok']);
+        $this->assertStringNotContainsString('abcd', (new DeliveryLocationValidationService())->addressFromRequest($request));
     }
 
     public function test_structured_delivery_address_accepts_typed_names_without_psgc_codes(): void
@@ -178,7 +213,65 @@ class DeliveryLocationValidationServiceTest extends TestCase
         $result = (new DeliveryLocationValidationService())
             ->validateRequest($request, 15.8095, 120.4988, null, false, 'full_address');
 
-        $this->assertStringNotContainsString('choose a province, city/municipality, and barangay', $result['message'] ?? '');
+        $this->assertTrue($result['ok']);
+    }
+
+    public function test_structured_delivery_address_rejects_unrecognized_place_names(): void
+    {
+        $request = Request::create('/addresses', 'POST', [
+            '_structured_address' => '1',
+            'address_house' => 'House 12',
+            'address_street' => 'Rizal Street',
+            'address_barangay' => 'Sampleville',
+            'address_city' => 'Nowhere City',
+            'address_province' => 'NotAProvince',
+            'address_landmark' => 'Near the blue gate',
+        ]);
+
+        $result = (new DeliveryLocationValidationService())
+            ->validateRequest($request, 15.8095, 120.4988, null, false, 'full_address');
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('province', $result['field']);
+        $this->assertStringContainsString('valid province', $result['message']);
+    }
+
+    public function test_structured_delivery_address_rejects_city_outside_selected_province(): void
+    {
+        $request = Request::create('/addresses', 'POST', [
+            '_structured_address' => '1',
+            'address_house' => 'House 12',
+            'address_street' => 'Rizal Street',
+            'address_barangay' => 'Poblacion',
+            'address_city' => 'Tarlac City',
+            'address_province' => 'Pangasinan',
+            'address_landmark' => 'Near the blue gate',
+        ]);
+
+        $result = (new DeliveryLocationValidationService())
+            ->validateRequest($request, 15.8095, 120.4988, null, false, 'full_address');
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('city', $result['field']);
+    }
+
+    public function test_structured_delivery_address_rejects_unrecognized_barangay(): void
+    {
+        $request = Request::create('/addresses', 'POST', [
+            '_structured_address' => '1',
+            'address_house' => 'House 12',
+            'address_street' => 'Rizal Street',
+            'address_barangay' => 'Fake Barangay',
+            'address_city' => 'Bautista',
+            'address_province' => 'Pangasinan',
+            'address_landmark' => 'Near the blue gate',
+        ]);
+
+        $result = (new DeliveryLocationValidationService())
+            ->validateRequest($request, 15.8095, 120.4988, null, false, 'full_address');
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('barangay', $result['field']);
     }
 
     public function test_structured_delivery_address_rejects_missing_names(): void
