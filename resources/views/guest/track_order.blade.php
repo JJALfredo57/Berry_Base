@@ -721,12 +721,12 @@
               : (float)$order->total_price;
             if ($isPickup) {
               $btnLabel = $depositPaid
-                ? 'Pay Remaining Balance ‚' . number_format($remainingAmt, 2) . ' via GCash'
-                : 'Pay ‚' . number_format($remainingAmt, 2) . ' via GCash  Ready for Pickup!';
+                ? 'Pay Remaining Balance PHP ' . number_format($remainingAmt, 2) . ' via GCash'
+                : 'Pay PHP ' . number_format($remainingAmt, 2) . ' via GCash - Ready for Pickup!';
             } else {
               $btnLabel = $depositPaid
-                ? 'Pay Remaining Balance ‚' . number_format($remainingAmt, 2) . ' via GCash'
-                : 'Pay Full Amount ‚' . number_format($remainingAmt, 2) . ' via GCash';
+                ? 'Pay Remaining Balance PHP ' . number_format($remainingAmt, 2) . ' via GCash'
+                : 'Pay Full Amount PHP ' . number_format($remainingAmt, 2) . ' via GCash';
             }
           @endphp
           @if($showPayBtn)
@@ -752,7 +752,7 @@
             @if($depositPaid)
             <div class="text-muted text-center mt-1" style="font-size:clamp(.7rem,1.4vw,.75rem)">
               <i class="bi bi-check-circle-fill me-1" style="color:#16a34a"></i>
-              Deposit of ‚‚PHP {{ number_format($order->deposit_amount, 2) }} already paid …‚
+              Deposit of PHP {{ number_format($order->deposit_amount, 2) }} already paid
             </div>
             @endif
               <div class="text-muted text-center mt-1" style="font-size:clamp(.7rem,1.4vw,.75rem)">
@@ -768,7 +768,7 @@
           <div class="p-2 rounded-2 text-center" style="background:#f0fdf4;border:1px solid #bbf7d0">
             <i class="bi bi-check-circle-fill me-1" style="color:#16a34a"></i>
             <span style="color:#166534;font-size:.83rem;font-weight:600">
-              …‚ Fully Paid via GCash  {{ $isPickup ? 'Ready for pickup!' : 'Admin can now mark as Delivered.' }}
+              Fully Paid via GCash - {{ $isPickup ? 'Ready for pickup!' : 'Admin can now mark as Delivered.' }}
             </span>
           </div>
         </div>
@@ -800,7 +800,7 @@
               @endunless
               <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:.85rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb">
                 <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Order Total</span>
-                <span style="font-weight:800;color:#111827;font-size:1rem">‚PHP {{ number_format($order->total_price, 2) }}</span>
+                <span style="font-weight:800;color:#111827;font-size:1rem">PHP {{ number_format($order->total_price, 2) }}</span>
               </div>
               <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST" class="d-grid gap-2">
                 @csrf
@@ -971,7 +971,7 @@
               <div class="small text-muted">{{ $typeLabel }} &bull; {{ \Carbon\Carbon::parse($paidDate)->format('M d, Y') }}</div>
             </div>
             <div class="text-sm-end">
-              <div class="fw-bold" style="color:#16a34a">‚PHP {{ number_format($paidAmount, 2) }}</div>
+              <div class="fw-bold" style="color:#16a34a">PHP {{ number_format($paidAmount, 2) }}</div>
               <div class="small text-muted">{{ $r->product_name }}</div>
             </div>
             <a href="{{ $viewUrl }}" class="btn btn-primary btn-sm">
@@ -1076,7 +1076,7 @@
       @endif
       @if($customOrder->admin_price)
         <div class="mb-2 small"><span class="text-muted">Final Price:</span>
-          <strong class="ms-1" style="color:var(--primary)">‚PHP {{ number_format($customOrder->admin_price, 2) }}</strong>
+          <strong class="ms-1" style="color:var(--primary)">PHP {{ number_format($customOrder->admin_price, 2) }}</strong>
         </div>
       @endif
       @if($customOrder->admin_comment)
@@ -1119,7 +1119,7 @@
           @endunless
           <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:.85rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb">
             <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Final Price</span>
-            <span style="font-weight:800;color:#111827;font-size:1rem">‚PHP {{ number_format($coTotal, 2) }}</span>
+            <span style="font-weight:800;color:#111827;font-size:1rem">PHP {{ number_format($coTotal, 2) }}</span>
           </div>
           <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST" class="d-grid gap-2">
             @csrf
@@ -1159,7 +1159,7 @@
         <div style="background:#fffbeb;padding:1rem">
           <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:.85rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb">
             <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">50% Deposit Required</span>
-            <span style="font-weight:800;color:#111827;font-size:1rem">‚PHP {{ number_format($minDep,2) }}</span>
+            <span style="font-weight:800;color:#111827;font-size:1rem">PHP {{ number_format($minDep,2) }}</span>
           </div>
           <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST">
             @csrf
@@ -1176,7 +1176,7 @@
             </button>
           </form>
           <div style="margin-top:.6rem;font-size:.7rem;color:#9ca3af;text-align:center">
-            Remaining ‚PHP {{ number_format($coTotal - $minDep, 2) }} due on {{ $isCop ? 'pickup' : 'delivery' }}
+            Remaining PHP {{ number_format($coTotal - $minDep, 2) }} due on {{ $isCop ? 'pickup' : 'delivery' }}
           </div>
         </div>
       </div>
@@ -1202,7 +1202,7 @@
         <div style="background:#fffbeb;padding:1rem">
           <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:.85rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb">
             <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Seller's Final Price</span>
-            <span style="font-weight:800;color:var(--primary);font-size:1.1rem">‚PHP {{ number_format($customOrder->admin_price,2) }}</span>
+            <span style="font-weight:800;color:var(--primary);font-size:1.1rem">PHP {{ number_format($customOrder->admin_price,2) }}</span>
           </div>
           <p class="small text-muted mb-3">
             @if($acceptIsFull)
@@ -1247,7 +1247,7 @@
 
       @if($customOrder->progress_image || $customOrder->progress_message)
         <div class="p-2 rounded-2 mt-2" style="background:#f0f4ff;border-left:3px solid #6366f1">
-          <div class="fw-semibold small mb-1" style="color:#4f46e5">…‚ Progress Update from Baker</div>
+          <div class="fw-semibold small mb-1" style="color:#4f46e5">Progress Update from Baker</div>
           @if($customOrder->progress_image)
             <img src="{{ $customOrder->progress_image }}" class="chat-img" data-src="{{ $customOrder->progress_image }}"
                  style="max-height:160px;border-radius:.5rem;cursor:zoom-in;display:block;margin-bottom:6px"
@@ -1337,7 +1337,7 @@
           <div style="font-size:clamp(1.1rem,3vw,1.5rem);color:#f59e0b">
             @for($i=1;$i<=5;$i++)<i class="bi bi-star{{ $i<=$existingReview->rating ? '-fill' : '' }}"></i>@endfor
           </div>
-          <div class="text-muted small mt-1">You already reviewed this order. Thank you! ……‚</div>
+          <div class="text-muted small mt-1">You already reviewed this order. Thank you!</div>
           @if($existingReview->review)
             <div class="mt-2 small fst-italic">"{{ $existingReview->review }}"</div>
           @endif
