@@ -920,7 +920,8 @@ function onPinSet(lat, lng) {
     const nearest = nearestCoverageZone(lat, lng);
     const zoneName = nearest?.zone?.barangay || 'this seller';
     statusEl.style.cssText = 'display:block;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:.5rem;padding:.5rem .75rem';
-    msgEl.textContent = 'Inside delivery coverage: ' + zoneName + '.';
+    msgEl.textContent = 'Inside delivery coverage (' + zoneName + ' service area, ' + formatCoverageDistance(nearest?.distance || 0) + ' from its center).';
+    msgEl.dataset.base = msgEl.textContent;
   } else {
     deliveryCoverageBlocked = true;
     const nearest = nearestCoverageZone(lat, lng);
@@ -1207,6 +1208,11 @@ async function reverseGeocode(lat, lng) {
       // Also store area name as delivery zone
       const area = getDetectedAreaName(data);
       document.getElementById('deliveryZoneInput').value = area || field.value.split(',')[0] || '';
+      const cMsg = document.getElementById('coverageMsg');
+      if (cMsg && area && cMsg.dataset.base && cMsg.textContent === cMsg.dataset.base) {
+        cMsg.textContent = 'Pin location: ' + area + '. ' + cMsg.dataset.base;
+        cMsg.dataset.base = cMsg.textContent;
+      }
     }
     return data;
   } catch (e) {}
