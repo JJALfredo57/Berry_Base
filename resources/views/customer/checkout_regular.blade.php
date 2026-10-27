@@ -1300,7 +1300,18 @@ function showCheckoutError(field, message) {
     document.getElementById('delivery').checked = true;
     toggleDelivery();
   }
-  const allTargets = Array.from(document.querySelectorAll('[data-error-target="' + field + '"]'));
+  let allTargets = Array.from(document.querySelectorAll('[data-error-target="' + field + '"]'));
+  if (field === 'schedule' && allTargets.length > 1) {
+    const text = String(message || '').toLowerCase();
+    const timeEl = document.getElementById('custFieldTime');
+    const dateEl = document.getElementById('custFieldDate');
+    let pick = null;
+    if (/time/.test(text) && !/date/.test(text)) pick = timeEl;
+    else if (/date/.test(text) && !/time/.test(text)) pick = dateEl;
+    else if (dateEl && !dateEl.value) pick = dateEl;
+    else if (timeEl && !timeEl.value) pick = timeEl;
+    if (pick) allTargets = [pick];
+  }
   if (allTargets.length && window.csWizardRevealStepOf) window.csWizardRevealStepOf(allTargets[0]);
   const targets = allTargets
     .filter(el => el.offsetParent !== null || el.tagName === 'FIELDSET');

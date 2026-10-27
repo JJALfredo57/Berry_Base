@@ -35,8 +35,9 @@ class CheckoutController extends Controller
 
         $uid         = session('user')['id'];
         $customer    = DB::table('users')->where('id', $uid)->first();
-        $defaultAddr = DB::table('user_addresses')
-            ->where('user_id', $uid)
+        $defaultAddrQuery = DB::table('user_addresses')->where('user_id', $uid);
+        if (Schema::hasColumn('user_addresses', 'archived_at')) $defaultAddrQuery->whereNull('archived_at');
+        $defaultAddr = $defaultAddrQuery
             ->orderByDesc('is_default')
             ->orderByDesc('id')
             ->first();
@@ -430,8 +431,9 @@ class CheckoutController extends Controller
 
         $savedAddress = null;
         if ($fulfillment === 'Delivery' && $request->boolean('use_saved_address')) {
-            $savedAddress = DB::table('user_addresses')->where('user_id', $uid)
-                ->orderByDesc('is_default')->orderByDesc('id')->first();
+            $savedAddressQuery = DB::table('user_addresses')->where('user_id', $uid);
+            if (Schema::hasColumn('user_addresses', 'archived_at')) $savedAddressQuery->whereNull('archived_at');
+            $savedAddress = $savedAddressQuery->orderByDesc('is_default')->orderByDesc('id')->first();
             if ($savedAddress && !empty($savedAddress->full_address) && $savedAddress->latitude !== null && $savedAddress->longitude !== null) {
                 $address = (string) $savedAddress->full_address;
                 $lat = (float) $savedAddress->latitude;
