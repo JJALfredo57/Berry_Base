@@ -5843,9 +5843,14 @@ document.addEventListener('DOMContentLoaded', function () {
       var leavingPayment = (form.id === 'checkoutForm' || form.id === 'customOrderForm') && titleOf(cards[current]).includes('Payment Method');
       var cashSelected = form.querySelector('[name="payment_method"]:checked')?.value !== 'GCash';
       if (leavingPayment && cashSelected && form.dataset.cashDpNoticeShown !== '1') {
+        var fulfillment = form.querySelector('[name="fulfillment_type"]:checked')?.value || 'Pickup';
+        var isDelivery = fulfillment === 'Delivery';
+        var isCustom = form.id === 'customOrderForm';
         cakeConfirm({
-          title: 'GCash Down Payment Required',
-          message: 'Cash on Pickup / Cash on Delivery applies to the remaining balance only. Since cakes are made-to-order, a GCash down payment is required first to secure your order and prevent fake orders or no-shows. You will pay the remaining balance in cash during pickup or delivery.',
+      title: '50% GCash Deposit + Cash Balance',
+      message: isCustom
+        ? 'The seller must review your custom request and confirm the final price first. Then pay a 50% GCash deposit to secure the order; pay the remaining balance in cash at ' + (isDelivery ? 'delivery' : 'pickup') + '.'
+        : 'Pay a 50% GCash deposit to secure this order. The seller must confirm it before preparation. Pay the remaining balance in cash at ' + (isDelivery ? 'delivery' : 'pickup') + '.',
           icon: 'bi-info-circle',
           iconBg: '#fef3c7',
           iconColor: '#d97706',

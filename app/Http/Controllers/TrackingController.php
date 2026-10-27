@@ -641,7 +641,7 @@ class TrackingController extends Controller
             return back()->with('error', 'Order not found.');
         }
 
-        if (in_array($order->status, ['Out for Delivery', 'Delivered', 'Cancelled', 'Picked Up'], true)) {
+        if (in_array($order->status, ['Preparing', 'Ready for Rider', 'Out for Delivery', 'Delivered', 'Cancelled', 'Picked Up', 'No Show'], true)) {
             return back()->with('error', "Cannot cancel this order because it is already {$order->status}.");
         }
 

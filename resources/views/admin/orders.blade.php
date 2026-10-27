@@ -635,6 +635,16 @@
                         <label class="form-label small fw-semibold">Refund receipt <span class="text-danger">*</span></label>
                         <input type="file" class="form-control form-control-sm" name="refund_receipt" accept="image/*" required>
                       </div>
+                      <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                          <input type="text" class="form-control form-control-sm" name="refund_gcash_name"
+                                 value="{{ $refund->refund_gcash_name ?? '' }}" placeholder="GCash account name" required>
+                        </div>
+                        <div class="col-md-6">
+                          <input type="text" class="form-control form-control-sm" name="refund_gcash_number"
+                                 value="{{ $refund->refund_gcash_number ?? '' }}" placeholder="09XXXXXXXXX or +639XXXXXXXXX" required>
+                        </div>
+                      </div>
                       <div class="mb-2">
                         <input type="text" class="form-control form-control-sm" name="reference_number"
                                placeholder="GCash reference no. (optional)">

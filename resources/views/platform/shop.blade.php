@@ -860,7 +860,7 @@
                   <div style="width:34px;height:34px;border-radius:10px;background:#e91e63;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><i class="bi bi-send"></i></div>
                   <div>
                     <div class="fw-bold" style="color:#9d174d">Request to Bake</div>
-                    <div class="small text-muted">This goes to the seller kitchen first. If your date is earlier than their prep time, it will be marked as rush automatically.</div>
+                    <div class="small text-muted">This goes to seller review first. If accepted and checked out, it will go to kitchen. Rush timing is marked automatically.</div>
                   </div>
                 </div>
                 @if($viewerRole === 'customer')

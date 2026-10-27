@@ -568,10 +568,17 @@ class OrderController extends Controller
                 'refund_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
                 'reference_number' => 'nullable|string|max:120',
                 'admin_note' => 'nullable|string|max:500',
+                'refund_gcash_name' => 'required|string|min:2|max:160',
+                'refund_gcash_number' => 'required|string|max:80',
             ], [
                 'refund_receipt.required' => 'Upload the GCash refund receipt before approving a paid cancellation.',
                 'refund_receipt.image' => 'The refund receipt must be an image.',
+                'refund_gcash_name.required' => 'Confirm the destination GCash account name.',
+                'refund_gcash_number.required' => 'Confirm the destination GCash number.',
             ]);
+            if (!$refunds->validateGcashNumber(trim($validated['refund_gcash_number']))) {
+                return back()->with('err', 'Enter a valid GCash refund number in 09XXXXXXXXX or +639XXXXXXXXX format.');
+            }
 
             $receiptPath = $this->uploadFile($request->file('refund_receipt'), 'uploads/refund_receipts');
             if (!$receiptPath) return back()->with('err', 'Receipt upload failed. Please try again.');
@@ -583,7 +590,9 @@ class OrderController extends Controller
                 $validated['reference_number'] ?? null,
                 $adminNote ?: 'Cancellation approved and refund sent.',
                 $user['role'] ?? 'admin',
-                (string) ($user['id'] ?? '')
+                (string) ($user['id'] ?? ''),
+                trim($validated['refund_gcash_name']),
+                trim($validated['refund_gcash_number'])
             );
 
             CakeshopHelper::logActivity($user['id'], $user['role'], 'Approve Refund Cancel', "Order #{$id}");

@@ -467,14 +467,14 @@ document.body.style.paddingRight = '';
               <div class="form-check">
                 <input class="form-check-input" type="radio" name="payment_method" value="COP" id="cod" checked>
                 <label class="form-check-label fw-semibold" for="cod">
-                  <i class="bi bi-cash-coin me-1"></i><span id="codLabelText">Cash on Pickup (COP)</span>
+                <i class="bi bi-cash-coin me-1"></i><span id="codLabelText">50% GCash Deposit + Cash on Pickup</span>
                 </label>
-                <div class="text-muted" id="codHelpText" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay cash when you pick up your order.</div>
+                <div class="text-muted" id="codHelpText" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay a 50% GCash deposit to secure the order; pay the remaining balance in cash at pickup.</div>
               </div>
               <div class="form-check">
                 <input class="form-check-input" type="radio" name="payment_method" value="GCash" id="gcash">
                 <label class="form-check-label fw-semibold" for="gcash">
-                  <i class="bi bi-phone me-1"></i>GCash
+                  <i class="bi bi-phone me-1"></i>Pay Full Amount with GCash
                   @php $pmMode = \App\Helpers\CakeshopHelper::getPaymongoMode(); @endphp
                   @if($pmMode === 'test')
                     <span class="badge ms-1" style="background:#fef9c3;color:#854d0e;font-size:.65rem">TEST MODE</span>
@@ -1102,8 +1102,12 @@ function toggleSurpriseDelivery() {
     if (codHelp) codHelp.textContent = 'Use GCash so the recipient will not be asked to pay.';
   } else {
     const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
-    if (codLabel) codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
-    if (codHelp) codHelp.textContent = isDelivery ? 'Pay cash when your order arrives.' : 'Pay cash when you pick up your order.';
+    if (codLabel) codLabel.textContent = isDelivery
+      ? '50% GCash Deposit + Cash on Delivery'
+      : '50% GCash Deposit + Cash on Pickup';
+    if (codHelp) codHelp.textContent = isDelivery
+      ? 'Pay a 50% GCash deposit to secure the order; pay the remaining balance in cash on delivery.'
+      : 'Pay a 50% GCash deposit to secure the order; pay the remaining balance in cash at pickup.';
   }
 }
 
@@ -1165,12 +1169,14 @@ function updatePaymentMethodLabel() {
   const codLabel = document.getElementById('codLabelText');
   const codHelp = document.getElementById('codHelpText');
   if (codLabel) {
-    codLabel.textContent = isDelivery ? 'Cash on Delivery (COD)' : 'Cash on Pickup (COP)';
+    codLabel.textContent = isDelivery
+      ? '50% GCash Deposit + Cash on Delivery'
+      : '50% GCash Deposit + Cash on Pickup';
   }
   if (codHelp) {
     codHelp.textContent = isDelivery
-      ? 'Pay cash when your order arrives.'
-      : 'Pay cash when you pick up your order.';
+      ? 'Pay a 50% GCash deposit to secure the order; pay the remaining balance in cash on delivery.'
+      : 'Pay a 50% GCash deposit to secure the order; pay the remaining balance in cash at pickup.';
   }
 }
 

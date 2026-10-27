@@ -625,6 +625,12 @@ class CheckoutController extends Controller
         $pointsRedeemed = (int) ($loyaltyQuote['points'] ?? 0);
         $loyaltyDiscount = (float) ($loyaltyQuote['discount'] ?? 0);
         $total     = max(0, $baseTotal + $addonTotal - $voucherDiscount - $loyaltyDiscount) + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
+        $depositAmount = $payment === 'GCash' ? round($total, 2) : round($total * 0.5, 2);
+        if ($depositAmount < 100) {
+            return back()->with('error', $payment === 'GCash'
+                ? 'The minimum GCash payment is PHP 100.00.'
+                : 'The 50% GCash deposit must be at least PHP 100.00. Please contact the seller for smaller orders.');
+        }
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $this->generateTrackCode();
 
@@ -665,10 +671,10 @@ class CheckoutController extends Controller
             'quantity'         => $qty,
             'custom_note'      => $note,
             'total_price'      => $total,
-            'status'           => 'Pending',
-            'deposit_required' => 0,
-            'deposit_amount'   => null,
-            'deposit_status'   => null,
+            'status'           => 'Awaiting Deposit',
+            'deposit_required' => 1,
+            'deposit_amount'   => $depositAmount,
+            'deposit_status'   => 'pending',
             'fulfillment_type' => $fulfillment,
             'delivery_zone'    => $zone ?: ($address ? substr($address, 0, 80) : ''),
             'delivery_fee'     => $deliveryFee,
@@ -799,8 +805,8 @@ class CheckoutController extends Controller
 
         DB::table('order_tracking')->insert([
             'order_id'   => $oid,
-            'status'     => 'Pending',
-            'notes'      => 'Order placed successfully.',
+            'status'     => 'Awaiting Deposit',
+            'notes'      => 'Order submitted. Waiting for the required GCash payment before seller confirmation.',
             'created_at' => now(),
         ]);
 
@@ -892,10 +898,9 @@ class CheckoutController extends Controller
         $request->session()->forget('checkout');
 
         $successMsg = $payment === 'GCash'
-            ? 'Order placed! Please pay from the tracking page below.'
-            : ($fulfillment === 'Delivery'
-                ? 'Order placed! Pay cash when your order arrives.'
-                : 'Order placed! Pay cash when you pick up your order.');
+            ? 'Order submitted. Please pay the full amount via GCash from your orders page before the seller can confirm it.'
+            : 'Order submitted. Please pay the 50% GCash deposit from your orders page; the remaining balance is due in cash at '
+                . ($fulfillment === 'Delivery' ? 'delivery.' : 'pickup.');
 
         if ($payment === 'GCash') {
             $request->session()->put('last_order_id', $oid);

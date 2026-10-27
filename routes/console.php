@@ -232,6 +232,8 @@ Artisan::command('orders:expire-unpaid-deposits {--hours=24 : Hours before unpai
                 'notes' => "Order auto-expired because the required deposit was not paid within {$hours} hours.",
                 'created_at' => now(),
             ]);
+
+            app(\App\Services\ProductStockService::class)->releaseForOrder((string) $order->id);
         }
     });
 

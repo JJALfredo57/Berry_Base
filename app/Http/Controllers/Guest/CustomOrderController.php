@@ -693,6 +693,9 @@ class CustomOrderController extends Controller
         $co = DB::table('custom_orders')->where('id', $coId)->whereNotNull('guest_phone')->first();
         if (!$co) return back()->with('err', 'Custom order not found.');
         if ($co->price_confirmed !== 'pending') return back()->with('err', 'Price already responded to.');
+        if (($co->review_status ?? '') !== 'approved' || (float) ($co->admin_price ?? 0) <= 0) {
+            return back()->with('err', 'The seller must approve and set the final price before you can accept it.');
+        }
 
         // Verify ownership: the order's track_code must match the session track_code
         $order = DB::table('orders')->where('id', $co->order_id)->first();
@@ -702,14 +705,13 @@ class CustomOrderController extends Controller
         }
 
         $totalPrice = max((float) $co->admin_price, (float) $order->total_price);
-        $minDeposit = round($totalPrice * 0.5, 2);
-
-        $requested = (float) request()->input('deposit_amount', $minDeposit);
-        if ($requested < $minDeposit) {
-            return back()->with('err', 'Minimum deposit is 50%: PHP ' . number_format($minDeposit, 2) . '.');
+        $isFullPayment = ($order->payment_method ?? '') === 'GCash';
+        $depositAmount = $isFullPayment ? round($totalPrice, 2) : round($totalPrice * 0.5, 2);
+        if ($depositAmount < 100) {
+            return back()->with('err', $isFullPayment
+                ? 'Minimum GCash payment is PHP 100.00.'
+                : 'The 50% GCash deposit must be at least PHP 100.00. Please contact the seller for a payment option.');
         }
-        $depositAmount = round(min($requested, $totalPrice), 2);
-        $isFullPayment = abs($depositAmount - $totalPrice) < 0.01;
 
         DB::table('custom_orders')->where('id', $coId)->update([
             'price_confirmed'       => 'accepted',
@@ -730,7 +732,7 @@ class CustomOrderController extends Controller
         DB::table('order_tracking')->insert([
             'order_id'   => $co->order_id,
             'status'     => $order->status,
-            'notes'      => 'Guest accepted the final price of PHP ' . number_format($totalPrice, 2) . '. A 50% PayMongo deposit was prepared before confirmation.',
+            'notes'      => 'Guest accepted the final price of PHP ' . number_format($totalPrice, 2) . '. ' . ($isFullPayment ? 'Full GCash payment' : '50% GCash deposit with cash balance') . ' was prepared before seller-confirmed preparation.',
             'created_at' => now(),
         ]);
 
@@ -823,4 +825,3 @@ class CustomOrderController extends Controller
 
 
 }
-

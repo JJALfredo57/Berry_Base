@@ -76,7 +76,7 @@
         <select id="sellerOrderStatusFilter" class="form-select" style="flex:1;min-width:0;max-width:160px"
                 onchange="pgFilter('status', this.value)">
           <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All status</option>
-          @foreach(['Cancel Requests','Awaiting Deposit','Pending','Pending Review','Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
+          @foreach(['Cancel Requests','Awaiting Deposit','Pending','Pending Review','Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'] as $st)
           <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st === 'Pickup' ? 'Ready for Pickup' : $st }}</option>
           @endforeach
         </select>
@@ -98,7 +98,11 @@
     $refund = $orderRefunds[$o->id] ?? null;
     $receipts = $paymentReceipts[$o->id] ?? [];
     $remittance = $riderRemittances[$o->id] ?? null;
+    $hasPaidAmount = ($o->payment_status ?? '') === 'Paid'
+      || ($o->deposit_status ?? '') === 'paid'
+      || ($o->payment_status ?? '') === 'Partial Payment';
     $hasPaidCancelRequest = $refund && ($refund->status ?? '') === 'pending';
+    $isNoShowRefund = $refund && str_starts_with((string) ($refund->cancel_reason ?? ''), 'No-show balance refund:');
     $isCancelledOrder = ($o->status ?? '') === 'Cancelled' || ($o->cancel_status ?? '') === 'accepted';
     $needsRemittanceAction = $remittance && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected'], true);
     $needsPickupAction = ($o->status ?? '') === 'Pickup' || $hasPaidCancelRequest || $needsRemittanceAction;
@@ -111,6 +115,7 @@
       'Ready for Rider'          => 'background:#E0F2FE;color:#0369A1',
       'Out for Delivery'         => 'background:#E8F5E9;color:#2E7D32',
       'Delivered','Picked Up'    => 'background:#E8F5E9;color:#1B5E20',
+      'No Show'                  => 'background:#FFF7ED;color:#9A3412',
       'Cancelled'                => 'background:#FFEBEE;color:#C62828',
       default                    => 'background:#F5F5F5;color:#616161',
     };
@@ -547,7 +552,11 @@
         <div style="flex:1;min-width:260px">
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">REFUND REVIEW NEEDED</div>
           <div style="font-size:.82rem;color:#92400e;line-height:1.5;font-weight:600">
-            Customer paid {{ number_format((float)$refund->payment_amount_paid, 2) }}. Approve only after sending the GCash refund and uploading the receipt.
+            @if($isNoShowRefund)
+              Customer no-show: retain the 50% deposit and refund the excess PHP {{ number_format((float)$refund->refund_amount, 2) }} only.
+            @else
+              Refund the paid amount of PHP {{ number_format((float)$refund->refund_amount, 2) }} before approving cancellation.
+            @endif
           </div>
         </div>
       </div>
@@ -558,6 +567,12 @@
             <label class="form-label small fw-bold">Refund receipt screenshot <span class="text-danger">*</span></label>
             <input type="file" name="refund_receipt" class="form-control form-control-sm mb-2" accept="image/*" required>
             <div class="row g-2">
+              <div class="col-md-6">
+                <input name="refund_gcash_name" class="form-control form-control-sm" maxlength="160" placeholder="GCash account name" value="{{ $refund->refund_gcash_name ?? '' }}" required>
+              </div>
+              <div class="col-md-6">
+                <input name="refund_gcash_number" class="form-control form-control-sm" maxlength="80" inputmode="tel" placeholder="09XXXXXXXXX or +639XXXXXXXXX" value="{{ $refund->refund_gcash_number ?? '' }}" required>
+              </div>
               <div class="col-md-5">
                 <input name="reference_number" class="form-control form-control-sm" placeholder="GCash ref no.">
               </div>
@@ -566,13 +581,13 @@
               </div>
             </div>
             <button class="btn btn-success btn-sm mt-2" type="submit"
-                    data-cs-confirm="Approve cancellation and mark refund as sent? Make sure the uploaded receipt is correct."
+                    data-cs-confirm="Confirm the GCash refund was sent to the listed account and the uploaded receipt is correct?"
                     data-cs-title="Approve Refund"
                     data-cs-ok="Approve & Send Receipt"
                     data-cs-icon="bi-cash-coin"
                     data-cs-icon-bg="#dcfce7"
                     data-cs-icon-color="#16a34a">
-              <i class="bi bi-check2-circle me-1"></i>Approve & Send Receipt
+              <i class="bi bi-check2-circle me-1"></i>Record Refund Sent
             </button>
           </form>
         </div>
@@ -651,6 +666,27 @@
         </span>
       </div>
       @endif
+      <div style="border-top:1px solid #fed7aa;padding:.85rem 1.25rem;background:#fff7ed">
+        <form action="{{ route('seller.orders.pickup_no_show', $o->id) }}" method="POST" class="d-flex flex-column flex-sm-row gap-2 align-items-sm-end">
+          @csrf
+          <div class="flex-grow-1">
+            <label class="form-label small fw-bold mb-1" for="pickupNoShowNote{{ $o->id }}">Customer no-show</label>
+            <input id="pickupNoShowNote{{ $o->id }}" name="no_show_note" class="form-control form-control-sm" minlength="10" maxlength="500" required
+                   placeholder="Record pickup time and contact attempts">
+            <div class="small text-muted mt-1">Record only after the agreed pickup time and contact attempts. The 50% deposit is retained.</div>
+          </div>
+          <button type="submit" class="btn btn-outline-danger btn-sm flex-shrink-0"
+                  data-cs-confirm="Mark this paid order as a customer no-show? The 50% deposit will be retained. Any amount paid above 50% will be queued for manual refund review."
+                  data-cs-title="Confirm Customer No-Show"
+                  data-cs-ok="Record No-Show"
+                  data-cs-ok-color="#b91c1c"
+                  data-cs-icon="bi-person-x"
+                  data-cs-icon-bg="#ffedd5"
+                  data-cs-icon-color="#c2410c">
+            <i class="bi bi-person-x me-1"></i>Record No-Show
+          </button>
+        </form>
+      </div>
     @endif
 
     {{-- Awaiting Deposit ‚‚ seller info only, no actions until paid --}}
@@ -674,7 +710,7 @@
     @endif
 
     {{-- Status Actions (non-final, non-pickup orders) --}}
-    @if(!in_array($o->status, ['Awaiting Deposit','Delivered','Picked Up','Cancelled','Pickup']))
+    @if(!in_array($o->status, ['Awaiting Deposit','Delivered','Picked Up','No Show','Cancelled','Pickup']))
     <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fff8fb 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
       <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
         <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#fdf2f8;color:#be185d;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -786,8 +822,21 @@
                    oninvalid="this.setCustomValidity('Please enter a reason (min 5 chars)')"
                    oninput="this.setCustomValidity('')">
           </div>
+          @if($hasPaidAmount)
+          <div class="row g-2 w-100">
+            <div class="col-sm-6">
+              <label class="form-label small fw-bold">Refund GCash account name <span class="text-danger">*</span></label>
+              <input name="refund_gcash_name" class="form-control form-control-sm" maxlength="160" required>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label small fw-bold">Refund GCash number <span class="text-danger">*</span></label>
+              <input name="refund_gcash_number" class="form-control form-control-sm" maxlength="80" inputmode="tel" required placeholder="09XXXXXXXXX or +639XXXXXXXXX">
+            </div>
+          </div>
+          <div class="small text-danger w-100">A paid order stays active until the seller records the full GCash refund receipt.</div>
+          @endif
           <button type="submit" style="background:#C62828;color:#fff;border:none;border-radius:var(--radius-md);padding:.5rem 1rem;font-size:.8rem;font-weight:600;cursor:pointer"
-                  data-cs-confirm="Cancel this order?"
+                  data-cs-confirm="{{ $hasPaidAmount ? 'Start full GCash refund review before cancellation?' : 'Cancel this order?' }}"
                   data-cs-title="Confirm Cancellation"
                   data-cs-ok="Cancel Order"
                   data-cs-ok-color="#C62828"

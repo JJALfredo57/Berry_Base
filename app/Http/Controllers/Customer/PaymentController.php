@@ -183,10 +183,14 @@ class PaymentController extends Controller
 
         if (!$order)
             return redirect()->route('customer.orders')->with('error', 'Order not found.');
-        if (!$order->deposit_required)
-            return redirect()->route('customer.orders')->with('error', 'No deposit required for this order.');
         if ($order->deposit_status === 'paid')
             return redirect()->route('customer.orders')->with('msg', 'Deposit already paid. Your order is pending confirmation.');
+        if (($order->status ?? '') !== 'Awaiting Deposit')
+            return redirect()->route('customer.orders')->with('error', 'This order is not waiting for payment.');
+        if (!$order->deposit_required)
+            return redirect()->route('customer.orders')->with('error', 'No deposit required for this order.');
+        if (($order->cancel_status ?? '') === 'pending')
+            return redirect()->route('customer.orders')->with('error', 'Payment is unavailable while a cancellation request is being reviewed.');
         if (!$secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY'))
             return redirect()->route('customer.orders')->with('error', 'Online payment is not configured yet. Contact the shop.');
 
@@ -210,7 +214,9 @@ class PaymentController extends Controller
                     'line_items' => [[
                         'currency' => 'PHP',
                         'amount'   => $amountCentavos,
-                        'name'     => 'Deposit (50%) — ' . $order->product_name . ' Order #' . $id,
+                        'name'     => abs((float) $order->deposit_amount - (float) $order->total_price) < 0.01
+                            ? 'Full payment — ' . $order->product_name . ' Order #' . $id
+                            : '50% deposit — ' . $order->product_name . ' Order #' . $id,
                         'quantity' => 1,
                     ]],
                     'payment_method_types' => $this->getPaymongoCheckoutMethods(),
@@ -296,6 +302,9 @@ class PaymentController extends Controller
             return redirect()->route('customer.orders')
                 ->with('msg', 'Deposit already paid! Your order is now pending confirmation from the baker.');
         }
+        if (($order->status ?? '') !== 'Awaiting Deposit') {
+            return redirect()->route('customer.orders')->with('error', 'This order is not waiting for payment.');
+        }
 
         $sessionStatus = '';
         $paymentStatus = '';
@@ -327,9 +336,10 @@ class PaymentController extends Controller
 
         $isFullPayment = abs((float) $order->deposit_amount - (float) $order->total_price) < 0.01;
 
+        $nextStatus = $order->status === 'Awaiting Deposit' ? 'Pending' : $order->status;
         DB::table('orders')->where('id', $orderId)->update([
             'deposit_status' => 'paid',
-            'status'         => 'Pending',
+            'status'         => $nextStatus,
             'payment_status' => $isFullPayment ? 'Paid' : 'Partial Payment',
             'paid_at'        => $isFullPayment ? now() : null,
         ]);
@@ -343,8 +353,8 @@ class PaymentController extends Controller
 
         DB::table('order_tracking')->insert([
             'order_id'   => $orderId,
-            'status'     => 'Pending',
-            'notes'      => 'Order is now pending baker confirmation.',
+            'status'     => $nextStatus,
+            'notes'      => 'Payment confirmed. The order is waiting for seller confirmation before preparation.',
             'created_at' => now(),
         ]);
 

@@ -106,6 +106,93 @@ class OrderRefundService
         });
     }
 
+    public function recordNoShow(object $order, string $note, string $actor, ?string $evidencePath = null): ?object
+    {
+        $refund = DB::transaction(function () use ($order, $note, $actor, $evidencePath) {
+            $fresh = DB::table('orders')->where('id', $order->id)->lockForUpdate()->first();
+            if (!$fresh) {
+                throw new \RuntimeException('Order not found while recording a no-show.');
+            }
+
+            if (($fresh->status ?? '') === 'No Show') {
+                return $this->pendingForOrder((string) $fresh->id);
+            }
+
+            $paidAmount = $this->paidAmount($fresh);
+            $retainedDeposit = min($paidAmount, round((float) ($fresh->total_price ?? 0) * 0.5, 2));
+            $refundAmount = round(max(0, $paidAmount - $retainedDeposit), 2);
+
+            if ($refundAmount > 0 && !Schema::hasTable('order_refunds')) {
+                throw new \RuntimeException('Refund tracking is not available; the no-show refund cannot be recorded.');
+            }
+
+            DB::table('orders')->where('id', $fresh->id)->update([
+                'status' => 'No Show',
+                'issue_type' => 'no_show',
+                'issue_photo' => $evidencePath,
+                'issue_note' => $note,
+                'issue_status' => 'resolved',
+                'issue_reported_at' => now(),
+                'rider_pin' => null,
+                'updated_at' => now(),
+            ]);
+
+            DB::table('order_tracking')->insert([
+                'order_id' => $fresh->id,
+                'status' => 'No Show',
+                'notes' => ucfirst($actor) . ' recorded a customer no-show. ' . $note,
+                'created_at' => now(),
+            ]);
+
+            if ($refundAmount <= 0) {
+                return null;
+            }
+
+            $existing = $this->pendingForOrder((string) $fresh->id);
+            if ($existing) {
+                return $existing;
+            }
+
+            $refundId = DB::table('order_refunds')->insertGetId([
+                'order_id' => $fresh->id,
+                'shop_id' => $fresh->shop_id ?? null,
+                'seller_user_id' => !empty($fresh->shop_id)
+                    ? DB::table('shops')->where('id', $fresh->shop_id)->value('seller_id')
+                    : null,
+                'track_code' => $fresh->track_code ?? null,
+                'customer_name' => $fresh->guest_name ?? $fresh->fullname ?? null,
+                'customer_phone' => $fresh->guest_phone ?? null,
+                'cancel_reason' => 'No-show balance refund: return the amount above the retained 50% deposit. ' . $note,
+                'refund_amount' => $refundAmount,
+                'payment_amount_paid' => $paidAmount,
+                'status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return DB::table('order_refunds')->where('id', $refundId)->first();
+        });
+
+        $freshOrder = DB::table('orders')->where('id', $order->id)->first() ?: $order;
+        $staffMessage = 'Order #' . $order->id . ' was recorded as a customer no-show. The 50% deposit is retained.';
+        $customerMessage = 'The order was recorded as a no-show. The 50% deposit is retained.';
+        if ($refund) {
+            $staffMessage .= ' A refund of PHP ' . number_format((float) $refund->refund_amount, 2) . ' above the retained deposit is waiting for review.';
+            $customerMessage .= ' Any amount paid above the deposit is queued for manual GCash refund review.';
+        }
+        $this->notifyStaff($freshOrder, $refund ? 'No-Show Refund Needs Review' : 'Customer No-Show', $staffMessage, [
+            'event' => $refund ? 'no_show_refund_request' : 'customer_no_show',
+            'order_id' => (string) $order->id,
+            'refund_id' => $refund ? (string) $refund->id : null,
+        ]);
+        $this->notifications->notifyOrderCustomer($freshOrder, 'Customer No-Show Recorded', $customerMessage, [
+            'event' => $refund ? 'no_show_refund_request' : 'customer_no_show',
+            'refund_id' => $refund ? (string) $refund->id : null,
+        ]);
+
+        return $refund;
+    }
+
     public function reject(object $order, object $refund, string $note, string $role, string $userId): void
     {
         DB::transaction(function () use ($order, $refund, $note, $role, $userId) {
@@ -139,9 +226,10 @@ class OrderRefundService
         ]);
     }
 
-    public function markRefunded(object $order, object $refund, string $receiptPath, ?string $referenceNumber, string $note, string $role, string $userId): void
+    public function markRefunded(object $order, object $refund, string $receiptPath, ?string $referenceNumber, string $note, string $role, string $userId, ?string $gcashName = null, ?string $gcashNumber = null): void
     {
-        DB::transaction(function () use ($order, $refund, $receiptPath, $referenceNumber, $note, $role, $userId) {
+        DB::transaction(function () use ($order, $refund, $receiptPath, $referenceNumber, $note, $role, $userId, $gcashName, $gcashNumber) {
+            $preserveNoShow = ($order->status ?? '') === 'No Show';
             DB::table('order_refunds')->where('id', $refund->id)->update([
                 'status' => 'refunded',
                 'reviewed_by_role' => $role,
@@ -150,14 +238,16 @@ class OrderRefundService
                 'reviewed_at' => $refund->reviewed_at ?? now(),
                 'receipt_path' => $receiptPath,
                 'reference_number' => $referenceNumber,
+                'refund_gcash_name' => $gcashName ?: ($refund->refund_gcash_name ?? null),
+                'refund_gcash_number' => $gcashNumber ?: ($refund->refund_gcash_number ?? null),
                 'receipt_uploaded_at' => now(),
                 'updated_at' => now(),
             ]);
 
             DB::table('orders')->where('id', $order->id)->update([
-                'status' => 'Cancelled',
-                'cancel_status' => 'accepted',
-                'cancel_admin_note' => $note ?: 'Cancellation approved and refund sent.',
+                'status' => $preserveNoShow ? 'No Show' : 'Cancelled',
+                'cancel_status' => $preserveNoShow ? ($order->cancel_status ?? null) : 'accepted',
+                'cancel_admin_note' => $preserveNoShow ? ($order->cancel_admin_note ?? null) : ($note ?: 'Cancellation approved and refund sent.'),
                 'updated_at' => now(),
             ]);
 
@@ -172,7 +262,9 @@ class OrderRefundService
         $this->createRefundLedger($order, $refund);
 
         $fresh = DB::table('orders')->where('id', $order->id)->first() ?: $order;
-        app(ProductStockService::class)->releaseForOrder($fresh);
+        if (($fresh->status ?? '') !== 'No Show') {
+            app(ProductStockService::class)->releaseForOrder($fresh);
+        }
         $this->notifications->notifyOrderCustomer($fresh, 'Refund Sent', "Your refund for Order #{$order->id} has been sent. You can view the receipt on your tracking page.", [
             'event' => 'refund_sent',
             'refund_id' => (string) $refund->id,

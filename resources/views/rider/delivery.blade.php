@@ -435,6 +435,9 @@
     <div class="issue-opt" onclick="selectIssue('not_home',this)">
       <span class="oi">🏠❌</span>Not Home
     </div>
+    <div class="issue-opt" onclick="selectIssue('no_show',this)">
+      <span class="oi">⏱️</span>Customer No-Show
+    </div>
     <div class="issue-opt" onclick="selectIssue('other',this)">
       <span class="oi">⚠️</span>Other
     </div>
@@ -657,6 +660,13 @@ function selectIssue(type, el) {
   selectedIssue = type;
   document.querySelectorAll('.issue-opt').forEach(o => o.classList.remove('sel'));
   el.classList.add('sel');
+  const note = document.getElementById('issueNote');
+  if (note) {
+    note.required = type === 'no_show';
+    note.placeholder = type === 'no_show'
+      ? 'Required: record arrival time and contact attempts (at least 10 characters)'
+      : 'Describe what happened...';
+  }
 }
 function showIssueForm() {
   document.getElementById('issueSection').style.display = 'block';
@@ -706,6 +716,10 @@ function confirmDeliver() {
 }
 function submitIssue() {
   if (!selectedIssue) { alert('Please select what happened.'); return; }
+  if (selectedIssue === 'no_show' && document.getElementById('issueNote').value.trim().length < 10) {
+    alert('For a no-show, record the arrival time and contact attempts (at least 10 characters).');
+    return;
+  }
   doFetch('/rider/' + ORDER_ID + '/' + TOKEN + '/issue', {
     issue_type: selectedIssue,
     note: document.getElementById('issueNote').value,
@@ -722,7 +736,7 @@ async function doFetch(url, fields, btn, originalHtml, onSuccess) {
   fd.append('_token', '{{ csrf_token() }}');
   for (const [k,v] of Object.entries(fields)) if (v !== undefined && v !== null && v !== '') fd.append(k, v);
   try {
-    const res = await fetch(url, { method:'POST', body:fd });
+    const res = await fetch(url, { method:'POST', body:fd, headers:{ 'Accept':'application/json' } });
     const data = await res.json();
     if (data.ok) { onSuccess(data); }
     else {

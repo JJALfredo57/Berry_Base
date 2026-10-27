@@ -144,42 +144,36 @@ class PaymentController extends Controller
             return back()->with('error', 'Payment is no longer available because this order has been cancelled or has a pending cancellation request.');
         }
 
-        if (!in_array($order->status, ['Pending', 'Pending Review', 'Awaiting Deposit']))
+        if (!in_array($order->status, ['Pending', 'Pending Review', 'Awaiting Deposit'], true))
             return back()->with('error', 'This order cannot be modified at this stage.');
 
         if ($order->payment_status === 'Paid')
             return back()->with('error', 'This order is already fully paid.');
 
+        $customOrder = DB::table('custom_orders')->where('order_id', $order->id)->first();
+        if ($customOrder && (
+            ($customOrder->review_status ?? '') !== 'approved'
+            || ($customOrder->price_confirmed ?? '') !== 'accepted'
+        )) {
+            return back()->with('error', 'The seller must approve the custom order and final price before payment.');
+        }
+
         $payableTotal = (float) $order->total_price;
-        try {
-            $customOrder = DB::table('custom_orders')->where('order_id', $order->id)->first();
-            if ($customOrder && $customOrder->review_status === 'approved'
-                && $customOrder->price_confirmed === 'accepted'
-                && (float) $customOrder->admin_price > 0) {
-                $payableTotal = (float) $customOrder->admin_price;
-            }
-        } catch (\Throwable $e) {}
+        if ($customOrder && (float) ($customOrder->admin_price ?? 0) > 0) {
+            $payableTotal = (float) $customOrder->admin_price;
+        }
 
-        $depositAmount = round((float) $request->input('deposit_amount', 0), 2);
-        $minDeposit    = round($payableTotal * 0.5, 2);
-        $maxDeposit    = round($payableTotal, 2);
+        $isFullPayment = ($order->payment_method ?? '') === 'GCash';
+        $depositAmount = $isFullPayment ? round($payableTotal, 2) : round($payableTotal * 0.5, 2);
 
-        if ($maxDeposit <= 0) {
+        if ($payableTotal <= 0) {
             return back()->with('error', 'Invalid order total. Please contact the shop.');
         }
         if ($depositAmount < 100) {
-            return back()->with('error', 'Minimum GCash payment is PHP 100.00.');
+            return back()->with('error', $isFullPayment
+                ? 'Minimum GCash payment is PHP 100.00.'
+                : 'The 50% GCash deposit must be at least PHP 100.00. Please contact the shop for a payment option.');
         }
-
-        // Validate: must be at least 50% and at most 100%
-        if ($depositAmount < $minDeposit) {
-            return back()->with('error', 'Minimum deposit is 50% of total (' . number_format($minDeposit, 2) . ').');
-        }
-        if ($depositAmount > $maxDeposit) {
-            return back()->with('error', 'Payment cannot exceed the order total (PHP ' . number_format($maxDeposit, 2) . ').');
-        }
-
-        $isFullPayment = abs($depositAmount - $maxDeposit) < 0.01;
 
         // All payment methods (COP, COD, GCash) pay the deposit through PayMongo.
         DB::table('orders')->where('id', $order->id)->update([
@@ -223,6 +217,16 @@ class PaymentController extends Controller
             return redirect()->route('track.order', $trackCode)->with('error', 'No deposit required for this order.');
         if ($order->deposit_status === 'paid')
             return redirect()->route('track.order', $trackCode)->with('msg', 'Deposit has already been paid.');
+        if (!in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Awaiting Deposit'], true))
+            return redirect()->route('track.order', $trackCode)->with('error', 'This order is not waiting for payment.');
+        $customOrder = DB::table('custom_orders')->where('order_id', $order->id)->first();
+        if ($customOrder && (
+            ($customOrder->review_status ?? '') !== 'approved'
+            || ($customOrder->price_confirmed ?? '') !== 'accepted'
+        )) {
+            return redirect()->route('track.order', $trackCode)
+                ->with('error', 'The seller must approve the custom order and final price before payment.');
+        }
         if (!$secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY'))
             return redirect()->route('track.order', $trackCode)->with('error', 'GCash payment is not configured yet.');
 
@@ -315,9 +319,14 @@ class PaymentController extends Controller
         if ($urlStatus === 'cancelled')
             return redirect()->route('track.order', $trackCode)->with('error', 'Deposit payment cancelled. You can try again.');
 
-        // Idempotency  already paid, just send to kitchen if not yet done
+        // Idempotency: only resume kitchen handoff for a seller-approved custom order.
         if ($order->deposit_status === 'paid') {
-            if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
+            $customOrder = DB::table('custom_orders')->where('order_id', $order->id)->first();
+            if (($order->status ?? '') === 'Confirmed'
+                && ($customOrder->review_status ?? '') === 'approved'
+                && ($customOrder->price_confirmed ?? '') === 'accepted'
+                && !$order->kitchen_sent
+                && app(OrderTypeService::class)->requiresKitchen($order)) {
                 $this->sendToKitchen($order);
             }
             return redirect()->route('track.order', $trackCode)->with('msg', 'Deposit already paid!');
@@ -365,6 +374,10 @@ class PaymentController extends Controller
 
         //  Mark deposit as paid
         $isFullPayment = abs((float)$order->deposit_amount - (float)$order->total_price) < 0.01;
+        $customOrder = DB::table('custom_orders')->where('order_id', $order->id)->first();
+        $customReadyForProduction = $customOrder
+            && ($customOrder->review_status ?? '') === 'approved'
+            && ($customOrder->price_confirmed ?? '') === 'accepted';
         DB::table('orders')->where('id', $order->id)->update([
             'deposit_status'  => 'paid',
             'deposit_paid_at' => now(),
@@ -396,34 +409,25 @@ class PaymentController extends Controller
             ]);
         } catch (\Exception $e) {}
 
-        //  Move 'Awaiting Deposit'  'Pending' so seller can confirm
-        if ($order->status === 'Awaiting Deposit') {
-            DB::table('orders')->where('id', $order->id)->update(['status' => 'Pending']);
-            try {
-                DB::table('order_tracking')->insert([
-                    'order_id'   => $order->id,
-                    'status'     => 'Pending',
-                    'notes'      => 'Order activated and pending baker confirmation.',
-                    'created_at' => now(),
-                ]);
-            } catch (\Exception $e) {}
+        $nextStatus = ($order->status ?? '') === 'Awaiting Deposit' ? 'Pending' : (string) $order->status;
+        $canConfirmCustom = $customReadyForProduction
+            && app(OrderTypeService::class)->requiresKitchen($order)
+            && in_array($nextStatus, ['Pending', 'Pending Review'], true);
+        if ($canConfirmCustom) $nextStatus = 'Confirmed';
+        if ($nextStatus !== ($order->status ?? '')) {
+            DB::table('orders')->where('id', $order->id)->update(['status' => $nextStatus]);
+            DB::table('order_tracking')->insert([
+                'order_id' => $order->id,
+                'status' => $nextStatus,
+                'notes' => $canConfirmCustom
+                    ? 'Deposit paid after seller approval and customer price acceptance. Custom order confirmed.'
+                    : 'Payment confirmed. The order is waiting for seller confirmation before preparation.',
+                'created_at' => now(),
+            ]);
         }
 
-        //  Auto-confirm custom orders already in pending state
-        if (in_array($order->status, ['Pending', 'Pending Review'])) {
-            DB::table('orders')->where('id', $order->id)->update(['status' => 'Confirmed']);
-            try {
-                DB::table('order_tracking')->insert([
-                    'order_id'   => $order->id,
-                    'status'     => 'Confirmed',
-                    'notes'      => 'Auto-confirmed after deposit payment via GCash.',
-                    'created_at' => now(),
-                ]);
-            } catch (\Exception $e) {}
-        }
-
-        //  Send to kitchen
-        if (!$order->kitchen_sent && app(OrderTypeService::class)->requiresKitchen($order)) {
+        // Only a seller-approved custom order with an accepted final price may enter the kitchen.
+        if ($canConfirmCustom && !$order->kitchen_sent) {
             // Reload order so product_name is fresh after potential join issue
             $freshOrder = DB::table('orders as o')
                 ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
@@ -433,13 +437,17 @@ class PaymentController extends Controller
             $this->sendToKitchen($freshOrder ?? $order, $isFullPayment);
         }
 
-        //  Notify admin
+        $statusMessage = $canConfirmCustom
+            ? 'Custom order was confirmed after seller approval and customer price acceptance.'
+            : 'Waiting for seller confirmation before preparation.';
+
+        // Notify staff of the payment and current order state.
         try {
             DB::table('notifications')->insert([
                 'receiver_role'    => 'admin',
                 'receiver_user_id' => null,
                 'title'            => 'Deposit Paid - Order #' . $order->id,
-                'message'          => ($order->guest_name ?? 'Guest') . ' paid PHP ' . number_format($order->deposit_amount, 2) . ' for Order #' . $order->id . '. Auto-confirmed.',
+                'message'          => ($order->guest_name ?? 'Guest') . ' paid PHP ' . number_format($order->deposit_amount, 2) . ' for Order #' . $order->id . '. ' . $statusMessage,
                 'is_read' => false,
                 'created_at'       => now(),
             ]);
@@ -466,7 +474,7 @@ class PaymentController extends Controller
                     . "Hi {$guestName}! Your payment has been received.\n\n"
                     . "Order No.: #{$order->id}{$shopLine}\n"
                     . 'Amount Paid: PHP ' . number_format($order->deposit_amount, 2) . "\n"
-                    . "Status: Confirmed\n\n"
+                    . "Status: {$nextStatus}\n\n"
                     . "Your Tracking Code: {$trackCode}\n"
                     . 'Use this code to track your order on our website.'
                 );
@@ -1457,6 +1465,13 @@ class PaymentController extends Controller
             return redirect()->route('customer.orders')
                 ->with('err', 'Payment is no longer available because this order has been cancelled or has a pending cancellation request.');
         }
+        if (($co->review_status ?? '') !== 'approved' || ($co->price_confirmed ?? '') !== 'accepted') {
+            return redirect()->route('customer.orders')
+                ->with('err', 'The seller must approve the custom order and you must accept the final price before payment.');
+        }
+        if (!in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Confirmed'], true) || !$order->deposit_required) {
+            return redirect()->route('customer.orders')->with('err', 'This custom order is not ready for deposit payment.');
+        }
 
         if ($order->deposit_status === 'paid')
             return redirect()->route('customer.orders')->with('msg', 'Deposit already paid!');
@@ -1482,7 +1497,9 @@ class PaymentController extends Controller
                 'line_items'   => [[
                     'currency'   => 'PHP',
                     'amount'     => $amountCentavos,
-                    'name'       => 'Custom Order #' . $order->id . '  Deposit',
+                    'name'       => abs((float) $order->deposit_amount - (float) $order->total_price) < 0.01
+                        ? 'Custom Order #' . $order->id . ' — Full payment'
+                        : 'Custom Order #' . $order->id . ' — 50% deposit',
                     'quantity'   => 1,
                 ]],
                 'payment_method_types' => $this->getPaymongoCheckoutMethods(),
@@ -1538,6 +1555,13 @@ class PaymentController extends Controller
 
         if ($order->deposit_status === 'paid')
             return redirect()->route('customer.orders')->with('msg', 'Deposit already paid! ');
+        if (($co->review_status ?? '') !== 'approved' || ($co->price_confirmed ?? '') !== 'accepted'
+            || !in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Confirmed'], true)
+            || !$order->deposit_required
+            || in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true)) {
+            return redirect()->route('customer.orders')
+                ->with('err', 'The seller approval, accepted final price, and active order are required before payment can be confirmed.');
+        }
 
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
         if (!$order->deposit_paymongo_id || !$secretKey)
@@ -1593,8 +1617,8 @@ class PaymentController extends Controller
                 'order_id'   => $order->id,
                 'status'     => 'Confirmed',
                 'notes'      => $isFullPayment
-                    ? "GCash full payment PHP {$order->deposit_amount} received. Custom order auto-confirmed."
-                    : "GCash deposit PHP {$order->deposit_amount} received. Custom order auto-confirmed. Remaining: PHP " . ($payableTotal - $order->deposit_amount),
+                    ? "GCash full payment PHP {$order->deposit_amount} received after seller approval and customer price acceptance."
+                    : "GCash deposit PHP {$order->deposit_amount} received after seller approval and customer price acceptance. Remaining: PHP " . ($payableTotal - $order->deposit_amount),
                 'created_at' => now(),
             ]);
 

@@ -9,26 +9,6 @@
     <div class="alert alert-danger border-0"><i class="bi bi-exclamation-circle me-2"></i>{{ session('error') }}</div>
   @endif
   <style>
-    @keyframes depositShake {
-      0%, 100% { transform: translateX(0); }
-      20%, 60% { transform: translateX(-6px); }
-      40%, 80% { transform: translateX(6px); }
-    }
-    .deposit-amount-input.is-invalid {
-      border-color: #dc2626 !important;
-      box-shadow: 0 0 0 .18rem rgba(220, 38, 38, .12) !important;
-    }
-    .deposit-error {
-      display: none;
-      color: #dc2626;
-      font-size: .72rem;
-      font-weight: 700;
-      margin-top: .35rem;
-    }
-    .deposit-error.show {
-      display: block;
-      animation: depositShake .32s ease;
-    }
     .track-payment-summary {
       background:#fff0f5;
       border:1px solid #fde2ef;
@@ -412,8 +392,8 @@
     $hasPendingCancel = ($order->cancel_requested ?? 0) && ($order->cancel_status ?? '') === 'pending';
     $cancelApproved = ($order->cancel_status ?? '') === 'accepted';
     $cancelRejected = ($order->cancel_status ?? '') === 'rejected';
-    $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Awaiting Deposit', 'Confirmed', 'Preparing']) && !$cancelApproved;
-    $canPayOrder = !in_array($order->status, ['Cancelled', 'Delivered', 'Picked Up'], true)
+    $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Awaiting Deposit', 'Confirmed']) && !$cancelApproved;
+    $canPayOrder = !in_array($order->status, ['Cancelled', 'Delivered', 'Picked Up', 'No Show'], true)
       && !in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true);
     $statusColors = [
       'Awaiting Deposit' => ['bg'=>'#fff7ed','color'=>'#9a3412','icon'=>'bi-credit-card-fill'],
@@ -426,6 +406,7 @@
       'Pickup'           => ['bg'=>'#ede9fe','color'=>'#5b21b6','icon'=>'bi-shop'],
       'Delivered'        => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'bi-house-check-fill'],
       'Picked Up'        => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'bi-bag-check-fill'],
+      'No Show'          => ['bg'=>'#fff7ed','color'=>'#9a3412','icon'=>'bi-person-x-fill'],
       'Cancelled'        => ['bg'=>'#fee2e2','color'=>'#991b1b','icon'=>'bi-x-circle-fill'],
       'Refunded'         => ['bg'=>'#dcfce7','color'=>'#166534','icon'=>'bi-cash-coin'],
     ];
@@ -488,14 +469,14 @@
     <i class="bi bi-x-circle me-2"></i>Cancellation request rejected.
     @if($order->cancel_admin_note) Reason: {{ $order->cancel_admin_note }} @endif
   </div>
-  @elseif($hasDepositLock && $order->status !== 'Cancelled')
+  @elseif($hasDepositLock && !in_array($order->status, ['Cancelled', 'No Show'], true))
   <div class="alert border-0 mb-4" style="background:#eff6ff;color:#1d4ed8">
     <i class="bi bi-shield-check me-2"></i>This order has payment recorded. Cancellation is still possible, but it must be reviewed because a refund is required.
   </div>
   @endif
 
   {{-- Progress Bar (non-cancelled) --}}
-  @if($order->status !== 'Cancelled')
+  @if(!in_array($order->status, ['Cancelled', 'No Show'], true))
   @php
     if ($isPickup) {
       $steps = ['Pending'=>'Received','Confirmed'=>'Confirmed','Preparing'=>'Baking','Pickup'=>'Ready','Picked Up'=>'Picked Up'];
@@ -670,7 +651,19 @@
           <div class="p-2 rounded-2 track-payment-summary">
             <div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Total Amount</div>
             <div class="fw-bold" style="color:var(--primary);font-size:clamp(.9rem,2.2vw,1.1rem)">&#8369;{{ number_format($paymentTotalAmount, 2) }}</div>
-            @if($order->status === 'Cancelled' || $cancelApproved)
+            @if($order->status === 'No Show')
+              @if(($refund ?? null) && ($refund->status ?? '') === 'pending')
+              <div class="track-payment-note warning">
+                <i class="bi bi-hourglass-split"></i>
+                <span>Customer no-show recorded. The 50% deposit is retained; refund of any amount above it is waiting for seller review.</span>
+              </div>
+              @else
+              <div class="track-payment-note warning">
+                <i class="bi bi-person-x"></i>
+                <span>Customer no-show recorded. The 50% deposit is retained.</span>
+              </div>
+              @endif
+            @elseif($order->status === 'Cancelled' || $cancelApproved)
               @if(($refund ?? null) && ($refund->status ?? '') === 'refunded')
               <div class="track-payment-note success">
                 <i class="bi bi-cash-coin"></i>
@@ -779,7 +772,7 @@
 
         {{--  GCash Deposit Card  one-click payment  --}}
         @if($canPayOrder && $order->payment_method === 'GCash' && $order->payment_status === 'Unpaid' && in_array($order->status, ['Pending','Pending Review']) && $order->deposit_status !== 'paid' && !$customOrder)
-        @php $minDeposit = max(100, round($order->total_price * 0.5, 2)); @endphp
+        @php $fullPaymentCanPay = (float) $order->total_price >= 100; @endphp
         <div class="col-12 mt-3">
           <div style="border-radius:1rem;overflow:hidden;border:1.5px solid #d1fae5">
             <div style="background:linear-gradient(90deg,#059669,#0284c7);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.6rem">
@@ -794,79 +787,35 @@
             </div>
             <div style="background:#f8fffe;padding:1rem">
               <div style="font-size:.8rem;color:#374151;margin-bottom:.8rem">
-                <i class="bi bi-info-circle me-1" style="color:#0284c7"></i>Pay a deposit to confirm your order. Your cake will be auto-confirmed after payment.
+                <i class="bi bi-info-circle me-1" style="color:#0284c7"></i>Pay the full amount via GCash. The seller will confirm your order before preparation.
               </div>
+              @unless($fullPaymentCanPay)
+                <div class="alert alert-warning py-2 small" role="alert">
+                  PayMongo requires a minimum payment of PHP 100. Please contact the seller for a payment option.
+                </div>
+              @endunless
               <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:.85rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb">
                 <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Order Total</span>
                 <span style="font-weight:800;color:#111827;font-size:1rem">‚PHP {{ number_format($order->total_price, 2) }}</span>
               </div>
-              <div class="d-flex flex-column gap-2">
-                {{-- Primary: 50% deposit --}}
-                <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST"
-                      class="deposit-amount-form"
-                      data-min="{{ $minDeposit }}"
-                      data-max="{{ $order->total_price }}">
-                  @csrf
-                  <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now</label>
-                  <div class="input-group">
-                    <span class="input-group-text" style="font-weight:800;color:#059669;background:#ecfdf5;border-color:#bbf7d0">‚</span>
-                    <input type="text"
-                           name="deposit_amount"
-                           class="form-control deposit-amount-input"
-                           value="{{ number_format($minDeposit, 2, '.', '') }}"
-                           inputmode="decimal"
-                           autocomplete="off"
-                           data-min="{{ $minDeposit }}"
-                           data-max="{{ $order->total_price }}"
-                           style="font-weight:800;color:#111827;border-color:#bbf7d0">
-                  </div>
-                  <div class="deposit-error">Minimum payment is 50%: ‚PHP {{ number_format($minDeposit, 2) }}.</div>
-                  <div style="font-size:.7rem;color:#6b7280;margin-top:.3rem">
-                    Enter at least ‚‚PHP {{ number_format($minDeposit, 2) }}. You may pay more up to ‚PHP {{ number_format($order->total_price, 2) }}.
-                  </div>
-                  <button type="submit" class="btn w-100 fw-bold py-3"
-                          style="margin-top:.65rem;background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:.75rem;font-size:.95rem;letter-spacing:.01em"
-                          data-cs-confirm="Pay 50% deposit of ‚PHP {{ number_format($minDeposit,2) }} via GCash?\n\nYou'll be redirected to PayMongo. GCash is the only option  your phone number will be pre-filled."
-                          data-cs-title="Confirm Deposit ‚ ‚PHP {{ number_format($minDeposit,2) }}"
-                          data-cs-ok="Pay Now"
-                          data-cs-icon="bi-phone-fill"
-                          data-cs-icon-bg="#d1fae5"
-                          data-cs-icon-color="#059669">
-                    <i class="bi bi-phone-fill me-2"></i>Pay Deposit via GCash
-                  </button>
-                  <button type="button"
-                          class="btn w-100 fw-semibold py-2 mt-2 customer-qr-trigger"
-                          data-customer-qr
-                          data-payment-type="deposit">
-                    <i class="bi bi-qr-code me-2"></i>Show Deposit QR
-                  </button>
-                  <div style="font-size:.7rem;color:#6b7280;text-align:center;margin-top:.3rem">
-                    Remaining balance: ‚PHP {{ number_format($order->total_price - $minDeposit, 2) }} (paid on delivery)
-                  </div>
-                </form>
-                {{-- Secondary: full payment --}}
-                <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST">
-                  @csrf
-                  <input type="hidden" name="deposit_amount" value="{{ $order->total_price }}">
-                  <button type="submit" class="btn w-100 fw-semibold py-2"
-                          style="background:#fff;color:#059669;border:1.5px solid #059669;border-radius:.75rem;font-size:.88rem"
-                          data-cs-confirm="Pay full amount of ‚PHP {{ number_format($order->total_price,2) }} via GCash?\n\nYou'll be redirected to PayMongo."
-                          data-cs-title="Confirm Full Payment ‚ ‚PHP {{ number_format($order->total_price,2) }}"
-                          data-cs-ok="Pay in Full"
-                          data-cs-icon="bi-wallet2"
-                          data-cs-icon-bg="#d1fae5"
-                          data-cs-icon-color="#059669">
-                    <i class="bi bi-wallet2 me-2"></i>Pay in Full ‚ ‚PHP {{ number_format($order->total_price, 2) }}
-                  </button>
-                  <button type="button"
-                          class="btn w-100 fw-semibold py-2 mt-2 customer-qr-trigger"
-                          data-customer-qr
-                          data-payment-type="deposit"
-                          data-amount="{{ number_format($order->total_price, 2, '.', '') }}">
-                    <i class="bi bi-qr-code me-2"></i>Show Full Payment QR
-                  </button>
-                </form>
-              </div>
+              <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST" class="d-grid gap-2">
+                @csrf
+                <input type="hidden" name="deposit_amount" value="{{ $order->total_price }}">
+                <button type="submit" class="btn w-100 fw-bold py-3"
+                        @disabled(!$fullPaymentCanPay)
+                        style="background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:.75rem;font-size:.95rem"
+                        data-cs-confirm="Pay the full order total of PHP {{ number_format($order->total_price,2) }} via GCash?"
+                        data-cs-title="Pay Full Amount"
+                        data-cs-ok="Continue to GCash"
+                        data-cs-icon="bi-phone-fill"
+                        data-cs-icon-bg="#d1fae5"
+                        data-cs-icon-color="#059669">
+                  <i class="bi bi-phone-fill me-2"></i>Pay Full Amount via GCash
+                </button>
+                <button type="button" class="btn btn-outline-primary customer-qr-trigger" data-customer-qr data-payment-type="full" data-amount="{{ number_format($order->total_price, 2, '.', '') }}">
+                  <i class="bi bi-qr-code me-2"></i>Show Full Payment QR
+                </button>
+              </form>
               <div style="margin-top:.75rem;font-size:.68rem;color:#9ca3af;text-align:center">
                 <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;&nbsp; GCash only &nbsp;&nbsp; Processing fee shown before payment
               </div>
@@ -874,9 +823,13 @@
           </div>
         </div>
 
-        {{-- Already initiated  resume payment (editable amount) --}}
+        {{-- Resume the fixed full-payment or deposit amount --}}
         @elseif($canPayOrder && $order->deposit_required && $order->deposit_status === 'pending')
-        @php $pendingMin = max(100, round((float)$order->total_price * 0.5, 2)); @endphp
+        @php
+          $pendingAmount = (float) $order->deposit_amount;
+          $pendingIsFull = abs($pendingAmount - (float) $order->total_price) < 0.01;
+          $pendingCanPay = $pendingAmount >= 100;
+        @endphp
         <div class="col-12 mt-3">
           <div style="border-radius:1rem;overflow:hidden;border:1.5px solid #fed7aa">
             <div style="background:linear-gradient(90deg,#d97706,#ea580c);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.6rem">
@@ -885,50 +838,38 @@
             </div>
             <div style="background:#fffbeb;padding:1rem">
               <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:.85rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #fde68a">
-                <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Order Total</span>
-                <span style="font-weight:800;color:#111827;font-size:1rem">‚PHP {{ number_format($order->total_price, 2) }}</span>
+                <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">{{ $pendingIsFull ? 'Full GCash Payment' : '50% GCash Deposit' }}</span>
+                <span style="font-weight:800;color:#111827;font-size:1rem">PHP {{ number_format($pendingAmount, 2) }}</span>
               </div>
-              <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST"
-                    class="deposit-amount-form"
-                    data-min="{{ $pendingMin }}"
-                    data-max="{{ $order->total_price }}"
-                    data-btn-label="Continue Payment via GCash">
+              @unless($pendingCanPay)
+                <div class="alert alert-warning py-2 small" role="alert">
+                  PayMongo requires a minimum payment of PHP 100. Please contact the seller for a payment option.
+                </div>
+              @endunless
+              <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST" class="d-grid gap-2">
                 @csrf
-                <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now</label>
-                <div class="input-group">
-                  <span class="input-group-text" style="font-weight:800;color:#d97706;background:#fffbeb;border-color:#fde68a">‚</span>
-                  <input type="text"
-                         name="deposit_amount"
-                         class="form-control deposit-amount-input"
-                         value="{{ number_format((float)$order->deposit_amount >= $pendingMin ? (float)$order->deposit_amount : $pendingMin, 2, '.', '') }}"
-                         inputmode="decimal"
-                         autocomplete="off"
-                         data-min="{{ $pendingMin }}"
-                         data-max="{{ $order->total_price }}"
-                         style="font-weight:800;color:#111827;border-color:#fde68a">
-                </div>
-                <div class="deposit-error">Minimum payment is 50%: ‚PHP {{ number_format($pendingMin, 2) }}.</div>
-                <div style="font-size:.7rem;color:#6b7280;margin-top:.3rem">
-                  Enter at least ‚‚PHP {{ number_format($pendingMin, 2) }}. You may pay more up to ‚PHP {{ number_format($order->total_price, 2) }}.
-                </div>
+                <input type="hidden" name="deposit_amount" value="{{ $pendingAmount }}">
                 <button type="submit"
                         class="btn w-100 fw-bold py-3"
+                        @disabled(!$pendingCanPay)
                         style="margin-top:.65rem;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:.75rem;font-size:.95rem"
+                        data-cs-confirm="Continue to GCash to pay PHP {{ number_format($pendingAmount,2) }}?"
                         data-cs-title="Resume Payment"
-                        data-cs-ok="Continue"
+                        data-cs-ok="Continue to GCash"
                         data-cs-icon="bi-phone-fill"
                         data-cs-icon-bg="#fef3c7"
                         data-cs-icon-color="#d97706">
-                  <i class="bi bi-phone-fill me-2"></i>Continue Payment via GCash
+                  <i class="bi bi-phone-fill me-2"></i>Pay {{ $pendingIsFull ? 'Full Amount' : '50% Deposit' }} via GCash
                 </button>
                 <button type="button"
                         class="btn w-100 fw-semibold py-2 mt-2 customer-qr-trigger"
                         data-customer-qr
-                        data-payment-type="deposit">
-                  <i class="bi bi-qr-code me-2"></i>Show Payment QR
+                        data-payment-type="{{ $pendingIsFull ? 'full' : 'deposit' }}"
+                        data-amount="{{ number_format($pendingAmount, 2, '.', '') }}">
+                  <i class="bi bi-qr-code me-2"></i>Show {{ $pendingIsFull ? 'Full Payment' : 'Deposit' }} QR
                 </button>
                 <div style="font-size:.7rem;color:#6b7280;text-align:center;margin-top:.3rem">
-                  Remaining balance paid on delivery if partial.
+                  @if(!$pendingIsFull) Remaining cash balance PHP {{ number_format(max(0, (float)$order->total_price - $pendingAmount),2) }} is due on {{ $isPickup ? 'pickup' : 'delivery' }}. @else No cash balance remains. @endif
                 </div>
               </form>
               <div style="margin-top:.6rem;font-size:.68rem;color:#9ca3af;text-align:center">
@@ -1141,8 +1082,10 @@
           && $order->deposit_status !== 'paid'
           && in_array($order->status, ['Pending','Pending Review','Confirmed']))
       @php
-        $coTotal = (float)$customOrder->admin_price;
-        $minDep  = max(100, round($coTotal * 0.5, 2));
+        $coTotal = (float) $customOrder->admin_price;
+        $minDep = round($coTotal * 0.5, 2);
+        $customPaymentAmount = $order->payment_method === 'GCash' ? $coTotal : $minDep;
+        $customPaymentCanPay = $customPaymentAmount >= 100;
       @endphp
       @if($order->payment_method === 'GCash')
       <div class="mt-3" style="border-radius:1rem;overflow:hidden;border:1.5px solid #d1fae5">
@@ -1157,75 +1100,34 @@
           @endif
         </div>
         <div style="background:#f8fffe;padding:1rem">
+          @unless($customPaymentCanPay)
+            <div class="alert alert-warning py-2 small" role="alert">
+              The required payment is below PayMongo's PHP 100 minimum. Please contact the seller before proceeding.
+            </div>
+          @endunless
           <div style="background:#fff;border-radius:.65rem;padding:.55rem .9rem;margin-bottom:.85rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb">
             <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Final Price</span>
             <span style="font-weight:800;color:#111827;font-size:1rem">‚PHP {{ number_format($coTotal, 2) }}</span>
           </div>
-          <div class="d-flex flex-column gap-2">
-            <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST"
-                  class="deposit-amount-form"
-                  data-min="{{ $minDep }}"
-                  data-max="{{ $coTotal }}">
-              @csrf
-              <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now</label>
-              <div class="input-group">
-                <span class="input-group-text" style="font-weight:800;color:#059669;background:#ecfdf5;border-color:#bbf7d0">‚</span>
-                <input type="text"
-                       name="deposit_amount"
-                       class="form-control deposit-amount-input"
-                       value="{{ number_format($minDep, 2, '.', '') }}"
-                       inputmode="decimal"
-                       autocomplete="off"
-                       data-min="{{ $minDep }}"
-                       data-max="{{ $coTotal }}"
-                       style="font-weight:800;color:#111827;border-color:#bbf7d0">
-              </div>
-              <div class="deposit-error">Minimum payment is 50%: ‚PHP {{ number_format($minDep, 2) }}.</div>
-              <div style="font-size:.7rem;color:#6b7280;margin-top:.3rem">
-                Enter at least ‚‚PHP {{ number_format($minDep, 2) }}. You may pay more up to ‚PHP {{ number_format($coTotal, 2) }}.
-              </div>
-              <button type="submit" class="btn w-100 fw-bold py-3"
-                      style="background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:.75rem;font-size:.95rem"
-                      data-cs-confirm="Pay 50% deposit of ‚PHP {{ number_format($minDep,2) }} via GCash?\n\nYou'll be redirected to PayMongo. GCash is pre-selected."
-                      data-cs-title="Confirm Deposit ‚ ‚PHP {{ number_format($minDep,2) }}"
-                      data-cs-ok="Pay Now"
-                      data-cs-icon="bi-phone-fill"
-                      data-cs-icon-bg="#d1fae5"
-                      data-cs-icon-color="#059669">
-                <i class="bi bi-phone-fill me-2"></i>Pay Deposit via GCash
-              </button>
-              <button type="button"
-                      class="btn w-100 fw-semibold py-2 mt-2 customer-qr-trigger"
-                      data-customer-qr
-                      data-payment-type="deposit">
-                <i class="bi bi-qr-code me-2"></i>Show Deposit QR
-              </button>
-              <div style="font-size:.7rem;color:#6b7280;text-align:center;margin-top:.3rem">
-                Remaining: ‚PHP {{ number_format($coTotal - $minDep, 2) }} (paid on delivery)
-              </div>
-            </form>
-            <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST">
-              @csrf
-              <input type="hidden" name="deposit_amount" value="{{ $coTotal }}">
-              <button type="submit" class="btn w-100 fw-semibold py-2"
-                      style="background:#fff;color:#059669;border:1.5px solid #059669;border-radius:.75rem;font-size:.88rem"
-                      data-cs-confirm="Pay full amount of ‚PHP {{ number_format($coTotal,2) }} via GCash?\n\nYou'll be redirected to PayMongo."
-                      data-cs-title="Confirm Full Payment ‚ ‚PHP {{ number_format($coTotal,2) }}"
-                      data-cs-ok="Pay in Full"
-                      data-cs-icon="bi-wallet2"
-                      data-cs-icon-bg="#d1fae5"
-                      data-cs-icon-color="#059669">
-                <i class="bi bi-wallet2 me-2"></i>Pay in Full ‚ ‚PHP {{ number_format($coTotal, 2) }}
-              </button>
-              <button type="button"
-                      class="btn w-100 fw-semibold py-2 mt-2 customer-qr-trigger"
-                      data-customer-qr
-                      data-payment-type="deposit"
-                      data-amount="{{ number_format($coTotal, 2, '.', '') }}">
-                <i class="bi bi-qr-code me-2"></i>Show Full Payment QR
-              </button>
-            </form>
-          </div>
+          <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST" class="d-grid gap-2">
+            @csrf
+            <input type="hidden" name="deposit_amount" value="{{ $coTotal }}">
+            <button type="submit" class="btn w-100 fw-bold py-3"
+                    @disabled(!$customPaymentCanPay)
+                    style="background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:.75rem;font-size:.95rem"
+                    data-cs-confirm="Pay the full custom order total of PHP {{ number_format($coTotal,2) }} via GCash?"
+                    data-cs-title="Pay Full Amount"
+                    data-cs-ok="Continue to GCash"
+                    data-cs-icon="bi-phone-fill"
+                    data-cs-icon-bg="#d1fae5"
+                    data-cs-icon-color="#059669">
+              <i class="bi bi-phone-fill me-2"></i>Pay Full Amount via GCash
+            </button>
+            <button type="button" class="btn btn-outline-primary customer-qr-trigger" data-customer-qr data-payment-type="full" data-amount="{{ number_format($coTotal, 2, '.', '') }}">
+              <i class="bi bi-qr-code me-2"></i>Show Full Payment QR
+            </button>
+          </form>
+          <div class="small text-muted text-center mt-2">No cash balance remains after full GCash payment.</div>
           <div style="margin-top:.75rem;font-size:.68rem;color:#9ca3af;text-align:center">
             <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;&nbsp; GCash only &nbsp;&nbsp; Processing fee shown before payment
           </div>
@@ -1250,15 +1152,15 @@
           <form action="{{ route('guest.set_deposit', $order->track_code) }}" method="POST">
             @csrf
             <input type="hidden" name="deposit_amount" value="{{ $minDep }}">
-            <button type="submit" class="btn w-100 fw-bold py-3"
+            <button type="submit" class="btn w-100 fw-bold py-3" @disabled(!$customPaymentCanPay)
                     style="background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:.75rem;font-size:.95rem"
-                    data-cs-confirm="Acknowledge 50% {{ $pmLabel }} deposit of ‚‚PHP {{ number_format($minDep,2) }}?\n\nRemaining ‚PHP {{ number_format($coTotal - $minDep, 2) }} will be due on {{ $isCop ? 'pickup' : 'delivery' }}."
-                    data-cs-title="Confirm {{ $pmLabel }} Deposit"
-                    data-cs-ok="Acknowledge"
-                    data-cs-icon="{{ $pmIcon }}"
+                    data-cs-confirm="Pay the 50% GCash deposit of PHP {{ number_format($minDep,2) }}. The remaining PHP {{ number_format($coTotal - $minDep,2) }} is due in cash at {{ $isCop ? 'pickup' : 'delivery' }}."
+                    data-cs-title="Pay 50% GCash Deposit"
+                    data-cs-ok="Pay Deposit"
+                    data-cs-icon="bi-phone"
                     data-cs-icon-bg="#fef3c7"
                     data-cs-icon-color="#b45309">
-              <i class="bi {{ $pmIcon }} me-2"></i>Acknowledge Deposit &amp; Confirm Order
+              <i class="bi bi-phone me-2"></i>Pay 50% GCash Deposit
             </button>
           </form>
           <div style="margin-top:.6rem;font-size:.7rem;color:#9ca3af;text-align:center">
@@ -1274,7 +1176,12 @@
           && $customOrder->review_status === 'approved'
           && $customOrder->admin_price > 0
           && $customOrder->price_confirmed === 'pending')
-      @php $acceptTotal = (float)$customOrder->admin_price; $acceptMin = max(100, round($acceptTotal * 0.5, 2)); @endphp
+      @php
+        $acceptTotal = (float) $customOrder->admin_price;
+        $acceptIsFull = $order->payment_method === 'GCash';
+        $acceptAmount = $acceptIsFull ? $acceptTotal : round($acceptTotal * 0.5, 2);
+        $acceptCanPay = $acceptAmount >= 100;
+      @endphp
       <div class="mt-3" style="border-radius:1rem;overflow:hidden;border:1.5px solid #fbbf24">
         <div style="background:linear-gradient(90deg,#d97706,#92400e);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.6rem">
           <i class="bi bi-tag-fill" style="color:#fff;font-size:1rem"></i>
@@ -1285,40 +1192,28 @@
             <span style="font-size:.75rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Seller's Final Price</span>
             <span style="font-weight:800;color:var(--primary);font-size:1.1rem">‚PHP {{ number_format($customOrder->admin_price,2) }}</span>
           </div>
-          <p class="small text-muted mb-3">The seller has set a final price for your custom cake. Choose how much to pay now (minimum 50%), then accept to proceed  or cancel to withdraw.</p>
-          <form action="{{ route('guest.custom_order.accept_price', $customOrder->id) }}" method="POST"
-                class="deposit-amount-form"
-                data-min="{{ $acceptMin }}"
-                data-max="{{ $acceptTotal }}"
-                data-btn-label="Accept &amp; Pay via GCash">
+          <p class="small text-muted mb-3">
+            @if($acceptIsFull)
+              The full GCash amount of PHP {{ number_format($acceptAmount, 2) }} is due after you accept the final price.
+            @else
+              A 50% GCash deposit of PHP {{ number_format($acceptAmount, 2) }} is due after you accept. The remaining PHP {{ number_format($acceptTotal - $acceptAmount, 2) }} is paid in cash at {{ $order->fulfillment_type === 'Pickup' ? 'pickup' : 'delivery' }}.
+            @endif
+          </p>
+          @unless($acceptCanPay)
+            <div class="alert alert-warning py-2 small" role="alert">
+              This payment is below PayMongo's PHP 100 minimum. Please contact the seller before accepting the final price.
+            </div>
+          @endunless
+          <form action="{{ route('guest.custom_order.accept_price', $customOrder->id) }}" method="POST">
             @csrf
-            <label class="form-label fw-semibold small mb-1" style="color:#374151">
-              Amount to pay now <span style="color:#9ca3af;font-weight:400">(min 50%)</span>
-            </label>
-            <div class="input-group mb-1">
-              <span class="input-group-text fw-bold" style="color:#d97706;background:#fffbeb;border-color:#fde68a">‚</span>
-              <input type="text"
-                     name="deposit_amount"
-                     class="form-control deposit-amount-input"
-                     value="{{ number_format($acceptMin, 2, '.', '') }}"
-                     inputmode="decimal"
-                     autocomplete="off"
-                     data-min="{{ $acceptMin }}"
-                     data-max="{{ $acceptTotal }}"
-                     style="font-weight:800;color:#111827;border-color:#fde68a">
-            </div>
-            <div class="deposit-error">Minimum is 50%: ‚PHP {{ number_format($acceptMin, 2) }}</div>
-            <div style="font-size:.7rem;color:#6b7280;margin-top:.25rem;margin-bottom:.75rem">
-              ‚‚PHP {{ number_format($acceptMin, 2) }} min ‚ ‚PHP {{ number_format($acceptTotal, 2) }} max  remainder due later
-            </div>
-            <button type="submit" class="btn btn-success w-100 fw-bold py-2 mb-2"
-                    data-cs-confirm="Accept ‚PHP {{ number_format($customOrder->admin_price,2) }} as final price?"
+            <button type="submit" class="btn btn-success w-100 fw-bold py-2 mb-2" @disabled(!$acceptCanPay)
+                    data-cs-confirm="Accept PHP {{ number_format($customOrder->admin_price,2) }} as the final price? {{ $acceptIsFull ? 'The full amount will be paid via GCash.' : 'A 50% GCash deposit will be due, with the balance paid in cash at fulfillment.' }}"
                     data-cs-title="Accept Final Price"
-                    data-cs-ok="Accept Price"
+                    data-cs-ok="{{ $acceptIsFull ? 'Accept & Pay Full Amount' : 'Accept & Pay Deposit' }}"
                     data-cs-icon="bi-check-circle"
                     data-cs-icon-bg="#dcfce7"
                     data-cs-icon-color="#16a34a">
-              <i class="bi bi-check-circle me-1"></i>Accept Price
+              <i class="bi bi-check-circle me-1"></i>{{ $acceptIsFull ? 'Accept & Pay Full Amount' : 'Accept & Pay 50% Deposit' }}
             </button>
           </form>
           <form action="{{ route('guest.custom_order.cancel_price', $customOrder->id) }}" method="POST">
@@ -1500,7 +1395,7 @@
     <div class="g-preview-bar" id="gImgPreviewBar">
       <div class="g-img-cards" id="gImgCards"></div>
     </div>
-    @if(!in_array($order->status, ['Cancelled','Delivered']))
+    @if(!in_array($order->status, ['Cancelled','Delivered','Picked Up','No Show'], true))
     <div class="g-compose-wrap">
       <input type="hidden" id="replyToInput" data-reply-input value="">
       <div class="reply-compose-preview" id="replyPreview" data-reply-preview>
@@ -2672,8 +2567,8 @@ function customerQrAmountFromTrigger(trigger) {
   if (!trigger) return NaN;
   if (trigger?.dataset?.amount) return parseFloat(trigger.dataset.amount);
   const form = trigger.closest('form');
-  const input = form?.querySelector('.deposit-amount-input');
-  return parseFloat(String(input?.value || '').replace(/[^\d.]/g, ''));
+  const amount = form?.querySelector('[name="deposit_amount"]');
+  return parseFloat(String(amount?.value || '').replace(/[^\d.]/g, ''));
 }
 
 function customerQrSetBusy(isBusy) {
@@ -2759,8 +2654,7 @@ async function customerQrGenerate(trigger = null) {
   const amount = customerQrAmountFromTrigger(trigger) || customerQrState.amount;
 
   if (!amount || amount <= 0) {
-    customerQrMessage('Please enter a valid payment amount first.', 'error');
-    trigger?.closest('form')?.querySelector('.deposit-amount-input')?.focus();
+    customerQrMessage('The payment amount is unavailable. Please reload the order page and try again.', 'error');
     return;
   }
 
@@ -2843,100 +2737,6 @@ document.getElementById('customerQrRefresh')?.addEventListener('click', () => {
   customerQrGenerate();
 });
 
-function setupDepositAmountForms() {
-  document.querySelectorAll('.deposit-amount-form').forEach(form => {
-    const input = form.querySelector('.deposit-amount-input');
-    const error = form.querySelector('.deposit-error');
-    const button = form.querySelector('button[type="submit"]');
-    const min = parseFloat(form.dataset.min || input?.dataset.min || '0');
-    const max = parseFloat(form.dataset.max || input?.dataset.max || '0');
-
-    if (!input || !error) return;
-
-    const btnLabel = form.dataset.btnLabel || 'Pay Deposit via GCash';
-    const setButtonCopy = () => {
-      const amount = parseFloat(input.value || '0');
-      if (button) {
-        button.innerHTML = '<i class="bi bi-phone-fill me-2"></i>' + btnLabel;
-        button.dataset.csConfirm = 'Pay ‚' + (amount || min).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' via GCash?\\n\\nYou will be redirected to PayMongo.';
-        button.dataset.csTitle = 'Confirm Payment';
-        button.dataset.csOk = 'Pay Now';
-        button.dataset.csIcon = 'bi-phone-fill';
-        button.dataset.csIconBg = '#fef3c7';
-        button.dataset.csIconColor = '#d97706';
-      }
-    };
-
-    const showError = message => {
-      input.classList.add('is-invalid');
-      error.textContent = message;
-      error.classList.remove('show');
-      void error.offsetWidth;
-      error.classList.add('show');
-      if (typeof cakeToast === 'function') cakeToast(message, 'error');
-      if (navigator.vibrate) navigator.vibrate(120);
-    };
-
-    const clearError = () => {
-      input.classList.remove('is-invalid');
-      error.classList.remove('show');
-    };
-
-    input.addEventListener('input', () => {
-      let value = input.value.replace(/[^\d.]/g, '');
-      const firstDot = value.indexOf('.');
-      if (firstDot !== -1) {
-        value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, '');
-      }
-      input.value = value;
-      clearError();
-      setButtonCopy();
-    });
-
-    input.addEventListener('blur', () => {
-      const amount = parseFloat(input.value || '0');
-      if (!amount) input.value = min.toFixed(2);
-      else input.value = Math.min(amount, max).toFixed(2);
-      setButtonCopy();
-    });
-
-    button?.addEventListener('click', event => {
-      const amount = parseFloat(input.value || '0');
-      if (!amount || amount < min) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        showError('Minimum payment is 50%: ‚' + min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '.');
-        input.focus();
-      }
-    });
-
-    form.addEventListener('submit', event => {
-      const amount = parseFloat(input.value || '0');
-      if (!amount || amount < min) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        showError('Minimum payment is 50%: ‚' + min.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '.');
-        input.focus();
-        return false;
-      }
-      if (max && amount > max) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        showError('Payment cannot exceed the order total: ‚' + max.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '.');
-        input.focus();
-        return false;
-      }
-      input.value = amount.toFixed(2);
-      setButtonCopy();
-      return true;
-    }, true);
-
-    setButtonCopy();
-  });
-}
-
-setupDepositAmountForms();
-
 // Initial load + poll every 8 seconds
 pollMessages();
 setInterval(pollMessages, 8000);
@@ -2999,7 +2799,7 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && !trackReloading) pollTrackStatus();
 });
 
-if (!['Delivered', 'Picked Up', 'Cancelled'].includes(trackSnapshot.status)) {
+if (!['Delivered', 'Picked Up', 'No Show', 'Cancelled'].includes(trackSnapshot.status)) {
   scheduleTrackStatusPoll(['Preparing', 'Ready for Rider', 'Out for Delivery', 'Pickup'].includes(trackSnapshot.status) ? 10000 : 25000);
 }
 

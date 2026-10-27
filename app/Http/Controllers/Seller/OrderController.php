@@ -219,7 +219,7 @@ class OrderController extends Controller
         DB::table('orders')->where('id', $order->id)->update(['kitchen_sent' => true]);
     }
 
-    public function updateStatus(Request $request, string $id)
+    public function updateStatus(Request $request, string $id, OrderRefundService $refunds)
     {
         $shop  = $this->getShop();
         $order = DB::table('orders')->where('id', $id)->where('shop_id', $shop->id)->first();
@@ -267,9 +267,32 @@ class OrderController extends Controller
 
         // Cancellation requires reason
         if ($newStatus === 'Cancelled') {
-            $request->validate(['cancel_reason' => 'required|string|min:5'],[
+            $validated = $request->validate(['cancel_reason' => 'required|string|min:5|max:500'],[
                 'cancel_reason.required' => 'Please provide a reason for cancellation.',
             ]);
+            if (in_array(($order->status ?? ''), ['Delivered', 'Picked Up', 'No Show', 'Cancelled'], true)) {
+                return back()->with('err', 'Completed, no-show, or already-cancelled orders cannot be cancelled again.');
+            }
+            if ($refunds->hasPaidAmount($order)) {
+                $refundData = $request->validate([
+                    'refund_gcash_name' => 'required|string|min:2|max:160',
+                    'refund_gcash_number' => 'required|string|max:80',
+                ]);
+                if (!$refunds->validateGcashNumber(trim($refundData['refund_gcash_number']))) {
+                    return back()->with('err', 'Enter a valid GCash refund number in 09XXXXXXXXX or +639XXXXXXXXX format.');
+                }
+
+                $refund = $refunds->requestPaidRefund($order, [
+                    'customer_name' => $order->guest_name
+                        ?? DB::table('users')->where('id', $order->user_id)->value('fullname'),
+                    'refund_gcash_name' => trim($refundData['refund_gcash_name']),
+                    'refund_gcash_number' => trim($refundData['refund_gcash_number']),
+                    'cancel_reason' => trim($validated['cancel_reason']),
+                ]);
+                $refunds->notifyPaidRequest($order, $refund);
+
+                return back()->with('msg', "Cancellation/refund request recorded for Order #{$id}. The order will be cancelled after the GCash refund receipt is recorded.");
+            }
         }
 
         // COP orders store payment_method='COP'; older orders may have stored 'COD' for pickup.
@@ -660,10 +683,17 @@ class OrderController extends Controller
             'refund_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
             'reference_number' => 'nullable|string|max:120',
             'admin_note' => 'nullable|string|max:500',
+            'refund_gcash_name' => 'required|string|min:2|max:160',
+            'refund_gcash_number' => 'required|string|max:80',
         ], [
             'refund_receipt.required' => 'Upload the GCash refund receipt before approving.',
             'refund_receipt.image' => 'The refund receipt must be an image.',
+            'refund_gcash_name.required' => 'Confirm the destination GCash account name.',
+            'refund_gcash_number.required' => 'Confirm the destination GCash number.',
         ]);
+        if (!$refunds->validateGcashNumber(trim($validated['refund_gcash_number']))) {
+            return back()->with('err', 'Enter a valid GCash refund number in 09XXXXXXXXX or +639XXXXXXXXX format.');
+        }
 
         $receiptPath = $this->uploadFile($request->file('refund_receipt'), 'uploads/refund_receipts');
         if (!$receiptPath) return back()->with('err', 'Receipt upload failed. Please try again.');
@@ -676,7 +706,9 @@ class OrderController extends Controller
             $validated['reference_number'] ?? null,
             trim((string) ($validated['admin_note'] ?? 'Cancellation approved and refund sent.')),
             'seller',
-            (string) ($user['id'] ?? '')
+            (string) ($user['id'] ?? ''),
+            trim($validated['refund_gcash_name']),
+            trim($validated['refund_gcash_number'])
         );
 
         return back()->with('msg', "Order #{$id} cancelled and refund receipt sent to customer tracking page.");
@@ -748,5 +780,36 @@ class OrderController extends Controller
         }
 
         return back()->with('msg', "Rider assigned. Waiting for rider confirmation.{$noticeNote}");
+    }
+
+    public function markPickupNoShow(Request $request, string $id, OrderRefundService $refunds)
+    {
+        $shop = $this->getShop();
+        $order = DB::table('orders')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$order) return back()->with('err', 'Order not found.');
+        if (($order->fulfillment_type ?? '') !== 'Pickup' || ($order->status ?? '') !== 'Pickup') {
+            return back()->with('err', 'Only an order waiting for customer pickup can be marked as a no-show.');
+        }
+        if (!$refunds->hasPaidAmount($order)) {
+            return back()->with('err', 'A paid GCash deposit must be recorded before a pickup no-show can be finalized.');
+        }
+        if ($refunds->pendingForOrder($id)) {
+            return back()->with('err', 'Resolve the existing refund request before recording a no-show.');
+        }
+
+        $validated = $request->validate([
+            'no_show_note' => 'required|string|min:10|max:500',
+        ], [
+            'no_show_note.required' => 'Add a note with the pickup time and contact attempts.',
+            'no_show_note.min' => 'The no-show note must include at least 10 characters.',
+        ]);
+
+        $refund = $refunds->recordNoShow($order, trim($validated['no_show_note']), 'seller');
+        $message = "Order #{$id} marked as a customer no-show. The 50% deposit is retained.";
+        if ($refund) {
+            $message .= ' The excess full-payment amount of PHP ' . number_format((float) $refund->refund_amount, 2) . ' is waiting for refund review.';
+        }
+
+        return back()->with('msg', $message);
     }
 }

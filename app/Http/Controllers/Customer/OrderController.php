@@ -4,6 +4,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
 use App\Services\CustomerVerificationService;
 use App\Services\LoyaltyService;
+use App\Services\OrderRefundService;
 use App\Services\VoucherService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -225,7 +226,7 @@ class OrderController extends Controller
 
         $trackingCount = (clone $trackingQuery)->count();
         $latestTrackingAt = (clone $trackingQuery)->max('created_at');
-        $final = in_array($order->status, ['Delivered', 'Picked Up', 'Cancelled'], true);
+        $final = in_array($order->status, ['Delivered', 'Picked Up', 'No Show', 'Cancelled'], true);
         $active = in_array($order->status, ['Preparing', 'Ready for Rider', 'Out for Delivery', 'Pickup'], true);
 
         return response()->json([
@@ -245,7 +246,7 @@ class OrderController extends Controller
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
-    public function requestCancel(Request $request, string $id)
+    public function requestCancel(Request $request, string $id, OrderRefundService $refunds)
     {
         $uid    = session('user')['id'];
         $reason = trim($request->input('cancel_reason', ''));
@@ -255,19 +256,36 @@ class OrderController extends Controller
         $order = DB::table('orders')->where('id', $id)->where('user_id', $uid)->first();
         if (!$order) return back()->with('error', 'Order not found.');
 
-        $hasPaidDeposit = ($order->deposit_status ?? null) === 'paid'
-            || in_array(($order->payment_status ?? ''), ['Partial Payment', 'Paid'], true);
-        if ($hasPaidDeposit) {
-            return back()->with('error', 'Cannot cancel this order because your deposit has already been paid.');
-        }
-
-        $notAllowed = ['Preparing','Ready for Rider','Out for Delivery','Delivered','Cancelled'];
+        $notAllowed = ['Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'];
         if (in_array($order->status, $notAllowed)) {
             return back()->with('error', "Cannot cancel - status is already '{$order->status}'.");
         }
 
         if ($order->cancel_requested && $order->cancel_status === 'pending') {
             return back()->with('error', 'You already have a pending cancel request for this order.');
+        }
+
+        if ($refunds->hasPaidAmount($order)) {
+            $validated = $request->validate([
+                'refund_gcash_name' => 'required|string|min:2|max:160',
+                'refund_gcash_number' => ['required', 'string', 'max:80', 'regex:/^[0-9+()\\-\\s]+$/'],
+            ], [
+                'refund_gcash_name.required' => 'Enter the GCash account name for the refund.',
+                'refund_gcash_number.required' => 'Enter the GCash number for the refund.',
+                'refund_gcash_number.regex' => 'Enter a valid GCash phone number.',
+            ]);
+
+            $refunds->requestPaidRefund($order, [
+                'customer_name' => session('user')['fullname'] ?? null,
+                'refund_gcash_name' => trim($validated['refund_gcash_name']),
+                'refund_gcash_number' => trim($validated['refund_gcash_number']),
+                'cancel_reason' => $reason,
+            ]);
+            $refund = $refunds->pendingForOrder($id);
+            if ($refund) $refunds->notifyPaidRequest($order, $refund);
+
+            CakeshopHelper::logActivity($uid, 'customer', 'Paid Order Cancellation Request', "Order #{$id}");
+            return back()->with('msg', 'Cancellation and refund request submitted. The seller must review it and record the refund receipt.');
         }
 
         DB::table('orders')->where('id', $id)->update([
@@ -307,6 +325,9 @@ class OrderController extends Controller
         $co  = DB::table('custom_orders')->where('id', $coId)->where('user_id', $uid)->first();
         if (!$co) return back()->with('err', 'Custom order not found.');
         if ($co->price_confirmed !== 'pending') return back()->with('err', 'Price already responded to.');
+        if (($co->review_status ?? '') !== 'approved' || (float) ($co->admin_price ?? 0) <= 0) {
+            return back()->with('err', 'The seller must approve and set the final price before you can accept it.');
+        }
 
         $order = DB::table('orders')->where('id', $co->order_id)->where('user_id', $uid)->first();
         if (!$order) return back()->with('err', 'Order not found.');
@@ -317,12 +338,13 @@ class OrderController extends Controller
         if (!$discounts['ok']) return back()->with('err', $discounts['message'])->withInput();
 
         $totalPrice = (float) $discounts['payable_total'];
-        $minDeposit = round($totalPrice * 0.5, 2);
-        $requested = (float) request()->input('deposit_amount', $minDeposit);
-        if ($requested < $minDeposit) {
-            return back()->with('err', 'Minimum deposit is 50%: PHP ' . number_format($minDeposit, 2) . '.')->withInput();
+        $isFullGcash = ($order->payment_method ?? '') === 'GCash';
+        $depositAmount = $isFullGcash ? round($totalPrice, 2) : round($totalPrice * 0.5, 2);
+        if ($depositAmount < 100) {
+            return back()->with('err', $isFullGcash
+                ? 'The minimum GCash payment is PHP 100.00.'
+                : 'The 50% GCash deposit must be at least PHP 100.00. Please contact the seller for a payment option.');
         }
-        $depositAmount = round(min($requested, $totalPrice), 2);
 
         DB::table('custom_orders')->where('id', $coId)->update([
             'price_confirmed'       => 'accepted',
@@ -391,16 +413,14 @@ class OrderController extends Controller
         if (!$order) return back()->with('err', 'Order not found.');
         if ($order->payment_status === 'Paid') return back()->with('err', 'This order is already fully paid.');
 
-        $totalPrice    = (float) $order->total_price;
-        $minDeposit    = round($totalPrice * 0.5, 2);
-        $depositAmount = round((float) $request->input('deposit_amount', $minDeposit), 2);
-
-        if ($depositAmount < $minDeposit)
-            return back()->with('err', 'Minimum deposit is 50% of total (†‚‚‚‚‚‚' . number_format($minDeposit, 2) . ').');
-        if ($depositAmount > $totalPrice)
-            $depositAmount = $totalPrice;
-
-        $isFullPayment = abs($depositAmount - $totalPrice) < 0.01;
+        $totalPrice = (float) $order->total_price;
+        $isFullPayment = ($order->payment_method ?? '') === 'GCash';
+        $depositAmount = $isFullPayment ? round($totalPrice, 2) : round($totalPrice * 0.5, 2);
+        if ($depositAmount < 100) {
+            return back()->with('err', $isFullPayment
+                ? 'The minimum GCash payment is PHP 100.00.'
+                : 'The 50% GCash deposit must be at least PHP 100.00. Please contact the seller for a payment option.');
+        }
 
         // Save deposit info on order
         DB::table('orders')->where('id', $co->order_id)->update([

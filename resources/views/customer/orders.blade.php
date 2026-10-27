@@ -20,7 +20,7 @@
       </div>
       <select class="form-select form-select-sm" style="width:auto" onchange="pgFilter('status', this.value)">
         <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All Status</option>
-        @foreach(['Awaiting Deposit','Pending Review','Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','Cancelled'] as $st)
+        @foreach(['Awaiting Deposit','Pending Review','Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'] as $st)
         <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st }}</option>
         @endforeach
       </select>
@@ -179,8 +179,8 @@
 @forelse($orders as $o)
   @php
     $hasDepositLock = ($o->deposit_status ?? null) === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']);
-    $canCancel   = in_array($o->status, ['Pending','Confirmed']) && !$hasDepositLock;
-    $notAllowed  = in_array($o->status, ['Preparing','Ready for Rider','Out for Delivery','Delivered','Cancelled']);
+    $canCancel   = in_array($o->status, ['Awaiting Deposit','Pending','Pending Review','Confirmed']) && !$o->cancel_requested;
+    $notAllowed  = in_array($o->status, ['Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled']);
     $hasPending  = $o->cancel_requested && $o->cancel_status === 'pending';
     $wasAccepted = $o->cancel_status === 'accepted';
     $wasRejected = $o->cancel_status === 'rejected';
@@ -314,10 +314,10 @@
           @if($o->cancel_admin_note) <span class="fw-normal">Reason: {{ $o->cancel_admin_note }}</span> @endif
         </span>
       </div>
-      @elseif($hasDepositLock && $o->status !== 'Cancelled')
+      @elseif($hasDepositLock && !$notAllowed)
       <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#eff6ff">
         <i class="bi bi-shield-lock text-primary"></i>
-        <span class="small fw-semibold text-primary">Cancellation locked  deposit has already been paid.</span>
+        <span class="small fw-semibold text-primary">Cancellation requests are available before preparation; paid amounts require seller-reviewed refunds.</span>
       </div>
       @endif
 
@@ -478,57 +478,22 @@
               <span style="font-weight:800;color:#111827;font-size:.95rem">‚PHP {{ number_format($coTotal, 2) }}</span>
             </div>
             <div class="d-flex flex-column gap-2">
-              <form action="{{ route('customer.custom_orders.set_deposit', $co->id) }}" method="POST"
-                    class="deposit-amount-form"
-                    data-min="{{ $minDep }}"
-                    data-max="{{ $coTotal }}">
-                @csrf
-                <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now</label>
-                <div class="input-group">
-                  <span class="input-group-text" style="font-weight:800;color:#059669;background:#ecfdf5;border-color:#bbf7d0">‚</span>
-                  <input type="text"
-                         name="deposit_amount"
-                         class="form-control deposit-amount-input"
-                         value="{{ number_format($minDep, 2, '.', '') }}"
-                         inputmode="decimal"
-                         autocomplete="off"
-                         data-min="{{ $minDep }}"
-                         data-max="{{ $coTotal }}"
-                         style="font-weight:800;color:#111827;border-color:#bbf7d0">
-                </div>
-                <div class="deposit-error">Minimum payment is 50%: ‚PHP {{ number_format($minDep, 2) }}.</div>
-                <div style="font-size:.66rem;color:#6b7280;margin-top:.25rem">
-                  Enter at least ‚‚PHP {{ number_format($minDep, 2) }}. You may pay more up to ‚PHP {{ number_format($coTotal, 2) }}.
-                </div>
-                <button type="submit" class="btn w-100 fw-bold py-2"
-                        style="background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:.7rem;font-size:.88rem"
-                        data-cs-confirm="Pay 50% deposit of ‚PHP {{ number_format($minDep,2) }} via GCash?\n\nYou'll be redirected to PayMongo. GCash is pre-selected and your phone number is pre-filled."
-                        data-cs-title="Pay Deposit ‚ ‚PHP {{ number_format($minDep,2) }}"
-                        data-cs-ok="Pay Now"
-                        data-cs-icon="bi-phone-fill"
-                        data-cs-icon-bg="#d1fae5"
-                        data-cs-icon-color="#059669">
-                  <i class="bi bi-phone-fill me-1"></i>Pay Deposit via GCash
-                </button>
-                <div style="font-size:.66rem;color:#6b7280;text-align:center;margin-top:.25rem">
-                  Remaining: ‚PHP {{ number_format($coTotal - $minDep, 2) }} (paid on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }})
-                </div>
-              </form>
               <form action="{{ route('customer.custom_orders.set_deposit', $co->id) }}" method="POST">
                 @csrf
                 <input type="hidden" name="deposit_amount" value="{{ $coTotal }}">
-                <button type="submit" class="btn w-100 fw-semibold py-1"
-                        style="background:#fff;color:#059669;border:1.5px solid #059669;border-radius:.7rem;font-size:.82rem"
-                        data-cs-confirm="Pay full amount of ‚PHP {{ number_format($coTotal,2) }} via GCash?\n\nYou'll be redirected to PayMongo."
-                        data-cs-title="Pay in Full ‚ ‚PHP {{ number_format($coTotal,2) }}"
-                        data-cs-ok="Pay in Full"
-                        data-cs-icon="bi-wallet2"
+                <button type="submit" class="btn w-100 fw-bold py-2"
+                        style="background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:.7rem;font-size:.88rem"
+                        data-cs-confirm="Pay the full custom order total of PHP {{ number_format($coTotal,2) }} via GCash?"
+                        data-cs-title="Pay Full Amount"
+                        data-cs-ok="Pay Full Amount"
+                        data-cs-icon="bi-phone-fill"
                         data-cs-icon-bg="#d1fae5"
                         data-cs-icon-color="#059669">
-                  <i class="bi bi-wallet2 me-1"></i>Pay in Full ‚ ‚PHP {{ number_format($coTotal, 2) }}
+                  <i class="bi bi-phone-fill me-1"></i>Pay Full Amount via GCash
                 </button>
               </form>
             </div>
+            <div class="small text-muted text-center mt-2">Seller-confirmed final price: PHP {{ number_format($coTotal, 2) }}. No cash balance remains after payment.</div>
             <div style="margin-top:.6rem;font-size:.65rem;color:#9ca3af;text-align:center">
               <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;&nbsp; GCash only &nbsp;&nbsp; Phone pre-filled
             </div>
@@ -536,18 +501,18 @@
         </div>
         @else
         <div class="mt-2 p-2 rounded-3" style="background:#fffbeb;border:1.5px solid #fbbf24">
-          <div class="fw-semibold small mb-1"><i class="bi bi-cash me-1" style="color:#d97706"></i>COD Deposit ‚ ‚PHP {{ number_format($minDep,2) }}</div>
+          <div class="fw-semibold small mb-1"><i class="bi bi-phone me-1" style="color:#d97706"></i>50% GCash deposit: PHP {{ number_format($minDep,2) }}</div>
           <form action="{{ route('customer.custom_orders.set_deposit', $co->id) }}" method="POST">
             @csrf
             <input type="hidden" name="deposit_amount" value="{{ $minDep }}">
             <button type="submit" class="btn w-100 fw-semibold btn-warning btn-sm text-dark"
-                    data-cs-confirm="Acknowledge COD deposit of ‚PHP {{ number_format($minDep,2) }}?"
-                    data-cs-title="Confirm COD Deposit"
-                    data-cs-ok="Acknowledge"
-                    data-cs-icon="bi-cash-stack"
+                    data-cs-confirm="Pay the 50% GCash deposit of PHP {{ number_format($minDep,2) }}? The remaining balance is due in cash at {{ strtolower($o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup') }}."
+                    data-cs-title="Pay 50% GCash Deposit"
+                    data-cs-ok="Pay Deposit"
+                    data-cs-icon="bi-phone"
                     data-cs-icon-bg="#fef3c7"
                     data-cs-icon-color="#b45309">
-              <i class="bi bi-cash me-1"></i>Acknowledge COD Deposit &amp; Confirm
+              <i class="bi bi-phone me-1"></i>Pay 50% GCash Deposit
             </button>
           </form>
         </div>
@@ -564,13 +529,9 @@
             The baker has set a final price of <strong style="color:var(--primary)">‚PHP {{ number_format($co->admin_price,2) }}</strong>
             for your custom cake. Please accept or cancel.
           </div>
-          @php $acceptTotal = (float)$co->admin_price; $acceptMin = max(100, round($acceptTotal * 0.5, 2)); @endphp
+          @php $acceptTotal = (float)$co->admin_price; @endphp
           <div class="d-flex gap-2 flex-wrap">
-            <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST"
-                  class="deposit-amount-form flex-grow-1"
-                  data-min="{{ $acceptMin }}"
-                  data-max="{{ $acceptTotal }}"
-                  data-btn-label="Accept Price">
+            <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST" class="custom-final-price-form flex-grow-1" data-payment-mode="{{ ($o->payment_method ?? '') === 'GCash' ? 'full' : 'deposit' }}">
               @csrf
               @php
                 $coVoucherOptions = $customOrderVouchers[$co->id] ?? [];
@@ -621,21 +582,13 @@
                   </div>
                 </div>
               </div>
-              <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now <span class="text-muted fw-normal">(min 50%)</span></label>
-              <div class="input-group input-group-sm mb-1">
-                <span class="input-group-text fw-bold" style="color:#d97706;background:#fffbeb;border-color:#fde68a"></span>
-                <input type="text"
-                       name="deposit_amount"
-                       class="form-control deposit-amount-input"
-                       value="{{ number_format($acceptMin, 2, '.', '') }}"
-                       inputmode="decimal"
-                       autocomplete="off"
-                       data-min="{{ $acceptMin }}"
-                       data-max="{{ $acceptTotal }}"
-                       style="font-weight:800;color:#111827;border-color:#fde68a">
+              <div class="small text-muted mb-2">
+                @if(($o->payment_method ?? '') === 'GCash')
+                  After you accept, the full discounted total will be paid through GCash.
+                @else
+                  After you accept, pay 50% of the discounted total through GCash. The rest is due in cash at {{ strtolower($o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup') }}.
+                @endif
               </div>
-              <div class="deposit-error">Minimum payment is 50%: {{ number_format($acceptMin, 2) }}.</div>
-              <div class="small text-muted mb-2">‚…‚PHP {{ number_format($acceptMin, 2) }} min ‚‚ ‚…‚PHP {{ number_format($acceptTotal, 2) }} max ‚ remainder due later</div>
               <button type="submit" class="btn btn-success btn-sm w-100"
                       data-cs-confirm="Accept ‚PHP {{ number_format($co->admin_price,2) }} as the final price?"
                       data-cs-title="Accept Final Price"
@@ -750,13 +703,9 @@
                   The baker set a final price of <strong style="color:var(--primary)">‚PHP {{ number_format($co->admin_price,2) }}</strong>.
                   Accept to proceed or cancel the order.
                 </div>
-                @php $acceptTotal = (float)$co->admin_price; $acceptMin = max(100, round($acceptTotal * 0.5, 2)); @endphp
+                @php $acceptTotal = (float)$co->admin_price; @endphp
                 <div class="d-flex gap-2 flex-wrap">
-                  <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST"
-                        class="deposit-amount-form flex-grow-1"
-                        data-min="{{ $acceptMin }}"
-                        data-max="{{ $acceptTotal }}"
-                        data-btn-label="Accept Price">
+                  <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST" class="custom-final-price-form flex-grow-1" data-payment-mode="{{ ($o->payment_method ?? '') === 'GCash' ? 'full' : 'deposit' }}">
                     @csrf
                     @php
                       $coVoucherOptions = $customOrderVouchers[$co->id] ?? [];
@@ -807,21 +756,13 @@
                         </div>
                       </div>
                     </div>
-                    <label class="form-label fw-semibold small mb-1" style="color:#374151">Amount to pay now <span class="text-muted fw-normal">(min 50%)</span></label>
-                    <div class="input-group input-group-sm mb-1">
-                      <span class="input-group-text fw-bold" style="color:#d97706;background:#fffbeb;border-color:#fde68a"></span>
-                      <input type="text"
-                             name="deposit_amount"
-                             class="form-control deposit-amount-input"
-                             value="{{ number_format($acceptMin, 2, '.', '') }}"
-                             inputmode="decimal"
-                             autocomplete="off"
-                             data-min="{{ $acceptMin }}"
-                             data-max="{{ $acceptTotal }}"
-                             style="font-weight:800;color:#111827;border-color:#fde68a">
+                    <div class="small text-muted mb-2">
+                      @if(($o->payment_method ?? '') === 'GCash')
+                        After you accept, the full discounted total will be paid through GCash.
+                      @else
+                        After you accept, pay 50% of the discounted total through GCash. The rest is due in cash at {{ strtolower($o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup') }}.
+                      @endif
                     </div>
-                    <div class="deposit-error">Minimum payment is 50%: {{ number_format($acceptMin, 2) }}.</div>
-                    <div class="small text-muted mb-2">‚…‚PHP {{ number_format($acceptMin, 2) }} min ‚‚ ‚…‚PHP {{ number_format($acceptTotal, 2) }} max ‚ remainder due later</div>
                     <button type="submit" class="btn btn-success btn-sm w-100"
                             data-cs-confirm="Accept ‚PHP {{ number_format($co->admin_price,2) }} as final price?"
                             data-cs-title="Accept Final Price"
@@ -965,13 +906,13 @@
             <a href="{{ route('customer.pay_deposit', $o->id) }}"
                class="btn w-100 fw-bold py-2"
                style="background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:.7rem;font-size:.88rem"
-               data-cs-confirm="Pay deposit of ‚PHP {{ number_format($o->deposit_amount,2) }} via GCash?\n\nYou'll be redirected to PayMongo. GCash is pre-selected."
-               data-cs-title="Pay Deposit ‚ ‚PHP {{ number_format($o->deposit_amount,2) }}"
-               data-cs-ok="Pay Now"
+               data-cs-confirm="Pay PHP {{ number_format($o->deposit_amount,2) }} via GCash to continue?"
+               data-cs-title="{{ (float)$o->deposit_amount >= (float)$o->total_price ? 'Pay Full Amount' : 'Pay 50% Deposit' }}"
+               data-cs-ok="Continue to GCash"
                data-cs-icon="bi-phone-fill"
                data-cs-icon-bg="#fef3c7"
                data-cs-icon-color="#d97706">
-              <i class="bi bi-phone-fill me-2"></i>Pay Deposit ‚ ‚PHP {{ number_format($o->deposit_amount, 2) }} via GCash
+              <i class="bi bi-phone-fill me-2"></i>{{ (float)$o->deposit_amount >= (float)$o->total_price ? 'Pay Full Amount' : 'Pay 50% Deposit' }} ‚PHP {{ number_format($o->deposit_amount, 2) }} via GCash
             </a>
             <div style="margin-top:.5rem;font-size:.65rem;color:#9ca3af;text-align:center">
               <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;&nbsp; GCash only
@@ -1236,7 +1177,7 @@
 
           <div class="alert border-0 py-2 small" style="background:#fff3cd">
             <i class="bi bi-exclamation-triangle me-1 text-warning"></i>
-            <strong>Note:</strong> Cancel requests cannot be submitted once the order is <strong>Preparing</strong> or beyond.
+            <strong>Note:</strong> Cancellation requests are only available before preparation. Paid amounts require seller review and a manually recorded GCash refund. Deposits are retained for no-show orders.
           </div>
 
           <form action="{{ route('customer.orders.cancel_request', $o->id) }}" method="POST">
@@ -1246,6 +1187,19 @@
               <textarea class="form-control" name="cancel_reason" rows="3" required
                         placeholder="Please explain why you want to cancel this order"></textarea>
             </div>
+            @if($hasDepositLock)
+            <div class="row g-2 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold small">Refund GCash account name <span class="text-danger">*</span></label>
+                <input class="form-control" name="refund_gcash_name" maxlength="160" required>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold small">Refund GCash number <span class="text-danger">*</span></label>
+                <input class="form-control" name="refund_gcash_number" maxlength="80" inputmode="tel" required>
+              </div>
+            </div>
+            <div class="small text-muted mb-3">The seller must review the request and record the refund receipt before cancellation is complete.</div>
+            @endif
             <div class="d-flex gap-2 justify-content-end">
               <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Never mind</button>
               <button type="submit" class="btn btn-danger">
@@ -1421,7 +1375,7 @@ function customerOrderCards() {
 }
 
 function customerOrderIsFinal(status) {
-  return ['Delivered', 'Picked Up', 'Cancelled'].includes(String(status || ''));
+  return ['Delivered', 'Picked Up', 'No Show', 'Cancelled'].includes(String(status || ''));
 }
 
 function customerOrderChanged(card, next) {
@@ -1713,23 +1667,16 @@ function initCustomerQrButtons() {
   });
 }
 
-function setupDepositAmountForms() {
+function setupCustomPriceForms() {
   const money = amount => 'PHP ' + (amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const peso = amount => '‚' + (amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  document.querySelectorAll('.deposit-amount-form').forEach(form => {
-    const input = form.querySelector('.deposit-amount-input');
-    const error = form.querySelector('.deposit-error');
-    const button = form.querySelector('button[type="submit"]');
+  document.querySelectorAll('.custom-final-price-form').forEach(form => {
     const discountBox = form.querySelector('.custom-final-discounts');
-    let min = parseFloat(form.dataset.min || input?.dataset.min || '0');
-    let max = parseFloat(form.dataset.max || input?.dataset.max || '0');
-
-    if (!input || !error) return;
+    const button = form.querySelector('button[type="submit"]');
+    if (!discountBox || !button) return;
 
     const updateDiscounts = () => {
-      if (!discountBox) return;
-      const base = parseFloat(discountBox.dataset.base || max || '0') || 0;
+      const base = parseFloat(discountBox.dataset.base || '0') || 0;
       const voucherHidden = discountBox.querySelector('.co-voucher-code');
       const voucherRow = discountBox.querySelector('.co-voucher-row');
       const voucherDisplay = discountBox.querySelector('.co-voucher-discount');
@@ -1744,13 +1691,14 @@ function setupDepositAmountForms() {
         const vValue = parseFloat(discountBox.dataset.voucherValue || '0') || 0;
         const vMaxRaw = discountBox.dataset.voucherMax || '';
         if (base >= vMin) {
-          if ((discountBox.dataset.voucherType || '').toLowerCase() === 'percent') voucherDiscount = base * (vValue / 100);
-          else voucherDiscount = vValue;
+          voucherDiscount = (discountBox.dataset.voucherType || '').toLowerCase() === 'percent'
+            ? base * (vValue / 100)
+            : vValue;
           if (vMaxRaw !== '') voucherDiscount = Math.min(voucherDiscount, parseFloat(vMaxRaw) || 0);
           voucherDiscount = Math.round(Math.min(Math.max(0, voucherDiscount), base) * 100) / 100;
         }
       }
-      if (voucherHidden && !voucherHidden.value && code) voucherHidden.value = code;
+      if (voucherHidden) voucherHidden.value = code;
       if (voucherRow && voucherDisplay) {
         voucherRow.style.display = voucherDiscount > 0 ? 'flex' : 'none';
         voucherDisplay.textContent = '-' + money(voucherDiscount);
@@ -1759,8 +1707,7 @@ function setupDepositAmountForms() {
       const pointBalance = parseInt(discountBox.dataset.pointBalance || '0', 10) || 0;
       const pointValue = Math.max(0.01, parseFloat(discountBox.dataset.pointValue || '1') || 1);
       const maxRedeemPercent = Math.max(0, parseFloat(discountBox.dataset.maxRedeemPercent || '20') || 0);
-      const subtotalAfterVoucher = Math.max(0, base - voucherDiscount);
-      const maxPointsBySubtotal = Math.floor((subtotalAfterVoucher * (maxRedeemPercent / 100)) / pointValue);
+      const maxPointsBySubtotal = Math.floor((Math.max(0, base - voucherDiscount) * (maxRedeemPercent / 100)) / pointValue);
       const maxPoints = Math.max(0, Math.min(pointBalance, maxPointsBySubtotal));
       let points = pointsInput && !pointsInput.disabled ? parseInt(pointsInput.value || '0', 10) || 0 : 0;
       points = Math.max(0, Math.min(points, maxPoints));
@@ -1774,148 +1721,49 @@ function setupDepositAmountForms() {
         pointsDisplay.textContent = '-' + money(pointsDiscount);
       }
 
-      max = Math.max(0, Math.round((base - voucherDiscount - pointsDiscount) * 100) / 100);
-      min = Math.round(max * 50) / 100;
-      if (max > 0 && min < 100) min = Math.min(max, 100);
-      form.dataset.min = min.toFixed(2);
-      form.dataset.max = max.toFixed(2);
-      input.dataset.min = min.toFixed(2);
-      input.dataset.max = max.toFixed(2);
-      if (payableDisplay) payableDisplay.textContent = money(max);
-      const current = parseFloat(input.value || '0') || 0;
-      if (!current || current < min || current > max) input.value = min.toFixed(2);
+      const payable = Math.max(0, Math.round((base - voucherDiscount - pointsDiscount) * 100) / 100);
+      if (payableDisplay) payableDisplay.textContent = money(payable);
+      const isFullPayment = form.dataset.paymentMode === 'full';
+      const amountDue = isFullPayment ? payable : Math.round(payable * 50) / 100;
+      button.dataset.csConfirm = isFullPayment
+        ? 'Accept the final price and pay the full amount of ' + money(amountDue) + ' via GCash?'
+        : 'Accept the final price and pay a 50% GCash deposit of ' + money(amountDue) + '? The balance is due in cash at pickup or delivery.';
+      button.dataset.csTitle = 'Accept Final Price';
+      button.dataset.csOk = 'Accept Price';
+      button.dataset.csIcon = 'bi-check-circle';
+      button.dataset.csIconBg = '#dcfce7';
+      button.dataset.csIconColor = '#16a34a';
     };
 
-    discountBox?.querySelectorAll('.co-voucher-btn').forEach(btn => {
+    discountBox.querySelectorAll('.co-voucher-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         discountBox.dataset.voucherCode = btn.dataset.voucherCode || '';
         discountBox.dataset.voucherType = btn.dataset.voucherType || '';
         discountBox.dataset.voucherValue = btn.dataset.voucherValue || '0';
         discountBox.dataset.voucherMax = btn.dataset.voucherMax || '';
         discountBox.dataset.voucherMin = btn.dataset.voucherMin || '0';
-        const hidden = discountBox.querySelector('.co-voucher-code');
         const manual = discountBox.querySelector('.co-voucher-manual');
-        if (hidden) hidden.value = discountBox.dataset.voucherCode;
         if (manual) manual.value = discountBox.dataset.voucherCode;
         updateDiscounts();
-        setButtonCopy();
       });
     });
-    discountBox?.querySelector('.co-voucher-manual')?.addEventListener('input', event => {
+    discountBox.querySelector('.co-voucher-manual')?.addEventListener('input', event => {
       const code = (event.target.value || '').toUpperCase().replace(/\s+/g, '');
       event.target.value = code;
-      const hidden = discountBox.querySelector('.co-voucher-code');
-      if (hidden) hidden.value = code;
       delete discountBox.dataset.voucherCode;
       updateDiscounts();
-      setButtonCopy();
     });
-    discountBox?.querySelector('.co-voucher-clear')?.addEventListener('click', () => {
+    discountBox.querySelector('.co-voucher-clear')?.addEventListener('click', () => {
       ['voucherCode','voucherType','voucherValue','voucherMax','voucherMin'].forEach(key => delete discountBox.dataset[key]);
-      const hidden = discountBox.querySelector('.co-voucher-code');
       const manual = discountBox.querySelector('.co-voucher-manual');
-      if (hidden) hidden.value = '';
       if (manual) manual.value = '';
       updateDiscounts();
-      setButtonCopy();
     });
-    discountBox?.querySelector('.co-points-input')?.addEventListener('input', () => {
-      updateDiscounts();
-      setButtonCopy();
-    });
-
-    const btnLabel = form.dataset.btnLabel || 'Pay Deposit via GCash';
-    function setButtonCopy() {
-      updateDiscounts();
-      const amount = parseFloat(input.value || '0');
-      if (button) {
-        button.innerHTML = '<i class="bi bi-phone-fill me-1"></i>' + btnLabel;
-        button.dataset.csConfirm = 'Pay deposit of ' + peso(amount || min) + ' via GCash?\n\nYou will be redirected to PayMongo.';
-        button.dataset.csTitle = 'Pay Deposit';
-        button.dataset.csOk = 'Pay Now';
-        button.dataset.csIcon = 'bi-phone-fill';
-        button.dataset.csIconBg = '#d1fae5';
-        button.dataset.csIconColor = '#059669';
-        if (btnLabel === 'Accept Price') {
-          button.dataset.csConfirm = 'Accept final price and pay ' + money(amount || min) + ' via PayMongo?';
-          button.dataset.csTitle = 'Accept Final Price';
-          button.dataset.csOk = 'Accept Price';
-          button.dataset.csIcon = 'bi-check-circle';
-        }
-      }
-    }
-
-    const showError = message => {
-      input.classList.add('is-invalid');
-      error.textContent = message;
-      error.classList.remove('show');
-      void error.offsetWidth;
-      error.classList.add('show');
-      if (typeof cakeToast === 'function') cakeToast(message, 'error');
-      if (navigator.vibrate) navigator.vibrate(120);
-    };
-
-    const clearError = () => {
-      input.classList.remove('is-invalid');
-      error.classList.remove('show');
-    };
-
-    input.addEventListener('input', () => {
-      let value = input.value.replace(/[^\d.]/g, '');
-      const firstDot = value.indexOf('.');
-      if (firstDot !== -1) {
-        value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, '');
-      }
-      input.value = value;
-      clearError();
-      setButtonCopy();
-    });
-
-    input.addEventListener('blur', () => {
-      updateDiscounts();
-      const amount = parseFloat(input.value || '0');
-      if (!amount) input.value = min.toFixed(2);
-      else input.value = Math.min(amount, max).toFixed(2);
-      setButtonCopy();
-    });
-
-    button?.addEventListener('click', event => {
-      updateDiscounts();
-      const amount = parseFloat(input.value || '0');
-      if (!amount || amount < min) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        showError('Minimum payment is 50%: ' + peso(min) + '.');
-        input.focus();
-      }
-    });
-
-    form.addEventListener('submit', event => {
-      updateDiscounts();
-      const amount = parseFloat(input.value || '0');
-      if (!amount || amount < min) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        showError('Minimum payment is 50%: ' + peso(min) + '.');
-        input.focus();
-        return false;
-      }
-      if (max && amount > max) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        showError('Payment cannot exceed the order total: ' + peso(max) + '.');
-        input.focus();
-        return false;
-      }
-      input.value = amount.toFixed(2);
-      setButtonCopy();
-      return true;
-    }, true);
-
-    setButtonCopy();
+    discountBox.querySelector('.co-points-input')?.addEventListener('input', updateDiscounts);
+    updateDiscounts();
   });
 }
-setupDepositAmountForms();
+setupCustomPriceForms();
 initCustomerReviewStars();
 initCustomerQrButtons();
 </script>

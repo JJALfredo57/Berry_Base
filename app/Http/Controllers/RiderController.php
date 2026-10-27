@@ -6,6 +6,7 @@ use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
 use App\Services\LoyaltyService;
 use App\Services\MobileNotificationService;
+use App\Services\OrderRefundService;
 use App\Services\RiderAssignmentService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
@@ -1479,20 +1480,44 @@ class RiderController extends Controller
     }
 
     /** Rider reports an issue */
-    public function reportIssue(Request $request, string $orderId, string $token)
+    public function reportIssue(Request $request, string $orderId, string $token, OrderRefundService $refunds)
     {
         $order = DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first();
         if (!$order || $order->status !== 'Out for Delivery')
-            return response()->json(['ok'=>false,'error'=>'Invalid or already updated.']);
+            return response()->json(['ok'=>false,'error'=>'Invalid or already updated.'], 422);
+
+        $validated = $request->validate([
+            'issue_type' => 'required|in:damaged,not_home,no_show,other',
+            'note' => 'required_if:issue_type,no_show|string|min:10|max:500',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+        ]);
+        if (($validated['issue_type'] ?? '') === 'no_show' && ($order->rider_assignment_status ?? '') !== 'accepted') {
+            return response()->json(['ok' => false, 'error' => 'The rider must accept this delivery before recording a no-show.'], 422);
+        }
+        if (($validated['issue_type'] ?? '') === 'no_show' && !$refunds->hasPaidAmount($order)) {
+            return response()->json(['ok' => false, 'error' => 'A paid GCash deposit must be recorded before a delivery no-show can be finalized.'], 422);
+        }
+        if (($validated['issue_type'] ?? '') === 'no_show' && $refunds->pendingForOrder((string) $order->id)) {
+            return response()->json(['ok' => false, 'error' => 'Resolve the existing cancellation or refund request before recording a no-show.'], 422);
+        }
 
         try {
-            $issueType = $request->input('issue_type'); // damaged/not_home/other
-            $note      = trim($request->input('note',''));
+            $issueType = $validated['issue_type'];
+            $note      = trim((string) ($validated['note'] ?? ''));
 
             $photoPath = null;
             if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
                 $file  = $request->file('photo');
                 $photoPath = $this->uploadFile($file, 'uploads/delivery');
+            }
+
+            if ($issueType === 'no_show') {
+                $refunds->recordNoShow($order, $note, 'rider', $photoPath);
+                return response()->json([
+                    'ok' => true,
+                    'status' => 'No Show',
+                    'redirect_url' => route('rider.dashboard'),
+                ]);
             }
 
             $newStatus = match($issueType) {
