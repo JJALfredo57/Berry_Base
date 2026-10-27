@@ -1447,7 +1447,7 @@ if (document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delive
 refreshInfoAddress();
 if (SERVER_ERROR_FIELD && SERVER_ERROR_MESSAGE) {
   setTimeout(() => showCheckoutError(SERVER_ERROR_FIELD, SERVER_ERROR_MESSAGE), 400);
-}.forEach(btn => {
+}
 document.querySelectorAll('[data-voucher-code]').forEach(btn => {
   btn.addEventListener('click', () => {
     const input = document.getElementById('voucherCodeInput');
