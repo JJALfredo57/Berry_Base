@@ -1138,8 +1138,10 @@ class PaymentController extends Controller
 
     private function resolveQrPayment(Request $request, object $order): array
     {
-        if (($order->payment_method ?? '') !== 'GCash') {
-            return ['ok' => false, 'error' => 'QR payment is only available for GCash orders.'];
+        // Cash orders still pay the required deposit through GCash.
+        $isCashDeposit = $request->input('payment_type') === 'deposit' && (bool) ($order->deposit_required ?? false);
+        if (($order->payment_method ?? '') !== 'GCash' && !$isCashDeposit) {
+            return ['ok' => false, 'error' => 'QR payment is only available for GCash orders or required deposits.'];
         }
         if (($order->payment_status ?? '') === 'Paid') {
             return ['ok' => false, 'error' => 'This order has already been paid.'];
