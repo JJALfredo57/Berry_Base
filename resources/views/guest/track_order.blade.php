@@ -28,15 +28,18 @@
     }
     .track-payment-note.success { color:#166534; }
     .track-payment-note.warning { color:#9a3412; }
-    .customer-qr-panel {
-      display:none;
-      border:1.5px solid #bfdbfe;
-      background:#eff6ff;
-      border-radius:1rem;
-      padding:1rem;
-      margin-top:.75rem;
+    .customer-qr-modal .modal-dialog {
+      width:calc(100% - 1rem);
+      max-width:420px;
+      margin:.5rem auto;
     }
-    .customer-qr-panel.is-open { display:block; }
+    .customer-qr-modal .modal-content {
+      border:1.5px solid #bfdbfe;
+      border-radius:1rem;
+      overflow:hidden;
+      box-shadow:0 24px 70px rgba(15,23,42,.24);
+    }
+    .customer-qr-modal .modal-body { padding:clamp(.85rem,4vw,1.25rem); }
     .customer-qr-head {
       display:flex;
       align-items:flex-start;
@@ -48,7 +51,8 @@
     .customer-qr-meta { color:#475569;font-size:.75rem;font-weight:650;margin-top:.15rem; }
     .customer-qr-img {
       display:block;
-      width:min(270px,82vw);
+      width:min(300px,78vw);
+      max-width:100%;
       aspect-ratio:1/1;
       object-fit:contain;
       margin:.75rem auto;
@@ -59,9 +63,10 @@
     }
     .customer-qr-countdown { color:#1d4ed8;font-weight:900;text-align:center;font-size:.9rem; }
     .customer-qr-countdown.expired { color:#b91c1c; }
-    .customer-qr-actions { display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.55rem;margin-top:.8rem; }
+    .customer-qr-actions { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:.55rem;margin-top:.8rem; }
     .customer-qr-status { font-size:.78rem;font-weight:700;text-align:center;color:#1e40af;margin-top:.55rem; }
     .customer-qr-trigger { border:1.5px solid #2563eb !important;color:#1d4ed8 !important;background:#fff !important; }
+    .customer-qr-actions .btn { min-height:44px; }
     .track-review-prompt {
       border:0;
       border-radius:18px;
@@ -881,29 +886,37 @@
         @endif
 
         @if($order->payment_method === 'GCash' && $order->payment_status !== 'Paid')
-        <div class="col-12">
-          <div class="customer-qr-panel" id="customerQrPanel" aria-live="polite">
-            <div class="customer-qr-head">
-              <div>
-                <div class="customer-qr-title" id="customerQrTitle">GCash QR Payment</div>
-                <div class="customer-qr-meta" id="customerQrMeta">Secure PayMongo QR</div>
+        <div class="modal fade customer-qr-modal customer-qr-panel" id="customerQrPanel" tabindex="-1" role="dialog" aria-labelledby="customerQrTitle" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <h5 class="modal-title customer-qr-title mb-1" id="customerQrTitle">GCash QR Payment</h5>
+                  <div class="customer-qr-meta" id="customerQrMeta">Secure PayMongo QR</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close QR code"></button>
               </div>
-              <button type="button" class="btn btn-sm btn-outline-primary" id="customerQrRefresh" aria-label="Refresh QR">
-                <i class="bi bi-arrow-repeat"></i>
-              </button>
+              <div class="modal-body" aria-live="polite">
+                <div id="customerQrLoading" class="text-center fw-semibold py-3" style="color:#1d4ed8;display:none">Generating QR...</div>
+                <img id="customerQrImage" class="customer-qr-img" src="" alt="GCash PayMongo QR code" style="display:none">
+                <div class="customer-qr-countdown" id="customerQrCountdown"></div>
+                <div class="customer-qr-actions">
+                  <a class="btn btn-primary" id="customerQrOpenLink" href="#" target="_blank" rel="noopener" style="display:none">
+                    <i class="bi bi-phone me-1"></i>Open GCash
+                  </a>
+                  <button type="button" class="btn btn-outline-primary" id="customerQrCheck">
+                    <i class="bi bi-arrow-repeat me-1"></i>Check Payment
+                  </button>
+                </div>
+                <div class="customer-qr-status" id="customerQrStatus" role="status" aria-live="polite"></div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-primary" id="customerQrRefresh" aria-label="Refresh QR">
+                  <i class="bi bi-arrow-repeat me-1"></i>Refresh QR
+                </button>
+              </div>
             </div>
-            <div id="customerQrLoading" class="text-center fw-semibold py-3" style="color:#1d4ed8;display:none">Generating QR...</div>
-            <img id="customerQrImage" class="customer-qr-img" src="" alt="GCash PayMongo QR code" style="display:none">
-            <div class="customer-qr-countdown" id="customerQrCountdown"></div>
-            <div class="customer-qr-actions">
-              <a class="btn btn-primary" id="customerQrOpenLink" href="#" target="_blank" rel="noopener" style="display:none">
-                <i class="bi bi-phone me-1"></i>Open GCash
-              </a>
-              <button type="button" class="btn btn-outline-primary" id="customerQrCheck">
-                <i class="bi bi-arrow-repeat me-1"></i>Check Payment
-              </button>
-            </div>
-            <div class="customer-qr-status" id="customerQrStatus"></div>
           </div>
         </div>
         @endif
@@ -2586,6 +2599,16 @@ function customerQrMessage(message, type = 'info') {
   el.status.style.color = type === 'error' ? '#b91c1c' : (type === 'success' ? '#047857' : '#1e40af');
 }
 
+function customerQrShow(panel) {
+  if (window.bootstrap?.Modal) {
+    window.bootstrap.Modal.getOrCreateInstance(panel).show();
+    return true;
+  }
+
+  window.alert('The QR popup could not be opened. Please reload the page and try again.');
+  return false;
+}
+
 function customerQrRedirect(url) {
   customerQrMessage('Payment received. Updating your order...', 'success');
   window.setTimeout(() => {
@@ -2629,7 +2652,6 @@ function customerQrRender(data) {
   customerQrState.paymentType = qr.payment_type || customerQrState.paymentType;
   customerQrState.amount = Number(qr.amount || customerQrState.amount || 0);
 
-  el.panel.classList.add('is-open');
   el.title.textContent = (qr.payment_type === 'remaining' ? 'Remaining Balance QR' : (qr.payment_type === 'full' ? 'Full Payment QR' : 'Deposit QR'));
   el.meta.textContent = customerQrMoney(qr.amount) + (qr.reference_number ? ' | Ref ' + qr.reference_number : '');
   el.image.src = qr.qr_image || '';
@@ -2653,6 +2675,8 @@ async function customerQrGenerate(trigger = null) {
   const paymentType = trigger?.dataset?.paymentType || customerQrState.paymentType || 'full';
   const amount = customerQrAmountFromTrigger(trigger) || customerQrState.amount;
 
+  if (!customerQrShow(el.panel)) return;
+
   if (!amount || amount <= 0) {
     customerQrMessage('The payment amount is unavailable. Please reload the order page and try again.', 'error');
     return;
@@ -2660,8 +2684,6 @@ async function customerQrGenerate(trigger = null) {
 
   customerQrState.paymentType = paymentType;
   customerQrState.amount = amount;
-  el.panel.classList.add('is-open');
-  el.panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   customerQrSetBusy(true);
   customerQrMessage('Generating secure QR...');
 
@@ -2677,7 +2699,7 @@ async function customerQrGenerate(trigger = null) {
       headers: { 'Accept': 'application/json' }
     });
     const data = await response.json();
-    if (!response.ok || !data.ok) throw new Error(data.message || 'Unable to generate QR.');
+    if (!response.ok || !data.ok) throw new Error(data.message || data.error || 'Unable to generate QR.');
     customerQrRender(data);
   } catch (error) {
     customerQrMessage(error.message || 'Unable to generate QR. Please try again.', 'error');

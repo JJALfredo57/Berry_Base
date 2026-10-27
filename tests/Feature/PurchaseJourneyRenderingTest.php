@@ -9,6 +9,41 @@ use Tests\TestCase;
 
 class PurchaseJourneyRenderingTest extends TestCase
 {
+    public function test_customer_deposit_qr_opens_in_a_responsive_modal(): void
+    {
+        $this->prepareFixture();
+        $order = $this->createRegularOrder('GCash');
+
+        $this->get('/customer/orders')
+            ->assertOk()
+            ->assertSee('Show Deposit QR')
+            ->assertSee('modal fade customer-qr-modal customer-qr-panel', false)
+            ->assertSee('role="dialog"', false)
+            ->assertSee('aria-labelledby="customerQrTitle'.$order->id.'"', false)
+            ->assertSee('modal-dialog-centered modal-dialog-scrollable', false)
+            ->assertSee('Check Payment')
+            ->assertSee('Refresh QR')
+            ->assertSee('width:calc(100% - 1rem)', false)
+            ->assertSee('window.bootstrap.Modal.getOrCreateInstance(panel).show()', false);
+    }
+
+    public function test_login_session_cookie_is_not_expired_when_the_browser_closes(): void
+    {
+        $this->prepareFixture();
+        $response = $this->post('/login', [
+            'username' => 'testbuyer',
+            'password' => 'TestPassword1!',
+        ]);
+
+        $response->assertRedirect(route('customer.orders'));
+        $sessionCookie = collect($response->headers->getCookies())
+            ->first(fn ($cookie) => $cookie->getName() === config('session.cookie'));
+
+        $this->assertNotNull($sessionCookie);
+        $this->assertGreaterThan(time(), $sessionCookie->getExpiresTime());
+        $this->assertFalse((bool) config('session.expire_on_close'));
+    }
+
     public function test_catalog_authentication_cart_and_checkout_destinations_render(): void
     {
         $this->prepareFixture();
