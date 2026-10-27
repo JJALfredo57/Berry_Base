@@ -82,7 +82,7 @@
         </select>
       </div>
     </div>
-    <div id="sellerOrderFilterSummary" style="font-size:.78rem;color:var(--gray-500);margin-top:.6rem">Showing {{ $orders->firstItem() ?? 0 }}‚‚{{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} orders</div>
+    <div id="sellerOrderFilterSummary" style="font-size:.78rem;color:var(--gray-500);margin-top:.6rem">Showing {{ $orders->firstItem() ?? 0 }} - {{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} orders</div>
   </div>
 
   @forelse($orders as $o)
@@ -312,7 +312,7 @@
         <div><span style="color:var(--gray-500)">Customer</span><br><strong>{{ $o->order_customer_name ?? 'Customer' }}</strong></div>
         <div>
           <span style="color:var(--gray-500)">Phone</span><br>
-          <strong>{{ $o->order_customer_phone ?? '‚‚' }}</strong>
+          <strong>{{ $o->order_customer_phone ?? '-' }}</strong>
           @include('shared.customer_risk_badge', ['risk' => $customerRiskMap[$o->id] ?? null, 'compact' => true])
         </div>
         <div><span style="color:var(--gray-500)">Product</span><br><strong>{{ $o->product_name ?? ($custom->cake_name ?? 'Custom Cake') }}</strong></div>
@@ -330,17 +330,17 @@
           <div style="grid-column:1/-1">
             <span style="color:var(--gray-500)">Grouped Items</span><br>
             @foreach($items as $item)
-              <div class="small">‚‚&bull; <strong>{{ $item->product_name }}</strong> x{{ $item->quantity }} @if($item->selected_size) ({{ $item->selected_size }}) @endif</div>
+              <div class="small">&bull; <strong>{{ $item->product_name }}</strong> x{{ $item->quantity }} @if($item->selected_size) ({{ $item->selected_size }}) @endif</div>
             @endforeach
           </div>
         @endif
-        <div><span style="color:var(--gray-500)">Qty / Size</span><br><strong>{{ $o->quantity ?? 1 }}x {{ $o->selected_size ?? ($custom->size_label ?? '‚‚') }}</strong></div>
+        <div><span style="color:var(--gray-500)">Qty / Size</span><br><strong>{{ $o->quantity ?? 1 }}x {{ $o->selected_size ?? ($custom->size_label ?? '-') }}</strong></div>
         <div><span style="color:var(--gray-500)">Fulfillment</span><br><strong>{{ $o->fulfillment_type ?? 'Pickup' }}</strong></div>
-        <div><span style="color:var(--gray-500)">Schedule</span><br><strong>{{ $o->schedule_date ? \Carbon\Carbon::parse($o->schedule_date)->format('M d, Y') : '‚‚' }}{{ $o->schedule_time ? ' '.$o->schedule_time : '' }}</strong></div>
+        <div><span style="color:var(--gray-500)">Schedule</span><br><strong>{{ $o->schedule_date ? \Carbon\Carbon::parse($o->schedule_date)->format('M d, Y') : '-' }}{{ $o->schedule_time ? ' '.$o->schedule_time : '' }}</strong></div>
         @if($o->fulfillment_type === 'Delivery')
-        <div style="grid-column:1/-1"><span style="color:var(--gray-500)">Delivery Address</span><br><strong>{{ $o->delivery_address ?? '‚‚' }}</strong></div>
+        <div style="grid-column:1/-1"><span style="color:var(--gray-500)">Delivery Address</span><br><strong>{{ $o->delivery_address ?? '-' }}</strong></div>
         @endif
-        <div><span style="color:var(--gray-500)">Payment</span><br><strong>{{ $o->payment_method ?? '‚‚' }}</strong></div>
+        <div><span style="color:var(--gray-500)">Payment</span><br><strong>{{ $o->payment_method ?? '-' }}</strong></div>
         <div><span style="color:var(--gray-500)">Payment Status</span><br>
           <strong style="color:{{ $o->payment_status==='Paid' ? '#16a34a' : ($o->payment_status==='Partial Payment' ? '#d97706' : '#6b7280') }}">
             {{ $o->payment_status ?? 'Unpaid' }}
@@ -355,8 +355,7 @@
           <strong style="color:{{ $isCancelledOrder ? '#991b1b' : (($o->deposit_status??'') === 'paid' ? '#16a34a' : '#880E4F') }}">
             @if($isCancelledOrder)
               {{ ($o->deposit_status??'') === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']) ? 'Cancelled - refund status shown below' : 'Cancelled before payment' }}
-            @else
-              ‚…‚PHP {{ number_format((float)($o->deposit_amount ?? 0),2) }} ‚‚ {{ ($o->deposit_status??'') === 'paid' ? 'Paid' : 'Pending' }}
+            @else PHP {{ number_format((float)($o->deposit_amount ?? 0),2) }} - {{ ($o->deposit_status??'') === 'paid' ? 'Paid' : 'Pending' }}
             @endif
           </strong>
         </div>
@@ -444,7 +443,7 @@
       <div style="margin-top:.85rem">
         <div style="font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Add-ons</div>
         @foreach($addons as $a)
-        <div style="font-size:.81rem;color:var(--gray-700)">‚‚‚‚ {{ $a->addon_name ?? '‚‚‚‚' }} @if($a->addon_price ?? 0) ‚‚PHP {{ number_format((float)($a->addon_price ?? 0),2) }} @endif</div>
+        <div style="font-size:.81rem;color:var(--gray-700)">{{ $a->addon_name ?? '-' }} @if($a->addon_price ?? 0) PHP {{ number_format((float)($a->addon_price ?? 0),2) }} @endif</div>
         @endforeach
       </div>
       @endif
@@ -656,13 +655,13 @@
             <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">AWAITING PAYMENT</div>
             <div style="font-size:.82rem;color:#d97706;line-height:1.5;font-weight:600">
               Order is ready but customer still has an unpaid balance
-              @if($o->payment_method === 'GCash') (GCash ‚‚PHP {{ number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) }} remaining)@endif.
+              @if($o->payment_method === 'GCash') (GCash PHP {{ number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) }} remaining)@endif.
               The <strong>Mark as Picked Up</strong> button will appear once GCash payment is completed.
             </div>
           </div>
         </div>
         <span style="background:#FEF3C7;color:#92400E;border:1.5px solid #FDE68A;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:700;margin-left:auto">
-          <i class="bi bi-lock"></i> Locked ‚‚ Unpaid
+          <i class="bi bi-lock"></i> Locked - Unpaid
         </span>
       </div>
       @endif
@@ -689,7 +688,7 @@
       </div>
     @endif
 
-    {{-- Awaiting Deposit ‚‚ seller info only, no actions until paid --}}
+    {{-- Awaiting Deposit - seller info only, no actions until paid --}}
     @if($o->status === 'Awaiting Deposit')
     <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fce4ec 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
       <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">

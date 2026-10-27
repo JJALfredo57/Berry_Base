@@ -295,7 +295,7 @@
         </div>
         <div class="text-end mt-2 mt-sm-0">
           <span class="status-badge status-{{ str_replace(' ','-',$displayStatus) }}">{{ $displayStatus }}</span>
-          <div class="fw-bold mt-1">‚PHP {{ number_format($o->total_price,2) }}</div>
+          <div class="fw-bold mt-1">PHP {{ number_format($o->total_price,2) }}</div>
         </div>
       </div>
 
@@ -355,17 +355,17 @@
           @php $remainingBalance = max(0, (float)$o->total_price - (float)$o->deposit_amount); @endphp
           <div class="col-12">
             <i class="bi bi-cash-stack me-1" style="color:#16a34a"></i>
-            <span style="color:#16a34a;font-weight:600">Deposit paid: ‚PHP {{ number_format($o->deposit_amount,2) }}</span>
+            <span style="color:#16a34a;font-weight:600">Deposit paid: PHP {{ number_format($o->deposit_amount,2) }}</span>
             @if($o->payment_status === 'Paid' || $remainingBalance <= 0)
             <span class="ms-2" style="color:#16a34a;font-weight:600">Fully paid</span>
             @else
-            <span class="ms-2" style="color:#d97706;font-weight:600">Balance due on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}: ‚PHP {{ number_format($o->total_price - $o->deposit_amount,2) }}</span>
+            <span class="ms-2" style="color:#d97706;font-weight:600">Balance due on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}: PHP {{ number_format($o->total_price - $o->deposit_amount,2) }}</span>
             @endif
           </div>
           @elseif(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'pending')
           <div class="col-12">
             <i class="bi bi-exclamation-circle me-1" style="color:#880E4F"></i>
-            <span style="color:#880E4F;font-weight:600">Deposit required: ‚PHP {{ number_format($o->deposit_amount,2) }}  not yet paid</span>
+            <span style="color:#880E4F;font-weight:600">Deposit required: PHP {{ number_format($o->deposit_amount,2) }} not yet paid</span>
           </div>
           @endif
           @if($o->schedule_date)
@@ -383,7 +383,7 @@
             @foreach($orderAddons[$o->id] as $oa)
               <span class="badge" style="background:#fff0f5;color:var(--primary);font-size:.72rem;font-weight:500">
                 {{ $oa->addon_name }}
-                @if($oa->addon_price > 0) +‚PHP {{ number_format($oa->addon_price,2) }} @else FREE @endif
+                @if($oa->addon_price > 0) +PHP {{ number_format($oa->addon_price,2) }} @else FREE @endif
               </span>
             @endforeach
           </div>
@@ -426,9 +426,9 @@
 
         {{-- Quick details --}}
         <div class="d-flex flex-wrap gap-2 mb-2" style="font-size:.78rem">
-          @if($co->cake_name)<span class="badge bg-light text-dark">……‚ {{ $co->cake_name }}</span>@endif
+          @if($co->cake_name)<span class="badge bg-light text-dark">{{ $co->cake_name }}</span>@endif
           @if($co->flavor)<span class="badge bg-light text-dark"> {{ $co->flavor }}</span>@endif
-          @if($co->size_label)<span class="badge bg-light text-dark">…‚ {{ $co->size_label }}</span>@endif
+          @if($co->size_label)<span class="badge bg-light text-dark">{{ $co->size_label }}</span>@endif
           @if($co->layers)<span class="badge bg-light text-dark"> {{ $co->layers }}</span>@endif
           @if($co->design_complexity)<span class="badge bg-light text-dark"> {{ $co->design_complexity }}</span>@endif
         </div>
@@ -437,7 +437,7 @@
         @if($co->review_status === 'approved' && $co->admin_price)
         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
           <span class="text-muted small">Final Price:</span>
-          <span class="fw-bold" style="color:var(--primary)">‚PHP {{ number_format($co->admin_price,2) }}</span>
+          <span class="fw-bold" style="color:var(--primary)">PHP {{ number_format($co->admin_price,2) }}</span>
           @if(isset($co->price_confirmed))
             @if($co->price_confirmed === 'pending')
               <span class="badge" style="background:#fff3cd;color:#856404;font-size:.7rem"> Awaiting your confirmation</span>
@@ -480,7 +480,7 @@
           <div style="background:#f8fffe;padding:.85rem">
             <div style="background:#fff;border-radius:.6rem;padding:.45rem .8rem;margin-bottom:.7rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #e5e7eb">
               <span style="font-size:.7rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Final Price</span>
-              <span style="font-weight:800;color:#111827;font-size:.95rem">‚PHP {{ number_format($coTotal, 2) }}</span>
+              <span style="font-weight:800;color:#111827;font-size:.95rem">PHP {{ number_format($coTotal, 2) }}</span>
             </div>
             <div class="d-flex flex-column gap-2">
               <form action="{{ route('customer.custom_orders.set_deposit', $co->id) }}" method="POST">
@@ -531,7 +531,7 @@
             <i class="bi bi-exclamation-circle me-1"></i>Price Update  Please Respond
           </div>
           <div class="small text-muted mb-2">
-            The baker has set a final price of <strong style="color:var(--primary)">‚PHP {{ number_format($co->admin_price,2) }}</strong>
+            The baker has set a final price of <strong style="color:var(--primary)">PHP {{ number_format($co->admin_price,2) }}</strong>
             for your custom cake. Please accept or cancel.
           </div>
           @php $acceptTotal = (float)$co->admin_price; @endphp
@@ -595,7 +595,7 @@
                 @endif
               </div>
               <button type="submit" class="btn btn-success btn-sm w-100"
-                      data-cs-confirm="Accept ‚PHP {{ number_format($co->admin_price,2) }} as the final price?"
+                      data-cs-confirm="Accept PHP {{ number_format($co->admin_price,2) }} as the final price?"
                       data-cs-title="Accept Final Price"
                       data-cs-ok="Accept Price"
                       data-cs-icon="bi-check-circle"
@@ -634,7 +634,7 @@
         {{-- Progress photo from admin --}}
         @if($co->progress_image || $co->progress_message)
         <div class="p-2 rounded-2 mb-2" style="background:#f0f4ff;border-left:3px solid #6366f1">
-          <div class="fw-semibold small mb-1" style="color:#4f46e5">…‚ Progress Update from Baker</div>
+          <div class="fw-semibold small mb-1" style="color:#4f46e5">Progress Update from Baker</div>
           @if($co->progress_image)
           <img src="{{ $co->progress_image }}"
                class="chat-img" data-src="{{ $co->progress_image }}"
@@ -691,7 +691,7 @@
                   <i class="bi {{ $coSc['icon'] }} me-1"></i>{{ $coSc['label'] }}
                 </span>
                 @if($co->admin_price)
-                <span class="fw-bold" style="color:var(--primary)">‚PHP {{ number_format($co->admin_price,2) }}</span>
+                <span class="fw-bold" style="color:var(--primary)">PHP {{ number_format($co->admin_price,2) }}</span>
                 @if(isset($co->price_confirmed) && $co->price_confirmed === 'pending')
                   <span class="badge" style="background:#fff3cd;color:#856404;font-size:.7rem"> Needs your response</span>
                 @endif
@@ -705,7 +705,7 @@
                   <i class="bi bi-exclamation-circle me-1"></i>Please confirm the final price
                 </div>
                 <div class="small text-muted mb-3">
-                  The baker set a final price of <strong style="color:var(--primary)">‚PHP {{ number_format($co->admin_price,2) }}</strong>.
+                  The baker set a final price of <strong style="color:var(--primary)">PHP {{ number_format($co->admin_price,2) }}</strong>.
                   Accept to proceed or cancel the order.
                 </div>
                 @php $acceptTotal = (float)$co->admin_price; @endphp
@@ -769,7 +769,7 @@
                       @endif
                     </div>
                     <button type="submit" class="btn btn-success btn-sm w-100"
-                            data-cs-confirm="Accept ‚PHP {{ number_format($co->admin_price,2) }} as final price?"
+                            data-cs-confirm="Accept PHP {{ number_format($co->admin_price,2) }} as final price?"
                             data-cs-title="Accept Final Price"
                             data-cs-ok="Accept Price"
                             data-cs-icon="bi-check-circle"
@@ -833,7 +833,7 @@
                 <div class="d-flex flex-wrap gap-1">
                   @foreach($orderAddons[$o->id] as $oa)
                   <span class="badge" style="background:#f0fdf4;color:#166534;font-size:.75rem">
-                    {{ $oa->addon_name }}@if($oa->addon_price > 0) +‚PHP {{ number_format($oa->addon_price,2) }}@endif
+                    {{ $oa->addon_name }}@if($oa->addon_price > 0) +PHP {{ number_format($oa->addon_price,2) }}@endif
                   </span>
                   @endforeach
                 </div>
@@ -852,7 +852,7 @@
               {{-- Progress photo --}}
               @if($co->progress_image || $co->progress_message)
               <div class="p-2 rounded-2 mb-3" style="background:#f0f4ff;border-left:3px solid #6366f1">
-                <div class="fw-semibold small mb-2" style="color:#4f46e5">…‚ Progress from Baker</div>
+                <div class="fw-semibold small mb-2" style="color:#4f46e5">Progress from Baker</div>
                 @if($co->progress_image)
                 <img src="{{ $co->progress_image }}"
                      class="chat-img" data-src="{{ $co->progress_image }}"
@@ -901,11 +901,11 @@
           <div style="background:#fffbeb;padding:.85rem">
             <div style="background:#fff;border-radius:.6rem;padding:.45rem .8rem;margin-bottom:.5rem;display:flex;align-items:center;justify-content:space-between;border:1px solid #fde68a">
               <span style="font-size:.7rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Deposit to Pay</span>
-              <span style="font-weight:800;color:#111827;font-size:.95rem">‚PHP {{ number_format($o->deposit_amount, 2) }}</span>
+              <span style="font-weight:800;color:#111827;font-size:.95rem">PHP {{ number_format($o->deposit_amount, 2) }}</span>
             </div>
             @if($o->deposit_amount < $o->total_price)
             <div style="font-size:.7rem;color:#9a3412;margin-bottom:.6rem;text-align:right">
-              Remaining after payment: ‚PHP {{ number_format($o->total_price - $o->deposit_amount, 2) }} (on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }})
+              Remaining after payment: PHP {{ number_format($o->total_price - $o->deposit_amount, 2) }} (on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }})
             </div>
             @endif
             <a href="{{ route('customer.pay_deposit', $o->id) }}"
@@ -917,7 +917,7 @@
                data-cs-icon="bi-phone-fill"
                data-cs-icon-bg="#fef3c7"
                data-cs-icon-color="#d97706">
-              <i class="bi bi-phone-fill me-2"></i>{{ (float)$o->deposit_amount >= (float)$o->total_price ? 'Pay Full Amount' : 'Pay 50% Deposit' }} ‚PHP {{ number_format($o->deposit_amount, 2) }} via GCash
+              <i class="bi bi-phone-fill me-2"></i>{{ (float)$o->deposit_amount >= (float)$o->total_price ? 'Pay Full Amount' : 'Pay 50% Deposit' }} PHP {{ number_format($o->deposit_amount, 2) }} via GCash
             </a>
             <div style="margin-top:.5rem;font-size:.65rem;color:#9ca3af;text-align:center">
               <i class="bi bi-shield-check me-1" style="color:#22c55e"></i>Secured by PayMongo &nbsp;&nbsp; GCash only
@@ -933,11 +933,11 @@
         <div class="d-flex align-items-center gap-3 p-3 rounded-3" style="background:#E8F5E9;border:1.5px solid #A5D6A7">
           <i class="bi bi-check-circle-fill" style="font-size:1.4rem;color:#2E7D32;flex-shrink:0"></i>
           <div class="small">
-            <div class="fw-bold" style="color:#2E7D32">Deposit Paid ‚ ‚PHP {{ number_format($o->deposit_amount,2) }}</div>
+            <div class="fw-bold" style="color:#2E7D32">Deposit Paid PHP {{ number_format($o->deposit_amount,2) }}</div>
             @if($o->payment_status === 'Paid' || $remainingBalance <= 0)
             <div style="color:#388E3C">This order is fully paid. No remaining balance is due.</div>
             @else
-            <div style="color:#388E3C">Remaining balance of <strong>‚PHP {{ number_format($o->total_price - $o->deposit_amount,2) }}</strong> is due upon {{ $o->fulfillment_type === 'Delivery' ? 'delivery (Cash on Delivery)' : 'pickup (Cash on Pickup)' }}.</div>
+            <div style="color:#388E3C">Remaining balance of <strong>PHP {{ number_format($o->total_price - $o->deposit_amount,2) }}</strong> is due upon {{ $o->fulfillment_type === 'Delivery' ? 'delivery (Cash on Delivery)' : 'pickup (Cash on Pickup)' }}.</div>
             @endif
           </div>
         </div>
@@ -977,7 +977,7 @@
                    onmouseout="resetStars(@js((string) $o->id))">
               <input type="radio" name="rating" value="{{ $s }}" class="d-none"
                      onchange="selectStar(@js((string) $o->id),{{ $s }})" {{ $s === 5 ? 'checked' : '' }}>
-              ‹…
+              &#9733;
             </label>
             @endfor
           </div>
@@ -992,7 +992,7 @@
                      onmouseout="resetStars('rider_{{ $o->id }}')">
                 <input type="radio" name="rider_rating" value="{{ $s }}" class="d-none"
                        onchange="selectStar('rider_{{ $o->id }}',{{ $s }})">
-                ‹…
+                &#9733;
               </label>
               @endfor
             </div>
@@ -1023,7 +1023,7 @@
       <div class="px-3 py-2 border-top d-flex align-items-center gap-2" style="background:#fffbeb">
         <div class="d-flex gap-1">
           @for($s=1;$s<=5;$s++)
-            <span style="color:{{ $s <= $orderReviews[$o->id]->rating ? '#f59e0b' : '#d1d5db' }};font-size:1.1rem">‹</span>
+            <span style="color:{{ $s <= $orderReviews[$o->id]->rating ? '#f59e0b' : '#d1d5db' }};font-size:1.1rem">&#9733;</span>
           @endfor
         </div>
         <span class="small text-muted">
@@ -1081,7 +1081,7 @@
           <a href="{{ route('customer.pay_deposit', $o->id) }}"
              class="btn btn-sm fw-bold"
              style="background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:.6rem">
-            <i class="bi bi-phone-fill me-1"></i>Pay Deposit ‚ ‚PHP {{ number_format($o->deposit_amount, 2) }}
+            <i class="bi bi-phone-fill me-1"></i>Pay Deposit PHP {{ number_format($o->deposit_amount, 2) }}
           </a>
           @if($canShowCustomerQr)
           <button type="button"
@@ -1175,7 +1175,7 @@
             @endif
               <div>
               <div class="fw-semibold small">{{ $o->product_name }}</div>
-              <div class="text-muted small">Order #{{ $o->id }} &bull; ‚PHP {{ number_format($o->total_price,2) }} &bull; Qty: {{ $o->quantity }}</div>
+              <div class="text-muted small">Order #{{ $o->id }} &bull; PHP {{ number_format($o->total_price,2) }} &bull; Qty: {{ $o->quantity }}</div>
               <div class="text-muted small">{{ $o->fulfillment_type }} &bull; {{ \App\Helpers\CakeshopHelper::displayPaymentMethod($o->payment_method, $o->fulfillment_type) }}</div>
             </div>
           </div>
@@ -1302,7 +1302,7 @@ async function sendFollowUp(orderId, cakeName, coId) {
 function copyFollowUp(orderId, cakeName, coId) {
   const msg = buildFollowUpMsg(orderId, cakeName, coId);
   navigator.clipboard.writeText(msg).then(() => {
-    cakeToast('…‚ Message copied to clipboard!', 'success');
+    cakeToast('Message copied to clipboard!', 'success');
   }).catch(() => {
     prompt('Copy this message:', msg);
   });
