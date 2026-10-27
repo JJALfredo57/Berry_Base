@@ -357,7 +357,6 @@
       <i class="bi bi-bell-fill"></i>
       <span class="track-bell-badge" id="trackBellBadge">0</span>
     </button>
-    <div style="font-size:3rem">……‚</div>
     <h4 class="fw-bold mb-1" style="color:var(--primary)">Order Tracking</h4>
     <div class="text-muted fw-semibold" style="font-size:1.75rem">Order #{{ $order->id }}</div>
   </div>
@@ -621,7 +620,7 @@
         <div class="col-sm-6">
           <div class="p-2 rounded-2" style="background:#f8f9fa">
             <div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Name</div>
-            <div class="fw-semibold">{{ $order->guest_name }}</div>
+            <div class="fw-semibold">{{ $order->guest_name ?: ($order->fullname ?: ($order->user_fullname ?? '')) }}</div>
           </div>
         </div>
         <div class="col-sm-6">

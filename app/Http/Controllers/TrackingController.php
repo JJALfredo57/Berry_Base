@@ -194,8 +194,9 @@ class TrackingController extends Controller
     {
         $order = DB::table('orders as o')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->where('o.track_code', strtoupper($trackCode))
-            ->select('o.*', 'p.name as product_name', 'p.image_path', 'p.classification')
+            ->select('o.*', 'p.name as product_name', 'p.image_path', 'p.classification', 'u.fullname as user_fullname')
             ->first();
 
         if (!$order) abort(404, 'Order not found. Please check your tracking link.');

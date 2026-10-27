@@ -12,7 +12,7 @@ return new class extends Migration
 
         Schema::create('customer_payment_qrs', function (Blueprint $t) {
             $t->bigIncrements('id');
-            $t->unsignedBigInteger('order_id')->index();
+            $t->string('order_id', 12)->index();
             $t->string('track_code', 40)->index();
             $t->string('payment_type', 20)->index();
             $t->decimal('amount', 10, 2);
