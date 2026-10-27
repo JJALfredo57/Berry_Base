@@ -985,9 +985,20 @@
   @endif
 
   @if($canRequestCancel && !$hasPendingCancel && !$cancelApproved)
-  <div class="card mb-3">
-    <div class="card-body p-4">
-      <h6 class="fw-bold mb-3"><i class="bi bi-x-circle me-2" style="color:#dc2626"></i>{{ $hasDepositLock ? 'Request Cancellation & Refund' : 'Cancel Order' }}</h6>
+  <div class="mb-3 text-center">
+    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelRequestModal">
+      <i class="bi bi-x-circle me-1"></i>{{ $hasDepositLock ? 'Request Cancellation & Refund' : 'Cancel Order' }}
+    </button>
+  </div>
+
+  <div class="modal fade" id="cancelRequestModal" tabindex="-1" role="dialog" aria-labelledby="cancelRequestTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content" style="border-radius:1rem">
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold" id="cancelRequestTitle"><i class="bi bi-x-circle me-2" style="color:#dc2626"></i>{{ $hasDepositLock ? 'Request Cancellation & Refund' : 'Cancel Order' }}</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
       <div class="small text-muted mb-3">
         @if($hasDepositLock)
           Payment has already been recorded for this order. Enter the GCash details where the refund should be sent, then the seller will review your request.
@@ -995,11 +1006,11 @@
           No paid deposit has been recorded yet. Submitting this will cancel the order immediately.
         @endif
       </div>
-      <form action="{{ route('guest.cancel_request', $order->track_code) }}" method="POST">
+      <form action="{{ route('guest.cancel_request', $order->track_code) }}" method="POST" id="cancelRequestForm">
         @csrf
         <div class="mb-3">
           <label class="form-label fw-semibold small">Reason for Cancellation <span class="text-danger">*</span></label>
-          <textarea class="form-control" name="cancel_reason" rows="3" required placeholder="Please explain why you want to cancel this order."></textarea>
+          <textarea class="form-control" name="cancel_reason" rows="3" required placeholder="Please explain why you want to cancel this order.">{{ old('cancel_reason') }}</textarea>
         </div>
         @if($hasDepositLock)
         <div class="p-3 rounded-3 mb-3" style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412">
@@ -1007,11 +1018,11 @@
           <div class="small">The refund will be sent to the GCash name and number you provide. Make sure the account name and mobile number are correct before submitting.</div>
         </div>
         <div class="row g-2 mb-3">
-          <div class="col-md-6">
+          <div class="col-12 col-md-6">
             <label class="form-label fw-semibold small">GCash Account Name <span class="text-danger">*</span></label>
             <input class="form-control" name="refund_gcash_name" value="{{ old('refund_gcash_name') }}" placeholder="Exact registered GCash name" required>
           </div>
-          <div class="col-md-6">
+          <div class="col-12 col-md-6">
             <label class="form-label fw-semibold small">GCash Mobile Number <span class="text-danger">*</span></label>
             <input class="form-control" name="refund_gcash_number" value="{{ old('refund_gcash_number') }}" placeholder="09XXXXXXXXX" pattern="^(09[0-9]{9}|\+639[0-9]{9})$" inputmode="tel" required>
           </div>
@@ -1023,8 +1034,10 @@
           </label>
         </div>
         @endif
-        <button type="submit"
-                class="btn btn-outline-danger"
+        <div class="d-flex gap-2 flex-wrap">
+          <button type="button" class="btn btn-outline-secondary flex-fill" data-bs-dismiss="modal">Close</button>
+          <button type="submit"
+                class="btn btn-danger flex-fill"
                 data-cs-confirm="{{ $hasDepositLock ? 'Submit cancellation and refund request? Make sure your GCash details are correct.' : 'Cancel this unpaid order now?' }}"
                 data-cs-title="{{ $hasDepositLock ? 'Request Refund' : 'Cancel Order' }}"
                 data-cs-ok="{{ $hasDepositLock ? 'Submit Request' : 'Cancel Order' }}"
@@ -1032,9 +1045,12 @@
                 data-cs-icon="bi-x-octagon"
                 data-cs-icon-bg="#fee2e2"
                 data-cs-icon-color="#dc2626">
-          <i class="bi bi-send me-1"></i>{{ $hasDepositLock ? 'Submit Refund Request' : 'Cancel Order' }}
-        </button>
+            <i class="bi bi-send me-1"></i>{{ $hasDepositLock ? 'Submit Refund Request' : 'Cancel Order' }}
+          </button>
+        </div>
       </form>
+        </div>
+      </div>
     </div>
   </div>
   @endif
@@ -2765,6 +2781,13 @@ document.getElementById('customerQrRefresh')?.addEventListener('click', () => {
 });
 
 // Initial load + poll every 8 seconds
+const cancelRequestModal = document.getElementById('cancelRequestModal');
+if (cancelRequestModal) {
+  document.body.appendChild(cancelRequestModal);
+  @if(old('cancel_reason'))
+  window.bootstrap?.Modal.getOrCreateInstance(cancelRequestModal).show();
+  @endif
+}
 pollMessages();
 setInterval(pollMessages, 8000);
 fetchTrackNotifications(true);

@@ -1078,11 +1078,6 @@
         @endif
 
         @if(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'pending' && $o->status === 'Awaiting Deposit')
-          <a href="{{ route('customer.pay_deposit', $o->id) }}"
-             class="btn btn-sm fw-bold"
-             style="background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:.6rem">
-            <i class="bi bi-phone-fill me-1"></i>Pay Deposit PHP {{ number_format($o->deposit_amount, 2) }}
-          </a>
           @if($canShowCustomerQr)
           <button type="button"
                   class="btn btn-outline-primary btn-sm customer-qr-trigger"
