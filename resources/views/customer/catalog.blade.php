@@ -62,7 +62,7 @@
     <h3 class="fw-bold" style="color:var(--primary)">
       <i class="bi bi-cake2 me-2"></i>{{ $settings['tagline'] ?? 'Our Cakes' }}
     </h3>
-    <p class="text-muted">Choose your cake. Sign in or create an account to place an order.</p>
+    <p class="text-muted">Choose a cake to begin your order.</p>
   </div>
 
   @if(session('msg'))
