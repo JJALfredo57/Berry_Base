@@ -1300,7 +1300,9 @@ function showCheckoutError(field, message) {
     document.getElementById('delivery').checked = true;
     toggleDelivery();
   }
-  const targets = Array.from(document.querySelectorAll('[data-error-target="' + field + '"]'))
+  const allTargets = Array.from(document.querySelectorAll('[data-error-target="' + field + '"]'));
+  if (allTargets.length && window.csWizardRevealStepOf) window.csWizardRevealStepOf(allTargets[0]);
+  const targets = allTargets
     .filter(el => el.offsetParent !== null || el.tagName === 'FIELDSET');
   if (!targets.length) return false;
   targets.forEach(el => {

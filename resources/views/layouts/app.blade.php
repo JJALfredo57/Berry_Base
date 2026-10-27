@@ -5874,6 +5874,12 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   form.addEventListener('input', updateSubmitVisibility);
   form.addEventListener('change', updateSubmitVisibility);
+  window.csWizardRevealStepOf = function (el) {
+    var idx = cards.findIndex(function (card) { return card.contains(el); });
+    if (idx < 0) return false;
+    if (idx !== current) showStep(idx, false);
+    return true;
+  };
   showStep(0, false);
 });
 
