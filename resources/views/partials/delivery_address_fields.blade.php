@@ -45,7 +45,7 @@
       <input class="form-control" name="address_landmark" id="{{ $prefix }}AddressLandmark" value="{{ old('address_landmark') }}" placeholder="Near 7-Eleven, blue gate, beside chapel">
     </div>
   </div>
-  <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Province, city/municipality, and barangay must be selected from the official PSGC list.</div>
+  <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Province, city/municipality, and barangay can be typed freely; pick a suggestion when one appears.</div>
 </div>
 
 @once
@@ -102,27 +102,43 @@
     const barangayList = document.getElementById(prefix + 'BarangayList');
     if (!province || !city || !barangay || !provinceCode || !cityCode || !barangayCode) return;
 
-    const resetCity = () => {
-      city.value = '';
-      cityCode.value = '';
-      cityList.innerHTML = '';
-      city.disabled = !provinceCode.value;
-      city.placeholder = provinceCode.value ? 'Type to search city/municipality' : 'Choose province first';
-      resetBarangay();
+    const clearChildCodes = level => {
+      if (level === 'province') { cityCode.value = ''; cityList.innerHTML = ''; }
+      if (level === 'province' || level === 'city') { barangayCode.value = ''; barangayList.innerHTML = ''; }
     };
-    const resetBarangay = () => {
-      barangay.value = '';
-      barangayCode.value = '';
-      barangayList.innerHTML = '';
-      barangay.disabled = !cityCode.value;
-      barangay.placeholder = cityCode.value ? 'Type to search barangay' : 'Choose city/municipality first';
+    // Fields stay free-text: official codes are matched when possible, the server accepts plain place names too.
+    const resolveCode = async (input, codeEl, list, url, params) => {
+      const value = (input.value || '').trim();
+      if (!value) { codeEl.value = ''; return; }
+      let code = findCode(list, value);
+      if (!code) {
+        try {
+          const items = await fetchItems(url, Object.assign({ q: value }, params));
+          fillList(list, items);
+          code = findCode(list, value);
+        } catch (e) { code = ''; }
+      }
+      codeEl.value = code;
+    };
+    const resolveProvince = async () => { await resolveCode(province, provinceCode, provinceList, endpoints.provinces, {}); };
+    const resolveCity = async () => {
+      if (!provinceCode.value) await resolveProvince();
+      if (!provinceCode.value) { cityCode.value = ''; return; }
+      await resolveCode(city, cityCode, cityList, endpoints.cities, { province_code: provinceCode.value });
+    };
+    const resolveBarangay = async () => {
+      if (!cityCode.value) await resolveCity();
+      if (!cityCode.value) { barangayCode.value = ''; return; }
+      await resolveCode(barangay, barangayCode, barangayList, endpoints.barangays, { city_municipality_code: cityCode.value });
     };
     const loadProvinces = debounce(async () => fillList(provinceList, await fetchItems(endpoints.provinces, { q: province.value || '' })));
     const loadCities = debounce(async () => {
+      if (!provinceCode.value) await resolveProvince();
       if (!provinceCode.value) return;
       fillList(cityList, await fetchItems(endpoints.cities, { province_code: provinceCode.value, q: city.value || '' }));
     });
     const loadBarangays = debounce(async () => {
+      if (!cityCode.value) await resolveCity();
       if (!cityCode.value) return;
       fillList(barangayList, await fetchItems(endpoints.barangays, { city_municipality_code: cityCode.value, q: barangay.value || '' }));
     });
@@ -130,34 +146,37 @@
     province.addEventListener('focus', loadProvinces);
     province.addEventListener('input', () => {
       provinceCode.value = findCode(provinceList, province.value);
-      resetCity();
+      clearChildCodes('province');
       loadProvinces();
     });
-    province.addEventListener('change', () => {
-      provinceCode.value = findCode(provinceList, province.value);
-      resetCity();
+    province.addEventListener('change', async () => {
+      await resolveProvince();
+      clearChildCodes('province');
+      if (city.value.trim()) await resolveCity();
+      if (barangay.value.trim()) await resolveBarangay();
     });
     city.addEventListener('focus', loadCities);
     city.addEventListener('input', () => {
       cityCode.value = findCode(cityList, city.value);
-      resetBarangay();
+      clearChildCodes('city');
       loadCities();
     });
-    city.addEventListener('change', () => {
-      cityCode.value = findCode(cityList, city.value);
-      resetBarangay();
+    city.addEventListener('change', async () => {
+      await resolveCity();
+      clearChildCodes('city');
+      if (barangay.value.trim()) await resolveBarangay();
     });
     barangay.addEventListener('focus', loadBarangays);
     barangay.addEventListener('input', () => {
       barangayCode.value = findCode(barangayList, barangay.value);
       loadBarangays();
     });
-    barangay.addEventListener('change', () => {
-      barangayCode.value = findCode(barangayList, barangay.value);
-    });
+    barangay.addEventListener('change', resolveBarangay);
 
-    city.disabled = !provinceCode.value;
-    barangay.disabled = !cityCode.value;
+    city.disabled = false;
+    barangay.disabled = false;
+    city.placeholder = 'Type city/municipality';
+    barangay.placeholder = 'Type barangay';
   };
   document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('.js-psgc-address').forEach(initBlock));
 })();

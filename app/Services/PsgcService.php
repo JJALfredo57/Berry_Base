@@ -102,22 +102,65 @@ class PsgcService
 
     public function addressCodesFromRequest($request): array
     {
-        $validated = $this->validateHierarchy(
-            $request->input('address_province_code'),
-            $request->input('address_city_code'),
-            $request->input('address_barangay_code')
-        );
+        $validated = $this->resolveFromRequest($request);
 
         if (!$validated['ok']) return [];
 
         return [
-            'province_code' => $validated['province']['code'],
+            'province_code' => $validated['province']['code'] ?: null,
             'province_name' => $validated['province']['name'],
-            'city_municipality_code' => $validated['city']['code'],
+            'city_municipality_code' => $validated['city']['code'] ?: null,
             'city_municipality_name' => $validated['city']['name'],
-            'barangay_code' => $validated['barangay']['code'],
+            'barangay_code' => $validated['barangay']['code'] ?: null,
             'barangay_name' => $validated['barangay']['name'],
         ];
+    }
+
+    /**
+     * Accepts official PSGC codes when they are valid; otherwise falls back to the typed place names
+     * (matching them to PSGC records when possible) so a typed-in province/city/barangay is never blocked.
+     */
+    public function resolveFromRequest($request): array
+    {
+        $strict = $this->validateHierarchy(
+            $request->input('address_province_code'),
+            $request->input('address_city_code'),
+            $request->input('address_barangay_code')
+        );
+        if ($strict['ok']) return $strict;
+
+        $names = [
+            'province' => trim((string) $request->input('address_province', '')),
+            'city' => trim((string) $request->input('address_city', '')),
+            'barangay' => trim((string) $request->input('address_barangay', '')),
+        ];
+        if (in_array('', $names, true)) {
+            return ['ok' => false, 'message' => 'Please enter the province, city/municipality, and barangay.'];
+        }
+
+        $province = $this->findByName('psgc_provinces', $names['province']);
+        $city = $this->findByName('psgc_cities_municipalities', $names['city'], $province ? ['province_code' => (string) $province->code] : []);
+        $barangay = $city ? $this->findByName('psgc_barangays', $names['barangay'], ['city_municipality_code' => (string) $city->code]) : null;
+
+        return [
+            'ok' => true,
+            'message' => null,
+            'province' => ['code' => (string) ($province->code ?? ''), 'name' => (string) ($province->name ?? $names['province'])],
+            'city' => ['code' => (string) ($city->code ?? ''), 'name' => (string) ($city->name ?? $names['city'])],
+            'barangay' => ['code' => (string) ($barangay->code ?? ''), 'name' => (string) ($barangay->name ?? $names['barangay'])],
+        ];
+    }
+
+    private function findByName(string $table, string $name, array $where = []): ?object
+    {
+        try {
+            if (!Schema::hasTable($table) || $name === '') return null;
+            $builder = DB::table($table);
+            foreach ($where as $column => $value) $builder->where($column, $value);
+            return $builder->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->first();
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     public function syncAll(?callable $progress = null): array

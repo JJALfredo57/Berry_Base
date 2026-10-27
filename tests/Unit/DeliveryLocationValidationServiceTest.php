@@ -163,7 +163,7 @@ class DeliveryLocationValidationServiceTest extends TestCase
         $this->assertStringContainsString('Postal Code', $result['message']);
     }
 
-    public function test_structured_delivery_address_rejects_missing_psgc_codes(): void
+    public function test_structured_delivery_address_accepts_typed_names_without_psgc_codes(): void
     {
         $request = Request::create('/addresses', 'POST', [
             '_structured_address' => '1',
@@ -178,8 +178,22 @@ class DeliveryLocationValidationServiceTest extends TestCase
         $result = (new DeliveryLocationValidationService())
             ->validateRequest($request, 15.8095, 120.4988, null, false, 'full_address');
 
+        $this->assertStringNotContainsString('choose a province, city/municipality, and barangay', $result['message'] ?? '');
+    }
+
+    public function test_structured_delivery_address_rejects_missing_names(): void
+    {
+        $request = Request::create('/addresses', 'POST', [
+            '_structured_address' => '1',
+            'address_house' => 'House 12',
+            'address_street' => 'Rizal Street',
+            'address_landmark' => 'Near the blue gate',
+        ]);
+
+        $result = (new DeliveryLocationValidationService())
+            ->validateRequest($request, 15.8095, 120.4988, null, false, 'full_address');
+
         $this->assertFalse($result['ok']);
-        $this->assertStringContainsString('choose a province, city/municipality, and barangay', $result['message']);
     }
 
     public function test_shop_coverage_allows_address_inside_delivery_zone(): void

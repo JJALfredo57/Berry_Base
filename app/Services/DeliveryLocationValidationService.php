@@ -29,11 +29,7 @@ class DeliveryLocationValidationService
                 return ['ok' => false, 'message' => 'Please enter a real, readable delivery address. Check these fields: ' . implode(', ', $invalid) . '.'];
             }
 
-            $psgcValidation = app(\App\Services\PsgcService::class)->validateHierarchy(
-                $request->input('address_province_code'),
-                $request->input('address_city_code'),
-                $request->input('address_barangay_code')
-            );
+            $psgcValidation = app(\App\Services\PsgcService::class)->resolveFromRequest($request);
             if (!$psgcValidation['ok']) {
                 return ['ok' => false, 'message' => $psgcValidation['message']];
             }
@@ -206,18 +202,22 @@ class DeliveryLocationValidationService
         $barangayName = $this->normalizeLocationText((string) ($psgcValidation['barangay']['name'] ?? ''));
 
         $allowed = $this->allowedPsgcAreasFromZones($zones);
-        if (!empty($allowed['province_codes']) && !in_array($provinceCode, $allowed['province_codes'], true)) {
-            return ['ok' => false, 'message' => 'This shop does not deliver to the selected province. Please choose an address inside the shop delivery coverage or choose pickup.'];
+        $provinceMsg = 'This shop does not deliver to the selected province. Please choose an address inside the shop delivery coverage or choose pickup.';
+        $cityMsg = 'This shop does not deliver to the selected city/municipality. Please choose an address inside the shop delivery coverage or choose pickup.';
+        $useProvinceCode = $provinceCode !== '' && !empty($allowed['province_codes']);
+        if ($useProvinceCode && !in_array($provinceCode, $allowed['province_codes'], true)) {
+            return ['ok' => false, 'message' => $provinceMsg];
         }
-        if (empty($allowed['province_codes']) && !empty($allowed['province_names']) && !in_array($provinceName, $allowed['province_names'], true)) {
-            return ['ok' => false, 'message' => 'This shop does not deliver to the selected province. Please choose an address inside the shop delivery coverage or choose pickup.'];
+        if (!$useProvinceCode && !empty($allowed['province_names']) && !in_array($provinceName, $allowed['province_names'], true)) {
+            return ['ok' => false, 'message' => $provinceMsg];
         }
 
-        if (!empty($allowed['city_codes']) && !in_array($cityCode, $allowed['city_codes'], true)) {
-            return ['ok' => false, 'message' => 'This shop does not deliver to the selected city/municipality. Please choose an address inside the shop delivery coverage or choose pickup.'];
+        $useCityCode = $cityCode !== '' && !empty($allowed['city_codes']);
+        if ($useCityCode && !in_array($cityCode, $allowed['city_codes'], true)) {
+            return ['ok' => false, 'message' => $cityMsg];
         }
-        if (empty($allowed['city_codes']) && !empty($allowed['city_names']) && !in_array($cityName, $allowed['city_names'], true)) {
-            return ['ok' => false, 'message' => 'This shop does not deliver to the selected city/municipality. Please choose an address inside the shop delivery coverage or choose pickup.'];
+        if (!$useCityCode && !empty($allowed['city_names']) && !in_array($cityName, $allowed['city_names'], true)) {
+            return ['ok' => false, 'message' => $cityMsg];
         }
 
         foreach ($zones as $zone) {

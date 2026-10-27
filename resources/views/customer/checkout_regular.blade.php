@@ -53,6 +53,17 @@
 .checkout-error-box{border:1.5px solid #dc3545!important;background:#fff5f5!important;border-radius:.75rem;box-shadow:0 0 0 .2rem rgba(220,53,69,.12)}
 .checkout-field-error{color:#b42318;font-size:.8rem;font-weight:600;margin-top:.4rem}
 .checkout-field-error::before{content:"\F33A";font-family:"bootstrap-icons";margin-right:.35rem}
+.bb-summary-actions{display:grid;gap:.4rem}
+.bb-summary-chip{display:flex;align-items:center;justify-content:space-between;gap:.5rem;width:100%;padding:.45rem .1rem;background:transparent;border:0;border-bottom:1px dashed #d1d5db;color:var(--gray-700,#374151);font-size:.82rem;font-weight:600;text-align:left;cursor:pointer;min-height:40px}
+.bb-summary-chip:hover,.bb-summary-chip:focus-visible{color:var(--primary);outline:none}
+.bb-summary-chip .bb-chip-value{color:var(--primary);font-weight:600;white-space:nowrap;max-width:55%;overflow:hidden;text-overflow:ellipsis}
+.bb-summary-chip .bb-chip-value.is-set{background:color-mix(in srgb,var(--primary) 10%,#fff);border-radius:2rem;padding:.1rem .6rem}
+.bb-estimate{border:1px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb);border-radius:.7rem;background:var(--primary-light,#fff5f8);padding:.45rem .7rem}
+.bb-estimate-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-size:.75rem;font-weight:700;color:var(--primary)}
+.bb-estimate-grid{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;margin-top:.25rem}
+.bb-estimate-grid>div+div{border-left:1px solid color-mix(in srgb,var(--primary) 18%,#e5e7eb)}
+.bb-estimate-grid b{display:block;font-size:.88rem;line-height:1.25;color:var(--primary)}
+.bb-estimate-grid small{display:block;font-size:.58rem;letter-spacing:.04em;text-transform:uppercase;color:#6b7280}
 @keyframes bbPinPulse{0%{transform:scale(.75);opacity:.85}100%{transform:scale(1.45);opacity:0}}
 @media(max-width:575.98px){.checkout-branded-shell{padding:6px 0 10px}.checkout-branded-content{padding-left:8px;padding-right:8px}}
 </style>
@@ -68,7 +79,9 @@ document.body.style.paddingRight = '';
   <h4 class="fw-bold mb-3 text-center"><i class="bi bi-bag-check me-2" style="color:var(--primary)"></i>Checkout</h4>
 
   @if(session('error'))
-    <div class="alert alert-danger border-0"><i class="bi bi-exclamation-circle me-2"></i>{{ session('error') }}</div>
+    <div class="alert alert-danger border-0" id="checkoutServerAlert"><i class="bi bi-exclamation-circle me-2"></i>{{ session('error') }}</div>
+  @elseif($errors->any())
+    <div class="alert alert-danger border-0" id="checkoutServerAlert"><i class="bi bi-exclamation-circle me-2"></i>{{ $errors->first() }}</div>
   @endif
 
   <div class="row g-4">
@@ -306,36 +319,19 @@ document.body.style.paddingRight = '';
                 <i class="bi bi-geo-alt me-1"></i><span id="coverageMsg"></span>
               </div>
 
-              {{-- Fee + ETA display --}}
+              {{-- Delivery estimate (compact) --}}
               <div id="deliveryCalcBox" style="display:none" class="mb-3">
-                <div style="border-radius:.9rem;overflow:hidden;border:1.5px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb);box-shadow:0 4px 16px color-mix(in srgb,var(--primary) 12%,transparent)">
-                  <div id="deliveryCalcHeader" style="padding:.7rem 1.1rem;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark,var(--primary)) 100%)">
-                    <div class="d-flex align-items-center justify-content-between">
-                      <span class="fw-semibold text-white" style="font-size:.85rem">
-                        <i class="bi bi-bicycle me-2"></i>Delivery Quote
-                      </span>
-                      <span id="deliveryFreeTag" style="display:none;background:rgba(255,255,255,.25);color:#fff;font-size:.68rem;font-weight:700;border-radius:2rem;padding:2px 10px;letter-spacing:.05em">
-                        FREE DELIVERY
-                      </span>
-                    </div>
+                <div class="bb-estimate" id="deliveryCalcHeader">
+                  <div class="bb-estimate-head">
+                    <span><i class="bi bi-bicycle me-1"></i>Delivery Estimate</span>
+                    <span id="deliveryFreeTag" style="display:none;background:var(--primary);color:#fff;font-size:.6rem;font-weight:700;border-radius:2rem;padding:1px 8px;letter-spacing:.05em">FREE</span>
                   </div>
-                  <div style="background:var(--primary-light,#fff0f6);padding:.9rem 1rem">
-                    <div class="row g-0 text-center mb-2">
-                      <div class="col-4" style="border-right:1px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb)">
-                        <div class="fw-bold" id="distDisplay" style="font-size:1.05rem;color:var(--primary);line-height:1.2">—</div>
-                        <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Distance</div>
-                      </div>
-                      <div class="col-4" style="border-right:1px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb)">
-                        <div class="fw-bold" id="calcFeeDisplay" style="font-size:1.05rem;color:var(--primary-dark,var(--primary));line-height:1.2">₱0.00</div>
-                        <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Delivery Fee</div>
-                      </div>
-                      <div class="col-4">
-                        <div class="fw-bold" id="calcEtaDisplay" style="font-size:1.05rem;color:var(--primary);line-height:1.2">—</div>
-                        <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Est. Arrival</div>
-                      </div>
-                    </div>
-                    <div id="feeBreakdown" style="border-top:1px dashed #c4b5fd;padding-top:.5rem;font-size:.72rem;color:#6b7280;line-height:1.7"></div>
+                  <div class="bb-estimate-grid">
+                    <div><b id="distDisplay">—</b><small>Distance</small></div>
+                    <div><b id="calcFeeDisplay">₱0.00</b><small>Fee</small></div>
+                    <div><b id="calcEtaDisplay">—</b><small>Arrival</small></div>
                   </div>
+                  <div id="feeBreakdown" style="border-top:1px dashed #e5c0cf;margin-top:.35rem;padding-top:.3rem;font-size:.68rem;color:#6b7280;line-height:1.5"></div>
                 </div>
               </div>
 
@@ -426,10 +422,15 @@ document.body.style.paddingRight = '';
           </div>
         </div>
 
-        {{-- Promo / Voucher --}}
-        <div class="card mb-3">
-          <div class="card-body p-4">
-            <h6 class="fw-bold mb-2"><i class="bi bi-ticket-perforated me-2" style="color:var(--primary)"></i>Promo Code</h6>
+        {{-- Promo / Voucher (popup, opened from Order Summary) --}}
+        <div class="modal fade" id="promoModal" tabindex="-1" aria-labelledby="promoModalTitle" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content" style="border-radius:1rem">
+              <div class="modal-header py-2">
+                <h6 class="modal-title fw-bold" id="promoModalTitle"><i class="bi bi-ticket-perforated me-2" style="color:var(--primary)"></i>Promo Code</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
             @if(!empty($availableVouchers))
               <div class="d-grid gap-2 mb-3">
                 @foreach($availableVouchers as $voucher)
@@ -457,23 +458,33 @@ document.body.style.paddingRight = '';
               </div>
             @endif
             <div class="input-group">
-              <input type="text" class="form-control text-uppercase" name="voucher_code" id="voucherCodeInput" data-error-target="voucher" value="{{ old('voucher_code') }}" maxlength="40" placeholder="Enter voucher code">
+              <input type="text" form="checkoutForm" class="form-control text-uppercase" name="voucher_code" id="voucherCodeInput" data-error-target="voucher" value="{{ old('voucher_code') }}" maxlength="40" placeholder="Enter voucher code" autocomplete="off">
               <span class="input-group-text"><i class="bi bi-stars"></i></span>
             </div>
             <div class="form-text">Tap Use to preview voucher savings. Final validation still happens securely when you place the order.</div>
+              </div>
+              <div class="modal-footer py-2">
+                <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal">Apply</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {{-- Rewards Points --}}
-        <div class="card mb-3">
-          <div class="card-body p-4">
-            <h6 class="fw-bold mb-2"><i class="bi bi-award me-2" style="color:var(--primary)"></i>Use Rewards Points</h6>
+        {{-- Rewards Points (popup, opened from Order Summary) --}}
+        <div class="modal fade" id="pointsModal" tabindex="-1" aria-labelledby="pointsModalTitle" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content" style="border-radius:1rem">
+              <div class="modal-header py-2">
+                <h6 class="modal-title fw-bold" id="pointsModalTitle"><i class="bi bi-award me-2" style="color:var(--primary)"></i>Use Rewards Points</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
             <div class="d-flex flex-wrap justify-content-between gap-2 small mb-2">
               <span class="text-muted">Available: <strong>{{ (int)($loyaltyQuote['balance'] ?? 0) }} pts</strong></span>
               <span class="text-muted">Max this order: <strong>{{ (int)($loyaltyQuote['max'] ?? 0) }} pts</strong></span>
             </div>
             <div class="input-group">
-              <input type="number" class="form-control" name="points_to_redeem" id="pointsToRedeem" data-error-target="points" min="0" max="{{ (int)($loyaltyQuote['max'] ?? 0) }}" value="{{ old('points_to_redeem', 0) }}" {{ $verificationStatus === 'approved' ? '' : 'disabled' }}>
+              <input type="number" form="checkoutForm" class="form-control" name="points_to_redeem" id="pointsToRedeem" data-error-target="points" min="0" max="{{ (int)($loyaltyQuote['max'] ?? 0) }}" value="{{ old('points_to_redeem', 0) }}" {{ $verificationStatus === 'approved' ? '' : 'disabled' }}>
               <span class="input-group-text">points</span>
             </div>
             <div class="form-text">
@@ -489,6 +500,11 @@ document.body.style.paddingRight = '';
                 <span class="text-muted">({{ number_format((float) ($loyaltyEarnEstimate['multiplier'] ?? 1), 2) }}x tier multiplier)</span>
               </div>
             @endif
+              </div>
+              <div class="modal-footer py-2">
+                <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal">Apply</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -551,8 +567,18 @@ document.body.style.paddingRight = '';
           </div>
           @endif
           <div id="addonSummary"></div>
-          <div class="d-flex justify-content-between small mb-1" id="voucherPreviewRow" style="display:none"><span class="text-muted">Promo Code</span><span id="voucherPreviewDisplay" style="color:#16a34a">-PHP 0.00</span></div>
-          <div class="d-flex justify-content-between small mb-1" id="pointsPreviewRow" style="display:none">
+          <div class="bb-summary-actions my-2">
+            <button type="button" class="bb-summary-chip" data-bs-toggle="modal" data-bs-target="#promoModal" aria-haspopup="dialog">
+              <span><i class="bi bi-ticket-perforated me-2"></i>Promo code</span>
+              <span class="bb-chip-value" id="promoChipValue">Add<i class="bi bi-chevron-right ms-1"></i></span>
+            </button>
+            <button type="button" class="bb-summary-chip" data-bs-toggle="modal" data-bs-target="#pointsModal" aria-haspopup="dialog">
+              <span><i class="bi bi-award me-2"></i>Rewards points</span>
+              <span class="bb-chip-value" id="pointsChipValue">Use<i class="bi bi-chevron-right ms-1"></i></span>
+            </button>
+          </div>
+          <div class="justify-content-between small mb-1" id="voucherPreviewRow" style="display:none"><span class="text-muted">Promo Code</span><span id="voucherPreviewDisplay" style="color:#16a34a">-PHP 0.00</span></div>
+          <div class="justify-content-between small mb-1" id="pointsPreviewRow" style="display:none">
             <span class="text-muted">Rewards Points</span>
             <span id="pointsPreviewDisplay" style="color:#16a34a">-PHP 0.00</span>
           </div>
@@ -745,6 +771,7 @@ let skipReverseGeocodeOnce = false;
 const SAVED_ADDRESS = @json($savedAddrUsable ? ['text' => $defaultAddr->full_address, 'zone' => $defaultAddr->barangay_name ?? ''] : null);
 const SERVER_ERROR_FIELD = @json(session('error_field'));
 const SERVER_ERROR_MESSAGE = @json(session('error'));
+const SERVER_VALIDATION_ERRORS = @json($errors->messages());
 
 function getThemeColor() {
   return getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#e91e63';
@@ -927,18 +954,13 @@ function onPinSet(lat, lng) {
 
     // Fee
     const feeEl  = document.getElementById('calcFeeDisplay');
-    const hdrEl  = document.getElementById('deliveryCalcHeader');
     const freeEl = document.getElementById('deliveryFreeTag');
     if (fee === 0) {
       feeEl.textContent  = 'FREE';
-      feeEl.style.color  = 'var(--primary)';
       freeEl.style.display = '';
-      hdrEl.style.background = 'linear-gradient(135deg,var(--primary) 0%,var(--primary-dark,var(--primary)) 100%)';
     } else {
       feeEl.textContent  = '₱' + fee.toFixed(2);
-      feeEl.style.color  = 'var(--primary-dark,var(--primary))';
       freeEl.style.display = 'none';
-      hdrEl.style.background = 'linear-gradient(135deg,var(--primary) 0%,var(--primary-dark,var(--primary)) 100%)';
     }
 
     // ETA
@@ -1264,6 +1286,15 @@ function clearCheckoutErrors() {
 
 function showCheckoutError(field, message) {
   clearCheckoutErrors();
+  const modalId = { voucher: 'promoModal', points: 'pointsModal' }[field];
+  if (modalId && window.bootstrap) {
+    const modalEl = document.getElementById(modalId);
+    if (modalEl && !modalEl.classList.contains('show')) {
+      modalEl.addEventListener('shown.bs.modal', () => showCheckoutError(field, message), { once: true });
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+      return true;
+    }
+  }
   if (field === 'address' || field === 'location') {
     if (usingSavedAddress()) setAddressMode(false);
     document.getElementById('delivery').checked = true;
@@ -1294,14 +1325,67 @@ function showCheckoutError(field, message) {
 }
 
 document.addEventListener('input', e => {
-  if (e.target.closest('#checkoutForm')) {
+  if (e.target.closest('#checkoutForm, .modal')) {
     e.target.classList.remove('is-invalid');
+    e.target.parentElement?.parentElement?.querySelector(':scope > .checkout-field-error')?.remove();
     refreshInfoAddress();
   }
 });
 document.addEventListener('change', e => {
-  if (e.target.closest('#checkoutForm')) e.target.classList.remove('is-invalid');
+  if (e.target.closest('#checkoutForm, .modal')) e.target.classList.remove('is-invalid');
 });
+
+// Promo / rewards popups live in <body> but still submit with the checkout form (form="checkoutForm").
+['promoModal', 'pointsModal'].forEach(id => {
+  const modalEl = document.getElementById(id);
+  if (!modalEl) return;
+  document.body.appendChild(modalEl);
+  modalEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+      e.preventDefault();
+      window.bootstrap && bootstrap.Modal.getInstance(modalEl)?.hide();
+    }
+  });
+  modalEl.addEventListener('hidden.bs.modal', () => updateTotal(getCurrentAddonTotal()));
+});
+
+// Pick the form section that matches a plain error message when the server gave no field key.
+function inferErrorField(message) {
+  const m = String(message || '').toLowerCase();
+  const rules = [
+    ['voucher', /voucher|promo/],
+    ['points', /reward|points/],
+    ['surprise', /recipient|surprise/],
+    ['schedule', /schedule|preferred (date|time)|preparation|time slot|opening|closing|capacity|lead time|date/],
+    ['address', /pin|address|barangay|province|city|municipality|landmark|coverage|delivery area|location/],
+    ['payment', /gcash|payment|deposit/],
+  ];
+  const hit = rules.find(([, re]) => re.test(m));
+  return hit ? hit[0] : null;
+}
+
+const VALIDATION_FIELD_MAP = {
+  schedule_date: 'schedule', schedule_time: 'schedule', address: 'address', latitude: 'address', longitude: 'address',
+  delivery_zone: 'address', fulfillment_type: 'schedule', payment_method: 'payment', voucher_code: 'voucher',
+  points_to_redeem: 'points', recipient_name: 'surprise', recipient_phone: 'surprise', gift_message: 'surprise',
+  sender_display_name: 'surprise', delivery_instructions: 'surprise', surprise_contact_policy: 'surprise',
+};
+
+function showServerCheckoutError() {
+  const validation = SERVER_VALIDATION_ERRORS || {};
+  const keys = Object.keys(validation);
+  let field = SERVER_ERROR_FIELD;
+  let message = SERVER_ERROR_MESSAGE;
+  if (!message && keys.length) {
+    message = validation[keys[0]][0];
+    field = VALIDATION_FIELD_MAP[keys[0]] || inferErrorField(message);
+  }
+  if (!message) return;
+  field = field || inferErrorField(message);
+  if (!field || !showCheckoutError(field, message)) {
+    document.getElementById('checkoutServerAlert')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
 
 function updatePaymentMethodLabel() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
@@ -1404,6 +1488,24 @@ function updateTotal(addonTotal) {
   const total = Math.max(0, BASE_PRICE + (addonTotal ?? getCurrentAddonTotal()) - voucherPreviewDiscount - (points * POINT_VALUE)) + (isDelivery ? deliveryFee : 0);
   const el = document.getElementById('totalDisplay');
   if (el) el.textContent = '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2});
+  refreshPromoChips(points);
+}
+
+function refreshPromoChips(points) {
+  const promo = document.getElementById('promoChipValue');
+  const pts = document.getElementById('pointsChipValue');
+  const code = (document.getElementById('voucherCodeInput')?.value || '').trim().toUpperCase();
+  const arrow = '<i class="bi bi-chevron-right ms-1"></i>';
+  const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  if (promo) {
+    promo.innerHTML = (code ? esc(code) : 'Add') + arrow;
+    promo.classList.toggle('is-set', !!code);
+  }
+  if (pts) {
+    const n = points !== undefined ? points : (parseInt(document.getElementById('pointsToRedeem')?.value || '0', 10) || 0);
+    pts.innerHTML = (n > 0 ? n + ' pts' : 'Use') + arrow;
+    pts.classList.toggle('is-set', n > 0);
+  }
 }
 
 // ── Form submit validation ────────────────────────────
@@ -1445,8 +1547,8 @@ if (document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delive
   if (usingSavedAddress()) setAddressMode(true);
 }
 refreshInfoAddress();
-if (SERVER_ERROR_FIELD && SERVER_ERROR_MESSAGE) {
-  setTimeout(() => showCheckoutError(SERVER_ERROR_FIELD, SERVER_ERROR_MESSAGE), 400);
+if (SERVER_ERROR_MESSAGE || Object.keys(SERVER_VALIDATION_ERRORS || {}).length) {
+  setTimeout(showServerCheckoutError, 400);
 }
 document.querySelectorAll('[data-voucher-code]').forEach(btn => {
   btn.addEventListener('click', () => {
