@@ -1040,14 +1040,6 @@
           <a href="{{ route('track.order', $o->track_code) }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-search me-1"></i>Track
           </a>
-          <button type="button" class="btn btn-outline-secondary btn-sm"
-                  onclick="copyTrackingCode('{{ $o->track_code }}')">
-            <i class="bi bi-clipboard me-1"></i>Copy Code
-          </button>
-          <button type="button" class="btn btn-outline-secondary btn-sm"
-                  onclick="shareTrackingLink('{{ $o->track_code }}', '{{ route('track.order', $o->track_code) }}')">
-            <i class="bi bi-share me-1"></i>Share
-          </button>
         @endif
 
         <a href="{{ route('customer.messages.thread', $o->id) }}" class="btn btn-outline-primary btn-sm">
