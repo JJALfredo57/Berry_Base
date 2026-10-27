@@ -885,7 +885,7 @@
         </div>
         @endif
 
-        @if($order->payment_method === 'GCash' && $order->payment_status !== 'Paid')
+        @if($order->payment_status !== 'Paid')
         <div class="modal fade customer-qr-modal customer-qr-panel" id="customerQrPanel" tabindex="-1" role="dialog" aria-labelledby="customerQrTitle" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
@@ -2600,6 +2600,7 @@ function customerQrMessage(message, type = 'info') {
 }
 
 function customerQrShow(panel) {
+  if (panel.parentElement !== document.body) document.body.appendChild(panel);
   if (window.bootstrap?.Modal) {
     window.bootstrap.Modal.getOrCreateInstance(panel).show();
     return true;
@@ -2670,7 +2671,10 @@ function customerQrRender(data) {
 
 async function customerQrGenerate(trigger = null) {
   const el = customerQrElements();
-  if (!el.panel) return;
+  if (!el.panel) {
+    window.alert('The QR popup is unavailable for this order. Please reload the page and try again.');
+    return;
+  }
 
   const paymentType = trigger?.dataset?.paymentType || customerQrState.paymentType || 'full';
   const amount = customerQrAmountFromTrigger(trigger) || customerQrState.amount;
