@@ -55,6 +55,13 @@ class CustomCartOrderService
         $total = max(0, (float) ($meta['estimated_total'] ?? ($item->final_unit_price_snapshot * $qty)));
         $unitPrice = (float) ($breakdown['unit_price'] ?? ($qty > 0 ? $total / $qty : $total));
         $fulfillment = $meta['fulfillment_type'] ?? 'Pickup';
+        $payment = $context['payment_method'] ?? ($meta['payment_method'] ?? 'COD');
+        if (!in_array($payment, ['COD', 'COP', 'GCash'], true)) {
+            return ['ok' => false, 'message' => 'Please choose a valid payment method for this custom order.'];
+        }
+        if ($payment !== 'GCash') {
+            $payment = $fulfillment === 'Delivery' ? 'COD' : 'COP';
+        }
         $deliveryFee = (float) ($meta['delivery_fee'] ?? 0);
         $serviceCharge = (float) ($meta['service_charge'] ?? 0);
         $trackCode = $context['track_code'] ?? $this->generateTrackCode();
@@ -96,7 +103,7 @@ class CustomCartOrderService
             'latitude' => $meta['latitude'] ?? null,
             'schedule_date' => $date,
             'schedule_time' => $scheduleTime ?: null,
-            'payment_method' => $meta['payment_method'] ?? ($context['payment_method'] ?? 'COD'),
+            'payment_method' => $payment,
             'payment_status' => 'Unpaid',
             'created_at' => now(),
         ];
@@ -197,4 +204,3 @@ class CustomCartOrderService
         return ['ok' => true, 'order_id' => $oid, 'track_code' => $trackCode, 'total' => $total];
     }
 }
-

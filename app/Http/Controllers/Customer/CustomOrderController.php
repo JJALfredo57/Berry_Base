@@ -198,6 +198,10 @@ class CustomOrderController extends Controller
         if ($request->input('submit_action') === 'add_to_cart') {
             return $this->addCustomCakeToCart($request, (string) $uid);
         }
+        $request->validate([
+            'fulfillment_type' => 'nullable|in:Pickup,Delivery',
+            'payment_method' => 'nullable|in:COD,COP,GCash',
+        ]);
         $shop = $this->resolveVerifiedShop($request->input('shop_slug'));
         if (!$shop) {
             return redirect()->route('platform.shops')
@@ -262,7 +266,7 @@ class CustomOrderController extends Controller
             }
         }
 
-        $fulfillment = $request->input('fulfillment_type', 'Pickup');
+        $fulfillment = $request->input('fulfillment_type', 'Pickup') ?: 'Pickup';
         $zone        = $request->input('delivery_zone', '');
         $deliveryFee = (float)$request->input('delivery_fee', 0);
         $address     = app(\App\Services\DeliveryLocationValidationService::class)->addressFromRequest($request, 'address');
@@ -270,7 +274,9 @@ class CustomOrderController extends Controller
         $lng         = $request->input('longitude') !== '' ? (float)$request->input('longitude') : null;
         $addressCodes = app(\App\Services\PsgcService::class)->addressCodesFromRequest($request);
         $sdate       = $request->input('schedule_date') ?: null;
-        $payment     = $request->input('payment_method', 'COD');
+        $cashPaymentMethod = $fulfillment === 'Delivery' ? 'COD' : 'COP';
+        $payment = $request->input('payment_method', $cashPaymentMethod);
+        $payment = $payment === 'GCash' ? 'GCash' : $cashPaymentMethod;
         $surprise = $this->surpriseDeliveryData($request, $fulfillment);
         if (!empty($surprise['error'])) {
             return back()->with('error', $surprise['error'])->withInput();
@@ -715,4 +721,3 @@ class CustomOrderController extends Controller
         ]];
     }
 }
-

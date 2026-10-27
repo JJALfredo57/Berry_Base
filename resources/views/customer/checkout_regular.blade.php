@@ -465,7 +465,7 @@ document.body.style.paddingRight = '';
             <h6 class="fw-bold mb-3"><i class="bi bi-credit-card me-2" style="color:var(--primary)"></i>Payment Method</h6>
             <div class="d-flex gap-3 flex-wrap">
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="payment_method" value="COD" id="cod" checked>
+                <input class="form-check-input" type="radio" name="payment_method" value="COP" id="cod" checked>
                 <label class="form-check-label fw-semibold" for="cod">
                   <i class="bi bi-cash-coin me-1"></i><span id="codLabelText">Cash on Pickup (COP)</span>
                 </label>
@@ -1160,6 +1160,8 @@ function toggleDelivery() {
 
 function updatePaymentMethodLabel() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+  const cashMethod = document.getElementById('cod');
+  if (cashMethod) cashMethod.value = isDelivery ? 'COD' : 'COP';
   const codLabel = document.getElementById('codLabelText');
   const codHelp = document.getElementById('codHelpText');
   if (codLabel) {

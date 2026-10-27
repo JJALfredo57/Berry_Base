@@ -391,7 +391,7 @@ class CheckoutController extends Controller
                 ->with('warn', "Order #{$recentDuplicate->id} was already placed! Check your orders.");
         }
 
-        $fulfillment   = $request->input('fulfillment_type', 'Pickup');
+        $fulfillment   = $request->input('fulfillment_type', 'Pickup') ?: 'Pickup';
         $zone          = $request->input('delivery_zone', '');
         $deliveryFee   = (float) $request->input('delivery_fee', 0);
         $address       = app(\App\Services\DeliveryLocationValidationService::class)->addressFromRequest($request, 'address');
@@ -400,7 +400,9 @@ class CheckoutController extends Controller
         $addressCodes  = app(\App\Services\PsgcService::class)->addressCodesFromRequest($request);
         $sdate         = $request->input('schedule_date') ?: null;
         $stime         = $request->input('schedule_time') ?: null;
-        $payment       = $request->input('payment_method', 'COD');
+        $cashPaymentMethod = $fulfillment === 'Delivery' ? 'COD' : 'COP';
+        $payment = $request->input('payment_method', $cashPaymentMethod);
+        $payment = $payment === 'GCash' ? 'GCash' : $cashPaymentMethod;
         $selectedSize  = trim((string) $request->input('selected_size', $checkout['selected_size'] ?? ''));
         if (!empty($checkout['request_offer_checkout'])) {
             $sdate = $checkout['schedule_date'] ?? $sdate;
@@ -626,9 +628,6 @@ class CheckoutController extends Controller
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $this->generateTrackCode();
 
-        $needsDeposit  = ($payment === 'COD');
-        $depositAmount = $needsDeposit ? round($total * 0.5, 2) : null;
-
         $submitKey = $this->submissionKey($request, 'customer_checkout_place');
         if ($submitKey && !Cache::add($submitKey . ':lock', true, now()->addMinutes(10))) {
             $existing = Cache::get($submitKey . ':result');
@@ -666,10 +665,10 @@ class CheckoutController extends Controller
             'quantity'         => $qty,
             'custom_note'      => $note,
             'total_price'      => $total,
-            'status'           => $needsDeposit ? 'Awaiting Deposit' : 'Pending',
-            'deposit_required' => $needsDeposit ? 1 : 0,
-            'deposit_amount'   => $depositAmount,
-            'deposit_status'   => $needsDeposit ? 'pending' : null,
+            'status'           => 'Pending',
+            'deposit_required' => 0,
+            'deposit_amount'   => null,
+            'deposit_status'   => null,
             'fulfillment_type' => $fulfillment,
             'delivery_zone'    => $zone ?: ($address ? substr($address, 0, 80) : ''),
             'delivery_fee'     => $deliveryFee,
@@ -782,7 +781,6 @@ class CheckoutController extends Controller
                     'loyalty_discount_amount' => 0,
                     'points_redeemed' => 0,
                     'total_price' => $total + $loyaltyDiscount,
-                    'deposit_amount' => $needsDeposit ? round(($total + $loyaltyDiscount) * 0.5, 2) : null,
                     'updated_at' => now(),
                 ]);
                 $total += $loyaltyDiscount;
@@ -801,10 +799,8 @@ class CheckoutController extends Controller
 
         DB::table('order_tracking')->insert([
             'order_id'   => $oid,
-            'status'     => $needsDeposit ? 'Awaiting Deposit' : 'Pending',
-            'notes'      => $needsDeposit
-                ? 'Order placed. Awaiting 50% deposit payment via GCash before confirmation.'
-                : 'Order placed successfully.',
+            'status'     => 'Pending',
+            'notes'      => 'Order placed successfully.',
             'created_at' => now(),
         ]);
 
@@ -897,7 +893,9 @@ class CheckoutController extends Controller
 
         $successMsg = $payment === 'GCash'
             ? 'Order placed! Please pay from the tracking page below.'
-            : 'Order placed! Please pay your 50% deposit from the tracking page below.';
+            : ($fulfillment === 'Delivery'
+                ? 'Order placed! Pay cash when your order arrives.'
+                : 'Order placed! Pay cash when you pick up your order.');
 
         if ($payment === 'GCash') {
             $request->session()->put('last_order_id', $oid);
