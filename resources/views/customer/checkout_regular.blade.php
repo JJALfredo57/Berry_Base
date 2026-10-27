@@ -50,6 +50,9 @@
 .bb-customer-pin::before{content:"";position:absolute;inset:-8px;border-radius:50%;border:2px solid color-mix(in srgb,var(--primary) 35%,transparent);animation:bbPinPulse 1.8s ease-out infinite}
 .bb-customer-pin span{width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px color-mix(in srgb,#fff 40%,transparent)}
 @keyframes bbRouteDash{to{stroke-dashoffset:-22}}
+.checkout-error-box{border:1.5px solid #dc3545!important;background:#fff5f5!important;border-radius:.75rem;box-shadow:0 0 0 .2rem rgba(220,53,69,.12)}
+.checkout-field-error{color:#b42318;font-size:.8rem;font-weight:600;margin-top:.4rem}
+.checkout-field-error::before{content:"\F33A";font-family:"bootstrap-icons";margin-right:.35rem}
 @keyframes bbPinPulse{0%{transform:scale(.75);opacity:.85}100%{transform:scale(1.45);opacity:0}}
 @media(max-width:575.98px){.checkout-branded-shell{padding:6px 0 10px}.checkout-branded-content{padding-left:8px;padding-right:8px}}
 </style>
@@ -177,6 +180,12 @@ document.body.style.paddingRight = '';
                   <div class="fw-semibold">{{ $customer->email }}</div>
                 </div>
               </div>
+              <div class="col-12">
+                <div class="bg-light rounded p-2">
+                  <div class="text-muted" style="font-size:.72rem" id="infoAddressLabel">ADDRESS</div>
+                  <div class="fw-semibold" id="infoAddress" style="word-break:break-word"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -222,17 +231,23 @@ document.body.style.paddingRight = '';
             @endif
             @if($hasRegularFulfillment)
             <div class="d-flex gap-3 mb-3">
+              @php $oldFulfillment = old('fulfillment_type', 'Pickup'); @endphp
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="fulfillment_type" value="Pickup" id="pickup" checked onchange="toggleDelivery()">
+                <input class="form-check-input" type="radio" name="fulfillment_type" value="Pickup" id="pickup" {{ $oldFulfillment !== 'Delivery' ? 'checked' : '' }} onchange="toggleDelivery()">
                 <label class="form-check-label fw-semibold" for="pickup"><i class="bi bi-bag me-1"></i>Pickup</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="fulfillment_type" value="Delivery" id="delivery" onchange="toggleDelivery()">
+                <input class="form-check-input" type="radio" name="fulfillment_type" value="Delivery" id="delivery" {{ $oldFulfillment === 'Delivery' ? 'checked' : '' }} onchange="toggleDelivery()">
                 <label class="form-check-label fw-semibold" for="delivery"><i class="bi bi-bicycle me-1"></i>Delivery</label>
               </div>
             </div>
 
             <div id="deliverySection" style="display:none">
+              @php
+                $savedAddrUsable = $defaultAddr && !empty($defaultAddr->full_address) && $defaultAddr->latitude !== null && $defaultAddr->longitude !== null;
+                $useSavedAddress = $savedAddrUsable && (string) old('use_saved_address', '1') === '1';
+              @endphp
+              <input type="hidden" name="use_saved_address" id="useSavedAddress" value="{{ $useSavedAddress ? '1' : '0' }}">
 
               @if(($product->classification ?? '') === 'Perishable')
               <div class="alert border-0 mb-3" style="background:#fff7ed;border-left:4px solid #f59e0b!important;border-radius:.7rem">
@@ -248,8 +263,23 @@ document.body.style.paddingRight = '';
               </div>
               @endif
 
+              {{-- Saved location summary --}}
+              @if($savedAddrUsable)
+              <div id="savedAddressBox" class="mb-3 p-3 rounded-3" data-error-target="savedlocation" style="border:1.5px solid color-mix(in srgb,var(--primary) 25%,#e5e7eb);background:var(--primary-bg,#fff5f8)">
+                <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                  <div class="min-width-0">
+                    <div class="fw-semibold small"><i class="bi bi-geo-alt-fill me-1" style="color:var(--primary)"></i>Delivering to your saved location</div>
+                    <div class="small mt-1" id="savedAddressText" style="word-break:break-word">{{ $defaultAddr->full_address }}</div>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="setAddressMode(false)">
+                    <i class="bi bi-pencil me-1"></i>Change location
+                  </button>
+                </div>
+              </div>
+              @endif
+
               {{-- Detect location + Map --}}
-              <div class="mb-2">
+              <div class="mb-2" id="pinBox" data-error-target="location" @if($useSavedAddress) style="display:none" @endif>
                 <label class="form-label fw-semibold small">
                   <i class="bi bi-pin-map me-1" style="color:var(--primary)"></i>Pin Your Delivery Location
                   <span class="text-danger">*</span>
@@ -259,6 +289,9 @@ document.body.style.paddingRight = '';
                     <i class="bi bi-crosshair me-1"></i>Detect My Location
                   </button>
                   <span class="text-muted" style="font-size:.78rem">or click/tap anywhere on the map</span>
+                  @if($savedAddrUsable)
+                  <button type="button" class="btn btn-sm btn-link ms-auto p-0" onclick="setAddressMode(true)">Use saved location</button>
+                  @endif
                 </div>
                 <div id="map" style="height:260px;border-radius:.9rem;border:1.5px solid #dee2e6"></div>
                 <input type="hidden" name="latitude"  id="lat">
@@ -306,8 +339,8 @@ document.body.style.paddingRight = '';
                 </div>
               </div>
 
-              {{-- Address --}}
-              <div class="mb-3">
+              {{-- Address (only when changing / no saved location) --}}
+              <fieldset id="newAddressBox" class="mb-3 border-0 p-0 m-0 min-width-0" data-error-target="address" {{ $useSavedAddress ? 'disabled style=display:none' : '' }}>
                 <label class="form-label fw-semibold small">
                   Full Address
                   <span id="addressLoading" style="display:none;font-size:.75rem;color:var(--primary);font-weight:400">
@@ -316,16 +349,16 @@ document.body.style.paddingRight = '';
                   </span>
                 </label>
                 @include('partials.delivery_address_fields', ['prefix' => 'checkout', 'title' => 'Detailed Delivery Address'])
-                    <textarea class="form-control" name="address" id="addressField" rows="2"
-                  placeholder="Pin your location on the map to auto-fill, or type your address">{{ $defaultAddr ? $defaultAddr->full_address : '' }}</textarea>
-              </div>
-              <div class="form-check mb-1">
-                <input class="form-check-input" type="checkbox" name="save_default_address" id="saveAddr">
-                <label class="form-check-label small" for="saveAddr">Save as default address</label>
-              </div>
+                <textarea class="form-control" name="address" id="addressField" rows="2"
+                  placeholder="Pin your location on the map to auto-fill, or type your address">{{ old('address', '') }}</textarea>
+                <div class="form-check mt-2 mb-1">
+                  <input class="form-check-input" type="checkbox" name="save_default_address" id="saveAddr" {{ old('save_default_address') ? 'checked' : '' }}>
+                  <label class="form-check-label small" for="saveAddr">Save as my default location</label>
+                </div>
+              </fieldset>
                   <div class="mt-3 p-3 rounded-3 bb-surprise-card" style="border:1.5px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb);background:linear-gradient(135deg,#fff 0%,var(--primary-light,#fff5f8) 100%);box-shadow:0 10px 24px rgba(15,23,42,.06)">
                     <div class="form-check form-switch d-flex align-items-center gap-2 mb-2">
-                      <input class="form-check-input" type="checkbox" name="is_surprise_delivery" id="surpriseDelivery" value="1" onchange="toggleSurpriseDelivery()">
+                      <input class="form-check-input" type="checkbox" name="is_surprise_delivery" id="surpriseDelivery" value="1" {{ old('is_surprise_delivery') ? 'checked' : '' }} onchange="toggleSurpriseDelivery()">
                       <label class="form-check-label fw-bold" for="surpriseDelivery"><i class="bi bi-gift me-1" style="color:var(--primary)"></i>Send as surprise gift</label>
                     </div>
                     <div class="text-muted small mb-3">Use this when the cake is for another recipient. Payment stays with you and the recipient will not be asked to pay.</div>
@@ -333,11 +366,11 @@ document.body.style.paddingRight = '';
                       <div class="row g-3">
                         <div class="col-md-6">
                           <label class="form-label fw-semibold small">Recipient Name <span class="text-danger">*</span></label>
-                          <input type="text" class="form-control" name="recipient_name" id="recipientName" maxlength="120" placeholder="Who will receive the cake?">
+                          <input type="text" class="form-control" name="recipient_name" id="recipientName" data-error-target="surprise" value="{{ old('recipient_name') }}" maxlength="120" placeholder="Who will receive the cake?">
                         </div>
                         <div class="col-md-6">
                           <label class="form-label fw-semibold small">Recipient Phone <span class="text-muted fw-normal">(optional)</span></label>
-                          <input type="tel" class="form-control" name="recipient_phone" id="recipientPhone" maxlength="30" placeholder="09XXXXXXXXX"><div class="form-text">Optional. Rider will use this only if delivery cannot be completed. If blank, sender will be contacted first.</div>
+                          <input type="tel" class="form-control" name="recipient_phone" id="recipientPhone" maxlength="30" value="{{ old('recipient_phone') }}" placeholder="09XXXXXXXXX"><div class="form-text">Optional. Rider will use this only if delivery cannot be completed. If blank, sender will be contacted first.</div>
                         </div>
                         <div class="col-md-6">
                           <label class="form-label fw-semibold small">Sender Name on Card</label>
@@ -353,11 +386,11 @@ document.body.style.paddingRight = '';
                         </div>
                         <div class="col-12">
                           <label class="form-label fw-semibold small">Gift Message</label>
-                          <textarea class="form-control" name="gift_message" rows="2" maxlength="500" placeholder="Optional message for the recipient"></textarea>
+                          <textarea class="form-control" name="gift_message" rows="2" maxlength="500" placeholder="Optional message for the recipient">{{ old('gift_message') }}</textarea>
                         </div>
                         <div class="col-12">
                           <label class="form-label fw-semibold small">Rider / Seller Instructions</label>
-                          <textarea class="form-control" name="delivery_instructions" rows="2" maxlength="500" placeholder="Example: Please call me first, do not mention the price, hand it to the guard if recipient is not outside."></textarea>
+                          <textarea class="form-control" name="delivery_instructions" rows="2" maxlength="500" placeholder="Example: Please call me first, do not mention the price, hand it to the guard if recipient is not outside.">{{ old('delivery_instructions') }}</textarea>
                         </div>
                         <div class="col-12">
                           <div class="form-check">
@@ -373,7 +406,7 @@ document.body.style.paddingRight = '';
             <div class="row g-3 mt-1">
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Preferred Date</label>
-                <input type="date" class="form-control" name="schedule_date" id="custFieldDate"
+                <input type="date" class="form-control" name="schedule_date" id="custFieldDate" data-error-target="schedule"
                        value="{{ old('schedule_date', $checkout['schedule_date'] ?? '') }}"
                        min="{{ !empty($checkout['request_offer_checkout']) ? ($checkout['schedule_date'] ?? $readyMadeEarliestDate) : $readyMadeEarliestDate }}"
                        @if($sweetDealMaxDate) max="{{ $sweetDealMaxDate }}" data-sweet-deal-max-label="{{ $sweetDealMaxLabel }}" @endif
@@ -386,7 +419,7 @@ document.body.style.paddingRight = '';
               </div>
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Preferred Time</label>
-                <input type="time" class="form-control" name="schedule_time" id="custFieldTime" value="{{ old('schedule_time', $checkout['schedule_time'] ?? '') }}" min="{{ substr($scheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($scheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')" oninput="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
+                <input type="time" class="form-control" name="schedule_time" id="custFieldTime" data-error-target="schedule" value="{{ old('schedule_time', $checkout['schedule_time'] ?? '') }}" min="{{ substr($scheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($scheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')" oninput="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
               </div>
             </div>
             @endif
@@ -424,7 +457,7 @@ document.body.style.paddingRight = '';
               </div>
             @endif
             <div class="input-group">
-              <input type="text" class="form-control text-uppercase" name="voucher_code" id="voucherCodeInput" maxlength="40" placeholder="Enter voucher code">
+              <input type="text" class="form-control text-uppercase" name="voucher_code" id="voucherCodeInput" data-error-target="voucher" value="{{ old('voucher_code') }}" maxlength="40" placeholder="Enter voucher code">
               <span class="input-group-text"><i class="bi bi-stars"></i></span>
             </div>
             <div class="form-text">Tap Use to preview voucher savings. Final validation still happens securely when you place the order.</div>
@@ -440,7 +473,7 @@ document.body.style.paddingRight = '';
               <span class="text-muted">Max this order: <strong>{{ (int)($loyaltyQuote['max'] ?? 0) }} pts</strong></span>
             </div>
             <div class="input-group">
-              <input type="number" class="form-control" name="points_to_redeem" id="pointsToRedeem" min="0" max="{{ (int)($loyaltyQuote['max'] ?? 0) }}" value="{{ old('points_to_redeem', 0) }}" {{ $verificationStatus === 'approved' ? '' : 'disabled' }}>
+              <input type="number" class="form-control" name="points_to_redeem" id="pointsToRedeem" data-error-target="points" min="0" max="{{ (int)($loyaltyQuote['max'] ?? 0) }}" value="{{ old('points_to_redeem', 0) }}" {{ $verificationStatus === 'approved' ? '' : 'disabled' }}>
               <span class="input-group-text">points</span>
             </div>
             <div class="form-text">
@@ -463,16 +496,16 @@ document.body.style.paddingRight = '';
         <div class="card mb-3">
           <div class="card-body p-4">
             <h6 class="fw-bold mb-3"><i class="bi bi-credit-card me-2" style="color:var(--primary)"></i>Payment Method</h6>
-            <div class="d-flex gap-3 flex-wrap">
+            <div class="d-flex gap-3 flex-wrap" data-error-target="payment">
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="payment_method" value="COP" id="cod" checked>
+                <input class="form-check-input" type="radio" name="payment_method" value="COP" id="cod" {{ old('payment_method') === 'GCash' ? '' : 'checked' }}>
                 <label class="form-check-label fw-semibold" for="cod">
                 <i class="bi bi-cash-coin me-1"></i><span id="codLabelText">50% GCash Deposit + Cash on Pickup</span>
                 </label>
                 <div class="text-muted" id="codHelpText" style="font-size:clamp(.68rem,1.3vw,.72rem)">Pay a 50% GCash deposit to secure the order; pay the remaining balance in cash at pickup.</div>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="payment_method" value="GCash" id="gcash">
+                <input class="form-check-input" type="radio" name="payment_method" value="GCash" id="gcash" {{ old('payment_method') === 'GCash' ? 'checked' : '' }}>
                 <label class="form-check-label fw-semibold" for="gcash">
                   <i class="bi bi-phone me-1"></i>Pay Full Amount with GCash
                   @php $pmMode = \App\Helpers\CakeshopHelper::getPaymongoMode(); @endphp
@@ -708,6 +741,10 @@ let deliveryFee = 0;
 let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
 let addressLookupSeq = 0;
+let skipReverseGeocodeOnce = false;
+const SAVED_ADDRESS = @json($savedAddrUsable ? ['text' => $defaultAddr->full_address, 'zone' => $defaultAddr->barangay_name ?? ''] : null);
+const SERVER_ERROR_FIELD = @json(session('error_field'));
+const SERVER_ERROR_MESSAGE = @json(session('error'));
 
 function getThemeColor() {
   return getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#e91e63';
@@ -966,8 +1003,13 @@ function initMap() {
 
   drawCoverageAreas();
 
-  // Pre-load default address pin
-  @if($defaultAddr && $defaultAddr->latitude && $defaultAddr->longitude)
+  // Pre-load restored pin (after a failed submit) or the saved location pin
+  @if(old('latitude') !== null && old('latitude') !== '' && old('longitude') !== null && old('longitude') !== '')
+    skipReverseGeocodeOnce = true;
+    setMarkerAt(L.latLng({{ (float) old('latitude') }}, {{ (float) old('longitude') }}), true);
+    map.setView([{{ (float) old('latitude') }}, {{ (float) old('longitude') }}], 16);
+  @elseif($defaultAddr && $defaultAddr->latitude && $defaultAddr->longitude)
+    skipReverseGeocodeOnce = true;
     setMarkerAt(L.latLng({{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}), true);
     map.setView([{{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}], 15);
   @endif
@@ -1117,19 +1159,19 @@ function validateSurpriseDelivery() {
   const name = nameField?.value?.trim();
   const gcash = document.getElementById('gcash');
   if (!name) {
-    alert('Please enter the surprise recipient name before continuing.');
-    nameField?.focus();
-    nameField?.reportValidity?.();
+    showCheckoutError('surprise', 'Please enter the surprise recipient name.');
     return false;
-  }
+  }
   if (gcash && !gcash.checked) {
-    alert('Surprise delivery must use GCash so the recipient will not be asked to pay.');
     gcash.checked = true;
+    showCheckoutError('payment', 'Surprise delivery must use GCash so the recipient will not be asked to pay.');
     return false;
   }
   return true;
 }
 async function reverseGeocode(lat, lng) {
+  if (skipReverseGeocodeOnce) { skipReverseGeocodeOnce = false; return null; }
+  if (usingSavedAddress()) return null;
   const lookupId = ++addressLookupSeq;
   const field = document.getElementById('addressField');
   const ind   = document.getElementById('addressLoading');
@@ -1155,12 +1197,111 @@ function toggleDelivery() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
   if (isDelivery && !map) initMap();
+  if (isDelivery && map) setTimeout(() => map.invalidateSize(), 50);
   if (!isDelivery) deliveryFee = 0;
   updatePaymentMethodLabel();
   toggleSurpriseDelivery();
   updateTotal(getCurrentAddonTotal());
   updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice');
+  refreshInfoAddress();
 }
+
+// ── Saved location / address mode ─────────────────────
+function usingSavedAddress() {
+  return !!SAVED_ADDRESS && document.getElementById('useSavedAddress')?.value === '1';
+}
+
+function setAddressMode(useSaved) {
+  const flag = document.getElementById('useSavedAddress');
+  if (!flag || !SAVED_ADDRESS) return;
+  flag.value = useSaved ? '1' : '0';
+  const newBox = document.getElementById('newAddressBox');
+  const pinBox = document.getElementById('pinBox');
+  const savedBox = document.getElementById('savedAddressBox');
+  if (newBox) { newBox.disabled = useSaved; newBox.style.display = useSaved ? 'none' : ''; }
+  if (pinBox) pinBox.style.display = useSaved ? 'none' : '';
+  if (savedBox) savedBox.style.display = useSaved ? '' : 'none';
+  if (useSaved) {
+    document.getElementById('deliveryZoneInput').value = SAVED_ADDRESS.zone || '';
+    document.getElementById('addressField').value = SAVED_ADDRESS.text;
+  } else if (map) {
+    setTimeout(() => map.invalidateSize(), 50);
+  }
+  clearCheckoutErrors();
+  refreshInfoAddress();
+}
+
+function composeFormAddress() {
+  const val = id => (document.getElementById(id)?.value || '').trim();
+  const parts = ['House', 'Street', 'Subdivision', 'Barangay', 'City', 'Province', 'Postal'].map(k => val('checkoutAddress' + k)).filter(Boolean);
+  return parts.length ? parts.join(', ') : val('addressField');
+}
+
+function refreshInfoAddress() {
+  const box = document.getElementById('infoAddress');
+  const label = document.getElementById('infoAddressLabel');
+  if (!box) return;
+  const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+  let text = '';
+  if (isDelivery) {
+    text = usingSavedAddress() ? SAVED_ADDRESS.text : composeFormAddress();
+    if (label) label.textContent = 'DELIVERY ADDRESS';
+    box.textContent = text || 'Not set yet. Add your delivery address in Fulfillment below.';
+    box.classList.toggle('text-muted', !text);
+  } else {
+    if (label) label.textContent = 'ADDRESS';
+    box.textContent = SAVED_ADDRESS ? SAVED_ADDRESS.text : 'Pickup order. No delivery address needed.';
+    box.classList.toggle('text-muted', !SAVED_ADDRESS);
+  }
+}
+
+// ── Inline checkout errors ────────────────────────────
+function clearCheckoutErrors() {
+  document.querySelectorAll('.checkout-field-error').forEach(el => el.remove());
+  document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+  document.querySelectorAll('.checkout-error-box').forEach(el => el.classList.remove('checkout-error-box'));
+}
+
+function showCheckoutError(field, message) {
+  clearCheckoutErrors();
+  if (field === 'address' || field === 'location') {
+    if (usingSavedAddress()) setAddressMode(false);
+    document.getElementById('delivery').checked = true;
+    toggleDelivery();
+  }
+  const targets = Array.from(document.querySelectorAll('[data-error-target="' + field + '"]'))
+    .filter(el => el.offsetParent !== null || el.tagName === 'FIELDSET');
+  if (!targets.length) return false;
+  targets.forEach(el => {
+    const isInput = ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName) && el.type !== 'radio';
+    el.classList.add(isInput ? 'is-invalid' : 'checkout-error-box');
+  });
+  if (field === 'address') {
+    document.querySelectorAll('#newAddressBox .form-control').forEach(el => {
+      if (!el.value.trim() && !el.disabled) el.classList.add('is-invalid');
+    });
+  }
+  const first = targets[0];
+  const note = document.createElement('div');
+  note.className = 'checkout-field-error';
+  note.setAttribute('role', 'alert');
+  note.textContent = message;
+  (first.closest('.input-group') || first).insertAdjacentElement('afterend', note);
+  first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const focusable = first.matches('input,select,textarea') ? first : first.querySelector('.is-invalid, input, textarea');
+  if (focusable && focusable.type !== 'hidden') setTimeout(() => focusable.focus({ preventScroll: true }), 350);
+  return true;
+}
+
+document.addEventListener('input', e => {
+  if (e.target.closest('#checkoutForm')) {
+    e.target.classList.remove('is-invalid');
+    refreshInfoAddress();
+  }
+});
+document.addEventListener('change', e => {
+  if (e.target.closest('#checkoutForm')) e.target.classList.remove('is-invalid');
+});
 
 function updatePaymentMethodLabel() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
@@ -1267,16 +1408,21 @@ function updateTotal(addonTotal) {
 
 // ── Form submit validation ────────────────────────────
 function validateAndSubmit(btn) {
+  clearCheckoutErrors();
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   if (isDelivery) {
     const lat = document.getElementById('lat')?.value;
-    const addr = document.getElementById('addressField')?.value?.trim();
-    if (!lat || !addr) {
-      alert('Please pin your location on the map and enter your address.');
+    const addr = usingSavedAddress() ? SAVED_ADDRESS.text : composeFormAddress();
+    if (!lat) {
+      showCheckoutError('location', 'Please pin your delivery location on the map.');
+      return false;
+    }
+    if (!addr) {
+      showCheckoutError('address', 'Please enter your complete delivery address.');
       return false;
     }
     if (deliveryCoverageBlocked) {
-      alert('This pinned location is outside the seller delivery area. Move the pin inside the green coverage area or choose pickup.');
+      showCheckoutError('location', 'This pinned location is outside the seller delivery area. Move the pin inside the green coverage area or choose pickup.');
       return false;
     }
   }
@@ -1294,6 +1440,14 @@ if (HAS_PRODUCT_DISCOUNT) {
 }
 updatePaymentMethodLabel();
 toggleSurpriseDelivery();
+if (document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery') {
+  toggleDelivery();
+  if (usingSavedAddress()) setAddressMode(true);
+}
+refreshInfoAddress();
+if (SERVER_ERROR_FIELD && SERVER_ERROR_MESSAGE) {
+  setTimeout(() => showCheckoutError(SERVER_ERROR_FIELD, SERVER_ERROR_MESSAGE), 400);
+}.forEach(btn => {
 document.querySelectorAll('[data-voucher-code]').forEach(btn => {
   btn.addEventListener('click', () => {
     const input = document.getElementById('voucherCodeInput');

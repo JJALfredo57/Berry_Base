@@ -410,26 +410,48 @@ class CheckoutController extends Controller
         }
         $surprise = $this->surpriseDeliveryData($request, $fulfillment);
         if (!empty($surprise['error'])) {
-            return back()->with('error', $surprise['error'])->withInput();
+            return back()->with('error', $surprise['error'])->with('error_field', 'surprise')->withInput();
         }
         if (!empty($surprise['enabled']) && $payment !== 'GCash') {
-            return back()->with('error', 'Surprise delivery must be paid by the sender through GCash so the recipient will not be asked to pay.')->withInput();
+            return back()->with('error', 'Surprise delivery must be paid by the sender through GCash so the recipient will not be asked to pay.')->with('error_field', 'payment')->withInput();
         }
 
         $requiresRegularFulfillment = $isGroupCheckout || !$hasCustomCheckout;
         if ($requiresRegularFulfillment) {
             $scheduleCheck = app(OrderScheduleService::class)->validate($sdate, $stime, $product->shop_id ?? null, 'regular', $fulfillment, $lat, $lng, true);
             if (!$scheduleCheck['ok']) {
-                return back()->with('error', $scheduleCheck['message'])->withInput();
+                return back()->with('error', $scheduleCheck['message'])->with('error_field', 'schedule')->withInput();
             }
             if (empty($checkout['request_offer_checkout'])) {
                 $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($product->shop_id ?? null, $sdate, 'regular');
-                if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->withInput();
+                if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->with('error_field', 'schedule')->withInput();
+            }
+        }
+
+        $savedAddress = null;
+        if ($fulfillment === 'Delivery' && $request->boolean('use_saved_address')) {
+            $savedAddress = DB::table('user_addresses')->where('user_id', $uid)
+                ->orderByDesc('is_default')->orderByDesc('id')->first();
+            if ($savedAddress && !empty($savedAddress->full_address) && $savedAddress->latitude !== null && $savedAddress->longitude !== null) {
+                $address = (string) $savedAddress->full_address;
+                $lat = (float) $savedAddress->latitude;
+                $lng = (float) $savedAddress->longitude;
+                $addressCodes = [
+                    'province_code' => $savedAddress->province_code ?? null,
+                    'province_name' => $savedAddress->province_name ?? null,
+                    'city_municipality_code' => $savedAddress->city_municipality_code ?? null,
+                    'city_municipality_name' => $savedAddress->city_municipality_name ?? null,
+                    'barangay_code' => $savedAddress->barangay_code ?? null,
+                    'barangay_name' => $savedAddress->barangay_name ?? null,
+                ];
+                $zone = $savedAddress->barangay_name ?? $zone;
+            } else {
+                $savedAddress = null;
             }
         }
 
         if ($fulfillment === 'Delivery' && ($address === '' || $lat === null || $lng === null)) {
-            return back()->with('error', 'Please pin your location on the map and enter your address.')->withInput();
+            return back()->with('error', 'Please pin your location on the map and enter your address.')->with('error_field', 'address')->withInput();
         }
 
         if ($fulfillment === 'Delivery' && $lat !== null && $lng !== null) {
@@ -444,7 +466,7 @@ class CheckoutController extends Controller
             if ($hasPinnedZones) {
                 $nearestZone = $this->nearestCoverageZone($lat, $lng, $product->shop_id ?? null);
                 if (!$nearestZone) {
-                    return back()->with('error', 'Sorry, your delivery address is outside our delivery coverage area. Please contact the shop for assistance.');
+                    return back()->with('error', 'Sorry, your delivery address is outside our delivery coverage area. Please contact the shop for assistance.')->with('error_field', 'location')->withInput();
                 }
                 $zone = $nearestZone->barangay ?? $zone;
             }
@@ -463,15 +485,17 @@ class CheckoutController extends Controller
         }
 
         if ($fulfillment === 'Delivery') {
-            $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
-                ->validateRequest($request, $lat, $lng, $zone, true, 'address', $product->shop_id ?? null);
+            $locationValidation = $savedAddress
+                ? app(\App\Services\DeliveryLocationValidationService::class)->validate($address, $lat, $lng, $zone, false)
+                : app(\App\Services\DeliveryLocationValidationService::class)
+                    ->validateRequest($request, $lat, $lng, $zone, true, 'address', $product->shop_id ?? null);
             if (!$locationValidation['ok']) {
-                return back()->with('error', $locationValidation['message'])->withInput();
+                return back()->with('error', $locationValidation['message'])->with('error_field', 'address')->withInput();
             }
         }
 
         // Save default address if requested
-        if ($fulfillment === 'Delivery' && !$surprise['enabled'] && $request->has('save_default_address')) {
+        if ($fulfillment === 'Delivery' && !$surprise['enabled'] && $request->has('save_default_address') && !$savedAddress) {
             DB::table('user_addresses')->where('user_id', $uid)->update(['is_default' => 0]);
             $defaultAddressPayload = array_merge([
                 'user_id'      => $uid,
@@ -554,7 +578,7 @@ class CheckoutController extends Controller
                 ? app(\App\Services\SweetDealService::class)->validateScheduleDateForCartItems($checkoutItems, $sdate)
                 : app(\App\Services\SweetDealService::class)->validateScheduleDateForDirectItem((string) $pid, $pricing, $sdate);
             if (!$dealScheduleCheck['ok']) {
-                return back()->with('error', $dealScheduleCheck['message'])->withInput();
+                return back()->with('error', $dealScheduleCheck['message'])->with('error_field', 'schedule')->withInput();
             }
         }
 
@@ -609,7 +633,7 @@ class CheckoutController extends Controller
         $voucherCode = strtoupper(trim((string) $request->input('voucher_code', '')));
         $voucherResult = app(VoucherService::class)->validate($voucherCode, $baseTotal + $addonTotal, $product->shop_id ?? null, $uid);
         if (!$voucherResult['ok']) {
-            return back()->with('error', $voucherResult['message'])->withInput();
+            return back()->with('error', $voucherResult['message'])->with('error_field', 'voucher')->withInput();
         }
         $voucherDiscount = (float) ($voucherResult['discount'] ?? 0);
         $loyaltyService = app(\App\Services\LoyaltyService::class);
@@ -620,7 +644,7 @@ class CheckoutController extends Controller
             app(\App\Services\CustomerVerificationService::class)->isVerified($uid)
         );
         if (!$loyaltyQuote['ok']) {
-            return back()->with('error', $loyaltyQuote['message'])->withInput();
+            return back()->with('error', $loyaltyQuote['message'])->with('error_field', 'points')->withInput();
         }
         $pointsRedeemed = (int) ($loyaltyQuote['points'] ?? 0);
         $loyaltyDiscount = (float) ($loyaltyQuote['discount'] ?? 0);
@@ -629,7 +653,7 @@ class CheckoutController extends Controller
         if ($depositAmount < 100) {
             return back()->with('error', $payment === 'GCash'
                 ? 'The minimum GCash payment is PHP 100.00.'
-                : 'The 50% GCash deposit must be at least PHP 100.00. Please contact the seller for smaller orders.');
+                : 'The 50% GCash deposit must be at least PHP 100.00. Please contact the seller for smaller orders.')->with('error_field', 'payment')->withInput();
         }
         $oid       = CakeshopHelper::generateId('orders');
         $trackCode = $this->generateTrackCode();
