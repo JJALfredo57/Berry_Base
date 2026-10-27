@@ -341,17 +341,10 @@ document.body.style.paddingRight = '';
                   Delivery Address
                   <span id="addressLoading" style="display:none;font-size:.75rem;color:var(--primary);font-weight:400">
                     <span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>
-                    Matching pin to address…
+                    Checking pin…
                   </span>
                 </label>
-                <div class="form-text mt-0 mb-2">Pin your location on the map and the Province, City and Barangay fill in automatically. Then add your House / Street.</div>
-                <div id="pinMismatch" class="alert alert-warning py-2 px-3 small mb-2" style="display:none">
-                  <div id="pinMismatchText"></div>
-                  <div class="d-flex gap-2 mt-2">
-                    <button type="button" class="btn btn-sm btn-warning" id="pinMismatchUse">Use pin location</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pinMismatchKeep">Keep mine</button>
-                  </div>
-                </div>
+                <div class="form-text mt-0 mb-2">Your pin shows where to deliver. Enter your complete address below.</div>
                 @include('partials.delivery_address_fields', ['prefix' => 'checkout', 'title' => 'Detailed Delivery Address'])
                 <label class="form-label fw-semibold small mb-1" for="addressField"><i class="bi bi-geo-alt me-1"></i>Your delivery address</label>
                 <textarea class="form-control bg-light" name="address" id="addressField" rows="2" readonly
@@ -1211,17 +1204,8 @@ async function reverseGeocode(lat, lng) {
     const res  = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { signal: _ctrl.signal });
     const data = await res.json();
     if (lookupId === addressLookupSeq && data && data.display_name) {
-      lastPinPlace = placeFromGeo(data);
-      let zone = getDetectedAreaName(data);
-      const block = window.csPsgcBlocks && window.csPsgcBlocks.checkout;
-      if (block) {
-        const filled = await block.fillFromPlace(lastPinPlace);
-        if (lookupId !== addressLookupSeq) return data;
-        if (filled.barangay) zone = document.getElementById('checkoutAddressBarangay').value;
-      }
+      const zone = getDetectedAreaName(data);
       document.getElementById('deliveryZoneInput').value = zone || '';
-      hidePinMismatch();
-      refreshAddressSummary();
       const cMsg = document.getElementById('coverageMsg');
       if (cMsg && zone && cMsg.dataset.base && cMsg.textContent === cMsg.dataset.base) {
         cMsg.textContent = 'Pin location: ' + zone + '. ' + cMsg.dataset.base;
@@ -1280,18 +1264,6 @@ function composeFormAddress() {
   return parts.length ? parts.join(', ') : val('addressField');
 }
 
-let lastPinPlace = null;
-let pinMismatchDismissed = false;
-
-function placeFromGeo(data) {
-  const a = data?.address || {};
-  return {
-    province: a.state || a.province || a.region || '',
-    city: a.city || a.town || a.municipality || a.county || '',
-    barangays: [a.suburb, a.village, a.neighbourhood, a.quarter, a.hamlet, a.city_district].filter(Boolean)
-  };
-}
-
 function refreshAddressSummary() {
   const field = document.getElementById('addressField');
   if (!field || usingSavedAddress()) return;
@@ -1300,47 +1272,13 @@ function refreshAddressSummary() {
   field.value = parts.join(', ');
 }
 
-function hidePinMismatch() {
-  pinMismatchDismissed = false;
-  const box = document.getElementById('pinMismatch');
-  if (box) box.style.display = 'none';
-}
-
-function checkPinMismatch() {
-  const box = document.getElementById('pinMismatch');
-  if (!box || !lastPinPlace || pinMismatchDismissed || !window.csPsgcNorm) return;
-  const norm = window.csPsgcNorm;
-  const val = id => (document.getElementById(id)?.value || '').trim();
-  const city = val('checkoutAddressCity');
-  const barangay = val('checkoutAddressBarangay');
-  const cityBad = city && lastPinPlace.city && norm(city) !== norm(lastPinPlace.city);
-  const brgyBad = barangay && lastPinPlace.barangays.length && !lastPinPlace.barangays.some(b => norm(b) === norm(barangay));
-  if (!cityBad && !brgyBad) { box.style.display = 'none'; return; }
-  const where = [lastPinPlace.barangays[0], lastPinPlace.city].filter(Boolean).join(', ');
-  document.getElementById('pinMismatchText').textContent =
-    'Your pin is near ' + where + ', but the address fields say something different. Make sure the pin is on your address.';
-  box.style.display = '';
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   const addressBox = document.getElementById('newAddressBox');
   if (addressBox) {
     ['input', 'change'].forEach(evt => addressBox.addEventListener(evt, e => {
       if (e.target && e.target.id !== 'addressField') { refreshAddressSummary(); refreshInfoAddress(); }
-      if (evt === 'change') checkPinMismatch();
     }));
   }
-  document.getElementById('pinMismatchKeep')?.addEventListener('click', () => {
-    pinMismatchDismissed = true;
-    document.getElementById('pinMismatch').style.display = 'none';
-  });
-  document.getElementById('pinMismatchUse')?.addEventListener('click', async () => {
-    const block = window.csPsgcBlocks && window.csPsgcBlocks.checkout;
-    if (block && lastPinPlace) await block.fillFromPlace(lastPinPlace);
-    hidePinMismatch();
-    refreshAddressSummary();
-    refreshInfoAddress();
-  });
   if (!usingSavedAddress() && !document.getElementById('addressField')?.value) refreshAddressSummary();
 });
 

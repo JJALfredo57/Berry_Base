@@ -175,47 +175,6 @@
       fillList(barangayList, await fetchItems(endpoints.barangays, { city_municipality_code: cityCode.value, q: barangay.value || '' }));
     });
 
-    const normName = value => String(value || '').toLowerCase()
-      .replace(/\b(city of|municipality of|province of|city|municipality|brgy\.?|barangay)\b/g, ' ')
-      .replace(/[^a-z0-9]+/g, ' ').trim();
-    const pickItem = (items, name) => {
-      const needle = normName(name);
-      if (!needle) return null;
-      return items.find(item => normName(item.name) === needle) || null;
-    };
-    // Fills province/city/barangay from a detected place. Only exact (normalized) PSGC matches are used.
-    const fillFromPlace = async place => {
-      const result = { province: false, city: false, barangay: false };
-      const provinceItem = pickItem(await fetchItems(endpoints.provinces, { q: normName(place.province) }), place.province);
-      if (!provinceItem) return result;
-      clearChildCodes('province');
-      province.value = provinceItem.name;
-      provinceCode.value = provinceItem.code;
-      result.province = true;
-      syncAvailability();
-      const cityItem = pickItem(await fetchItems(endpoints.cities, { province_code: provinceItem.code, q: normName(place.city) }), place.city);
-      if (!cityItem) return result;
-      city.value = cityItem.name;
-      cityCode.value = cityItem.code;
-      result.city = true;
-      syncAvailability();
-      const barangayItems = await fetchItems(endpoints.barangays, { city_municipality_code: cityItem.code });
-      for (const candidate of (place.barangays || [])) {
-        const barangayItem = pickItem(barangayItems, candidate);
-        if (barangayItem) {
-          barangay.value = barangayItem.name;
-          barangayCode.value = barangayItem.code;
-          result.barangay = true;
-          break;
-        }
-      }
-      syncAvailability();
-      return result;
-    };
-    window.csPsgcNorm = normName;
-    window.csPsgcBlocks = window.csPsgcBlocks || {};
-    window.csPsgcBlocks[prefix] = { fillFromPlace };
-
     province.addEventListener('focus', loadProvinces);
     province.addEventListener('input', () => {
       provinceCode.value = '';
