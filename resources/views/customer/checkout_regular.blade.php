@@ -917,10 +917,8 @@ function onPinSet(lat, lng) {
     statusEl.style.display = 'none';
   } else if (covered) {
     deliveryCoverageBlocked = false;
-    const nearest = nearestCoverageZone(lat, lng);
-    const zoneName = nearest?.zone?.barangay || 'this seller';
     statusEl.style.cssText = 'display:block;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:.5rem;padding:.5rem .75rem';
-    msgEl.textContent = 'Inside delivery coverage (' + zoneName + ' service area, ' + formatCoverageDistance(nearest?.distance || 0) + ' from its center).';
+    msgEl.textContent = 'Inside delivery coverage.';
     msgEl.dataset.base = msgEl.textContent;
   } else {
     deliveryCoverageBlocked = true;
