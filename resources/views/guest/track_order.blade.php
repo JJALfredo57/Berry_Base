@@ -904,17 +904,17 @@
                   <a class="btn btn-primary" id="customerQrOpenLink" href="#" target="_blank" rel="noopener" style="display:none">
                     <i class="bi bi-phone me-1"></i>Open GCash
                   </a>
-                  <button type="button" class="btn btn-outline-primary" id="customerQrCheck">
+                  <button type="button" class="btn btn-outline-primary" id="customerQrCheck" style="display:none">
                     <i class="bi bi-arrow-repeat me-1"></i>Check Payment
+                  </button>
+                  <button type="button" class="btn btn-outline-primary" id="customerQrRefresh" style="display:none">
+                    <i class="bi bi-qr-code me-1"></i>Try Again
                   </button>
                 </div>
                 <div class="customer-qr-status" id="customerQrStatus" role="status" aria-live="polite"></div>
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-outline-primary" id="customerQrRefresh" aria-label="Refresh QR">
-                  <i class="bi bi-arrow-repeat me-1"></i>Refresh QR
-                </button>
               </div>
             </div>
           </div>
@@ -2597,6 +2597,7 @@ function customerQrMessage(message, type = 'info') {
   if (!el.status) return;
   el.status.textContent = message || '';
   el.status.style.color = type === 'error' ? '#b91c1c' : (type === 'success' ? '#047857' : '#1e40af');
+  if (el.refresh) el.refresh.style.display = type === 'error' ? 'inline-flex' : 'none';
 }
 
 function customerQrShow(panel) {
@@ -2659,6 +2660,7 @@ function customerQrRender(data) {
   el.image.style.display = qr.qr_image ? 'block' : 'none';
   el.openLink.href = qr.action_url || '#';
   el.openLink.style.display = qr.action_url ? 'inline-flex' : 'none';
+  if (el.check) el.check.style.display = 'inline-flex';
 
   if (data.paid || qr.status === 'paid') {
     customerQrRedirect(data.redirect_url);

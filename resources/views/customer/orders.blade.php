@@ -1139,17 +1139,17 @@
                 <a class="btn btn-primary" data-qr-open href="#" target="_blank" rel="noopener" style="display:none">
                   <i class="bi bi-phone me-1"></i>Open GCash
                 </a>
-                <button type="button" class="btn btn-outline-primary" data-qr-check>
+                <button type="button" class="btn btn-outline-primary" data-qr-check style="display:none">
                   <i class="bi bi-arrow-repeat me-1"></i>Check Payment
+                </button>
+                <button type="button" class="btn btn-outline-primary" data-qr-refresh style="display:none">
+                  <i class="bi bi-qr-code me-1"></i>Try Again
                 </button>
               </div>
               <div data-qr-status class="customer-qr-status" role="status" aria-live="polite"></div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">Close</button>
-              <button type="button" class="btn btn-outline-primary" data-qr-refresh aria-label="Refresh QR">
-                <i class="bi bi-arrow-repeat me-1"></i>Refresh QR
-              </button>
             </div>
           </div>
         </div>
@@ -1534,6 +1534,7 @@ function customerQrMessage(panel, message, type = 'info') {
   if (!el.status) return;
   el.status.textContent = message || '';
   el.status.style.color = type === 'error' ? '#b91c1c' : (type === 'success' ? '#166534' : '#1e40af');
+  if (el.refresh) el.refresh.style.display = (type === 'error' || type === 'expired') ? 'inline-flex' : 'none';
 }
 
 function customerQrShow(panel) {
@@ -1569,7 +1570,7 @@ function customerQrStartCountdown(panel, expiresAt) {
     if (secondsLeft <= 0) {
       clearInterval(state.timer);
       state.timer = null;
-      customerQrMessage(panel, 'QR expired. Tap Refresh QR to create a new one.');
+      customerQrMessage(panel, 'QR expired. Tap Try Again to create a new one.', 'expired');
     }
   };
   tick();
@@ -1594,6 +1595,7 @@ function customerQrRender(panel, data) {
     el.openLink.href = qr.action_url || '#';
     el.openLink.style.display = qr.action_url ? 'inline-flex' : 'none';
   }
+  if (el.check) el.check.style.display = 'inline-flex';
   if (data.paid || qr.status === 'paid') {
     customerQrRedirect(data.redirect_url);
     return;
@@ -1662,7 +1664,7 @@ async function customerQrCheck(panel) {
     }
     if (data.qr?.status === 'expired') {
       state.id = null;
-      customerQrMessage(panel, 'QR expired. Tap Refresh QR to create a new one.');
+      customerQrMessage(panel, 'QR expired. Tap Try Again to create a new one.', 'expired');
       return;
     }
     customerQrRender(panel, data);

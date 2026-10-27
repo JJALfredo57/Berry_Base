@@ -22,7 +22,7 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertSee('aria-labelledby="customerQrTitle'.$order->id.'"', false)
             ->assertSee('modal-dialog-centered modal-dialog-scrollable', false)
             ->assertSee('Check Payment')
-            ->assertSee('Refresh QR')
+            ->assertSee('Try Again')
             ->assertSee('width:calc(100% - 1rem)', false)
             ->assertSee('window.bootstrap.Modal.getOrCreateInstance(panel).show()', false);
     }

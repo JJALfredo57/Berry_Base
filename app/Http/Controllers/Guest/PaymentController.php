@@ -791,6 +791,22 @@ class PaymentController extends Controller
 
     public function generatePaymentQr(Request $request, string $trackCode)
     {
+        try {
+            return $this->generatePaymentQrResponse($request, $trackCode);
+        } catch (\Throwable $e) {
+            Log::error('Customer QR payment request failed', [
+                'track_code' => $trackCode,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json(['ok' => false, 'error' => 'Could not generate the QR right now. Please try again, or use the GCash payment button.'], 500);
+        }
+    }
+
+    private function generatePaymentQrResponse(Request $request, string $trackCode)
+    {
         if (!Schema::hasTable('customer_payment_qrs')) {
             return response()->json(['ok' => false, 'error' => 'QR payment is not ready yet. Please try the GCash payment button.'], 503);
         }
@@ -807,14 +823,21 @@ class PaymentController extends Controller
 
         $active = $this->activeCustomerQr($order, $resolved['payment_type'], (float) $resolved['amount']);
         if ($active) {
-            $sync = $this->syncCustomerPaymentQr($active);
-            if ($sync['paid']) {
-                return response()->json($this->customerQrPayload($active, true, $sync['message']));
-            }
+            try {
+                $sync = $this->syncCustomerPaymentQr($active);
+                if ($sync['paid']) {
+                    return response()->json($this->customerQrPayload($active, true, $sync['message']));
+                }
 
-            $fresh = DB::table('customer_payment_qrs')->where('id', $active->id)->first();
-            if ($fresh && ($fresh->status ?? '') === 'awaiting_payment' && (empty($fresh->paymongo_expires_at) || now()->lt($fresh->paymongo_expires_at))) {
-                return response()->json($this->customerQrPayload($fresh, false, 'QR is still active.'));
+                $fresh = DB::table('customer_payment_qrs')->where('id', $active->id)->first();
+                if ($fresh && ($fresh->status ?? '') === 'awaiting_payment' && (empty($fresh->paymongo_expires_at) || now()->lt($fresh->paymongo_expires_at))) {
+                    return response()->json($this->customerQrPayload($fresh, false, 'QR is still active.'));
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Active customer QR sync failed; creating a new QR', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
