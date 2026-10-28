@@ -382,6 +382,30 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertSee('id="liveRegion"', false);
     }
 
+    public function test_rider_pin_opens_order_while_assignment_is_pending(): void
+    {
+        $this->prepareFixture();
+        $riderId = DB::table('riders')->insertGetId([
+            'shop_id' => 'TESTSHOP',
+            'name' => 'Juan Rider',
+            'phone' => '09173333333',
+            'is_active' => true,
+        ]);
+        $order = $this->createRegularOrder('COD');
+        DB::table('orders')->where('id', $order->id)->update([
+            'fulfillment_type' => 'Delivery',
+            'status' => 'Ready for Rider',
+            'rider_id' => $riderId,
+            'rider_token' => 'PINTOKEN1',
+            'rider_pin' => 'A3K7X2MQ',
+            'rider_assignment_status' => 'pending',
+            'rider_assignment_expires_at' => now()->addMinutes(10),
+        ]);
+
+        $this->post('/rider/pin', ['pin' => 'a3k7x2mq'])
+            ->assertRedirect(route('rider.show', [$order->id, 'PINTOKEN1']));
+    }
+
     public function test_rider_dashboard_feed_requires_rider_session(): void
     {
         $this->prepareFixture();

@@ -1179,7 +1179,11 @@ class RiderController extends Controller
 
     private function isRiderAccessibleOrder(object $order): bool
     {
-        return ($order->status ?? '') === 'Out for Delivery';
+        if (($order->rider_assignment_status ?? '') === 'pending') {
+            return true;
+        }
+
+        return in_array(($order->status ?? ''), ['Out for Delivery', 'Attempted Delivery'], true);
     }
 
     private function orderNeedsRemittance(object $order): bool
