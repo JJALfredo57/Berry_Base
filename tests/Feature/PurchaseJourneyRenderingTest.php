@@ -344,6 +344,50 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertSee('arrival time and contact attempts');
     }
 
+    public function test_rider_dashboard_shows_pending_request_and_feed_detects_changes(): void
+    {
+        $this->prepareFixture();
+        $riderId = DB::table('riders')->insertGetId([
+            'shop_id' => 'TESTSHOP',
+            'name' => 'Juan Rider',
+            'phone' => '09172222222',
+            'is_active' => true,
+        ]);
+        $session = ['rider' => ['id' => $riderId]];
+        $order = $this->createRegularOrder('COD');
+
+        $this->withSession($session)->getJson('/rider/dashboard/feed')
+            ->assertOk()
+            ->assertJsonPath('pending_count', 0);
+        $emptySignature = $this->withSession($session)->getJson('/rider/dashboard/feed')->json('signature');
+
+        DB::table('orders')->where('id', $order->id)->update([
+            'fulfillment_type' => 'Delivery',
+            'status' => 'Ready for Rider',
+            'rider_id' => $riderId,
+            'rider_token' => 'DASH-TOKEN',
+            'rider_assignment_status' => 'pending',
+            'rider_assignment_expires_at' => now()->addMinutes(10),
+        ]);
+
+        $feed = $this->withSession($session)->getJson('/rider/dashboard/feed')->assertOk();
+        $feed->assertJsonPath('pending_count', 1);
+        $this->assertNotSame($emptySignature, $feed->json('signature'));
+
+        $this->withSession($session)->get('/rider/dashboard')
+            ->assertOk()
+            ->assertSee('Needs your response')
+            ->assertSee('Accept delivery')
+            ->assertSee('Respond within')
+            ->assertSee('id="liveRegion"', false);
+    }
+
+    public function test_rider_dashboard_feed_requires_rider_session(): void
+    {
+        $this->prepareFixture();
+        $this->getJson('/rider/dashboard/feed')->assertStatus(401);
+    }
+
     public function test_registered_customer_cannot_accept_a_custom_price_before_seller_approval(): void
     {
         $this->prepareFixture();

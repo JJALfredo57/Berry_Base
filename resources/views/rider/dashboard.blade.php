@@ -22,6 +22,19 @@
     $primaryDark = $hexAdjust($rawPrimary, -0.30);
     $primaryBg = $hexAdjust($rawPrimary, 0.90);
     $pbgColor = $platformBrand->platform_bg_color ?? '#FFF8F8';
+
+    $pendingOrders = $orders->filter(fn ($o) => ($o->rider_assignment_status ?? '') === 'pending')->values();
+    $activeOrders = $orders->filter(fn ($o) => ($o->rider_assignment_status ?? '') !== 'pending' && $o->rider_bucket === 'Active Delivery')->values();
+    $cashOrders = $orders->filter(fn ($o) => ($o->rider_assignment_status ?? '') !== 'pending' && $o->rider_bucket !== 'Active Delivery')->values();
+    $feedSignature = md5($orders->map(fn ($o) => implode(':', [
+        $o->id,
+        $o->rider_bucket,
+        $o->rider_assignment_status ?? '',
+        $o->remittance_status ?? '',
+    ]))->sort()->implode('|'));
+    $hour = (int) now()->format('G');
+    $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
+    $firstName = trim(explode(' ', trim((string) $rider->name))[0] ?? '') ?: 'Rider';
   @endphp
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,87 +42,136 @@
   <title>Rider Dashboard</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
-    :root { --primary: {{ $rawPrimary }}; --primary-dark: {{ $primaryDark }}; --primary-bg: {{ $primaryBg }}; }
+    :root { --primary: {{ $rawPrimary }}; --primary-dark: {{ $primaryDark }}; --primary-bg: {{ $primaryBg }}; --ink:#111827; --muted:#6b7280; --line:#e5e7eb; }
     * { box-sizing:border-box; }
-    body { margin:0; min-height:100dvh; background:{{ $pbgColor }}; color:#111827; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-    .topbar { background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; padding:16px clamp(14px,4vw,28px); display:flex; gap:12px; align-items:center; justify-content:space-between; }
+    body { margin:0; min-height:100dvh; background:{{ $pbgColor }}; color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
+    .topbar { background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; padding:18px clamp(14px,4vw,28px) 22px; display:flex; gap:12px; align-items:center; justify-content:space-between; }
     .title { min-width:0; }
-    .title h1 { font-size:clamp(20px,5vw,28px); margin:0; line-height:1.1; }
-    .title p { margin:4px 0 0; opacity:.86; font-size:clamp(12px,3vw,14px); }
-    .logout { border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.15); color:#fff; border-radius:8px; width:42px; height:42px; display:grid; place-items:center; cursor:pointer; }
-    .wrap { width:min(1120px,100%); margin:0 auto; padding:14px clamp(12px,3vw,24px) 28px; }
-    .notice { border-radius:8px; padding:12px 14px; margin:0 0 12px; font-size:14px; font-weight:650; }
+    .title .hello { font-size:13px; opacity:.85; margin:0; }
+    .title h1 { font-size:clamp(20px,5vw,26px); margin:2px 0 0; line-height:1.15; }
+    .title .sub { margin:4px 0 0; opacity:.8; font-size:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .live { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.16); border-radius:999px; padding:3px 9px; font-weight:700; }
+    .live::before { content:""; width:8px; height:8px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 0 rgba(74,222,128,.7); animation:pulse 2s infinite; }
+    .live.off::before { background:#fbbf24; animation:none; }
+    @keyframes pulse { 70% { box-shadow:0 0 0 7px rgba(74,222,128,0); } 100% { box-shadow:0 0 0 0 rgba(74,222,128,0); } }
+    .logout { border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.15); color:#fff; border-radius:12px; width:44px; height:44px; display:grid; place-items:center; cursor:pointer; flex-shrink:0; }
+    .wrap { width:min(1120px,100%); margin:-12px auto 0; padding:0 clamp(12px,3vw,24px) 32px; position:relative; }
+    .notice { border-radius:12px; padding:12px 14px; margin:0 0 12px; font-size:14px; font-weight:650; }
     .ok { background:#ecfdf5; color:#166534; border:1px solid #bbf7d0; }
     .err { background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; }
-    .summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin:12px 0 16px; }
-    .metric { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:12px; min-width:0; }
-    .metric .label { color:#6b7280; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
-    .metric .value { font-size:clamp(18px,4vw,26px); font-weight:850; margin-top:4px; color:#111827; overflow-wrap:anywhere; }
-    .metric .hint { color:#6b7280; font-size:12px; line-height:1.35; margin-top:5px; }
-    .metric.primary { background:var(--primary-bg); border-color:color-mix(in srgb,var(--primary) 28%,#fff); }
-    .metric.primary .value { color:var(--primary-dark); }
-    .toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0; flex-wrap:wrap; }
-    .toolbar h2 { font-size:16px; margin:0; }
-    .geo { border:1px solid #dbeafe; background:#eff6ff; color:#1d4ed8; border-radius:8px; padding:9px 11px; font-weight:750; cursor:pointer; display:flex; align-items:center; gap:8px; }
-    .list { display:grid; gap:10px; }
-    .order { background:#fff; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; }
-    .order-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:14px; border-bottom:1px solid #f3f4f6; }
-    .order-id { font-size:13px; color:#6b7280; font-weight:800; }
-    .product { font-size:17px; font-weight:850; margin-top:2px; }
-    .badge { border-radius:999px; padding:6px 9px; font-size:12px; font-weight:850; white-space:nowrap; }
-    .b-pending { background:#fff7ed; color:#9a3412; }
-    .b-active { background:#eff6ff; color:#1d4ed8; }
-    .b-remit { background:#fef2f2; color:#b91c1c; }
-    .b-wait { background:#f5f3ff; color:#6d28d9; }
-    .order-body { display:grid; grid-template-columns:1.4fr .8fr; gap:12px; padding:14px; }
-    .detail { color:#374151; font-size:14px; line-height:1.45; overflow-wrap:anywhere; }
-    .detail i { color:var(--primary); margin-right:5px; }
+
+    .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0 0 18px; }
+    .stat { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px; display:flex; align-items:center; gap:12px; min-width:0; box-shadow:0 4px 14px rgba(17,24,39,.05); }
+    .stat-icon { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; font-size:20px; flex-shrink:0; }
+    .stat-icon.s-new { background:#fff7ed; color:#c2410c; }
+    .stat-icon.s-act { background:#eff6ff; color:#1d4ed8; }
+    .stat-icon.s-cash { background:var(--primary-bg); color:var(--primary-dark); }
+    .stat .label { color:var(--muted); font-size:12px; font-weight:700; }
+    .stat .value { font-size:clamp(18px,4.5vw,24px); font-weight:850; line-height:1.1; overflow-wrap:anywhere; }
+    .stat.hot { border-color:#fdba74; background:linear-gradient(180deg,#fff,#fff7ed); }
+
+    .section { margin:0 0 20px; }
+    .section-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 10px; flex-wrap:wrap; }
+    .section-head h2 { font-size:16px; margin:0; display:flex; align-items:center; gap:8px; }
+    .count-pill { background:#fee2e2; color:#b91c1c; border-radius:999px; font-size:12px; padding:2px 9px; font-weight:800; }
+    .count-pill.neutral { background:#e5e7eb; color:#374151; }
+    .geo { border:1px solid #dbeafe; background:#eff6ff; color:#1d4ed8; border-radius:10px; padding:8px 11px; font-weight:750; cursor:pointer; display:flex; align-items:center; gap:8px; font-size:13px; }
+    .list { display:grid; gap:12px; }
+
+    .order { background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:0 4px 14px rgba(17,24,39,.05); }
+    .order-pending { border-color:#fdba74; box-shadow:0 6px 20px rgba(234,88,12,.14); animation:pop .35s ease-out; }
+    @keyframes pop { from { transform:translateY(6px); opacity:.4; } to { transform:none; opacity:1; } }
+    .order-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:14px 16px; }
+    .order-id { font-size:12px; color:var(--muted); font-weight:800; letter-spacing:.03em; }
+    .product { font-size:17px; font-weight:850; margin-top:2px; overflow-wrap:anywhere; }
+    .badge { border-radius:999px; padding:5px 10px; font-size:12px; font-weight:800; white-space:nowrap; display:inline-block; }
+    .b-pending { background:#ffedd5; color:#9a3412; }
+    .b-active { background:#dbeafe; color:#1d4ed8; }
+    .b-remit { background:#fee2e2; color:#b91c1c; }
+    .b-wait { background:#ede9fe; color:#6d28d9; }
+    .countdown { margin:0 16px; padding:8px 12px; border-radius:10px; background:#fff7ed; color:#9a3412; font-size:13px; font-weight:700; display:flex; align-items:center; gap:8px; }
+    .countdown.low { background:#fee2e2; color:#b91c1c; }
+    .countdown strong { font-variant-numeric:tabular-nums; font-size:15px; }
+    .order-body { display:grid; grid-template-columns:1.5fr .8fr; gap:14px; padding:14px 16px 16px; }
+    .detail { list-style:none; margin:0; padding:0; display:grid; gap:9px; color:#374151; font-size:14px; line-height:1.4; overflow-wrap:anywhere; }
+    .detail li { display:flex; gap:10px; align-items:flex-start; }
+    .detail i { color:var(--primary); width:18px; text-align:center; margin-top:1px; flex-shrink:0; }
     .actions { display:grid; gap:8px; align-content:start; }
-    .btn { border:0; border-radius:8px; padding:11px 12px; font-weight:850; text-decoration:none; text-align:center; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; min-height:42px; }
+    .btn { border:0; border-radius:12px; padding:11px 14px; font-weight:800; text-decoration:none; text-align:center; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; min-height:46px; font-size:14px; width:100%; font-family:inherit; }
+    .btn-lg { min-height:50px; font-size:15px; }
     .btn-primary { background:var(--primary); color:#fff; }
     .btn-outline { background:#fff; color:var(--primary-dark); border:1px solid var(--primary); }
-    .btn-danger { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
-    .decline { display:grid; gap:8px; }
-    .decline textarea { width:100%; min-height:64px; resize:vertical; border:1px solid #e5e7eb; border-radius:8px; padding:10px; font:inherit; }
-    .empty { background:#fff; border:1px dashed #d1d5db; border-radius:8px; padding:32px 16px; text-align:center; color:#6b7280; }
-    .remit-hub { background:#fff; border:1px solid #e5e7eb; border-radius:8px; margin:0 0 16px; overflow:hidden; }
-    .remit-head { display:grid; grid-template-columns:1fr auto; gap:14px; padding:16px; border-bottom:1px solid #f3f4f6; align-items:center; }
-    .remit-kicker { color:#6b7280; font-size:12px; font-weight:850; text-transform:uppercase; letter-spacing:.05em; }
-    .remit-total { color:#111827; font-size:clamp(26px,7vw,42px); font-weight:900; line-height:1.05; margin-top:4px; overflow-wrap:anywhere; }
-    .remit-copy { color:#4b5563; font-size:13px; line-height:1.45; margin-top:6px; max-width:720px; }
+    .btn-danger { background:#fff; color:#b91c1c; border:1px solid #fecaca; }
+    .btn[disabled] { opacity:.6; cursor:not-allowed; }
+    .empty { background:#fff; border:1px dashed #d1d5db; border-radius:16px; padding:28px 16px; text-align:center; color:var(--muted); font-size:14px; }
+    .empty i { font-size:30px; color:var(--primary); }
+    .empty .t { font-weight:800; margin-top:6px; color:var(--ink); }
+    .order-note { color:var(--muted); font-size:13px; font-weight:700; text-align:center; padding:10px; border:1px solid var(--line); border-radius:10px; background:#f9fafb; }
+
+    .remit-hub { background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:0 4px 14px rgba(17,24,39,.05); }
+    .remit-hub > summary { list-style:none; cursor:pointer; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .remit-hub > summary::-webkit-details-marker { display:none; }
+    .remit-hub > summary .chev { transition:transform .2s; color:var(--muted); }
+    .remit-hub[open] > summary .chev { transform:rotate(180deg); }
+    .remit-kicker { color:var(--muted); font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+    .remit-total { font-size:clamp(22px,6vw,32px); font-weight:900; line-height:1.1; margin-top:2px; overflow-wrap:anywhere; }
+    .remit-inner { border-top:1px solid #f3f4f6; }
+    .remit-head { display:grid; grid-template-columns:1fr auto; gap:14px; padding:14px 16px; align-items:center; }
+    .remit-copy { color:#4b5563; font-size:13px; line-height:1.45; max-width:720px; }
     .remit-actions { display:grid; gap:8px; min-width:min(260px,100%); }
     .btn-pay { background:#1d4ed8; color:#fff; }
     .btn-soft { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
-    .remit-breakdown { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px; background:#f3f4f6; }
-    .remit-stat { background:#fff; padding:13px 16px; min-width:0; }
-    .remit-stat .label { color:#6b7280; font-size:12px; font-weight:800; }
-    .remit-stat .value { color:#111827; font-size:18px; font-weight:900; margin-top:2px; }
+    .remit-breakdown { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; background:#f3f4f6; }
+    .remit-stat { background:#fff; padding:12px 16px; min-width:0; }
+    .remit-stat .label { color:var(--muted); font-size:12px; font-weight:800; }
+    .remit-stat .value { font-size:17px; font-weight:900; margin-top:2px; overflow-wrap:anywhere; }
     .remit-orders { padding:12px 16px 16px; display:grid; gap:8px; }
-    .remit-order { display:flex; justify-content:space-between; gap:12px; border:1px solid #f3f4f6; border-radius:8px; padding:10px 12px; font-size:13px; }
-    .remit-order strong { color:#111827; }
-    .remit-order span { color:#6b7280; }
-    .order-note { color:#6b7280; font-size:13px; font-weight:750; text-align:center; padding:10px; border:1px solid #e5e7eb; border-radius:8px; }
+    .remit-order { display:flex; justify-content:space-between; gap:12px; border:1px solid #f3f4f6; border-radius:10px; padding:10px 12px; font-size:13px; }
+    .remit-order span { color:var(--muted); }
+    .cash-list { margin-top:12px; }
+
+    .modal { position:fixed; inset:0; background:rgba(17,24,39,.55); display:none; align-items:flex-end; justify-content:center; z-index:50; padding:0; }
+    .modal.open { display:flex; }
+    .sheet { background:#fff; width:min(480px,100%); border-radius:20px 20px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom)); }
+    .sheet h3 { margin:0 0 4px; font-size:18px; }
+    .sheet p { margin:0 0 12px; color:var(--muted); font-size:13px; }
+    .sheet textarea { width:100%; min-height:90px; resize:vertical; border:1px solid var(--line); border-radius:12px; padding:12px; font:inherit; font-size:14px; }
+    .sheet .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+    .quick { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+    .quick button { border:1px solid var(--line); background:#f9fafb; border-radius:999px; padding:6px 11px; font-size:12px; font-weight:700; cursor:pointer; color:#374151; }
+
+    .toast-stack { position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:60; display:grid; gap:8px; width:min(420px,calc(100% - 24px)); }
+    .toast { background:#111827; color:#fff; border-radius:12px; padding:12px 14px; font-size:14px; font-weight:650; display:flex; gap:10px; align-items:center; box-shadow:0 10px 30px rgba(0,0,0,.25); animation:pop .25s ease-out; }
+    .toast.good { background:#166534; }
+    .toast.warn { background:#9a3412; }
+
+    @media (min-width:640px) { .modal { align-items:center; } .sheet { border-radius:20px; } }
     @media (max-width:760px) {
-      .summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .summary .primary { grid-column:1 / -1; }
       .order-body { grid-template-columns:1fr; }
-      .order-head { flex-direction:column; }
-      .badge { white-space:normal; }
       .remit-head { grid-template-columns:1fr; }
       .remit-actions { min-width:0; }
-      .remit-breakdown { grid-template-columns:1fr; }
+      .remit-breakdown { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .remit-order { flex-direction:column; }
     }
+    @media (max-width:420px) {
+      .stats { grid-template-columns:1fr; }
+      .stat { padding:12px; }
+    }
+    @media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="title">
-      <h1>Rider Dashboard</h1>
-      <p>{{ $rider->name }}{{ $rider->phone ? ' - '.$rider->phone : '' }}</p>
+      <p class="hello">{{ $greeting }},</p>
+      <h1>{{ $firstName }}</h1>
+      <p class="sub">
+        <span class="live" id="liveState">Live</span>
+        @if($rider->phone)<span>{{ $rider->phone }}</span>@endif
+      </p>
     </div>
     <form action="{{ route('rider.logout') }}" method="POST">@csrf
-      <button class="logout" title="Logout" type="submit"><i class="bi bi-box-arrow-right"></i></button>
+      <button class="logout" title="Logout" aria-label="Logout" type="submit"><i class="bi bi-box-arrow-right"></i></button>
     </form>
   </header>
 
@@ -117,129 +179,151 @@
     @if(session('msg'))<div class="notice ok">{{ session('msg') }}</div>@endif
     @if(session('err') || $errors->any())<div class="notice err">{{ session('err') ?: $errors->first() }}</div>@endif
 
-    <section class="summary" aria-label="Remittance summary">
-      <div class="metric primary"><div class="label">COD Cash Not Confirmed</div><div class="value">PHP {{ number_format($unremitted['total'], 2) }}</div><div class="hint">Cash collected from delivered COD orders that still needs seller confirmation.</div></div>
-      <div class="metric"><div class="label">COD Orders to Settle</div><div class="value">{{ $unremitted['count'] }}</div><div class="hint">Delivered COD orders still open for remittance.</div></div>
-      <div class="metric"><div class="label">Ready for Bulk Pay</div><div class="value">{{ $bulkRemittance['ready_count'] }}</div><div class="hint">Orders included in your next single GCash remittance.</div></div>
-      <div class="metric"><div class="label">Waiting for Check</div><div class="value">{{ $unremitted['waiting_seller'] + $unremitted['waiting_paymongo'] }}</div><div class="hint">Waiting for seller confirmation or PayMongo verification.</div></div>
-      <div class="metric"><div class="label">Rejected / Retry</div><div class="value">{{ $unremitted['rejected'] }}</div><div class="hint">Rejected COD rows are included again when you pay the bulk total.</div></div>
-    </section>
-
-    <section class="remit-hub" aria-label="Bulk COD remittance">
-      <div class="remit-head">
-        <div>
-          <div class="remit-kicker">Bulk COD Remittance</div>
-          <div class="remit-total">PHP {{ number_format($bulkRemittance['active_batch']->total_amount ?? $bulkRemittance['ready_total'], 2) }}</div>
-          <div class="remit-copy">
-            @if($bulkRemittance['active_batch'])
-              A GCash payment is already active for this total. Open it again or check after payment.
-            @elseif($bulkRemittance['ready_count'] > 0)
-              Pay once for all delivered COD cash instead of sending separate payments per order.
-            @else
-              Delivered COD orders that need remittance will appear here.
-            @endif
-          </div>
+    <div id="liveRegion">
+      <section class="stats" aria-label="Today at a glance">
+        <div class="stat {{ $pendingOrders->count() ? 'hot' : '' }}">
+          <div class="stat-icon s-new"><i class="bi bi-bell"></i></div>
+          <div><div class="label">Needs response</div><div class="value">{{ $pendingOrders->count() }}</div></div>
         </div>
-        <div class="remit-actions">
-          @if($bulkRemittance['active_batch'])
-            @if(!empty($bulkRemittance['active_batch']->paymongo_action_url))
-              <a class="btn btn-pay" href="{{ $bulkRemittance['active_batch']->paymongo_action_url }}" target="_blank" rel="noopener"><i class="bi bi-phone"></i>Open GCash Payment</a>
-            @endif
-            <form method="POST" action="{{ route('rider.remittance.bulk.check') }}">@csrf
-              <button class="btn btn-soft" type="submit"><i class="bi bi-arrow-repeat"></i>Check Payment Status</button>
-            </form>
-          @elseif($bulkRemittance['ready_count'] > 0)
-            <form method="POST" action="{{ route('rider.remittance.bulk.qr') }}">@csrf
-              <input type="hidden" name="open_payment" value="1">
-              <button class="btn btn-pay" type="submit"><i class="bi bi-qr-code"></i>Pay Total via GCash</button>
-            </form>
-          @else
-            <button class="btn btn-soft" type="button" disabled><i class="bi bi-check2-circle"></i>No COD to Remit</button>
-          @endif
+        <div class="stat">
+          <div class="stat-icon s-act"><i class="bi bi-bicycle"></i></div>
+          <div><div class="label">Active deliveries</div><div class="value">{{ $activeOrders->count() }}</div></div>
         </div>
-      </div>
-      <div class="remit-breakdown">
-        <div class="remit-stat"><div class="label">Ready Orders</div><div class="value">{{ $bulkRemittance['ready_count'] }}</div></div>
-        <div class="remit-stat"><div class="label">Waiting Amount</div><div class="value">PHP {{ number_format($bulkRemittance['waiting_total'], 2) }}</div></div>
-        <div class="remit-stat"><div class="label">Confirmed This Week</div><div class="value">PHP {{ number_format($bulkRemittance['confirmed_total'], 2) }}</div></div>
-      </div>
-      @if($bulkRemittance['orders']->count())
-        <div class="remit-orders">
-          @foreach($bulkRemittance['orders']->take(6) as $remitOrder)
-            <div class="remit-order">
-              <div><strong>Order #{{ $remitOrder->order_id }}</strong> <span>{{ $remitOrder->product_name }}</span></div>
-              <strong>PHP {{ number_format((float) $remitOrder->amount, 2) }}</strong>
-            </div>
-          @endforeach
-          @if($bulkRemittance['orders']->count() > 6)
-            <div class="order-note">{{ $bulkRemittance['orders']->count() - 6 }} more order(s) included in this total.</div>
-          @endif
+        <div class="stat">
+          <div class="stat-icon s-cash"><i class="bi bi-cash-stack"></i></div>
+          <div><div class="label">COD to remit</div><div class="value">PHP {{ number_format($unremitted['total'], 2) }}</div></div>
         </div>
-      @endif
-    </section>
+      </section>
 
-    <div class="toolbar">
-      <h2>Assigned Deliveries</h2>
-      <button class="geo" type="button" onclick="useLocation()"><i class="bi bi-crosshair"></i> Sort by my location</button>
-    </div>
+      <section class="section" aria-label="Needs your response">
+        <div class="section-head">
+          <h2><i class="bi bi-bell-fill" style="color:#ea580c"></i>Needs your response @if($pendingOrders->count())<span class="count-pill">{{ $pendingOrders->count() }}</span>@endif</h2>
+        </div>
+        <div class="list">
+          @forelse($pendingOrders as $order)
+            @include('rider._order_card', ['order' => $order])
+          @empty
+            <div class="empty"><i class="bi bi-inbox"></i><div class="t">No new requests</div><div>New delivery requests appear here automatically.</div></div>
+          @endforelse
+        </div>
+      </section>
 
-    <section class="list">
-      @forelse($orders as $order)
-        @php
-          $bucket = $order->rider_bucket;
-          $isSurpriseDelivery = !empty($order->is_surprise_delivery);
-          $displayName = $isSurpriseDelivery ? ($order->recipient_name ?? 'Recipient') : ($order->guest_name ?? 'Customer');
-          $displayPhone = $isSurpriseDelivery ? (($order->recipient_phone ?: null) ?? ($order->guest_phone ?? null)) : ($order->guest_phone ?? null);
-          $deliveryAddr = $isSurpriseDelivery ? ($order->recipient_address ?? $order->delivery_address ?? 'No delivery address') : ($order->delivery_address ?? 'No delivery address');
-          $deliveryLat = $isSurpriseDelivery ? ($order->recipient_latitude ?? $order->latitude ?? null) : ($order->latitude ?? null);
-          $deliveryLng = $isSurpriseDelivery ? ($order->recipient_longitude ?? $order->longitude ?? null) : ($order->longitude ?? null);
-          $badgeClass = str_contains($bucket, 'Pending') ? 'b-pending' : (str_contains($bucket, 'Remit') || str_contains($bucket, 'Rejected') ? 'b-remit' : (str_contains($bucket, 'Waiting') ? 'b-wait' : 'b-active'));
-        @endphp
-        <article class="order">
-          <div class="order-head">
+      <section class="section" aria-label="Active deliveries">
+        <div class="section-head">
+          <h2><i class="bi bi-bicycle" style="color:#1d4ed8"></i>Active deliveries @if($activeOrders->count())<span class="count-pill neutral">{{ $activeOrders->count() }}</span>@endif</h2>
+          <button class="geo" type="button" onclick="useLocation()"><i class="bi bi-crosshair"></i> Sort by my location</button>
+        </div>
+        <div class="list">
+          @forelse($activeOrders as $order)
+            @include('rider._order_card', ['order' => $order])
+          @empty
+            <div class="empty"><i class="bi bi-check2-circle"></i><div class="t">No active deliveries</div><div>Accepted deliveries will show here.</div></div>
+          @endforelse
+        </div>
+      </section>
+
+      <section class="section" aria-label="COD remittance">
+        <div class="section-head"><h2><i class="bi bi-wallet2" style="color:var(--primary)"></i>COD remittance</h2></div>
+        <details class="remit-hub" {{ ($bulkRemittance['ready_count'] > 0 || $bulkRemittance['active_batch'] || $unremitted['rejected'] > 0) ? 'open' : '' }}>
+          <summary>
             <div>
-              <div class="order-id">Order #{{ $order->id }}</div>
-              <div class="product">{{ $order->product_name }}</div>
+              <div class="remit-kicker">Bulk COD remittance</div>
+              <div class="remit-total">PHP {{ number_format($bulkRemittance['active_batch']->total_amount ?? $bulkRemittance['ready_total'], 2) }}</div>
             </div>
-            <span class="badge {{ $badgeClass }}">{{ $bucket }}</span>
-          </div>
-          <div class="order-body">
-            <div class="detail">
-              <div><i class="bi bi-person"></i>{{ $displayName }}{{ $displayPhone ? ' - '.$displayPhone : '' }} @if($isSurpriseDelivery)<span class="badge b-pending">Surprise</span>@endif</div>
-              <div><i class="bi bi-geo-alt"></i>{{ $deliveryAddr }}</div>
-              <div><i class="bi bi-calendar-event"></i>{{ $order->schedule_date ?? 'No date' }} {{ $order->schedule_time ?? '' }}</div>
-              @if($order->distance_km !== null)<div><i class="bi bi-signpost"></i>{{ number_format($order->distance_km, 2) }} km away</div>@endif
-              @if($order->remittance_amount)<div><i class="bi bi-cash-stack"></i>Remit PHP {{ number_format((float) $order->remittance_amount, 2) }}</div>@endif
-            </div>
-            <div class="actions">
-              @if(($order->rider_assignment_status ?? '') === 'pending')
-                <form action="{{ route('rider.assignment.accept', [$order->id, $order->rider_token]) }}" method="POST">@csrf
-                  <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle"></i>Accept</button>
-                </form>
-                <form class="decline" action="{{ route('rider.assignment.decline', [$order->id, $order->rider_token]) }}" method="POST">@csrf
-                  <textarea name="reason" maxlength="300" required placeholder="Reason if declining"></textarea>
-                  <button class="btn btn-danger" type="submit"><i class="bi bi-x-circle"></i>Decline</button>
-                </form>
-              @elseif(($order->status ?? '') === 'Out for Delivery')
-                <a class="btn btn-primary" href="{{ route('rider.show', [$order->id, $order->rider_token]) }}"><i class="bi bi-arrow-right-circle"></i>Open</a>
-                @if($deliveryLat && $deliveryLng)
-                  <a class="btn btn-outline" href="https://www.google.com/maps/dir/?api=1&destination={{ $deliveryLat }},{{ $deliveryLng }}&travelmode=driving" target="_blank" rel="noopener"><i class="bi bi-map"></i>Directions</a>
+            <i class="bi bi-chevron-down chev"></i>
+          </summary>
+          <div class="remit-inner">
+            <div class="remit-head">
+              <div class="remit-copy">
+                @if($bulkRemittance['active_batch'])
+                  A GCash payment is already active for this total. Open it again or check after payment.
+                @elseif($bulkRemittance['ready_count'] > 0)
+                  Pay once for all delivered COD cash instead of sending separate payments per order.
+                @else
+                  Delivered COD orders that need remittance will appear here.
                 @endif
-              @elseif($order->remittance_amount)
-                <div class="order-note"><i class="bi bi-cash-stack"></i> Included in dashboard COD remittance</div>
-              @else
-                <div class="order-note"><i class="bi bi-info-circle"></i> Waiting for seller action</div>
-              @endif
+              </div>
+              <div class="remit-actions">
+                @if($bulkRemittance['active_batch'])
+                  @if(!empty($bulkRemittance['active_batch']->paymongo_action_url))
+                    <a class="btn btn-pay" href="{{ $bulkRemittance['active_batch']->paymongo_action_url }}" target="_blank" rel="noopener"><i class="bi bi-phone"></i>Open GCash Payment</a>
+                  @endif
+                  <form method="POST" action="{{ route('rider.remittance.bulk.check') }}">@csrf
+                    <button class="btn btn-soft" type="submit"><i class="bi bi-arrow-repeat"></i>Check Payment Status</button>
+                  </form>
+                @elseif($bulkRemittance['ready_count'] > 0)
+                  <form method="POST" action="{{ route('rider.remittance.bulk.qr') }}">@csrf
+                    <input type="hidden" name="open_payment" value="1">
+                    <button class="btn btn-pay" type="submit"><i class="bi bi-qr-code"></i>Pay Total via GCash</button>
+                  </form>
+                @else
+                  <button class="btn btn-soft" type="button" disabled><i class="bi bi-check2-circle"></i>No COD to Remit</button>
+                @endif
+              </div>
             </div>
+            <div class="remit-breakdown">
+              <div class="remit-stat"><div class="label">Ready orders</div><div class="value">{{ $bulkRemittance['ready_count'] }}</div></div>
+              <div class="remit-stat"><div class="label">Waiting amount</div><div class="value">PHP {{ number_format($bulkRemittance['waiting_total'], 2) }}</div></div>
+              <div class="remit-stat"><div class="label">Waiting for check</div><div class="value">{{ $unremitted['waiting_seller'] + $unremitted['waiting_paymongo'] }}</div></div>
+              <div class="remit-stat"><div class="label">Confirmed this week</div><div class="value">PHP {{ number_format($bulkRemittance['confirmed_total'], 2) }}</div></div>
+            </div>
+            @if($unremitted['rejected'] > 0)
+              <div class="remit-orders"><div class="order-note" style="color:#b91c1c;background:#fff1f2;border-color:#fecdd3">{{ $unremitted['rejected'] }} rejected remittance(s) are included again when you pay the bulk total.</div></div>
+            @endif
+            @if($bulkRemittance['orders']->count())
+              <div class="remit-orders">
+                @foreach($bulkRemittance['orders']->take(6) as $remitOrder)
+                  <div class="remit-order">
+                    <div><strong>Order #{{ $remitOrder->order_id }}</strong> <span>{{ $remitOrder->product_name }}</span></div>
+                    <strong>PHP {{ number_format((float) $remitOrder->amount, 2) }}</strong>
+                  </div>
+                @endforeach
+                @if($bulkRemittance['orders']->count() > 6)
+                  <div class="order-note">{{ $bulkRemittance['orders']->count() - 6 }} more order(s) included in this total.</div>
+                @endif
+              </div>
+            @endif
           </div>
-        </article>
-      @empty
-        <div class="empty"><i class="bi bi-check2-circle" style="font-size:32px;color:var(--primary)"></i><div style="font-weight:800;margin-top:8px">No rider actions right now</div><div>New assignments and unremitted COD orders will appear here.</div></div>
-      @endforelse
-    </section>
+        </details>
+
+        @if($cashOrders->count())
+          <div class="list cash-list">
+            @foreach($cashOrders as $order)
+              @include('rider._order_card', ['order' => $order])
+            @endforeach
+          </div>
+        @endif
+      </section>
+    </div>
   </main>
 
+  <div class="modal" id="declineModal" role="dialog" aria-modal="true" aria-labelledby="declineTitle">
+    <form class="sheet" id="declineForm" method="POST" data-once>
+      @csrf
+      <h3 id="declineTitle">Decline delivery</h3>
+      <p id="declineLabel">Tell the seller why so they can assign another rider.</p>
+      <div class="quick">
+        <button type="button" data-reason="Too far from my location">Too far</button>
+        <button type="button" data-reason="I am not available right now">Not available</button>
+        <button type="button" data-reason="Vehicle problem">Vehicle problem</button>
+      </div>
+      <textarea name="reason" id="declineReason" maxlength="300" required placeholder="Reason for declining"></textarea>
+      <div class="row">
+        <button class="btn btn-outline" type="button" id="declineCancel">Back</button>
+        <button class="btn btn-danger" type="submit"><i class="bi bi-x-circle"></i>Decline</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="toast-stack" id="toasts" aria-live="polite"></div>
+
   <script>
+    const FEED_URL = @json(route('rider.dashboard.feed'));
+    const POLL_MS = 5000;
+    let lastSignature = @json($feedSignature);
+    let lastPendingIds = @json($pendingOrders->pluck('id')->values());
+    let polling = false;
+
     function useLocation() {
       if (!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(function (pos) {
@@ -249,6 +333,124 @@
         window.location.href = url.toString();
       });
     }
+
+    function toast(message, kind) {
+      const box = document.getElementById('toasts');
+      const el = document.createElement('div');
+      el.className = 'toast ' + (kind || '');
+      el.textContent = message;
+      box.appendChild(el);
+      setTimeout(function () { el.remove(); }, 6000);
+    }
+
+    function alertNewRequest() {
+      try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880; gain.gain.value = 0.08;
+        osc.start(); osc.stop(ctx.currentTime + 0.25);
+      } catch (e) {}
+    }
+
+    function setLive(ok) {
+      const el = document.getElementById('liveState');
+      el.classList.toggle('off', !ok);
+      el.textContent = ok ? 'Live' : 'Reconnecting...';
+    }
+
+    function tickCountdowns() {
+      let expired = false;
+      document.querySelectorAll('.countdown[data-expires]').forEach(function (box) {
+        const left = Math.floor((new Date(box.dataset.expires).getTime() - Date.now()) / 1000);
+        const label = box.querySelector('.countdown-time');
+        if (left <= 0) { label.textContent = 'Expired'; expired = true; return; }
+        label.textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+        box.classList.toggle('low', left <= 120);
+      });
+      if (expired && !polling) poll(true);
+    }
+
+    async function refreshRegion() {
+      const res = await fetch(window.location.href, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      if (!res.ok) throw new Error('refresh failed');
+      const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+      const next = doc.getElementById('liveRegion');
+      if (!next) throw new Error('no region');
+      const current = document.getElementById('liveRegion');
+      const openState = current.querySelector('.remit-hub') ? current.querySelector('.remit-hub').open : null;
+      current.innerHTML = next.innerHTML;
+      const hub = current.querySelector('.remit-hub');
+      if (hub && openState !== null) hub.open = openState || hub.open;
+      tickCountdowns();
+    }
+
+    async function poll(force) {
+      if (polling || (document.hidden && !force)) return;
+      polling = true;
+      try {
+        const res = await fetch(FEED_URL, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+        if (res.status === 401) { window.location.reload(); return; }
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error('feed');
+        setLive(true);
+        if (data.signature !== lastSignature) {
+          const fresh = data.pending_ids.filter(function (id) { return lastPendingIds.indexOf(id) === -1; });
+          const gone = lastPendingIds.filter(function (id) { return data.pending_ids.indexOf(id) === -1; });
+          await refreshRegion();
+          lastSignature = data.signature;
+          if (fresh.length) { toast('New delivery request: Order #' + fresh.join(', #'), 'warn'); alertNewRequest(); }
+          else if (gone.length) { toast('A delivery request was updated or removed.'); }
+          lastPendingIds = data.pending_ids;
+          const modal = document.getElementById('declineModal');
+          if (modal.classList.contains('open') && !document.querySelector('[data-decline][data-action="' + document.getElementById('declineForm').getAttribute('action') + '"]')) {
+            closeDecline();
+            toast('That request is no longer active.');
+          }
+        }
+      } catch (e) {
+        setLive(false);
+      } finally {
+        polling = false;
+      }
+    }
+
+    function openDecline(action, label) {
+      const form = document.getElementById('declineForm');
+      form.setAttribute('action', action);
+      document.getElementById('declineLabel').textContent = label + ' - tell the seller why so they can assign another rider.';
+      document.getElementById('declineReason').value = '';
+      document.getElementById('declineModal').classList.add('open');
+      document.getElementById('declineReason').focus();
+    }
+    function closeDecline() { document.getElementById('declineModal').classList.remove('open'); }
+
+    document.addEventListener('click', function (e) {
+      const declineBtn = e.target.closest('[data-decline]');
+      if (declineBtn) { openDecline(declineBtn.dataset.action, declineBtn.dataset.label); return; }
+      const quick = e.target.closest('[data-reason]');
+      if (quick) { document.getElementById('declineReason').value = quick.dataset.reason; return; }
+      if (e.target.id === 'declineCancel' || e.target.id === 'declineModal') closeDecline();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDecline(); });
+
+    document.addEventListener('submit', function (e) {
+      const form = e.target.closest('form[data-once]');
+      if (!form) return;
+      if (form.dataset.submitted) { e.preventDefault(); return; }
+      form.dataset.submitted = '1';
+      form.querySelectorAll('button[type="submit"]').forEach(function (b) { b.disabled = true; });
+    });
+
+    setInterval(tickCountdowns, 1000);
+    setInterval(function () { poll(false); }, POLL_MS);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(true); });
+    window.addEventListener('online', function () { poll(true); });
+    tickCountdowns();
   </script>
 </body>
 </html>

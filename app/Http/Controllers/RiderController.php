@@ -127,6 +127,38 @@ class RiderController extends Controller
         return view('rider.dashboard', compact('rider', 'orders', 'unremitted', 'bulkRemittance', 'settings', 'lat', 'lng'));
     }
 
+    /** Lightweight poll target so the dashboard can refresh itself when assignments change. */
+    public function dashboardFeed(RiderAssignmentService $assignments)
+    {
+        $rider = $this->sessionRider();
+        if (!$rider) {
+            return response()->json(['ok' => false], 401);
+        }
+
+        try {
+            $assignments->expirePendingAssignments(null, (int) $rider->id);
+            $orders = $this->riderDashboardOrders((int) $rider->id, null, null);
+        } catch (\Throwable $e) {
+            Log::warning('Rider dashboard feed failed: ' . $e->getMessage());
+            return response()->json(['ok' => false], 500);
+        }
+
+        $pending = $orders->filter(fn ($o) => ($o->rider_assignment_status ?? '') === 'pending');
+        $signature = md5($orders->map(fn ($o) => implode(':', [
+            $o->id,
+            $o->rider_bucket,
+            $o->rider_assignment_status ?? '',
+            $o->remittance_status ?? '',
+        ]))->sort()->implode('|'));
+
+        return response()->json([
+            'ok' => true,
+            'signature' => $signature,
+            'pending_count' => $pending->count(),
+            'pending_ids' => $pending->pluck('id')->values(),
+        ]);
+    }
+
     public function logout(Request $request)
     {
         $request->session()->forget('rider');

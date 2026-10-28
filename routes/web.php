@@ -312,6 +312,7 @@ Route::post('/rider/login', [\App\Http\Controllers\RiderController::class, 'logi
 Route::get('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetup'])->name('rider.password.setup');
 Route::post('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetupUpdate'])->name('rider.password.setup.update');
 Route::get('/rider/dashboard', [\App\Http\Controllers\RiderController::class, 'dashboard'])->name('rider.dashboard');
+Route::get('/rider/dashboard/feed', [RiderController::class, 'dashboardFeed'])->name('rider.dashboard.feed');
 Route::post('/rider/logout', [\App\Http\Controllers\RiderController::class, 'logout'])->name('rider.logout');
 Route::post('/rider/remittance/bulk/paymongo-qr', [\App\Http\Controllers\RiderController::class, 'generateBulkRemittanceQr'])->name('rider.remittance.bulk.qr');
 Route::post('/rider/remittance/bulk/check-paymongo', [\App\Http\Controllers\RiderController::class, 'checkBulkRemittanceQr'])->name('rider.remittance.bulk.check');
