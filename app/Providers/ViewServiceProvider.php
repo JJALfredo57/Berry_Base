@@ -107,6 +107,8 @@ class ViewServiceProvider extends ServiceProvider
                                     ->count()
                                 : 0;
 
+                            $riderActions = app(\App\Services\RiderAssignmentService::class)->countNeedingReassignment((string) $shop->id);
+
                             $payouts = Schema::hasTable('mobile_notifications')
                                 ? (int) DB::table('mobile_notifications')
                                     ->where('role', 'seller')
@@ -117,7 +119,7 @@ class ViewServiceProvider extends ServiceProvider
                                 : 0;
 
                             $sellerSidebarCounts = [
-                                'orders' => $pendingOrders + $pickupReady + $remittanceActions,
+                                'orders' => $pendingOrders + $pickupReady + $remittanceActions + $riderActions,
                                 'kitchen' => $kitchenPending + $kitchenPreparing,
                                 'messages' => $messages,
                                 'payouts' => $payouts,
@@ -127,6 +129,7 @@ class ViewServiceProvider extends ServiceProvider
                                 'pickup_ready' => $pickupReady,
                                 'pending_orders' => $pendingOrders,
                                 'remittance_actions' => $remittanceActions,
+                                'rider_actions' => $riderActions,
                                 'kitchen_pending' => $kitchenPending,
                                 'kitchen_preparing' => $kitchenPreparing,
                             ];

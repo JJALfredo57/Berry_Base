@@ -172,6 +172,22 @@ class RiderAssignmentGuardTest extends TestCase
         $this->assertNull($this->service()->alertInfo('O1'));
     }
 
+    public function test_reassignment_count_includes_declined_and_clears_after_reassign(): void
+    {
+        $this->notifications->shouldReceive('notifyOrderSellerByPriority');
+        DB::table('orders')->where('id', 'O1')->update(['shop_id' => 1]);
+        $this->assertSame(0, $this->service()->countNeedingReassignment('1'));
+
+        $this->service()->assign($this->order(), $this->rider(1));
+        $this->assertSame(0, $this->service()->countNeedingReassignment('1'));
+
+        $this->service()->decline($this->order(), 'Busy');
+        $this->assertSame(1, $this->service()->countNeedingReassignment('1'));
+
+        $this->service()->assign($this->order(), $this->rider(2));
+        $this->assertSame(0, $this->service()->countNeedingReassignment('1'));
+    }
+
     public function test_declined_assignment_can_be_reassigned(): void
     {
         $this->service()->assign($this->order(), $this->rider(1));

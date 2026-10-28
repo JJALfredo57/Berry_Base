@@ -1450,7 +1450,7 @@
     </a>
     <a href="{{ route('seller.orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.orders') ? 'active' : '' }}">
       <i class="bi bi-bag-check"></i><span class="sb-link-text">Orders</span>
-      <span class="sb-badge warn" data-seller-badge="orders" title="{{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending, {{ $sbCount('remittance_actions') }} COD remittance action" style="{{ $sbCount('orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('orders')) }}</span>
+      <span class="sb-badge warn" data-seller-badge="orders" title="{{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending, {{ $sbCount('remittance_actions') }} COD remittance action, {{ $sbCount('rider_actions') }} need a new rider" style="{{ $sbCount('orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('orders')) }}</span>
     </a>
     <a href="{{ route('seller.kitchen') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.kitchen') ? 'active' : '' }}">
       <i class="bi bi-fire"></i><span class="sb-link-text">Kitchen</span>
@@ -3437,7 +3437,7 @@ function setSellerSidebarBadge(key, count, title) {
 
 function applySellerSidebarCounts(counts) {
   if (!counts || MC_ROLE !== 'seller') return;
-  setSellerSidebarBadge('orders', counts.orders, (counts.pickup_ready || 0) + ' ready for pickup, ' + (counts.pending_orders || 0) + ' pending');
+  setSellerSidebarBadge('orders', counts.orders, (counts.pickup_ready || 0) + ' ready for pickup, ' + (counts.pending_orders || 0) + ' pending, ' + (counts.rider_actions || 0) + ' need a new rider');
   setSellerSidebarBadge('kitchen', counts.kitchen, (counts.kitchen_pending || 0) + ' pending, ' + (counts.kitchen_preparing || 0) + ' preparing');
   setSellerSidebarBadge('messages', counts.messages, 'Unread customer messages');
   setSellerSidebarBadge('custom_orders', counts.custom_orders, 'Custom orders awaiting review');

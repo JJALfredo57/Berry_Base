@@ -95,6 +95,22 @@ class RiderAssignmentService
         return $order;
     }
 
+    /** Delivery orders whose rider declined or let the request expire and still need a new rider. */
+    public function countNeedingReassignment(string $shopId): int
+    {
+        if (!Schema::hasColumn('orders', 'rider_assignment_status')) {
+            return 0;
+        }
+
+        return (int) DB::table('orders')
+            ->where('shop_id', $shopId)
+            ->where('fulfillment_type', 'Delivery')
+            ->whereIn('rider_assignment_status', ['declined', 'expired'])
+            ->whereNull('rider_id')
+            ->whereNotIn('status', ['Out for Delivery', 'Delivered', 'Picked Up', 'Cancelled', 'No Show'])
+            ->count();
+    }
+
     /** Declined/expired assignment that still needs the seller to pick another rider. */
     public function alertInfo(string $orderId): ?object
     {

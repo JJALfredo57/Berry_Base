@@ -119,6 +119,12 @@ class DashboardController extends Controller
             return response()->json(['ok' => false, 'counts' => []], 403);
         }
 
+        try {
+            app(\App\Services\RiderAssignmentService::class)->expirePendingAssignments((string) $shop->id);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Rider assignment expiry sweep failed: ' . $e->getMessage());
+        }
+
         return response()->json([
             'ok' => true,
             'counts' => $this->countsForShop((string) $shop->id),
@@ -139,7 +145,7 @@ class DashboardController extends Controller
             'pickup_ready' => 0,
             'pending_orders' => 0,
             'remittance_actions' => 0,
-            'kitchen_pending' => 0,
+            'rider_actions' => 0,
             'kitchen_preparing' => 0,
         ];
 
@@ -158,7 +164,8 @@ class DashboardController extends Controller
                     ->whereIn('status', ['pending', 'submitted', 'rejected'])
                     ->count();
             }
-            $counts['orders'] = $counts['pending_orders'] + $counts['pickup_ready'] + $counts['remittance_actions'];
+            $counts['rider_actions'] = app(\App\Services\RiderAssignmentService::class)->countNeedingReassignment($shopId);
+            $counts['orders'] = $counts['pending_orders'] + $counts['pickup_ready'] + $counts['remittance_actions'] + $counts['rider_actions'];
 
             $counts['messages'] = (int) DB::table('messages as m')
                 ->join('orders as o', 'o.id', '=', 'm.order_id')
