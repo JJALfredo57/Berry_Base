@@ -708,6 +708,33 @@
     </div>
     @endif
 
+    {{-- Rider declined / did not respond: seller must pick another rider --}}
+    @if(($o->fulfillment_type ?? 'Pickup') === 'Delivery')
+      @php $raAlert = app(\App\Services\RiderAssignmentService::class)->alertInfo((string) $o->id); @endphp
+      @if($raAlert)
+      <div style="border-top:1px solid var(--gray-100);padding:.75rem 1.25rem">
+        @include('partials.rider_assignment_alert', ['alert' => $raAlert, 'orderId' => $o->id])
+        @if(($o->status ?? '') !== 'Ready for Rider' && in_array((string) ($o->status ?? ''), ['Confirmed', 'Preparing'], true))
+        <form action="{{ route('seller.orders.assign_rider', $o->id) }}" method="POST" class="d-flex gap-2 flex-wrap align-items-center mt-2 mb-0">
+          @csrf
+          <select name="rider_id" class="form-select form-select-sm" style="width:180px" required>
+            <option value="">Choose rider</option>
+            @foreach($riders as $rider)
+              <option value="{{ $rider->id }}">{{ $rider->name }}</option>
+            @endforeach
+          </select>
+          <button type="submit" class="btn btn-primary btn-sm fw-semibold"
+                  data-cs-confirm="Assign this rider for Order #{{ $o->id }}?"
+                  data-cs-title="Assign Rider"
+                  data-cs-ok="Assign Rider">
+            <i class="bi bi-bicycle me-1"></i>Assign rider
+          </button>
+        </form>
+        @endif
+      </div>
+      @endif
+    @endif
+
     {{-- Status Actions (non-final, non-pickup orders) --}}
     @if(!in_array($o->status, ['Awaiting Deposit','Delivered','Picked Up','No Show','Cancelled','Pickup']))
     <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fff8fb 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">

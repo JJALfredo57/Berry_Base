@@ -38,6 +38,12 @@ class OrderController extends Controller
         $riders = DB::table('riders')->where('shop_id', $shop->id)->where('is_active', true)->orderBy('name')->get();
 
         try {
+            app(RiderAssignmentService::class)->expirePendingAssignments((string) $shop->id);
+        } catch (\Throwable $e) {
+            Log::warning('Rider assignment expiry sweep failed: ' . $e->getMessage());
+        }
+
+        try {
             $orders = DB::table('orders as o')
                 ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
                 ->leftJoin('products as p', 'p.id', '=', 'o.product_id')

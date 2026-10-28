@@ -50,6 +50,16 @@ class RiderAssignmentGuardTest extends TestCase
             $t->timestamp('updated_at')->nullable();
         });
 
+        Schema::create('order_tracking', function ($t) {
+            $t->increments('id');
+            $t->string('order_id');
+            $t->string('status');
+            $t->text('notes')->nullable();
+            $t->string('sender_role')->nullable();
+            $t->string('receiver_role')->nullable();
+            $t->timestamp('created_at')->nullable();
+        });
+
         DB::table('riders')->insert([
             ['id' => 1, 'name' => 'Rider One', 'phone' => '09170000001'],
             ['id' => 2, 'name' => 'Rider Two', 'phone' => '09170000002'],
@@ -124,6 +134,42 @@ class RiderAssignmentGuardTest extends TestCase
 
         $this->assertFalse($this->service()->cancelPending($this->order())['ok']);
         $this->assertSame(1, (int) $this->order()->rider_id);
+    }
+
+    public function test_declined_assignment_raises_alert_with_rider_name_and_reason(): void
+    {
+        $this->notifications->shouldReceive('notifyOrderSellerByPriority')->once();
+        $this->service()->assign($this->order(), $this->rider(1));
+        $this->service()->decline($this->order(), 'Flat tire');
+
+        $alert = $this->service()->alertInfo('O1');
+        $this->assertNotNull($alert);
+        $this->assertSame('declined', $alert->state);
+        $this->assertSame('Rider One', $alert->rider_name);
+        $this->assertSame('Flat tire', $alert->reason);
+
+        $this->assertTrue($this->service()->assign($this->order(), $this->rider(2))['ok']);
+        $this->assertNull($this->service()->alertInfo('O1'));
+    }
+
+    public function test_expired_assignment_raises_alert_and_notifies_seller(): void
+    {
+        $this->notifications->shouldReceive('notifyOrderSellerByPriority')->once();
+        $this->service()->assign($this->order(), $this->rider(1));
+        DB::table('orders')->where('id', 'O1')->update(['rider_assignment_expires_at' => now()->subMinute(), 'shop_id' => 1]);
+
+        $this->assertSame(1, $this->service()->expirePendingAssignments('1'));
+
+        $alert = $this->service()->alertInfo('O1');
+        $this->assertSame('expired', $alert->state);
+        $this->assertSame('Rider One', $alert->rider_name);
+    }
+
+    public function test_no_alert_for_pending_or_unassigned_orders(): void
+    {
+        $this->assertNull($this->service()->alertInfo('O1'));
+        $this->service()->assign($this->order(), $this->rider(1));
+        $this->assertNull($this->service()->alertInfo('O1'));
     }
 
     public function test_declined_assignment_can_be_reassigned(): void

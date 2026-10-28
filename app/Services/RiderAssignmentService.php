@@ -95,6 +95,35 @@ class RiderAssignmentService
         return $order;
     }
 
+    /** Declined/expired assignment that still needs the seller to pick another rider. */
+    public function alertInfo(string $orderId): ?object
+    {
+        if (!Schema::hasColumn('orders', 'rider_assignment_status')) {
+            return null;
+        }
+        $order = DB::table('orders')->where('id', $orderId)->first();
+        if (!$order || !empty($order->rider_id)
+            || !in_array((string) ($order->rider_assignment_status ?? ''), ['declined', 'expired'], true)
+            || in_array((string) ($order->status ?? ''), ['Out for Delivery', 'Delivered', 'Picked Up', 'Cancelled', 'No Show'], true)) {
+            return null;
+        }
+
+        $isDeclined = $order->rider_assignment_status === 'declined';
+        $note = Schema::hasTable('order_tracking')
+            ? DB::table('order_tracking')->where('order_id', $orderId)
+                ->where('status', $isDeclined ? 'Rider Declined Delivery' : 'Rider No Response')
+                ->orderByDesc('created_at')->value('notes')
+            : null;
+        $name = $note ? trim((string) preg_split('/ (declined the delivery|did not respond)/', $note)[0]) : '';
+
+        return (object) [
+            'state' => $order->rider_assignment_status,
+            'rider_name' => $name !== '' ? $name : 'The rider',
+            'reason' => $isDeclined ? ($order->rider_decline_reason ?? null) : null,
+            'at' => $isDeclined ? ($order->rider_declined_at ?? null) : null,
+        ];
+    }
+
     public function alreadyAssignedMessage(string $orderId): string
     {
         $order = DB::table('orders')->where('id', $orderId)->first();

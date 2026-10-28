@@ -180,6 +180,8 @@
         @if($raLock)
           @include('partials.rider_assignment_card', ['lock' => $raLock, 'cancelRoute' => route('seller.orders.cancel_rider_assignment', $t->order_id)])
         @else
+        @php $raAlert = app(\App\Services\RiderAssignmentService::class)->alertInfo((string) $t->order_id); @endphp
+        @if($raAlert)@include('partials.rider_assignment_alert', ['alert' => $raAlert, 'orderId' => $t->order_id, 'class' => 'mb-3'])@endif
         <form action="{{ route('seller.kitchen.assign_rider', $t->order_id) }}" method="POST">
           @csrf
           <div class="mb-3">

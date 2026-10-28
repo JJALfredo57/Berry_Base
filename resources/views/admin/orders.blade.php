@@ -253,6 +253,10 @@
           {{-- Rider Assignment (Delivery orders only) --}}
           @if($o->fulfillment_type === 'Delivery' && in_array($o->status, ['Confirmed','Preparing','Ready for Rider','Out for Delivery']))
           @php $riders = \Illuminate\Support\Facades\DB::table('riders')->where('is_active',1)->orderBy('name')->get(); @endphp
+          @php $raAlert = app(\App\Services\RiderAssignmentService::class)->alertInfo((string) $o->id); @endphp
+          @if($raAlert)
+          <div class="px-3 pt-2">@include('partials.rider_assignment_alert', ['alert' => $raAlert, 'orderId' => $o->id])</div>
+          @endif
           <div class="px-3 py-2 d-flex align-items-center gap-2 flex-wrap" style="background:#f0f9ff;border-top:1px dashed #bae6fd">
             <i class="bi bi-bicycle" style="color:#0369a1"></i>
             <span class="small fw-semibold" style="color:#0369a1">Rider:</span>

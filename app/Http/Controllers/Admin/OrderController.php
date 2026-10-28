@@ -25,6 +25,12 @@ class OrderController extends Controller
         $search = trim($request->input('search', ''));
         $status = $request->input('status', 'All');
 
+        try {
+            app(RiderAssignmentService::class)->expirePendingAssignments();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Rider assignment expiry sweep failed: ' . $e->getMessage());
+        }
+
         $orders = DB::table('orders as o')
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->join('products as p', 'p.id', '=', 'o.product_id')
