@@ -133,6 +133,26 @@ class DeliveryLocationValidationServiceTest extends TestCase
         $this->assertStringContainsString('Landmark', $result['message']);
     }
 
+    public function test_structured_address_is_not_rejected_for_not_naming_the_coverage_zone_center(): void
+    {
+        $request = Request::create('/checkout', 'POST', [
+            '_structured_address' => '1',
+            'address_house' => 'House 12',
+            'address_street' => 'Rizal Street',
+            'address_subdivision' => 'Purok 2',
+            'address_barangay' => 'Poblacion',
+            'address_barangay_code' => '015506001',
+            'address_city' => 'Bautista',
+            'address_city_code' => '015506000',
+            'address_province' => 'Pangasinan',
+            'address_province_code' => '015500000',
+            'address_landmark' => 'Near the blue gate',
+        ]);
+
+        $this->assertTrue((new DeliveryLocationValidationService())
+            ->validateRequest($request, 15.8095, 120.4988, 'Galarin', true)['ok']);
+    }
+
     public function test_structured_delivery_address_composes_valid_full_address_without_postal_code(): void
     {
         $request = Request::create('/checkout', 'POST', [

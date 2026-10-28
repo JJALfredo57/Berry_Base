@@ -46,7 +46,8 @@ class DeliveryLocationValidationService
             }
         }
 
-        return $this->validate($this->addressFromRequest($request, $fallbackField), $lat, $lng, $zone, $requireZoneMatch);
+        // Structured addresses are already PSGC-validated and checked against shop coverage; the pin is independent of the typed address.
+        return $this->validate($this->addressFromRequest($request, $fallbackField), $lat, $lng, $zone, $requireZoneMatch && !$structuredRequired);
     }
 
     private function structuredParts($request): array
