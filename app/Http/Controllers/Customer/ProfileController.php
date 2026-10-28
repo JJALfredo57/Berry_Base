@@ -30,11 +30,10 @@ class ProfileController extends Controller
         $loyaltyService = app(\App\Services\LoyaltyService::class);
         $loyalty = $loyaltyService->account($uid);
         $loyaltyOverview = $loyaltyService->membershipOverview($uid);
-        $defaultAddr = DB::table('user_addresses')
-            ->where('user_id', $uid)
-            ->where('is_default', 1)
-            ->first();
-        $addressCount = DB::table('user_addresses')->where('user_id', $uid)->count();
+        $activeAddresses = DB::table('user_addresses')->where('user_id', $uid);
+        if (\Illuminate\Support\Facades\Schema::hasColumn('user_addresses', 'archived_at')) $activeAddresses->whereNull('archived_at');
+        $defaultAddr = (clone $activeAddresses)->where('is_default', 1)->first();
+        $addressCount = (clone $activeAddresses)->count();
         return view('customer.profile', compact('user','orderCount','pendingCount','verificationStatus','loyalty','loyaltyOverview','defaultAddr','addressCount'));
     }
 
@@ -90,11 +89,10 @@ class ProfileController extends Controller
         $loyaltyService = app(\App\Services\LoyaltyService::class);
         $loyalty = $loyaltyService->account($uid);
         $loyaltyOverview = $loyaltyService->membershipOverview($uid);
-        $defaultAddr = DB::table('user_addresses')
-            ->where('user_id', $uid)
-            ->where('is_default', 1)
-            ->first();
-        $addressCount = DB::table('user_addresses')->where('user_id', $uid)->count();
+        $activeAddresses = DB::table('user_addresses')->where('user_id', $uid);
+        if (\Illuminate\Support\Facades\Schema::hasColumn('user_addresses', 'archived_at')) $activeAddresses->whereNull('archived_at');
+        $defaultAddr = (clone $activeAddresses)->where('is_default', 1)->first();
+        $addressCount = (clone $activeAddresses)->count();
         return view('customer.profile', compact('user','orderCount','pendingCount','step','verificationStatus','loyalty','loyaltyOverview','defaultAddr','addressCount'));
     }
 

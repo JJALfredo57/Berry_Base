@@ -306,7 +306,10 @@ document.body.style.paddingRight = '';
                   <button type="button" class="btn btn-sm btn-link ms-auto p-0" onclick="setAddressMode(true)">Use saved location</button>
                   @endif
                 </div>
-                <div id="map" style="height:260px;border-radius:.9rem;border:1.5px solid #dee2e6"></div>
+                <div class="map-lock-wrap is-locked" id="mapLockWrap">
+                  <div id="map" style="height:260px;border-radius:.9rem;border:1.5px solid #dee2e6"></div>
+                  <div class="map-lock-msg"><span><i class="bi bi-lock me-1"></i>Fill in your address first to pin your location</span></div>
+                </div>
                 <input type="hidden" name="latitude"  id="lat">
                 <input type="hidden" name="longitude" id="lng">
                 <input type="hidden" name="delivery_zone"  id="deliveryZoneInput" value="">
@@ -345,7 +348,7 @@ document.body.style.paddingRight = '';
                   </span>
                 </label>
                 <div class="form-text mt-0 mb-2">Your pin shows where to deliver. Enter your complete address below.</div>
-                @include('partials.delivery_address_fields', ['prefix' => 'checkout', 'title' => 'Detailed Delivery Address'])
+                @include('partials.delivery_address_fields', ['prefix' => 'checkout', 'title' => 'Detailed Delivery Address', 'mapWrapId' => 'mapLockWrap', 'mapBtnId' => 'detectBtn'])
                 <label class="form-label fw-semibold small mb-1" for="addressField"><i class="bi bi-geo-alt me-1"></i>Your delivery address</label>
                 <textarea class="form-control bg-light" name="address" id="addressField" rows="2" readonly
                   placeholder="Your address appears here as you fill in the fields above">{{ old('address', '') }}</textarea>

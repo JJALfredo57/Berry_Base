@@ -1,9 +1,18 @@
 @php
   $prefix = $prefix ?? 'delivery';
   $title = $title ?? 'Delivery Address Details';
+  $mapWrapId = $mapWrapId ?? '';
+  $mapBtnId = $mapBtnId ?? '';
 @endphp
+@once
+<style>
+.map-lock-wrap{position:relative}
+.map-lock-wrap .map-lock-msg{display:none;position:absolute;inset:0;z-index:1200;align-items:center;justify-content:center;text-align:center;padding:1rem;border-radius:.9rem;background:rgba(248,250,252,.82);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);color:#475569;font-size:.85rem;font-weight:600;cursor:not-allowed}
+.map-lock-wrap.is-locked .map-lock-msg{display:flex}
+</style>
+@endonce
 <input type="hidden" name="_structured_address" value="1">
-<div class="delivery-address-fields rounded-3 p-3 mb-3 js-psgc-address" style="background:#f8fafc;border:1px solid #e5e7eb" data-prefix="{{ $prefix }}">
+<div class="delivery-address-fields rounded-3 p-3 mb-3 js-psgc-address" style="background:#f8fafc;border:1px solid #e5e7eb" data-prefix="{{ $prefix }}" data-map-wrap="{{ $mapWrapId }}" data-map-btn="{{ $mapBtnId }}">
   <div class="fw-bold small mb-2"><i class="bi bi-geo-alt me-1" style="color:var(--primary)"></i>{{ $title }}</div>
   <div class="row g-2">
     <div class="col-sm-6">
@@ -119,6 +128,12 @@
       else city.placeholder = 'Type or choose a city/municipality';
       if (barangay.disabled) barangay.placeholder = 'Choose a valid city/municipality first';
       else barangay.placeholder = 'Type or choose a barangay';
+      const complete = !!(provinceCode.value && cityCode.value && barangayCode.value);
+      const wrap = block.dataset.mapWrap ? document.getElementById(block.dataset.mapWrap) : null;
+      if (wrap) wrap.classList.toggle('is-locked', !complete);
+      const mapBtn = block.dataset.mapBtn ? document.getElementById(block.dataset.mapBtn) : null;
+      if (mapBtn) mapBtn.disabled = !complete;
+      block.dispatchEvent(new CustomEvent('psgc-sync', { bubbles: true, detail: { prefix, complete } }));
     };
     const resolveCode = async (input, codeEl, list, url, params) => {
       const value = (input.value || '').trim();

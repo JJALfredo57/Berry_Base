@@ -74,7 +74,7 @@
                   <input class="form-control pill" name="label_name" value="{{ $a->label_name ?: 'Address' }}">
                 </div>
                 <div class="col-12">
-                  @include('partials.delivery_address_fields', ['prefix' => 'edit' . $a->id, 'title' => 'Detailed Delivery Address'])
+                  @include('partials.delivery_address_fields', ['prefix' => 'edit' . $a->id, 'title' => 'Detailed Delivery Address', 'mapWrapId' => 'editMapLockWrap' . $a->id, 'mapBtnId' => 'detectEditBtn' . $a->id])
                 </div>
                 <div class="col-sm-7">
                   <label class="form-label small fw-semibold">Map Address Summary <span class="address-loading" id="editAddressLoading{{ $a->id }}"><span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>Fetching address...</span></label>
@@ -86,7 +86,10 @@
                   <label class="form-label small fw-semibold mb-0">Edit Map Pin</label>
                   <button type="button" class="btn btn-sm btn-outline-primary pill" id="detectEditBtn{{ $a->id }}" onclick="detectEditLocation({{ $a->id }})"><i class="bi bi-crosshair me-1"></i>Detect My Location</button>
                 </div>
-                <div id="editMap{{ $a->id }}" class="address-edit-map"></div>
+                <div class="map-lock-wrap" id="editMapLockWrap{{ $a->id }}">
+                  <div id="editMap{{ $a->id }}" class="address-edit-map"></div>
+                  <div class="map-lock-msg"><span><i class="bi bi-lock me-1"></i>Fill in your address first to pin your location</span></div>
+                </div>
                 <input type="hidden" name="latitude" id="editLat{{ $a->id }}" value="{{ $a->latitude }}">
                 <input type="hidden" name="longitude" id="editLng{{ $a->id }}" value="{{ $a->longitude }}">
                 <div class="small text-muted mt-2"><i class="bi bi-info-circle me-1"></i>Move the pin or use detection. Complete Address updates automatically, then you can add house number or landmark.</div>
@@ -124,12 +127,15 @@
           <div class="mb-2"><label class="form-label">Label</label><input class="form-control pill" name="label_name" value="{{ old('label_name', 'Home') }}" placeholder="Home, Work, Office"></div>
           <div class="mb-2">
             <label class="form-label">Pin Exact Location</label>
-            <div id="map" class="address-map"></div>
+            <div class="map-lock-wrap is-locked" id="newMapLockWrap">
+              <div id="map" class="address-map"></div>
+              <div class="map-lock-msg"><span><i class="bi bi-lock me-1"></i>Fill in your address first to pin your location</span></div>
+            </div>
             <input type="hidden" name="latitude" id="lat" value="{{ old('latitude') }}"><input type="hidden" name="longitude" id="lng" value="{{ old('longitude') }}">
             <button type="button" class="btn btn-outline-primary btn-sm pill mt-2" id="detectAddressBtn" onclick="detectMyLocation()"><i class="bi bi-crosshair me-1"></i>Detect My Location</button>
             <div class="small text-muted mt-2"><i class="bi bi-pin-map me-1"></i>Use detection or click the map to pin your exact delivery location.</div>
           </div>
-          @include('partials.delivery_address_fields', ['prefix' => 'new', 'title' => 'Detailed Delivery Address'])
+          @include('partials.delivery_address_fields', ['prefix' => 'new', 'title' => 'Detailed Delivery Address', 'mapWrapId' => 'newMapLockWrap', 'mapBtnId' => 'detectAddressBtn'])
           <div class="mb-2"><label class="form-label">Map Address Summary <span class="address-loading" id="addressLoading"><span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>Fetching address...</span></label><textarea class="form-control pill" name="full_address" id="address" rows="2" placeholder="Map result or address summary">{{ old('full_address') }}</textarea></div>
           <div class="form-check mb-3"><input class="form-check-input" type="checkbox" value="1" id="makeDefault" name="make_default"><label class="form-check-label" for="makeDefault">Set as Default</label></div>
           <button class="btn btn-primary pill"><i class="bi bi-save me-1"></i>Save Address</button>

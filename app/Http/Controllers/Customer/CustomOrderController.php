@@ -135,9 +135,9 @@ class CustomOrderController extends Controller
             ->get()->groupBy('category_id');
 
         $customer    = DB::table('users')->where('id', $uid)->first();
-        $defaultAddr = DB::table('user_addresses')
-            ->where('user_id', $uid)
-            ->orderByDesc('is_default')->orderByDesc('id')->first();
+        $defaultAddrQuery = DB::table('user_addresses')->where('user_id', $uid);
+        if (\Illuminate\Support\Facades\Schema::hasColumn('user_addresses', 'archived_at')) $defaultAddrQuery->whereNull('archived_at');
+        $defaultAddr = $defaultAddrQuery->orderByDesc('is_default')->orderByDesc('id')->first();
 
         // Shop settings and coverage zones
         $shopSettings  = null;
