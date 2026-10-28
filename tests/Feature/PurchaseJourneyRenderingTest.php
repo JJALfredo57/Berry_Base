@@ -406,6 +406,29 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertRedirect(route('rider.show', [$order->id, 'PINTOKEN1']));
     }
 
+    public function test_delivery_checkout_saves_default_address_when_checked(): void
+    {
+        $this->prepareFixture();
+        $this->post('/catalog/select', ['product_id' => 'TESTCAKE', 'quantity' => 1]);
+        $this->post('/login', ['username' => 'testbuyer', 'password' => 'TestPassword1!']);
+
+        $this->post('/customer/checkout/place', [
+            'fulfillment_type' => 'Delivery',
+            'schedule_date' => now()->addDays(5)->toDateString(),
+            'schedule_time' => '14:00',
+            'payment_method' => 'COD',
+            'address' => '12 Rizal St, Barangay Test, Test City',
+            'delivery_zone' => 'Test',
+            'latitude' => '14.5995',
+            'longitude' => '120.9842',
+            'save_default_address' => 'on',
+        ])->assertRedirect();
+
+        $this->assertNull(session('error'), (string) session('error'));
+        $this->assertSame(1, DB::table('user_addresses')->count());
+        $this->assertSame('12 Rizal St, Barangay Test, Test City', DB::table('user_addresses')->value('full_address'));
+    }
+
     public function test_rider_dashboard_feed_requires_rider_session(): void
     {
         $this->prepareFixture();
