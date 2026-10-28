@@ -774,6 +774,10 @@
           </button>
         </form>
       @elseif(($o->status ?? '') === 'Ready for Rider' && ($o->fulfillment_type ?? 'Pickup') === 'Delivery')
+        @php $raLock = app(\App\Services\RiderAssignmentService::class)->lockInfo((string) $o->id); @endphp
+        @if($raLock)
+          @include('partials.rider_assignment_card', ['lock' => $raLock, 'cancelRoute' => route('seller.orders.cancel_rider_assignment', $o->id)])
+        @else
         <form action="{{ route('seller.orders.assign_rider', $o->id) }}" method="POST" class="d-flex gap-2 flex-wrap align-items-center m-0">
           @csrf
           <select name="rider_id" class="form-select form-select-sm" style="width:180px" required>
@@ -792,6 +796,7 @@
             <span class="small text-danger fw-semibold">No active riders.</span>
           @endif
         </form>
+        @endif
       @elseif($isCustomOrder && $o->status === 'Pending Review')
         <a href="{{ route('seller.custom_orders') }}" class="btn btn-outline-primary btn-sm fw-semibold">
           <i class="bi bi-palette me-1"></i>Review custom order

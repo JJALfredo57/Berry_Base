@@ -496,6 +496,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/orders/{id}/accept-cancel', [\App\Http\Controllers\Seller\OrderController::class, 'approveCancel'])->name('orders.accept_cancel');
     Route::post('/orders/{id}/reject-cancel', [\App\Http\Controllers\Seller\OrderController::class, 'rejectCancel'])->name('orders.reject_cancel');
     Route::post('/orders/{id}/assign-rider', [\App\Http\Controllers\Seller\OrderController::class, 'assignRider'])->name('orders.assign_rider');
+    Route::post('/orders/{id}/cancel-rider-assignment', [\App\Http\Controllers\Seller\OrderController::class, 'cancelRiderAssignment'])->name('orders.cancel_rider_assignment');
     Route::post('/orders/{id}/pickup-no-show', [\App\Http\Controllers\Seller\OrderController::class, 'markPickupNoShow'])->name('orders.pickup_no_show');
 
     // Settings
@@ -664,6 +665,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/orders/{id}/confirm',       [AdminOrder::class, 'confirmOrder'])->name('orders.confirm');
     Route::post('/orders/{id}/request-deposit',[AdminOrder::class, 'requestDeposit'])->name('orders.request_deposit');
     Route::post('/orders/{id}/assign-rider',  [AdminOrder::class, 'assignRider'])->name('orders.assign_rider');
+    Route::post('/orders/{id}/cancel-rider-assignment',  [AdminOrder::class, 'cancelRiderAssignment'])->name('orders.cancel_rider_assignment');
     Route::post('/orders/{id}/accept-cancel', [AdminOrder::class, 'acceptCancel'])->name('orders.accept_cancel');
     Route::post('/orders/{id}/reject-cancel', [AdminOrder::class, 'rejectCancel'])->name('orders.reject_cancel');
     Route::post('/orders/{id}/block-phone',   [AdminOrder::class, 'blockCustomerPhone'])->name('orders.block_phone');
@@ -762,6 +764,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth.admin')->group(function
     Route::post('/orders/{id}/confirm',        [AdminOrder::class, 'confirmOrder'])->name('orders.confirm');
     Route::post('/orders/{id}/request-deposit',[AdminOrder::class, 'requestDeposit'])->name('orders.request_deposit');
     Route::post('/orders/{id}/assign-rider',   [AdminOrder::class, 'assignRider'])->name('orders.assign_rider');
+    Route::post('/orders/{id}/cancel-rider-assignment',   [AdminOrder::class, 'cancelRiderAssignment'])->name('orders.cancel_rider_assignment');
     Route::post('/orders/{id}/accept-cancel',  [AdminOrder::class, 'acceptCancel'])->name('orders.accept_cancel');
     Route::post('/orders/{id}/reject-cancel',  [AdminOrder::class, 'rejectCancel'])->name('orders.reject_cancel');
     Route::post('/orders/{id}/send-to-kitchen',[AdminOrder::class, 'sendToKitchen'])->name('orders.send_to_kitchen');

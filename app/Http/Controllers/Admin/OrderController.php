@@ -173,6 +173,9 @@ class OrderController extends Controller
             return back()->with('err','This is a Pickup order - no rider needed.');
 
         if (!$riderId) {
+            if (app(RiderAssignmentService::class)->isLocked($order)) {
+                return back()->with('err', app(RiderAssignmentService::class)->alreadyAssignedMessage((string) $id));
+            }
             DB::table('orders')->where('id',$id)->update([
                 'rider_id' => null,
                 'rider_assignment_status' => null,
@@ -188,6 +191,9 @@ class OrderController extends Controller
         if (!$rider) return back()->with('err', 'Rider not found or inactive.');
 
         $assignment = app(RiderAssignmentService::class)->assign($order, $rider, null, 'admin');
+        if (!($assignment['ok'] ?? false)) {
+            return back()->with('err', $assignment['message'] ?? 'This order already has a rider assigned.');
+        }
         $channel = $assignment['notice']['channel'] ?? 'none';
         $noticeNote = match ($channel) {
             'push' => ' App notification sent to rider.',
@@ -198,6 +204,19 @@ class OrderController extends Controller
         CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Assign Rider', "Order #{$id} -> Rider: {$riderName}");
         return back()->with('msg', "Rider {$riderName} assigned to Order #{$id}. Waiting for rider confirmation.{$noticeNote}");
     }
+    public function cancelRiderAssignment(string $id)
+    {
+        $order = DB::table('orders')->where('id', $id)->first();
+        if (!$order) return back()->with('err', 'Order not found.');
+
+        $result = app(RiderAssignmentService::class)->cancelPending($order, 'admin');
+        if (!($result['ok'] ?? false)) {
+            return back()->with('err', $result['message']);
+        }
+        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Cancel Rider Assignment', "Order #{$id} -> Rider: {$result['rider_name']}");
+        return back()->with('msg', "Assignment to {$result['rider_name']} cancelled. The rider was notified.");
+    }
+
     /** Admin requests deposit from guest before confirming */
     public function requestDeposit(Request $request, string $id)
     {

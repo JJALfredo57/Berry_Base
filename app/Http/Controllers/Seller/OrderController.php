@@ -758,6 +758,9 @@ class OrderController extends Controller
         if (!$rider) return back()->with('err', 'Rider not found.');
 
         $assignment = app(RiderAssignmentService::class)->assign($order, $rider, $shop, 'seller');
+        if (!($assignment['ok'] ?? false)) {
+            return back()->with('err', $assignment['message'] ?? 'This order already has a rider assigned.');
+        }
         $channel = $assignment['notice']['channel'] ?? 'none';
         $noticeNote = match ($channel) {
             'push' => ' App notification sent to rider.',
@@ -780,6 +783,19 @@ class OrderController extends Controller
         }
 
         return back()->with('msg', "Rider assigned. Waiting for rider confirmation.{$noticeNote}");
+    }
+
+    public function cancelRiderAssignment(string $id)
+    {
+        $shop  = $this->getShop();
+        $order = DB::table('orders')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$order) return back()->with('err', 'Order not found.');
+
+        $result = app(RiderAssignmentService::class)->cancelPending($order, 'seller');
+        if (!($result['ok'] ?? false)) {
+            return back()->with('err', $result['message']);
+        }
+        return back()->with('msg', "Assignment to {$result['rider_name']} cancelled. The rider was notified. You can now choose another rider.");
     }
 
     public function markPickupNoShow(Request $request, string $id, OrderRefundService $refunds)

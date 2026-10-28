@@ -18,7 +18,8 @@ class RiderAssignmentService
     public function assign(object $order, object $rider, ?object $shop = null, string $actorRole = 'seller'): array
     {
         $orderId = (string) $order->id;
-        $token = $order->rider_token ?: bin2hex(random_bytes(16));
+        // A fresh token and PIN per assignment so a previous rider's link and PIN stop working.
+        $token = bin2hex(random_bytes(16));
         $pin = SmsHelper::generateRiderPin();
         $expiresAt = now()->addMinutes(self::ACCEPTANCE_MINUTES);
         $previousStatus = $this->previousStatus($order);
@@ -39,7 +40,18 @@ class RiderAssignmentService
             'updated_at' => now(),
         ]);
 
-        DB::table('orders')->where('id', $orderId)->update($updates);
+        // Atomic guard: only one request can win the assignment, so the rider is notified once.
+        $claim = DB::table('orders')->where('id', $orderId);
+        if (Schema::hasColumn('orders', 'rider_assignment_status')) {
+            $claim->where(function ($q) {
+                $q->whereNull('rider_assignment_status')
+                    ->orWhereIn('rider_assignment_status', ['', 'declined', 'expired', 'cancelled']);
+            });
+        }
+        if ($claim->update($updates) < 1) {
+            return ['ok' => false, 'message' => $this->alreadyAssignedMessage($orderId)];
+        }
+
         $this->track($orderId, 'Rider Assignment Pending', "Assigned to rider: {$rider->name}. Waiting for rider confirmation.");
 
         $freshOrder = DB::table('orders')->where('id', $orderId)->first() ?: $order;
@@ -60,7 +72,85 @@ class RiderAssignmentService
             'updated_at' => now(),
         ]));
 
-        return ['token' => $token, 'pin' => $pin, 'expires_at' => $expiresAt, 'notice' => $notice];
+        return ['ok' => true, 'token' => $token, 'pin' => $pin, 'expires_at' => $expiresAt, 'notice' => $notice];
+    }
+
+    /** True when a rider is already assigned and waiting to respond, or has accepted. */
+    public function isLocked(object $order): bool
+    {
+        return in_array((string) ($order->rider_assignment_status ?? ''), ['pending', 'accepted'], true);
+    }
+
+    /** Current pending/accepted assignment for the UI, or null when a rider may be chosen. */
+    public function lockInfo(string $orderId): ?object
+    {
+        if (!Schema::hasColumn('orders', 'rider_assignment_status')) {
+            return null;
+        }
+        $order = DB::table('orders')->where('id', $orderId)->first();
+        if (!$order || !$this->isLocked($order)) {
+            return null;
+        }
+        $order->rider_name = $order->rider_id ? (DB::table('riders')->where('id', $order->rider_id)->value('name') ?: 'Rider') : 'Rider';
+        return $order;
+    }
+
+    public function alreadyAssignedMessage(string $orderId): string
+    {
+        $order = DB::table('orders')->where('id', $orderId)->first();
+        $name = ($order && $order->rider_id) ? DB::table('riders')->where('id', $order->rider_id)->value('name') : null;
+        $name = $name ?: 'a rider';
+        $state = ($order->rider_assignment_status ?? '') === 'accepted' ? 'already accepted by' : 'already assigned to';
+        $suffix = ($order->rider_assignment_status ?? '') === 'pending' ? ' and is waiting for a response. Cancel the assignment first to choose another rider.' : '.';
+        return "Order #{$orderId} is {$state} {$name}{$suffix}";
+    }
+
+    /** Seller/admin cancels a pending assignment; the rider is told and the request disappears from their side. */
+    public function cancelPending(object $order, string $actorRole = 'seller'): array
+    {
+        $orderId = (string) $order->id;
+        $riderId = $order->rider_id ?? null;
+        $rider = $riderId ? DB::table('riders')->where('id', $riderId)->first() : null;
+        $nextStatus = $this->restoreStatus($order);
+
+        $cancelled = DB::table('orders')
+            ->where('id', $orderId)
+            ->where('rider_assignment_status', 'pending')
+            ->update($this->filterExistingColumns('orders', [
+                'rider_id' => null,
+                'rider_token' => null,
+                'rider_pin' => null,
+                'rider_sms_sent' => false,
+                'rider_assignment_status' => 'cancelled',
+                'rider_assignment_expires_at' => null,
+                'status' => $nextStatus,
+                'updated_at' => now(),
+            ]));
+
+        if ($cancelled < 1) {
+            return ['ok' => false, 'message' => 'This assignment can no longer be cancelled. The rider may have already responded.'];
+        }
+
+        $riderName = $rider->name ?? 'Rider';
+        $this->track($orderId, 'Rider Assignment Cancelled', "Assignment to {$riderName} was cancelled by the {$actorRole}.");
+
+        if ($rider) {
+            try {
+                $this->notifications->notifyRider(
+                    (int) $rider->id,
+                    $rider->phone ?? null,
+                    'Assignment Cancelled',
+                    "Order #{$orderId} is no longer assigned to you. No action needed.",
+                    ['event' => 'rider_assignment_cancelled', 'order_id' => $orderId],
+                    "Order #{$orderId} assignment was cancelled by the seller. No action needed.",
+                    null
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Rider assignment cancel notice failed: ' . $e->getMessage());
+            }
+        }
+
+        return ['ok' => true, 'rider_name' => $riderName];
     }
 
     public function accept(object $order): void

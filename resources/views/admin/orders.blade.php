@@ -264,6 +264,10 @@
             @else
               <span class="badge bg-warning text-dark">Not Assigned</span>
             @endif
+            @php $raLock = app(\App\Services\RiderAssignmentService::class)->lockInfo((string) $o->id); @endphp
+            @if($raLock)
+              <div class="ms-auto">@include('partials.rider_assignment_card', ['lock' => $raLock, 'cancelRoute' => route('admin.orders.cancel_rider_assignment', $o->id)])</div>
+            @else
             <form action="{{ route('admin.orders.assign_rider', $o->id) }}" method="POST" class="d-flex gap-1 ms-auto">
               @csrf
               <select name="rider_id" class="form-select form-select-sm" style="min-width:140px">
@@ -274,6 +278,7 @@
               </select>
               <button type="submit" class="btn btn-sm btn-outline-primary">Assign</button>
             </form>
+            @endif
           </div>
           @endif
 

@@ -234,6 +234,10 @@ class KitchenController extends Controller
         $order = DB::table('orders')->where('id', $orderId)->first();
         if (!$order) return back()->with('err','Order not found.');
 
+        if (app(RiderAssignmentService::class)->isLocked($order)) {
+            return back()->with('err', app(RiderAssignmentService::class)->alreadyAssignedMessage((string) $orderId));
+        }
+
         // Save rider assignment
         DB::table('orders')->where('id', $orderId)->update(['rider_id' => $riderId]);
 

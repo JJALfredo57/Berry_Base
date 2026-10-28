@@ -175,6 +175,10 @@
               This is a <strong>Delivery order</strong>. Please assign a rider before marking as done.
             </span>
           </div>
+          @php $raLock = app(\App\Services\RiderAssignmentService::class)->lockInfo((string) $t->order_id); @endphp
+          @if($raLock)
+            @include('partials.rider_assignment_card', ['lock' => $raLock, 'cancelRoute' => route('admin.orders.cancel_rider_assignment', $t->order_id)])
+          @else
           <form action="{{ route('admin.kitchen.assign_rider', $t->order_id) }}" method="POST">
             @csrf
             <div class="mb-3">
@@ -196,6 +200,7 @@
               </button>
             </div>
           </form>
+          @endif
         </div>
       </div>
     </div>
