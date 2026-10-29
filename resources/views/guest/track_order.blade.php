@@ -396,13 +396,14 @@
     $hasPendingCancel = ($order->cancel_requested ?? 0) && ($order->cancel_status ?? '') === 'pending';
     $cancelApproved = ($order->cancel_status ?? '') === 'accepted';
     $cancelRejected = ($order->cancel_status ?? '') === 'rejected';
-    $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Awaiting Deposit', 'Confirmed']) && !$cancelApproved;
+    $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Pending Price Confirmation', 'Awaiting Deposit', 'Confirmed']) && !$cancelApproved;
     $canPayOrder = !in_array($order->status, ['Cancelled', 'Delivered', 'Picked Up', 'No Show'], true)
       && !in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true);
     $statusColors = [
       'Awaiting Deposit' => ['bg'=>'#fff7ed','color'=>'#9a3412','icon'=>'bi-credit-card-fill'],
       'Pending'          => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split'],
       'Pending Review'   => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split'],
+      'Pending Price Confirmation' => ['bg'=>'#fff7ed','color'=>'#9a3412','icon'=>'bi-tag-fill'],
       'Confirmed'        => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'bi-check-circle-fill'],
       'Preparing'        => ['bg'=>'#fef3c7','color'=>'#92400e','icon'=>'bi-fire'],
       'Ready for Rider'  => ['bg'=>'#e0f2fe','color'=>'#0369a1','icon'=>'bi-bicycle'],
@@ -493,6 +494,7 @@
     $statusForProgress = $order->status;
     if ($statusForProgress === 'Awaiting Deposit')              $statusForProgress = 'Pending';
     if ($statusForProgress === 'Pending Review')                $statusForProgress = 'Pending';
+    if ($statusForProgress === 'Pending Price Confirmation')    $statusForProgress = 'Pending';
     if ($isPickup && in_array($statusForProgress, ['Ready for Rider','Out for Delivery'], true)) $statusForProgress = 'Preparing';
     if (!$isPickup && $statusForProgress === 'Pickup')          $statusForProgress = 'Preparing';
     if (!$isPickup && $statusForProgress === 'Picked Up')       $statusForProgress = 'Delivered';
@@ -1108,7 +1110,7 @@
           && $customOrder->price_confirmed === 'accepted'
           && $order->payment_status === 'Unpaid'
           && $order->deposit_status !== 'paid'
-          && in_array($order->status, ['Pending','Pending Review','Confirmed']))
+          && in_array($order->status, ['Pending','Pending Review','Pending Price Confirmation','Confirmed']))
       @php
         $coTotal = (float) $customOrder->admin_price;
         $minDep = round($coTotal * 0.5, 2);

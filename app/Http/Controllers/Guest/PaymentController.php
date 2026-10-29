@@ -144,7 +144,7 @@ class PaymentController extends Controller
             return back()->with('error', 'Payment is no longer available because this order has been cancelled or has a pending cancellation request.');
         }
 
-        if (!in_array($order->status, ['Pending', 'Pending Review', 'Awaiting Deposit'], true))
+        if (!in_array($order->status, ['Pending', 'Pending Review', 'Pending Price Confirmation', 'Awaiting Deposit'], true))
             return back()->with('error', 'This order cannot be modified at this stage.');
 
         if ($order->payment_status === 'Paid')
@@ -217,7 +217,7 @@ class PaymentController extends Controller
             return redirect()->route('track.order', $trackCode)->with('error', 'No deposit required for this order.');
         if ($order->deposit_status === 'paid')
             return redirect()->route('track.order', $trackCode)->with('msg', 'Deposit has already been paid.');
-        if (!in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Awaiting Deposit'], true))
+        if (!in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Pending Price Confirmation', 'Awaiting Deposit'], true))
             return redirect()->route('track.order', $trackCode)->with('error', 'This order is not waiting for payment.');
         $customOrder = DB::table('custom_orders')->where('order_id', $order->id)->first();
         if ($customOrder && (
@@ -412,7 +412,7 @@ class PaymentController extends Controller
         $nextStatus = ($order->status ?? '') === 'Awaiting Deposit' ? 'Pending' : (string) $order->status;
         $canConfirmCustom = $customReadyForProduction
             && app(OrderTypeService::class)->requiresKitchen($order)
-            && in_array($nextStatus, ['Pending', 'Pending Review'], true);
+            && in_array($nextStatus, ['Pending', 'Pending Review', 'Pending Price Confirmation'], true);
         if ($canConfirmCustom) $nextStatus = 'Confirmed';
         if ($nextStatus !== ($order->status ?? '')) {
             DB::table('orders')->where('id', $order->id)->update(['status' => $nextStatus]);
@@ -718,7 +718,7 @@ class PaymentController extends Controller
             }
 
             //  AUTO CONFIRM + SEND TO KITCHEN (remaining balance paid)
-            if (in_array($order->status, ['Pending', 'Pending Review'])) {
+            if (in_array($order->status, ['Pending', 'Pending Review', 'Pending Price Confirmation'])) {
                 DB::table('orders')->where('id', $order->id)->update(['status' => 'Confirmed']);
                 DB::table('order_tracking')->insert([
                     'order_id'   => $order->id,
@@ -1055,7 +1055,7 @@ class PaymentController extends Controller
 
             //  AUTO CONFIRM + SEND TO KITCHEN
             // Only auto-confirm if order is still Pending/Pending Review
-            if (in_array($order->status, ['Pending', 'Pending Review'])) {
+            if (in_array($order->status, ['Pending', 'Pending Review', 'Pending Price Confirmation'])) {
 
                 // 1. Update order status to Confirmed
                 DB::table('orders')->where('id', $order->id)->update([
@@ -1178,7 +1178,7 @@ class PaymentController extends Controller
         $depositPaid = ($order->deposit_status ?? '') === 'paid';
 
         if ($type === 'deposit') {
-            if (!($order->deposit_required ?? false) && !in_array(($order->status ?? ''), ['Pending', 'Pending Review'], true)) {
+            if (!($order->deposit_required ?? false) && !in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Pending Price Confirmation'], true)) {
                 return ['ok' => false, 'error' => 'Deposit is not available at this stage.'];
             }
             if (($order->deposit_status ?? '') === 'paid') {
@@ -1200,7 +1200,7 @@ class PaymentController extends Controller
         if (!in_array($type, ['full', 'remaining'], true)) {
             return ['ok' => false, 'error' => 'Invalid QR payment type.'];
         }
-        if (($order->status ?? '') !== $payStatus && !in_array(($order->status ?? ''), ['Pending', 'Pending Review'], true)) {
+        if (($order->status ?? '') !== $payStatus && !in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Pending Price Confirmation'], true)) {
             return ['ok' => false, 'error' => 'Payment is not available at this stage yet.'];
         }
 
@@ -1348,7 +1348,7 @@ class PaymentController extends Controller
             ]);
         } catch (\Throwable $e) {}
 
-        if (in_array(($order->status ?? ''), ['Awaiting Deposit', 'Pending', 'Pending Review'], true)) {
+        if (in_array(($order->status ?? ''), ['Awaiting Deposit', 'Pending', 'Pending Review', 'Pending Price Confirmation'], true)) {
             DB::table('orders')->where('id', $order->id)->update(['status' => 'Confirmed']);
             try {
                 DB::table('order_tracking')->insert([
@@ -1494,7 +1494,7 @@ class PaymentController extends Controller
             return redirect()->route('customer.orders')
                 ->with('err', 'The seller must approve the custom order and you must accept the final price before payment.');
         }
-        if (!in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Confirmed'], true) || !$order->deposit_required) {
+        if (!in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Pending Price Confirmation', 'Confirmed'], true) || !$order->deposit_required) {
             return redirect()->route('customer.orders')->with('err', 'This custom order is not ready for deposit payment.');
         }
 
@@ -1523,8 +1523,8 @@ class PaymentController extends Controller
                     'currency'   => 'PHP',
                     'amount'     => $amountCentavos,
                     'name'       => abs((float) $order->deposit_amount - (float) $order->total_price) < 0.01
-                        ? 'Custom Order #' . $order->id . ' — Full payment'
-                        : 'Custom Order #' . $order->id . ' — 50% deposit',
+                        ? 'Custom Order #' . $order->id . ' ? Full payment'
+                        : 'Custom Order #' . $order->id . ' ? 50% deposit',
                     'quantity'   => 1,
                 ]],
                 'payment_method_types' => $this->getPaymongoCheckoutMethods(),
@@ -1581,7 +1581,7 @@ class PaymentController extends Controller
         if ($order->deposit_status === 'paid')
             return redirect()->route('customer.orders')->with('msg', 'Deposit already paid! ');
         if (($co->review_status ?? '') !== 'approved' || ($co->price_confirmed ?? '') !== 'accepted'
-            || !in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Confirmed'], true)
+            || !in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Pending Price Confirmation', 'Confirmed'], true)
             || !$order->deposit_required
             || in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true)) {
             return redirect()->route('customer.orders')

@@ -267,6 +267,7 @@ Route::post('/seller/apply/submit',     [\App\Http\Controllers\Seller\Applicatio
 Route::get('/seller/apply/success',     [\App\Http\Controllers\Seller\ApplicationController::class, 'success'])->name('seller.apply.success');
 
 Route::get('/custom-order',              [GuestCustomOrder::class, 'show'])->name('guest.custom_order');
+Route::post('/custom-order/place',       [GuestCustomOrder::class, 'store'])->name('guest.custom_order.store');
 Route::post('/custom-order/{id}/accept-price', [GuestCustomOrder::class, 'acceptPrice'])->name('guest.custom_order.accept_price');
 Route::post('/custom-order/{id}/cancel-price', [GuestCustomOrder::class, 'cancelPrice'])->name('guest.custom_order.cancel_price');
 

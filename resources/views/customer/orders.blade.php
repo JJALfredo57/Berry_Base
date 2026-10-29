@@ -20,7 +20,7 @@
       </div>
       <select class="form-select form-select-sm" style="width:auto" onchange="pgFilter('status', this.value)">
         <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All Status</option>
-        @foreach(['Awaiting Deposit','Pending Review','Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'] as $st)
+        @foreach(['Awaiting Deposit','Pending Price Confirmation','Pending Review','Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'] as $st)
         <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st }}</option>
         @endforeach
       </select>
@@ -184,7 +184,7 @@
 @forelse($orders as $o)
   @php
     $hasDepositLock = ($o->deposit_status ?? null) === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']);
-    $canCancel   = in_array($o->status, ['Awaiting Deposit','Pending','Pending Review','Confirmed']) && !$o->cancel_requested;
+    $canCancel   = in_array($o->status, ['Awaiting Deposit','Pending','Pending Review','Pending Price Confirmation','Confirmed']) && !$o->cancel_requested;
     $notAllowed  = in_array($o->status, ['Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled']);
     $hasPending  = $o->cancel_requested && $o->cancel_status === 'pending';
     $wasAccepted = $o->cancel_status === 'accepted';
@@ -459,7 +459,7 @@
             && isset($co->price_confirmed) && $co->price_confirmed === 'accepted'
             && isset($o) && $o->payment_status === 'Unpaid'
             && $o->deposit_status !== 'paid'
-            && in_array($o->status, ['Pending','Pending Review','Confirmed']))
+            && in_array($o->status, ['Pending','Pending Review','Pending Price Confirmation','Confirmed']))
         @php
           $coTotal = (float)($o->total_price ?? $co->admin_price);
           if ($coTotal <= 0) $coTotal = (float)($co->admin_price ?? 0);
