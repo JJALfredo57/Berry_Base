@@ -151,7 +151,7 @@
                     <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
                       @php
                         $cartQtyTracked = $item->available_quantity !== null;
-                        $cartQtyMax = $cartQtyTracked ? max(1, (int) $item->available_quantity) : 99;
+                        $cartQtyMax = $cartQtyTracked ? max(0, (int) $item->available_quantity) : 99;
                       @endphp
                       @if($isCustomCakeCart)
                         <div class="cart-qty-wrap">
@@ -176,7 +176,11 @@
                             <button type="button" class="cart-qty-btn" onclick="cartQtyStep('qtyForm{{ $item->id }}','removeForm{{ $item->id }}',1, @js($item->product_name))" aria-label="Increase quantity"><i class="bi bi-plus-lg"></i></button>
                           </div>
                           @if($cartQtyTracked)
-                            <div class="small text-muted"><i class="bi bi-box-seam me-1"></i>{{ $cartQtyMax }} available</div>
+                            @if($cartQtyMax > 0)
+                              <div class="small text-muted"><i class="bi bi-box-seam me-1"></i>{{ $cartQtyMax }} available</div>
+                            @else
+                              <div class="small text-danger"><i class="bi bi-exclamation-circle me-1"></i>Out of stock</div>
+                            @endif
                           @endif
                         </div>
                         <form id="qtyForm{{ $item->id }}" action="{{ route('customer.cart.items.update', $item->id) }}" method="POST" class="d-none">
@@ -338,7 +342,8 @@ function cartQtyStep(formId, removeFormId, delta, productName) {
   const input = form.querySelector('[data-cart-qty-input]');
   if (!input) return;
   const current = parseInt(input.value || input.dataset.currentQuantity || '1', 10) || 1;
-  const max = parseInt(input.dataset.maxQuantity || '99', 10) || 99;
+  const maxRaw = parseInt(input.dataset.maxQuantity || '99', 10);
+  const max = Number.isNaN(maxRaw) ? 99 : maxRaw;
   const tracked = input.dataset.stockTracked === '1';
 
   if (delta < 0 && current <= 1) {
@@ -347,12 +352,17 @@ function cartQtyStep(formId, removeFormId, delta, productName) {
   }
 
   const next = current + delta;
+  if (delta > 0 && tracked && max <= 0) {
+    cartQtyShowDialog('info', 'Out of stock', productName + ' is currently out of stock. Please remove it from your cart or choose another cake.');
+    return;
+  }
   if (delta > 0 && tracked && next > max) {
     cartQtyShowDialog('info', 'Available stock reached', 'Only ' + max + ' ' + productName + ' available. Please reduce the quantity or choose another cake.');
     return;
   }
 
-  input.value = Math.max(1, Math.min(next, max));
+  const nextValue = (delta > 0 && tracked) ? Math.min(next, max) : next;
+  input.value = Math.max(1, nextValue);
   form.submit();
 }
 

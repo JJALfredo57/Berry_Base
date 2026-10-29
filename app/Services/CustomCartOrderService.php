@@ -77,128 +77,141 @@ class CustomCartOrderService
         if ($addons && $addonInstructions) $parts[] = "Add-on instructions: {$addonInstructions}";
         $fullNote = implode(' | ', $parts);
 
-        $orderRow = [
-            'id' => $oid,
-            'cart_id' => $context['cart_id'] ?? null,
-            'shop_id' => $shopId,
-            'user_id' => $context['user_id'] ?? null,
-            'guest_name' => $context['guest_name'] ?? null,
-            'guest_phone' => $context['guest_phone'] ?? null,
-            'track_code' => $trackCode,
-            'product_id' => $item->product_id,
-            'order_type' => 'custom',
-            'checkout_group_id' => $context['checkout_group_id'] ?? null,
-            'processing_mode' => $context['processing_mode'] ?? null,
-            'quantity' => $qty,
-            'custom_note' => $fullNote,
-            'total_price' => $total,
-            'status' => 'Pending Review',
-            'fulfillment_type' => $fulfillment,
-            'delivery_zone' => $meta['delivery_zone'] ?? '',
-            'delivery_fee' => $fulfillment === 'Delivery' ? $deliveryFee : 0,
-            'service_charge' => $fulfillment === 'Delivery' ? $serviceCharge : 0,
-            'selected_size' => $size ?: null,
-            'selected_size_price' => $unitPrice,
-            'delivery_address' => $meta['address'] ?? '',
-            'latitude' => $meta['latitude'] ?? null,
-            'schedule_date' => $date,
-            'schedule_time' => $scheduleTime ?: null,
-            'payment_method' => $payment,
-            'payment_status' => 'Unpaid',
-            'created_at' => now(),
-        ];
-        $orderRow = array_filter($orderRow, fn ($value, $column) => Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
-        DB::table('orders')->insert($orderRow);
-
-        $customOrderRow = [
-            'id' => CakeshopHelper::generateId('custom_orders'),
-            'order_id' => $oid,
-            'shop_id' => $shopId,
-            'user_id' => $context['user_id'] ?? null,
-            'guest_name' => $context['guest_name'] ?? null,
-            'guest_phone' => $context['guest_phone'] ?? null,
-            'cake_name' => $cakeName,
-            'flavor' => $flavor ?: null,
-            'size' => $size ?: null,
-            'layers' => $layers ?: null,
-            'design_complexity' => $complexity ?: null,
-            'dedication' => $dedication ?: null,
-            'custom_note' => trim($customNote . ($addons && $addonInstructions ? "\nAdd-on instructions: {$addonInstructions}" : '')) ?: null,
-            'time_slot' => $meta['time_slot'] ?? null,
-            'reference_images' => !empty($meta['reference_images']) ? json_encode($meta['reference_images']) : null,
-            'estimated_price' => $total,
-            'price_breakdown' => json_encode($breakdown ?: ['total' => $total, 'quantity' => $qty]),
-            'review_status' => 'pending',
-            'review_deadline_at' => $meta['seller_review_deadline_at'] ?? optional($prep->reviewDeadline($shopId, $date))->toDateTimeString(),
-            'review_deadline_status' => 'active',
-            'created_at' => now(),
-        ];
-        $customOrderRow = array_filter($customOrderRow, fn ($value, $column) => Schema::hasColumn('custom_orders', $column), ARRAY_FILTER_USE_BOTH);
-        DB::table('custom_orders')->insert($customOrderRow);
-
-        foreach ($addons as $addon) {
-            DB::table('order_addons')->insert([
-                'order_id' => $oid,
-                'addon_id' => $addon['id'] ?? null,
-                'addon_name' => $addon['name'] ?? 'Custom add-on',
-                'addon_price' => (float) ($addon['price'] ?? 0),
+        $pushSellerPayload = null;
+        DB::transaction(function () use (&$pushSellerPayload, $oid, $shopId, $context, $trackCode, $item, $qty, $fullNote, $total, $fulfillment, $meta, $deliveryFee, $serviceCharge, $size, $unitPrice, $date, $scheduleTime, $payment, $cakeName, $flavor, $layers, $complexity, $dedication, $customNote, $addons, $addonInstructions, $breakdown, $prep) {
+            $orderRow = [
+                'id' => $oid,
+                'cart_id' => $context['cart_id'] ?? null,
+                'shop_id' => $shopId,
+                'user_id' => $context['user_id'] ?? null,
+                'guest_name' => $context['guest_name'] ?? null,
+                'guest_phone' => $context['guest_phone'] ?? null,
+                'track_code' => $trackCode,
+                'product_id' => $item->product_id,
+                'order_type' => 'custom',
+                'checkout_group_id' => $context['checkout_group_id'] ?? null,
+                'processing_mode' => $context['processing_mode'] ?? null,
+                'quantity' => $qty,
+                'custom_note' => $fullNote,
+                'total_price' => $total,
+                'status' => 'Pending Review',
+                'fulfillment_type' => $fulfillment,
+                'delivery_zone' => $meta['delivery_zone'] ?? '',
+                'delivery_fee' => $fulfillment === 'Delivery' ? $deliveryFee : 0,
+                'service_charge' => $fulfillment === 'Delivery' ? $serviceCharge : 0,
+                'selected_size' => $size ?: null,
+                'selected_size_price' => $unitPrice,
+                'delivery_address' => $meta['address'] ?? '',
+                'latitude' => $meta['latitude'] ?? null,
+                'schedule_date' => $date,
+                'schedule_time' => $scheduleTime ?: null,
+                'payment_method' => $payment,
+                'payment_status' => 'Unpaid',
                 'created_at' => now(),
-            ]);
-        }
+            ];
+            $orderRow = array_filter($orderRow, fn ($value, $column) => Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
+            DB::table('orders')->insert($orderRow);
 
-        DB::table('order_tracking')->insert([
-            'order_id' => $oid,
-            'status' => 'Pending Review',
-            'notes' => 'Custom order submitted from cart. Awaiting seller review.',
-            'created_at' => now(),
-        ]);
+            $customOrderRow = [
+                'id' => CakeshopHelper::generateId('custom_orders'),
+                'order_id' => $oid,
+                'shop_id' => $shopId,
+                'user_id' => $context['user_id'] ?? null,
+                'guest_name' => $context['guest_name'] ?? null,
+                'guest_phone' => $context['guest_phone'] ?? null,
+                'cake_name' => $cakeName,
+                'flavor' => $flavor ?: null,
+                'size' => $size ?: null,
+                'layers' => $layers ?: null,
+                'design_complexity' => $complexity ?: null,
+                'dedication' => $dedication ?: null,
+                'custom_note' => trim($customNote . ($addons && $addonInstructions ? "\nAdd-on instructions: {$addonInstructions}" : '')) ?: null,
+                'time_slot' => $meta['time_slot'] ?? null,
+                'reference_images' => !empty($meta['reference_images']) ? json_encode($meta['reference_images']) : null,
+                'estimated_price' => $total,
+                'price_breakdown' => json_encode($breakdown ?: ['total' => $total, 'quantity' => $qty]),
+                'review_status' => 'pending',
+                'review_deadline_at' => $meta['seller_review_deadline_at'] ?? optional($prep->reviewDeadline($shopId, $date))->toDateTimeString(),
+                'review_deadline_status' => 'active',
+                'created_at' => now(),
+            ];
+            $customOrderRow = array_filter($customOrderRow, fn ($value, $column) => Schema::hasColumn('custom_orders', $column), ARRAY_FILTER_USE_BOTH);
+            DB::table('custom_orders')->insert($customOrderRow);
 
-        DB::table('messages')->insert([
-            'order_id' => $oid,
-            'sender_role' => !empty($context['guest_phone']) ? 'guest' : 'customer',
-            'sender_id' => $context['user_id'] ?? null,
-            'message' => "Custom cake request submitted from cart.\n{$fullNote}",
-            'is_read' => false,
-            'created_at' => now(),
-        ]);
-
-        $customerName = $context['guest_name'] ?? $context['customer_name'] ?? 'Customer';
-        $deadlineText = !empty($meta['seller_review_deadline_at']) ? ' Review before ' . date('M d, Y h:i A', strtotime($meta['seller_review_deadline_at'])) . '.' : '';
-        $notifMsg = "{$customerName} submitted a custom cake request from cart." . $deadlineText;
-        DB::table('notifications')->insert([
-            'receiver_role' => 'admin',
-            'receiver_user_id' => null,
-            'title' => 'New Custom Order #' . $oid,
-            'message' => $notifMsg,
-            'is_read' => false,
-            'created_at' => now(),
-        ]);
-
-        if ($shopId) {
-            $sellerUser = DB::table('shops')->join('users', 'users.id', '=', 'shops.seller_id')
-                ->where('shops.id', $shopId)
-                ->select('users.id', 'users.phone')
-                ->first();
-            if ($sellerUser) {
-                DB::table('notifications')->insert([
-                    'receiver_role' => 'seller',
-                    'receiver_user_id' => $sellerUser->id,
-                    'title' => 'New Custom Order #' . $oid,
-                    'message' => $notifMsg,
-                    'is_read' => false,
+            foreach ($addons as $addon) {
+                DB::table('order_addons')->insert([
+                    'order_id' => $oid,
+                    'addon_id' => $addon['id'] ?? null,
+                    'addon_name' => $addon['name'] ?? 'Custom add-on',
+                    'addon_price' => (float) ($addon['price'] ?? 0),
                     'created_at' => now(),
                 ]);
+            }
+
+            DB::table('order_tracking')->insert([
+                'order_id' => $oid,
+                'status' => 'Pending Review',
+                'notes' => 'Custom order submitted from cart. Awaiting seller review.',
+                'created_at' => now(),
+            ]);
+
+            DB::table('messages')->insert([
+                'order_id' => $oid,
+                'sender_role' => !empty($context['guest_phone']) ? 'guest' : 'customer',
+                'sender_id' => $context['user_id'] ?? null,
+                'message' => "Custom cake request submitted from cart.\n{$fullNote}",
+                'is_read' => false,
+                'created_at' => now(),
+            ]);
+
+            $customerName = $context['guest_name'] ?? $context['customer_name'] ?? 'Customer';
+            $deadlineText = !empty($meta['seller_review_deadline_at']) ? ' Review before ' . date('M d, Y h:i A', strtotime($meta['seller_review_deadline_at'])) . '.' : '';
+            $notifMsg = "{$customerName} submitted a custom cake request from cart." . $deadlineText;
+            DB::table('notifications')->insert([
+                'receiver_role' => 'admin',
+                'receiver_user_id' => null,
+                'title' => 'New Custom Order #' . $oid,
+                'message' => $notifMsg,
+                'is_read' => false,
+                'created_at' => now(),
+            ]);
+
+            if ($shopId) {
+                $sellerUser = DB::table('shops')->join('users', 'users.id', '=', 'shops.seller_id')
+                    ->where('shops.id', $shopId)
+                    ->select('users.id', 'users.phone')
+                    ->first();
+                if ($sellerUser) {
+                    DB::table('notifications')->insert([
+                        'receiver_role' => 'seller',
+                        'receiver_user_id' => $sellerUser->id,
+                        'title' => 'New Custom Order #' . $oid,
+                        'message' => $notifMsg,
+                        'is_read' => false,
+                        'created_at' => now(),
+                    ]);
+                    $pushSellerPayload = [
+                        'seller_id' => (string) $sellerUser->id,
+                        'seller_phone' => $sellerUser->phone ?? null,
+                        'message' => $notifMsg,
+                    ];
+                }
+            }
+        });
+
+        if (!empty($pushSellerPayload)) {
+            DB::afterCommit(function () use ($oid, $pushSellerPayload) {
                 app(MobileNotificationService::class)->notifyUser(
                     'seller',
-                    (string) $sellerUser->id,
-                    $sellerUser->phone ?? null,
+                    $pushSellerPayload['seller_id'],
+                    $pushSellerPayload['seller_phone'],
                     'New Custom Order',
-                    $notifMsg,
+                    $pushSellerPayload['message'],
                     ['event' => 'custom_order', 'order_id' => (string) $oid],
                     null,
                     route('seller.custom_orders', [], false)
                 );
-            }
+            });
         }
 
         return ['ok' => true, 'order_id' => $oid, 'track_code' => $trackCode, 'total' => $total];

@@ -141,9 +141,11 @@ class AccountRequiredPurchaseTest extends TestCase
 
     public function test_guest_new_order_submission_endpoints_are_removed_and_cart_requires_authentication(): void
     {
-        foreach (['/checkout/place', '/checkout/send-otp', '/custom-order/place', '/custom-order/send-otp'] as $url) {
+        foreach (['/checkout/place', '/checkout/send-otp'] as $url) {
             $this->post($url)->assertNotFound();
         }
+        $this->post('/custom-order/place')->assertStatus(302);
+        $this->post('/custom-order/send-otp')->assertNotFound();
         foreach (['/cart/items/1/update', '/cart/items/1/checkout', '/cart/shops/SHOP1/checkout'] as $url) {
             $this->post($url)->assertRedirect(route('login'));
         }

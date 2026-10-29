@@ -593,188 +593,239 @@ class CheckoutController extends Controller
             }
         }
 
-        $orderRow = [
-            'id'                  => $oid,
-            'cart_id'             => $checkout['cart_id'] ?? null,
-            'shop_id'             => $product->shop_id ?? null,
-            'guest_name'          => $guestName,
-            'guest_phone'         => $phone,
-            'track_code'          => $trackCode,
-            'user_id'             => $linkedCustomerId,
-            'product_id'          => $pid,
-            'order_type'          => 'regular',
-            'checkout_group_id'    => $checkoutGroupId,
-            'processing_mode'      => $processingMode,
-            'quantity'            => $qty,
-            'custom_note'         => $note ?: null,
-            'total_price'         => $total,
-            'status'              => $needsDeposit ? 'Awaiting Deposit' : 'Pending',
-            'deposit_required'    => $needsDeposit ? 1 : 0,
-            'deposit_amount'      => $depositAmount,
-            'deposit_status'      => $needsDeposit ? 'pending' : null,
-            'fulfillment_type'    => $fulfillment,
-            'delivery_zone'       => $zone ?? '',
-            'delivery_fee'        => $deliveryFee,
-            'service_charge'      => $serviceCharge,
-            'selected_size'       => $selectedSize ?: null,
-            'selected_size_price' => $sizePrice,
-            'original_unit_price' => $pricing['original_unit_price'],
-            'discount_label'      => $pricing['discount_label'],
-            'discount_type'       => $pricing['discount_type'],
-            'discount_value'      => $pricing['discount_value'],
-            'discount_amount'     => $pricing['discount_amount'],
-            'voucher_code'         => $voucherResult['voucher']->code ?? null,
-            'voucher_discount_amount' => $voucherDiscount,
-            'final_unit_price'    => $pricing['final_unit_price'],
-            'delivery_address'    => $address ?? '',
-            'latitude'            => $lat,
-            'longitude'           => $lng,
-            'province_code'      => $addressCodes['province_code'] ?? null,
-            'province_name'      => $addressCodes['province_name'] ?? null,
-            'city_municipality_code' => $addressCodes['city_municipality_code'] ?? null,
-            'city_municipality_name' => $addressCodes['city_municipality_name'] ?? null,
-            'barangay_code'      => $addressCodes['barangay_code'] ?? null,
-            'barangay_name'      => $addressCodes['barangay_name'] ?? null,
-            'schedule_date'       => $sdate,
-            'schedule_time'       => $stime,
-            'payment_method'      => $payment,
-            'payment_status'      => 'Unpaid',
-            'order_request_id' => $checkout['order_request_id'] ?? null,
-            'is_rush' => !empty($checkout['is_rush']),
-            'rush_reason' => $checkout['rush_reason'] ?? null,
-            'seller_prep_days_at_request' => $checkout['seller_prep_days_at_request'] ?? null,
-            'requested_notice_minutes' => $checkout['requested_notice_minutes'] ?? null,
-            'created_at'          => now(),
-        ];
-        $orderRow = array_filter($orderRow, fn ($value, $column) => Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
-        DB::table('orders')->insert($orderRow);
-
-        if (!empty($checkout['order_request_id'])) {
-            app(\App\Services\OrderRequestService::class)->markConverted((string) $checkout['order_request_id'], $oid);
-        }
-
-        if (Schema::hasTable('order_items')) {
-            $rows = $isGroupCheckout
-                ? $checkoutItems->map(fn ($item) => [
-                    'order_id' => $oid,
-                    'shop_id' => $item->shop_id,
-                    'product_id' => $item->product_id,
-                    'product_name' => $item->product_name,
-                    'image_path' => $item->image_path,
-                    'quantity' => max(1, (int) $item->quantity),
-                    'selected_size' => $item->selected_size,
-                    'unit_price_snapshot' => $item->unit_price_snapshot,
-                    'final_unit_price_snapshot' => $item->final_unit_price_snapshot,
-                    'discount_amount_snapshot' => $item->discount_amount_snapshot,
-                    'discount_label_snapshot' => $item->discount_label_snapshot,
-                    'custom_note' => $item->custom_note,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ])->all()
-                : [[
-                    'order_id' => $oid,
-                    'shop_id' => $product->shop_id ?? null,
-                    'product_id' => $product->id,
-                    'product_name' => $product->name,
-                    'image_path' => $product->image_path ?? null,
-                    'quantity' => max(1, (int) $qty),
-                    'selected_size' => $selectedSize ?: null,
-                    'unit_price_snapshot' => $pricing['original_unit_price'],
-                    'final_unit_price_snapshot' => $pricing['final_unit_price'],
-                    'discount_amount_snapshot' => $pricing['discount_amount'],
-                    'discount_label_snapshot' => $pricing['discount_label'],
-                    'custom_note' => $note ?: null,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]];
-            DB::table('order_items')->insert($rows);
-        }
-
-        $createdOrder = DB::table('orders')->where('id', $oid)->first();
-        if (!empty($voucherResult['voucher']) && $voucherDiscount > 0 && $createdOrder) {
-            app(VoucherService::class)->recordRedemption($voucherResult['voucher'], $createdOrder, $voucherDiscount);
-            $voucherDiscountRow = [
-                'order_id' => $oid,
-                'source_type' => 'voucher',
-                'source_id' => $voucherResult['voucher']->id,
-                'label' => $voucherResult['voucher']->name,
-                'code' => $voucherResult['voucher']->code,
-                'amount' => $voucherDiscount,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-            if (Schema::hasColumn('order_discounts', 'funding_source')) {
-                $voucherDiscountRow['funding_source'] = empty($voucherResult['voucher']->shop_id) ? 'platform' : 'seller';
-            }
-            DB::table('order_discounts')->insert($voucherDiscountRow);
-        }
-
-        foreach ($validAddons as $addon) {
-            DB::table('order_addons')->insert([
-                'order_id'    => $oid,
-                'addon_id'    => $addon->id,
-                'addon_name'  => $addon->name,
-                'addon_price' => $addon->price,
-                'created_at'  => now(),
-            ]);
-        }
-
-        DB::table('order_tracking')->insert([
-            'order_id'   => $oid,
-            'status'     => $needsDeposit ? 'Awaiting Deposit' : 'Pending',
-            'notes'      => $needsDeposit
-                ? 'Order placed. Awaiting 50% deposit payment via GCash.'
-                : 'Guest order placed.',
-            'created_at' => now(),
-        ]);
-
-        DB::table('notifications')->insert([
-            'receiver_role'    => 'admin', 'receiver_user_id' => null,
-            'title'            => ' New Order from '.$guestName,
-            'message'          => "{$guestName} ({$phone}) placed Order #{$oid}.",
-            'is_read' => false, 'created_at' => now(),
-        ]);
-
+        $pushOrder = null;
         try {
+            DB::transaction(function () use (
+                $oid,
+                $checkout,
+                $product,
+                $guestName,
+                $phone,
+                $trackCode,
+                $linkedCustomerId,
+                $pid,
+                $checkoutGroupId,
+                $processingMode,
+                $qty,
+                $note,
+                $total,
+                $needsDeposit,
+                $depositAmount,
+                $fulfillment,
+                $zone,
+                $deliveryFee,
+                $serviceCharge,
+                $selectedSize,
+                $sizePrice,
+                $pricing,
+                $voucherResult,
+                $voucherDiscount,
+                $address,
+                $lat,
+                $lng,
+                $addressCodes,
+                $sdate,
+                $stime,
+                $payment,
+                $isGroupCheckout,
+                $checkoutItems,
+                $validAddons,
+                $hasCustomCheckout,
+                $customCheckoutItems
+            ) {
+                $orderRow = [
+                    'id'                  => $oid,
+                    'cart_id'             => $checkout['cart_id'] ?? null,
+                    'shop_id'             => $product->shop_id ?? null,
+                    'guest_name'          => $guestName,
+                    'guest_phone'         => $phone,
+                    'track_code'          => $trackCode,
+                    'user_id'             => $linkedCustomerId,
+                    'product_id'          => $pid,
+                    'order_type'          => 'regular',
+                    'checkout_group_id'    => $checkoutGroupId,
+                    'processing_mode'      => $processingMode,
+                    'quantity'            => $qty,
+                    'custom_note'         => $note ?: null,
+                    'total_price'         => $total,
+                    'status'              => $needsDeposit ? 'Awaiting Deposit' : 'Pending',
+                    'deposit_required'    => $needsDeposit ? 1 : 0,
+                    'deposit_amount'      => $depositAmount,
+                    'deposit_status'      => $needsDeposit ? 'pending' : null,
+                    'fulfillment_type'    => $fulfillment,
+                    'delivery_zone'       => $zone ?? '',
+                    'delivery_fee'        => $deliveryFee,
+                    'service_charge'      => $serviceCharge,
+                    'selected_size'       => $selectedSize ?: null,
+                    'selected_size_price' => $sizePrice,
+                    'original_unit_price' => $pricing['original_unit_price'],
+                    'discount_label'      => $pricing['discount_label'],
+                    'discount_type'       => $pricing['discount_type'],
+                    'discount_value'      => $pricing['discount_value'],
+                    'discount_amount'     => $pricing['discount_amount'],
+                    'voucher_code'         => $voucherResult['voucher']->code ?? null,
+                    'voucher_discount_amount' => $voucherDiscount,
+                    'final_unit_price'    => $pricing['final_unit_price'],
+                    'delivery_address'    => $address ?? '',
+                    'latitude'            => $lat,
+                    'longitude'           => $lng,
+                    'province_code'      => $addressCodes['province_code'] ?? null,
+                    'province_name'      => $addressCodes['province_name'] ?? null,
+                    'city_municipality_code' => $addressCodes['city_municipality_code'] ?? null,
+                    'city_municipality_name' => $addressCodes['city_municipality_name'] ?? null,
+                    'barangay_code'      => $addressCodes['barangay_code'] ?? null,
+                    'barangay_name'      => $addressCodes['barangay_name'] ?? null,
+                    'schedule_date'       => $sdate,
+                    'schedule_time'       => $stime,
+                    'payment_method'      => $payment,
+                    'payment_status'      => 'Unpaid',
+                    'order_request_id' => $checkout['order_request_id'] ?? null,
+                    'is_rush' => !empty($checkout['is_rush']),
+                    'rush_reason' => $checkout['rush_reason'] ?? null,
+                    'seller_prep_days_at_request' => $checkout['seller_prep_days_at_request'] ?? null,
+                    'requested_notice_minutes' => $checkout['requested_notice_minutes'] ?? null,
+                    'created_at'          => now(),
+                ];
+                $orderRow = array_filter($orderRow, fn ($value, $column) => Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
+                DB::table('orders')->insert($orderRow);
+
+                if (!empty($checkout['order_request_id'])) {
+                    app(\App\Services\OrderRequestService::class)->markConverted((string) $checkout['order_request_id'], $oid);
+                }
+
+                if (Schema::hasTable('order_items')) {
+                    $rows = $isGroupCheckout
+                        ? $checkoutItems->map(fn ($item) => [
+                            'order_id' => $oid,
+                            'shop_id' => $item->shop_id,
+                            'product_id' => $item->product_id,
+                            'product_name' => $item->product_name,
+                            'image_path' => $item->image_path,
+                            'quantity' => max(1, (int) $item->quantity),
+                            'selected_size' => $item->selected_size,
+                            'unit_price_snapshot' => $item->unit_price_snapshot,
+                            'final_unit_price_snapshot' => $item->final_unit_price_snapshot,
+                            'discount_amount_snapshot' => $item->discount_amount_snapshot,
+                            'discount_label_snapshot' => $item->discount_label_snapshot,
+                            'custom_note' => $item->custom_note,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ])->all()
+                        : [[
+                            'order_id' => $oid,
+                            'shop_id' => $product->shop_id ?? null,
+                            'product_id' => $product->id,
+                            'product_name' => $product->name,
+                            'image_path' => $product->image_path ?? null,
+                            'quantity' => max(1, (int) $qty),
+                            'selected_size' => $selectedSize ?: null,
+                            'unit_price_snapshot' => $pricing['original_unit_price'],
+                            'final_unit_price_snapshot' => $pricing['final_unit_price'],
+                            'discount_amount_snapshot' => $pricing['discount_amount'],
+                            'discount_label_snapshot' => $pricing['discount_label'],
+                            'custom_note' => $note ?: null,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]];
+                    DB::table('order_items')->insert($rows);
+                }
+
+                $createdOrder = DB::table('orders')->where('id', $oid)->first();
+                if (!empty($voucherResult['voucher']) && $voucherDiscount > 0 && $createdOrder) {
+                    app(VoucherService::class)->recordRedemption($voucherResult['voucher'], $createdOrder, $voucherDiscount);
+                    $voucherDiscountRow = [
+                        'order_id' => $oid,
+                        'source_type' => 'voucher',
+                        'source_id' => $voucherResult['voucher']->id,
+                        'label' => $voucherResult['voucher']->name,
+                        'code' => $voucherResult['voucher']->code,
+                        'amount' => $voucherDiscount,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                    if (Schema::hasColumn('order_discounts', 'funding_source')) {
+                        $voucherDiscountRow['funding_source'] = empty($voucherResult['voucher']->shop_id) ? 'platform' : 'seller';
+                    }
+                    DB::table('order_discounts')->insert($voucherDiscountRow);
+                }
+
+                foreach ($validAddons as $addon) {
+                    DB::table('order_addons')->insert([
+                        'order_id'    => $oid,
+                        'addon_id'    => $addon->id,
+                        'addon_name'  => $addon->name,
+                        'addon_price' => $addon->price,
+                        'created_at'  => now(),
+                    ]);
+                }
+
+                DB::table('order_tracking')->insert([
+                    'order_id'   => $oid,
+                    'status'     => $needsDeposit ? 'Awaiting Deposit' : 'Pending',
+                    'notes'      => $needsDeposit
+                        ? 'Order placed. Awaiting 50% deposit payment via GCash.'
+                        : 'Guest order placed.',
+                    'created_at' => now(),
+                ]);
+
+                DB::table('notifications')->insert([
+                    'receiver_role'    => 'admin', 'receiver_user_id' => null,
+                    'title'            => ' New Order from '.$guestName,
+                    'message'          => "{$guestName} ({$phone}) placed Order #{$oid}.",
+                    'is_read' => false, 'created_at' => now(),
+                ]);
+
+                if ($hasCustomCheckout) {
+                    foreach ($customCheckoutItems as $customItem) {
+                        $created = app(CustomCartOrderService::class)->createFromCartItem($customItem, [
+                            'cart_id' => $checkout['cart_id'] ?? null,
+                            'user_id' => $linkedCustomerId,
+                            'guest_name' => $guestName,
+                            'guest_phone' => $phone,
+                            'payment_method' => $payment,
+                            'checkout_group_id' => $checkoutGroupId,
+                            'processing_mode' => $processingMode,
+                        ]);
+                        if (!$created['ok']) {
+                            throw new \RuntimeException($created['message'] ?? 'Unable to create custom order from cart.');
+                        }
+                    }
+                }
+
+                if (!empty($checkout['cart_item_ids'])) {
+                    DB::table('customer_cart_items')
+                        ->where('cart_id', $checkout['cart_id'] ?? 0)
+                        ->whereIn('id', $checkout['cart_item_ids'])
+                        ->delete();
+                    if (!empty($checkout['cart_id'])) {
+                        app(\App\Services\CartService::class)->removeEmptyShop((int) $checkout['cart_id']);
+                    }
+                } elseif (!empty($checkout['cart_item_id'])) {
+                    DB::table('customer_cart_items')->where('id', $checkout['cart_item_id'])->delete();
+                    if (!empty($checkout['cart_id'])) {
+                        app(\App\Services\CartService::class)->removeEmptyShop((int) $checkout['cart_id']);
+                    }
+                }
+            });
+
             $pushOrder = DB::table('orders')->where('id', $oid)->first();
-            if ($pushOrder) {
+        } catch (\Throwable $e) {
+            if ($e instanceof \RuntimeException) {
+                return back()->with('error', $e->getMessage())->withInput();
+            }
+            report($e);
+            return back()->with('error', 'We could not place your order right now. Please try again.')->withInput();
+        }
+
+        if ($pushOrder) {
+            try {
                 app(MobileNotificationService::class)->notifyOrderSeller(
                     $pushOrder,
                     'New Order #' . $oid,
                     "{$guestName} placed a new order.",
                     ['event' => 'new_order']
                 );
-            }
-        } catch (\Throwable $e) {}
-
-        if ($hasCustomCheckout) {
-            foreach ($customCheckoutItems as $customItem) {
-                $created = app(CustomCartOrderService::class)->createFromCartItem($customItem, [
-                    'cart_id' => $checkout['cart_id'] ?? null,
-                    'user_id' => $linkedCustomerId,
-                    'guest_name' => $guestName,
-                    'guest_phone' => $phone,
-                    'payment_method' => $payment,
-                    'checkout_group_id' => $checkoutGroupId,
-                    'processing_mode' => $processingMode,
-                ]);
-                if (!$created['ok']) return back()->with('error', $created['message']);
-            }
-        }
-
-        if (!empty($checkout['cart_item_ids'])) {
-            DB::table('customer_cart_items')
-                ->where('cart_id', $checkout['cart_id'] ?? 0)
-                ->whereIn('id', $checkout['cart_item_ids'])
-                ->delete();
-            if (!empty($checkout['cart_id'])) {
-                app(\App\Services\CartService::class)->removeEmptyShop((int) $checkout['cart_id']);
-            }
-        } elseif (!empty($checkout['cart_item_id'])) {
-            DB::table('customer_cart_items')->where('id', $checkout['cart_item_id'])->delete();
-            if (!empty($checkout['cart_id'])) {
-                app(\App\Services\CartService::class)->removeEmptyShop((int) $checkout['cart_id']);
-            }
+            } catch (\Throwable $e) {}
         }
 
         $request->session()->forget(['guest_checkout','guest_otp','guest_otp_exp','guest_phone','guest_pre_track','guest_phone_customer_id']);

@@ -90,7 +90,8 @@ class CartService
         $product = DB::table('products')->where('id', $productId)->where('is_available', true)->whereNull('archived_at')->first();
         if (!$product) return ['ok' => false, 'message' => 'Product not available.'];
 
-        $stock = app(ProductStockService::class)->validateProductQuantity($productId, $quantity, $selectedSize);
+        $requestedQuantity = max(1, min(99, (int) $quantity));
+        $stock = app(ProductStockService::class)->validateProductQuantity($productId, $requestedQuantity, $selectedSize);
         if (!$stock['ok']) return ['ok' => false, 'message' => $stock['message']];
 
         $cart = $this->cart($request, $userId);
@@ -101,58 +102,61 @@ class CartService
         $unit = CakeshopHelper::resolveProductUnitPrice($product->id, (float) $product->price, $selectedSize);
         $discount = CakeshopHelper::getActiveProductDiscount($product->id);
         $pricing = CakeshopHelper::calculateDiscountSnapshot($unit, $discount);
-        $dealCheck = app(SweetDealService::class)->validateDirectItem($product->id, max(1, $quantity), $pricing);
+        $dealCheck = app(SweetDealService::class)->validateDirectItem($product->id, $requestedQuantity, $pricing);
         if (!$dealCheck['ok']) return $dealCheck;
 
-        $existing = DB::table('customer_cart_items')
-            ->where('cart_id', $cart->id)
-            ->where('product_id', $productId)
-            ->where('selected_size', $selectedSize ?: null)
-            ->where('custom_note', $customNote ?: null)
-            ->first();
+        return DB::transaction(function () use ($cart, $productId, $selectedSize, $customNote, $requestedQuantity, $product, $pricing) {
+            $existing = DB::table('customer_cart_items')
+                ->where('cart_id', $cart->id)
+                ->where('product_id', $productId)
+                ->where('selected_size', $selectedSize ?: null)
+                ->where('custom_note', $customNote ?: null)
+                ->lockForUpdate()
+                ->first();
 
-        if ($existing) {
-            $nextQuantity = (int) $existing->quantity + max(1, $quantity);
-            if ($nextQuantity > 99) return ['ok' => false, 'message' => 'Your cart would exceed 99 pieces of this cake. Please review the quantity in your cart.'];
-            $stock = app(ProductStockService::class)->validateProductQuantity($productId, $nextQuantity, $selectedSize);
-            if (!$stock['ok']) return ['ok' => false, 'message' => $stock['message']];
-            if ((float) ($existing->discount_amount_snapshot ?? 0) > 0) {
-                $dealCheck = app(SweetDealService::class)->validateCartItems([(object) array_merge((array) $existing, ['quantity' => $nextQuantity])]);
-                if (!$dealCheck['ok']) return $dealCheck;
+            if ($existing) {
+                $nextQuantity = (int) $existing->quantity + $requestedQuantity;
+                if ($nextQuantity > 99) return ['ok' => false, 'message' => 'Your cart would exceed 99 pieces of this cake. Please review the quantity in your cart.'];
+                $stock = app(ProductStockService::class)->validateProductQuantity($productId, $nextQuantity, $selectedSize);
+                if (!$stock['ok']) return ['ok' => false, 'message' => $stock['message']];
+                if ((float) ($existing->discount_amount_snapshot ?? 0) > 0) {
+                    $dealCheck = app(SweetDealService::class)->validateCartItems([(object) array_merge((array) $existing, ['quantity' => $nextQuantity])]);
+                    if (!$dealCheck['ok']) return $dealCheck;
+                }
+
+                DB::table('customer_cart_items')->where('id', $existing->id)->update([
+                    'quantity' => $nextQuantity,
+                    'updated_at' => now(),
+                ]);
+            } else {
+                DB::table('customer_cart_items')->insert([
+                    'cart_id' => $cart->id,
+                    'shop_id' => $product->shop_id ?? null,
+                    'product_id' => $productId,
+                    'quantity' => $requestedQuantity,
+                    'selected_size' => $selectedSize ?: null,
+                    'unit_price_snapshot' => $pricing['original_unit_price'],
+                    'final_unit_price_snapshot' => $pricing['final_unit_price'],
+                    'discount_amount_snapshot' => $pricing['discount_amount'],
+                    'discount_label_snapshot' => $pricing['discount_label'],
+                    'custom_note' => $customNote ?: null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
 
-            DB::table('customer_cart_items')->where('id', $existing->id)->update([
-                'quantity' => $nextQuantity,
+            $shopIds = DB::table('customer_cart_items')
+                ->where('cart_id', $cart->id)
+                ->whereNotNull('shop_id')
+                ->distinct()
+                ->pluck('shop_id');
+            DB::table('customer_carts')->where('id', $cart->id)->update([
+                'shop_id' => $shopIds->count() === 1 ? $shopIds->first() : null,
                 'updated_at' => now(),
             ]);
-        } else {
-            DB::table('customer_cart_items')->insert([
-                'cart_id' => $cart->id,
-                'shop_id' => $product->shop_id ?? null,
-                'product_id' => $productId,
-                'quantity' => max(1, min(99, $quantity)),
-                'selected_size' => $selectedSize ?: null,
-                'unit_price_snapshot' => $pricing['original_unit_price'],
-                'final_unit_price_snapshot' => $pricing['final_unit_price'],
-                'discount_amount_snapshot' => $pricing['discount_amount'],
-                'discount_label_snapshot' => $pricing['discount_label'],
-                'custom_note' => $customNote ?: null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
 
-        $shopIds = DB::table('customer_cart_items')
-            ->where('cart_id', $cart->id)
-            ->whereNotNull('shop_id')
-            ->distinct()
-            ->pluck('shop_id');
-        DB::table('customer_carts')->where('id', $cart->id)->update([
-            'shop_id' => $shopIds->count() === 1 ? $shopIds->first() : null,
-            'updated_at' => now(),
-        ]);
-
-        return ['ok' => true, 'message' => 'Added to cart.'];
+            return ['ok' => true, 'message' => 'Added to cart.'];
+        });
     }
 
     public function customProductId(): string

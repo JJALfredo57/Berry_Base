@@ -690,6 +690,9 @@ class CheckoutController extends Controller
             }
         }
 
+        $pushOrder = null;
+        DB::beginTransaction();
+        try {
         DB::table('orders')->insert($this->orderColumns(array_merge([
             'id'               => $oid,
             'cart_id'           => $checkout['cart_id'] ?? null,
@@ -894,18 +897,6 @@ class CheckoutController extends Controller
             'created_at'       => now(),
         ]);
 
-        try {
-            $pushOrder = DB::table('orders')->where('id', $oid)->first();
-            if ($pushOrder) {
-                app(MobileNotificationService::class)->notifyOrderSeller(
-                    $pushOrder,
-                    'New Order #' . $oid,
-                    (session('user')['fullname'] ?? 'Customer') . ' placed a new order.',
-                    ['event' => 'new_order']
-                );
-            }
-        } catch (\Throwable $e) {}
-
         if ($hasCustomCheckout) {
             foreach ($customCheckoutItems as $customItem) {
                 $created = app(CustomCartOrderService::class)->createFromCartItem($customItem, [
@@ -916,7 +907,9 @@ class CheckoutController extends Controller
                     'checkout_group_id' => $checkoutGroupId,
                     'processing_mode' => $processingMode,
                 ]);
-                if (!$created['ok']) return back()->with('error', $created['message']);
+                if (!$created['ok']) {
+                    throw new \RuntimeException($created['message'] ?? 'Unable to create custom order from cart.');
+                }
             }
         }
 
@@ -933,6 +926,28 @@ class CheckoutController extends Controller
             if (!empty($checkout['cart_id'])) {
                 app(\App\Services\CartService::class)->removeEmptyShop((int) $checkout['cart_id']);
             }
+        }
+
+        DB::commit();
+        $pushOrder = DB::table('orders')->where('id', $oid)->first();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            if ($e instanceof \RuntimeException) {
+                return back()->with('error', $e->getMessage())->withInput();
+            }
+            report($e);
+            return back()->with('error', 'We could not place your order right now. Please try again.')->withInput();
+        }
+
+        if ($pushOrder) {
+            try {
+                app(MobileNotificationService::class)->notifyOrderSeller(
+                    $pushOrder,
+                    'New Order #' . $oid,
+                    (session('user')['fullname'] ?? 'Customer') . ' placed a new order.',
+                    ['event' => 'new_order']
+                );
+            } catch (\Throwable $e) {}
         }
 
         $request->session()->forget('checkout');
