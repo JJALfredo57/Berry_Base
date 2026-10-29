@@ -107,15 +107,23 @@ class SellerPayoutService
             ->limit(250)
             ->get();
 
+        $hasPlatformFundedColumn = Schema::hasColumn('seller_payout_ledgers', 'platform_funded_discount');
+        $hasSellerFundedColumn = Schema::hasColumn('seller_payout_ledgers', 'seller_funded_discount');
+        $discountFundingMap = $this->discountFundingByOrderIds($orders->pluck('id')->all());
+
         $created = 0;
         foreach ($orders as $order) {
             $gross = $this->collectedAmount($order);
             if ($gross <= 0) continue;
 
-            $commissionBase = max(0, $gross - (float) ($order->delivery_fee ?? 0) - (float) ($order->service_charge ?? 0));
+            $discountBreakdown = $discountFundingMap[(string) $order->id] ?? ['platform' => 0.0, 'seller' => 0.0];
+            $platformFundedDiscount = max(0, round((float) ($discountBreakdown['platform'] ?? 0), 2));
+            $adjustedGross = max(0, round($gross + $platformFundedDiscount, 2));
+
+            $commissionBase = max(0, $adjustedGross - (float) ($order->delivery_fee ?? 0) - (float) ($order->service_charge ?? 0));
             $rate = !empty($order->commission_enabled) ? (float) ($order->commission_rate ?? 0) : 0;
             $commission = round($commissionBase * $rate / 100, 2);
-            $net = max(0, round($gross - $commission, 2));
+            $net = max(0, round($adjustedGross - $commission, 2));
 
             $deliveredAt = ($hasDeliveredAt ? ($order->delivered_at ?? null) : null)
                 ?? ($hasSettledAt ? ($order->settled_at ?? null) : null)
@@ -124,11 +132,11 @@ class SellerPayoutService
             $releaseAt = Carbon::parse($deliveredAt)->addDays($holdDays);
             $status = $releaseAt->isFuture() ? 'clearing' : 'available';
 
-            DB::table('seller_payout_ledgers')->insert([
+            $insertPayload = [
                 'order_id' => $order->id,
                 'shop_id' => $order->shop_id,
                 'seller_id' => $order->seller_id,
-                'gross_amount' => $gross,
+                'gross_amount' => $adjustedGross,
                 'commission_base' => $commissionBase,
                 'commission_rate' => $rate,
                 'commission_amount' => $commission,
@@ -138,7 +146,15 @@ class SellerPayoutService
                 'notes' => $this->ledgerNote($order),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+            if ($hasPlatformFundedColumn) {
+                $insertPayload['platform_funded_discount'] = $platformFundedDiscount;
+            }
+            if ($hasSellerFundedColumn) {
+                $insertPayload['seller_funded_discount'] = max(0, round((float) ($discountBreakdown['seller'] ?? 0), 2));
+            }
+
+            DB::table('seller_payout_ledgers')->insert($insertPayload);
             $created++;
         }
 
@@ -210,6 +226,7 @@ class SellerPayoutService
             })
             ->select(
                 'l.id',
+                'o.id as order_id',
                 'o.deposit_status',
                 'o.deposit_amount',
                 'o.delivery_fee',
@@ -219,6 +236,10 @@ class SellerPayoutService
             )
             ->limit(500)
             ->get();
+
+        $hasPlatformFundedColumn = Schema::hasColumn('seller_payout_ledgers', 'platform_funded_discount');
+        $hasSellerFundedColumn = Schema::hasColumn('seller_payout_ledgers', 'seller_funded_discount');
+        $discountFundingMap = $this->discountFundingByOrderIds($ledgers->pluck('order_id')->filter()->all());
 
         foreach ($ledgers as $ledger) {
             $gross = ($ledger->deposit_status ?? '') === 'paid'
@@ -234,19 +255,31 @@ class SellerPayoutService
                 continue;
             }
 
-            $commissionBase = max(0, $gross - (float) ($ledger->delivery_fee ?? 0) - (float) ($ledger->service_charge ?? 0));
+            $discountBreakdown = $discountFundingMap[(string) $ledger->order_id] ?? ['platform' => 0.0, 'seller' => 0.0];
+            $platformFundedDiscount = max(0, round((float) ($discountBreakdown['platform'] ?? 0), 2));
+            $adjustedGross = max(0, round($gross + $platformFundedDiscount, 2));
+
+            $commissionBase = max(0, $adjustedGross - (float) ($ledger->delivery_fee ?? 0) - (float) ($ledger->service_charge ?? 0));
             $rate = !empty($ledger->commission_enabled) ? (float) ($ledger->commission_rate ?? 0) : 0;
             $commission = round($commissionBase * $rate / 100, 2);
 
-            DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update([
-                'gross_amount' => $gross,
+            $updatePayload = [
+                'gross_amount' => $adjustedGross,
                 'commission_base' => $commissionBase,
                 'commission_rate' => $rate,
                 'commission_amount' => $commission,
-                'seller_net_amount' => max(0, round($gross - $commission, 2)),
+                'seller_net_amount' => max(0, round($adjustedGross - $commission, 2)),
                 'notes' => 'Adjusted to online customer deposit only. Direct COD cash was handed to seller.',
                 'updated_at' => now(),
-            ]);
+            ];
+            if ($hasPlatformFundedColumn) {
+                $updatePayload['platform_funded_discount'] = $platformFundedDiscount;
+            }
+            if ($hasSellerFundedColumn) {
+                $updatePayload['seller_funded_discount'] = max(0, round((float) ($discountBreakdown['seller'] ?? 0), 2));
+            }
+
+            DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update($updatePayload);
         }
     }
 
@@ -400,6 +433,65 @@ class SellerPayoutService
         }
 
         return $blockers;
+    }
+
+    private function discountFundingByOrderIds(array $orderIds): array
+    {
+        $orderIds = array_values(array_unique(array_filter(array_map('strval', $orderIds))));
+        if (empty($orderIds) || !Schema::hasTable('order_discounts')) {
+            return [];
+        }
+
+        $hasFundingSourceColumn = Schema::hasColumn('order_discounts', 'funding_source');
+
+        $rows = DB::table('order_discounts as od')
+            ->leftJoin('vouchers as v', function ($join) {
+                $join->on('v.id', '=', 'od.source_id')
+                    ->where('od.source_type', '=', 'voucher');
+            })
+            ->whereIn('od.order_id', $orderIds)
+            ->select(
+                'od.order_id',
+                'od.source_type',
+                'od.amount',
+                DB::raw($hasFundingSourceColumn ? 'od.funding_source as funding_source' : 'NULL as funding_source'),
+                'v.shop_id as voucher_shop_id'
+            )
+            ->get();
+
+        $totals = [];
+        foreach ($rows as $row) {
+            $orderId = (string) ($row->order_id ?? '');
+            if ($orderId === '') {
+                continue;
+            }
+
+            $source = strtolower(trim((string) ($row->funding_source ?? '')));
+            if (!in_array($source, ['platform', 'seller'], true)) {
+                if (($row->source_type ?? null) === 'loyalty') {
+                    $source = 'platform';
+                } elseif (($row->source_type ?? null) === 'voucher') {
+                    $source = empty($row->voucher_shop_id) ? 'platform' : 'seller';
+                } else {
+                    $source = 'seller';
+                }
+            }
+
+            if (!isset($totals[$orderId])) {
+                $totals[$orderId] = ['platform' => 0.0, 'seller' => 0.0];
+            }
+
+            $totals[$orderId][$source] += max(0, (float) ($row->amount ?? 0));
+        }
+
+        foreach ($totals as $orderId => $amounts) {
+            $totals[$orderId] = [
+                'platform' => round((float) ($amounts['platform'] ?? 0), 2),
+                'seller' => round((float) ($amounts['seller'] ?? 0), 2),
+            ];
+        }
+
+        return $totals;
     }
 
     private function collectedAmount(object $order): float

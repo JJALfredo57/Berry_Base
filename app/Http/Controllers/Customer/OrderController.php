@@ -175,7 +175,7 @@ class OrderController extends Controller
     {
         if (!empty($discounts['voucher']) && (float) $discounts['voucher_discount'] > 0) {
             app(VoucherService::class)->recordRedemption($discounts['voucher'], $order, (float) $discounts['voucher_discount']);
-            DB::table('order_discounts')->insert([
+            $voucherDiscountRow = [
                 'order_id' => $orderId,
                 'source_type' => 'voucher',
                 'source_id' => $discounts['voucher']->id,
@@ -185,12 +185,16 @@ class OrderController extends Controller
                 'meta' => json_encode(['applied_to' => 'custom_final_price']),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('order_discounts', 'funding_source')) {
+                $voucherDiscountRow['funding_source'] = empty($discounts['voucher']->shop_id) ? 'platform' : 'seller';
+            }
+            DB::table('order_discounts')->insert($voucherDiscountRow);
         }
 
         if ((int) ($discounts['points_redeemed'] ?? 0) > 0 && (float) ($discounts['loyalty_discount'] ?? 0) > 0) {
             app(LoyaltyService::class)->redeemForOrder($uid, $orderId, (int) $discounts['points_redeemed'], (float) $discounts['loyalty_discount']);
-            DB::table('order_discounts')->insert([
+            $loyaltyDiscountRow = [
                 'order_id' => $orderId,
                 'source_type' => 'loyalty',
                 'source_id' => null,
@@ -204,7 +208,11 @@ class OrderController extends Controller
                 ]),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('order_discounts', 'funding_source')) {
+                $loyaltyDiscountRow['funding_source'] = 'platform';
+            }
+            DB::table('order_discounts')->insert($loyaltyDiscountRow);
         }
     }
     public function status(string $id)

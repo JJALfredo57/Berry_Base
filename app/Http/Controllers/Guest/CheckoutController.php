@@ -693,7 +693,7 @@ class CheckoutController extends Controller
         $createdOrder = DB::table('orders')->where('id', $oid)->first();
         if (!empty($voucherResult['voucher']) && $voucherDiscount > 0 && $createdOrder) {
             app(VoucherService::class)->recordRedemption($voucherResult['voucher'], $createdOrder, $voucherDiscount);
-            DB::table('order_discounts')->insert([
+            $voucherDiscountRow = [
                 'order_id' => $oid,
                 'source_type' => 'voucher',
                 'source_id' => $voucherResult['voucher']->id,
@@ -702,7 +702,11 @@ class CheckoutController extends Controller
                 'amount' => $voucherDiscount,
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('order_discounts', 'funding_source')) {
+                $voucherDiscountRow['funding_source'] = empty($voucherResult['voucher']->shop_id) ? 'platform' : 'seller';
+            }
+            DB::table('order_discounts')->insert($voucherDiscountRow);
         }
 
         foreach ($validAddons as $addon) {
