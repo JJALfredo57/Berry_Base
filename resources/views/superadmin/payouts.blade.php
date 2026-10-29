@@ -23,7 +23,7 @@
   <i class="bi bi-info-circle-fill fs-5"></i>
   <div>
     <strong>Important payout rule:</strong> seller money is only payable after payment is collected, the order is delivered, and the hold period has passed.
-    Berry Base may process eligible customer refunds before seller payout is released. Automatic mode prepares eligible payout batches; final PayMongo disbursement should be enabled only after Wallet/Disbursements setup is confirmed.
+    Berry Base may process eligible customer refunds before seller payout is released. Payout release is currently handled in manual admin review mode.
   </div>
 </div>
 
@@ -58,7 +58,7 @@
             <label class="form-label fw-semibold">Payout Mode</label>
             <input type="text" class="form-control" value="Manual - admin reviews and marks paid" readonly aria-readonly="true">
             <input type="hidden" name="payout_mode" value="manual">
-            <div class="form-text">Payout mode is locked to Manual for now. Automatic mode is disabled until future activation.</div>
+            <div class="form-text">Payout mode is locked to Manual. Admin review is required before marking payout as paid.</div>
           </div>
           <div class="row g-2">
             <div class="col-6">
