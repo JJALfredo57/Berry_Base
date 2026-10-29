@@ -96,7 +96,9 @@ class LoyaltyService
         if (!$userId || !Schema::hasTable('loyalty_accounts')) return null;
 
         $account = DB::table('loyalty_accounts')->where('user_id', $userId)->first();
-        if ($account) return $account;
+        if ($account) {
+            return $this->reconcileAccountFromTransactions($account);
+        }
 
         DB::table('loyalty_accounts')->insert([
             'user_id' => $userId,
@@ -109,6 +111,46 @@ class LoyaltyService
         ]);
 
         return DB::table('loyalty_accounts')->where('user_id', $userId)->first();
+    }
+
+    private function reconcileAccountFromTransactions(object $account): object
+    {
+        if (!Schema::hasTable('loyalty_transactions') || empty($account->user_id)) {
+            return $account;
+        }
+
+        $userId = (string) $account->user_id;
+        $totals = DB::table('loyalty_transactions')
+            ->where('user_id', $userId)
+            ->selectRaw('COALESCE(SUM(points), 0) as net_points, COALESCE(SUM(CASE WHEN points > 0 THEN points ELSE 0 END), 0) as earned_points')
+            ->first();
+
+        $expectedBalance = max(0, (int) round((float) ($totals->net_points ?? 0)));
+        $expectedLifetime = max(0, (int) round((float) ($totals->earned_points ?? 0)));
+        $currentBalance = (int) ($account->points_balance ?? 0);
+        $currentLifetime = (int) ($account->lifetime_points ?? 0);
+        $expectedTier = $this->tierForPoints($expectedBalance);
+        $currentTier = (string) ($account->tier ?? 'Bronze');
+
+        if (
+            $currentBalance === $expectedBalance
+            && $currentLifetime === $expectedLifetime
+            && strcasecmp($currentTier, $expectedTier) === 0
+        ) {
+            return $account;
+        }
+
+        DB::table('loyalty_accounts')
+            ->where('user_id', $userId)
+            ->update([
+                'points_balance' => $expectedBalance,
+                'lifetime_points' => $expectedLifetime,
+                'tier' => $expectedTier,
+                'tier_updated_at' => strcasecmp($currentTier, $expectedTier) !== 0 ? now() : ($account->tier_updated_at ?? null),
+                'updated_at' => now(),
+            ]);
+
+        return DB::table('loyalty_accounts')->where('user_id', $userId)->first() ?: $account;
     }
 
     public function membershipOverview(?string $userId): array
