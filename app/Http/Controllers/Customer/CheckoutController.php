@@ -115,7 +115,10 @@ class CheckoutController extends Controller
         $checkoutSubtotal = $isGroupCheckout
             ? (float) $checkoutItems->sum(fn ($item) => (float) $item->final_unit_price_snapshot * (int) $item->quantity)
             : (float) $pricing['final_unit_price'] * (int) $checkout['quantity'];
-        $availableVouchers = app(VoucherService::class)->availableForCustomer($uid, $product->shop_id ?? null, $checkoutSubtotal);
+        $hasProductDiscount = $isGroupCheckout
+            ? $checkoutItems->contains(fn ($item) => (float) ($item->discount_amount_snapshot ?? 0) > 0)
+            : (float) ($pricing['discount_amount'] ?? 0) > 0;
+        $availableVouchers = app(VoucherService::class)->availableForCustomer($uid, $product->shop_id ?? null, $checkoutSubtotal, $hasProductDiscount);
         $loyaltyQuote = $loyaltyService->redemptionQuote(
             $uid,
             $checkoutSubtotal,
@@ -632,8 +635,11 @@ class CheckoutController extends Controller
         $baseTotal = $isGroupCheckout
             ? (float) $checkoutItems->sum(fn ($item) => (float) $item->final_unit_price_snapshot * (int) $item->quantity)
             : $pricing['final_unit_price'] * $qty;
+        $hasProductDiscount = $isGroupCheckout
+            ? $checkoutItems->contains(fn ($item) => (float) ($item->discount_amount_snapshot ?? 0) > 0)
+            : (float) ($pricing['discount_amount'] ?? 0) > 0;
         $voucherCode = strtoupper(trim((string) $request->input('voucher_code', '')));
-        $voucherResult = app(VoucherService::class)->validate($voucherCode, $baseTotal + $addonTotal, $product->shop_id ?? null, $uid);
+        $voucherResult = app(VoucherService::class)->validate($voucherCode, $baseTotal + $addonTotal, $product->shop_id ?? null, $uid, null, $hasProductDiscount);
         if (!$voucherResult['ok']) {
             return back()->with('error', $voucherResult['message'])->with('error_field', 'voucher')->withInput();
         }

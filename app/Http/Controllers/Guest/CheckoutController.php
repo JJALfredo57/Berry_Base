@@ -551,8 +551,11 @@ class CheckoutController extends Controller
         $baseTotal = ($isGroupCheckout
             ? (float) $checkoutItems->sum(fn ($item) => (float) $item->final_unit_price_snapshot * (int) $item->quantity)
             : $pricing['final_unit_price'] * $qty) + $addonTotal;
+        $hasProductDiscount = $isGroupCheckout
+            ? $checkoutItems->contains(fn ($item) => (float) ($item->discount_amount_snapshot ?? 0) > 0)
+            : (float) ($pricing['discount_amount'] ?? 0) > 0;
         $voucherCode = strtoupper(trim((string) $request->input('voucher_code', '')));
-        $voucherResult = app(VoucherService::class)->validate($voucherCode, $baseTotal, $product->shop_id ?? null, $linkedCustomerId, $phone);
+        $voucherResult = app(VoucherService::class)->validate($voucherCode, $baseTotal, $product->shop_id ?? null, $linkedCustomerId, $phone, $hasProductDiscount);
         if (!$voucherResult['ok']) {
             return back()->with('error', $voucherResult['message'])->withInput();
         }

@@ -328,6 +328,69 @@ class LoyaltyService
         });
     }
 
+    public function rollbackRedeemForOrder(string $orderId): void
+    {
+        if (!$orderId || !Schema::hasTable('loyalty_accounts') || !Schema::hasTable('loyalty_transactions')) {
+            return;
+        }
+
+        DB::transaction(function () use ($orderId) {
+            $redeemTx = DB::table('loyalty_transactions')
+                ->where('order_id', $orderId)
+                ->where('type', 'redeem')
+                ->first();
+
+            if (!$redeemTx) {
+                return;
+            }
+
+            $alreadyReversed = DB::table('loyalty_transactions')
+                ->where('order_id', $orderId)
+                ->where('type', 'redeem_reversal')
+                ->exists();
+
+            if ($alreadyReversed) {
+                return;
+            }
+
+            $pointsToRestore = max(0, abs((int) ($redeemTx->points ?? 0)));
+            if ($pointsToRestore <= 0) {
+                return;
+            }
+
+            $account = DB::table('loyalty_accounts')
+                ->where('user_id', $redeemTx->user_id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$account) {
+                return;
+            }
+
+            $newBalance = max(0, (int) $account->points_balance + $pointsToRestore);
+            $newTier = $this->tierForPoints($newBalance);
+
+            DB::table('loyalty_accounts')->where('user_id', $redeemTx->user_id)->update([
+                'points_balance' => $newBalance,
+                'tier' => $newTier,
+                'tier_updated_at' => $newTier !== ($account->tier ?? 'Bronze') ? now() : $account->tier_updated_at,
+                'updated_at' => now(),
+            ]);
+
+            DB::table('loyalty_transactions')->insert([
+                'user_id' => $redeemTx->user_id,
+                'order_id' => $orderId,
+                'type' => 'redeem_reversal',
+                'points' => $pointsToRestore,
+                'balance_after' => $newBalance,
+                'description' => "Restored {$pointsToRestore} points from cancelled/refunded Order #{$orderId}.",
+                'meta' => json_encode(['reversed_type' => 'redeem', 'source_transaction_id' => $redeemTx->id]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+    }
+
     public function awardForCompletedOrder(object|string $order): void
     {
         if (is_string($order)) {

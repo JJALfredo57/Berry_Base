@@ -630,6 +630,8 @@ class OrderController extends Controller
             'cancel_admin_note'=> $adminNote,
         ]);
         app(ProductStockService::class)->releaseForOrder($id);
+        app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder($id);
+        app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder($id);
         DB::table('order_tracking')->insert([
             'order_id'   => $id,
             'status'     => 'Cancelled',

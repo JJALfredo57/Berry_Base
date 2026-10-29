@@ -198,6 +198,8 @@ class CustomOrderController extends Controller
         if (!$reason) return back()->with('err', 'Please provide a reason.');
         DB::table('custom_orders')->where('id', $id)->update(['review_status' => 'rejected', 'admin_comment' => $reason]);
         DB::table('orders')->where('id', $co->order_id)->update(['status' => 'Cancelled']);
+        app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder((string) $co->order_id);
+        app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder((string) $co->order_id);
         if ($co->guest_phone) {
             $siteName = config('app.name', 'Cake Shop');
             $shopName = SmsHelper::getShopName($shop->id ?? null);

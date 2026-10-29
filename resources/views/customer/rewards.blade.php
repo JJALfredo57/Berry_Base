@@ -30,7 +30,7 @@
     </div>
     <div class="col-sm-4">
       <div class="card h-100"><div class="card-body">
-        <div class="small text-muted">Earned Points</div>
+        <div class="small text-muted">Available Points</div>
         <div class="h5 fw-bold mb-0" style="color:var(--primary)">{{ (int)($overview['balance'] ?? 0) }}</div>
       </div></div>
     </div>

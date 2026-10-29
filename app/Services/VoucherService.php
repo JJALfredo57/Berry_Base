@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 class VoucherService
 {
-    public function availableForCustomer(?string $userId, ?string $shopId, float $subtotal): array
+    public function availableForCustomer(?string $userId, ?string $shopId, float $subtotal, bool $hasProductDiscount = false): array
     {
         if (!Schema::hasTable('vouchers')) return [];
 
@@ -32,8 +32,8 @@ class VoucherService
                 ->where('status', 'active')
                 ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', now()))
                 ->exists();
-        })->map(function ($voucher) use ($subtotal, $shopId, $userId) {
-            $result = $this->validate($voucher->code, $subtotal, $shopId, $userId);
+        })->map(function ($voucher) use ($subtotal, $shopId, $userId, $hasProductDiscount) {
+            $result = $this->validate($voucher->code, $subtotal, $shopId, $userId, null, $hasProductDiscount);
             $voucher->validation_ok = $result['ok'];
             $voucher->validation_message = $result['message'] ?? '';
             $voucher->computed_discount = (float) ($result['discount'] ?? 0);
@@ -41,7 +41,7 @@ class VoucherService
         })->values()->all();
     }
 
-    public function validate(?string $code, float $subtotal, ?string $shopId, ?string $userId = null, ?string $guestPhone = null): array
+    public function validate(?string $code, float $subtotal, ?string $shopId, ?string $userId = null, ?string $guestPhone = null, bool $hasProductDiscount = false): array
     {
         $code = strtoupper(trim((string) $code));
         if ($code === '') return ['ok' => true, 'voucher' => null, 'discount' => 0, 'message' => ''];
@@ -102,6 +102,10 @@ class VoucherService
             if ($hasOrder) return ['ok' => false, 'message' => 'This promo is for first orders only.'];
         }
 
+        if (!$voucher->stack_with_product_discount && $hasProductDiscount) {
+            return ['ok' => false, 'message' => 'This promo cannot be combined with product discounts.'];
+        }
+
         $discount = $this->discountAmount($voucher, $subtotal);
 
         return ['ok' => true, 'voucher' => $voucher, 'discount' => $discount, 'message' => 'Promo applied.'];
@@ -137,5 +141,14 @@ class VoucherService
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    public function rollbackRedemptionForOrder(string $orderId): void
+    {
+        if (!$orderId || !Schema::hasTable('voucher_redemptions')) {
+            return;
+        }
+
+        DB::table('voucher_redemptions')->where('order_id', $orderId)->delete();
     }
 }
