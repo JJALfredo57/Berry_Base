@@ -610,7 +610,9 @@
             <td class="fw-semibold">{{ $l->fullname ?? $l->username ?? ($l->user_id === 'system' ? 'System' : ($l->user_id === 'guest' ? 'Guest' : 'Unknown user')) }}</td>
             <td><span class="badge rounded-pill {{ $l->role==='admin' ? 'bg-dark' : 'bg-secondary' }}">{{ $l->role }}</span></td>
             <td>
-              @php($logStatus = $l->status ?? 'success')
+              @php
+                $logStatus = $l->status ?? 'success';
+              @endphp
               <span class="badge rounded-pill {{ $logStatus === 'success' ? 'bg-success' : ($logStatus === 'denied' ? 'bg-warning text-dark' : 'bg-danger') }}">{{ $logStatus }}</span>
             </td>
             <td class="fw-semibold">{{ $l->action }}</td>

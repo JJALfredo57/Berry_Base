@@ -847,7 +847,9 @@
               </span>
             </td>
             <td>
-              @php($logStatus = $l->status ?? 'success')
+              @php
+                $logStatus = $l->status ?? 'success';
+              @endphp
               <span class="badge rounded-pill {{ $logStatus === 'success' ? 'bg-success' : ($logStatus === 'denied' ? 'bg-warning text-dark' : 'bg-danger') }}">{{ $logStatus }}</span>
             </td>
             <td class="fw-semibold">{{ $l->action }}</td>
