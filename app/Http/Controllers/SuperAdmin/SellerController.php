@@ -120,7 +120,7 @@ class SellerController extends Controller
             } catch (\Exception $e) {}
         }
 
-        CakeshopHelper::logActivity(session('user')['id'],'admin','Approve Seller',"Shop: {$shop->shop_name}");
+        CakeshopHelper::logActivity(session('user')['id'],'superadmin','Approve Seller',"Shop: {$shop->shop_name}");
         return back()->with('msg',"Shop '{$shop->shop_name}' approved successfully.");
     }
 
@@ -165,7 +165,7 @@ class SellerController extends Controller
             } catch (\Exception $e) {}
         }
 
-        CakeshopHelper::logActivity(session('user')['id'],'admin','Reject Seller',"Shop: {$shop->shop_name}");
+        CakeshopHelper::logActivity(session('user')['id'],'superadmin','Reject Seller',"Shop: {$shop->shop_name}");
         return back()->with('msg',"Application rejected.");
     }
 
@@ -178,7 +178,7 @@ class SellerController extends Controller
         DB::table('shops')->where('id',$shopId)->update(['status' => $newStatus]);
 
         $action = $newStatus === 'suspended' ? 'Suspend Seller' : 'Reactivate Seller';
-        CakeshopHelper::logActivity(session('user')['id'],'admin',$action,"Shop: {$shop->shop_name}");
+        CakeshopHelper::logActivity(session('user')['id'],'superadmin',$action,"Shop: {$shop->shop_name}");
         return back()->with('msg',"Shop {$newStatus}.");
     }
 
@@ -194,7 +194,7 @@ class SellerController extends Controller
         DB::table('shops')->where('id',$shopId)->update(['commission_enabled' => $newVal]);
 
         $label = $newVal ? 'enabled' : 'disabled';
-        CakeshopHelper::logActivity(session('user')['id'],'admin','Toggle Commission',"Shop: {$shop->shop_name} — commission {$label}");
+        CakeshopHelper::logActivity(session('user')['id'],'superadmin','Toggle Commission',"Shop: {$shop->shop_name} — commission {$label}");
         return back()->with('msg',"Commission {$label} for {$shop->shop_name}.");
     }
 
@@ -218,7 +218,7 @@ class SellerController extends Controller
         DB::table('shops')->whereIn('status',['approved','suspended'])->update(['commission_enabled' => $val]);
 
         $label = $action === 'enable' ? 'enabled' : 'disabled';
-        CakeshopHelper::logActivity(session('user')['id'],'admin','Bulk Commission',"Commission {$label} for all approved and suspended sellers");
+        CakeshopHelper::logActivity(session('user')['id'],'superadmin','Bulk Commission',"Commission {$label} for all approved and suspended sellers");
         return back()->with('msg',"Commission {$label} for all approved and suspended sellers.");
     }
 
@@ -237,7 +237,7 @@ class SellerController extends Controller
             'updated_at'      => now(),
         ]);
 
-        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Update Commission Rate', "Shop: {$shop->shop_name} - {$rate}%");
+        CakeshopHelper::logActivity(session('user')['id'], 'superadmin', 'Update Commission Rate', "Shop: {$shop->shop_name} - {$rate}%");
         return back()->with('msg', "Commission rate updated to {$rate}% for {$shop->shop_name}.");
     }
 
@@ -280,7 +280,7 @@ class SellerController extends Controller
             } catch (\Exception $e) {}
         }
 
-        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Approve Upgrade', "Shop: {$shop->shop_name} → Verified");
+        CakeshopHelper::logActivity(session('user')['id'], 'superadmin', 'Approve Upgrade', "Shop: {$shop->shop_name} → Verified");
         return back()->with('msg', "'{$shop->shop_name}' has been upgraded to Verified Seller.");
     }
 
@@ -326,7 +326,7 @@ class SellerController extends Controller
             } catch (\Exception $e) {}
         }
 
-        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Reject Upgrade', "Shop: {$shop->shop_name}");
+        CakeshopHelper::logActivity(session('user')['id'], 'superadmin', 'Reject Upgrade', "Shop: {$shop->shop_name}");
         return back()->with('msg', "Upgrade request rejected for '{$shop->shop_name}'.");
     }
 
@@ -355,7 +355,7 @@ class SellerController extends Controller
                 DB::table('platform_settings')->insert($updates);
             }
 
-            CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Update Commission Policy', 'Default seller commission rates updated');
+            CakeshopHelper::logActivity(session('user')['id'], 'superadmin', 'Update Commission Policy', 'Default seller commission rates updated');
             return back()->with('msg', 'Seller commission policy updated successfully.');
         }
 
@@ -368,7 +368,7 @@ class SellerController extends Controller
                 'updated_at'      => now(),
             ]);
 
-        CakeshopHelper::logActivity(session('user')['id'], 'admin', 'Bulk Commission Rate', "Commission rate set to {$rate}% for all approved and suspended sellers");
+        CakeshopHelper::logActivity(session('user')['id'], 'superadmin', 'Bulk Commission Rate', "Commission rate set to {$rate}% for all approved and suspended sellers");
         return back()->with('msg', "Commission rate set to {$rate}% for all approved and suspended sellers.");
     }
 }

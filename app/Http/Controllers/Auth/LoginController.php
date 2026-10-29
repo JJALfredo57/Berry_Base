@@ -36,10 +36,12 @@ class LoginController extends Controller
             ->first();
 
         if (!$user || !password_verify($request->password, $user->password)) {
+            CakeshopHelper::logActivity('unknown', 'security', 'Failed Login', 'Admin portal credentials rejected', 'authentication', null, 'failed');
             return back()->with('error', 'Invalid credentials.')->withInput(['username' => $request->username]);
         }
 
         if (!(int) $user->is_verified) {
+            CakeshopHelper::logActivity($user->id, $user->role, 'Failed Login', 'Admin account is not verified', 'authentication', $user->id, 'denied');
             return back()->with('error', 'Account not verified.')->withInput(['username' => $request->username]);
         }
 
@@ -106,6 +108,7 @@ class LoginController extends Controller
 
         if ($user && password_verify($password, $user->password)) {
             if (!(int) $user->is_verified) {
+                CakeshopHelper::logActivity($user->id, $user->role, 'Failed Login', 'Account is not verified', 'authentication', $user->id, 'denied');
                 return back()->with('error', 'Your account is not yet verified. Please wait for approval.')->withInput(['username' => $request->username]);
             }
 
@@ -147,10 +150,12 @@ class LoginController extends Controller
         $rider = $this->riderForLogin($identifier);
         if ($rider) {
             if (!(bool) $rider->is_active) {
+                CakeshopHelper::logActivity($rider->id, 'rider', 'Failed Login', 'Rider account is inactive', 'authentication', $rider->id, 'denied');
                 return back()->with('error', 'Rider account is inactive. Contact the seller or admin.')->withInput(['username' => $request->username]);
             }
 
             if (!Schema::hasColumn('riders', 'login_pin_hash') || empty($rider->login_pin_hash) || !Hash::check($password, $rider->login_pin_hash)) {
+                CakeshopHelper::logActivity($rider->id, 'rider', 'Failed Login', 'Rider credentials rejected', 'authentication', $rider->id, 'failed');
                 return back()->with('error', 'Invalid login details.')->withInput(['username' => $request->username]);
             }
 
@@ -172,6 +177,7 @@ class LoginController extends Controller
             return redirect()->route('rider.dashboard');
         }
 
+        CakeshopHelper::logActivity('unknown', 'security', 'Failed Login', 'Credentials rejected', 'authentication', null, 'failed');
         return back()->with('error', 'Invalid login details.')->withInput(['username' => $request->username]);
     }
 

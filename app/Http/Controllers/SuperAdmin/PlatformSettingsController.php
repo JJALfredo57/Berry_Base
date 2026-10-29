@@ -113,6 +113,7 @@ class PlatformSettingsController extends Controller
             $this->deleteReplacedUploadedFile($existing->platform_bg_image, $updates['platform_bg_image']);
         }
 
+        CakeshopHelper::logActivity(session('user')['id'] ?? 'system', 'superadmin', 'Update Platform Settings', 'Platform branding and platform settings updated', 'platform_settings', $existing->id ?? null);
         return redirect()->route('superadmin.settings', ['tab' => 'platform'])->with('msg', 'Platform settings updated successfully.');
     }
 
@@ -156,6 +157,7 @@ class PlatformSettingsController extends Controller
             DB::table('platform_settings')->insert($updates);
         }
 
+        CakeshopHelper::logActivity(session('user')['id'] ?? 'system', 'superadmin', 'Update PayMongo Settings', 'PayMongo mode updated; secret values excluded from audit details', 'platform_settings', $existing->id ?? null);
         return redirect()->route('superadmin.settings', ['tab' => 'paymongo'])->with('msg', 'PayMongo settings saved! Mode: ' . strtoupper($mode));
     }
 
@@ -170,6 +172,7 @@ class PlatformSettingsController extends Controller
             ]);
         }
         $status = $devMode ? 'ON - OTP and SMS previews are now visible on screen.' : 'OFF - SMS previews are hidden.';
+        CakeshopHelper::logActivity(session('user')['id'] ?? 'system', 'superadmin', 'Update Developer Mode', $devMode ? 'Developer mode enabled' : 'Developer mode disabled', 'platform_settings', $existing->id ?? null);
         return redirect()->route('superadmin.settings', ['tab' => 'platform'])->with('msg', "Developer Mode {$status}");
     }
 
@@ -226,6 +229,7 @@ class PlatformSettingsController extends Controller
             }
         }
 
+        CakeshopHelper::logActivity(session('user')['id'] ?? 'system', 'superadmin', 'Update Rewards Settings', 'Rewards and membership settings updated', 'platform_settings', $existing->id ?? null);
         return redirect()->route('superadmin.settings', ['tab' => 'rewards'])->with('msg', 'Rewards and membership settings saved.');
     }
 
@@ -256,6 +260,7 @@ class PlatformSettingsController extends Controller
             DB::table('platform_settings')->insert($updates);
         }
 
+        CakeshopHelper::logActivity(session('user')['id'] ?? 'system', 'superadmin', 'Update Verification Settings', 'Customer ID verification settings updated', 'platform_settings', $existing->id ?? null);
         return redirect()->route('superadmin.settings', ['tab' => 'verification'])->with('msg', 'ID verification settings saved.');
     }
 
@@ -266,6 +271,15 @@ class PlatformSettingsController extends Controller
         $summary = !empty($health['ok'])
             ? 'OCR health check passed: ' . ($health['version'] ?? 'Tesseract available') . '.'
             : 'OCR health check failed: ' . ($health['message'] ?? 'OCR engine is unavailable.');
+        CakeshopHelper::logActivity(
+            session('user')['id'] ?? 'system',
+            'superadmin',
+            'OCR Health Check',
+            !empty($health['ok']) ? 'OCR health check passed' : 'OCR health check failed',
+            'verification_service',
+            null,
+            !empty($health['ok']) ? 'success' : 'failed'
+        );
 
         return redirect()
             ->route('superadmin.settings', ['tab' => 'verification'])
@@ -302,6 +316,7 @@ class PlatformSettingsController extends Controller
             DB::table('platform_settings')->insert($updates);
         }
 
+        CakeshopHelper::logActivity(session('user')['id'] ?? 'system', 'superadmin', 'Update PhilSMS Settings', 'PhilSMS settings updated; API token excluded from audit details', 'platform_settings', $existing->id ?? null);
         return redirect()->route('superadmin.settings', ['tab' => 'sms'])->with('msg', 'PhilSMS settings saved!');
     }
 
@@ -316,6 +331,7 @@ class PlatformSettingsController extends Controller
         $digits = preg_replace('/\D/', '', $phone);
         if (strlen($digits) === 10 && str_starts_with($digits, '9')) $digits = '0' . $digits;
         if (!(strlen($digits) === 11 && str_starts_with($digits, '09')) && !(strlen($digits) === 12 && str_starts_with($digits, '63'))) {
+            CakeshopHelper::logActivity(session('user')['id'] ?? 'system', 'superadmin', 'Test SMS', 'SMS test rejected because the phone number format was invalid', 'sms_provider', null, 'failed');
             return redirect()->route('superadmin.settings', ['tab' => 'sms'])
                 ->with('err', 'Enter a valid Philippine mobile number for SMS test.');
         }
@@ -326,10 +342,12 @@ class PlatformSettingsController extends Controller
         $result = SmsHelper::sendWithResult($phone, $message);
 
         if (!$result['ok']) {
+            CakeshopHelper::logActivity(session('user')['id'] ?? 'system', 'superadmin', 'Test SMS', 'SMS provider test failed', 'sms_provider', null, 'failed');
             return redirect()->route('superadmin.settings', ['tab' => 'sms'])
                 ->with('err', $result['error'] ?? 'Test SMS failed. Please check PhilSMS settings.');
         }
 
+        CakeshopHelper::logActivity(session('user')['id'] ?? 'system', 'superadmin', 'Test SMS', 'SMS provider test succeeded', 'sms_provider');
         return redirect()->route('superadmin.settings', ['tab' => 'sms'])
             ->with('msg', 'Test SMS sent successfully to ' . $phone . '.');
     }
@@ -457,6 +475,16 @@ class PlatformSettingsController extends Controller
             Log::warning('Backup retention cleanup failed after saving settings: ' . $e->getMessage(), [
                 'retention_count' => $updates['backup_retention_count'],
             ]);
+            $user = session('user') ?? ['id' => 'system', 'role' => 'superadmin'];
+            CakeshopHelper::logActivity(
+                $user['id'],
+                $user['role'],
+                'Update Backup Settings',
+                'Settings saved but retention cleanup failed',
+                'platform_settings',
+                $existing->id ?? null,
+                'failed'
+            );
 
             return redirect()->route('superadmin.settings', ['tab' => 'backup'])
                 ->with('err', 'Backup settings were saved, but old backup cleanup could not be completed.');
@@ -465,6 +493,15 @@ class PlatformSettingsController extends Controller
         $message = $deleted > 0
             ? "Backup automation settings saved. {$deleted} old backup file(s) removed."
             : 'Backup automation settings saved. No old backup files needed to be removed.';
+        $user = session('user') ?? ['id' => 'system', 'role' => 'superadmin'];
+        CakeshopHelper::logActivity(
+            $user['id'],
+            $user['role'],
+            'Update Backup Settings',
+            "Frequency: {$updates['backup_frequency']}; retention: {$updates['backup_retention_count']}; old files removed: {$deleted}",
+            'platform_settings',
+            $existing->id ?? null
+        );
 
         return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', $message);
     }

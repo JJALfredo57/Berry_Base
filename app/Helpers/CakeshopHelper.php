@@ -305,18 +305,60 @@ class CakeshopHelper
         return "background: linear-gradient(135deg, {$a}, {$b});";
     }
 
-    public static function logActivity(string|int $userId, string $role, string $action, string $desc = ''): void
+    public static function logActivity(
+        string|int $userId,
+        string $role,
+        string $action,
+        string $desc = '',
+        ?string $targetType = null,
+        string|int|null $targetId = null,
+        string $status = 'success'
+    ): void
     {
         try {
-            DB::table('activity_logs')->insert([
+            $payload = [
                 'user_id'    => $userId,
                 'role'       => $role,
                 'action'     => $action,
-                'details'    => $desc,
+                'details'    => self::redactActivityDetails($desc),
                 'ip_address' => request()->ip(),
                 'created_at' => now(),
-            ]);
+            ];
+
+            $routeName = request()->route()?->getName();
+            if (Schema::hasColumn('activity_logs', 'status')) {
+                $payload['status'] = in_array($status, ['success', 'failed', 'denied'], true) ? $status : 'success';
+            }
+            if (Schema::hasColumn('activity_logs', 'target_type')) {
+                $payload['target_type'] = $targetType;
+            }
+            if (Schema::hasColumn('activity_logs', 'target_id')) {
+                $payload['target_id'] = $targetId === null ? null : (string) $targetId;
+            }
+            if (Schema::hasColumn('activity_logs', 'route_name')) {
+                $payload['route_name'] = $routeName;
+            }
+            if (Schema::hasColumn('activity_logs', 'user_agent')) {
+                $payload['user_agent'] = substr((string) request()->userAgent(), 0, 2000) ?: null;
+            }
+
+            DB::table('activity_logs')->insert($payload);
         } catch (\Exception $e) {}
+    }
+
+    private static function redactActivityDetails(string $details): string
+    {
+        $details = preg_replace('/\b(password|token|secret|api[_ -]?key)\s*[:=]\s*[^\s,;]+/i', '$1=[REDACTED]', $details) ?? $details;
+        $details = preg_replace_callback('/\b[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}\b/', function (array $match): string {
+            [$local, $domain] = array_pad(explode('@', $match[0], 2), 2, '');
+            return substr($local, 0, 1) . '***@' . $domain;
+        }, $details) ?? $details;
+        $details = preg_replace_callback('/(?<!\d)(?:\+?63|0)9\d{9}(?!\d)/', function (array $match): string {
+            $value = $match[0];
+            return substr($value, 0, 3) . '******' . substr($value, -3);
+        }, $details) ?? $details;
+
+        return $details;
     }
 
     public static function sendOtpEmail(string $toEmail, string $otp, string $purpose = 'OTP Verification'): bool

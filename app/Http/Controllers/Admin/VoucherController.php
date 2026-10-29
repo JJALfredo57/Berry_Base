@@ -141,6 +141,14 @@ class VoucherController extends Controller
             'is_active' => !((bool) $voucher->is_active),
             'updated_at' => now(),
         ]);
+        CakeshopHelper::logActivity(
+            session('user')['id'] ?? 'system',
+            $ctx['role'],
+            $voucher->is_active ? 'Deactivate Voucher' : 'Activate Voucher',
+            "Voucher {$voucher->code}",
+            'voucher',
+            $voucher->id
+        );
         return back()->with('msg', 'Voucher status updated.');
     }
 }

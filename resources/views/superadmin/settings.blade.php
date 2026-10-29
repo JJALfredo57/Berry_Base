@@ -777,33 +777,50 @@
   {{-- ACTIVITY LOGS TAB --}}
   @elseif($tab === 'logs')
   @php
-    $logs = \Illuminate\Support\Facades\DB::table('activity_logs as l')
-      ->join('users as u','u.id','=','l.user_id')
+    $logSearch = trim((string) request('log_search', ''));
+    $logRole = (string) request('log_role', '');
+    $logsQuery = \Illuminate\Support\Facades\DB::table('activity_logs as l')
+      ->leftJoin('users as u','u.id','=','l.user_id')
+      ->when($logSearch !== '', function ($query) use ($logSearch) {
+        $query->where(function ($q) use ($logSearch) {
+          $like = '%' . addcslashes($logSearch, '%_') . '%';
+          $q->where('u.fullname', 'like', $like)
+            ->orWhere('u.username', 'like', $like)
+            ->orWhere('l.action', 'like', $like)
+            ->orWhere('l.details', 'like', $like)
+            ->orWhere('l.target_type', 'like', $like)
+            ->orWhere('l.target_id', 'like', $like);
+        });
+      })
+      ->when(in_array($logRole, ['superadmin', 'admin', 'seller', 'customer', 'security'], true), fn ($query) => $query->where('l.role', $logRole))
       ->select('l.*','u.fullname','u.username')
-      ->orderByDesc('l.id')->limit(500)->get();
+      ->orderByDesc('l.id');
+    $logs = $logsQuery->paginate(50)->withQueryString();
   @endphp
   <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
       <h6 class="fw-bold mb-0">Activity Logs</h6>
-      <small class="text-muted" id="logCountLabel">{{ $logs->count() }} records (latest 500)</small>
+      <small class="text-muted" id="logCountLabel">{{ $logs->total() }} records</small>
     </div>
-    <div class="d-flex flex-wrap align-items-center gap-2">
-      <input type="text" id="logSearch" class="form-control form-control-sm"
-             placeholder="Search logs..." oninput="filterLogs()" style="flex:1;min-width:0;max-width:250px">
-      <select id="logRoleFilter" class="form-select form-select-sm" style="flex:1;min-width:0;max-width:160px" onchange="filterLogs()">
+    <form method="GET" action="{{ route('superadmin.settings') }}" class="d-flex flex-wrap align-items-center gap-2">
+      <input type="hidden" name="tab" value="logs">
+      <input type="text" name="log_search" id="logSearch" class="form-control form-control-sm"
+             value="{{ $logSearch }}" placeholder="Search logs..." style="flex:1;min-width:0;max-width:250px">
+      <select name="log_role" id="logRoleFilter" class="form-select form-select-sm" style="flex:1;min-width:0;max-width:160px">
         <option value="">All Roles</option>
-        <option value="superadmin">Super Admin</option>
-        <option value="admin">Admin</option>
-        <option value="seller">Seller</option>
-        <option value="customer">Customer</option>
+        @foreach(['superadmin' => 'Super Admin', 'admin' => 'Admin', 'seller' => 'Seller', 'customer' => 'Customer', 'security' => 'Security'] as $value => $label)
+          <option value="{{ $value }}" {{ $logRole === $value ? 'selected' : '' }}>{{ $label }}</option>
+        @endforeach
       </select>
-    </div>
+      <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+      <a href="{{ route('superadmin.settings', ['tab' => 'logs']) }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+    </form>
   </div>
   <div class="card">
     <div class="table-responsive">
       <table class="table table-hover mb-0 align-middle small">
         <thead class="table-light">
-          <tr><th class="ps-3">Date</th><th>User</th><th>Role</th><th>Action</th><th>Description</th></tr>
+          <tr><th class="ps-3">Date</th><th>User</th><th>Role</th><th>Status</th><th>Action</th><th>Description</th></tr>
         </thead>
         <tbody id="logTableBody">
           @forelse($logs as $l)
@@ -811,29 +828,33 @@
               data-search="{{ strtolower(($l->fullname ?? '') . ' ' . ($l->username ?? '') . ' ' . $l->action . ' ' . ($l->details ?? '')) }}"
               data-filter="{{ $l->role }}">
             <td class="ps-3 text-muted" style="white-space:nowrap">{{ \Carbon\Carbon::parse($l->created_at)->format('M d, Y H:i') }}</td>
-            <td class="fw-semibold">{{ $l->fullname ?? $l->username ?? '-' }}</td>
+            <td class="fw-semibold">{{ $l->fullname ?? $l->username ?? ($l->user_id === 'system' ? 'System' : ($l->user_id === 'guest' ? 'Guest' : 'Unknown user')) }}</td>
             <td>
               <span class="badge rounded-pill
                 {{ $l->role==='superadmin' ? 'bg-danger' : ($l->role==='admin' ? 'bg-dark' : ($l->role==='seller' ? 'bg-warning text-dark' : 'bg-secondary')) }}">
                 {{ $l->role }}
               </span>
             </td>
+            <td>
+              @php($logStatus = $l->status ?? 'success')
+              <span class="badge rounded-pill {{ $logStatus === 'success' ? 'bg-success' : ($logStatus === 'denied' ? 'bg-warning text-dark' : 'bg-danger') }}">{{ $logStatus }}</span>
+            </td>
             <td class="fw-semibold">{{ $l->action }}</td>
             <td class="text-muted">{{ $l->details ?? '' }}</td>
           </tr>
           @empty
-          <tr><td colspan="5" class="text-center text-muted py-4">No logs yet.</td></tr>
+          <tr><td colspan="6" class="text-center text-muted py-4">No logs yet.</td></tr>
           @endforelse
         </tbody>
       </table>
     </div>
   </div>
-  <div class="mt-3" id="logPager"></div>
+  <div class="mt-3">{{ $logs->onEachSide(1)->links() }}</div>
   @push('scripts')
   <script>
   document.addEventListener('DOMContentLoaded', () => {
     const rows = [...document.querySelectorAll('.log-row')];
-    const perPage = 20;
+    const perPage = 50;
     let active = rows, cur = 1;
     function render() {
       rows.forEach(r => r.style.display = 'none');

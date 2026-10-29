@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Middleware;
 use Closure;
+use App\Helpers\CakeshopHelper;
 use Illuminate\Http\Request;
 
 class AuthAdmin
@@ -10,10 +11,12 @@ class AuthAdmin
         $user = session('user');
 
         if (!$user) {
+            CakeshopHelper::logActivity('unknown', 'security', 'Denied Access', 'Unauthenticated request to an admin route', 'route', $request->route()?->getName(), 'denied');
             return redirect()->route('login');
         }
 
         if (!in_array($user['role'] ?? null, ['admin', 'superadmin'])) {
+            CakeshopHelper::logActivity($user['id'] ?? 'unknown', $user['role'] ?? 'unknown', 'Denied Access', 'Non-admin attempted to open an admin route', 'route', $request->route()?->getName(), 'denied');
             if (($user['role'] ?? null) === 'customer') {
                 return redirect()->route('customer.catalog');
             }
