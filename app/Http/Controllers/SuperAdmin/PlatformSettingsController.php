@@ -26,14 +26,39 @@ class PlatformSettingsController extends Controller
         if ($tab === 'philsms') {
             $tab = 'sms';
         }
-        $platform = DB::table('platform_settings')->first()
-            ?? (object)['platform_name' => 'Cake Shop Platform'];
-        $loyaltyTiers = Schema::hasTable('loyalty_tiers')
-            ? DB::table('loyalty_tiers')->orderBy('min_lifetime_points')->get()
-            : collect();
+        try {
+            $platform = DB::table('platform_settings')->first()
+                ?? (object)['platform_name' => 'Cake Shop Platform'];
+        } catch (\Throwable $e) {
+            report($e);
+            $platform = (object)['platform_name' => 'Cake Shop Platform'];
+        }
 
-        $files = $tab === 'backup' ? $this->backups->listBackups() : [];
-        $backupStorage = $tab === 'backup' ? $this->backups->storageStatus() : null;
+        try {
+            $loyaltyTiers = Schema::hasTable('loyalty_tiers')
+                ? DB::table('loyalty_tiers')->orderBy('min_lifetime_points')->get()
+                : collect();
+        } catch (\Throwable $e) {
+            report($e);
+            $loyaltyTiers = collect();
+        }
+
+        $files = [];
+        $backupStorage = null;
+        if ($tab === 'backup') {
+            try {
+                $files = $this->backups->listBackups();
+                $backupStorage = $this->backups->storageStatus();
+            } catch (\Throwable $e) {
+                report($e);
+                $backupStorage = [
+                    'label' => 'Unavailable',
+                    'persistent' => false,
+                    'badge_class' => 'bg-warning text-dark',
+                    'message' => 'Backup storage is temporarily unavailable. Please try again later.',
+                ];
+            }
+        }
 
         return view('superadmin.settings', compact('tab', 'platform', 'loyaltyTiers', 'files', 'backupStorage'));
     }

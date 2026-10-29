@@ -777,11 +777,12 @@
   {{-- ACTIVITY LOGS TAB --}}
   @elseif($tab === 'logs')
   @php
-    $logSearch = trim((string) request('log_search', ''));
-    $logRole = (string) request('log_role', '');
-    $hasAuditTargetColumns = \Illuminate\Support\Facades\Schema::hasColumn('activity_logs', 'target_type')
-      && \Illuminate\Support\Facades\Schema::hasColumn('activity_logs', 'target_id');
-    $logsQuery = \Illuminate\Support\Facades\DB::table('activity_logs as l')
+    try {
+      $logSearch = trim((string) request('log_search', ''));
+      $logRole = (string) request('log_role', '');
+      $hasAuditTargetColumns = \Illuminate\Support\Facades\Schema::hasColumn('activity_logs', 'target_type')
+        && \Illuminate\Support\Facades\Schema::hasColumn('activity_logs', 'target_id');
+      $logsQuery = \Illuminate\Support\Facades\DB::table('activity_logs as l')
       ->leftJoin('users as u','u.id','=','l.user_id')
       ->when($logSearch !== '', function ($query) use ($logSearch, $hasAuditTargetColumns) {
         $query->where(function ($q) use ($logSearch, $hasAuditTargetColumns) {
@@ -799,12 +800,18 @@
       ->when(in_array($logRole, ['superadmin', 'admin', 'seller', 'customer', 'security'], true), fn ($query) => $query->where('l.role', $logRole))
       ->select('l.*','u.fullname','u.username')
       ->orderByDesc('l.id');
-    $logs = $logsQuery->paginate(50)->withQueryString();
+      $logs = $logsQuery->paginate(50)->withQueryString();
+    } catch (\Throwable $e) {
+      report($e);
+      $logSearch = '';
+      $logRole = '';
+      $logs = collect();
+    }
   @endphp
   <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
       <h6 class="fw-bold mb-0">Activity Logs</h6>
-      <small class="text-muted" id="logCountLabel">{{ $logs->total() }} records</small>
+      <small class="text-muted" id="logCountLabel">{{ method_exists($logs, 'total') ? $logs->total() : $logs->count() }} records</small>
     </div>
     <form method="GET" action="{{ route('superadmin.settings') }}" class="d-flex flex-wrap align-items-center gap-2">
       <input type="hidden" name="tab" value="logs">
@@ -853,7 +860,9 @@
       </table>
     </div>
   </div>
-  <div class="mt-3">{{ $logs->onEachSide(1)->links() }}</div>
+  @if(method_exists($logs, 'links'))
+    <div class="mt-3">{{ $logs->onEachSide(1)->links() }}</div>
+  @endif
   @push('scripts')
   <script>
   document.addEventListener('DOMContentLoaded', () => {
