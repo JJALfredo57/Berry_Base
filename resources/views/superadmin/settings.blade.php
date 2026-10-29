@@ -779,17 +779,21 @@
   @php
     $logSearch = trim((string) request('log_search', ''));
     $logRole = (string) request('log_role', '');
+    $hasAuditTargetColumns = \Illuminate\Support\Facades\Schema::hasColumn('activity_logs', 'target_type')
+      && \Illuminate\Support\Facades\Schema::hasColumn('activity_logs', 'target_id');
     $logsQuery = \Illuminate\Support\Facades\DB::table('activity_logs as l')
       ->leftJoin('users as u','u.id','=','l.user_id')
-      ->when($logSearch !== '', function ($query) use ($logSearch) {
-        $query->where(function ($q) use ($logSearch) {
+      ->when($logSearch !== '', function ($query) use ($logSearch, $hasAuditTargetColumns) {
+        $query->where(function ($q) use ($logSearch, $hasAuditTargetColumns) {
           $like = '%' . addcslashes($logSearch, '%_') . '%';
           $q->where('u.fullname', 'like', $like)
             ->orWhere('u.username', 'like', $like)
             ->orWhere('l.action', 'like', $like)
-            ->orWhere('l.details', 'like', $like)
-            ->orWhere('l.target_type', 'like', $like)
-            ->orWhere('l.target_id', 'like', $like);
+            ->orWhere('l.details', 'like', $like);
+          if ($hasAuditTargetColumns) {
+            $q->orWhere('l.target_type', 'like', $like)
+              ->orWhere('l.target_id', 'like', $like);
+          }
         });
       })
       ->when(in_array($logRole, ['superadmin', 'admin', 'seller', 'customer', 'security'], true), fn ($query) => $query->where('l.role', $logRole))

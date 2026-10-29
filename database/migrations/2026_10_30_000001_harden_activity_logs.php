@@ -30,11 +30,6 @@ return new class extends Migration
             }
         });
 
-        Schema::table('activity_logs', function (Blueprint $table) {
-            $table->index(['created_at', 'status']);
-            $table->index(['role', 'action']);
-            $table->index(['target_type', 'target_id']);
-        });
     }
 
     public function down(): void
@@ -44,10 +39,6 @@ return new class extends Migration
         }
 
         Schema::table('activity_logs', function (Blueprint $table) {
-            $table->dropIndex(['activity_logs_created_at_status_index']);
-            $table->dropIndex(['activity_logs_role_action_index']);
-            $table->dropIndex(['activity_logs_target_type_target_id_index']);
-
             foreach (['status', 'target_type', 'target_id', 'route_name', 'user_agent'] as $column) {
                 if (Schema::hasColumn('activity_logs', $column)) {
                     $table->dropColumn($column);
