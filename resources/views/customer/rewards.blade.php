@@ -114,22 +114,65 @@
     font-weight:600;
     color:#334155;
   }
+  .rewards-page .rewards-status-badge{
+    white-space:normal;
+    text-align:left;
+    line-height:1.25;
+  }
   @keyframes rewardsShimmer {
     0% { transform:translateX(-100%); }
     100% { transform:translateX(100%); }
   }
   @media (max-width: 767.98px) {
+    .rewards-page .card .card-body,
+    .rewards-page .rewards-progress-wrap{
+      padding:.9rem;
+    }
+    .rewards-page .reward-headline{
+      font-size:.75rem;
+    }
     .rewards-page .level-journey-track,
     .rewards-page .how-works-flow{
       grid-template-columns:1fr;
+      gap:.45rem;
     }
     .rewards-page .level-pill,
     .rewards-page .how-step{
       text-align:left;
       white-space:normal;
     }
+    .rewards-page .how-step{
+      font-size:.74rem;
+      padding:.6rem;
+    }
     .rewards-page .stats-col{
       width:100%;
+    }
+  }
+  @media (max-width: 575.98px) {
+    .rewards-page h4{
+      font-size:1.12rem;
+    }
+    .rewards-page .small{
+      font-size:.74rem;
+    }
+    .rewards-page .h5{
+      font-size:1.12rem;
+    }
+    .rewards-page .h6{
+      font-size:.93rem;
+    }
+    .rewards-page .badge{
+      font-size:.68rem;
+      padding:.35rem .45rem;
+    }
+    .rewards-page .rewards-status-badge{
+      max-width:100%;
+    }
+    .rewards-page .my-3.p-2.rounded.text-center.fw-bold{
+      letter-spacing:.04em !important;
+      font-size:.78rem;
+      word-break:break-word;
     }
   }
 </style>
@@ -183,7 +226,7 @@
             <h6 class="fw-bold mb-1"><i class="bi bi-info-circle me-2" style="color:var(--primary)"></i>How Rewards Work</h6>
             <div class="text-muted small">Rewards are a capped customer discount. Platform income remains handled through seller commission and payout rules.</div>
           </div>
-          <span class="badge {{ $redemptionBadgeClass }}">
+          <span class="badge rewards-status-badge {{ $redemptionBadgeClass }}">
             <i class="bi {{ $redemptionBadgeIcon }} me-1"></i>{{ $redemptionBadgeText }}
           </span>
         </div>
