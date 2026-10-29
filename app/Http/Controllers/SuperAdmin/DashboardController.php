@@ -21,7 +21,7 @@ class DashboardController extends Controller
             'total_products' => DB::table('products')->count(),
             'total_orders'   => DB::table('orders')->whereNotIn('status',['Cancelled'])->count(),
             'open_feedback'  => $openFeedback,
-            'total_commission' => $this->commissionQuery()->sum(DB::raw('orders.total_price * shops.commission_rate / 100')),
+            'total_commission' => (float) $this->commissionQuery()->sum('l.commission_amount'),
             'total_customers'=> (
                 DB::table('orders')->whereNotIn('status',['Cancelled'])->whereNotNull('user_id')->distinct()->count('user_id') +
                 DB::table('orders')->whereNotIn('status',['Cancelled'])->whereNull('user_id')->count()
@@ -48,9 +48,9 @@ class DashboardController extends Controller
 
         // Commission this month
         $commissionMonth = $this->commissionQuery()
-            ->whereYear('orders.paid_at', now()->year)
-            ->whereMonth('orders.paid_at', now()->month)
-            ->sum(DB::raw('orders.total_price * shops.commission_rate / 100'));
+            ->whereYear('o.paid_at', now()->year)
+            ->whereMonth('o.paid_at', now()->month)
+            ->sum('l.commission_amount');
 
         $platform = DB::table('platform_settings')->first();
 
@@ -64,22 +64,22 @@ class DashboardController extends Controller
         $platform = DB::table('platform_settings')->first();
 
         $totalCommission = $this->commissionQuery()
-            ->sum(DB::raw('orders.total_price * shops.commission_rate / 100'));
+            ->sum('l.commission_amount');
 
         $commissionMonth = $this->commissionQuery()
-            ->whereYear('orders.paid_at', now()->year)
-            ->whereMonth('orders.paid_at', now()->month)
-            ->sum(DB::raw('orders.total_price * shops.commission_rate / 100'));
+            ->whereYear('o.paid_at', now()->year)
+            ->whereMonth('o.paid_at', now()->month)
+            ->sum('l.commission_amount');
 
         $paidOrdersMonth = $this->commissionQuery()
-            ->whereYear('orders.paid_at', now()->year)
-            ->whereMonth('orders.paid_at', now()->month)
+            ->whereYear('o.paid_at', now()->year)
+            ->whereMonth('o.paid_at', now()->month)
             ->count();
 
         $grossSalesMonth = $this->commissionQuery()
-            ->whereYear('orders.paid_at', now()->year)
-            ->whereMonth('orders.paid_at', now()->month)
-            ->sum('orders.total_price');
+            ->whereYear('o.paid_at', now()->year)
+            ->whereMonth('o.paid_at', now()->month)
+            ->sum('l.gross_amount');
 
         $monthlyLabels = [];
         $monthlyCommission = [];
@@ -100,9 +100,9 @@ class DashboardController extends Controller
 
         $monthlyStart = now()->startOfMonth()->subMonths(5);
         $this->commissionQuery()
-            ->where('orders.paid_at', '>=', $monthlyStart)
-            ->select('orders.paid_at', 'orders.total_price', 'shops.commission_rate')
-            ->orderBy('orders.paid_at')
+            ->where('o.paid_at', '>=', $monthlyStart)
+            ->select('o.paid_at', 'l.gross_amount', 'l.commission_amount')
+            ->orderBy('o.paid_at')
             ->get()
             ->each(function ($order) use (&$monthlyBuckets) {
                 $key = substr((string) $order->paid_at, 0, 7);
@@ -111,8 +111,8 @@ class DashboardController extends Controller
                     return;
                 }
 
-                $grossSales = (float) $order->total_price;
-                $monthlyBuckets[$key]['commission'] += $this->commissionAmount($grossSales, (float) $order->commission_rate);
+                $grossSales = (float) $order->gross_amount;
+                $monthlyBuckets[$key]['commission'] += (float) $order->commission_amount;
                 $monthlyBuckets[$key]['gross_sales'] += $grossSales;
                 $monthlyBuckets[$key]['paid_orders']++;
             });
@@ -133,8 +133,8 @@ class DashboardController extends Controller
                 'shops.shop_name',
                 'shops.tier',
                 'shops.commission_rate',
-                DB::raw('SUM(orders.total_price * shops.commission_rate / 100) as commission'),
-                DB::raw('SUM(orders.total_price) as gross_sales'),
+                DB::raw('SUM(l.commission_amount) as commission'),
+                DB::raw('SUM(l.gross_amount) as gross_sales'),
                 DB::raw('COUNT(*) as paid_orders')
             )
             ->groupBy('shops.id', 'shops.shop_name', 'shops.tier', 'shops.commission_rate')
@@ -162,17 +162,10 @@ class DashboardController extends Controller
 
     private function commissionQuery()
     {
-        return DB::table('orders')
-            ->join('shops', 'shops.id', '=', 'orders.shop_id')
-            ->where('orders.payment_status', 'Paid')
-            ->whereNotIn('orders.status', ['Cancelled'])
-            ->whereNotNull('orders.paid_at')
-            ->where('shops.commission_enabled', 1)
-            ->where('shops.commission_rate', '>', 0);
-    }
-
-    private function commissionAmount(float $grossSales, float $commissionRate): float
-    {
-        return $grossSales * $commissionRate / 100;
+        return DB::table('seller_payout_ledgers as l')
+            ->join('orders as o', 'o.id', '=', 'l.order_id')
+            ->join('shops', 'shops.id', '=', 'l.shop_id')
+            ->whereNotNull('o.paid_at')
+            ->where('l.commission_amount', '>', 0);
     }
 }
