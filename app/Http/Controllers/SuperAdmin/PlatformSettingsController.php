@@ -451,6 +451,21 @@ class PlatformSettingsController extends Controller
             DB::table('platform_settings')->insert($updates);
         }
 
-        return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', 'Backup automation settings saved.');
+        try {
+            $deleted = $this->backups->pruneOldBackups($updates['backup_retention_count']);
+        } catch (\Throwable $e) {
+            Log::warning('Backup retention cleanup failed after saving settings: ' . $e->getMessage(), [
+                'retention_count' => $updates['backup_retention_count'],
+            ]);
+
+            return redirect()->route('superadmin.settings', ['tab' => 'backup'])
+                ->with('err', 'Backup settings were saved, but old backup cleanup could not be completed.');
+        }
+
+        $message = $deleted > 0
+            ? "Backup automation settings saved. {$deleted} old backup file(s) removed."
+            : 'Backup automation settings saved. No old backup files needed to be removed.';
+
+        return redirect()->route('superadmin.settings', ['tab' => 'backup'])->with('msg', $message);
     }
 }
