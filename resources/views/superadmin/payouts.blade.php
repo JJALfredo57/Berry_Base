@@ -63,11 +63,9 @@
           @csrf
           <div class="mb-3">
             <label class="form-label fw-semibold">Payout Mode</label>
-            <select name="payout_mode" class="form-select" required id="payoutModeSelect">
-              <option value="manual" @selected($currentPayoutMode === 'manual')>Manual - admin reviews and marks paid</option>
-              <option value="automatic" @selected($currentPayoutMode === 'automatic')>Automatic - coming soon</option>
-            </select>
-            <div class="form-text">Manual mode is active while automatic payouts are being prepared for a future update.</div>
+            <input type="text" class="form-control" value="Manual - admin reviews and marks paid" readonly aria-readonly="true">
+            <input type="hidden" name="payout_mode" value="manual">
+            <div class="form-text">Payout mode is locked to Manual for now. Automatic mode is disabled until future activation.</div>
           </div>
           <div class="row g-2">
             <div class="col-6">
@@ -448,7 +446,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function syncPayoutModeFields() {
-    const isAutomatic = mode && mode.value === 'automatic';
+    const isAutomatic = false;
     automaticSettings.forEach(section => {
       section.style.display = isAutomatic ? '' : 'none';
       section.querySelectorAll('input, select, textarea').forEach(field => {
