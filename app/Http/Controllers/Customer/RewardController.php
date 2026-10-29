@@ -33,6 +33,12 @@ class RewardController extends Controller
             $walletVouchers = DB::table('vouchers as v')
                 ->leftJoin('shops as s', 's.id', '=', 'v.shop_id')
                 ->where('v.is_active', true)
+                ->where(function ($q) {
+                    $q->whereNull('v.starts_at')->orWhere('v.starts_at', '<=', now());
+                })
+                ->where(function ($q) {
+                    $q->whereNull('v.ends_at')->orWhere('v.ends_at', '>=', now());
+                })
                 ->when($hasAudience, function ($query) use ($uid) {
                     $query->where(function ($q) use ($uid) {
                         $q->where('v.audience', 'public')
