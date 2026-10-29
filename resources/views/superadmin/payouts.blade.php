@@ -2,18 +2,11 @@
 @section('page_title','Seller Payouts')
 
 @section('content')
-@php
-  $currentPayoutMode = strtolower(trim((string)($payoutSettings->payout_mode ?? 'manual')));
-  if (!in_array($currentPayoutMode, ['manual', 'automatic'], true)) $currentPayoutMode = 'manual';
-@endphp
 <div class="cs-page-header">
   <div>
     <h4 class="cs-page-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary)"></i>Seller Payouts</h4>
     <p class="cs-page-sub">Control how seller earnings are released after orders are delivered and cleared.</p>
   </div>
-  <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#automaticPayoutNoticeModal">
-    <i class="bi bi-lock me-1"></i>Automatic Coming Soon
-  </button>
 </div>
 
 @if(session('msg'))
@@ -77,22 +70,6 @@
               <input type="number" min="0" step="0.01" class="form-control" name="payout_minimum_amount" value="{{ number_format((float)($payoutSettings->payout_minimum_amount ?? 500), 2, '.', '') }}" required>
             </div>
           </div>
-          <div class="mt-3 payout-auto-setting">
-            <label class="form-label">Schedule</label>
-            <select name="payout_schedule" class="form-select" required>
-              @foreach(['daily'=>'Daily','weekly'=>'Weekly','twice_monthly'=>'Twice a month','monthly'=>'Monthly'] as $key => $label)
-                <option value="{{ $key }}" @selected(($payoutSettings->payout_schedule ?? 'weekly') === $key)>{{ $label }}</option>
-              @endforeach
-            </select>
-          </div>
-          <div class="form-check form-switch mt-3 payout-auto-setting">
-            <input class="form-check-input" type="checkbox" name="payout_first_approval_required" value="1" @checked(!empty($payoutSettings->payout_first_approval_required))>
-            <label class="form-check-label">Require admin approval for first seller payout</label>
-          </div>
-          <div class="form-check form-switch mt-2 payout-auto-setting">
-            <input class="form-check-input" type="checkbox" name="payout_auto_paused" value="1" @checked(!empty($payoutSettings->payout_auto_paused))>
-            <label class="form-check-label">Pause automatic payouts globally</label>
-          </div>
           <button class="btn btn-primary w-100 mt-4" type="submit" data-loading-text="Saving...">
             <i class="bi bi-save me-1"></i>Save Settings
           </button>
@@ -105,7 +82,7 @@
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-shop me-2" style="color:var(--primary)"></i>Seller Balances</span>
-        <span class="badge text-bg-light">Mode: {{ ucfirst($currentPayoutMode) }} / {{ !empty($payoutSettings->payout_auto_paused) ? 'Paused' : 'Active' }}</span>
+        <span class="badge text-bg-light">Mode: Manual / Active</span>
       </div>
       <div class="table-responsive">
         <table class="table align-middle mb-0">
@@ -298,24 +275,6 @@
   </div>
 </div>
 
-<div class="modal fade" id="automaticPayoutNoticeModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title fw-bold"><i class="bi bi-shield-exclamation me-1" style="color:var(--primary)"></i>Automatic payouts are not available yet</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p class="mb-2">Automatic seller payouts require additional business verification and payout/disbursement capability before money can be transferred safely.</p>
-        <p class="mb-0 text-muted small">For now, manual payout remains the active method. The system is prepared to adopt automatic payouts in a future website update once the required business documents and provider access are ready.</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Use Manual Mode</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <style>
   #payoutReceiptViewerModal.payout-receipt-modal .modal-dialog {
     width:min(920px, calc(100vw - 24px));
@@ -401,10 +360,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.body.appendChild(receiptModal);
   }
 
-  const mode = document.getElementById('payoutModeSelect');
-  const automaticSettings = document.querySelectorAll('.payout-auto-setting');
-  const automaticNotice = document.getElementById('automaticPayoutNoticeModal');
-
   function formatCountdown(ms) {
     if (ms <= 0) return null;
     const totalSeconds = Math.floor(ms / 1000);
@@ -443,33 +398,6 @@ document.addEventListener('DOMContentLoaded', function() {
   updateCountdowns();
   if (document.querySelector('[data-countdown-until]:not([data-countdown-done="1"])')) {
     countdownTimer = setInterval(updateCountdowns, 1000);
-  }
-
-  function syncPayoutModeFields() {
-    const isAutomatic = false;
-    automaticSettings.forEach(section => {
-      section.style.display = isAutomatic ? '' : 'none';
-      section.querySelectorAll('input, select, textarea').forEach(field => {
-        field.disabled = !isAutomatic;
-      });
-    });
-  }
-
-  if (mode) {
-    mode.addEventListener('change', function() {
-      if (mode.value === 'automatic') {
-        mode.value = 'manual';
-        syncPayoutModeFields();
-        if (automaticNotice && window.bootstrap) {
-          bootstrap.Modal.getOrCreateInstance(automaticNotice).show();
-        } else {
-          alert('Automatic payouts are not available yet. Manual payout remains the active method while the required business verification and payout provider access are prepared.');
-        }
-        return;
-      }
-      syncPayoutModeFields();
-    });
-    syncPayoutModeFields();
   }
 
   document.querySelectorAll('.payout-receipt-viewer-btn').forEach(button => {
