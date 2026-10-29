@@ -32,8 +32,8 @@ class PlatformSettingsController extends Controller
             ? DB::table('loyalty_tiers')->orderBy('min_lifetime_points')->get()
             : collect();
 
-        $files = $this->backups->listBackups();
-        $backupStorage = $this->backups->storageStatus();
+        $files = $tab === 'backup' ? $this->backups->listBackups() : [];
+        $backupStorage = $tab === 'backup' ? $this->backups->storageStatus() : null;
 
         return view('superadmin.settings', compact('tab', 'platform', 'loyaltyTiers', 'files', 'backupStorage'));
     }

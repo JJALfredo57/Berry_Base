@@ -20,7 +20,7 @@ class PayoutController extends Controller
 
     public function index()
     {
-        $this->payouts->syncDeliveredPaidOrders();
+        // Payout synchronization runs from the scheduled command so page loads stay fast.
 
         $payoutSettings = $this->payouts->settings();
         if (session()->has('payout_settings_saved')) {

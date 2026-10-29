@@ -83,24 +83,30 @@ class BackupService
         if (!$this->usesLocalBackupDisk()) {
             try {
                 $disk = Storage::disk($this->backupDiskName());
-                $files = array_filter($disk->files($this->backupStoragePrefix()), function (string $path): bool {
-                    return in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['sql', 'zip'], true);
-                });
+                $files = [];
+                foreach ($disk->getDriver()->listContents($this->backupStoragePrefix(), false) as $entry) {
+                    if (!$entry->isFile()) {
+                        continue;
+                    }
 
-                usort($files, fn ($a, $b) => $disk->lastModified($b) <=> $disk->lastModified($a));
-
-                return array_map(function (string $path) use ($disk): array {
+                    $path = $entry->path();
                     $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                    if (!in_array($extension, ['sql', 'zip'], true)) {
+                        continue;
+                    }
 
-                    return [
+                    $files[] = [
                         'path' => $path,
                         'name' => basename($path),
                         'extension' => $extension,
-                        'size' => $disk->size($path) ?: 0,
-                        'modified_at' => $disk->lastModified($path) ?: time(),
+                        'size' => $entry->fileSize() ?: 0,
+                        'modified_at' => $entry->lastModified() ?: time(),
                         'is_restorable' => $extension === 'sql',
                     ];
-                }, $files);
+                }
+
+                usort($files, fn ($a, $b) => ($b['modified_at'] ?? 0) <=> ($a['modified_at'] ?? 0));
+                return $files;
             } catch (\Throwable $e) {
                 Log::warning('Failed to list cloud backup files: ' . $e->getMessage());
                 return [];

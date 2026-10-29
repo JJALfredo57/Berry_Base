@@ -11,6 +11,7 @@ use App\Services\CustomerIdentityService;
 use App\Services\BackupService;
 use App\Services\RiderAssignmentService;
 use App\Services\OrderHistoryPurgeService;
+use App\Services\SellerPayoutService;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -86,6 +87,14 @@ Artisan::command('rider-assignments:expire', function (RiderAssignmentService $a
 })->purpose('Expire rider assignments that were not accepted in time');
 
 Schedule::command('rider-assignments:expire')->everyMinute();
+
+Artisan::command('payouts:sync', function (SellerPayoutService $payouts) {
+    $created = $payouts->syncDeliveredPaidOrders();
+    $this->info("Synchronized seller payouts; created {$created} ledger record(s).");
+    return 0;
+})->purpose('Synchronize delivered orders into seller payout ledgers');
+
+Schedule::command('payouts:sync')->hourly();
 
 Artisan::command('orders:purge-history {--force : Delete order history after a reviewed dry run} {--confirm= : Snapshot token printed by the dry run}', function (OrderHistoryPurgeService $purge) {
     $driver = DB::connection()->getDriverName();
