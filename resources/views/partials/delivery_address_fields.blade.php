@@ -18,6 +18,7 @@
 .delivery-coverage-feedback.show{display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem}
 .delivery-coverage-feedback.error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
 .delivery-coverage-feedback.success{background:#ecfdf5;color:#047857;border:1px solid #a7f3d0}
+.delivery-coverage-feedback.info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
 .delivery-locked-field{background:var(--primary-bg,#fff7fb)!important;color:var(--primary-dark,var(--primary));font-weight:700}
 .fulfillment-scope-note{overflow:hidden;max-height:140px;opacity:1;transform:translateY(0);transition:max-height .24s ease,opacity .2s ease,transform .24s ease,margin .24s ease,padding .24s ease,border-width .24s ease}
 .fulfillment-scope-note.is-hiding{max-height:0;opacity:0;transform:translateY(-8px);margin-bottom:0!important;padding-top:0!important;padding-bottom:0!important;border-width:0!important}
@@ -70,7 +71,7 @@
     </div>
   </div>
   <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Province, city/municipality, and barangay must match this seller's available coverage. Choose an exact suggestion.</div>
-  <div class="delivery-coverage-feedback" data-coverage-feedback role="status" aria-live="polite"></div>
+  <div class="delivery-coverage-feedback" data-coverage-feedback role="status" aria-live="polite" aria-atomic="true"></div>
 </div>
 
 @once
@@ -157,19 +158,40 @@
     };
     const showFeedback = (type, message) => {
       if (!feedback) return;
+      const icons = { success: 'check-circle-fill', error: 'exclamation-circle-fill', info: 'info-circle-fill' };
       feedback.className = 'delivery-coverage-feedback show ' + type;
-      feedback.innerHTML = '<span><i class="bi bi-' + (type === 'success' ? 'check-circle-fill' : 'exclamation-circle-fill') + ' me-1"></i>' + message + '</span>' +
+      feedback.innerHTML = '<span><i class="bi bi-' + (icons[type] || icons.info) + ' me-1"></i>' + message + '</span>' +
         (type === 'error' ? '<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="switchCoverageToPickup()">Switch to Pickup</button>' : '');
     };
     const clearFeedback = () => { if (feedback) feedback.className = 'delivery-coverage-feedback'; };
+    const refreshCoverageFeedback = () => {
+      const fields = [
+        { input: province, code: provinceCode.value, label: 'Province', strict: strictProvinceCoverage },
+        { input: city, code: cityCode.value, label: 'City / municipality', strict: strictCityCoverage },
+        { input: barangay, code: barangayCode.value, label: 'Barangay', strict: strictCoverage }
+      ];
+      const invalid = fields.find(field => field.input.value.trim() !== '' && !field.code);
+      if (invalid) {
+        showFeedback('error', invalid.strict
+          ? invalid.label + ' is outside this seller\'s delivery coverage.'
+          : invalid.label + ' is not recognized. Choose an exact suggestion from the official list.');
+        return;
+      }
+      if (barangayCode.value) {
+        showFeedback('success', 'Address area is covered. Pin your exact location for final delivery validation.');
+      } else if (cityCode.value) {
+        showFeedback('info', 'City / municipality is covered. Choose your barangay next.');
+      } else if (provinceCode.value) {
+        showFeedback('info', 'Province is covered. Choose a covered city / municipality next.');
+      } else {
+        clearFeedback();
+      }
+    };
     const syncFieldState = (input, code, label) => {
       const hasText = input.value.trim() !== '';
       input.classList.toggle('is-invalid', hasText && !code);
       input.classList.toggle('is-valid', hasText && !!code);
-      const levelIsStrict = label === 'Province' ? strictProvinceCoverage : (label === 'City / municipality' ? strictCityCoverage : strictCoverage);
-      if (hasText && !code && levelIsStrict) showFeedback('error', label + ' is outside this seller\'s delivery coverage.');
-      else if (barangayCode.value) showFeedback('success', 'Address area is covered. Pin your exact location for final delivery validation.');
-      else if (!hasText) clearFeedback();
+      refreshCoverageFeedback();
     };
 
     const clearChildCodes = level => {
@@ -177,13 +199,16 @@
         city.value = '';
         cityCode.value = '';
         cityList.innerHTML = '';
+        city.classList.remove('is-valid', 'is-invalid');
       }
       if (level === 'province' || level === 'city') {
         barangay.value = '';
         barangayCode.value = '';
         barangayList.innerHTML = '';
+        barangay.classList.remove('is-valid', 'is-invalid');
       }
       syncAvailability();
+      refreshCoverageFeedback();
     };
     const syncAvailability = () => {
       city.disabled = !provinceCode.value;
@@ -281,6 +306,8 @@
     });
     barangay.addEventListener('focus', loadBarangays);
     barangay.addEventListener('input', () => {
+      barangayCode.value = '';
+      refreshCoverageFeedback();
       loadBarangays();
       resolveBarangay();
     });
@@ -301,6 +328,7 @@
         province.classList.add('delivery-locked-field', 'is-valid');
         fillList(cityList, onlyProvince.cities || []);
         syncAvailability();
+        refreshCoverageFeedback();
         return;
       }
       if (province.value.trim() && await resolveProvince()) {
