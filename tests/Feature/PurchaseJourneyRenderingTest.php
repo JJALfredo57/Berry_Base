@@ -583,6 +583,72 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertSee('body { background: linear-gradient(135deg, #E5F1FF 0%, #FFF0D9 100%); }');
     }
 
+    public function test_delivery_coverage_options_and_stored_custom_draft_are_shop_scoped(): void
+    {
+        $this->prepareFixture();
+        DB::table('psgc_provinces')->insert([
+            ['code' => '0155000000', 'name' => 'Pangasinan'],
+            ['code' => '0369000000', 'name' => 'Tarlac'],
+        ]);
+        DB::table('psgc_cities_municipalities')->insert([
+            ['code' => '0155110000', 'name' => 'Bautista', 'province_code' => '0155000000', 'province_name' => 'Pangasinan'],
+            ['code' => '0369160000', 'name' => 'Camiling', 'province_code' => '0369000000', 'province_name' => 'Tarlac'],
+        ]);
+        DB::table('psgc_barangays')->insert([
+            ['code' => '015511001', 'name' => 'Poblacion East', 'city_municipality_code' => '0155110000', 'city_municipality_name' => 'Bautista', 'province_code' => '0155000000', 'province_name' => 'Pangasinan'],
+            ['code' => '036916001', 'name' => 'Poblacion A', 'city_municipality_code' => '0369160000', 'city_municipality_name' => 'Camiling', 'province_code' => '0369000000', 'province_name' => 'Tarlac'],
+        ]);
+        DB::table('delivery_zones')->insert([
+            'shop_id' => 'TESTSHOP', 'barangay' => 'Poblacion East',
+            'zone_address' => 'Poblacion East, Bautista, Pangasinan, Philippines',
+            'lat' => 15.8100, 'lng' => 120.5000, 'is_active' => 1,
+        ]);
+        DB::table('site_settings')->where('shop_id', 'TESTSHOP')->update(['delivery_coverage_radius' => 5000]);
+
+        $service = app(\App\Services\DeliveryLocationValidationService::class);
+        $coverage = $service->coverageOptions('TESTSHOP');
+        $this->assertTrue($coverage['strict']);
+        $this->assertSame('Pangasinan', $coverage['provinces'][0]['name']);
+        $this->assertSame('Bautista', $coverage['provinces'][0]['cities'][0]['name']);
+        $this->assertSame('Poblacion East', $coverage['provinces'][0]['cities'][0]['barangays'][0]['name']);
+
+        DB::table('delivery_zones')->insert([
+            'shop_id' => 'TESTSHOP', 'barangay' => 'Poblacion A',
+            'zone_address' => 'Poblacion A, Camiling, Tarlac, Philippines',
+            'lat' => 15.6900, 'lng' => 120.4100, 'is_active' => 1,
+        ]);
+        $multiProvinceCoverage = $service->coverageOptions('TESTSHOP');
+        $this->assertTrue($multiProvinceCoverage['strict']);
+        $this->assertCount(2, $multiProvinceCoverage['provinces']);
+
+        $covered = $service->validateStoredDelivery([
+            'fulfillment_type' => 'Delivery',
+            'address' => 'House 12 Rizal Street Barangay Poblacion East Bautista Pangasinan',
+            'latitude' => 15.8101, 'longitude' => 120.5001, 'delivery_zone' => 'Poblacion East',
+        ], 'TESTSHOP');
+        $this->assertTrue($covered['ok']);
+
+        $outside = $service->validateStoredDelivery([
+            'fulfillment_type' => 'Delivery',
+            'address' => 'House 99 Remote Street Barangay Far Away Other Province',
+            'latitude' => 16.5000, 'longitude' => 121.5000, 'delivery_zone' => 'Far Away',
+        ], 'TESTSHOP');
+        $this->assertFalse($outside['ok']);
+
+        $pickup = $service->validateStoredDelivery(['fulfillment_type' => 'Pickup'], 'TESTSHOP');
+        $this->assertTrue($pickup['ok']);
+
+        $this->post('/catalog/select', ['product_id' => 'TESTCAKE', 'quantity' => 1]);
+        $this->post('/login', ['username' => 'testbuyer', 'password' => 'TestPassword1!'])
+            ->assertRedirect(route('customer.checkout'));
+        $this->get('/customer/checkout')->assertOk()
+            ->assertSee('Seller delivery coverage')
+            ->assertSee('Pickup</strong> is available to customers from any location.', false)
+            ->assertSee('"strict":true', false)
+            ->assertSee('Pangasinan')
+            ->assertSee('Tarlac');
+    }
+
     private function prepareFixture(): void
     {
         // The seller-document CHECK migration contains PostgreSQL-only SQL.

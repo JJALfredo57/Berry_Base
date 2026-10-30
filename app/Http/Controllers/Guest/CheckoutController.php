@@ -217,7 +217,10 @@ class CheckoutController extends Controller
                 ->get()->groupBy('category_id');
         } catch (\Exception $e) {}
 
-        return view('guest.checkout_regular', compact('product','checkout','sizes','deliveryZones','defaultAddr','shopLat','shopLng','pricing','addonCategories','addonsByCategory','shop','shopSettings','checkoutItems'));
+        $deliveryCoverage = app(\App\Services\DeliveryLocationValidationService::class)
+            ->coverageOptions($product->shop_id ?? null);
+
+        return view('guest.checkout_regular', compact('product','checkout','sizes','deliveryZones','defaultAddr','shopLat','shopLng','pricing','addonCategories','addonsByCategory','shop','shopSettings','checkoutItems','deliveryCoverage'));
     }
 
     public function sendOtp(Request $request)

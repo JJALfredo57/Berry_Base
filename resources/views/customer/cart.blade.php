@@ -155,6 +155,11 @@
                           @if(!empty($cartMeta['time_slot'])) &bull; {{ $cartMeta['time_slot'] }} @endif
                           &bull; {{ $cartMeta['fulfillment_type'] ?? 'Pickup' }}
                         </div>
+                        @if(($cartMeta['fulfillment_type'] ?? 'Pickup') === 'Delivery')
+                          <div class="small mt-2 px-2 py-1 rounded-2" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0">
+                            <i class="bi bi-shield-check me-1"></i>Delivery coverage is rechecked when rescheduling and again at checkout.
+                          </div>
+                        @endif
                         <div class="small text-muted">Seller capacity will be checked again before checkout submits this request.</div>
                         <div class="custom-reschedule-note">
                           <div class="meta">

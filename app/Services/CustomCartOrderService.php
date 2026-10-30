@@ -37,6 +37,9 @@ class CustomCartOrderService
         $capacity = app(DailyCapacityService::class)->validate($shopId, $date, $qty);
         if (!$capacity['allowed']) return ['ok' => false, 'message' => $capacity['message']];
 
+        $deliveryValidation = app(DeliveryLocationValidationService::class)->validateStoredDelivery($meta, $shopId);
+        if (!$deliveryValidation['ok']) return $deliveryValidation;
+
         if ($scheduleTime !== '') {
             $scheduleCheck = app(OrderScheduleService::class)->validate($date, $scheduleTime, $shopId, 'custom', $meta['fulfillment_type'] ?? 'Pickup', isset($meta['latitude']) ? (float) $meta['latitude'] : null, isset($meta['longitude']) ? (float) $meta['longitude'] : null, true);
             if (!$scheduleCheck['ok']) return ['ok' => false, 'message' => $scheduleCheck['message']];

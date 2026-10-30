@@ -150,10 +150,12 @@ class CustomOrderController extends Controller
                 ->whereNotNull('lat')->whereNotNull('lng')
                 ->get();
         }
+        $deliveryCoverage = app(\App\Services\DeliveryLocationValidationService::class)
+            ->coverageOptions($shopId);
 
         return view('customer.custom_order', array_merge($options, compact(
             'addonCategories', 'addonsByCategory', 'customer', 'defaultAddr',
-            'deliveryZones', 'targetShop', 'shopSettings'
+            'deliveryZones', 'targetShop', 'shopSettings', 'deliveryCoverage'
         )));
     }
 

@@ -235,6 +235,10 @@
                   </div>
                 </div>
 
+                <div class="alert border-0 py-2 px-3 mb-3 small" style="background:linear-gradient(135deg,var(--primary-bg,#fff7fb),#fff);border:1px solid color-mix(in srgb,var(--primary) 18%,#e5e7eb)!important;border-radius:.8rem">
+                  <i class="bi bi-info-circle-fill me-1" style="color:var(--primary)"></i><strong>Pickup</strong> is available to customers from any location. <strong>Delivery</strong> requires a Province, City/Municipality, Barangay, and exact map pin covered by this seller.
+                </div>
+
                 <div id="deliverySection" style="display:none">
                   {{-- Hidden zone select — used by updateFee() / autoSelectBarangayFromCoords() --}}
                   @php

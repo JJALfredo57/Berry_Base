@@ -104,6 +104,9 @@ class CartController extends Controller
         $meta['seller_review_deadline_at'] = optional($prep->reviewDeadline($shopId, $scheduleDate))->toDateTimeString();
         $meta['custom_prep_days'] = (int) $settings->custom_cake_prep_days;
 
+        $deliveryValidation = app(\App\Services\DeliveryLocationValidationService::class)->validateStoredDelivery($meta, $shopId);
+        if (!$deliveryValidation['ok']) return back()->with('error', $deliveryValidation['message']);
+
         DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->update([
             'meta' => json_encode($meta),
             'updated_at' => now(),
@@ -158,6 +161,9 @@ class CartController extends Controller
         $meta['fulfillment_hold_minutes'] = (int) $settings->custom_cart_hold_minutes;
         $meta['seller_review_deadline_at'] = optional($prep->reviewDeadline($shopId, $scheduleDate))->toDateTimeString();
         $meta['custom_prep_days'] = (int) $settings->custom_cake_prep_days;
+
+        $deliveryValidation = app(\App\Services\DeliveryLocationValidationService::class)->validateStoredDelivery($meta, $shopId);
+        if (!$deliveryValidation['ok']) return back()->with('error', $deliveryValidation['message']);
 
         DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->update([
             'selected_size' => $meta['size'] ?? $item->selected_size,

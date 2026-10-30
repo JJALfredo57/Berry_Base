@@ -2,8 +2,124 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
 class DeliveryLocationValidationService
 {
+    public function coverageOptions(?string $shopId): array
+    {
+        $empty = ['strict' => false, 'zone_count' => 0, 'provinces' => []];
+        if (!$shopId || !Schema::hasTable('delivery_zones')) return $empty;
+
+        $query = DB::table('delivery_zones')
+            ->where('shop_id', $shopId)
+            ->where('is_active', true);
+        if (Schema::hasColumn('delivery_zones', 'archived_at')) $query->whereNull('archived_at');
+        $columns = ['barangay'];
+        if (Schema::hasColumn('delivery_zones', 'zone_address')) $columns[] = 'zone_address';
+        $zones = $query->get($columns);
+        if ($zones->isEmpty()) return $empty;
+
+        $provinces = [];
+        $resolved = 0;
+        $cities = Schema::hasTable('psgc_cities_municipalities')
+            ? DB::table('psgc_cities_municipalities')->get(['code', 'name', 'province_code', 'province_name'])
+            : collect();
+        foreach ($zones as $zone) {
+            $barangayName = trim((string) ($zone->barangay ?? ''));
+            $address = trim((string) ($zone->zone_address ?? ''));
+            $candidates = $this->areaCandidates($barangayName . ', ' . $address);
+            if (!$candidates || $cities->isEmpty()) continue;
+
+            $normalizedCandidates = array_map(fn ($name) => $this->normalizeLocationText($name), $candidates);
+            $matchingCities = $cities->filter(fn ($row) => in_array($this->normalizeLocationText((string) $row->name), $normalizedCandidates, true));
+            $city = $matchingCities->first(fn ($row) => in_array($this->normalizeLocationText((string) ($row->province_name ?? '')), $normalizedCandidates, true))
+                ?? $matchingCities->first();
+            if (!$city) continue;
+
+            $barangay = null;
+            if (Schema::hasTable('psgc_barangays')) {
+                $barangay = DB::table('psgc_barangays')
+                    ->where('city_municipality_code', $city->code)
+                    ->get(['code', 'name'])
+                    ->first(fn ($row) => $this->normalizeLocationText((string) $row->name) === $this->normalizeLocationText($barangayName));
+            }
+            if (!$barangay) continue;
+
+            $provinceCode = (string) ($city->province_code ?? '');
+            $provinceName = trim((string) ($city->province_name ?? ''));
+            if ($provinceCode === '' || $provinceName === '') continue;
+
+            $provinces[$provinceCode] ??= ['code' => $provinceCode, 'name' => $provinceName, 'cities' => []];
+            $cityCode = (string) $city->code;
+            $provinces[$provinceCode]['cities'][$cityCode] ??= ['code' => $cityCode, 'name' => (string) $city->name, 'barangays' => []];
+            $provinces[$provinceCode]['cities'][$cityCode]['barangays'][(string) $barangay->code] = [
+                'code' => (string) $barangay->code,
+                'name' => (string) $barangay->name,
+            ];
+            $resolved++;
+        }
+
+        $result = array_values(array_map(function ($province) {
+            $province['cities'] = array_values(array_map(function ($city) {
+                $city['barangays'] = array_values($city['barangays']);
+                usort($city['barangays'], fn ($a, $b) => strcasecmp($a['name'], $b['name']));
+                return $city;
+            }, $province['cities']));
+            usort($province['cities'], fn ($a, $b) => strcasecmp($a['name'], $b['name']));
+            return $province;
+        }, $provinces));
+        usort($result, fn ($a, $b) => strcasecmp($a['name'], $b['name']));
+
+        return [
+            'strict' => $resolved === $zones->count() && $resolved > 0,
+            'zone_count' => $zones->count(),
+            'provinces' => $result,
+        ];
+    }
+
+    public function validateStoredDelivery(array $meta, ?string $shopId): array
+    {
+        if (($meta['fulfillment_type'] ?? 'Pickup') !== 'Delivery') return ['ok' => true, 'message' => null];
+        $address = trim((string) ($meta['address'] ?? ''));
+        $lat = isset($meta['latitude']) && $meta['latitude'] !== '' ? (float) $meta['latitude'] : null;
+        $lng = isset($meta['longitude']) && $meta['longitude'] !== '' ? (float) $meta['longitude'] : null;
+        $zone = trim((string) ($meta['delivery_zone'] ?? ''));
+        $basic = $this->validate($address, $lat, $lng, $zone, false);
+        if (!$basic['ok']) return $basic;
+
+        if (!Schema::hasTable('delivery_zones') || !Schema::hasColumn('delivery_zones', 'lat') || !Schema::hasColumn('delivery_zones', 'lng')) {
+            return ['ok' => false, 'message' => 'This shop delivery coverage is not configured yet. Please choose pickup.'];
+        }
+
+        $query = DB::table('delivery_zones')->where('shop_id', $shopId)->where('is_active', true);
+        if (Schema::hasColumn('delivery_zones', 'archived_at')) $query->whereNull('archived_at');
+        if (Schema::hasColumn('delivery_zones', 'lat')) $query->whereNotNull('lat');
+        if (Schema::hasColumn('delivery_zones', 'lng')) $query->whereNotNull('lng');
+        $zones = $query->get();
+        if ($zones->isEmpty()) {
+            return ['ok' => false, 'message' => 'This shop currently has no active delivery coverage. Please choose pickup.'];
+        }
+
+        $settings = Schema::hasTable('site_settings') ? DB::table('site_settings')->where('shop_id', $shopId)->first() : null;
+        $radius = max(1000, (int) ($settings->delivery_coverage_radius ?? 5000));
+        foreach ($zones as $coverage) {
+            $distance = $this->haversine($lat, $lng, (float) $coverage->lat, (float) $coverage->lng);
+            if ($distance <= $radius) return ['ok' => true, 'message' => null];
+        }
+
+        return ['ok' => false, 'message' => 'This delivery address is no longer covered by the selected shop. Choose another covered address or switch to pickup.'];
+    }
+
+    private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadius = 6371000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+        return $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
     public function addressFromRequest($request, string $fallbackField = 'address'): string
     {
         $parts = $this->structuredParts($request);
@@ -187,8 +303,9 @@ class DeliveryLocationValidationService
         }
         $zones = \Illuminate\Support\Facades\DB::table('delivery_zones')
             ->where('shop_id', $shopId)
-            ->where('is_active', true)
-            ->get($zoneColumns);
+            ->where('is_active', true);
+        if (Schema::hasColumn('delivery_zones', 'archived_at')) $zones->whereNull('archived_at');
+        $zones = $zones->get($zoneColumns);
 
         if ($zones->isEmpty()) {
             return ['ok' => true, 'message' => null];

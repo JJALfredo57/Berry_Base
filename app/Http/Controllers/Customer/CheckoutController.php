@@ -127,12 +127,15 @@ class CheckoutController extends Controller
         );
         $loyaltySettings = $loyaltyService->settings();
         $loyaltyEarnEstimate = $loyaltyService->earningEstimate($uid, $checkoutSubtotal);
+        $deliveryCoverage = app(\App\Services\DeliveryLocationValidationService::class)
+            ->coverageOptions($product->shop_id ?? null);
 
         return view('customer.checkout_regular', compact(
             'product', 'checkout', 'defaultAddr', 'customer',
             'sizes', 'deliveryZones', 'shop', 'shopSettings', 'pricing',
             'addonCategories', 'addonsByCategory', 'loyalty', 'verificationStatus',
-            'checkoutItems', 'availableVouchers', 'loyaltyQuote', 'loyaltySettings', 'loyaltyEarnEstimate'
+            'checkoutItems', 'availableVouchers', 'loyaltyQuote', 'loyaltySettings', 'loyaltyEarnEstimate',
+            'deliveryCoverage'
         ));
     }
 

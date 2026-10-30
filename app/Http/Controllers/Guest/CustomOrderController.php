@@ -153,9 +153,11 @@ class CustomOrderController extends Controller
             : DB::table('site_settings')->whereNull('shop_id')->first();
         $shopLat = $shopSettings->shop_lat ?? 15.8107127;
         $shopLng = $shopSettings->shop_lng ?? 120.4716710;
+        $deliveryCoverage = app(\App\Services\DeliveryLocationValidationService::class)
+            ->coverageOptions($shopId);
 
         return view('guest.custom_order', array_merge($options, compact(
-            'addonCategories','addonsByCategory','deliveryZones','defaultAddr','shopLat','shopLng','targetShop','shopSettings'
+            'addonCategories','addonsByCategory','deliveryZones','defaultAddr','shopLat','shopLng','targetShop','shopSettings','deliveryCoverage'
         )));
     }
 
