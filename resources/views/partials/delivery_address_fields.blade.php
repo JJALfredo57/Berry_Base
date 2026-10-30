@@ -18,7 +18,10 @@
 .delivery-coverage-feedback.error{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
 .delivery-coverage-feedback.success{background:#ecfdf5;color:#047857;border:1px solid #a7f3d0}
 .delivery-locked-field{background:var(--primary-bg,#fff7fb)!important;color:var(--primary-dark,var(--primary));font-weight:700}
+.fulfillment-scope-note{overflow:hidden;max-height:140px;opacity:1;transform:translateY(0);transition:max-height .24s ease,opacity .2s ease,transform .24s ease,margin .24s ease,padding .24s ease,border-width .24s ease}
+.fulfillment-scope-note.is-hiding{max-height:0;opacity:0;transform:translateY(-8px);margin-bottom:0!important;padding-top:0!important;padding-bottom:0!important;border-width:0!important}
 @media(max-width:575.98px){.delivery-coverage-feedback.show{flex-direction:column}.delivery-coverage-feedback .btn{width:100%;min-height:40px}.delivery-coverage-guide{padding:.7rem}}
+@media(prefers-reduced-motion:reduce){.fulfillment-scope-note{transition-duration:.01ms!important;transform:none!important}}
 </style>
 @endonce
 <input type="hidden" name="_structured_address" value="1">
@@ -318,7 +321,30 @@
     pickup.dispatchEvent(new Event('change', { bubbles: true }));
     pickup.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
-  document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('.js-psgc-address').forEach(initBlock));
+  const noteTimers = new WeakMap();
+  const syncFulfillmentScopeNotes = (animate = true) => {
+    const isDelivery = document.querySelector('input[name="fulfillment_type"]:checked')?.value === 'Delivery';
+    document.querySelectorAll('.fulfillment-scope-note').forEach(note => {
+      clearTimeout(noteTimers.get(note));
+      if (isDelivery) {
+        if (!animate) {
+          note.hidden = true;
+          note.classList.add('is-hiding');
+          return;
+        }
+        note.classList.add('is-hiding');
+        noteTimers.set(note, setTimeout(() => { note.hidden = true; }, 250));
+      } else {
+        note.hidden = false;
+        requestAnimationFrame(() => requestAnimationFrame(() => note.classList.remove('is-hiding')));
+      }
+    });
+  };
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.js-psgc-address').forEach(initBlock);
+    document.querySelectorAll('input[name="fulfillment_type"]').forEach(input => input.addEventListener('change', () => syncFulfillmentScopeNotes(true)));
+    syncFulfillmentScopeNotes(false);
+  });
 })();
 </script>
 @endpush
