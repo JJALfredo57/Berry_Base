@@ -21,6 +21,16 @@ class DeliveryLocationValidationService
         $zones = $query->get($columns);
         if ($zones->isEmpty()) return $empty;
 
+        $shopColumns = [];
+        if (Schema::hasTable('shops')) {
+            if (Schema::hasColumn('shops', 'city')) $shopColumns[] = 'city';
+            if (Schema::hasColumn('shops', 'address')) $shopColumns[] = 'address';
+        }
+        $shop = $shopColumns ? DB::table('shops')->where('id', $shopId)->first($shopColumns) : null;
+        $shopCandidates = array_values(array_unique(array_filter(array_merge(
+            [trim((string) ($shop->city ?? ''))],
+            $this->areaCandidates(trim((string) ($shop->city ?? '')) . ', ' . trim((string) ($shop->address ?? '')))
+        ))));
         $provinces = [];
         $resolvedCities = 0;
         $resolvedBarangays = 0;
@@ -31,12 +41,18 @@ class DeliveryLocationValidationService
             $barangayName = trim((string) ($zone->barangay ?? ''));
             $address = trim((string) ($zone->zone_address ?? ''));
             $candidates = $this->areaCandidates($barangayName . ', ' . $address);
-            if (!$candidates || $cities->isEmpty()) continue;
+            if ($cities->isEmpty()) continue;
 
             $normalizedCandidates = array_map(fn ($name) => $this->normalizeLocationText($name), $candidates);
             $matchingCities = $cities->filter(fn ($row) => in_array($this->normalizeLocationText((string) $row->name), $normalizedCandidates, true));
             $city = $matchingCities->first(fn ($row) => in_array($this->normalizeLocationText((string) ($row->province_name ?? '')), $normalizedCandidates, true))
                 ?? $matchingCities->first();
+            if (!$city && $shopCandidates) {
+                $normalizedShopCandidates = array_map(fn ($name) => $this->normalizeLocationText($name), $shopCandidates);
+                $shopCities = $cities->filter(fn ($row) => in_array($this->normalizeLocationText((string) $row->name), $normalizedShopCandidates, true));
+                $city = $shopCities->first(fn ($row) => in_array($this->normalizeLocationText((string) ($row->province_name ?? '')), $normalizedShopCandidates, true))
+                    ?? $shopCities->first();
+            }
             if (!$city) continue;
 
             $provinceCode = (string) ($city->province_code ?? '');

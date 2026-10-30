@@ -590,6 +590,10 @@ class PurchaseJourneyRenderingTest extends TestCase
     public function test_delivery_coverage_options_and_stored_custom_draft_are_shop_scoped(): void
     {
         $this->prepareFixture();
+        DB::table('shops')->where('id', 'TESTSHOP')->update([
+            'city' => 'Bautista',
+            'address' => 'Bautista, Pangasinan',
+        ]);
         DB::table('psgc_provinces')->insert([
             ['code' => '0155000000', 'name' => 'Pangasinan'],
             ['code' => '0369000000', 'name' => 'Tarlac'],
@@ -629,6 +633,11 @@ class PurchaseJourneyRenderingTest extends TestCase
             'shop_id' => 'TESTSHOP', 'barangay' => 'Legacy Sitio Name',
             'zone_address' => 'Legacy Sitio Name, Bautista, Pangasinan, Philippines',
             'lat' => 15.8200, 'lng' => 120.5100, 'is_active' => 1,
+        ]);
+        DB::table('delivery_zones')->insert([
+            'shop_id' => 'TESTSHOP', 'barangay' => 'Map Drawn Legacy Zone',
+            'zone_address' => null,
+            'lat' => 15.8250, 'lng' => 120.5150, 'is_active' => 1,
         ]);
         $partialCoverage = $service->coverageOptions('TESTSHOP');
         $this->assertFalse($partialCoverage['strict']);
