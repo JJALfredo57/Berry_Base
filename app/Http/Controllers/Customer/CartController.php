@@ -37,6 +37,28 @@ class CartController extends Controller
             implode(' | ', $parts)
         );
 
+        if ($request->expectsJson()) {
+            $cartCount = 0;
+            if ($result['ok']) {
+                $cart = DB::table('customer_carts')
+                    ->where('user_id', session('user')['id'])
+                    ->where('status', 'active')
+                    ->orderByDesc('id')
+                    ->first();
+                if ($cart) {
+                    $cartCount = (int) DB::table('customer_cart_items')
+                        ->where('cart_id', $cart->id)
+                        ->sum('quantity');
+                }
+            }
+
+            return response()->json([
+                'ok' => (bool) $result['ok'],
+                'message' => $result['message'],
+                'cart_count' => $cartCount,
+            ], $result['ok'] ? 200 : 422);
+        }
+
         if ($result['ok'] && !$request->boolean('stay_on_catalog')) {
             return redirect()->route('customer.cart')->with('msg', $result['message']);
         }

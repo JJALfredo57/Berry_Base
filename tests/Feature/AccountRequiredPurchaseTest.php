@@ -198,6 +198,34 @@ class AccountRequiredPurchaseTest extends TestCase
         $this->assertDatabaseHas('customer_cart_items', ['quantity' => 1, 'custom_note' => 'Dedication: "Bob"']);
     }
 
+    public function test_customer_can_add_to_cart_as_json_without_leaving_the_catalog(): void
+    {
+        $this->loginCustomer();
+
+        $this->postJson('/customer/cart/add', [
+            'product_id' => 'CAKE1',
+            'quantity' => 2,
+            'stay_on_catalog' => 1,
+        ])->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('cart_count', 2);
+
+        $this->assertDatabaseHas('customer_cart_items', [
+            'product_id' => 'CAKE1',
+            'quantity' => 2,
+        ]);
+    }
+
+    public function test_regular_add_to_cart_still_redirects_to_the_cart(): void
+    {
+        $this->loginCustomer();
+
+        $this->post('/customer/cart/add', [
+            'product_id' => 'CAKE1',
+            'quantity' => 1,
+        ])->assertRedirect(route('customer.cart'));
+    }
+
     public function test_cart_stock_conflict_preserves_existing_quantity(): void
     {
         $this->loginCustomer();

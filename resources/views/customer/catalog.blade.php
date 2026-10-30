@@ -50,11 +50,36 @@
 .size-choice-btn.is-selected .text-muted{color:rgba(255,255,255,.78)!important}
 .size-choice-btn:focus{box-shadow:0 0 0 .16rem color-mix(in srgb, var(--primary) 18%, transparent)}
 .size-view-more-btn{font-size:.78rem;font-weight:700;color:var(--primary);background:#fff;border:1px dashed var(--primary);border-radius:999px;padding:.25rem .75rem}
+.catalog-stay-option{
+  position:relative;
+  display:flex;
+  align-items:flex-start;
+  gap:.75rem;
+  padding:.9rem 1rem;
+  border:1px solid color-mix(in srgb, var(--primary) 22%, #e5e7eb);
+  border-radius:.9rem;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--primary-bg) 70%, #fff), #fff);
+  cursor:pointer;
+  transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease,background .2s ease;
+}
+.catalog-stay-option:hover{border-color:var(--primary);box-shadow:0 8px 22px color-mix(in srgb, var(--primary) 12%, transparent);transform:translateY(-1px)}
+.catalog-stay-option:has(.catalog-stay-input:checked){border-color:var(--primary);background:linear-gradient(135deg,color-mix(in srgb,var(--primary-bg) 82%,#fff),#fff);box-shadow:0 8px 24px color-mix(in srgb,var(--primary) 12%,transparent)}
+.catalog-stay-input{position:absolute;opacity:0;pointer-events:none}
+.catalog-stay-control{width:2.55rem;height:1.45rem;border-radius:999px;background:#cbd5e1;box-shadow:inset 0 0 0 1px rgba(15,23,42,.08);flex:0 0 auto;position:relative;transition:background .22s ease,box-shadow .22s ease}
+.catalog-stay-control::after{content:'\2713';position:absolute;top:.18rem;left:.2rem;width:1.08rem;height:1.08rem;border-radius:50%;display:grid;place-items:center;background:#fff;color:transparent;font-size:.7rem;font-weight:900;box-shadow:0 2px 6px rgba(15,23,42,.22);transition:transform .22s cubic-bezier(.2,.8,.2,1.2),color .18s ease}
+.catalog-stay-input:checked + .catalog-stay-control{background:var(--primary);box-shadow:0 0 0 .18rem color-mix(in srgb,var(--primary) 12%,transparent)}
+.catalog-stay-input:checked + .catalog-stay-control::after{transform:translateX(1.1rem);color:var(--primary)}
+.catalog-stay-input:focus-visible + .catalog-stay-control{outline:3px solid color-mix(in srgb,var(--primary) 28%,transparent);outline-offset:3px}
+.catalog-cart-status{min-height:1.25rem;font-size:.78rem;font-weight:650;margin-top:.55rem}
+.catalog-cart-status.is-success{color:#047857}.catalog-cart-status.is-error{color:#b91c1c}
+.catalog-add-success{animation:catalogAddPulse .42s ease}
+@keyframes catalogAddPulse{50%{transform:scale(.985);box-shadow:0 0 0 .25rem color-mix(in srgb,var(--primary) 15%,transparent)}}
 .catalog-see-more-wrap{display:none}
 .catalog-see-more-btn{border-radius:999px;padding:.7rem 1.25rem;font-weight:800;box-shadow:0 10px 24px color-mix(in srgb, var(--primary) 14%, transparent)}
 @media(prefers-reduced-motion:reduce){
-  .catalog-item,.filter-panel,.size-choice-btn{transition-duration:.01ms!important}
-  .catalog-card:hover,.size-choice-btn:hover{transform:none!important}
+  .catalog-item,.filter-panel,.size-choice-btn,.catalog-stay-option,.catalog-stay-control,.catalog-stay-control::after{transition-duration:.01ms!important}
+  .catalog-card:hover,.size-choice-btn:hover,.catalog-stay-option:hover{transform:none!important}
+  .catalog-add-success{animation:none!important}
 }
 </style>
 
@@ -547,7 +572,7 @@
                 <i class="bi bi-slash-circle me-2"></i><strong>Out of Stock</strong> — This cake is temporarily unavailable.
               </div>
               @elseif($isAvailable && $hasStock)
-              <form action="{{ route('customer.catalog.order') }}" method="POST" onsubmit="return confirmOrder(this)">
+              <form action="{{ route('customer.catalog.order') }}" method="POST" data-cart-url="{{ route('customer.cart.add') }}" onsubmit="return confirmOrder(this)">
                 @csrf
                 <input type="hidden" name="product_id" value="{{ $p->id }}">
 
@@ -658,13 +683,14 @@
                   You'll choose pickup/delivery on the next step.
                 </div>
 
-                <div class="form-check d-flex align-items-start gap-2 mb-3 p-3" style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:.75rem">
-                  <input class="form-check-input mt-1" type="checkbox" name="stay_on_catalog" value="1" id="stayCatalog{{ $p->id }}" checked>
-                  <label class="form-check-label small" for="stayCatalog{{ $p->id }}">
-                    <span class="fw-semibold d-block">Stay on catalog after adding to cart</span>
-                    <span class="text-muted">Uncheck this if you want to open your cart right after adding.</span>
-                  </label>
-                </div>
+                <label class="catalog-stay-option mb-3" for="stayCatalog{{ $p->id }}">
+                  <input class="catalog-stay-input" type="checkbox" name="stay_on_catalog" value="1" id="stayCatalog{{ $p->id }}" checked>
+                  <span class="catalog-stay-control" aria-hidden="true"></span>
+                  <span class="small">
+                    <span class="fw-semibold d-block" style="color:var(--primary-dark)">Stay with this cake</span>
+                    <span class="text-muted">Keep this product open after adding it to your cart.</span>
+                  </span>
+                </label>
 
                 {{-- ── Date Availability Check ─────────────────────────────── --}}
                 <div class="d-grid gap-2">
@@ -673,10 +699,12 @@
                   </button>
                   <button type="submit" class="btn btn-outline-primary py-2 fw-semibold"
                           formaction="{{ route('customer.cart.add') }}"
+                          data-add-to-cart-button
                           onclick="this.form.dataset.cartSubmit='1'">
                     <i class="bi bi-cart-plus me-1"></i>Add to Cart
                   </button>
                 </div>
+                <div class="catalog-cart-status" data-cart-status role="status" aria-live="polite"></div>
               </form>
               @elseif($isAvailable && !$hasStock)
               <div class="p-3 rounded-3" style="background:var(--primary-bg);border:1px solid var(--primary-light)">
@@ -901,6 +929,11 @@ function confirmOrder(form) {
   }
   if (form.dataset.cartSubmit === '1') {
     form.dataset.cartSubmit = '';
+    const stayOnCatalog = form.querySelector('input[name="stay_on_catalog"]')?.checked;
+    if (stayOnCatalog) {
+      addToCartWithoutLeaving(form);
+      return false;
+    }
     return true;
   }
   const openModal = document.querySelector('.modal.show');
@@ -914,6 +947,71 @@ function confirmOrder(form) {
   }
   form.submit();
   return false;
+}
+
+function updateCatalogCartBadge(count) {
+  const cartLink = document.querySelector('.cust-topbar-cart');
+  if (!cartLink || !Number.isFinite(Number(count))) return;
+
+  const total = Math.max(0, Number(count));
+  let badge = cartLink.querySelector('.cust-topbar-cart-badge');
+  if (total > 0 && !badge) {
+    badge = document.createElement('span');
+    badge.className = 'cust-topbar-cart-badge';
+    cartLink.appendChild(badge);
+  }
+  if (badge) {
+    badge.textContent = total > 99 ? '99+' : String(total);
+    badge.hidden = total === 0;
+  }
+  cartLink.setAttribute('aria-label', 'Cart with ' + total + ' item' + (total === 1 ? '' : 's'));
+}
+
+async function addToCartWithoutLeaving(form) {
+  const button = form.querySelector('[data-add-to-cart-button]');
+  const status = form.querySelector('[data-cart-status]');
+  if (!button || button.disabled) return;
+
+  const originalHtml = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Adding...';
+  if (status) {
+    status.textContent = '';
+    status.className = 'catalog-cart-status';
+  }
+
+  try {
+    const response = await fetch(form.dataset.cartUrl, {
+      method: 'POST',
+      body: new FormData(form),
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) throw new Error(data.message || 'Unable to add this cake to your cart.');
+
+    updateCatalogCartBadge(data.cart_count);
+    if (status) {
+      status.textContent = data.message || 'Cake added to your cart.';
+      status.className = 'catalog-cart-status is-success';
+    }
+    button.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Added to Cart';
+    button.classList.add('catalog-add-success');
+    window.setTimeout(() => {
+      button.innerHTML = originalHtml;
+      button.classList.remove('catalog-add-success');
+    }, 1400);
+  } catch (error) {
+    if (status) {
+      status.textContent = error.message || 'Unable to add this cake. Please try again.';
+      status.className = 'catalog-cart-status is-error';
+    }
+    button.innerHTML = originalHtml;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function modalPriceButton(productId) {
