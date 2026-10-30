@@ -5,6 +5,7 @@
   $mapBtnId = $mapBtnId ?? '';
   $coverage = $deliveryCoverage ?? ['strict' => false, 'zone_count' => 0, 'provinces' => []];
   $coverageIsStrict = !empty($coverage['strict']) && !empty($coverage['provinces']);
+  $coverageProvinceIsStrict = (!empty($coverage['province_strict']) || $coverageIsStrict) && !empty($coverage['provinces']);
 @endphp
 @once
 <style>
@@ -30,7 +31,7 @@
   <div class="fw-bold small mb-2"><i class="bi bi-geo-alt me-1" style="color:var(--primary)"></i>{{ $title }}</div>
   <div class="delivery-coverage-guide">
     <strong><i class="bi bi-shield-check me-1"></i>Seller delivery coverage</strong>
-    <div class="mt-1">{{ $coverageIsStrict ? 'Only provinces, cities, and barangays served by this shop are available below. Your exact map pin will still be checked.' : 'Choose your official address, then pin the exact location. Delivery is approved only when the pin is inside this shop\'s active coverage.' }}</div>
+    <div class="mt-1">{{ $coverageIsStrict ? 'Only provinces, cities, and barangays served by this shop are available below. Your exact map pin will still be checked.' : ($coverageProvinceIsStrict ? 'Province and city choices are based on this shop\'s active zones. Barangay and exact map pin are validated before delivery is approved.' : 'Choose your official address, then pin the exact location. Delivery is approved only when the pin is inside this shop\'s active coverage.') }}</div>
   </div>
   <div class="row g-2">
     <div class="col-sm-6">
@@ -131,6 +132,8 @@
     try { coverage = JSON.parse(coverageNode?.textContent || '{}'); } catch (e) {}
     const coverageProvinces = Array.isArray(coverage.provinces) ? coverage.provinces : [];
     const strictCoverage = coverage.strict === true && coverageProvinces.length > 0;
+    const strictProvinceCoverage = (strictCoverage || coverage.province_strict === true) && coverageProvinces.length > 0;
+    const strictCityCoverage = (strictCoverage || coverage.city_strict === true) && coverageProvinces.length > 0;
     const feedback = block.querySelector('[data-coverage-feedback]');
     const filterItems = (items, query) => {
       const needle = (query || '').trim().toLowerCase();
@@ -138,11 +141,11 @@
     };
     const coveredProvince = code => coverageProvinces.find(item => String(item.code) === String(code));
     const coveredCity = (provinceValue, code) => (provinceValue?.cities || []).find(item => String(item.code) === String(code));
-    const provinceItems = query => strictCoverage
+    const provinceItems = query => strictProvinceCoverage
       ? Promise.resolve(filterItems(coverageProvinces, query))
       : fetchItems(endpoints.provinces, { q: query || '' });
     const cityItems = query => {
-      if (strictCoverage) return Promise.resolve(filterItems(coveredProvince(provinceCode.value)?.cities || [], query));
+      if (strictCityCoverage) return Promise.resolve(filterItems(coveredProvince(provinceCode.value)?.cities || [], query));
       return fetchItems(endpoints.cities, { province_code: provinceCode.value, q: query || '' });
     };
     const barangayItems = query => {
@@ -163,7 +166,8 @@
       const hasText = input.value.trim() !== '';
       input.classList.toggle('is-invalid', hasText && !code);
       input.classList.toggle('is-valid', hasText && !!code);
-      if (hasText && !code && strictCoverage) showFeedback('error', label + ' is outside this seller\'s delivery coverage.');
+      const levelIsStrict = label === 'Province' ? strictProvinceCoverage : (label === 'City / municipality' ? strictCityCoverage : strictCoverage);
+      if (hasText && !code && levelIsStrict) showFeedback('error', label + ' is outside this seller\'s delivery coverage.');
       else if (barangayCode.value) showFeedback('success', 'Address area is covered. Pin your exact location for final delivery validation.');
       else if (!hasText) clearFeedback();
     };
@@ -288,7 +292,7 @@
       cityCode.value = '';
       barangayCode.value = '';
       syncAvailability();
-      if (strictCoverage && coverageProvinces.length === 1 && !province.value.trim()) {
+      if (strictProvinceCoverage && coverageProvinces.length === 1 && !province.value.trim()) {
         const onlyProvince = coverageProvinces[0];
         fillList(provinceList, coverageProvinces);
         province.value = onlyProvince.name;
@@ -300,7 +304,7 @@
         return;
       }
       if (province.value.trim() && await resolveProvince()) {
-        if (strictCoverage && coverageProvinces.length === 1 && provinceCode.value === String(coverageProvinces[0].code)) {
+        if (strictProvinceCoverage && coverageProvinces.length === 1 && provinceCode.value === String(coverageProvinces[0].code)) {
           province.readOnly = true;
           province.classList.add('delivery-locked-field');
         }

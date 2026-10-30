@@ -9,7 +9,7 @@ class DeliveryLocationValidationService
 {
     public function coverageOptions(?string $shopId): array
     {
-        $empty = ['strict' => false, 'zone_count' => 0, 'provinces' => []];
+        $empty = ['strict' => false, 'province_strict' => false, 'city_strict' => false, 'zone_count' => 0, 'provinces' => []];
         if (!$shopId || !Schema::hasTable('delivery_zones')) return $empty;
 
         $query = DB::table('delivery_zones')
@@ -22,7 +22,8 @@ class DeliveryLocationValidationService
         if ($zones->isEmpty()) return $empty;
 
         $provinces = [];
-        $resolved = 0;
+        $resolvedCities = 0;
+        $resolvedBarangays = 0;
         $cities = Schema::hasTable('psgc_cities_municipalities')
             ? DB::table('psgc_cities_municipalities')->get(['code', 'name', 'province_code', 'province_name'])
             : collect();
@@ -38,6 +39,15 @@ class DeliveryLocationValidationService
                 ?? $matchingCities->first();
             if (!$city) continue;
 
+            $provinceCode = (string) ($city->province_code ?? '');
+            $provinceName = trim((string) ($city->province_name ?? ''));
+            if ($provinceCode === '' || $provinceName === '') continue;
+
+            $provinces[$provinceCode] ??= ['code' => $provinceCode, 'name' => $provinceName, 'cities' => []];
+            $cityCode = (string) $city->code;
+            $provinces[$provinceCode]['cities'][$cityCode] ??= ['code' => $cityCode, 'name' => (string) $city->name, 'barangays' => []];
+            $resolvedCities++;
+
             $barangay = null;
             if (Schema::hasTable('psgc_barangays')) {
                 $barangay = DB::table('psgc_barangays')
@@ -47,18 +57,11 @@ class DeliveryLocationValidationService
             }
             if (!$barangay) continue;
 
-            $provinceCode = (string) ($city->province_code ?? '');
-            $provinceName = trim((string) ($city->province_name ?? ''));
-            if ($provinceCode === '' || $provinceName === '') continue;
-
-            $provinces[$provinceCode] ??= ['code' => $provinceCode, 'name' => $provinceName, 'cities' => []];
-            $cityCode = (string) $city->code;
-            $provinces[$provinceCode]['cities'][$cityCode] ??= ['code' => $cityCode, 'name' => (string) $city->name, 'barangays' => []];
             $provinces[$provinceCode]['cities'][$cityCode]['barangays'][(string) $barangay->code] = [
                 'code' => (string) $barangay->code,
                 'name' => (string) $barangay->name,
             ];
-            $resolved++;
+            $resolvedBarangays++;
         }
 
         $result = array_values(array_map(function ($province) {
@@ -73,7 +76,9 @@ class DeliveryLocationValidationService
         usort($result, fn ($a, $b) => strcasecmp($a['name'], $b['name']));
 
         return [
-            'strict' => $resolved === $zones->count() && $resolved > 0,
+            'strict' => $resolvedBarangays === $zones->count() && $resolvedBarangays > 0,
+            'province_strict' => $resolvedCities === $zones->count() && $resolvedCities > 0,
+            'city_strict' => $resolvedCities === $zones->count() && $resolvedCities > 0,
             'zone_count' => $zones->count(),
             'provinces' => $result,
         ];

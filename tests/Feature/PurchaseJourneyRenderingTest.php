@@ -625,6 +625,17 @@ class PurchaseJourneyRenderingTest extends TestCase
         $this->assertTrue($multiProvinceCoverage['strict']);
         $this->assertCount(2, $multiProvinceCoverage['provinces']);
 
+        DB::table('delivery_zones')->insert([
+            'shop_id' => 'TESTSHOP', 'barangay' => 'Legacy Sitio Name',
+            'zone_address' => 'Legacy Sitio Name, Bautista, Pangasinan, Philippines',
+            'lat' => 15.8200, 'lng' => 120.5100, 'is_active' => 1,
+        ]);
+        $partialCoverage = $service->coverageOptions('TESTSHOP');
+        $this->assertFalse($partialCoverage['strict']);
+        $this->assertTrue($partialCoverage['province_strict']);
+        $this->assertTrue($partialCoverage['city_strict']);
+        $this->assertCount(2, $partialCoverage['provinces']);
+
         $covered = $service->validateStoredDelivery([
             'fulfillment_type' => 'Delivery',
             'address' => 'House 12 Rizal Street Barangay Poblacion East Bautista Pangasinan',
@@ -648,7 +659,8 @@ class PurchaseJourneyRenderingTest extends TestCase
         $this->get('/customer/checkout')->assertOk()
             ->assertSee('Seller delivery coverage')
             ->assertSee('Pickup</strong> is available to customers from any location.', false)
-            ->assertSee('"strict":true', false)
+            ->assertSee('"strict":false', false)
+            ->assertSee('"province_strict":true', false)
             ->assertSee('Pangasinan')
             ->assertSee('Tarlac');
     }
