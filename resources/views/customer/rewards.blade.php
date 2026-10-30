@@ -191,7 +191,7 @@
     <div class="row g-3 mb-4">
       <div class="col-12 col-md-4 stats-col">
         <div class="card h-100"><div class="card-body">
-          <div class="small text-muted">Membership</div>
+          <div class="small text-muted">{{ (int)($overview['balance'] ?? 0) > 0 ? 'Membership Level' : 'Starting Level' }}</div>
           <div class="h5 fw-bold mb-0"><i class="bi {{ $tierIcon }} me-1"></i>{{ $currentTier }}</div>
         </div></div>
       </div>
@@ -215,8 +215,11 @@
       </div>
     </div>
 
+    @if((int)($overview['balance'] ?? 0) === 0)
+      <div class="alert alert-info border-0"><i class="bi bi-info-circle me-1"></i>No points earned yet. Points are credited only after an order is fully paid and marked Delivered or Picked Up.</div>
+    @endif
     @if(!$isVerified)
-      <div class="alert alert-warning border-0"><i class="bi bi-lock me-1"></i>You can earn points now, but redemption and verified-only vouchers unlock after valid ID approval.</div>
+      <div class="alert alert-warning border-0"><i class="bi bi-lock me-1"></i>You can earn points from paid completed orders, but redemption and verified-only vouchers unlock after valid ID approval.</div>
     @endif
 
     <div class="card mb-4">

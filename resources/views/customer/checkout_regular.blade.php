@@ -505,7 +505,7 @@ document.body.style.paddingRight = '';
             </div>
             @if(!empty($loyaltyEarnEstimate['enabled']))
               <div class="small mt-2" style="color:var(--primary)">
-                <i class="bi bi-plus-circle me-1"></i>Estimated earning after paid completion: <strong>{{ (int) ($loyaltyEarnEstimate['points'] ?? 0) }} pts</strong>
+                <i class="bi bi-plus-circle me-1"></i>Potential points after this order is fully paid and marked Delivered or Picked Up: <strong>{{ (int) ($loyaltyEarnEstimate['points'] ?? 0) }} pts</strong>
                 <span class="text-muted">({{ number_format((float) ($loyaltyEarnEstimate['multiplier'] ?? 1), 2) }}x tier multiplier)</span>
               </div>
             @endif

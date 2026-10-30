@@ -63,6 +63,10 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertSee('cart-select-all-label', false)
             ->assertSee('cart-check cart-item-check', false)
             ->assertSee('cart-checkout-btn', false);
+        $this->get('/customer/rewards')->assertOk()
+            ->assertSee('Starting Level')
+            ->assertSee('No points earned yet.')
+            ->assertSee('Available Points');
         $this->get('/shop/test-cake-shop')->assertOk();
         $this->assertDatabaseCount('orders', 0);
 

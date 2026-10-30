@@ -550,6 +550,7 @@ class OrderController extends Controller
             DB::table('orders')->where('id', $co->order_id)->update(['status' => 'Cancelled']);
             app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder((string) $co->order_id);
             app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder((string) $co->order_id);
+            app(\App\Services\LoyaltyService::class)->rollbackEarnForOrder((string) $co->order_id);
             DB::table('order_tracking')->insert([
                 'order_id'   => $co->order_id,
                 'status'     => 'Cancelled',

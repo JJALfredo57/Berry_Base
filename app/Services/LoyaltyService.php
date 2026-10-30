@@ -122,8 +122,12 @@ class LoyaltyService
         $userId = (string) $account->user_id;
         $totals = DB::table('loyalty_transactions')
             ->where('user_id', $userId)
-            ->selectRaw('COALESCE(SUM(points), 0) as net_points, COALESCE(SUM(CASE WHEN points > 0 THEN points ELSE 0 END), 0) as earned_points')
+            ->selectRaw("COUNT(*) as transaction_count, COALESCE(SUM(points), 0) as net_points, COALESCE(SUM(CASE WHEN type IN ('earn', 'earn_reversal') THEN points ELSE 0 END), 0) as earned_points")
             ->first();
+
+        if ((int) ($totals->transaction_count ?? 0) === 0) {
+            return $account;
+        }
 
         $expectedBalance = max(0, (int) round((float) ($totals->net_points ?? 0)));
         $expectedLifetime = max(0, (int) round((float) ($totals->earned_points ?? 0)));
@@ -433,6 +437,7 @@ class LoyaltyService
             'points' => $points,
             'balance_after' => $balance,
             'description' => "Earned {$points} points from Order #{$order->id}.",
+            'meta' => json_encode(['eligible_subtotal' => $eligibleSubtotal, 'status' => $order->status]),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -449,6 +454,65 @@ class LoyaltyService
         if (Schema::hasColumn('orders', 'points_earned')) {
             DB::table('orders')->where('id', $order->id)->update(['points_earned' => $points]);
         }
+    }
+
+    public function rollbackEarnForOrder(string $orderId): void
+    {
+        if (!$orderId || !Schema::hasTable('loyalty_accounts') || !Schema::hasTable('loyalty_transactions')) return;
+
+        DB::transaction(function () use ($orderId) {
+            $earnTx = DB::table('loyalty_transactions')
+                ->where('order_id', $orderId)
+                ->where('type', 'earn')
+                ->first();
+            if (!$earnTx) return;
+
+            $alreadyReversed = DB::table('loyalty_transactions')
+                ->where('order_id', $orderId)
+                ->where('type', 'earn_reversal')
+                ->exists();
+            if ($alreadyReversed) return;
+
+            $pointsToRemove = max(0, (int) ($earnTx->points ?? 0));
+            if ($pointsToRemove <= 0) return;
+
+            $account = DB::table('loyalty_accounts')->where('user_id', $earnTx->user_id)->lockForUpdate()->first();
+            if (!$account) return;
+
+            $meta = json_decode($earnTx->meta ?? '[]', true) ?: [];
+            $order = Schema::hasTable('orders') ? DB::table('orders')->where('id', $orderId)->first() : null;
+            $eligibleSubtotal = isset($meta['eligible_subtotal'])
+                ? max(0, (float) $meta['eligible_subtotal'])
+                : ($order ? $this->eligibleProductSubtotal($order) : 0);
+            $newBalance = max(0, (int) $account->points_balance - $pointsToRemove);
+            $newLifetime = max(0, (int) $account->lifetime_points - $pointsToRemove);
+            $newTier = $this->tierForPoints($newBalance);
+
+            DB::table('loyalty_transactions')->insert([
+                'user_id' => $earnTx->user_id,
+                'order_id' => $orderId,
+                'type' => 'earn_reversal',
+                'points' => -$pointsToRemove,
+                'balance_after' => $newBalance,
+                'description' => "Reversed {$pointsToRemove} earned points from cancelled/refunded Order #{$orderId}.",
+                'meta' => json_encode(['reversed_type' => 'earn', 'source_transaction_id' => $earnTx->id]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::table('loyalty_accounts')->where('user_id', $earnTx->user_id)->update([
+                'points_balance' => $newBalance,
+                'lifetime_points' => $newLifetime,
+                'lifetime_spend' => max(0, round((float) $account->lifetime_spend - $eligibleSubtotal, 2)),
+                'tier' => $newTier,
+                'tier_updated_at' => $newTier !== ($account->tier ?? 'Bronze') ? now() : $account->tier_updated_at,
+                'updated_at' => now(),
+            ]);
+
+            if ($order && Schema::hasColumn('orders', 'points_earned')) {
+                DB::table('orders')->where('id', $orderId)->update(['points_earned' => 0]);
+            }
+        });
     }
 
     private function eligibleProductSubtotal(object $order): float

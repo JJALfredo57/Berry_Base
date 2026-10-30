@@ -353,6 +353,9 @@ class OrderController extends Controller
         DB::table('orders')->where('id', $id)->update($upd);
         if ($status === 'Cancelled') {
             app(ProductStockService::class)->releaseForOrder($id);
+            app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder($id);
+            app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder($id);
+            app(\App\Services\LoyaltyService::class)->rollbackEarnForOrder($id);
         }
         if (in_array($status, $finalStatuses, true)) {
             $freshOrder = DB::table('orders')->where('id', $id)->first() ?? $order;
@@ -632,6 +635,7 @@ class OrderController extends Controller
         app(ProductStockService::class)->releaseForOrder($id);
         app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder($id);
         app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder($id);
+        app(\App\Services\LoyaltyService::class)->rollbackEarnForOrder($id);
         DB::table('order_tracking')->insert([
             'order_id'   => $id,
             'status'     => 'Cancelled',

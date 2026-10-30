@@ -54,6 +54,7 @@ class OrderRefundService
         app(ProductStockService::class)->releaseForOrder($fresh);
         app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder((string) $order->id);
         app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder((string) $order->id);
+        app(\App\Services\LoyaltyService::class)->rollbackEarnForOrder((string) $order->id);
         $this->notifyStaff($fresh, 'Order Cancelled Before Payment', "Order #{$order->id} was cancelled before any payment was collected.", [
             'event' => 'cancelled_unpaid',
             'order_id' => (string) $order->id,
@@ -269,6 +270,7 @@ class OrderRefundService
         }
         app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder((string) $order->id);
         app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder((string) $order->id);
+        app(\App\Services\LoyaltyService::class)->rollbackEarnForOrder((string) $order->id);
         $this->notifications->notifyOrderCustomer($fresh, 'Refund Sent', "Your refund for Order #{$order->id} has been sent. You can view the receipt on your tracking page.", [
             'event' => 'refund_sent',
             'refund_id' => (string) $refund->id,

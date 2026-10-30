@@ -333,6 +333,7 @@ class OrderController extends Controller
             app(ProductStockService::class)->releaseForOrder($id);
             app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder($id);
             app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder($id);
+            app(\App\Services\LoyaltyService::class)->rollbackEarnForOrder($id);
         }
         if ($newStatus === 'Picked Up') {
             $freshOrder = DB::table('orders')->where('id', $id)->first();

@@ -177,6 +177,7 @@ class LoyaltyServiceTest extends TestCase
         ]);
 
         app(LoyaltyService::class)->awardForCompletedOrder('ORD003');
+        app(LoyaltyService::class)->awardForCompletedOrder('ORD003');
 
         $account = DB::table('loyalty_accounts')->where('user_id', 'USR003')->first();
 
@@ -188,5 +189,47 @@ class LoyaltyServiceTest extends TestCase
             'id' => 'ORD003',
             'points_earned' => 10,
         ]);
+        $this->assertSame(1, DB::table('loyalty_transactions')->where('order_id', 'ORD003')->where('type', 'earn')->count());
+    }
+
+    public function test_pending_or_unpaid_orders_do_not_earn_points(): void
+    {
+        DB::table('loyalty_accounts')->insert([
+            'user_id' => 'USR004', 'points_balance' => 0, 'lifetime_points' => 0,
+            'lifetime_spend' => 0, 'tier' => 'Bronze', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('orders')->insert([
+            ['id' => 'ORD004A', 'user_id' => 'USR004', 'total_price' => 1000, 'status' => 'Preparing', 'payment_status' => 'Paid', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 'ORD004B', 'user_id' => 'USR004', 'total_price' => 1000, 'status' => 'Delivered', 'payment_status' => 'Unpaid', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        app(LoyaltyService::class)->awardForCompletedOrder('ORD004A');
+        app(LoyaltyService::class)->awardForCompletedOrder('ORD004B');
+
+        $this->assertDatabaseCount('loyalty_transactions', 0);
+        $this->assertDatabaseHas('loyalty_accounts', ['user_id' => 'USR004', 'points_balance' => 0]);
+    }
+
+    public function test_refund_reverses_earned_points_once(): void
+    {
+        DB::table('loyalty_accounts')->insert([
+            'user_id' => 'USR005', 'points_balance' => 0, 'lifetime_points' => 0,
+            'lifetime_spend' => 0, 'tier' => 'Bronze', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('orders')->insert([
+            'id' => 'ORD005', 'user_id' => 'USR005', 'total_price' => 1000,
+            'status' => 'Picked Up', 'payment_status' => 'Paid', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $loyalty = app(LoyaltyService::class);
+        $loyalty->awardForCompletedOrder('ORD005');
+        $loyalty->rollbackEarnForOrder('ORD005');
+        $loyalty->rollbackEarnForOrder('ORD005');
+
+        $this->assertDatabaseHas('loyalty_accounts', [
+            'user_id' => 'USR005', 'points_balance' => 0, 'lifetime_points' => 0, 'tier' => 'Bronze',
+        ]);
+        $this->assertDatabaseHas('orders', ['id' => 'ORD005', 'points_earned' => 0]);
+        $this->assertSame(1, DB::table('loyalty_transactions')->where('order_id', 'ORD005')->where('type', 'earn_reversal')->count());
     }
 }
