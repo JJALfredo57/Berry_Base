@@ -1,13 +1,40 @@
 @extends('layouts.app')
 @section('content')
-<div class="container-fluid py-4">
+<div class="container-fluid py-4 cart-page-shell">
   <style>
-    .cart-shop-card{border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff}
-    .cart-shop-head{background:#fff7fb;border-bottom:1px solid #fce7f3}
-    .cart-group-list{position:relative}
-    .cart-group-list::before{content:"";position:absolute;left:40px;top:18px;bottom:18px;width:2px;background:linear-gradient(var(--primary),#f9a8d4);opacity:.5}
-    .cart-group-item{position:relative}
-    .cart-group-dot{width:12px;height:12px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 5px #fff;position:absolute;left:35px;top:36px;z-index:1}
+    .cart-page-shell{max-width:1540px;margin-inline:auto;padding-inline:clamp(.15rem,1.5vw,1rem)}
+    .cart-page-head{padding:1rem 1.1rem;border:1px solid color-mix(in srgb,var(--primary) 16%,#e5e7eb);border-radius:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--primary-bg) 72%,#fff),#fff);box-shadow:0 10px 30px rgba(15,23,42,.05)}
+    .cart-title-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--primary),var(--primary-dark));box-shadow:0 8px 18px color-mix(in srgb,var(--primary) 24%,transparent);flex:0 0 auto}
+    .cart-add-more{display:inline-flex;align-items:center;gap:.65rem;min-height:44px;padding:.55rem .9rem;border:1px solid color-mix(in srgb,var(--primary) 28%,#fff);border-radius:13px;background:#fff;color:var(--primary);font-weight:750;text-decoration:none;box-shadow:0 7px 18px color-mix(in srgb,var(--primary) 10%,transparent);transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
+    .cart-add-more:hover{color:#fff;background:var(--primary);transform:translateY(-2px);box-shadow:0 11px 24px color-mix(in srgb,var(--primary) 22%,transparent)}
+    .cart-add-more-icon{width:29px;height:29px;border-radius:9px;display:grid;place-items:center;background:var(--primary-bg);color:var(--primary)}
+    .cart-add-more:hover .cart-add-more-icon{background:rgba(255,255,255,.18);color:#fff}
+    .cart-shop-card{border:1px solid #e7e5e4;border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 10px 30px rgba(15,23,42,.06)}
+    .cart-shop-head{background:linear-gradient(135deg,color-mix(in srgb,var(--primary-bg) 65%,#fff),#fff);border-bottom:1px solid color-mix(in srgb,var(--primary) 14%,#e5e7eb)}
+    .cart-shop-head-grid{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:.8rem}
+    .cart-select-all-label{display:grid;place-items:center;margin:0;cursor:pointer}
+    .cart-check{appearance:none;-webkit-appearance:none;width:24px;height:24px;margin:0;border:2px solid #cbd5e1;border-radius:8px;background:#fff;display:grid;place-content:center;cursor:pointer;transition:background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+    .cart-check::before{content:"";width:10px;height:6px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) scale(0);transition:transform .16s ease}
+    .cart-check:checked,.cart-check:indeterminate{background:var(--primary);border-color:var(--primary);box-shadow:0 0 0 4px color-mix(in srgb,var(--primary) 12%,transparent)}
+    .cart-check:checked::before{transform:rotate(-45deg) scale(1)}
+    .cart-check:indeterminate::before{width:10px;height:0;border-left:0;border-bottom:2px solid #fff;transform:none}
+    .cart-check:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 28%,transparent);outline-offset:3px}
+    .cart-select-label{font-size:.72rem;font-weight:750;color:var(--primary);margin-top:.3rem;text-align:center;white-space:nowrap}
+    .cart-group-item{position:relative;padding:1rem;transition:background .18s ease,box-shadow .18s ease}
+    .cart-group-item+.cart-group-item{border-top:1px solid #f1f5f9}
+    .cart-group-item.is-selected{background:linear-gradient(90deg,color-mix(in srgb,var(--primary-bg) 42%,#fff),#fff 45%);box-shadow:inset 3px 0 var(--primary)}
+    .cart-item-layout{display:grid;grid-template-columns:36px 82px minmax(0,1fr);align-items:start;gap:.8rem}
+    .cart-item-layout>*,.cart-shop-head-grid>*{min-width:0}
+    .cart-item-check-wrap{display:grid;place-items:center;padding-top:.15rem}
+    .cart-item-img{width:82px;height:82px;object-fit:cover;border-radius:13px!important;border:1px solid #f1f5f9;box-shadow:0 6px 15px rgba(15,23,42,.09)}
+    .cart-item-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem}
+    .cart-item-title-row .fw-bold{overflow-wrap:anywhere}
+    .cart-item-price{color:var(--primary);white-space:nowrap;padding:.3rem .55rem;border-radius:9px;background:var(--primary-bg)}
+    .cart-shop-footer{padding:1rem;background:#fcfcfd;border-top:1px solid #f1f5f9}
+    .cart-checkout-btn{min-height:42px;border-radius:11px;padding-inline:1rem;font-weight:750;box-shadow:0 7px 16px color-mix(in srgb,var(--primary) 18%,transparent)}
+    .cart-summary-card{border:1px solid color-mix(in srgb,var(--primary) 14%,#e5e7eb);border-radius:18px;box-shadow:0 10px 30px rgba(15,23,42,.06);overflow:hidden}
+    .cart-summary-title{display:flex;align-items:center;gap:.6rem;padding-bottom:.75rem;margin-bottom:.75rem;border-bottom:1px solid #f1f5f9}
+    .cart-empty-card{border:1px dashed color-mix(in srgb,var(--primary) 28%,#cbd5e1);border-radius:18px;background:linear-gradient(145deg,#fff,var(--primary-bg));box-shadow:none}
     .cart-qty-wrap{display:flex;flex-direction:column;gap:.35rem}
     .cart-qty-control{display:inline-grid;grid-template-columns:38px minmax(54px,70px) 38px;align-items:center;border:1px solid #e5e7eb;border-radius:999px;overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.04)}
     .cart-qty-btn{height:38px;border:0;background:#fff;color:var(--primary);font-weight:800;display:flex;align-items:center;justify-content:center;transition:background .15s ease,color .15s ease}
@@ -36,14 +63,28 @@
     .custom-reschedule-choice:has(input:checked){border-color:var(--primary);background:#fff7fb;color:var(--primary)}
     @media(max-width:575.98px){.custom-reschedule-grid{grid-template-columns:1fr}.custom-reschedule-note{align-items:flex-start}.custom-reschedule-note .btn{width:100%}}
     @keyframes cartDialogIn{from{transform:translateY(8px) scale(.98);opacity:.6}to{transform:none;opacity:1}}
-    @media(max-width:575.98px){.cart-group-list::before{left:28px}.cart-group-dot{left:23px}.cart-item-img{width:68px!important;height:68px!important}}
+    @media(max-width:767.98px){
+      .cart-page-head{align-items:stretch!important}.cart-add-more{width:100%;justify-content:center}
+      .cart-shop-head-grid{grid-template-columns:32px minmax(0,1fr)}
+      .cart-shop-total{grid-column:2;text-align:left!important;padding-left:0}
+      .cart-item-layout{grid-template-columns:28px 68px minmax(0,1fr);gap:.6rem}
+      .cart-item-img{width:68px!important;height:68px!important}
+      .cart-item-title-row{flex-direction:column;gap:.35rem}.cart-item-price{font-size:.82rem}
+      .cart-shop-footer{align-items:stretch!important}.cart-shop-footer form,.cart-checkout-btn{width:100%}
+      .cart-summary-card{position:static!important}.cart-select-label{font-size:.66rem}
+    }
+    @media(max-width:374.98px){.cart-shop-head{padding:.8rem .65rem!important}.cart-shop-head-grid{grid-template-columns:26px minmax(0,1fr)}.cart-group-item{padding:.8rem .65rem}.cart-item-layout{grid-template-columns:26px 60px minmax(0,1fr);gap:.5rem}.cart-item-img{width:60px!important;height:60px!important}.cart-page-head{padding:.85rem}}
+    @media(prefers-reduced-motion:reduce){.cart-add-more,.cart-check{transition-duration:.01ms!important}.cart-add-more:hover{transform:none}}
   </style>
-  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-    <div>
-      <h4 class="fw-bold mb-1"><i class="bi bi-cart3 me-2" style="color:var(--primary)"></i>My Cart</h4>
-      <div class="text-muted small">Saved cakes stay here while you compare and choose what to checkout.</div>
+  <div class="cart-page-head d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div class="d-flex align-items-center gap-3">
+      <div class="cart-title-icon"><i class="bi bi-cart3"></i></div>
+      <div>
+        <h4 class="fw-bold mb-1">My Cart</h4>
+        <div class="text-muted small">Review your cakes, choose what to include, then checkout by seller.</div>
+      </div>
     </div>
-    <a href="{{ route('customer.catalog') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add more</a>
+    <a href="{{ route('customer.catalog') }}" class="cart-add-more"><span class="cart-add-more-icon"><i class="bi bi-plus-lg"></i></span><span>Add More Cakes</span></a>
   </div>
 
   @if(session('msg'))<div class="alert alert-success border-0">{{ session('msg') }}</div>@endif
@@ -54,10 +95,15 @@
       @forelse(($groups ?? collect()) as $group)
         @php $checkoutFormId = 'customerCartCheckout' . $loop->iteration; @endphp
         <div class="cart-shop-card mb-3" data-cart-group="{{ $checkoutFormId }}">
-          <div class="cart-shop-head p-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <div class="d-flex align-items-center gap-2">
+          <div class="cart-shop-head p-3">
+            <div class="cart-shop-head-grid">
+              <label class="cart-select-all-label" for="selectAll{{ $checkoutFormId }}">
+                <input class="cart-check cart-select-all" type="checkbox" id="selectAll{{ $checkoutFormId }}" data-cart-group="{{ $checkoutFormId }}" checked>
+                <span class="cart-select-label">All</span>
+              </label>
+              <div class="d-flex align-items-center gap-2 min-w-0">
               @if(!empty($group->shop_logo))
-                <img src="{{ $group->shop_logo }}" alt="{{ $group->shop_name }}" style="width:38px;height:38px;border-radius:9px;object-fit:cover">
+                <img src="{{ $group->shop_logo }}" alt="{{ $group->shop_name }}" style="width:42px;height:42px;border-radius:12px;object-fit:cover">
               @else
                 <div style="width:38px;height:38px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff"><i class="bi bi-shop"></i></div>
               @endif
@@ -65,30 +111,26 @@
                 <div class="fw-bold">{{ $group->shop_name }}</div>
                 <div class="text-muted small">{{ $group->item_count }} cake option{{ $group->item_count > 1 ? 's' : '' }} connected for one {{ strtolower('Pickup/Delivery') }}</div>
               </div>
-            </div>
-            <div class="form-check ms-sm-auto">
-              <input class="form-check-input cart-select-all" type="checkbox" id="selectAll{{ $checkoutFormId }}" data-cart-group="{{ $checkoutFormId }}" checked>
-              <label class="form-check-label small fw-semibold" for="selectAll{{ $checkoutFormId }}">Select all</label>
-            </div>
-            <div class="text-end">
+              </div>
+            <div class="text-end cart-shop-total">
               <div class="fw-bold" style="color:var(--primary)">PHP {{ number_format($group->subtotal, 2) }}</div>
               <div class="text-muted small">{{ $group->quantity }} total item{{ $group->quantity > 1 ? 's' : '' }}</div>
             </div>
           </div>
+          </div>
           <div class="cart-group-list">
             @foreach($group->items as $item)
-              <div class="cart-group-item p-3 ps-sm-5">
-                <span class="cart-group-dot"></span>
-                <div class="d-flex gap-3 ms-3 align-items-start">
-                  <input class="form-check-input cart-item-check mt-1" type="checkbox" name="selected_item_ids[]" value="{{ $item->id }}" form="{{ $checkoutFormId }}" data-cart-group="{{ $checkoutFormId }}" data-item-subtotal="{{ (float) $item->final_unit_price_snapshot * (int) $item->quantity }}" data-item-quantity="{{ (int) $item->quantity }}" checked aria-label="Select {{ $item->product_name }} for checkout">
+              <div class="cart-group-item is-selected">
+                <div class="cart-item-layout">
+                  <div class="cart-item-check-wrap"><input class="cart-check cart-item-check" type="checkbox" name="selected_item_ids[]" value="{{ $item->id }}" form="{{ $checkoutFormId }}" data-cart-group="{{ $checkoutFormId }}" data-item-subtotal="{{ (float) $item->final_unit_price_snapshot * (int) $item->quantity }}" data-item-quantity="{{ (int) $item->quantity }}" checked aria-label="Select {{ $item->product_name }} for checkout"></div>
                   <img class="cart-item-img" src="{{ $item->image_path ?: '/images/no-image.png' }}" alt="{{ $item->product_name }}" style="width:82px;height:82px;object-fit:cover;border-radius:8px">
                   <div class="flex-grow-1 min-w-0">
-                    <div class="d-flex justify-content-between gap-2">
+                    <div class="cart-item-title-row">
                       <div>
                         <div class="fw-bold">{{ $item->product_name }}</div>
                         <div class="text-muted small">Qty {{ $item->quantity }} @if($item->selected_size) &bull; {{ $item->selected_size }} @endif</div>
                       </div>
-                      <div class="fw-bold text-nowrap" style="color:var(--primary)">PHP {{ number_format($item->final_unit_price_snapshot * $item->quantity, 2) }}</div>
+                      <div class="fw-bold cart-item-price">PHP {{ number_format($item->final_unit_price_snapshot * $item->quantity, 2) }}</div>
                     </div>
                     @if($item->discount_amount_snapshot > 0)
                       <div class="small mt-1" style="color:#dc2626"><i class="bi bi-tags me-1"></i>{{ $item->discount_label_snapshot ?: 'Product discount' }}</div>
@@ -195,19 +237,19 @@
               </div>
             @endforeach
           </div>
-          <div class="p-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div class="cart-shop-footer d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
               <div class="small text-muted"><i class="bi bi-link-45deg me-1"></i>Same seller items use one schedule and one pickup/delivery fee.</div>
               <div class="small fw-semibold mt-1" data-cart-selected-summary="{{ $checkoutFormId }}" style="color:var(--primary)"></div>
             </div>
             <form id="{{ $checkoutFormId }}" action="{{ route('customer.cart.shops.checkout', $group->key) }}" method="POST">
               @csrf
-              <button class="btn btn-primary btn-sm" data-cart-checkout-button="{{ $checkoutFormId }}"><i class="bi bi-bag-check me-1"></i>Checkout selected</button>
+              <button class="btn btn-primary cart-checkout-btn" data-cart-checkout-button="{{ $checkoutFormId }}"><i class="bi bi-bag-check me-1"></i>Checkout Selected</button>
             </form>
           </div>
         </div>
       @empty
-        <div class="card">
+        <div class="card cart-empty-card">
           <div class="card-body text-center py-5">
             <i class="bi bi-cart-x" style="font-size:2.4rem;color:#cbd5e1"></i>
             <h5 class="fw-bold mt-3">Your cart is empty</h5>
@@ -219,9 +261,9 @@
     </div>
 
     <div class="col-lg-4">
-      <div class="card position-sticky" style="top:1rem">
+      <div class="card cart-summary-card position-sticky" style="top:1rem">
         <div class="card-body">
-          <div class="fw-bold mb-2">Cart Summary</div>
+          <div class="cart-summary-title"><span class="cart-add-more-icon"><i class="bi bi-receipt"></i></span><div><div class="fw-bold">Cart Summary</div><div class="text-muted" style="font-size:.72rem">All cakes currently saved</div></div></div>
           <div class="d-flex justify-content-between small text-muted mb-2"><span>Items</span><span>{{ $items->sum('quantity') }}</span></div>
           <div class="d-flex justify-content-between mb-3"><span class="fw-semibold">Subtotal</span><span class="fw-bold">PHP {{ number_format($subtotal, 2) }}</span></div>
           <div class="rounded-3 p-3 mb-3" style="background:#f8fafc;border:1px solid #e5e7eb">
@@ -446,7 +488,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (selectAll) {
       selectAll.checked = checks.length > 0 && selected.length === checks.length;
       selectAll.indeterminate = selected.length > 0 && selected.length < checks.length;
+      selectAll.setAttribute('aria-checked', selectAll.indeterminate ? 'mixed' : String(selectAll.checked));
     }
+    checks.forEach(check => check.closest('.cart-group-item')?.classList.toggle('is-selected', check.checked));
   }
 
   document.querySelectorAll('.cart-item-check').forEach(check => {
