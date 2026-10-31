@@ -32,6 +32,12 @@ class OrderRefundService
     public function cancelUnpaid(object $order, string $reason, string $actor = 'guest'): void
     {
         DB::transaction(function () use ($order, $reason, $actor) {
+            $fresh = DB::table('orders')->where('id', $order->id)->lockForUpdate()->first();
+            if (!$fresh || $this->hasPaidAmount($fresh)
+                || in_array($fresh->status, ['Preparing', 'Ready for Rider', 'Out for Delivery', 'Delivered', 'Picked Up', 'No Show', 'Cancelled'], true)) {
+                throw new \DomainException('This order has changed. Refresh the page before cancelling; paid orders require seller review.');
+            }
+
             DB::table('orders')->where('id', $order->id)->update([
                 'status' => 'Cancelled',
                 'cancel_requested' => 1,

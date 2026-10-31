@@ -1095,7 +1095,7 @@
         {{-- CANCEL REQUEST BUTTON --}}
         @if($canCancel && !$hasPending && !$wasAccepted)
           <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelModal{{ $o->id }}">
-            <i class="bi bi-x-circle me-1"></i>Request Cancel
+            <i class="bi bi-x-circle me-1"></i>{{ $isCustom && !$hasDepositLock ? 'Cancel Order' : ($hasDepositLock ? 'Request Cancellation & Refund' : 'Request Cancel') }}
           </button>
         @elseif($hasDepositLock && $o->status !== 'Cancelled')
           <span class="text-muted small"><i class="bi bi-lock me-1"></i>Cannot cancel  deposit already paid</span>
@@ -1152,7 +1152,7 @@
       <div class="modal-content border-0" style="border-radius:1.2rem">
         <div class="modal-header border-0 pb-0">
           <h5 class="modal-title fw-bold">
-            <i class="bi bi-x-circle me-2 text-danger"></i>Request Cancellation
+            <i class="bi bi-x-circle me-2 text-danger"></i>{{ $isCustom && !$hasDepositLock ? 'Cancel Custom Order' : 'Request Cancellation' }}
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
@@ -1177,7 +1177,7 @@
 
           <div class="alert border-0 py-2 small" style="background:#fff3cd">
             <i class="bi bi-exclamation-triangle me-1 text-warning"></i>
-            <strong>Note:</strong> Cancellation requests are only available before preparation. Paid amounts require seller review and a manually recorded GCash refund. Deposits are retained for no-show orders.
+            <strong>Note:</strong> @if($isCustom && !$hasDepositLock) This unpaid custom order will be cancelled immediately. No seller approval is needed. @else Cancellation requests are only available before preparation. Paid amounts require seller review and a manually recorded GCash refund. Deposits are retained for no-show orders. @endif
           </div>
 
           <form action="{{ route('customer.orders.cancel_request', $o->id) }}" method="POST">
@@ -1203,7 +1203,7 @@
             <div class="d-flex gap-2 justify-content-end">
               <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Never mind</button>
               <button type="submit" class="btn btn-danger">
-                <i class="bi bi-x-circle me-1"></i>Submit Cancel Request
+                <i class="bi bi-x-circle me-1"></i>{{ $isCustom && !$hasDepositLock ? 'Cancel Order' : 'Submit Cancel Request' }}
               </button>
             </div>
           </form>

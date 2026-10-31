@@ -651,7 +651,11 @@ class TrackingController extends Controller
         }
 
         if (!$refunds->hasPaidAmount($order)) {
-            $refunds->cancelUnpaid($order, $reason, 'customer');
+            try {
+                $refunds->cancelUnpaid($order, $reason, 'customer');
+            } catch (\DomainException $e) {
+                return back()->with('error', $e->getMessage());
+            }
             CakeshopHelper::logActivity('guest', 'guest', 'Cancel Order', "Order #{$order->id} cancelled before payment - {$reason}");
             return back()->with('msg', 'Order cancelled successfully. No refund is needed because no payment was collected.');
         }

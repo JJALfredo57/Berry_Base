@@ -269,6 +269,16 @@ class OrderController extends Controller
             return back()->with('error', "Cannot cancel - status is already '{$order->status}'.");
         }
 
+        if (($order->order_type ?? '') === 'custom' && !$refunds->hasPaidAmount($order)) {
+            try {
+                $refunds->cancelUnpaid($order, $reason, 'customer');
+            } catch (\DomainException $e) {
+                return back()->with('error', $e->getMessage());
+            }
+            CakeshopHelper::logActivity($uid, 'customer', 'Cancel Custom Order', "Order #{$id} cancelled before payment - {$reason}");
+            return back()->with('msg', 'Custom order cancelled successfully. No seller approval or refund is needed because no payment was collected.');
+        }
+
         if ($order->cancel_requested && $order->cancel_status === 'pending') {
             return back()->with('error', 'You already have a pending cancel request for this order.');
         }

@@ -9,6 +9,26 @@ use Tests\TestCase;
 
 class PurchaseJourneyRenderingTest extends TestCase
 {
+    public function test_unpaid_custom_cancellation_is_immediate_but_paid_requires_review(): void
+    {
+        $this->prepareFixture();
+        $order = $this->createRegularOrder('COP');
+        DB::table('orders')->where('id', $order->id)->update(['order_type' => 'custom', 'status' => 'Pending Review']);
+        $this->post('/customer/orders/'.$order->id.'/cancel-request', ['cancel_reason' => 'Changed plans'])->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'Cancelled', 'cancel_status' => 'accepted']);
+        $this->assertDatabaseCount('order_refunds', 0);
+
+        DB::table('orders')->where('id', $order->id)->update([
+            'status' => 'Confirmed', 'cancel_requested' => 0, 'cancel_status' => null,
+            'deposit_status' => 'paid', 'payment_status' => 'Partial Payment',
+        ]);
+        $this->post('/customer/orders/'.$order->id.'/cancel-request', [
+            'cancel_reason' => 'Changed plans', 'refund_gcash_name' => 'Test Buyer', 'refund_gcash_number' => '09172222222',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'Confirmed', 'cancel_status' => 'pending']);
+        $this->assertDatabaseCount('order_refunds', 1);
+    }
+
     public function test_customer_deposit_qr_opens_in_a_responsive_modal(): void
     {
         $this->prepareFixture();
