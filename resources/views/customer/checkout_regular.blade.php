@@ -381,14 +381,8 @@ document.body.style.paddingRight = '';
                           <label class="form-label fw-semibold small">Sender Name on Card</label>
                           <input type="text" class="form-control" name="sender_display_name" maxlength="120" value="{{ session('user')['fullname'] ?? '' }}" placeholder="Example: Mama, Papa, Your friend">
                         </div>
-                        <div class="col-md-6">
-                          <label class="form-label fw-semibold small">Contact Rule</label>
-                          <select class="form-select" name="surprise_contact_policy">
-                            <option value="sender_first">Call me first before recipient</option>
-                            <option value="recipient_if_needed">Call recipient only if needed</option>
-                            <option value="recipient_ok">Recipient may be called directly</option>
-                          </select>
-                        </div>
+                        <input type="hidden" name="surprise_contact_policy" value="sender_first">
+                        <div class="col-md-6"><div class="h-100 rounded-3 p-3 small" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af"><i class="bi bi-telephone-forward me-1"></i><strong>Contact sender first.</strong><div class="mt-1">Recipient phone is used only as backup if delivery cannot be completed.</div></div></div>
                         <div class="col-12">
                           <label class="form-label fw-semibold small">Gift Message</label>
                           <textarea class="form-control" name="gift_message" rows="2" maxlength="500" placeholder="Optional message for the recipient">{{ old('gift_message') }}</textarea>

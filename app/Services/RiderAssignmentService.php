@@ -317,13 +317,14 @@ class RiderAssignmentService
         $shopName = SmsHelper::getShopName($shop->id ?? ($order->shop_id ?? null));
         $header = SmsHelper::header($siteName, $shopName);
         $isSurprise = !empty($order->is_surprise_delivery);
+        $surpriseContact = $isSurprise ? app(SurpriseContactService::class)->details($order) : null;
         $custName = $isSurprise
-            ? ($order->recipient_name ?? 'Recipient')
+            ? ('Sender: ' . ($surpriseContact['sender_name'] ?? 'Sender') . ' | Recipient: ' . ($surpriseContact['recipient_name'] ?? 'Recipient'))
             : ($order->guest_name
                 ?? (!empty($order->user_id) ? DB::table('users')->where('id', $order->user_id)->value('fullname') : null)
                 ?? 'Customer');
         $custPhone = $isSurprise
-            ? (($order->recipient_phone ?: null) ?? $order->guest_phone ?? '')
+            ? ($surpriseContact['primary_phone'] ?? '')
             : ($order->guest_phone
                 ?? (!empty($order->user_id) ? DB::table('users')->where('id', $order->user_id)->value('phone') : null)
                 ?? '');
@@ -331,7 +332,8 @@ class RiderAssignmentService
             ? ($order->recipient_address ?? $order->delivery_address ?? $order->address ?? 'N/A')
             : ($order->delivery_address ?? $order->address ?? 'N/A');
         if ($isSurprise) {
-            $addr .= ' | SURPRISE: contact sender first. Do not mention price.';
+            $backup = !empty($surpriseContact['backup_phone']) ? ' Recipient backup: ' . $surpriseContact['backup_phone'] . '.' : '';
+            $addr .= ' | SURPRISE: ' . ($surpriseContact['instruction'] ?? 'Contact sender first. Do not mention price to recipient.') . $backup;
         }
 
         return SmsHelper::buildRiderSms($header, $order->id, $custName, $custPhone, $addr, SmsHelper::paymentLine($order), $pin, $rider->phone ?? '', $token);

@@ -169,8 +169,6 @@ class CustomOrderController extends Controller
         $giftMessage = substr(trim((string) $request->input('gift_message', '')), 0, 500);
         $senderDisplay = substr(preg_replace('/\s+/', ' ', trim((string) $request->input('sender_display_name', ''))), 0, 120);
         $instructions = substr(trim((string) $request->input('delivery_instructions', '')), 0, 500);
-        $policy = (string) $request->input('surprise_contact_policy', 'sender_first');
-        if (!in_array($policy, ['sender_first', 'recipient_if_needed', 'recipient_ok'], true)) $policy = 'sender_first';
         if ($name === '') {
             return ['enabled' => true, 'error' => 'Please enter the surprise recipient name.'];
         }
@@ -185,7 +183,7 @@ class CustomOrderController extends Controller
             'gift_message' => $giftMessage ?: null,
             'sender_display_name' => $senderDisplay ?: (session('user')['fullname'] ?? null),
             'hide_sender_name' => $request->boolean('hide_sender_name'),
-            'surprise_contact_policy' => $policy,
+            'surprise_contact_policy' => 'sender_first',
             'delivery_instructions' => $instructions ?: null,
         ]];
     }

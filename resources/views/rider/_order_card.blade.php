@@ -2,8 +2,9 @@
   $bucket = $order->rider_bucket;
   $isPending = ($order->rider_assignment_status ?? '') === 'pending';
   $isSurpriseDelivery = !empty($order->is_surprise_delivery);
-  $displayName = $isSurpriseDelivery ? ($order->recipient_name ?? 'Recipient') : ($order->guest_name ?? 'Customer');
-  $displayPhone = $isSurpriseDelivery ? (($order->recipient_phone ?: null) ?? ($order->guest_phone ?? null)) : ($order->guest_phone ?? null);
+  $surpriseContact = $isSurpriseDelivery ? app(\App\Services\SurpriseContactService::class)->details($order) : null;
+  $displayName = $isSurpriseDelivery ? ($surpriseContact['sender_name'] ?? 'Sender') : ($order->guest_name ?? 'Customer');
+  $displayPhone = $isSurpriseDelivery ? ($surpriseContact['sender_phone'] ?? null) : ($order->guest_phone ?? null);
   $deliveryAddr = $isSurpriseDelivery ? ($order->recipient_address ?? $order->delivery_address ?? 'No delivery address') : ($order->delivery_address ?? 'No delivery address');
   $deliveryLat = $isSurpriseDelivery ? ($order->recipient_latitude ?? $order->latitude ?? null) : ($order->latitude ?? null);
   $deliveryLng = $isSurpriseDelivery ? ($order->recipient_longitude ?? $order->longitude ?? null) : ($order->longitude ?? null);
@@ -31,6 +32,7 @@
   <div class="order-body">
     <ul class="detail">
       <li><i class="bi bi-person"></i><span>{{ $displayName }}{{ $displayPhone ? ' · '.$displayPhone : '' }} @if($isSurpriseDelivery)<span class="badge b-pending">Surprise</span>@endif</span></li>
+      @if($isSurpriseDelivery)<li><i class="bi bi-gift"></i><span>Contact sender first · Recipient: {{ $surpriseContact['recipient_name'] }}{{ $surpriseContact['backup_phone'] ? ' · backup '.$surpriseContact['backup_phone'] : '' }}</span></li>@endif
       <li><i class="bi bi-geo-alt"></i><span>{{ $deliveryAddr }}</span></li>
       <li><i class="bi bi-calendar-event"></i><span>{{ $order->schedule_date ?? 'No date' }} {{ $order->schedule_time ?? '' }}</span></li>
       @if($order->distance_km !== null)<li><i class="bi bi-signpost"></i><span>{{ number_format($order->distance_km, 2) }} km away</span></li>@endif

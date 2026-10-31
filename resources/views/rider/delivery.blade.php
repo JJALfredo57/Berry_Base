@@ -268,8 +268,9 @@
 
 @php
   $isSurpriseDelivery = !empty($order->is_surprise_delivery);
-  $displayName = $isSurpriseDelivery ? ($order->recipient_name ?? 'Recipient') : ($order->guest_name ?? 'Customer');
-  $displayPhone = $isSurpriseDelivery ? (($order->recipient_phone ?: null) ?? ($order->guest_phone ?? null)) : ($order->guest_phone ?? null);
+  $surpriseContact = $isSurpriseDelivery ? app(\App\Services\SurpriseContactService::class)->details($order) : null;
+  $displayName = $isSurpriseDelivery ? ($surpriseContact['sender_name'] ?? 'Sender') : ($order->guest_name ?? 'Customer');
+  $displayPhone = $isSurpriseDelivery ? ($surpriseContact['sender_phone'] ?? null) : ($order->guest_phone ?? null);
   $deliveryAddr = $isSurpriseDelivery ? ($order->recipient_address ?? $order->delivery_address ?? $order->address ?? null) : ($order->delivery_address ?? $order->address ?? null);
   $deliveryLat = $isSurpriseDelivery ? ($order->recipient_latitude ?? $order->latitude ?? null) : ($order->latitude ?? null);
   $deliveryLng = $isSurpriseDelivery ? ($order->recipient_longitude ?? $order->longitude ?? null) : ($order->longitude ?? null);
@@ -281,7 +282,17 @@
     <div class="row-icon" style="background:#ffedd5"><i class="bi bi-gift"></i></div>
     <div class="row-body">
       <div class="row-label">Surprise Delivery</div>
-      <div class="row-value">Contact sender first. Do not mention price to recipient.</div>
+      <div class="row-value">{{ $surpriseContact['instruction'] }}</div>
+    </div>
+  </div>
+  @endif
+  @if($isSurpriseDelivery)
+  <div class="row">
+    <div class="row-icon" style="background:#fff7ed;color:#9a3412"><i class="bi bi-person-heart"></i></div>
+    <div class="row-body">
+      <div class="row-label">Recipient</div>
+      <div class="row-value">{{ $surpriseContact['recipient_name'] }}</div>
+      @if($surpriseContact['backup_phone'])<div class="small text-muted">Backup only: <a href="tel:{{ $surpriseContact['backup_phone'] }}">{{ $surpriseContact['backup_phone'] }}</a></div>@endif
     </div>
   </div>
   @endif
@@ -305,7 +316,6 @@
   </div>
   @endif
 
-  @php $deliveryAddr = $order->delivery_address ?? $order->address ?? null; @endphp
   @if($deliveryAddr)
   <div class="row">
     <div class="row-icon" style="background:#eff6ff">📍</div>

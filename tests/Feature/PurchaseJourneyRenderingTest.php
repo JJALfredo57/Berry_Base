@@ -683,6 +683,45 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertSee('Tarlac');
     }
 
+    public function test_surprise_delivery_forces_sender_first_and_uses_recipient_as_backup(): void
+    {
+        $this->prepareFixture();
+        $this->post('/catalog/select', ['product_id' => 'TESTCAKE', 'quantity' => 1]);
+        $this->post('/login', ['username' => 'testbuyer', 'password' => 'TestPassword1!'])
+            ->assertRedirect(route('customer.checkout'));
+        $this->get('/customer/checkout')->assertOk()
+            ->assertDontSee('Contact Rule')
+            ->assertSee('Contact sender first.');
+
+        $this->post('/customer/checkout/place', [
+            'fulfillment_type' => 'Delivery',
+            'schedule_date' => now()->addDays(5)->toDateString(),
+            'schedule_time' => '14:00',
+            'payment_method' => 'GCash',
+            'delivery_zone' => 'Poblacion',
+            'address' => 'House 12 Rizal Street Poblacion Bautista Pangasinan near school',
+            'latitude' => '15.8095',
+            'longitude' => '120.4988',
+            'is_surprise_delivery' => '1',
+            'recipient_name' => 'Gift Recipient',
+            'recipient_phone' => '09181234567',
+            'surprise_contact_policy' => 'recipient_ok',
+        ])->assertRedirect();
+
+        $this->assertNull(session('error'), (string) session('error'));
+        $order = DB::table('orders')->first();
+        $this->assertSame('sender_first', $order->surprise_contact_policy);
+        $contact = app(\App\Services\SurpriseContactService::class)->details($order);
+        $this->assertSame('+639172222222', $contact['primary_phone']);
+        $this->assertSame('09181234567', $contact['backup_phone']);
+
+        $withoutRecipientPhone = app(\App\Services\SurpriseContactService::class)->details((object) [
+            'user_id' => 'TESTBUYER', 'recipient_name' => 'Gift Recipient', 'recipient_phone' => null,
+        ]);
+        $this->assertSame('+639172222222', $withoutRecipientPhone['primary_phone']);
+        $this->assertNull($withoutRecipientPhone['backup_phone']);
+    }
+
     private function prepareFixture(): void
     {
         // The seller-document CHECK migration contains PostgreSQL-only SQL.
