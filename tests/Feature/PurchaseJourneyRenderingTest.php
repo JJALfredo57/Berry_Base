@@ -36,6 +36,10 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertSessionHas('err');
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'Cancelled']);
         $this->assertDatabaseHas('custom_orders', ['id' => 'CANCELLEDCUSTOM', 'review_status' => 'pending']);
+        DB::table('custom_orders')->where('id', 'CANCELLEDCUSTOM')->update(['review_status' => 'rejected']);
+        $this->withSession($seller)->get('/seller/custom-orders?tab=rejected')
+            ->assertOk()->assertSee('Cancelled Custom Cake')->assertSee('Rejected')
+            ->assertDontSee('Customer cancelled this order');
     }
 
     public function test_unpaid_custom_cancellation_is_immediate_but_paid_requires_review(): void

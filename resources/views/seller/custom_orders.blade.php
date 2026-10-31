@@ -126,7 +126,7 @@
     'cancelled' => ['bg'=>'#f1f5f9','color'=>'#475569','label'=>' Cancelled'],
   ];
   $orderStatus    = $co->order_status ?? 'Pending Review';
-  $isCancelled    = $orderStatus === 'Cancelled';
+  $isCancelled    = $orderStatus === 'Cancelled' && $co->review_status !== 'rejected';
   $sc = $isCancelled ? $statusColors['cancelled'] : ($statusColors[$co->review_status] ?? $statusColors['pending']);
   $isPending      = !$isCancelled && $co->review_status === 'pending';
   $isApproved     = $co->review_status === 'approved';

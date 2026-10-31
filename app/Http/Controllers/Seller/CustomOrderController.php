@@ -93,7 +93,10 @@ class CustomOrderController extends Controller
                     }
                 });
             })
-            ->when($tab !== 'all', fn($q) => $q->where('co.review_status', $tab)->where('o.status', '<>', 'Cancelled'))
+            ->when($tab !== 'all', function ($q) use ($tab) {
+                $q->where('co.review_status', $tab);
+                if ($tab !== 'rejected') $q->where('o.status', '<>', 'Cancelled');
+            })
             ->when($hasRush, fn($q) => $q->orderByRaw("CASE WHEN co.review_status = 'pending' AND co.is_rush = true THEN 0 ELSE 1 END"))
             ->when($tab === 'all', fn($q) => $q->orderByRaw(
                 "CASE WHEN co.review_status = 'pending' THEN 0 WHEN co.review_status = 'approved' THEN 1 ELSE 2 END"
@@ -119,7 +122,7 @@ class CustomOrderController extends Controller
             $activeBase = (clone $base)->where('o.status', '<>', 'Cancelled');
             $pendingCount  = (clone $activeBase)->where('co.review_status', 'pending')->count();
             $approvedCount = (clone $activeBase)->where('co.review_status', 'approved')->count();
-            $rejectedCount = (clone $activeBase)->where('co.review_status', 'rejected')->count();
+            $rejectedCount = (clone $base)->where('co.review_status', 'rejected')->count();
             $totalCount    = (clone $base)->count();
 
             $approvedNoRiderCount = DB::table('custom_orders as co')
