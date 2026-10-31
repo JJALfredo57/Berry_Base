@@ -123,16 +123,18 @@
     'pending'  => ['bg'=>'#fff3cd','color'=>'#856404','label'=>' Pending Review'],
     'approved' => ['bg'=>'#d1fae5','color'=>'#065f46','label'=>' Approved'],
     'rejected' => ['bg'=>'#fee2e2','color'=>'#991b1b','label'=>' Rejected'],
+    'cancelled' => ['bg'=>'#f1f5f9','color'=>'#475569','label'=>' Cancelled'],
   ];
-  $sc = $statusColors[$co->review_status] ?? $statusColors['pending'];
   $orderStatus    = $co->order_status ?? 'Pending Review';
-  $isPending      = $co->review_status === 'pending';
+  $isCancelled    = $orderStatus === 'Cancelled';
+  $sc = $isCancelled ? $statusColors['cancelled'] : ($statusColors[$co->review_status] ?? $statusColors['pending']);
+  $isPending      = !$isCancelled && $co->review_status === 'pending';
   $isApproved     = $co->review_status === 'approved';
   $priceConfirmed = $co->price_confirmed ?? null;
 @endphp
 
 <div class="card mb-4 border-0 shadow-sm" style="border-radius:1rem;overflow:hidden;
-     {{ $isPending ? 'border-left:4px solid #f59e0b' : ($isApproved ? 'border-left:4px solid #16a34a' : 'border-left:4px solid #dc2626') }}">
+      {{ $isCancelled ? 'border-left:4px solid #64748b' : ($isPending ? 'border-left:4px solid #f59e0b' : ($isApproved ? 'border-left:4px solid #16a34a' : 'border-left:4px solid #dc2626')) }}">
   <div class="card-body p-0">
 
     {{-- Header --}}
@@ -314,6 +316,13 @@
 
         {{-- RIGHT: Actions --}}
         <div class="col-lg-7">
+
+          @if($isCancelled)
+          <div class="p-3 rounded-3" style="border:1px solid #cbd5e1;background:#f8fafc;color:#475569">
+            <div class="fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Customer cancelled this order</div>
+            <div class="small mt-1">This request is kept as history only. It cannot be approved, rejected, or sent to production.</div>
+          </div>
+          @endif
 
           @if($isPending)
           <div class="d-flex flex-column gap-3">

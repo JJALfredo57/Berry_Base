@@ -93,7 +93,7 @@ class CustomOrderController extends Controller
                     }
                 });
             })
-            ->when($tab !== 'all', fn($q) => $q->where('co.review_status', $tab))
+            ->when($tab !== 'all', fn($q) => $q->where('co.review_status', $tab)->where('o.status', '<>', 'Cancelled'))
             ->when($hasRush, fn($q) => $q->orderByRaw("CASE WHEN co.review_status = 'pending' AND co.is_rush = true THEN 0 ELSE 1 END"))
             ->when($tab === 'all', fn($q) => $q->orderByRaw(
                 "CASE WHEN co.review_status = 'pending' THEN 0 WHEN co.review_status = 'approved' THEN 1 ELSE 2 END"
@@ -113,10 +113,13 @@ class CustomOrderController extends Controller
 
         $pendingCount = $approvedCount = $approvedNoRiderCount = $rejectedCount = $totalCount = 0;
         try {
-            $base = DB::table('custom_orders')->where('shop_id', (string) $shop->id);
-            $pendingCount  = (clone $base)->where('review_status', 'pending')->count();
-            $approvedCount = (clone $base)->where('review_status', 'approved')->count();
-            $rejectedCount = (clone $base)->where('review_status', 'rejected')->count();
+            $base = DB::table('custom_orders as co')
+                ->leftJoin('orders as o', 'o.id', '=', 'co.order_id')
+                ->where('co.shop_id', (string) $shop->id);
+            $activeBase = (clone $base)->where('o.status', '<>', 'Cancelled');
+            $pendingCount  = (clone $activeBase)->where('co.review_status', 'pending')->count();
+            $approvedCount = (clone $activeBase)->where('co.review_status', 'approved')->count();
+            $rejectedCount = (clone $activeBase)->where('co.review_status', 'rejected')->count();
             $totalCount    = (clone $base)->count();
 
             $approvedNoRiderCount = DB::table('custom_orders as co')
@@ -145,8 +148,9 @@ class CustomOrderController extends Controller
         $shop  = $this->getShop();
         $price = (float)$request->input('admin_price', 0);
         $co    = DB::table('custom_orders as co')->join('orders as o', 'o.id', '=', 'co.order_id')
-            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.guest_phone', 'o.guest_name', 'o.track_code')->first();
+            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.guest_phone', 'o.guest_name', 'o.track_code', 'o.status as order_status')->first();
         if (!$co) return back()->with('err', 'Custom order not found.');
+        if (($co->order_status ?? '') === 'Cancelled') return back()->with('err', 'This custom order was cancelled by the customer and cannot be reviewed.');
         if ($co->review_status !== 'pending') return back()->with('err', 'Already reviewed.');
         if ($price <= 0) return back()->with('err', 'Please enter a valid price.');
 
@@ -193,8 +197,9 @@ class CustomOrderController extends Controller
         $shop   = $this->getShop();
         $reason = trim($request->input('reason', ''));
         $co     = DB::table('custom_orders as co')->join('orders as o', 'o.id', '=', 'co.order_id')
-            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.guest_phone', 'o.guest_name', 'o.track_code')->first();
+            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.guest_phone', 'o.guest_name', 'o.track_code', 'o.status as order_status')->first();
         if (!$co) return back()->with('err', 'Not found.');
+        if (($co->order_status ?? '') === 'Cancelled') return back()->with('err', 'This custom order was already cancelled by the customer.');
         if (!$reason) return back()->with('err', 'Please provide a reason.');
         DB::table('custom_orders')->where('id', $id)->update(['review_status' => 'rejected', 'admin_comment' => $reason]);
         DB::table('orders')->where('id', $co->order_id)->update(['status' => 'Cancelled']);

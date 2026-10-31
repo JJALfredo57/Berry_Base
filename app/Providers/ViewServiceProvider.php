@@ -75,9 +75,11 @@ class ViewServiceProvider extends ServiceProvider
                             }
 
                             $customOrders = Schema::hasTable('custom_orders')
-                                ? (int) DB::table('custom_orders')
-                                    ->where('shop_id', $shop->id)
-                                    ->where('review_status', 'pending')
+                                ? (int) DB::table('custom_orders as co')
+                                    ->join('orders as o', 'o.id', '=', 'co.order_id')
+                                    ->where('co.shop_id', $shop->id)
+                                    ->where('co.review_status', 'pending')
+                                    ->where('o.status', '<>', 'Cancelled')
                                     ->count()
                                 : 0;
 

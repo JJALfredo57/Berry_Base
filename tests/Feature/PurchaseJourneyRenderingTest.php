@@ -9,6 +9,35 @@ use Tests\TestCase;
 
 class PurchaseJourneyRenderingTest extends TestCase
 {
+    public function test_cancelled_custom_order_is_read_only_for_seller(): void
+    {
+        $this->prepareFixture();
+        $order = $this->createRegularOrder('COP');
+        DB::table('orders')->where('id', $order->id)->update([
+            'order_type' => 'custom',
+            'status' => 'Cancelled',
+            'cancel_requested' => true,
+            'cancel_status' => 'accepted',
+        ]);
+        DB::table('custom_orders')->insert([
+            'id' => 'CANCELLEDCUSTOM', 'order_id' => $order->id, 'shop_id' => $order->shop_id,
+            'user_id' => 'TESTBUYER', 'cake_name' => 'Cancelled Custom Cake',
+            'review_status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $seller = ['user' => ['id' => 'TESTSELLER', 'role' => 'seller', 'fullname' => 'Test Seller']];
+        $this->withSession($seller)->get('/seller/custom-orders?tab=pending')
+            ->assertOk()->assertDontSee('Cancelled Custom Cake');
+        $this->withSession($seller)->get('/seller/custom-orders?tab=all')
+            ->assertOk()->assertSee('Cancelled Custom Cake')
+            ->assertSee('Customer cancelled this order')
+            ->assertDontSee('Approve this Order');
+        $this->withSession($seller)->post('/seller/custom-orders/CANCELLEDCUSTOM/approve', ['admin_price' => 1500])
+            ->assertSessionHas('err');
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'Cancelled']);
+        $this->assertDatabaseHas('custom_orders', ['id' => 'CANCELLEDCUSTOM', 'review_status' => 'pending']);
+    }
+
     public function test_unpaid_custom_cancellation_is_immediate_but_paid_requires_review(): void
     {
         $this->prepareFixture();
