@@ -90,9 +90,11 @@ class DashboardController extends Controller
 
         // Pending custom orders
         try {
-            $pendingCustom = DB::table('custom_orders')
-                ->where('shop_id', $shopId)
-                ->where('review_status','pending')
+            $pendingCustom = DB::table('custom_orders as co')
+                ->join('orders as o', 'o.id', '=', 'co.order_id')
+                ->where('co.shop_id', $shopId)
+                ->where('co.review_status', 'pending')
+                ->where('o.status', '<>', 'Cancelled')
                 ->count();
         } catch (\Exception $e) { $pendingCustom = 0; }
 
@@ -189,9 +191,11 @@ class DashboardController extends Controller
             }
 
             if (Schema::hasTable('custom_orders')) {
-                $counts['custom_orders'] = (int) DB::table('custom_orders')
-                    ->where('shop_id', $shopId)
-                    ->where('review_status', 'pending')
+                $counts['custom_orders'] = (int) DB::table('custom_orders as co')
+                    ->join('orders as o', 'o.id', '=', 'co.order_id')
+                    ->where('co.shop_id', $shopId)
+                    ->where('co.review_status', 'pending')
+                    ->where('o.status', '<>', 'Cancelled')
                     ->count();
             }
 

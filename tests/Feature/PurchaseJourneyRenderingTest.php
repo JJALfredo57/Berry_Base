@@ -26,6 +26,16 @@ class PurchaseJourneyRenderingTest extends TestCase
         ]);
 
         $seller = ['user' => ['id' => 'TESTSELLER', 'role' => 'seller', 'fullname' => 'Test Seller']];
+        $this->withSession($seller)->get('/seller/dashboard')
+            ->assertOk()->assertDontSee('awaiting your review and pricing');
+        $this->withSession($seller)->getJson('/seller/sidebar-counts')
+            ->assertOk()->assertJsonPath('counts.custom_orders', 0);
+        DB::table('orders')->where('id', $order->id)->update(['status' => 'Pending Review']);
+        $this->withSession($seller)->getJson('/seller/sidebar-counts')
+            ->assertOk()->assertJsonPath('counts.custom_orders', 1);
+        $this->withSession($seller)->get('/seller/dashboard')
+            ->assertOk()->assertSee('awaiting your review and pricing');
+        DB::table('orders')->where('id', $order->id)->update(['status' => 'Cancelled']);
         $this->withSession($seller)->get('/seller/custom-orders?tab=pending')
             ->assertOk()->assertDontSee('Cancelled Custom Cake');
         $this->withSession($seller)->get('/seller/custom-orders?tab=all')
