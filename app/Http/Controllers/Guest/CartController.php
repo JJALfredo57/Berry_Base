@@ -162,8 +162,16 @@ class CartController extends Controller
         $meta['seller_review_deadline_at'] = optional($prep->reviewDeadline($shopId, $scheduleDate))->toDateTimeString();
         $meta['custom_prep_days'] = (int) $settings->custom_cake_prep_days;
 
-        $deliveryValidation = app(\App\Services\DeliveryLocationValidationService::class)->validateStoredDelivery($meta, $shopId);
-        if (!$deliveryValidation['ok']) return back()->with('error', $deliveryValidation['message']);
+        $oldDeliveryFee = (float) ($meta['delivery_fee'] ?? 0);
+        $deliveryQuote = app(\App\Services\DeliveryLocationValidationService::class)->quoteStoredDelivery($meta, $shopId);
+        if (!$deliveryQuote['ok']) return back()->with('error', $deliveryQuote['message']);
+        $meta['delivery_zone'] = $deliveryQuote['zone'] ?? null;
+        $meta['delivery_fee'] = (float) ($deliveryQuote['delivery_fee'] ?? 0);
+        $meta['estimated_total'] = max(0, (float) ($meta['estimated_total'] ?? 0) - $oldDeliveryFee + (float) $meta['delivery_fee']);
+        if (isset($meta['price_breakdown']) && is_array($meta['price_breakdown'])) {
+            $meta['price_breakdown']['delivery_fee'] = (float) $meta['delivery_fee'];
+            $meta['price_breakdown']['total'] = (float) $meta['estimated_total'];
+        }
 
         DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->update([
             'selected_size' => $meta['size'] ?? $item->selected_size,

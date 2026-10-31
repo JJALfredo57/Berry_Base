@@ -133,6 +133,52 @@ class DeliveryLocationValidationService
         return ['ok' => false, 'message' => 'This delivery address is no longer covered by the selected shop. Choose another covered address or switch to pickup.'];
     }
 
+    public function quoteStoredDelivery(array $meta, ?string $shopId): array
+    {
+        $validation = $this->validateStoredDelivery($meta, $shopId);
+        if (!$validation['ok']) return $validation;
+        if (($meta['fulfillment_type'] ?? 'Pickup') !== 'Delivery') {
+            return ['ok' => true, 'zone' => null, 'delivery_fee' => 0.0, 'distance_m' => 0.0];
+        }
+
+        $lat = (float) $meta['latitude'];
+        $lng = (float) $meta['longitude'];
+        $settings = Schema::hasTable('site_settings') ? DB::table('site_settings')->where('shop_id', $shopId)->first() : null;
+        $radius = max(1000, (int) ($settings->delivery_coverage_radius ?? 5000));
+        $query = DB::table('delivery_zones')->where('shop_id', $shopId)->where('is_active', true)->whereNotNull('lat')->whereNotNull('lng');
+        if (Schema::hasColumn('delivery_zones', 'archived_at')) $query->whereNull('archived_at');
+        $nearest = null;
+        foreach ($query->get() as $zone) {
+            $distance = $this->haversine($lat, $lng, (float) $zone->lat, (float) $zone->lng);
+            if ($distance <= $radius && (!$nearest || $distance < $nearest['distance_m'])) {
+                $nearest = ['zone' => $zone, 'distance_m' => $distance];
+            }
+        }
+        if (!$nearest) return ['ok' => false, 'message' => 'This address is outside the seller delivery coverage. Choose another saved address or switch to pickup.'];
+
+        $deliveryFee = (float) ($nearest['zone']->delivery_fee ?? $nearest['zone']->fee ?? 0);
+        if ($settings && isset($settings->shop_lat, $settings->shop_lng)) {
+            $shopDistance = $this->haversine($lat, $lng, (float) $settings->shop_lat, (float) $settings->shop_lng);
+            $freeRadius = max(0, (int) ($settings->free_delivery_radius ?? 0));
+            if ($freeRadius > 0 && $shopDistance <= $freeRadius) {
+                $deliveryFee = 0;
+            } elseif ((float) ($settings->fee_per_meter ?? 0) > 0) {
+                $km = $shopDistance / 1000;
+                $deliveryFee = ceil(
+                    ((float) ($settings->fee_per_meter ?? 0.05)) * $shopDistance
+                    + (((float) ($settings->maintenance_per_km ?? 5)) + ((float) ($settings->fuel_per_km ?? 8))) * $km
+                );
+            }
+        }
+
+        return [
+            'ok' => true,
+            'zone' => (string) ($nearest['zone']->barangay ?? ''),
+            'delivery_fee' => max(0, round($deliveryFee, 2)),
+            'distance_m' => round((float) $nearest['distance_m'], 2),
+        ];
+    }
+
     private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
         $earthRadius = 6371000;

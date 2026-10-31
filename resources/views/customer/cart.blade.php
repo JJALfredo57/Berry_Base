@@ -171,6 +171,8 @@
                             data-date="{{ $cartMeta['schedule_date'] ?? '' }}"
                             data-time="{{ $cartMeta['schedule_time'] ?? '' }}"
                             data-fulfillment="{{ $cartMeta['fulfillment_type'] ?? 'Pickup' }}"
+                            data-saved-address-id="{{ $cartMeta['saved_address_id'] ?? '' }}"
+                            data-draft-address="{{ $cartMeta['address'] ?? '' }}"
                             data-summary="{{ ($cartMeta['schedule_date'] ?? 'No date') . (!empty($cartMeta['time_slot']) ? ' - ' . $cartMeta['time_slot'] : '') . ' - ' . ($cartMeta['fulfillment_type'] ?? 'Pickup') }}">
                             <i class="bi bi-calendar-plus me-1"></i>Reschedule
                           </button>
@@ -340,7 +342,19 @@
             <span><i class="bi bi-truck me-1"></i>Delivery</span>
           </label>
         </div>
-        <div class="small text-muted"><i class="bi bi-info-circle me-1"></i>Delivery uses the address already saved on this draft.</div>
+        <div id="customRescheduleAddressWrap" class="rounded-3 p-3 mb-3" style="display:none;background:#f8fafc;border:1px solid #e5e7eb">
+          <label class="form-label small fw-semibold" for="customRescheduleSavedAddress"><i class="bi bi-geo-alt me-1" style="color:var(--primary)"></i>Delivery address</label>
+          <select class="form-select" id="customRescheduleSavedAddress" name="saved_address_id" onchange="customRescheduleSyncAddress()">
+            <option value="">Use address already saved in this custom draft</option>
+            @foreach(($savedAddresses ?? collect()) as $savedAddress)
+              <option value="{{ $savedAddress->id }}" data-address="{{ $savedAddress->full_address }}">
+                {{ $savedAddress->label_name ?: ($savedAddress->is_default ? 'Default Address' : 'Saved Address') }} — {{ \Illuminate\Support\Str::limit($savedAddress->full_address, 70) }}
+              </option>
+            @endforeach
+          </select>
+          <div class="small text-muted mt-2" id="customRescheduleAddressPreview"><i class="bi bi-shield-check me-1"></i><span data-address-preview>Coverage will be checked when you save.</span></div>
+          <div class="small text-muted mt-1">Only addresses saved to your account can be selected. Delivery fee and coverage are recalculated for this seller.</div>
+        </div>
         <div class="d-flex justify-content-end gap-2 mt-4">
           <button type="button" class="btn btn-outline-secondary btn-sm" onclick="customRescheduleClose()">Cancel</button>
           <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check2-circle me-1"></i>Update schedule</button>
@@ -429,9 +443,28 @@ function customRescheduleOpen(button) {
   dialog.querySelectorAll('[name="fulfillment_type"]').forEach(input => {
     input.checked = input.value === (button.dataset.fulfillment || 'Pickup');
   });
+  dialog.dataset.draftAddress = button.dataset.draftAddress || '';
+  const savedAddress = document.getElementById('customRescheduleSavedAddress');
+  if (savedAddress) savedAddress.value = button.dataset.savedAddressId || '';
+  customRescheduleSyncAddress();
   if (current) current.textContent = button.dataset.summary || 'Selected schedule';
   dialog.classList.add('show');
 }
+
+function customRescheduleSyncAddress() {
+  const dialog = document.getElementById('customRescheduleDialog');
+  const wrap = document.getElementById('customRescheduleAddressWrap');
+  const select = document.getElementById('customRescheduleSavedAddress');
+  const preview = document.querySelector('[data-address-preview]');
+  if (!dialog || !wrap) return;
+  const isDelivery = dialog.querySelector('[name="fulfillment_type"]:checked')?.value === 'Delivery';
+  wrap.style.display = isDelivery ? 'block' : 'none';
+  if (!isDelivery || !preview) return;
+  const option = select?.options[select.selectedIndex];
+  preview.textContent = option?.value ? (option.dataset.address || 'Selected saved address') : (dialog.dataset.draftAddress || 'No delivery address is saved in this draft. Choose a saved address.');
+}
+
+document.querySelectorAll('#customRescheduleDialog [name="fulfillment_type"]').forEach(input => input.addEventListener('change', customRescheduleSyncAddress));
 
 function customRescheduleClose() {
   const dialog = document.getElementById('customRescheduleDialog');

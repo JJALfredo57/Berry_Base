@@ -16,8 +16,15 @@ class CartController extends Controller
         $data = $cartService->items($request, $uid);
         $verificationStatus = app(\App\Services\CustomerVerificationService::class)->status($uid);
         $loyalty = app(\App\Services\LoyaltyService::class)->account($uid);
+        $savedAddresses = collect();
+        if (\Illuminate\Support\Facades\Schema::hasTable('user_addresses')) {
+            $addressQuery = DB::table('user_addresses')->where('user_id', $uid);
+            if (\Illuminate\Support\Facades\Schema::hasColumn('user_addresses', 'archived_at')) $addressQuery->whereNull('archived_at');
+            $savedAddresses = $addressQuery->whereNotNull('latitude')->whereNotNull('longitude')
+                ->orderByDesc('is_default')->orderByDesc('id')->get();
+        }
 
-        return view('customer.cart', $data + compact('verificationStatus', 'loyalty'));
+        return view('customer.cart', $data + compact('verificationStatus', 'loyalty', 'savedAddresses'));
     }
 
     public function store(Request $request, CartService $cartService)
@@ -167,6 +174,23 @@ class CartController extends Controller
         $fulfillment = $request->input('fulfillment_type', $meta['fulfillment_type'] ?? 'Pickup');
         $fulfillment = in_array($fulfillment, ['Pickup', 'Delivery'], true) ? $fulfillment : 'Pickup';
         $quantity = max(1, (int) $item->quantity);
+
+        if ($fulfillment === 'Delivery' && $request->filled('saved_address_id')) {
+            $savedAddressQuery = DB::table('user_addresses')->where('id', (int) $request->input('saved_address_id'))->where('user_id', $uid);
+            if (\Illuminate\Support\Facades\Schema::hasColumn('user_addresses', 'archived_at')) $savedAddressQuery->whereNull('archived_at');
+            $savedAddress = $savedAddressQuery->first();
+            if (!$savedAddress || empty($savedAddress->full_address) || $savedAddress->latitude === null || $savedAddress->longitude === null) {
+                return back()->with('error', 'The selected saved address is unavailable. Choose another address or use pickup.');
+            }
+            $meta['address'] = (string) $savedAddress->full_address;
+            $meta['latitude'] = (float) $savedAddress->latitude;
+            $meta['longitude'] = (float) $savedAddress->longitude;
+            $meta['delivery_zone'] = (string) ($savedAddress->barangay_name ?? '');
+            foreach (['province_code', 'province_name', 'city_municipality_code', 'city_municipality_name', 'barangay_code', 'barangay_name'] as $field) {
+                if (isset($savedAddress->{$field})) $meta[$field] = $savedAddress->{$field};
+            }
+            $meta['saved_address_id'] = (int) $savedAddress->id;
+        }
         $lat = isset($meta['latitude']) && $meta['latitude'] !== '' ? (float) $meta['latitude'] : null;
         $lng = isset($meta['longitude']) && $meta['longitude'] !== '' ? (float) $meta['longitude'] : null;
 
@@ -196,8 +220,16 @@ class CartController extends Controller
         $meta['seller_review_deadline_at'] = optional($prep->reviewDeadline($shopId, $scheduleDate))->toDateTimeString();
         $meta['custom_prep_days'] = (int) $settings->custom_cake_prep_days;
 
-        $deliveryValidation = app(\App\Services\DeliveryLocationValidationService::class)->validateStoredDelivery($meta, $shopId);
-        if (!$deliveryValidation['ok']) return back()->with('error', $deliveryValidation['message']);
+        $oldDeliveryFee = (float) ($meta['delivery_fee'] ?? 0);
+        $deliveryQuote = app(\App\Services\DeliveryLocationValidationService::class)->quoteStoredDelivery($meta, $shopId);
+        if (!$deliveryQuote['ok']) return back()->with('error', $deliveryQuote['message']);
+        $meta['delivery_zone'] = $deliveryQuote['zone'] ?? null;
+        $meta['delivery_fee'] = (float) ($deliveryQuote['delivery_fee'] ?? 0);
+        $meta['estimated_total'] = max(0, (float) ($meta['estimated_total'] ?? 0) - $oldDeliveryFee + (float) $meta['delivery_fee']);
+        if (isset($meta['price_breakdown']) && is_array($meta['price_breakdown'])) {
+            $meta['price_breakdown']['delivery_fee'] = (float) $meta['delivery_fee'];
+            $meta['price_breakdown']['total'] = (float) $meta['estimated_total'];
+        }
 
         DB::table('customer_cart_items')->where('id', $id)->where('cart_id', $cart->id)->update([
             'selected_size' => $meta['size'] ?? $item->selected_size,

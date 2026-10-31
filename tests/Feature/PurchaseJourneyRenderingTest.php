@@ -62,7 +62,8 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertSee('Add More Cakes')
             ->assertSee('cart-select-all-label', false)
             ->assertSee('cart-check cart-item-check', false)
-            ->assertSee('cart-checkout-btn', false);
+            ->assertSee('cart-checkout-btn', false)
+            ->assertSee('customRescheduleSavedAddress', false);
         $this->get('/customer/rewards')->assertOk()
             ->assertSee('Starting Level')
             ->assertSee('No points earned yet.')
@@ -651,6 +652,14 @@ class PurchaseJourneyRenderingTest extends TestCase
             'latitude' => 15.8101, 'longitude' => 120.5001, 'delivery_zone' => 'Poblacion East',
         ], 'TESTSHOP');
         $this->assertTrue($covered['ok']);
+        $quote = $service->quoteStoredDelivery([
+            'fulfillment_type' => 'Delivery',
+            'address' => 'House 12 Rizal Street Barangay Poblacion East Bautista Pangasinan',
+            'latitude' => 15.8101, 'longitude' => 120.5001, 'delivery_zone' => 'Poblacion East',
+        ], 'TESTSHOP');
+        $this->assertTrue($quote['ok']);
+        $this->assertSame('Poblacion East', $quote['zone']);
+        $this->assertGreaterThanOrEqual(0, $quote['delivery_fee']);
 
         $outside = $service->validateStoredDelivery([
             'fulfillment_type' => 'Delivery',

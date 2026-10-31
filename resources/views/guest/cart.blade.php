@@ -307,7 +307,7 @@
             <span><i class="bi bi-truck me-1"></i>Delivery</span>
           </label>
         </div>
-        <div class="small text-muted"><i class="bi bi-info-circle me-1"></i>Delivery uses the address already saved on this draft.</div>
+        <div id="customRescheduleAddressWrap" class="small text-muted rounded-3 p-2 mb-3" style="display:none;background:#f8fafc;border:1px solid #e5e7eb"><i class="bi bi-info-circle me-1"></i>Delivery uses the address already saved in this guest custom draft and rechecks seller coverage when you save.</div>
         <div class="d-flex justify-content-end gap-2 mt-4">
           <button type="button" class="btn btn-outline-secondary btn-sm" onclick="customRescheduleClose()">Cancel</button>
           <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check2-circle me-1"></i>Update schedule</button>
@@ -396,9 +396,19 @@ function customRescheduleOpen(button) {
   dialog.querySelectorAll('[name="fulfillment_type"]').forEach(input => {
     input.checked = input.value === (button.dataset.fulfillment || 'Pickup');
   });
+  customRescheduleSyncAddress();
   if (current) current.textContent = button.dataset.summary || 'Selected schedule';
   dialog.classList.add('show');
 }
+
+function customRescheduleSyncAddress() {
+  const dialog = document.getElementById('customRescheduleDialog');
+  const wrap = document.getElementById('customRescheduleAddressWrap');
+  if (!dialog || !wrap) return;
+  wrap.style.display = dialog.querySelector('[name="fulfillment_type"]:checked')?.value === 'Delivery' ? 'block' : 'none';
+}
+
+document.querySelectorAll('#customRescheduleDialog [name="fulfillment_type"]').forEach(input => input.addEventListener('change', customRescheduleSyncAddress));
 
 function customRescheduleClose() {
   const dialog = document.getElementById('customRescheduleDialog');
