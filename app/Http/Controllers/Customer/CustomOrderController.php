@@ -152,10 +152,11 @@ class CustomOrderController extends Controller
         }
         $deliveryCoverage = app(\App\Services\DeliveryLocationValidationService::class)
             ->coverageOptions($shopId);
+        $verificationStatus = app(\App\Services\CustomerVerificationService::class)->status((string) $uid);
 
         return view('customer.custom_order', array_merge($options, compact(
             'addonCategories', 'addonsByCategory', 'customer', 'defaultAddr',
-            'deliveryZones', 'targetShop', 'shopSettings', 'deliveryCoverage'
+            'deliveryZones', 'targetShop', 'shopSettings', 'deliveryCoverage', 'verificationStatus'
         )));
     }
 

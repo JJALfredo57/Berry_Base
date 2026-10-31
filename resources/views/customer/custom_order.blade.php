@@ -384,6 +384,9 @@
                     </label>
                   </div>
                 </div>
+                <div id="highValuePaymentNotice" class="alert border-0 mt-3 mb-0 small" style="display:none;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa!important">
+                  <i class="bi bi-shield-exclamation me-1"></i><strong>High-value estimate.</strong> If the seller-approved payable total remains PHP 10,000.00 or higher, full GCash payment will be required because your account is not yet verified.
+                </div>
               </div>
             </div>
 
@@ -555,6 +558,8 @@ const LAYER_PRICES = {
 };
 
 const BASE_CUSTOM = 1200;
+const CUSTOMER_IS_VERIFIED = {{ ($verificationStatus ?? 'not_submitted') === 'approved' ? 'true' : 'false' }};
+const HIGH_VALUE_THRESHOLD = 10000;
 
 // ── Shop & coverage data ──────────────────────────────
 const SHOP_META = {
@@ -569,6 +574,7 @@ const SHOP_META = {
 const COVERAGE_ZONES  = @json($deliveryZones->values());
 const COVERAGE_RADIUS = Math.max(1000, SHOP_META.coverageRadius || 5000);
 let deliveryFee = 0;
+let currentCustomTotal = BASE_CUSTOM;
 let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
 
@@ -793,6 +799,7 @@ function updatePriceSummary() {
   if (totalDisplay) {
     totalDisplay.textContent = '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2});
   }
+  applyHighValueCustomPolicy(total);
 }
 
 function highlightAddonCard(input) {
@@ -843,6 +850,28 @@ function updatePaymentMethodLabel() {
   }
   if (codHelp) {
     codHelp.textContent = isDelivery
+      ? 'After seller price confirmation, pay a 50% GCash deposit; settle the remaining balance in cash on delivery.'
+      : 'After seller price confirmation, pay a 50% GCash deposit; settle the remaining balance in cash at pickup.';
+  }
+  applyHighValueCustomPolicy(currentCustomTotal);
+}
+
+function applyHighValueCustomPolicy(total) {
+  currentCustomTotal = Number(total || 0);
+  const highValueLocked = !CUSTOMER_IS_VERIFIED && currentCustomTotal >= HIGH_VALUE_THRESHOLD;
+  const surpriseLocked = isSurpriseDeliverySelected();
+  const cod = document.getElementById('cod');
+  const gcash = document.getElementById('gcash');
+  const notice = document.getElementById('highValuePaymentNotice');
+  const codLabel = document.getElementById('codLabelText');
+  const codHelp = document.getElementById('codHelpText');
+  if (notice) notice.style.display = highValueLocked ? 'block' : 'none';
+  if (cod) cod.disabled = surpriseLocked;
+  if (surpriseLocked && gcash) gcash.checked = true;
+  if (!surpriseLocked) {
+    const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+    if (codLabel) codLabel.textContent = isDelivery ? '50% GCash Deposit + Cash on Delivery' : '50% GCash Deposit + Cash on Pickup';
+    if (codHelp) codHelp.textContent = isDelivery
       ? 'After seller price confirmation, pay a 50% GCash deposit; settle the remaining balance in cash on delivery.'
       : 'After seller price confirmation, pay a 50% GCash deposit; settle the remaining balance in cash at pickup.';
   }

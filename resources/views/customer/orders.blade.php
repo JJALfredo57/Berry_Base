@@ -536,7 +536,7 @@
           </div>
           @php $acceptTotal = (float)$co->admin_price; @endphp
           <div class="d-flex gap-2 flex-wrap">
-            <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST" class="custom-final-price-form flex-grow-1" data-payment-mode="{{ ($o->payment_method ?? '') === 'GCash' ? 'full' : 'deposit' }}">
+            <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST" class="custom-final-price-form flex-grow-1" data-payment-mode="{{ ($o->payment_method ?? '') === 'GCash' ? 'full' : 'deposit' }}" data-unverified="{{ $customOrderVerified ? '0' : '1' }}" data-high-value-threshold="10000">
               @csrf
               @php
                 $coVoucherOptions = $customOrderVouchers[$co->id] ?? [];
@@ -587,7 +587,7 @@
                   </div>
                 </div>
               </div>
-              <div class="small text-muted mb-2">
+              <div class="small text-muted mb-2" data-payment-help>
                 @if(($o->payment_method ?? '') === 'GCash')
                   After you accept, the full discounted total will be paid through GCash.
                 @else
@@ -710,7 +710,7 @@
                 </div>
                 @php $acceptTotal = (float)$co->admin_price; @endphp
                 <div class="d-flex gap-2 flex-wrap">
-                  <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST" class="custom-final-price-form flex-grow-1" data-payment-mode="{{ ($o->payment_method ?? '') === 'GCash' ? 'full' : 'deposit' }}">
+                  <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST" class="custom-final-price-form flex-grow-1" data-payment-mode="{{ ($o->payment_method ?? '') === 'GCash' ? 'full' : 'deposit' }}" data-unverified="{{ $customOrderVerified ? '0' : '1' }}" data-high-value-threshold="10000">
                     @csrf
                     @php
                       $coVoucherOptions = $customOrderVouchers[$co->id] ?? [];
@@ -761,7 +761,7 @@
                         </div>
                       </div>
                     </div>
-                    <div class="small text-muted mb-2">
+                    <div class="small text-muted mb-2" data-payment-help>
                       @if(($o->payment_method ?? '') === 'GCash')
                         After you accept, the full discounted total will be paid through GCash.
                       @else
@@ -1733,8 +1733,22 @@ function setupCustomPriceForms() {
 
       const payable = Math.max(0, Math.round((base - voucherDiscount - pointsDiscount) * 100) / 100);
       if (payableDisplay) payableDisplay.textContent = money(payable);
-      const isFullPayment = form.dataset.paymentMode === 'full';
+      const requiresHighValueFullPayment = form.dataset.unverified === '1' && payable >= (parseFloat(form.dataset.highValueThreshold || '10000') || 10000);
+      const isFullPayment = form.dataset.paymentMode === 'full' || requiresHighValueFullPayment;
+      let highValueNotice = form.querySelector('.co-high-value-notice');
+      if (!highValueNotice) {
+        highValueNotice = document.createElement('div');
+        highValueNotice.className = 'co-high-value-notice alert border-0 py-2 px-3 mb-2 small';
+        highValueNotice.style.cssText = 'display:none;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa!important';
+        discountBox.insertAdjacentElement('afterend', highValueNotice);
+      }
+      highValueNotice.style.display = requiresHighValueFullPayment ? 'block' : 'none';
+      highValueNotice.innerHTML = '<i class="bi bi-shield-exclamation me-1"></i>Full GCash payment is required because the payable total is PHP 10,000.00 or higher and the account is not verified.';
       const amountDue = isFullPayment ? payable : Math.round(payable * 50) / 100;
+      const paymentHelp = form.querySelector('[data-payment-help]');
+      if (paymentHelp) paymentHelp.textContent = isFullPayment
+        ? (requiresHighValueFullPayment ? 'Full GCash payment is required for this unverified high-value order.' : 'After you accept, the full discounted total will be paid through GCash.')
+        : 'After you accept, pay 50% of the discounted total through GCash. The rest is due in cash at pickup or delivery.';
       button.dataset.csConfirm = isFullPayment
         ? 'Accept the final price and pay the full amount of ' + money(amountDue) + ' via GCash?'
         : 'Accept the final price and pay a 50% GCash deposit of ' + money(amountDue) + '? The balance is due in cash at pickup or delivery.';

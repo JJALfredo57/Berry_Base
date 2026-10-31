@@ -655,6 +655,10 @@ class CheckoutController extends Controller
         $pointsRedeemed = (int) ($loyaltyQuote['points'] ?? 0);
         $loyaltyDiscount = (float) ($loyaltyQuote['discount'] ?? 0);
         $total     = max(0, $baseTotal + $addonTotal - $voucherDiscount - $loyaltyDiscount) + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
+        $highValuePolicy = app(\App\Services\HighValueOrderPolicyService::class)->validatePayment((string) $uid, $total, $payment);
+        if (!$highValuePolicy['ok']) {
+            return back()->with('error', $highValuePolicy['message'])->with('error_field', 'payment')->withInput();
+        }
         $depositAmount = $payment === 'GCash' ? round($total, 2) : round($total * 0.5, 2);
         if ($depositAmount < 100) {
             return back()->with('error', $payment === 'GCash'
