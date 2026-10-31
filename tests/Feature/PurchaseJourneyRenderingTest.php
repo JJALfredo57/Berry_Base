@@ -139,34 +139,6 @@ class PurchaseJourneyRenderingTest extends TestCase
         $this->assertStringContainsString('remaining balance is due in cash at delivery', session('msg'));
     }
 
-    public function test_unverified_high_value_checkout_requires_full_gcash_while_verified_keeps_deposit(): void
-    {
-        $this->prepareFixture();
-        DB::table('products')->where('id', 'TESTCAKE')->update(['price' => 10000]);
-        $this->post('/catalog/select', ['product_id' => 'TESTCAKE', 'quantity' => 1]);
-        $this->post('/login', ['username' => 'testbuyer', 'password' => 'TestPassword1!']);
-
-        $submission = [
-            'fulfillment_type' => 'Pickup',
-            'schedule_date' => now()->addDays(5)->toDateString(),
-            'schedule_time' => '14:00',
-            'payment_method' => 'COP',
-        ];
-        $this->post('/customer/checkout/place', $submission)
-            ->assertSessionHas('error', fn ($message) => str_contains($message, 'full GCash payment is required'));
-        $this->assertDatabaseCount('orders', 0);
-
-        DB::table('customer_verifications')->insert([
-            'user_id' => 'TESTBUYER', 'id_type' => 'National ID', 'id_front_path' => 'test-id.jpg',
-            'status' => 'approved', 'created_at' => now(), 'updated_at' => now(),
-        ]);
-        $this->post('/customer/checkout/place', $submission)->assertRedirect();
-        $this->assertNull(session('error'), (string) session('error'));
-        $order = DB::table('orders')->first();
-        $this->assertSame('COP', $order->payment_method);
-        $this->assertEquals(5000.0, (float) $order->deposit_amount);
-    }
-
     public function test_custom_cash_pickup_is_normalized_and_kept_pending_seller_review(): void
     {
         $this->prepareFixture();
@@ -500,31 +472,6 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertSessionHas('err', 'The seller must approve and set the final price before you can accept it.');
 
         $this->assertSame('pending', DB::table('custom_orders')->where('id', 'CUSTOMPENDING')->value('price_confirmed'));
-    }
-
-    public function test_unverified_customer_custom_final_price_at_threshold_forces_full_gcash(): void
-    {
-        $this->prepareFixture();
-        $order = $this->createRegularOrder('COP');
-        DB::table('orders')->where('id', $order->id)->update([
-            'order_type' => 'custom', 'status' => 'Pending Price Confirmation',
-            'payment_method' => 'COP', 'payment_status' => 'Unpaid', 'total_price' => 10000,
-        ]);
-        DB::table('custom_orders')->insert([
-            'id' => 'CUSTOMHIGH', 'order_id' => $order->id, 'shop_id' => $order->shop_id,
-            'user_id' => 'TESTBUYER', 'cake_name' => 'High Value Custom Cake',
-            'review_status' => 'approved', 'admin_price' => 10000,
-            'price_confirmed' => 'pending', 'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        $this->withSession(['user' => ['id' => 'TESTBUYER', 'role' => 'customer', 'fullname' => 'Test Buyer']])
-            ->post('/customer/custom-orders/CUSTOMHIGH/accept-price')
-            ->assertRedirect(route('customer.custom_orders.pay_deposit', 'CUSTOMHIGH'));
-
-        $updated = DB::table('orders')->where('id', $order->id)->first();
-        $this->assertSame('GCash', $updated->payment_method);
-        $this->assertEquals(10000.0, (float) $updated->deposit_amount);
-        $this->assertSame('accepted', DB::table('custom_orders')->where('id', 'CUSTOMHIGH')->value('price_confirmed'));
     }
 
     public function test_guest_cannot_accept_a_custom_price_before_seller_approval(): void

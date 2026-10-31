@@ -536,9 +536,6 @@ document.body.style.paddingRight = '';
                 </label>
               </div>
             </div>
-            <div id="highValuePaymentNotice" class="alert border-0 mt-3 mb-0 small" style="display:none;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa!important">
-              <i class="bi bi-shield-exclamation me-1"></i><strong>Full GCash payment required.</strong> This order is PHP 10,000.00 or higher and your account is not yet verified. Verify your account to use the standard 50% deposit option.
-            </div>
           </div>
         </div>
 
@@ -767,10 +764,7 @@ const HAS_PRODUCT_DISCOUNT = {{ !empty($pricing['has_discount']) ? 'true' : 'fal
 const POINT_BALANCE = {{ (int)($loyaltyQuote['balance'] ?? 0) }};
 const POINT_VALUE = {{ json_encode((float) $pointValue) }};
 const MAX_REDEEM_PERCENT = {{ json_encode((float) $maxRedeemPercent) }};
-const CUSTOMER_IS_VERIFIED = {{ $verificationStatus === 'approved' ? 'true' : 'false' }};
-const HIGH_VALUE_THRESHOLD = 10000;
 let MAX_REDEEMABLE_POINTS = {{ (int)($loyaltyQuote['max'] ?? 0) }};
-let CURRENT_CHECKOUT_TOTAL = BASE_PRICE;
 let voucherPreviewDiscount = 0;
 let deliveryFee = 0;
 let map, marker, routeLine;
@@ -1181,31 +1175,6 @@ function toggleSurpriseDelivery() {
       ? 'Pay a 50% GCash deposit to secure the order; pay the remaining balance in cash on delivery.'
       : 'Pay a 50% GCash deposit to secure the order; pay the remaining balance in cash at pickup.';
   }
-  applyHighValuePaymentPolicy(CURRENT_CHECKOUT_TOTAL);
-}
-
-function applyHighValuePaymentPolicy(total) {
-  CURRENT_CHECKOUT_TOTAL = Number(total || 0);
-  const highValueLocked = !CUSTOMER_IS_VERIFIED && CURRENT_CHECKOUT_TOTAL >= HIGH_VALUE_THRESHOLD;
-  const surpriseLocked = isSurpriseDeliverySelected();
-  const cod = document.getElementById('cod');
-  const gcash = document.getElementById('gcash');
-  const notice = document.getElementById('highValuePaymentNotice');
-  const codLabel = document.getElementById('codLabelText');
-  const codHelp = document.getElementById('codHelpText');
-  if (notice) notice.style.display = highValueLocked ? 'block' : 'none';
-  if (cod) cod.disabled = highValueLocked || surpriseLocked;
-  if ((highValueLocked || surpriseLocked) && gcash) gcash.checked = true;
-  if (highValueLocked) {
-    if (codLabel) codLabel.textContent = '50% deposit unavailable for unverified high-value order';
-    if (codHelp) codHelp.textContent = 'Full GCash payment is required at PHP 10,000.00 or higher until your account is verified.';
-  } else if (!surpriseLocked) {
-    const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
-    if (codLabel) codLabel.textContent = isDelivery ? '50% GCash Deposit + Cash on Delivery' : '50% GCash Deposit + Cash on Pickup';
-    if (codHelp) codHelp.textContent = isDelivery
-      ? 'Pay a 50% GCash deposit to secure the order; pay the remaining balance in cash on delivery.'
-      : 'Pay a 50% GCash deposit to secure the order; pay the remaining balance in cash at pickup.';
-  }
 }
 
 function validateSurpriseDelivery() {
@@ -1559,7 +1528,6 @@ function updateTotal(addonTotal) {
   const total = Math.max(0, BASE_PRICE + (addonTotal ?? getCurrentAddonTotal()) - voucherPreviewDiscount - (points * POINT_VALUE)) + (isDelivery ? deliveryFee : 0);
   const el = document.getElementById('totalDisplay');
   if (el) el.textContent = '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2});
-  applyHighValuePaymentPolicy(total);
   refreshPromoChips(points);
 }
 

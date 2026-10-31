@@ -230,18 +230,6 @@ class PaymentController extends Controller
         if (!$secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY'))
             return redirect()->route('track.order', $trackCode)->with('error', 'GCash payment is not configured yet.');
 
-        if (!empty($order->user_id)) {
-            $highValuePolicy = app(\App\Services\HighValueOrderPolicyService::class)->assess((string) $order->user_id, (float) $order->total_price);
-            if ($highValuePolicy['requires_full_gcash'] && abs((float) $order->deposit_amount - (float) $order->total_price) >= 0.01) {
-                DB::table('orders')->where('id', $order->id)->update([
-                    'payment_method' => 'GCash',
-                    'deposit_amount' => round((float) $order->total_price, 2),
-                ]);
-                $order->payment_method = 'GCash';
-                $order->deposit_amount = round((float) $order->total_price, 2);
-            }
-        }
-
         $amountCentavos = (int) round((float) $order->deposit_amount * 100);
         if ($amountCentavos < 10000)
             return redirect()->route('track.order', $trackCode)->with('error', 'Minimum GCash payment is 100.00.');

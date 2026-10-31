@@ -194,16 +194,6 @@ class PaymentController extends Controller
         if (!$secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY'))
             return redirect()->route('customer.orders')->with('error', 'Online payment is not configured yet. Contact the shop.');
 
-        $highValuePolicy = app(\App\Services\HighValueOrderPolicyService::class)->assess((string) $uid, (float) $order->total_price);
-        if ($highValuePolicy['requires_full_gcash'] && abs((float) $order->deposit_amount - (float) $order->total_price) >= 0.01) {
-            DB::table('orders')->where('id', $order->id)->update([
-                'payment_method' => 'GCash',
-                'deposit_amount' => round((float) $order->total_price, 2),
-            ]);
-            $order->payment_method = 'GCash';
-            $order->deposit_amount = round((float) $order->total_price, 2);
-        }
-
         $amountCentavos = (int) round((float) $order->deposit_amount * 100);
         if ($amountCentavos < 10000)
             return redirect()->route('customer.orders')->with('error', 'Minimum deposit amount is ₱100.00.');

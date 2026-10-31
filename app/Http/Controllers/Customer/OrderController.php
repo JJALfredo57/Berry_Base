@@ -346,9 +346,7 @@ class OrderController extends Controller
         if (!$discounts['ok']) return back()->with('err', $discounts['message'])->withInput();
 
         $totalPrice = (float) $discounts['payable_total'];
-        $highValuePolicy = app(\App\Services\HighValueOrderPolicyService::class)->assess((string) $uid, $totalPrice);
-        $paymentMethod = $highValuePolicy['requires_full_gcash'] ? 'GCash' : ($order->payment_method ?? 'COP');
-        $isFullGcash = $paymentMethod === 'GCash';
+        $isFullGcash = ($order->payment_method ?? '') === 'GCash';
         $depositAmount = $isFullGcash ? round($totalPrice, 2) : round($totalPrice * 0.5, 2);
         if ($depositAmount < 100) {
             return back()->with('err', $isFullGcash
@@ -369,7 +367,6 @@ class OrderController extends Controller
             'payment_status'   => 'Unpaid',
             'paid_at'          => null,
             'status'           => $order->status,
-            'payment_method'   => $paymentMethod,
             'total_price'      => $totalPrice,
             'voucher_code'      => $discounts['voucher']->code ?? null,
             'voucher_discount_amount' => (float) $discounts['voucher_discount'],
@@ -425,9 +422,7 @@ class OrderController extends Controller
         if ($order->payment_status === 'Paid') return back()->with('err', 'This order is already fully paid.');
 
         $totalPrice = (float) $order->total_price;
-        $highValuePolicy = app(\App\Services\HighValueOrderPolicyService::class)->assess((string) $uid, $totalPrice);
-        $paymentMethod = $highValuePolicy['requires_full_gcash'] ? 'GCash' : ($order->payment_method ?? 'COP');
-        $isFullPayment = $paymentMethod === 'GCash';
+        $isFullPayment = ($order->payment_method ?? '') === 'GCash';
         $depositAmount = $isFullPayment ? round($totalPrice, 2) : round($totalPrice * 0.5, 2);
         if ($depositAmount < 100) {
             return back()->with('err', $isFullPayment
@@ -441,7 +436,6 @@ class OrderController extends Controller
             'deposit_amount'   => $depositAmount,
             'deposit_status'   => 'pending',
             'total_price'      => $totalPrice,
-            'payment_method'   => $paymentMethod,
         ]);
 
         DB::table('order_tracking')->insert([
@@ -454,7 +448,7 @@ class OrderController extends Controller
         ]);
 
         // GCash †‚‚…‚‚‚ redirect to PayMongo
-        if ($paymentMethod === 'GCash') {
+        if ($order->payment_method === 'GCash') {
             return redirect()->route('customer.custom_orders.pay_deposit', $coId);
         }
 
