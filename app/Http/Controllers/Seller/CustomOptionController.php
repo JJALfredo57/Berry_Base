@@ -38,7 +38,11 @@ class CustomOptionController extends Controller
 
     public function index()
     {
-        $shopId = $this->getShopId();
+        $shopId    = $this->getShopId();
+        $activeTab = request('tab');
+        if (!array_key_exists((string) $activeTab, self::TYPES)) {
+            $activeTab = array_key_first(self::TYPES);
+        }
 
         $allOptions = DB::table('custom_order_options')
             ->where('shop_id', $shopId)
@@ -46,15 +50,32 @@ class CustomOptionController extends Controller
             ->orderBy('type')->orderBy('sort_order')->orderBy('id')
             ->get()->groupBy('type');
 
-        $archivedOptions = DB::table('custom_order_options')
-            ->where('shop_id', $shopId)
-            ->whereNotNull('archived_at')
-            ->orderBy('type')->orderByDesc('archived_at')
-            ->get()->groupBy('type');
+        $archivedOptionsByType = [];
+        $archivedTotalsByType  = [];
+
+        foreach (array_keys(self::TYPES) as $typeKey) {
+            $pageName  = "archived_{$typeKey}_page";
+            $paginator = DB::table('custom_order_options')
+                ->where('shop_id', $shopId)
+                ->where('type', $typeKey)
+                ->whereNotNull('archived_at')
+                ->orderByDesc('archived_at')
+                ->paginate(10, ['*'], $pageName)
+                ->withQueryString();
+
+            $archivedOptionsByType[$typeKey] = $paginator;
+            $archivedTotalsByType[$typeKey]  = (int) $paginator->total();
+        }
 
         $types = self::TYPES;
 
-        return view('seller.custom_options', compact('allOptions', 'archivedOptions', 'types'));
+        return view('seller.custom_options', compact(
+            'allOptions',
+            'archivedOptionsByType',
+            'archivedTotalsByType',
+            'types',
+            'activeTab'
+        ));
     }
 
     public function store(Request $request)
