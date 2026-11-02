@@ -72,7 +72,7 @@
 @endif
 
 {{-- Stat Cards --}}
-<div class="row g-3 mb-4 cs-stagger">
+<div class="seller-stats-grid mb-4 cs-stagger">
   @foreach([
     ['bi-clock',      'Pending',       $stats['pending'],                  '#E65100', '#fff3e0', route('seller.orders')],
     ['bi-check2-circle','Confirmed',   $stats['confirmed'],                '#1565C0', '#e3f2fd', route('seller.orders')],
@@ -83,14 +83,14 @@
     ['bi-hourglass-split', 'Pending COD Remit', '&#8369;'.number_format($stats['pending_remittance'] ?? 0,2), '#B45309','#fffbeb', route('seller.orders')],
     ['bi-bank',       'Available Payout', '&#8369;'.number_format($payoutSummary['available'] ?? 0,2), '#166534', '#ecfdf5', route('seller.payouts')],
   ] as [$icon, $label, $val, $color, $bg, $link])
-  <div class="col-6 col-md-4 col-xl">
+  <div class="seller-stat-item">
     <a href="{{ $link }}" style="text-decoration:none;display:block;height:100%">
       <div class="cs-stat-card h-100">
         <div class="cs-stat-icon" style="background:{{ $bg }}">
           <i class="bi {{ $icon }}" style="color:{{ $color }}"></i>
         </div>
         <div class="cs-stat-body">
-          <div class="cs-stat-num" style="color:{{ $color }};font-size:clamp(1rem,2.2vw,1.35rem)">{!! $val !!}</div>
+          <div class="cs-stat-num" style="color:{{ $color }}">{!! $val !!}</div>
           <div class="cs-stat-label">{{ $label }}</div>
         </div>
       </div>
@@ -143,4 +143,63 @@
 
 
 </div>
+
+@push('styles')
+<style>
+  .seller-stats-grid {
+    display: grid;
+    gap: .75rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .seller-stat-item {
+    min-width: 0;
+  }
+
+  .seller-stats-grid .cs-stat-card {
+    min-height: 104px;
+    height: 100%;
+    align-items: center;
+  }
+
+  .seller-stats-grid .cs-stat-num {
+    font-size: clamp(1rem, 2vw, 1.35rem);
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .seller-stats-grid .cs-stat-label {
+    min-height: 1.8em;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  @media (max-width: 575.98px) {
+    .seller-stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .6rem;
+    }
+
+    .seller-stats-grid .cs-stat-card {
+      min-height: 96px;
+      padding: .9rem .85rem;
+    }
+
+    .seller-stats-grid .cs-stat-num {
+      font-size: clamp(.92rem, 4.6vw, 1.12rem);
+    }
+  }
+
+  @media (max-width: 359.98px) {
+    .seller-stats-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+@endpush
 @endsection
