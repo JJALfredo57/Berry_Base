@@ -2587,6 +2587,7 @@ function cakeConfirm({title='Are you sure?',message='',icon='bi-question-circle'
   _csDlgBuild({title,message,icon,iconBg,iconColor,okLabel,okColor,cancelLabel,onConfirm,onCancel,showCancel:true});
 }
 function confirmDelete(msg,cb) { cakeConfirm({title:'Delete?',message:msg,icon:'bi-trash',iconBg:'#fff1f2',iconColor:'#ef4444',okLabel:'Delete',okColor:'#ef4444',onConfirm:cb}); }
+function confirmArchive(msg,cb) { cakeConfirm({title:'Archive?',message:msg,icon:'bi-archive',iconBg:'#fff7ed',iconColor:'#f97316',okLabel:'Archive',okColor:'#f97316',onConfirm:cb}); }
 function confirmAction(title,msg,cb) { cakeConfirm({title,message:msg,onConfirm:cb}); }
 
 // csAlert — replaces alert()

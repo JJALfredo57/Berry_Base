@@ -118,7 +118,7 @@
                           <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editModal{{ $opt->id }}" title="Edit">
                             <i class="bi bi-pencil"></i>
                           </button>
-                          <form action="{{ route('seller.custom_options.archive', ['id' => $opt->id, 'tab' => $typeKey]) }}" method="POST" onsubmit="return false;" onclick="confirmDelete('Archive &quot;{{ addslashes($opt->label) }}&quot;? It will be hidden from customers and can be restored anytime.', () => this.closest('form').submit())">
+                          <form action="{{ route('seller.custom_options.archive', ['id' => $opt->id, 'tab' => $typeKey]) }}" method="POST" onsubmit="return false;" onclick="confirmArchive('Archive &quot;{{ addslashes($opt->label) }}&quot;? It will be hidden from customers and can be restored anytime.', () => this.closest('form').submit())">
                             @csrf
                             <button type="submit" class="btn btn-sm btn-outline-secondary" title="Archive">
                               <i class="bi bi-archive"></i>
