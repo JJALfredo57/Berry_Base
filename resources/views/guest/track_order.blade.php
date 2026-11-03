@@ -1804,6 +1804,9 @@ async function loadTrackReceiptMarkup(url) {
     const receipt = documentView.querySelector('.receipt-wrap, .container.py-4, .container-fluid.py-4');
     if (!receipt) throw new Error('Receipt details are unavailable.');
     receipt.querySelectorAll('.no-print').forEach(element => element.remove());
+    receipt.querySelectorAll('a[href*="/receipt"]').forEach(link => {
+      link.dataset.csNoLoading = 'true';
+    });
     const markup = receiptStylesForModal(documentView) + receipt.outerHTML;
     trackReceiptCache.set(url, markup);
     return markup;
