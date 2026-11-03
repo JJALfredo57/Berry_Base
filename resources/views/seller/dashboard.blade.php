@@ -83,6 +83,15 @@
     ['bi-hourglass-split', 'Pending COD Remit', '&#8369;'.number_format($stats['pending_remittance'] ?? 0,2), '#B45309','#fffbeb', route('seller.orders')],
     ['bi-bank',       'Available Payout', '&#8369;'.number_format($payoutSummary['available'] ?? 0,2), '#166534', '#ecfdf5', route('seller.payouts')],
   ] as [$icon, $label, $val, $color, $bg, $link])
+  @php
+    $statHelp = match($label) {
+      'Pending' => 'New orders awaiting action',
+      'Confirmed' => 'Approved and ready to prepare',
+      'Preparing' => 'Cake currently being made',
+      'Total Orders' => 'All orders in your shop',
+      default => null,
+    };
+  @endphp
   <div class="seller-stat-item">
     <a href="{{ $link }}" style="text-decoration:none;display:block;height:100%">
       <div class="cs-stat-card h-100">
@@ -92,6 +101,7 @@
         <div class="cs-stat-body">
           <div class="cs-stat-num" style="color:{{ $color }}">{!! $val !!}</div>
           <div class="cs-stat-label">{{ $label }}</div>
+          @if($statHelp)<div class="cs-stat-help">{{ $statHelp }}</div>@endif
         </div>
       </div>
     </a>
@@ -151,6 +161,7 @@
     gap: .75rem;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
+  .cs-stat-help { margin-top:.2rem; font-size:.66rem; line-height:1.25; color:var(--gray-500); }
 
   .seller-stat-item {
     min-width: 0;
