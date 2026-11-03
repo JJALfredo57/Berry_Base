@@ -468,12 +468,8 @@
   <div class="alert border-0 mb-4" style="background:#eff6ff;color:#1d4ed8" data-seller-cancel-countdown="{{ \Carbon\Carbon::parse($order->seller_cancel_expires_at)->toIso8601String() }}">
     <div class="d-flex justify-content-between gap-2 flex-wrap"><strong><i class="bi bi-hourglass-split me-2"></i>Seller requested cancellation</strong><span class="seller-cancel-countdown fw-bold" style="font-variant-numeric:tabular-nums">10:00</span></div>
     <div class="small mt-1">Reason: {{ $order->seller_cancel_reason ?: 'Seller cannot continue this order.' }}</div>
-    <div class="small mt-2">Respond before the countdown ends. For your security, sign in to your customer account to accept and provide refund details.</div>
-    @if((session('user')['role'] ?? null) === 'customer' && (string) (session('user')['id'] ?? '') === (string) ($order->user_id ?? ''))
-      <a href="{{ route('customer.orders') }}" class="btn btn-primary btn-sm mt-2">Open My Orders to respond</a>
-    @else
-      <a href="{{ route('login') }}" class="btn btn-primary btn-sm mt-2">Sign in to respond</a>
-    @endif
+    <div class="small mt-2">Review the request before the countdown ends. If you do not respond, your order continues processing.</div>
+    <button type="button" class="btn btn-primary btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#sellerCancelRequestModal">Review cancellation request</button>
   </div>
   @elseif($hasPendingCancel)
   <div class="alert border-0 mb-4" style="background:#fff3cd;color:#854d0e">
@@ -1067,6 +1063,39 @@
         </div>
       </form>
         </div>
+      </div>
+    </div>
+  </div>
+  @endif
+
+  @if($sellerCancelAwaiting)
+  <div class="modal fade" id="sellerCancelRequestModal" tabindex="-1" aria-labelledby="sellerCancelRequestTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content border-0" style="border-radius:1rem" data-seller-cancel-countdown="{{ \Carbon\Carbon::parse($order->seller_cancel_expires_at)->toIso8601String() }}">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold" id="sellerCancelRequestTitle"><i class="bi bi-hourglass-split me-2 text-primary"></i>Seller cancellation request</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="p-3 rounded-3 mb-3" style="background:#eff6ff;color:#1d4ed8">
+            <div class="d-flex justify-content-between gap-2"><strong>Response time remaining</strong><span class="seller-cancel-countdown" style="font-variant-numeric:tabular-nums">10:00</span></div>
+            <div class="small mt-2"><strong>Seller reason:</strong> {{ $order->seller_cancel_reason ?: 'Seller cannot continue this order.' }}</div>
+          </div>
+          <p class="small text-muted">If you accept, enter the GCash account where the seller should send the refund. If you choose to keep the order or do not respond, the order will continue processing.</p>
+          <form method="POST" action="{{ route('customer.orders.seller_cancel_response', $order->id) }}" class="row g-2 mb-2">
+            @csrf
+            <input type="hidden" name="action" value="accept">
+            <div class="col-12"><input name="refund_gcash_name" class="form-control" maxlength="160" required placeholder="GCash account name for refund"></div>
+            <div class="col-12"><input name="refund_gcash_number" class="form-control" inputmode="tel" maxlength="80" required placeholder="09XXXXXXXXX or +639XXXXXXXXX"></div>
+            <div class="col-12"><button class="btn btn-primary w-100 fw-semibold" type="submit">Accept cancellation & send refund details</button></div>
+          </form>
+          <form method="POST" action="{{ route('customer.orders.seller_cancel_response', $order->id) }}" class="d-grid">
+            @csrf
+            <input type="hidden" name="action" value="decline">
+            <button class="btn btn-outline-secondary" type="submit">Keep my order</button>
+          </form>
+        </div>
+        <div class="modal-footer border-0 pt-0"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Back</button></div>
       </div>
     </div>
   </div>
@@ -2805,6 +2834,8 @@ if (cancelRequestModal) {
   window.bootstrap?.Modal.getOrCreateInstance(cancelRequestModal).show();
   @endif
 }
+const sellerCancelRequestModal = document.getElementById('sellerCancelRequestModal');
+if (sellerCancelRequestModal) document.body.appendChild(sellerCancelRequestModal);
 pollMessages();
 setInterval(pollMessages, 8000);
 fetchTrackNotifications(true);

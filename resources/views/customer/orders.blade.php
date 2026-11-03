@@ -513,29 +513,6 @@
         </div>
       </div>
 
-      {{-- Seller cancellation request --}}
-      @if($sellerCancelAwaiting)
-      <div class="px-3 py-3" style="background:#eff6ff;border-bottom:1px solid #bfdbfe" data-seller-cancel-countdown="{{ \Carbon\Carbon::parse($o->seller_cancel_expires_at)->toIso8601String() }}">
-        <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap mb-2">
-          <div><div class="fw-bold text-primary"><i class="bi bi-hourglass-split me-1"></i>Seller requested cancellation</div><div class="small text-muted">Reason: {{ $o->seller_cancel_reason ?: 'Seller cannot continue this order.' }}</div></div>
-          <span class="seller-cancel-countdown badge text-bg-primary" style="font-variant-numeric:tabular-nums">10:00</span>
-        </div>
-        <p class="small mb-2">Respond before the timer ends. If you do not respond, the cancellation request expires and your order continues processing.</p>
-        <form method="POST" action="{{ route('customer.orders.seller_cancel_response', $o->id) }}" class="row g-2">
-          @csrf
-          <input type="hidden" name="action" value="accept">
-          <div class="col-sm-6"><input name="refund_gcash_name" class="form-control form-control-sm" maxlength="160" required placeholder="GCash account name for refund"></div>
-          <div class="col-sm-6"><input name="refund_gcash_number" class="form-control form-control-sm" inputmode="tel" maxlength="80" required placeholder="09XXXXXXXXX or +639XXXXXXXXX"></div>
-          <div class="col-12 d-flex gap-2 flex-wrap"><button class="btn btn-primary btn-sm fw-semibold" type="submit">Accept cancellation & send refund details</button></div>
-        </form>
-        <form method="POST" action="{{ route('customer.orders.seller_cancel_response', $o->id) }}" class="mt-2">
-          @csrf
-          <input type="hidden" name="action" value="decline">
-          <button class="btn btn-outline-secondary btn-sm fw-semibold" type="submit">Keep my order</button>
-        </form>
-      </div>
-      @endif
-
       @if($sellerRefundProcessing)
       <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#eff6ff">
         <i class="bi bi-cash-coin text-primary"></i>
