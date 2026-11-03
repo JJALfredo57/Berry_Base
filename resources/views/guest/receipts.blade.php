@@ -13,7 +13,7 @@
 
   <div class="card mb-3">
     <div class="card-body p-3">
-      <form method="GET" class="d-flex gap-2 flex-wrap receipt-history-search">
+      <form method="GET" action="{{ route('guest.receipts', $order->track_code) }}" class="d-flex gap-2 flex-wrap receipt-history-search">
         <input type="text" name="search" class="form-control" value="{{ $search }}" placeholder="Search order #, product, or payment type" style="max-width:420px">
         <button class="btn btn-primary" type="submit"><i class="bi bi-search me-1"></i>Search</button>
         @if($search)
