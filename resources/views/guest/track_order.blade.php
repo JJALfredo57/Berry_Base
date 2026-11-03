@@ -1588,9 +1588,9 @@
     </button>
   </div>
   <div class="receipt-drawer-body">
-    <a href="{{ route('guest.receipts', $order->track_code) }}" class="btn btn-outline-primary btn-sm w-100 mb-3">
+    <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-3" onclick='openTrackReceipt(@json(route('guest.receipts', $order->track_code)), "All Receipts")'>
       <i class="bi bi-list-ul me-1"></i>View All Receipts
-    </a>
+    </button>
     <div class="d-flex flex-column gap-2">
       @foreach($recentReceipts as $r)
         @php
@@ -1624,7 +1624,7 @@
 </aside>
 @endif
 
-<div class="modal fade" id="trackReceiptModal" tabindex="-1" aria-labelledby="trackReceiptModalTitle" aria-hidden="true">
+<div class="modal fade" id="trackReceiptModal" tabindex="-1" aria-labelledby="trackReceiptModalTitle" aria-hidden="true" style="z-index:1095">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl" style="width:min(980px,calc(100vw - 20px));max-width:980px">
     <div class="modal-content border-0" style="height:min(860px,calc(100dvh - 20px));border-radius:18px;overflow:hidden">
       <div class="modal-header border-0 pb-2">
@@ -1673,12 +1673,17 @@ let trackNotificationsLoading = false;
 let trackActiveNotificationTarget = '';
 const trackSeenNotificationIds = new Set();
 
-function openTrackReceipt(url) {
+function openTrackReceipt(url, title = 'Payment Receipt') {
   const frame = document.getElementById('trackReceiptFrame');
   const modalEl = document.getElementById('trackReceiptModal');
   if (!frame || !modalEl || !url) return;
-  frame.src = url;
-  window.bootstrap?.Modal.getOrCreateInstance(modalEl).show();
+  const titleEl = document.getElementById('trackReceiptModalTitle');
+  if (titleEl) titleEl.innerHTML = '<i class="bi bi-receipt-cutoff me-2 text-primary"></i>' + title;
+  closeReceiptDrawer();
+  window.setTimeout(function () {
+    frame.src = url;
+    window.bootstrap?.Modal.getOrCreateInstance(modalEl).show();
+  }, 220);
 }
 
 document.getElementById('trackReceiptModal')?.addEventListener('hidden.bs.modal', function () {
