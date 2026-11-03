@@ -11,6 +11,7 @@ use App\Services\OrderRefundService;
 use App\Services\OrderTypeService;
 use App\Services\ProductStockService;
 use App\Services\RiderAssignmentService;
+use App\Services\SellerCancellationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,6 +59,7 @@ class OrderController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Rider assignment expiry sweep failed: ' . $e->getMessage());
         }
+        app(SellerCancellationService::class)->expirePending((string) $shop->id);
 
         try {
             $orders = DB::table('orders as o')
@@ -442,6 +444,25 @@ class OrderController extends Controller
         } catch (\Exception $e) {}
 
         return back()->with('msg', "Order status updated to {$newStatus}.");
+    }
+
+    public function requestCustomerCancellation(Request $request, string $id, OrderRefundService $refunds, SellerCancellationService $cancellations)
+    {
+        $shop = $this->getShop();
+        $order = DB::table('orders')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$order) return back()->with('err', 'Order not found.');
+
+        $validated = $request->validate([
+            'cancel_reason' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+        if (!$refunds->hasPaidAmount($order)) {
+            return back()->with('err', 'This order has no payment. Use Cancel Order to cancel it immediately.');
+        }
+
+        $result = $cancellations->start($order, trim($validated['cancel_reason']));
+        if (!($result['ok'] ?? false)) return back()->with('err', $result['message']);
+
+        return back()->with('msg', 'Cancellation request sent to the customer. They have 10 minutes to accept or keep the order.');
     }
 
     public function realtimeStatus(string $id)

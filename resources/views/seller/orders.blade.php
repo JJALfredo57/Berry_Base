@@ -284,6 +284,9 @@
       || ($o->deposit_status ?? '') === 'paid'
       || ($o->payment_status ?? '') === 'Partial Payment';
     $hasPaidCancelRequest = $refund && ($refund->status ?? '') === 'pending';
+    $sellerCancelAwaiting = ($o->seller_cancel_state ?? '') === 'awaiting_customer'
+      && !empty($o->seller_cancel_expires_at)
+      && \Carbon\Carbon::parse($o->seller_cancel_expires_at)->isFuture();
     $isNoShowRefund = $refund && str_starts_with((string) ($refund->cancel_reason ?? ''), 'No-show balance refund:');
     $isCancelledOrder = ($o->status ?? '') === 'Cancelled' || ($o->cancel_status ?? '') === 'accepted';
     $needsRemittanceAction = $remittance && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected'], true);
@@ -727,6 +730,19 @@
     </div>
     @endif
 
+    @if($sellerCancelAwaiting)
+    <div style="border-top:1px solid var(--gray-100);padding:.95rem 1.25rem;background:#eff6ff" data-seller-cancel-countdown="{{ \Carbon\Carbon::parse($o->seller_cancel_expires_at)->toIso8601String() }}">
+      <div style="display:flex;align-items:flex-start;gap:.75rem;flex-wrap:wrap">
+        <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-hourglass-split"></i></div>
+        <div style="flex:1;min-width:220px">
+          <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">WAITING FOR CUSTOMER RESPONSE</div>
+          <div style="font-size:.82rem;color:#1d4ed8;line-height:1.5;font-weight:600">Customer must accept the cancellation and provide refund details. If there is no response, the order continues processing.</div>
+        </div>
+        <span class="seller-cancel-countdown" style="background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:.35rem .65rem;font-weight:800;font-variant-numeric:tabular-nums">10:00</span>
+      </div>
+    </div>
+    @endif
+
     @if($hasPaidCancelRequest)
     <div style="border-top:1px solid var(--gray-100);padding:.95rem 1.25rem;background:#fff7ed">
       <div style="display:flex;align-items:flex-start;gap:.75rem;flex-wrap:wrap">
@@ -1019,17 +1035,19 @@
         </a>
       @endif
       {{-- Cancel --}}
+      @if(!$sellerCancelAwaiting && !$hasPaidCancelRequest)
       <button type="button" onclick="toggleCancel('cancel-{{ $o->id }}')"
               style="background:#FFEBEE;color:#C62828;border:1.5px solid #FFCDD2;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer;margin-left:auto">
         <i class="bi bi-x-circle"></i> Cancel
       </button>
+      @endif
     </div>
 
     {{-- Cancel Reason --}}
     <div id="cancel-{{ $o->id }}" style="display:none;border-top:1px solid var(--gray-100);padding:.875rem 1.25rem;background:#FFEBEE">
-      <form action="{{ route('seller.orders.status', $o->id) }}" method="POST" novalidate>
+      <form action="{{ $hasPaidAmount ? route('seller.orders.request_cancellation', $o->id) : route('seller.orders.status', $o->id) }}" method="POST" novalidate>
         @csrf
-        <input type="hidden" name="status" value="Cancelled">
+        @if(!$hasPaidAmount)<input type="hidden" name="status" value="Cancelled">@endif
         <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
           <div style="flex:1;min-width:200px">
             <label class="form-label" style="font-size:.78rem;color:#C62828;font-weight:700">Cancellation Reason <span style="color:var(--danger)">*</span></label>
@@ -1039,27 +1057,17 @@
                    oninput="this.setCustomValidity('')">
           </div>
           @if($hasPaidAmount)
-          <div class="row g-2 w-100">
-            <div class="col-sm-6">
-              <label class="form-label small fw-bold">Refund GCash account name <span class="text-danger">*</span></label>
-              <input name="refund_gcash_name" class="form-control form-control-sm" maxlength="160" required>
-            </div>
-            <div class="col-sm-6">
-              <label class="form-label small fw-bold">Refund GCash number <span class="text-danger">*</span></label>
-              <input name="refund_gcash_number" class="form-control form-control-sm" maxlength="80" inputmode="tel" required placeholder="09XXXXXXXXX or +639XXXXXXXXX">
-            </div>
-          </div>
-          <div class="small text-danger w-100">A paid order stays active until the seller records the full GCash refund receipt.</div>
+          <div class="small text-primary w-100"><i class="bi bi-info-circle me-1"></i>The customer will receive a 10-minute request. They must accept and provide their GCash refund details before you send the refund.</div>
           @endif
           <button type="submit" style="background:#C62828;color:#fff;border:none;border-radius:var(--radius-md);padding:.5rem 1rem;font-size:.8rem;font-weight:600;cursor:pointer"
-                  data-cs-confirm="{{ $hasPaidAmount ? 'Start full GCash refund review before cancellation?' : 'Cancel this order?' }}"
+                  data-cs-confirm="{{ $hasPaidAmount ? 'Send this cancellation request to the customer? They have 10 minutes to accept or keep the order.' : 'Cancel this unpaid order?' }}"
                   data-cs-title="Confirm Cancellation"
-                  data-cs-ok="Cancel Order"
+                  data-cs-ok="{{ $hasPaidAmount ? 'Send Request' : 'Cancel Order' }}"
                   data-cs-ok-color="#C62828"
                   data-cs-icon="bi-x-octagon"
                   data-cs-icon-bg="#fee2e2"
                   data-cs-icon-color="#C62828">
-            Confirm Cancel
+            {{ $hasPaidAmount ? 'Request Customer Confirmation' : 'Confirm Cancel' }}
           </button>
           <button type="button" onclick="toggleCancel('cancel-{{ $o->id }}')"
                   style="background:var(--gray-100);color:var(--gray-700);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:.5rem 1rem;font-size:.8rem;font-weight:600;cursor:pointer">
@@ -1392,4 +1400,16 @@ document.addEventListener('visibilitychange', () => {
     </div>
   </div>
 </div>
+<script>
+document.querySelectorAll('[data-seller-cancel-countdown]').forEach(function (card) {
+  const target = new Date(card.dataset.sellerCancelCountdown).getTime();
+  const label = card.querySelector('.seller-cancel-countdown');
+  const tick = function () {
+    const seconds = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+    if (label) label.textContent = String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
+    if (seconds === 0) window.location.reload();
+  };
+  tick(); window.setInterval(tick, 1000);
+});
+</script>
 @endpush

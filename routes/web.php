@@ -386,6 +386,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::get('/orders/status-counts',            [CustomerOrder::class, 'statusCounts'])->name('orders.status_counts');
     Route::get('/orders/{id}/status',              [CustomerOrder::class, 'status'])->name('orders.status');
     Route::post('/orders/{id}/cancel-request',     [CustomerOrder::class, 'requestCancel'])->name('orders.cancel_request');
+    Route::post('/orders/{id}/seller-cancel-response', [CustomerOrder::class, 'respondToSellerCancellation'])->name('orders.seller_cancel_response');
     Route::post('/orders/{id}/review',             [CustomerReview::class, 'store'])->name('orders.review');
 
     Route::get('/custom-order',        [CustomerCustomOrder::class, 'show'])->name('custom_order');
@@ -496,6 +497,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/orders/{id}/remittance/{remittanceId}/confirm', [\App\Http\Controllers\Seller\OrderController::class, 'remittanceActionRedirect'])->name('orders.remittance_confirm_get');
     Route::get('/orders/{id}/remittance/{remittanceId}/reject', [\App\Http\Controllers\Seller\OrderController::class, 'remittanceActionRedirect'])->name('orders.remittance_reject_get');
     Route::post('/orders/{id}/status',       [\App\Http\Controllers\Seller\OrderController::class, 'updateStatus'])->name('orders.status');
+    Route::post('/orders/{id}/request-cancellation', [\App\Http\Controllers\Seller\OrderController::class, 'requestCustomerCancellation'])->name('orders.request_cancellation');
     Route::post('/orders/{id}/remittance/{remittanceId}/confirm', [\App\Http\Controllers\Seller\OrderController::class, 'confirmRemittance'])->name('orders.remittance_confirm');
     Route::post('/orders/{id}/remittance/{remittanceId}/reject', [\App\Http\Controllers\Seller\OrderController::class, 'rejectRemittance'])->name('orders.remittance_reject');
     Route::post('/orders/{id}/accept-cancel', [\App\Http\Controllers\Seller\OrderController::class, 'approveCancel'])->name('orders.accept_cancel');

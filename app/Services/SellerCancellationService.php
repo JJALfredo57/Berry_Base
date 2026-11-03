@@ -1,0 +1,112 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+class SellerCancellationService
+{
+    public const RESPONSE_WINDOW_MINUTES = 10;
+
+    public function expirePending(?string $shopId = null, ?string $userId = null): int
+    {
+        if (!Schema::hasColumn('orders', 'seller_cancel_state')) return 0;
+
+        $query = DB::table('orders')
+            ->where('seller_cancel_state', 'awaiting_customer')
+            ->whereNotNull('seller_cancel_expires_at')
+            ->where('seller_cancel_expires_at', '<=', now());
+        if ($shopId) $query->where('shop_id', $shopId);
+        if ($userId) $query->where('user_id', $userId);
+
+        return $query->update([
+            'seller_cancel_state' => 'expired',
+            'seller_cancel_responded_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    public function start(object $order, string $reason): array
+    {
+        $this->expirePending($order->shop_id ?? null);
+        if (empty($order->user_id)) {
+            return ['ok' => false, 'message' => 'This customer must be contacted directly before cancelling because no customer account is linked to this order.'];
+        }
+
+        $expiresAt = now()->addMinutes(self::RESPONSE_WINDOW_MINUTES);
+        $updated = DB::table('orders')
+            ->where('id', $order->id)
+            ->whereNotIn('status', ['Preparing', 'Ready for Rider', 'Out for Delivery', 'Delivered', 'Picked Up', 'No Show', 'Cancelled'])
+            ->where(function ($query) {
+                $query->whereNull('seller_cancel_state')
+                    ->orWhereIn('seller_cancel_state', ['expired', 'customer_declined']);
+            })
+            ->update([
+                'seller_cancel_state' => 'awaiting_customer',
+                'seller_cancel_expires_at' => $expiresAt,
+                'seller_cancel_reason' => $reason,
+                'seller_cancel_responded_at' => null,
+                'updated_at' => now(),
+            ]);
+        if ($updated !== 1) return ['ok' => false, 'message' => 'A cancellation request is already active or this order can no longer be cancelled.'];
+
+        $fresh = DB::table('orders')->where('id', $order->id)->first() ?: $order;
+        app(MobileNotificationService::class)->notifyOrderCustomer(
+            $fresh,
+            'Seller requested cancellation',
+            'Please respond within 10 minutes and provide refund details if you accept.',
+            ['event' => 'seller_cancellation_request', 'order_id' => (string) $order->id]
+        );
+
+        return ['ok' => true, 'expires_at' => $expiresAt];
+    }
+
+    public function respond(object $order, string $action, array $data, OrderRefundService $refunds): array
+    {
+        $this->expirePending(null, (string) $order->user_id);
+        $fresh = DB::table('orders')->where('id', $order->id)->first();
+        if (!$fresh || ($fresh->seller_cancel_state ?? '') !== 'awaiting_customer') {
+            return ['ok' => false, 'message' => 'This cancellation request has expired or was already answered. Your order will continue processing.'];
+        }
+
+        if ($action === 'decline') {
+            $updated = DB::table('orders')->where('id', $fresh->id)->where('seller_cancel_state', 'awaiting_customer')->update([
+                'seller_cancel_state' => 'customer_declined',
+                'seller_cancel_responded_at' => now(),
+                'updated_at' => now(),
+            ]);
+            if ($updated !== 1) return ['ok' => false, 'message' => 'This cancellation request was already answered.'];
+            $this->notifySeller($fresh, 'Customer kept the order', "Customer declined the cancellation request for Order #{$fresh->id}. Continue processing the order.");
+            return ['ok' => true, 'message' => 'You chose to keep the order. The seller was notified and processing can continue.'];
+        }
+
+        $claimed = DB::table('orders')->where('id', $fresh->id)->where('seller_cancel_state', 'awaiting_customer')->update([
+            'seller_cancel_state' => 'customer_accepted',
+            'seller_cancel_responded_at' => now(),
+            'updated_at' => now(),
+        ]);
+        if ($claimed !== 1) return ['ok' => false, 'message' => 'This cancellation request was already answered.'];
+
+        $refund = $refunds->requestPaidRefund($fresh, [
+            'customer_name' => $data['customer_name'] ?? null,
+            'refund_gcash_name' => $data['refund_gcash_name'],
+            'refund_gcash_number' => $data['refund_gcash_number'],
+            'cancel_reason' => $fresh->seller_cancel_reason ?: 'Seller requested cancellation.',
+        ]);
+        $this->notifySeller($fresh, 'Customer accepted cancellation', "Refund details were received for Order #{$fresh->id}. Send the refund and upload its receipt.");
+
+        return ['ok' => true, 'refund' => $refund, 'message' => 'Cancellation accepted. The seller will now send your refund and upload the receipt.'];
+    }
+
+    private function notifySeller(object $order, string $title, string $message): void
+    {
+        $sellerId = !empty($order->shop_id) ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id') : null;
+        if (!$sellerId) return;
+        $phone = DB::table('users')->where('id', $sellerId)->value('phone');
+        app(MobileNotificationService::class)->notifyUser('seller', (string) $sellerId, $phone, $title, $message, [
+            'event' => 'seller_cancellation_response',
+            'order_id' => (string) $order->id,
+        ], null, route('seller.orders', [], false));
+    }
+}

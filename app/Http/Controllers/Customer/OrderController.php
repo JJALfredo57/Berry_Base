@@ -5,6 +5,7 @@ use App\Helpers\CakeshopHelper;
 use App\Services\CustomerVerificationService;
 use App\Services\LoyaltyService;
 use App\Services\OrderRefundService;
+use App\Services\SellerCancellationService;
 use App\Services\VoucherService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +43,7 @@ class OrderController extends Controller
     public function index(Request $request)
     {
         $uid    = session('user')['id'];
+        app(SellerCancellationService::class)->expirePending(null, (string) $uid);
         $search = trim($request->input('search', ''));
         $status = $request->input('status', 'All');
 
@@ -377,6 +379,33 @@ class OrderController extends Controller
 
         CakeshopHelper::logActivity($uid, 'customer', 'Cancel Request', "Order #{$id} †‚‚…‚‚‚ {$reason}");
         return back()->with('msg', 'Cancel request submitted. Waiting for seller review.');
+    }
+
+    public function respondToSellerCancellation(Request $request, string $id, OrderRefundService $refunds, SellerCancellationService $cancellations)
+    {
+        $uid = (string) session('user')['id'];
+        $order = DB::table('orders')->where('id', $id)->where('user_id', $uid)->first();
+        if (!$order) return back()->with('error', 'Order not found.');
+
+        $action = (string) $request->input('action');
+        if (!in_array($action, ['accept', 'decline'], true)) {
+            return back()->with('error', 'Choose whether to accept or keep the order.');
+        }
+
+        $data = ['customer_name' => session('user')['fullname'] ?? null];
+        if ($action === 'accept') {
+            $validated = $request->validate([
+                'refund_gcash_name' => ['required', 'string', 'min:2', 'max:160'],
+                'refund_gcash_number' => ['required', 'string', 'max:80'],
+            ]);
+            if (!$refunds->validateGcashNumber(trim($validated['refund_gcash_number']))) {
+                return back()->with('error', 'Enter a valid GCash number in 09XXXXXXXXX or +639XXXXXXXXX format.');
+            }
+            $data += $validated;
+        }
+
+        $result = $cancellations->respond($order, $action, $data, $refunds);
+        return back()->with($result['ok'] ? 'msg' : 'error', $result['message']);
     }
 
     /** Customer accepts the admin-set price -> apply final discounts, then prepare deposit */
