@@ -363,6 +363,8 @@
           @endif
           @if($isCustomOrder)
             <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Custom</span>
+          @elseif($isRequestBakeOrder)
+            <span style="background:#fff7ed;color:#c2410c;font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px"><i class="bi bi-fire me-1"></i>Request to Bake</span>
           @else
             <span style="background:#ecfdf5;color:#047857;font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Ready-made</span>
           @endif
@@ -929,7 +931,7 @@
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">ORDER PROGRESS</div>
           <div style="font-size:.82rem;color:#6b7280;line-height:1.5">
             @if($isRequestBakeOrder)
-              Request-to-bake ready-made orders go to Kitchen after confirmation. Stock ready-made orders still skip Kitchen.
+              This is an out-of-stock cake requested by the customer. Confirm it to send it to Kitchen.
             @elseif($isRegularOrder)
               Stock ready-made orders skip Kitchen. Confirm the order, then prepare handoff for pickup or delivery.
             @else
