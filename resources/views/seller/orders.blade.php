@@ -192,6 +192,21 @@
       padding:.18rem .34rem;
     }
   }
+  @media (max-width:420px) {
+    .seller-order-search {
+      min-width:86px;
+    }
+    .status-filter-wrap {
+      flex:0 0 98px;
+      width:98px;
+      min-width:94px;
+      max-width:98px;
+    }
+    .status-filter-toggle {
+      font-size:.69rem;
+      padding:.16rem .3rem;
+    }
+  }
 </style>
 <div>
   <div style="margin-bottom:2rem">

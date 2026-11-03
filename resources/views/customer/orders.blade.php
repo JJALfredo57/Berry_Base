@@ -44,7 +44,9 @@
         </div>
       </div>
       <a href="{{ route('customer.catalog') }}" class="btn btn-primary btn-sm customer-order-again-btn">
-        <i class="bi bi-plus me-1"></i>Order Again
+        <i class="bi bi-plus me-1 customer-order-again-icon"></i>
+        <span class="customer-order-again-text-main">Order</span>
+        <span class="customer-order-again-text-tail"> Again</span>
       </a>
     </div>
   </div>
@@ -143,6 +145,12 @@
     .status-filter-item .status-filter-badge,
     .status-filter-chevron {
       flex: 0 0 auto;
+    }
+    .customer-order-again-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .1rem;
+      white-space: nowrap;
     }
     .status-filter-chevron { font-size: .72rem; color: #6b7280; transition: transform .16s ease; }
     .status-filter-wrap.is-open .status-filter-chevron { transform: rotate(180deg); }
@@ -243,6 +251,31 @@
         padding: .18rem .36rem;
         white-space: nowrap;
         line-height: 1.1;
+      }
+    }
+    @media (max-width: 420px) {
+      .cs-search-bar {
+        min-width: 86px;
+      }
+      .status-filter-wrap {
+        flex: 0 0 98px;
+        width: 98px;
+        min-width: 94px;
+        max-width: 98px;
+      }
+      .status-filter-toggle {
+        font-size: .69rem;
+        padding: .16rem .3rem;
+      }
+      .customer-order-again-btn {
+        font-size: .64rem;
+        padding: .16rem .28rem;
+      }
+      .customer-order-again-btn .customer-order-again-icon {
+        margin-right: 0 !important;
+      }
+      .customer-order-again-text-tail {
+        display: none;
       }
     }
     .customer-review-backdrop {
