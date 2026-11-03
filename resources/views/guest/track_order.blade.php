@@ -1777,7 +1777,7 @@ function setTrackReceiptSaveAction(visible) {
 }
 
 function printTrackReceipt() {
-  if (!document.querySelector('#trackReceiptContent .receipt-wrap, #trackReceiptContent .receipt-card')) return;
+  if (!document.querySelector('#trackReceiptContent .receipt-wrap, #trackReceiptContent .receipt-card, #trackReceiptContent .container.py-4, #trackReceiptContent .container-fluid.py-4')) return;
   window.print();
 }
 
