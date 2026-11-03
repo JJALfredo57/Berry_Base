@@ -1781,31 +1781,28 @@ function printTrackReceipt() {
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = 'position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none;left:-9999px;top:-9999px;';
-  document.body.appendChild(frame);
 
   const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
     .map(element => element.outerHTML)
     .join('');
-  const printDocument = frame.contentDocument;
-  if (!printDocument) {
-    frame.remove();
-    return;
-  }
+  const printMarkup = `<!doctype html><html><head><meta charset="utf-8"><title>Payment Receipt</title><base href="${window.location.origin}/">${styles}<style>@page{margin:12mm}body{background:#fff!important}.no-print{display:none!important}</style></head><body>${receipt.outerHTML}</body></html>`;
+  const printUrl = URL.createObjectURL(new Blob([printMarkup], { type: 'text/html' }));
 
   frame.addEventListener('load', () => {
     const printWindow = frame.contentWindow;
     if (!printWindow) return;
-    const removeFrame = () => frame.remove();
+    const removeFrame = () => {
+      URL.revokeObjectURL(printUrl);
+      frame.remove();
+    };
     printWindow.addEventListener('afterprint', removeFrame, { once: true });
     window.setTimeout(() => {
       printWindow.focus();
       printWindow.print();
     }, 120);
   }, { once: true });
-
-  printDocument.open();
-  printDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>Payment Receipt</title><base href="${window.location.origin}/">${styles}<style>@page{margin:12mm}body{background:#fff!important}.no-print{display:none!important}</style></head><body>${receipt.outerHTML}</body></html>`);
-  printDocument.close();
+  frame.src = printUrl;
+  document.body.appendChild(frame);
 }
 
 function receiptStylesForModal(documentView) {
