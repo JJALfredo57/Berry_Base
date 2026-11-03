@@ -21,6 +21,22 @@ class OrderController extends Controller
 {
     use UploadsFiles;
 
+    private const SELLER_STATUS_FILTERS = [
+        'Cancel Requests',
+        'Awaiting Deposit',
+        'Pending',
+        'Pending Review',
+        'Confirmed',
+        'Preparing',
+        'Pickup',
+        'Ready for Rider',
+        'Out for Delivery',
+        'Delivered',
+        'Picked Up',
+        'No Show',
+        'Cancelled',
+    ];
+
     private function getShop(): object
     {
         $uid  = session('user')['id'];
@@ -460,6 +476,41 @@ class OrderController extends Controller
             'paid_at'            => (string) ($order->paid_at ?? ''),
             'updated_at'         => (string) ($order->updated_at ?? ''),
         ]);
+    }
+
+    public function statusCounts()
+    {
+        $shop = $this->getShop();
+
+        $grouped = DB::table('orders')
+            ->where('shop_id', $shop->id)
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $cancelRequests = (int) DB::table('orders')
+            ->where('shop_id', $shop->id)
+            ->where('cancel_status', 'pending')
+            ->count();
+
+        $counts = [
+            'All' => 0,
+            'Cancel Requests' => $cancelRequests,
+        ];
+
+        foreach (self::SELLER_STATUS_FILTERS as $status) {
+            if ($status === 'Cancel Requests') {
+                continue;
+            }
+            $counts[$status] = (int) ($grouped[$status] ?? 0);
+            $counts['All'] += $counts[$status];
+        }
+
+        return response()->json([
+            'ok' => true,
+            'counts' => $counts,
+            'updated_at' => now()->toISOString(),
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
     public function receipt(string $id, int $transactionId)

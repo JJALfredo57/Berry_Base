@@ -5,6 +5,8 @@
   if (!isset($orderAddons))      $orderAddons = [];
   if (!isset($orderReviews))     $orderReviews = [];
   if (!isset($tracking))         $tracking = [];
+  $customerStatuses = ['Awaiting Deposit','Pending Price Confirmation','Pending Review','Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'];
+  $statusLabelMap = ['No Show' => 'Unclaimed'];
   $autoReviewPrompted = false;
 @endphp
 <div class="container-fluid py-4">
@@ -18,12 +20,29 @@
         <input type="text" class="form-control form-control-sm" placeholder="Search orders"
                value="{{ $search ?? '' }}" oninput="pgSearch(this.value)">
       </div>
-      <select class="form-select form-select-sm" style="width:auto" onchange="pgFilter('status', this.value)">
-        <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All Status</option>
-        @foreach(['Awaiting Deposit','Pending Price Confirmation','Pending Review','Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'] as $st)
-        <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st }}</option>
-        @endforeach
-      </select>
+      <div class="status-filter-wrap" id="customerStatusFilter"
+           data-counts-url="{{ route('customer.orders.status_counts') }}"
+           data-selected="{{ $status ?? 'All' }}">
+        <button type="button" class="status-filter-toggle" id="customerStatusToggle" aria-expanded="false" aria-haspopup="listbox">
+          <span class="status-filter-label" id="customerStatusLabel">
+            {{ $statusLabelMap[$status ?? 'All'] ?? ($status ?? 'All Status') }}
+          </span>
+          <span class="status-filter-badge {{ ($status ?? 'All') === 'All' ? 'status-dot-all' : 'status-dot-' . str_replace(' ', '-', ($status ?? 'All')) }}" data-status-badge="{{ $status ?? 'All' }}" hidden></span>
+          <i class="bi bi-chevron-down status-filter-chevron"></i>
+        </button>
+        <div class="status-filter-menu" id="customerStatusMenu" role="listbox" tabindex="-1">
+          <button type="button" class="status-filter-item{{ ($status ?? 'All') === 'All' ? ' active' : '' }}" data-status-value="All" style="--stagger:0">
+            <span>All Status</span>
+            <span class="status-filter-badge status-dot-all" data-status-badge="All" hidden></span>
+          </button>
+          @foreach($customerStatuses as $st)
+          <button type="button" class="status-filter-item{{ ($status ?? '') === $st ? ' active' : '' }}" data-status-value="{{ $st }}" style="--stagger:{{ $loop->iteration }}">
+            <span>{{ $statusLabelMap[$st] ?? $st }}</span>
+            <span class="status-filter-badge status-dot-{{ str_replace(' ', '-', $st) }}" data-status-badge="{{ $st }}" hidden></span>
+          </button>
+          @endforeach
+        </div>
+      </div>
       <a href="{{ route('customer.catalog') }}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus me-1"></i>Order Again
       </a>
@@ -59,6 +78,98 @@
     .deposit-error.show {
       display: block;
       animation: depositShake .32s ease;
+    }
+    .status-filter-wrap {
+      position: relative;
+      min-width: 224px;
+    }
+    .status-filter-toggle {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      background: #fff;
+      border-radius: .45rem;
+      min-height: 31px;
+      padding: .3rem .55rem;
+      font-size: .82rem;
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      justify-content: space-between;
+    }
+    .status-filter-label { font-weight: 600; color: #1f2937; }
+    .status-filter-chevron { font-size: .72rem; color: #6b7280; transition: transform .16s ease; }
+    .status-filter-wrap.is-open .status-filter-chevron { transform: rotate(180deg); }
+    .status-filter-menu {
+      position: absolute;
+      inset: calc(100% + 6px) 0 auto;
+      z-index: 35;
+      border: 1px solid #e5e7eb;
+      border-radius: .6rem;
+      background: #fff;
+      box-shadow: 0 16px 40px rgba(15,23,42,.14);
+      padding: .4rem;
+      max-height: min(65vh, 360px);
+      overflow: auto;
+      display: none;
+    }
+    .status-filter-wrap.is-open .status-filter-menu { display: block; }
+    .status-filter-item {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      border-radius: .5rem;
+      padding: .46rem .56rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .55rem;
+      font-size: .8rem;
+      color: #1f2937;
+      text-align: left;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: background-color .12s ease, color .12s ease;
+      animation: statusMenuDrop .17s ease forwards;
+      animation-delay: calc(var(--stagger, 0) * 20ms);
+    }
+    .status-filter-wrap:not(.is-open) .status-filter-item { animation: none; }
+    .status-filter-item:hover,
+    .status-filter-item:focus-visible { background: #f8fafc; outline: none; }
+    .status-filter-item.active { background: #f1f5f9; color: #0f172a; font-weight: 700; }
+    .status-filter-badge {
+      min-width: 1.45rem;
+      height: 1.45rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 .28rem;
+      font-size: .68rem;
+      line-height: 1;
+      font-weight: 800;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .status-dot-all { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
+    .status-dot-Awaiting-Deposit { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+    .status-dot-Pending-Price-Confirmation,
+    .status-dot-Pending-Review,
+    .status-dot-Pending { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+    .status-dot-Confirmed,
+    .status-dot-Preparing,
+    .status-dot-Ready-for-Rider,
+    .status-dot-Out-for-Delivery { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+    .status-dot-Delivered,
+    .status-dot-Picked-Up { background: #ecfdf5; color: #166534; border-color: #bbf7d0; }
+    .status-dot-No-Show,
+    .status-dot-Cancelled { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+    @keyframes statusMenuDrop {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 575.98px) {
+      .status-filter-wrap { min-width: 100%; }
+      .status-filter-toggle { font-size: .79rem; }
+      .status-filter-item { font-size: .78rem; }
     }
     .customer-review-backdrop {
       position:fixed;
@@ -206,6 +317,7 @@
       $effectiveStatus = $latestTrackingStatus;
     }
     $displayStatus = (($o->payment_status ?? '') === 'Paid' && ($effectiveStatus ?? '') === 'Awaiting Deposit') ? 'Confirmed' : $effectiveStatus;
+    $displayStatusLabel = $statusLabelMap[$displayStatus] ?? $displayStatus;
     $coRefImgs = [];
     if ($co && !empty($co->reference_images)) {
       $dec = json_decode($co->reference_images, true);
@@ -285,7 +397,7 @@
           </div>
         </div>
         <div class="text-end mt-2 mt-sm-0">
-          <span class="status-badge status-{{ str_replace(' ','-',$displayStatus) }}">{{ $displayStatus }}</span>
+          <span class="status-badge status-{{ str_replace(' ','-',$displayStatus) }}">{{ $displayStatusLabel }}</span>
           <div class="fw-bold mt-1">PHP {{ number_format($o->total_price,2) }}</div>
         </div>
       </div>
@@ -1220,6 +1332,95 @@
 @push('scripts')
 <script>
 let activeCustomerReviewCard = null;
+const customerStatusLabelMap = @json($statusLabelMap);
+
+function statusBadgeValue(count) {
+  const numeric = Number(count || 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) return '';
+  return numeric > 99 ? '99+' : String(Math.floor(numeric));
+}
+
+function setStatusBadgeCount(root, status, count) {
+  if (!root) return;
+  const display = statusBadgeValue(count);
+  root.querySelectorAll('[data-status-badge="' + status + '"]').forEach((badge) => {
+    if (!display) {
+      badge.hidden = true;
+      badge.textContent = '';
+      return;
+    }
+    badge.hidden = false;
+    badge.textContent = display;
+  });
+}
+
+function initCustomerStatusFilter() {
+  const wrap = document.getElementById('customerStatusFilter');
+  const toggle = document.getElementById('customerStatusToggle');
+  const menu = document.getElementById('customerStatusMenu');
+  if (!wrap || !toggle || !menu) return null;
+
+  const selected = String(wrap.dataset.selected || 'All');
+  const label = document.getElementById('customerStatusLabel');
+  if (label) {
+    label.textContent = customerStatusLabelMap[selected] || (selected === 'All' ? 'All Status' : selected);
+  }
+
+  toggle.addEventListener('click', () => {
+    const open = wrap.classList.toggle('is-open');
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) menu.focus();
+  });
+
+  menu.querySelectorAll('.status-filter-item[data-status-value]').forEach((item) => {
+    item.addEventListener('click', () => {
+      const value = item.dataset.statusValue || 'All';
+      pgFilter('status', value);
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!wrap.contains(event.target)) {
+      wrap.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      wrap.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  return wrap;
+}
+
+async function refreshCustomerStatusCounts() {
+  const wrap = document.getElementById('customerStatusFilter');
+  if (!wrap) return;
+  const countsUrl = wrap.dataset.countsUrl || '';
+  if (!countsUrl) return;
+
+  try {
+    const response = await fetch(countsUrl, {
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      cache: 'no-store'
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!data?.ok || !data.counts) return;
+    Object.entries(data.counts).forEach(([status, count]) => setStatusBadgeCount(wrap, status, count));
+  } catch (error) {}
+}
+
+let customerStatusCountTimer = null;
+function scheduleCustomerStatusCountPoll() {
+  if (customerStatusCountTimer) clearInterval(customerStatusCountTimer);
+  customerStatusCountTimer = setInterval(() => {
+    if (!document.hidden) refreshCustomerStatusCounts();
+  }, 9000);
+}
 
 function customerReviewPromptKey(orderId) {
   return 'berrybase-customer-rating-prompt-' + orderId;
@@ -1262,6 +1463,11 @@ function maybeOpenCustomerReviewPrompt() {
 }
 
 document.addEventListener('DOMContentLoaded', maybeOpenCustomerReviewPrompt);
+document.addEventListener('DOMContentLoaded', () => {
+  initCustomerStatusFilter();
+  refreshCustomerStatusCounts();
+  scheduleCustomerStatusCountPoll();
+});
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') dismissCustomerReviewPrompt();
 });
@@ -1417,7 +1623,10 @@ async function pollCustomerOrderStatuses() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && !customerOrderReloading) pollCustomerOrderStatuses();
+  if (!document.hidden && !customerOrderReloading) {
+    pollCustomerOrderStatuses();
+    refreshCustomerStatusCounts();
+  }
 });
 
 if (customerOrderCards().some(card => !customerOrderIsFinal(card.dataset.orderStatus))) {

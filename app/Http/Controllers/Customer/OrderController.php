@@ -24,6 +24,21 @@ class OrderController extends Controller
         'Rider No Response',
     ];
 
+    private const CUSTOMER_STATUS_FILTERS = [
+        'Awaiting Deposit',
+        'Pending Price Confirmation',
+        'Pending Review',
+        'Pending',
+        'Confirmed',
+        'Preparing',
+        'Ready for Rider',
+        'Out for Delivery',
+        'Delivered',
+        'Picked Up',
+        'No Show',
+        'Cancelled',
+    ];
+
     public function index(Request $request)
     {
         $uid    = session('user')['id'];
@@ -251,6 +266,32 @@ class OrderController extends Controller
             'latest_tracking_at' => (string) ($latestTrackingAt ?? ''),
             'final' => $final,
             'interval_ms' => $final ? 0 : ($active ? 10000 : 25000),
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    public function statusCounts()
+    {
+        $uid = session('user')['id'] ?? null;
+        if (!$uid) {
+            return response()->json(['ok' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $grouped = DB::table('orders')
+            ->where('user_id', $uid)
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $counts = ['All' => 0];
+        foreach (self::CUSTOMER_STATUS_FILTERS as $status) {
+            $counts[$status] = (int) ($grouped[$status] ?? 0);
+            $counts['All'] += $counts[$status];
+        }
+
+        return response()->json([
+            'ok' => true,
+            'counts' => $counts,
+            'updated_at' => now()->toISOString(),
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 

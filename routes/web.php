@@ -382,6 +382,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::post('/checkout/place',  [CustomerCheckout::class, 'placeOrder'])->name('checkout.place');
 
     Route::get('/orders',                          [CustomerOrder::class, 'index'])->name('orders');
+    Route::get('/orders/status-counts',            [CustomerOrder::class, 'statusCounts'])->name('orders.status_counts');
     Route::get('/orders/{id}/status',              [CustomerOrder::class, 'status'])->name('orders.status');
     Route::post('/orders/{id}/cancel-request',     [CustomerOrder::class, 'requestCancel'])->name('orders.cancel_request');
     Route::post('/orders/{id}/review',             [CustomerReview::class, 'store'])->name('orders.review');
@@ -488,6 +489,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
     Route::get('/order-requests',            [\App\Http\Controllers\Seller\OrderRequestController::class, 'index'])->name('order_requests');
     Route::post('/order-requests/{id}/update', [\App\Http\Controllers\Seller\OrderRequestController::class, 'update'])->name('order_requests.update');
+    Route::get('/orders/status-counts',         [\App\Http\Controllers\Seller\OrderController::class, 'statusCounts'])->name('orders.status_counts');
     Route::get('/orders/{id}/realtime-status', [\App\Http\Controllers\Seller\OrderController::class, 'realtimeStatus'])->name('orders.realtime_status');
     Route::get('/orders/{id}/receipt/{transactionId}', [\App\Http\Controllers\Seller\OrderController::class, 'receipt'])->name('orders.receipt');
     Route::get('/orders/{id}/remittance/{remittanceId}/confirm', [\App\Http\Controllers\Seller\OrderController::class, 'remittanceActionRedirect'])->name('orders.remittance_confirm_get');

@@ -1,6 +1,10 @@
 @extends('layouts.app')
 @section('page_title','Orders')
 @section('content')
+@php
+  $sellerStatuses = ['Cancel Requests','Awaiting Deposit','Pending','Pending Review','Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'];
+  $sellerStatusLabelMap = ['Pickup' => 'Ready for Pickup', 'No Show' => 'Unclaimed'];
+@endphp
 <style>
   .seller-order-item.action-needed {
     border-color:#f9a8d4!important;
@@ -39,6 +43,99 @@
       line-height:1.2;
     }
   }
+  .status-filter-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    max-width: 220px;
+  }
+  .status-filter-toggle {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    border-radius: .45rem;
+    min-height: 38px;
+    padding: .38rem .62rem;
+    font-size: .84rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    justify-content: space-between;
+  }
+  .status-filter-label { font-weight: 600; color: #1f2937; }
+  .status-filter-chevron { font-size: .72rem; color: #6b7280; transition: transform .16s ease; }
+  .status-filter-wrap.is-open .status-filter-chevron { transform: rotate(180deg); }
+  .status-filter-menu {
+    position: absolute;
+    inset: calc(100% + 6px) 0 auto;
+    z-index: 35;
+    border: 1px solid #e5e7eb;
+    border-radius: .6rem;
+    background: #fff;
+    box-shadow: 0 16px 40px rgba(15,23,42,.14);
+    padding: .4rem;
+    max-height: min(65vh, 360px);
+    overflow: auto;
+    display: none;
+  }
+  .status-filter-wrap.is-open .status-filter-menu { display: block; }
+  .status-filter-item {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    border-radius: .5rem;
+    padding: .48rem .56rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .55rem;
+    font-size: .8rem;
+    color: #1f2937;
+    text-align: left;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: background-color .12s ease, color .12s ease;
+    animation: statusMenuDrop .17s ease forwards;
+    animation-delay: calc(var(--stagger, 0) * 20ms);
+  }
+  .status-filter-wrap:not(.is-open) .status-filter-item { animation: none; }
+  .status-filter-item:hover,
+  .status-filter-item:focus-visible { background: #f8fafc; outline: none; }
+  .status-filter-item.active { background: #f1f5f9; color: #0f172a; font-weight: 700; }
+  .status-filter-badge {
+    min-width: 1.45rem;
+    height: 1.45rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 .28rem;
+    font-size: .68rem;
+    line-height: 1;
+    font-weight: 800;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .status-dot-all { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
+  .status-dot-Cancel-Requests,
+  .status-dot-Pending,
+  .status-dot-Pending-Review,
+  .status-dot-Pickup { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .status-dot-Awaiting-Deposit { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+  .status-dot-Confirmed,
+  .status-dot-Preparing,
+  .status-dot-Ready-for-Rider,
+  .status-dot-Out-for-Delivery { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .status-dot-Delivered,
+  .status-dot-Picked-Up { background: #ecfdf5; color: #166534; border-color: #bbf7d0; }
+  .status-dot-No-Show,
+  .status-dot-Cancelled { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+  @keyframes statusMenuDrop {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (max-width:575px) {
+    .status-filter-wrap { max-width: 100%; width: 100%; }
+  }
 </style>
 <div>
   <div style="margin-bottom:2rem">
@@ -73,13 +170,28 @@
                style="flex:1;min-width:0;max-width:280px"
                value="{{ $search ?? '' }}"
                oninput="pgSearch(this.value)">
-        <select id="sellerOrderStatusFilter" class="form-select" style="flex:1;min-width:0;max-width:160px"
-                onchange="pgFilter('status', this.value)">
-          <option value="All" {{ ($status??'All')==='All'?'selected':'' }}>All status</option>
-          @foreach(['Cancel Requests','Awaiting Deposit','Pending','Pending Review','Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'] as $st)
-          <option value="{{ $st }}" {{ ($status??'')===$st?'selected':'' }}>{{ $st === 'Pickup' ? 'Ready for Pickup' : $st }}</option>
-          @endforeach
-        </select>
+        <div class="status-filter-wrap" id="sellerStatusFilter"
+             data-counts-url="{{ route('seller.orders.status_counts') }}"
+             data-selected="{{ $status ?? 'All' }}">
+          <button type="button" class="status-filter-toggle" id="sellerStatusToggle" aria-expanded="false" aria-haspopup="listbox">
+            <span class="status-filter-label" id="sellerStatusLabel">{{ $sellerStatusLabelMap[$status ?? 'All'] ?? ($status ?? 'All status') }}</span>
+            <span class="status-filter-badge {{ ($status ?? 'All') === 'All' ? 'status-dot-all' : 'status-dot-' . str_replace(' ', '-', ($status ?? 'All')) }}" data-status-badge="{{ $status ?? 'All' }}" hidden></span>
+            <i class="bi bi-chevron-down status-filter-chevron"></i>
+          </button>
+          <div class="status-filter-menu" id="sellerStatusMenu" role="listbox" tabindex="-1">
+            <button type="button" class="status-filter-item{{ ($status ?? 'All') === 'All' ? ' active' : '' }}" data-status-value="All" style="--stagger:0">
+              <span>All status</span>
+              <span class="status-filter-badge status-dot-all" data-status-badge="All" hidden></span>
+            </button>
+            @foreach($sellerStatuses as $st)
+            <button type="button" class="status-filter-item{{ ($status ?? '') === $st ? ' active' : '' }}" data-status-value="{{ $st }}" style="--stagger:{{ $loop->iteration }}">
+              <span>{{ $sellerStatusLabelMap[$st] ?? $st }}</span>
+              <span class="status-filter-badge status-dot-{{ str_replace(' ', '-', $st) }}" data-status-badge="{{ $st }}" hidden></span>
+            </button>
+            @endforeach
+          </div>
+          <input type="hidden" id="sellerOrderStatusFilter" value="{{ strtolower($status ?? 'All') }}">
+        </div>
       </div>
     </div>
     <div id="sellerOrderFilterSummary" style="font-size:.78rem;color:var(--gray-500);margin-top:.6rem">Showing {{ $orders->firstItem() ?? 0 }} - {{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} orders</div>
@@ -106,6 +218,7 @@
     $isCancelledOrder = ($o->status ?? '') === 'Cancelled' || ($o->cancel_status ?? '') === 'accepted';
     $needsRemittanceAction = $remittance && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected'], true);
     $needsPickupAction = ($o->status ?? '') === 'Pickup' || $hasPaidCancelRequest || $needsRemittanceAction;
+    $orderStatusLabel = ($o->status ?? '') === 'Pickup' ? 'Ready for Pickup' : (($o->status ?? '') === 'No Show' ? 'Unclaimed' : $o->status);
     $sc = match($o->status) {
       'Awaiting Deposit'         => 'background:#FCE4EC;color:#880E4F',
       'Pending','Pending Review' => 'background:#FFF3E0;color:#E65100',
@@ -162,7 +275,7 @@
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.25rem">
           <span style="font-size:.875rem;font-weight:700;color:var(--gray-900);font-family:monospace">{{ strtoupper($o->track_code) }}</span>
-          <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $o->status === 'Pickup' ? 'Ready for Pickup' : $o->status }}</span>
+          <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $orderStatusLabel }}</span>
           @if($needsPickupAction)
             <span class="seller-action-pill"><i class="bi bi-exclamation-circle-fill"></i>Action needed</span>
           @endif
@@ -308,7 +421,7 @@
       {{-- Info grid --}}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem 1.25rem;font-size:.82rem">
         <div><span style="color:var(--gray-500)">Track Code</span><br><strong style="font-family:monospace">{{ strtoupper($o->track_code) }}</strong></div>
-        <div><span style="color:var(--gray-500)">Status</span><br><strong>{{ $o->status === 'Pickup' ? 'Ready for Pickup' : $o->status }}</strong></div>
+<div><span style="color:var(--gray-500)">Status</span><br><strong>{{ $orderStatusLabel }}</strong></div>
         <div><span style="color:var(--gray-500)">Customer</span><br><strong>{{ $o->order_customer_name ?? 'Customer' }}</strong></div>
         <div>
           <span style="color:var(--gray-500)">Phone</span><br>
@@ -898,6 +1011,96 @@
 </div>
 
 <script>
+const sellerStatusLabelMap = @json($sellerStatusLabelMap);
+
+function statusBadgeValue(count) {
+  const numeric = Number(count || 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) return '';
+  return numeric > 99 ? '99+' : String(Math.floor(numeric));
+}
+
+function setStatusBadgeCount(root, status, count) {
+  if (!root) return;
+  const display = statusBadgeValue(count);
+  root.querySelectorAll('[data-status-badge="' + status + '"]').forEach((badge) => {
+    if (!display) {
+      badge.hidden = true;
+      badge.textContent = '';
+      return;
+    }
+    badge.hidden = false;
+    badge.textContent = display;
+  });
+}
+
+function initSellerStatusFilter() {
+  const wrap = document.getElementById('sellerStatusFilter');
+  const toggle = document.getElementById('sellerStatusToggle');
+  const menu = document.getElementById('sellerStatusMenu');
+  if (!wrap || !toggle || !menu) return null;
+
+  const selected = String(wrap.dataset.selected || 'All');
+  const label = document.getElementById('sellerStatusLabel');
+  if (label) {
+    label.textContent = sellerStatusLabelMap[selected] || (selected === 'All' ? 'All status' : selected);
+  }
+
+  toggle.addEventListener('click', () => {
+    const open = wrap.classList.toggle('is-open');
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) menu.focus();
+  });
+
+  menu.querySelectorAll('.status-filter-item[data-status-value]').forEach((item) => {
+    item.addEventListener('click', () => {
+      const value = item.dataset.statusValue || 'All';
+      pgFilter('status', value);
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!wrap.contains(event.target)) {
+      wrap.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      wrap.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  return wrap;
+}
+
+async function refreshSellerStatusCounts() {
+  const wrap = document.getElementById('sellerStatusFilter');
+  if (!wrap) return;
+  const countsUrl = wrap.dataset.countsUrl || '';
+  if (!countsUrl) return;
+
+  try {
+    const response = await fetch(countsUrl, {
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      cache: 'no-store'
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!data?.ok || !data.counts) return;
+    Object.entries(data.counts).forEach(([status, count]) => setStatusBadgeCount(wrap, status, count));
+  } catch (error) {}
+}
+
+let sellerStatusCountTimer = null;
+function scheduleSellerStatusCountPoll() {
+  if (sellerStatusCountTimer) clearInterval(sellerStatusCountTimer);
+  sellerStatusCountTimer = setInterval(() => {
+    if (!document.hidden) refreshSellerStatusCounts();
+  }, 9000);
+}
+
 function pgFilter(key, value) {
   const url = new URL(window.location.href);
   url.searchParams.set(key, value || 'All');
@@ -947,6 +1150,16 @@ function filterSellerOrders() {
   const empty = document.getElementById('sellerOrdersEmpty');
   if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  initSellerStatusFilter();
+  refreshSellerStatusCounts();
+  scheduleSellerStatusCountPoll();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) refreshSellerStatusCounts();
+});
 
 (function startGcashOrderRealtime() {
   const watchedOrders = Array.from(document.querySelectorAll('.seller-order-item'))
