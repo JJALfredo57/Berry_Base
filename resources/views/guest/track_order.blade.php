@@ -1614,15 +1614,30 @@
             <div class="fw-bold" style="color:#16a34a">PHP {{ number_format($paidAmount, 2) }}</div>
           </div>
           <div class="small text-muted mt-1">{{ $r->product_name }}  {{ \Carbon\Carbon::parse($paidDate)->format('M d, Y') }}</div>
-          <a href="{{ $viewUrl }}" class="btn btn-primary btn-sm w-100 mt-2">
+          <button type="button" class="btn btn-primary btn-sm w-100 mt-2" onclick='openTrackReceipt(@json($viewUrl))'>
             <i class="bi bi-eye me-1"></i>View Receipt
-          </a>
+          </button>
         </div>
       @endforeach
     </div>
   </div>
 </aside>
 @endif
+
+<div class="modal fade" id="trackReceiptModal" tabindex="-1" aria-labelledby="trackReceiptModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl" style="width:min(980px,calc(100vw - 20px));max-width:980px">
+    <div class="modal-content border-0" style="height:min(860px,calc(100dvh - 20px));border-radius:18px;overflow:hidden">
+      <div class="modal-header border-0 pb-2">
+        <h5 class="modal-title fw-bold" id="trackReceiptModalTitle"><i class="bi bi-receipt-cutoff me-2 text-primary"></i>Payment Receipt</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0" style="min-height:0">
+        <iframe id="trackReceiptFrame" title="Payment receipt" style="width:100%;height:100%;min-height:520px;border:0;background:#fff"></iframe>
+      </div>
+      <div class="modal-footer border-0 pt-2"><button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal"><i class="bi bi-arrow-left me-1"></i>Back to Tracking</button></div>
+    </div>
+  </div>
+</div>
 
 <script>
 const TRACK_CODE = '{{ $order->track_code }}';
@@ -1657,6 +1672,19 @@ let trackNotificationsHasMore = false;
 let trackNotificationsLoading = false;
 let trackActiveNotificationTarget = '';
 const trackSeenNotificationIds = new Set();
+
+function openTrackReceipt(url) {
+  const frame = document.getElementById('trackReceiptFrame');
+  const modalEl = document.getElementById('trackReceiptModal');
+  if (!frame || !modalEl || !url) return;
+  frame.src = url;
+  window.bootstrap?.Modal.getOrCreateInstance(modalEl).show();
+}
+
+document.getElementById('trackReceiptModal')?.addEventListener('hidden.bs.modal', function () {
+  const frame = document.getElementById('trackReceiptFrame');
+  if (frame) frame.src = 'about:blank';
+});
 
 const trackNotificationSeenObserver = 'IntersectionObserver' in window
   ? new IntersectionObserver(entries => {
