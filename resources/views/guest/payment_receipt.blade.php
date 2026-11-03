@@ -24,7 +24,6 @@
 .total-row .total-amt  { font-size:1.35rem;font-weight:800;color:var(--primary); }
 .vat-box { background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-top:10px;font-size:.82rem; }
 .ref-box { background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 14px;margin-top:10px;font-size:.82rem;word-break:break-all; }
-.track-badge { display:inline-block;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:2px 8px;font-family:monospace;font-size:.85rem;font-weight:700;color:#374151; }
 .receipt-footer { padding:0 28px 28px; }
 @media print { .no-print{display:none!important} .receipt-wrap{padding:0} .receipt-card{box-shadow:none;border:1px solid #eee} body{background:#fff!important} }
 </style>
@@ -66,12 +65,6 @@
       <span>Order Number</span>
       #{{ $receipt->id }}
     </div>
-
-    @if($receipt->track_code)
-    <div class="text-center mb-4" style="font-size:.82rem;color:#6b7280">
-      Track Code: <span class="track-badge">{{ $receipt->track_code }}</span>
-    </div>
-    @endif
 
     @php $receiptAddr = $receipt->delivery_address ?? null; @endphp
     @if($receipt->guest_name || ($receipt->fulfillment_type === 'Delivery' && $receiptAddr))

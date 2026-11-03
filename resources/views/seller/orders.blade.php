@@ -344,7 +344,6 @@
       @endif
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.25rem">
-          <span style="font-size:.875rem;font-weight:700;color:var(--gray-900);font-family:monospace">{{ strtoupper($o->track_code) }}</span>
           <span style="{{ $sc }};font-size:.7rem;font-weight:700;padding:.2rem .65rem;border-radius:99px">{{ $orderStatusLabel }}</span>
           @if($needsPickupAction)
             <span class="seller-action-pill"><i class="bi bi-exclamation-circle-fill"></i>Action needed</span>
@@ -490,8 +489,7 @@
 
       {{-- Info grid --}}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem 1.25rem;font-size:.82rem">
-        <div><span style="color:var(--gray-500)">Track Code</span><br><strong style="font-family:monospace">{{ strtoupper($o->track_code) }}</strong></div>
-<div><span style="color:var(--gray-500)">Status</span><br><strong>{{ $orderStatusLabel }}</strong></div>
+        <div><span style="color:var(--gray-500)">Status</span><br><strong>{{ $orderStatusLabel }}</strong></div>
         <div><span style="color:var(--gray-500)">Customer</span><br><strong>{{ $o->order_customer_name ?? 'Customer' }}</strong></div>
         <div>
           <span style="color:var(--gray-500)">Phone</span><br>

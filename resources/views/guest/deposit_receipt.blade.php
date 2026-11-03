@@ -14,7 +14,6 @@
 .order-id-box { background:#f9fafb;border:1px dashed #d1d5db;border-radius:10px;padding:10px 16px;text-align:center;font-family:monospace;font-size:1rem;font-weight:700;color:#374151;letter-spacing:.05em;margin-bottom:12px; }
 .order-id-box span { display:block;font-size:.72rem;font-weight:400;color:#9ca3af;margin-bottom:2px;font-family:sans-serif;letter-spacing:0; }
 .balance-box { background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:14px 16px;margin-top:14px; }
-.track-badge { display:inline-block;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:2px 8px;font-family:monospace;font-size:.85rem;font-weight:700;color:#374151; }
 .receipt-footer { padding:0 28px 28px; }
 @media print { .no-print{display:none!important} .receipt-wrap{padding:0} .receipt-card{box-shadow:none;border:1px solid #eee} }
 </style>
@@ -50,12 +49,6 @@
       <span>Order Number</span>
       #{{ $receipt->id }}
     </div>
-
-    @if($receipt->track_code)
-    <div class="text-center mb-4" style="font-size:.82rem;color:#6b7280">
-      Track Code: <span class="track-badge">{{ $receipt->track_code }}</span>
-    </div>
-    @endif
 
     @if($receipt->guest_name)
     <div class="receipt-row">

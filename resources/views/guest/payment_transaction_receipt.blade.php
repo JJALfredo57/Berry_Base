@@ -58,10 +58,6 @@
               <td>{{ $transaction->product_name }}</td>
             </tr>
             <tr>
-              <th>Tracking Code</th>
-              <td><span style="font-family:monospace">{{ $transaction->track_code }}</span></td>
-            </tr>
-            <tr>
               <th>Fulfillment</th>
               <td>{{ $transaction->fulfillment_type ?? 'N/A' }}</td>
             </tr>

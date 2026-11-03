@@ -27,7 +27,6 @@
 .receipt-footer { padding:0 28px 28px; }
 .fail-header { background:linear-gradient(135deg,#ef4444,#b91c1c); }
 .fail-circle  { width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px; }
-.track-badge  { display:inline-block;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:2px 8px;font-family:monospace;font-size:.85rem;font-weight:700;color:#374151; }
 @media print { .no-print{display:none!important} .receipt-wrap{padding:0} .receipt-card{box-shadow:none;border:1px solid #eee} body{background:#fff!important} }
 </style>
 
@@ -67,16 +66,11 @@
         @endif
       </div>
 
-      {{-- Order ID + Track Code --}}
+      {{-- Order ID --}}
       <div class="order-id-box">
         <span>Order Number</span>
         #{{ $receipt->id }}
       </div>
-      @if($receipt->track_code)
-      <div class="text-center mb-4" style="font-size:.82rem;color:#6b7280">
-        Track Code: <span class="track-badge">{{ $receipt->track_code }}</span>
-      </div>
-      @endif
 
       {{-- Customer --}}
       @php $receiptAddr = $receipt->delivery_address ?? null; @endphp

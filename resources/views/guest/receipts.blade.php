@@ -14,7 +14,7 @@
   <div class="card mb-3">
     <div class="card-body p-3">
       <form method="GET" class="d-flex gap-2 flex-wrap">
-        <input type="text" name="search" class="form-control" value="{{ $search }}" placeholder="Search order #, tracking code, product, or payment type" style="max-width:420px">
+        <input type="text" name="search" class="form-control" value="{{ $search }}" placeholder="Search order #, product, or payment type" style="max-width:420px">
         <button class="btn btn-primary" type="submit"><i class="bi bi-search me-1"></i>Search</button>
         @if($search)
           <a href="{{ route('guest.receipts', $order->track_code) }}" class="btn btn-outline-secondary">Clear</a>
@@ -42,7 +42,6 @@
           <div style="min-width:220px">
             <div class="fw-bold">Order #{{ $orderId }}</div>
             <div class="small text-muted">{{ $r->product_name }}</div>
-            <div class="small text-muted">Track: <span style="font-family:monospace">{{ $r->track_code }}</span></div>
           </div>
           <div>
             <div class="small text-muted">{{ $typeLabel }}</div>
