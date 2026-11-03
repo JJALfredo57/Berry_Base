@@ -50,8 +50,8 @@
         </div>
       </div>
 
-      <div class="table-responsive mb-4">
-        <table class="table align-middle">
+      <div class="table-responsive mb-4 receipt-details">
+        <table class="table align-middle receipt-details-table">
           <tbody>
             <tr>
               <th style="width:210px">Product</th>
@@ -121,6 +121,22 @@
   </div>
 </div>
 <style>
+.receipt-details,
+.receipt-details-table { min-width:0 !important; }
+.receipt-details-table th { width:210px; }
+@media (max-width:575px) {
+  .receipt-details { overflow:visible; }
+  .receipt-details-table,
+  .receipt-details-table tbody,
+  .receipt-details-table tr,
+  .receipt-details-table th,
+  .receipt-details-table td { display:block; width:100% !important; }
+  .receipt-details-table tr { padding:.72rem 0; border-bottom:1px solid #e5e7eb; }
+  .receipt-details-table th,
+  .receipt-details-table td { padding:.12rem 0; border:0; }
+  .receipt-details-table th { color:#6b7280; font-size:.82rem; font-weight:600; }
+  .receipt-details-table td { color:#111827; font-size:.95rem; font-weight:600; overflow-wrap:anywhere; word-break:break-word; }
+}
 @media print {
   .no-print, nav, footer { display:none !important; }
   body { background:#fff !important; }
