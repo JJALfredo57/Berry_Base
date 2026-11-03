@@ -524,7 +524,7 @@ class OrderController extends Controller
             ->where('o.shop_id', $shop->id)
             ->select(
                 'pt.*',
-                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as guest_name"),
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, o.fullname, 'Guest') END as guest_name"),
                 DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as guest_phone"),
                 'o.fulfillment_type',
                 'o.schedule_date',
