@@ -1624,15 +1624,15 @@
 </aside>
 @endif
 
-<div class="modal fade" id="trackReceiptModal" tabindex="-1" aria-labelledby="trackReceiptModalTitle" aria-hidden="true" style="z-index:1095">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl" style="width:min(980px,calc(100vw - 20px));max-width:980px">
-    <div class="modal-content border-0" style="height:min(860px,calc(100dvh - 20px));border-radius:18px;overflow:hidden">
+<div class="modal fade track-receipt-modal" id="trackReceiptModal" tabindex="-1" aria-labelledby="trackReceiptModalTitle" aria-hidden="true" style="z-index:1095">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content border-0">
       <div class="modal-header border-0 pb-2">
         <h5 class="modal-title fw-bold" id="trackReceiptModalTitle"><i class="bi bi-receipt-cutoff me-2 text-primary"></i>Payment Receipt</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body p-0" style="min-height:0">
-        <div id="trackReceiptContent" style="height:100%;min-height:520px;overflow:auto;background:#fff"><div class="d-flex h-100 align-items-center justify-content-center text-muted">Loading receipt…</div></div>
+      <div class="modal-body p-0">
+        <div id="trackReceiptContent"><div class="d-flex h-100 align-items-center justify-content-center text-muted">Loading receipt…</div></div>
       </div>
       <div class="modal-footer border-0 pt-2 gap-2">
         <button type="button" class="btn btn-outline-primary fw-semibold d-none" id="trackReceiptSaveButton" onclick="printTrackReceipt()"><i class="bi bi-printer me-1"></i>Save / Print Receipt</button>
@@ -1643,6 +1643,64 @@
 </div>
 
 <style>
+  #trackReceiptModal.track-receipt-modal.show {
+    display:flex !important;
+    align-items:center;
+    justify-content:center;
+    padding:10px;
+    overflow:hidden;
+  }
+  #trackReceiptModal.track-receipt-modal .modal-dialog {
+    width:min(980px, 100%);
+    max-width:980px;
+    height:min(860px, calc(100dvh - 20px));
+    max-height:calc(100dvh - 20px);
+    margin:0;
+  }
+  #trackReceiptModal.track-receipt-modal .modal-content {
+    height:100%;
+    max-height:100%;
+    border-radius:18px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  #trackReceiptModal.track-receipt-modal .modal-header,
+  #trackReceiptModal.track-receipt-modal .modal-footer {
+    flex:0 0 auto;
+    background:#fff;
+    z-index:1;
+  }
+  #trackReceiptModal.track-receipt-modal .modal-body {
+    flex:1 1 auto;
+    min-height:0;
+    overflow:hidden;
+  }
+  #trackReceiptContent {
+    height:100%;
+    min-height:0;
+    overflow:auto;
+    overscroll-behavior:contain;
+    background:#fff;
+    -webkit-overflow-scrolling:touch;
+  }
+  #trackReceiptContent > .container,
+  #trackReceiptContent > .container-fluid { max-width:100%; }
+  @media (max-width:575px) {
+    #trackReceiptModal.track-receipt-modal.show { padding:8px; }
+    #trackReceiptModal.track-receipt-modal .modal-dialog {
+      height:calc(100dvh - 16px);
+      max-height:calc(100dvh - 16px);
+    }
+    #trackReceiptModal.track-receipt-modal .modal-content { border-radius:16px; }
+    #trackReceiptModal.track-receipt-modal .modal-header { padding:14px 16px 10px; }
+    #trackReceiptModal.track-receipt-modal .modal-footer {
+      padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+      display:grid;
+      grid-template-columns:1fr;
+    }
+    #trackReceiptModal.track-receipt-modal .modal-footer .btn { min-height:44px; }
+  }
   @media print {
     @page { margin: 12mm; }
     body > * { visibility: hidden !important; }
@@ -1698,6 +1756,16 @@ function printTrackReceipt() {
   window.print();
 }
 
+function receiptStylesForModal(documentView) {
+  return Array.from(documentView.querySelectorAll('style'))
+    .map(style => style.textContent || '')
+    .filter(css => /\.receipt-(?:wrap|card|header|body|details|divider|row|footer)|\.gcash-badge|\.balance-box|\.ref-box/.test(css))
+    .map(css => css.split(/@media\s+print\s*\{/i)[0].trim())
+    .filter(Boolean)
+    .map(css => '<style>' + css + '</style>')
+    .join('');
+}
+
 async function openTrackReceipt(url, title = 'Payment Receipt') {
   const content = document.getElementById('trackReceiptContent');
   const modalEl = document.getElementById('trackReceiptModal');
@@ -1716,8 +1784,7 @@ async function openTrackReceipt(url, title = 'Payment Receipt') {
     const receipt = documentView.querySelector('.receipt-wrap, .container.py-4, .container-fluid.py-4');
     if (!receipt) throw new Error('Receipt details are unavailable.');
     receipt.querySelectorAll('.no-print').forEach(element => element.remove());
-    const styles = Array.from(documentView.querySelectorAll('style')).map(style => style.outerHTML).join('');
-    content.innerHTML = styles + receipt.outerHTML;
+    content.innerHTML = receiptStylesForModal(documentView) + receipt.outerHTML;
     setTrackReceiptSaveAction(/\/receipt\/\d+(?:[/?#]|$)/.test(url));
   } catch (error) {
     content.innerHTML = '<div class="p-4 text-center text-danger"><i class="bi bi-exclamation-circle me-1"></i>Unable to load this receipt. Please try again.</div>';
