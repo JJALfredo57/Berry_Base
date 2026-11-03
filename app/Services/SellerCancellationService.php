@@ -58,6 +58,16 @@ class SellerCancellationService
             'Please respond within 10 minutes and provide refund details if you accept.',
             ['event' => 'seller_cancellation_request', 'order_id' => (string) $order->id]
         );
+        if (Schema::hasTable('notifications')) {
+            DB::table('notifications')->insert([
+                'receiver_role' => 'customer',
+                'receiver_user_id' => $fresh->user_id,
+                'title' => 'Seller requested cancellation',
+                'message' => 'Please respond within 10 minutes. Open My Orders to accept or keep your order.',
+                'is_read' => false,
+                'created_at' => now(),
+            ]);
+        }
 
         return ['ok' => true, 'expires_at' => $expiresAt];
     }

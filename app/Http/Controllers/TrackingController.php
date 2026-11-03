@@ -5,6 +5,7 @@ use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
 use App\Helpers\SmsHelper;
 use App\Services\OrderRefundService;
+use App\Services\SellerCancellationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -192,6 +193,7 @@ class TrackingController extends Controller
 
     public function show(string $trackCode)
     {
+        app(SellerCancellationService::class)->expirePending();
         $order = DB::table('orders as o')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')

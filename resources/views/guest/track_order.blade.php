@@ -394,11 +394,15 @@
     $isPickup = $order->fulfillment_type === 'Pickup';
     $hasDepositLock = ($order->deposit_status ?? null) === 'paid' || in_array(($order->payment_status ?? ''), ['Partial Payment', 'Paid']);
     $hasPendingCancel = ($order->cancel_requested ?? 0) && ($order->cancel_status ?? '') === 'pending';
+    $sellerCancelAwaiting = ($order->seller_cancel_state ?? '') === 'awaiting_customer'
+      && !empty($order->seller_cancel_expires_at)
+      && \Carbon\Carbon::parse($order->seller_cancel_expires_at)->isFuture();
     $cancelApproved = ($order->cancel_status ?? '') === 'accepted';
     $cancelRejected = ($order->cancel_status ?? '') === 'rejected';
     $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Pending Price Confirmation', 'Awaiting Deposit', 'Confirmed']) && !$cancelApproved;
     $canPayOrder = !in_array($order->status, ['Cancelled', 'Delivered', 'Picked Up', 'No Show'], true)
-      && !in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true);
+      && !in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true)
+      && !$sellerCancelAwaiting;
     $statusColors = [
       'Awaiting Deposit' => ['bg'=>'#fff7ed','color'=>'#9a3412','icon'=>'bi-credit-card-fill'],
       'Pending'          => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split'],
@@ -460,7 +464,18 @@
     @endif
   </div>
 
-  @if($hasPendingCancel)
+  @if($sellerCancelAwaiting)
+  <div class="alert border-0 mb-4" style="background:#eff6ff;color:#1d4ed8" data-seller-cancel-countdown="{{ \Carbon\Carbon::parse($order->seller_cancel_expires_at)->toIso8601String() }}">
+    <div class="d-flex justify-content-between gap-2 flex-wrap"><strong><i class="bi bi-hourglass-split me-2"></i>Seller requested cancellation</strong><span class="seller-cancel-countdown fw-bold" style="font-variant-numeric:tabular-nums">10:00</span></div>
+    <div class="small mt-1">Reason: {{ $order->seller_cancel_reason ?: 'Seller cannot continue this order.' }}</div>
+    <div class="small mt-2">Respond before the countdown ends. For your security, sign in to your customer account to accept and provide refund details.</div>
+    @if((session('user')['role'] ?? null) === 'customer' && (string) (session('user')['id'] ?? '') === (string) ($order->user_id ?? ''))
+      <a href="{{ route('customer.orders') }}" class="btn btn-primary btn-sm mt-2">Open My Orders to respond</a>
+    @else
+      <a href="{{ route('login') }}" class="btn btn-primary btn-sm mt-2">Sign in to respond</a>
+    @endif
+  </div>
+  @elseif($hasPendingCancel)
   <div class="alert border-0 mb-4" style="background:#fff3cd;color:#854d0e">
     <i class="bi bi-hourglass-split me-2"></i>Cancellation request sent to the seller. Waiting for seller review.
   </div>
@@ -2854,6 +2869,17 @@ document.addEventListener('visibilitychange', () => {
 if (!['Delivered', 'Picked Up', 'No Show', 'Cancelled'].includes(trackSnapshot.status)) {
   scheduleTrackStatusPoll(['Preparing', 'Ready for Rider', 'Out for Delivery', 'Pickup'].includes(trackSnapshot.status) ? 10000 : 25000);
 }
+
+document.querySelectorAll('[data-seller-cancel-countdown]').forEach(function (card) {
+  const target = new Date(card.dataset.sellerCancelCountdown).getTime();
+  const label = card.querySelector('.seller-cancel-countdown');
+  const tick = function () {
+    const seconds = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+    if (label) label.textContent = String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
+    if (seconds === 0) window.location.reload();
+  };
+  tick(); window.setInterval(tick, 1000);
+});
 
 // Auto-highlight stars on load
 setRating(5);
