@@ -226,7 +226,7 @@ class TrackingController extends Controller
             : ['Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered'];
         $currentStep = array_search($order->status, $statusSteps);
         if ($currentStep === false) $currentStep = 0;
-        $receiptQuery = $this->receiptQueryForPhone($order->guest_phone ?? '');
+        $receiptQuery = $this->receiptQueryForPhone($order->guest_phone ?? '', (string) $order->id);
         $receiptCount = (clone $receiptQuery)->count();
         $recentReceipts = $receiptQuery
             ->limit(5)
@@ -256,7 +256,7 @@ class TrackingController extends Controller
         if (!$order) abort(404, 'Order not found.');
 
         $search = trim($request->query('search', ''));
-        $receipts = $this->receiptQueryForPhone($order->guest_phone ?? '');
+        $receipts = $this->receiptQueryForPhone($order->guest_phone ?? '', (string) $order->id);
         if ($search !== '') {
             if (Schema::hasTable('payment_transactions')) {
                 $receipts->where(function ($q) use ($search) {
@@ -299,7 +299,7 @@ class TrackingController extends Controller
 
         try {
             $phone = DB::table('orders')->where('id', $order->id)->value('guest_phone');
-            $receiptCount = $this->receiptQueryForPhone($phone)->count();
+            $receiptCount = $this->receiptQueryForPhone($phone, (string) $order->id)->count();
         } catch (\Throwable $e) {}
 
         $final = in_array($order->status, ['Delivered', 'Picked Up', 'Cancelled'], true);
@@ -426,7 +426,7 @@ class TrackingController extends Controller
             ->whereNotIn('status', self::CUSTOMER_HIDDEN_TRACKING_STATUSES);
     }
 
-    private function receiptQueryForPhone(?string $phone)
+    private function receiptQueryForPhone(?string $phone, ?string $orderId = null)
     {
         $variants = $this->phoneVariants($phone);
 
@@ -435,7 +435,11 @@ class TrackingController extends Controller
                 return DB::table('payment_transactions as pt')
                     ->join('orders as o', 'o.id', '=', 'pt.order_id')
                     ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
-                    ->whereIn('pt.guest_phone', $variants)
+                    ->where(function ($query) use ($variants, $orderId) {
+                        if ($orderId) $query->where('pt.order_id', $orderId);
+                        if ($variants) $orderId ? $query->orWhereIn('pt.guest_phone', $variants) : $query->whereIn('pt.guest_phone', $variants);
+                        if (!$orderId && !$variants) $query->whereRaw('1 = 0');
+                    })
                     ->select(
                         'pt.id as receipt_id',
                         'pt.order_id',
@@ -459,7 +463,11 @@ class TrackingController extends Controller
 
         return DB::table('orders as o')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
-            ->whereIn('o.guest_phone', $variants)
+            ->where(function ($query) use ($variants, $orderId) {
+                if ($orderId) $query->where('o.id', $orderId);
+                if ($variants) $orderId ? $query->orWhereIn('o.guest_phone', $variants) : $query->whereIn('o.guest_phone', $variants);
+                if (!$orderId && !$variants) $query->whereRaw('1 = 0');
+            })
             ->where(function ($q) {
                 $q->where('o.payment_status', 'Paid')
                     ->orWhere('o.payment_status', 'Partial Payment')

@@ -18,9 +18,7 @@ class MobileNotificationController extends Controller
         $offset = max(0, (int) $request->query('offset', 0));
         $trackCode = strtoupper($trackCode);
 
-        $base = DB::table('mobile_notifications')
-            ->where('role', 'guest_customer')
-            ->where('guest_track_code', $trackCode);
+        $base = $this->trackNotificationQuery($trackCode);
 
         $unread = (clone $base)->where('is_read', false)->count();
         $rows = (clone $base)
@@ -50,10 +48,8 @@ class MobileNotificationController extends Controller
     public function trackRead(string $trackCode, string $id)
     {
         if (Schema::hasTable('mobile_notifications') && $this->trackExists($trackCode)) {
-            DB::table('mobile_notifications')
+            $this->trackNotificationQuery(strtoupper($trackCode))
                 ->where('id', $id)
-                ->where('role', 'guest_customer')
-                ->where('guest_track_code', strtoupper($trackCode))
                 ->update(['is_read' => true, 'read_at' => now(), 'updated_at' => now()]);
         }
 
@@ -63,9 +59,7 @@ class MobileNotificationController extends Controller
     public function trackReadAll(string $trackCode)
     {
         if (Schema::hasTable('mobile_notifications') && $this->trackExists($trackCode)) {
-            DB::table('mobile_notifications')
-                ->where('role', 'guest_customer')
-                ->where('guest_track_code', strtoupper($trackCode))
+            $this->trackNotificationQuery(strtoupper($trackCode))
                 ->where('is_read', false)
                 ->update(['is_read' => true, 'read_at' => now(), 'updated_at' => now()]);
         }
@@ -76,6 +70,19 @@ class MobileNotificationController extends Controller
     private function trackExists(string $trackCode): bool
     {
         return DB::table('orders')->where('track_code', strtoupper($trackCode))->exists();
+    }
+
+    private function trackNotificationQuery(string $trackCode)
+    {
+        $order = DB::table('orders')->where('track_code', strtoupper($trackCode))->first();
+        $query = DB::table('mobile_notifications');
+        if ($order && !empty($order->user_id)) {
+            return $query
+                ->where('role', 'customer')
+                ->where('user_id', (string) $order->user_id)
+                ->where('order_id', (string) $order->id);
+        }
+        return $query->where('role', 'guest_customer')->where('guest_track_code', strtoupper($trackCode));
     }
 
     private function trackUrl(string $trackCode, ?string $event): string

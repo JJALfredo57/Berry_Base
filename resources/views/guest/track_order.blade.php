@@ -480,11 +480,6 @@
     <i class="bi bi-check-circle me-2"></i>Cancellation request approved.
     @if($order->cancel_admin_note) {{ $order->cancel_admin_note }} @endif
   </div>
-  @elseif($cancelRejected)
-  <div class="alert border-0 mb-4" style="background:#fee2e2;color:#991b1b">
-    <i class="bi bi-x-circle me-2"></i>Cancellation request rejected.
-    @if($order->cancel_admin_note) Reason: {{ $order->cancel_admin_note }} @endif
-  </div>
   @elseif($hasDepositLock && !in_array($order->status, ['Cancelled', 'No Show'], true))
   <div class="alert border-0 mb-4" style="background:#eff6ff;color:#1d4ed8">
     <i class="bi bi-shield-check me-2"></i>This order has payment recorded. Cancellation is still possible, but it must be reviewed because a refund is required.
@@ -952,8 +947,8 @@
     </div>
   </div>
 
-  @if(false && ($recentReceipts ?? collect())->count() > 0)
-  <div class="card mb-3 d-none">
+  @if(($recentReceipts ?? collect())->count() > 0)
+  <div class="card mb-3">
     <div class="card-body p-4">
       <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
         <div>
