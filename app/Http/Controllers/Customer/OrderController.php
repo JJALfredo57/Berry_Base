@@ -395,7 +395,11 @@ class OrderController extends Controller
         $data = ['customer_name' => session('user')['fullname'] ?? null];
         if ($action === 'accept') {
             $validated = $request->validate([
-                'refund_gcash_name' => ['required', 'string', 'min:2', 'max:160'],
+                'refund_gcash_name' => ['required', 'string', 'max:160', function ($attribute, $value, $fail) use ($refunds) {
+                    if (!$refunds->validateGcashAccountName((string) $value)) {
+                        $fail('Enter the customer’s full GCash account name using letters only.');
+                    }
+                }],
                 'refund_gcash_number' => ['required', 'string', 'max:80'],
             ]);
             if (!$refunds->validateGcashNumber(trim($validated['refund_gcash_number']))) {

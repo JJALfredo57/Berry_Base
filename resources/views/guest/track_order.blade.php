@@ -1085,8 +1085,8 @@
           <form method="POST" action="{{ route('customer.orders.seller_cancel_response', $order->id) }}" class="row g-2 mb-2">
             @csrf
             <input type="hidden" name="action" value="accept">
-            <div class="col-12"><input name="refund_gcash_name" class="form-control" maxlength="160" required placeholder="GCash account name for refund"></div>
-            <div class="col-12"><input name="refund_gcash_number" class="form-control" inputmode="tel" maxlength="80" required placeholder="09XXXXXXXXX or +639XXXXXXXXX"></div>
+            <div class="col-12"><input name="refund_gcash_name" class="form-control" maxlength="160" pattern="[A-Za-zÀ-ÿ.' -]+" required placeholder="Full GCash account name (e.g. Juan Dela Cruz)"><div class="form-text">Use the full GCash account name. Numbers and one-word names are not accepted.</div></div>
+            <div class="col-12"><input name="refund_gcash_number" class="form-control" inputmode="tel" maxlength="13" pattern="^(09[0-9]{9}|\+639[0-9]{9})$" required placeholder="09XXXXXXXXX or +639XXXXXXXXX"></div>
             <div class="col-12"><button class="btn btn-primary w-100 fw-semibold" type="submit">Accept cancellation & send refund details</button></div>
           </form>
           <form method="POST" action="{{ route('customer.orders.seller_cancel_response', $order->id) }}" class="d-grid">

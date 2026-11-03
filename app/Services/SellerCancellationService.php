@@ -114,6 +114,16 @@ class SellerCancellationService
         $sellerId = !empty($order->shop_id) ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id') : null;
         if (!$sellerId) return;
         $phone = DB::table('users')->where('id', $sellerId)->value('phone');
+        if (Schema::hasTable('notifications')) {
+            DB::table('notifications')->insert([
+                'receiver_role' => 'seller',
+                'receiver_user_id' => $sellerId,
+                'title' => $title,
+                'message' => $message,
+                'is_read' => false,
+                'created_at' => now(),
+            ]);
+        }
         app(MobileNotificationService::class)->notifyUser('seller', (string) $sellerId, $phone, $title, $message, [
             'event' => 'seller_cancellation_response',
             'order_id' => (string) $order->id,

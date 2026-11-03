@@ -281,6 +281,16 @@ class OrderRefundService
             'event' => 'refund_sent',
             'refund_id' => (string) $refund->id,
         ]);
+        if (!empty($fresh->user_id) && Schema::hasTable('notifications')) {
+            DB::table('notifications')->insert([
+                'receiver_role' => 'customer',
+                'receiver_user_id' => $fresh->user_id,
+                'title' => 'Refund sent',
+                'message' => "Your refund for Order #{$order->id} was sent. Open your tracking page to view the receipt.",
+                'is_read' => false,
+                'created_at' => now(),
+            ]);
+        }
         $this->notifyStaff($fresh, 'Refund Completed', "Refund for Order #{$order->id} was marked sent.", [
             'event' => 'refund_sent',
             'refund_id' => (string) $refund->id,
@@ -302,6 +312,21 @@ class OrderRefundService
     public function validateGcashNumber(string $number): bool
     {
         return (bool) preg_match('/^(09\d{9}|\+639\d{9})$/', trim($number));
+    }
+
+    public function validateGcashAccountName(string $name): bool
+    {
+        $name = trim((string) preg_replace('/\s+/', ' ', $name));
+        if (!preg_match("/^[\p{L}][\p{L} .'-]*$/u", $name)) return false;
+
+        $parts = array_values(array_filter(preg_split('/\s+/', str_replace(['.', "'", '-'], ' ', $name)) ?: []));
+        if (count($parts) < 2 || strlen($name) < 5) return false;
+
+        foreach ($parts as $part) {
+            if (mb_strlen($part) < 2) return false;
+        }
+
+        return true;
     }
 
     public function notifyPaidRequest(object $order, object $refund): void
