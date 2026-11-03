@@ -15,9 +15,9 @@
       <h4 class="fw-bold mb-0"><i class="bi bi-bag me-2" style="color:var(--primary)"></i>My Orders</h4>
       <p class="text-muted small mb-0" id="custOrdersLabel">Track your cake orders</p>
     </div>
-    <div class="d-flex gap-2 flex-wrap align-items-center">
-      <div class="cs-search-bar" style="max-width:200px">
-        <input type="text" class="form-control form-control-sm" placeholder="Search orders"
+    <div class="customer-order-tools">
+      <div class="cs-search-bar">
+        <input type="text" class="form-control" placeholder="Search orders"
                value="{{ $search ?? '' }}" oninput="pgSearch(this.value)">
       </div>
       <div class="status-filter-wrap" id="customerStatusFilter"
@@ -79,18 +79,37 @@
       display: block;
       animation: depositShake .32s ease;
     }
+    .customer-order-tools {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: nowrap;
+      align-items: center;
+      width: 100%;
+    }
+    .cs-search-bar {
+      flex: 0 0 220px;
+      width: 220px;
+      max-width: 220px;
+      min-width: 0;
+    }
+    .cs-search-bar .form-control {
+      min-height: 38px;
+      font-size: .84rem;
+    }
     .status-filter-wrap {
       position: relative;
-      width: 100%;
-      max-width: 200px;
+      flex: 0 0 220px;
+      width: 220px;
+      max-width: 220px;
       min-width: 0;
+      z-index: 4;
     }
     .status-filter-toggle {
       width: 100%;
       border: 1px solid #d1d5db;
       background: #fff;
       border-radius: .45rem;
-      min-height: 31px;
+      min-height: 38px;
       padding: .3rem .55rem;
       font-size: .82rem;
       display: inline-flex;
@@ -169,7 +188,9 @@
       to { opacity: 1; transform: translateY(0); }
     }
     @media (max-width: 575.98px) {
-      .status-filter-wrap { min-width: 100%; max-width: 100%; }
+      .customer-order-tools { flex-wrap: wrap; }
+      .cs-search-bar,
+      .status-filter-wrap { flex: 1 1 100%; width: 100%; max-width: 100%; }
       .status-filter-toggle { font-size: .79rem; }
       .status-filter-item { font-size: .78rem; }
     }
@@ -1361,6 +1382,8 @@ function initCustomerStatusFilter() {
   const toggle = document.getElementById('customerStatusToggle');
   const menu = document.getElementById('customerStatusMenu');
   if (!wrap || !toggle || !menu) return null;
+  if (wrap.dataset.initialized === '1') return wrap;
+  wrap.dataset.initialized = '1';
 
   const selected = String(wrap.dataset.selected || 'All');
   const label = document.getElementById('customerStatusLabel');
@@ -1368,7 +1391,9 @@ function initCustomerStatusFilter() {
     label.textContent = customerStatusLabelMap[selected] || (selected === 'All' ? 'All Status' : selected);
   }
 
-  toggle.addEventListener('click', () => {
+  toggle.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     const open = wrap.classList.toggle('is-open');
     toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) menu.focus();
@@ -1491,12 +1516,18 @@ function maybeOpenCustomerReviewPrompt() {
   window.setTimeout(() => openCustomerReviewPrompt(card), 650);
 }
 
-document.addEventListener('DOMContentLoaded', maybeOpenCustomerReviewPrompt);
-document.addEventListener('DOMContentLoaded', () => {
+function bootCustomerOrdersEnhancements() {
+  maybeOpenCustomerReviewPrompt();
   initCustomerStatusFilter();
   refreshCustomerStatusCounts();
   scheduleCustomerStatusCountPoll();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootCustomerOrdersEnhancements);
+} else {
+  bootCustomerOrdersEnhancements();
+}
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') dismissCustomerReviewPrompt();
 });
