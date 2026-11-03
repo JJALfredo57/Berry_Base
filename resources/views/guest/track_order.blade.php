@@ -266,7 +266,7 @@
     .track-notif-time{font-size:.68rem;color:#9ca3af;margin-top:6px;font-weight:700}
     .track-notif-empty{padding:28px 16px;text-align:center;color:#6b7280;font-size:.84rem}
     .track-notif-more{margin:2px 8px 10px;border:1px solid #e5e7eb;background:#fff;border-radius:12px;padding:.65rem;font-size:.78rem;font-weight:800;color:#111827}
-    .track-notif-detail{position:fixed;left:50%;top:50%;width:min(420px,calc(100vw - 28px));max-height:min(580px,calc(100vh - 40px));z-index:1082;background:#fff;border-radius:18px;box-shadow:0 26px 80px rgba(15,23,42,.28);padding:18px;display:none;transform:translate(-50%,-50%);overflow:auto}
+    .track-notif-detail{position:fixed;inset:0;margin:auto;width:min(420px,calc(100vw - 28px));height:max-content;max-height:min(580px,calc(100dvh - 40px));z-index:1082;background:#fff;border-radius:18px;box-shadow:0 26px 80px rgba(15,23,42,.28);padding:18px;display:none;overflow:auto;overscroll-behavior:contain}
     .track-notif-detail.is-open{display:block;animation:trackPanelIn .18s ease}
     .track-notif-detail-title{font-size:1rem;font-weight:900;color:#111827;margin-right:38px}
     .track-notif-detail-message{white-space:pre-wrap;color:#374151;font-size:.86rem;line-height:1.55;margin-top:10px}
@@ -387,6 +387,7 @@
     <button type="button" class="track-notif-detail-action" id="trackNotifDetailAction" onclick="openTrackNotificationTarget()">
       <i class="bi bi-box-arrow-up-right"></i>Open update
     </button>
+    <button type="button" class="btn btn-light w-100 mt-3 fw-semibold" onclick="closeTrackNotificationDetail()"><i class="bi bi-arrow-left me-1"></i>Back</button>
   </div>
 
   {{-- Status Badge --}}
@@ -947,8 +948,8 @@
     </div>
   </div>
 
-  @if(($recentReceipts ?? collect())->count() > 0)
-  <div class="card mb-3">
+  @if(false && ($recentReceipts ?? collect())->count() > 0)
+  <div class="card mb-3 d-none">
     <div class="card-body p-4">
       <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
         <div>
@@ -1580,7 +1581,7 @@
   <div class="p-3 d-flex align-items-center justify-content-between gap-2" style="border-bottom:1px solid #e5e7eb">
     <div>
       <div class="fw-bold"><i class="bi bi-receipt-cutoff me-2" style="color:var(--primary)"></i>Recent Receipts</div>
-      <div class="small text-muted">Latest payments for this phone number.</div>
+      <div class="small text-muted">Latest payments for this order and customer account.</div>
     </div>
     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeReceiptDrawer()" title="Close">
       <i class="bi bi-x-lg"></i>
