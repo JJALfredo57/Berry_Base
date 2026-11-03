@@ -1196,29 +1196,24 @@ function showOrderDetail(id) {
   bootstrap.Modal.getOrCreateInstance(document.getElementById('orderDetailModal')).show();
 }
 
+let sellerReceiptOrderContent = null;
+
 function showSellerReceipt(button) {
   const url = button?.dataset?.receiptUrl;
   if (!url) return;
 
-  const modalElement = document.getElementById('sellerReceiptModal');
-  const titleElement = document.getElementById('sellerReceiptModalTitle');
-  const bodyElement = document.getElementById('sellerReceiptModalBody');
+  const modalElement = document.getElementById('orderDetailModal');
+  const titleElement = document.getElementById('orderDetailModalTitle');
+  const bodyElement = document.getElementById('orderDetailBody');
   if (!modalElement || !titleElement || !bodyElement || !window.bootstrap) return;
 
+  if (!sellerReceiptOrderContent) {
+    sellerReceiptOrderContent = { body: bodyElement.innerHTML, title: titleElement.innerHTML };
+  }
   titleElement.textContent = button.dataset.receiptTitle || 'Payment Receipt';
   bodyElement.innerHTML = '<div class="seller-receipt-loading" role="status"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Loading receipt…</span></div>';
 
-  const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-  const orderDetailModalElement = document.getElementById('orderDetailModal');
-  const returnToOrderDetails = Boolean(orderDetailModalElement?.classList.contains('show'));
-  modalElement.dataset.returnToOrderDetails = returnToOrderDetails ? '1' : '0';
-
-  if (returnToOrderDetails) {
-    orderDetailModalElement.addEventListener('hidden.bs.modal', () => modal.show(), { once: true });
-    bootstrap.Modal.getOrCreateInstance(orderDetailModalElement).hide();
-  } else {
-    modal.show();
-  }
+  bootstrap.Modal.getOrCreateInstance(modalElement).show();
 
   fetch(url, { headers: { Accept: 'text/html' }, credentials: 'same-origin' })
     .then(response => {
@@ -1243,10 +1238,14 @@ document.addEventListener('click', event => {
   if (button) showSellerReceipt(button);
 });
 
-document.getElementById('sellerReceiptModal')?.addEventListener('hidden.bs.modal', event => {
-  if (event.currentTarget.dataset.returnToOrderDetails !== '1') return;
-  event.currentTarget.dataset.returnToOrderDetails = '0';
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('orderDetailModal')).show();
+document.getElementById('orderDetailModalBack')?.addEventListener('click', () => {
+  if (!sellerReceiptOrderContent) {
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('orderDetailModal')).hide();
+    return;
+  }
+  document.getElementById('orderDetailBody').innerHTML = sellerReceiptOrderContent.body;
+  document.getElementById('orderDetailModalTitle').innerHTML = sellerReceiptOrderContent.title;
+  sellerReceiptOrderContent = null;
 });
 
 function toggleCancel(id) {
@@ -1339,12 +1338,12 @@ document.addEventListener('visibilitychange', () => {
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content border-0" style="border-radius:16px">
       <div class="modal-header border-0 pb-0">
-        <h6 class="modal-title fw-bold"><i class="bi bi-receipt me-1 text-primary"></i>Order Details</h6>
+        <h6 class="modal-title fw-bold" id="orderDetailModalTitle"><i class="bi bi-receipt me-1 text-primary"></i>Order Details</h6>
         <button class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body pt-2" id="orderDetailBody"></div>
       <div class="modal-footer border-0 pt-0">
-        <button class="btn btn-secondary" data-bs-dismiss="modal" style="font-weight:600">
+        <button class="btn btn-secondary" id="orderDetailModalBack" type="button" style="font-weight:600">
           <i class="bi bi-arrow-left me-1"></i>Back
         </button>
       </div>
