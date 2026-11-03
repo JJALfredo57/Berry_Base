@@ -23,7 +23,7 @@
       <div class="status-filter-wrap" id="customerStatusFilter"
            data-counts-url="{{ route('customer.orders.status_counts') }}"
            data-selected="{{ $status ?? 'All' }}">
-        <button type="button" class="status-filter-toggle" id="customerStatusToggle" aria-expanded="false" aria-haspopup="listbox">
+        <button type="button" class="status-filter-toggle" id="customerStatusToggle" aria-expanded="false" aria-haspopup="listbox" onclick="customerToggleStatusMenu(event)">
           <span class="status-filter-label" id="customerStatusLabel">
             {{ $statusLabelMap[$status ?? 'All'] ?? ($status ?? 'All Status') }}
           </span>
@@ -120,10 +120,11 @@
     .status-filter-label { font-weight: 600; color: #1f2937; }
     .status-filter-chevron { font-size: .72rem; color: #6b7280; transition: transform .16s ease; }
     .status-filter-wrap.is-open .status-filter-chevron { transform: rotate(180deg); }
+    .status-filter-wrap.is-open { z-index: 1064; }
     .status-filter-menu {
       position: absolute;
       inset: calc(100% + 6px) 0 auto;
-      z-index: 35;
+      z-index: 1065;
       border: 1px solid #e5e7eb;
       border-radius: .6rem;
       background: #fff;
@@ -1377,6 +1378,19 @@ function setStatusBadgeCount(root, status, count) {
   });
 }
 
+function customerToggleStatusMenu(event) {
+  const wrap = document.getElementById('customerStatusFilter');
+  const toggle = document.getElementById('customerStatusToggle');
+  const menu = document.getElementById('customerStatusMenu');
+  if (!wrap || !toggle || !menu) return;
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const open = wrap.classList.toggle('is-open');
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) menu.focus();
+}
 function initCustomerStatusFilter() {
   const wrap = document.getElementById('customerStatusFilter');
   const toggle = document.getElementById('customerStatusToggle');
@@ -1391,13 +1405,8 @@ function initCustomerStatusFilter() {
     label.textContent = customerStatusLabelMap[selected] || (selected === 'All' ? 'All Status' : selected);
   }
 
-  toggle.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const open = wrap.classList.toggle('is-open');
-    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (open) menu.focus();
-  });
+  toggle.addEventListener('click', customerToggleStatusMenu);
+
 
   menu.querySelectorAll('.status-filter-item[data-status-value]').forEach((item) => {
     item.addEventListener('click', () => {
