@@ -1634,10 +1634,26 @@
       <div class="modal-body p-0" style="min-height:0">
         <div id="trackReceiptContent" style="height:100%;min-height:520px;overflow:auto;background:#fff"><div class="d-flex h-100 align-items-center justify-content-center text-muted">Loading receipt…</div></div>
       </div>
-      <div class="modal-footer border-0 pt-2"><button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal"><i class="bi bi-arrow-left me-1"></i>Back to Tracking</button></div>
+      <div class="modal-footer border-0 pt-2 gap-2">
+        <button type="button" class="btn btn-outline-primary fw-semibold d-none" id="trackReceiptSaveButton" onclick="printTrackReceipt()"><i class="bi bi-printer me-1"></i>Save / Print Receipt</button>
+        <button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal"><i class="bi bi-arrow-left me-1"></i>Back to Tracking</button>
+      </div>
     </div>
   </div>
 </div>
+
+<style>
+  @media print {
+    @page { margin: 12mm; }
+    body > * { visibility: hidden !important; }
+    .modal-backdrop { display: none !important; }
+    #trackReceiptModal, #trackReceiptModal * { visibility: visible !important; }
+    #trackReceiptModal { position: fixed !important; inset: 0 !important; display: block !important; overflow: visible !important; background: #fff !important; }
+    #trackReceiptModal .modal-dialog, #trackReceiptModal .modal-content { width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; min-height: 0 !important; margin: 0 !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; }
+    #trackReceiptModal .modal-header, #trackReceiptModal .modal-footer { display: none !important; }
+    #trackReceiptContent { height: auto !important; min-height: 0 !important; overflow: visible !important; }
+  }
+</style>
 
 <script>
 const TRACK_CODE = '{{ $order->track_code }}';
@@ -1673,6 +1689,15 @@ let trackNotificationsLoading = false;
 let trackActiveNotificationTarget = '';
 const trackSeenNotificationIds = new Set();
 
+function setTrackReceiptSaveAction(visible) {
+  document.getElementById('trackReceiptSaveButton')?.classList.toggle('d-none', !visible);
+}
+
+function printTrackReceipt() {
+  if (!document.querySelector('#trackReceiptContent .receipt-wrap, #trackReceiptContent .receipt-card')) return;
+  window.print();
+}
+
 async function openTrackReceipt(url, title = 'Payment Receipt') {
   const content = document.getElementById('trackReceiptContent');
   const modalEl = document.getElementById('trackReceiptModal');
@@ -1681,6 +1706,7 @@ async function openTrackReceipt(url, title = 'Payment Receipt') {
   if (titleEl) titleEl.innerHTML = '<i class="bi bi-receipt-cutoff me-2 text-primary"></i>' + title;
   closeReceiptDrawer();
   window.bootstrap?.Modal.getOrCreateInstance(modalEl).show();
+  setTrackReceiptSaveAction(false);
   content.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-muted">Loading receipt…</div>';
   try {
     const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
@@ -1692,6 +1718,7 @@ async function openTrackReceipt(url, title = 'Payment Receipt') {
     receipt.querySelectorAll('.no-print').forEach(element => element.remove());
     const styles = Array.from(documentView.querySelectorAll('style')).map(style => style.outerHTML).join('');
     content.innerHTML = styles + receipt.outerHTML;
+    setTrackReceiptSaveAction(/\/receipt\/\d+(?:[/?#]|$)/.test(url));
   } catch (error) {
     content.innerHTML = '<div class="p-4 text-center text-danger"><i class="bi bi-exclamation-circle me-1"></i>Unable to load this receipt. Please try again.</div>';
   }
@@ -1700,6 +1727,7 @@ async function openTrackReceipt(url, title = 'Payment Receipt') {
 document.getElementById('trackReceiptModal')?.addEventListener('hidden.bs.modal', function () {
   const content = document.getElementById('trackReceiptContent');
   if (content) content.innerHTML = '';
+  setTrackReceiptSaveAction(false);
 });
 
 document.getElementById('trackReceiptContent')?.addEventListener('click', function (event) {
