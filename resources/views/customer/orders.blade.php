@@ -1405,9 +1405,6 @@ function initCustomerStatusFilter() {
     label.textContent = customerStatusLabelMap[selected] || (selected === 'All' ? 'All Status' : selected);
   }
 
-  toggle.addEventListener('click', customerToggleStatusMenu);
-
-
   menu.querySelectorAll('.status-filter-item[data-status-value]').forEach((item) => {
     item.addEventListener('click', () => {
       const value = item.dataset.statusValue || 'All';
@@ -1542,8 +1539,8 @@ document.addEventListener('keydown', event => {
 });
 //  Custom Order Follow-up
 function buildFollowUpMsg(orderId, cakeName, coId) {
-  return 'Hi! I'm following up on my rejected Custom Cake Order #' + orderId + '  "' + cakeName + '" (Custom Order #' + coId + '). '
-       + 'Can we discuss the details and work something out? I'd love to revise my request. Thank you!';
+  return "Hi! I'm following up on my rejected Custom Cake Order #" + orderId + "  \"" + cakeName + "\" (Custom Order #" + coId + "). "
+       + "Can we discuss the details and work something out? I'd love to revise my request. Thank you!";
 }
 
 async function sendFollowUp(orderId, cakeName, coId) {
