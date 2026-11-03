@@ -1238,9 +1238,8 @@ function showSellerReceipt(button) {
 document.addEventListener('click', event => {
   const button = event.target.closest('[data-receipt-url]');
   if (button) showSellerReceipt(button);
-});
-
-document.getElementById('orderDetailModalBack')?.addEventListener('click', () => {
+  const backButton = event.target.closest('#orderDetailModalBack');
+  if (!backButton) return;
   if (!sellerReceiptOrderContent) {
     bootstrap.Modal.getOrCreateInstance(document.getElementById('orderDetailModal')).hide();
     return;
