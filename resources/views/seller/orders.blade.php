@@ -1209,7 +1209,16 @@ function showSellerReceipt(button) {
   bodyElement.innerHTML = '<div class="seller-receipt-loading" role="status"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Loading receipt…</span></div>';
 
   const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-  modal.show();
+  const orderDetailModalElement = document.getElementById('orderDetailModal');
+  const returnToOrderDetails = Boolean(orderDetailModalElement?.classList.contains('show'));
+  modalElement.dataset.returnToOrderDetails = returnToOrderDetails ? '1' : '0';
+
+  if (returnToOrderDetails) {
+    orderDetailModalElement.addEventListener('hidden.bs.modal', () => modal.show(), { once: true });
+    bootstrap.Modal.getOrCreateInstance(orderDetailModalElement).hide();
+  } else {
+    modal.show();
+  }
 
   fetch(url, { headers: { Accept: 'text/html' }, credentials: 'same-origin' })
     .then(response => {
@@ -1232,6 +1241,12 @@ function showSellerReceipt(button) {
 document.addEventListener('click', event => {
   const button = event.target.closest('[data-receipt-url]');
   if (button) showSellerReceipt(button);
+});
+
+document.getElementById('sellerReceiptModal')?.addEventListener('hidden.bs.modal', event => {
+  if (event.currentTarget.dataset.returnToOrderDetails !== '1') return;
+  event.currentTarget.dataset.returnToOrderDetails = '0';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('orderDetailModal')).show();
 });
 
 function toggleCancel(id) {
