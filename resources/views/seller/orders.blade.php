@@ -43,11 +43,25 @@
       line-height:1.2;
     }
   }
+  .seller-order-tools {
+    display:flex;
+    gap:.5rem;
+    flex-wrap:nowrap;
+    align-items:center;
+    width:100%;
+    min-width:0;
+  }
+  .seller-order-search {
+    flex:1 1 200px;
+    min-width:90px;
+    max-width:280px;
+  }
   .status-filter-wrap {
     position: relative;
-    flex: 1;
-    min-width: 0;
-    max-width: 220px;
+    flex: 0 0 168px;
+    width: 168px;
+    min-width: 124px;
+    max-width: 168px;
   }
   .status-filter-toggle {
     width: 100%;
@@ -62,7 +76,20 @@
     gap: .45rem;
     justify-content: space-between;
   }
-  .status-filter-label { font-weight: 600; color: #1f2937; }
+  .status-filter-label {
+    font-weight: 600;
+    color: #1f2937;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .status-filter-toggle .status-filter-badge {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
   .status-filter-chevron { font-size: .72rem; color: #6b7280; transition: transform .16s ease; }
   .status-filter-wrap.is-open .status-filter-chevron { transform: rotate(180deg); }
   .status-filter-menu {
@@ -102,6 +129,17 @@
   .status-filter-item:hover,
   .status-filter-item:focus-visible { background: #f8fafc; outline: none; }
   .status-filter-item.active { background: #f1f5f9; color: #0f172a; font-weight: 700; }
+  .status-filter-item-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .status-filter-item .status-filter-badge,
+  .status-filter-chevron {
+    flex: 0 0 auto;
+  }
   .status-filter-badge {
     min-width: 1.45rem;
     height: 1.45rem;
@@ -134,7 +172,25 @@
     to { opacity: 1; transform: translateY(0); }
   }
   @media (max-width:575px) {
-    .status-filter-wrap { max-width: 100%; width: 100%; }
+    .seller-order-tools {
+      gap:.35rem;
+    }
+    .seller-order-search {
+      flex:1 1 0;
+      min-width:74px;
+      font-size:.76rem;
+    }
+    .status-filter-wrap {
+      flex:0 0 106px;
+      width:106px;
+      min-width:100px;
+      max-width:106px;
+    }
+    .status-filter-toggle {
+      font-size:.72rem;
+      min-height:34px;
+      padding:.18rem .34rem;
+    }
   }
 </style>
 <div>
@@ -165,27 +221,26 @@
         <div style="font-size:.95rem;font-weight:700;color:var(--gray-900)">Smart Order Filter</div>
         <div style="font-size:.8rem;color:var(--gray-500)">Search by customer, product, tracking code, payment, or order status</div>
       </div>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;width:100%">
-        <input type="text" id="sellerOrderSearch" class="form-control" placeholder="Search orders..."
-               style="flex:1;min-width:0;max-width:280px"
+      <div class="seller-order-tools">
+        <input type="text" id="sellerOrderSearch" class="form-control seller-order-search" placeholder="Search orders..."
                value="{{ $search ?? '' }}"
                oninput="pgSearch(this.value)">
         <div class="status-filter-wrap" id="sellerStatusFilter"
              data-counts-url="{{ route('seller.orders.status_counts') }}"
              data-selected="{{ $status ?? 'All' }}">
           <button type="button" class="status-filter-toggle" id="sellerStatusToggle" aria-expanded="false" aria-haspopup="listbox">
-            <span class="status-filter-label" id="sellerStatusLabel">{{ $sellerStatusLabelMap[$status ?? 'All'] ?? ($status ?? 'All status') }}</span>
+            <span class="status-filter-label" id="sellerStatusLabel" title="{{ $sellerStatusLabelMap[$status ?? 'All'] ?? ($status ?? 'All status') }}">{{ $sellerStatusLabelMap[$status ?? 'All'] ?? ($status ?? 'All status') }}</span>
             <span class="status-filter-badge {{ ($status ?? 'All') === 'All' ? 'status-dot-all' : 'status-dot-' . str_replace(' ', '-', ($status ?? 'All')) }}" data-status-badge="{{ $status ?? 'All' }}" hidden></span>
             <i class="bi bi-chevron-down status-filter-chevron"></i>
           </button>
           <div class="status-filter-menu" id="sellerStatusMenu" role="listbox" tabindex="-1">
             <button type="button" class="status-filter-item{{ ($status ?? 'All') === 'All' ? ' active' : '' }}" data-status-value="All" style="--stagger:0">
-              <span>All status</span>
+              <span class="status-filter-item-label" title="All status">All status</span>
               <span class="status-filter-badge status-dot-all" data-status-badge="All" hidden></span>
             </button>
             @foreach($sellerStatuses as $st)
             <button type="button" class="status-filter-item{{ ($status ?? '') === $st ? ' active' : '' }}" data-status-value="{{ $st }}" style="--stagger:{{ $loop->iteration }}">
-              <span>{{ $sellerStatusLabelMap[$st] ?? $st }}</span>
+              <span class="status-filter-item-label" title="{{ $sellerStatusLabelMap[$st] ?? $st }}">{{ $sellerStatusLabelMap[$st] ?? $st }}</span>
               <span class="status-filter-badge status-dot-{{ str_replace(' ', '-', $st) }}" data-status-badge="{{ $st }}" hidden></span>
             </button>
             @endforeach
@@ -1042,7 +1097,9 @@ function initSellerStatusFilter() {
   const selected = String(wrap.dataset.selected || 'All');
   const label = document.getElementById('sellerStatusLabel');
   if (label) {
-    label.textContent = sellerStatusLabelMap[selected] || (selected === 'All' ? 'All status' : selected);
+    const labelText = sellerStatusLabelMap[selected] || (selected === 'All' ? 'All status' : selected);
+    label.textContent = labelText;
+    label.title = labelText;
   }
 
   toggle.addEventListener('click', () => {

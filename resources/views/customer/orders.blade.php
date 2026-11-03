@@ -24,7 +24,7 @@
            data-counts-url="{{ route('customer.orders.status_counts') }}"
            data-selected="{{ $status ?? 'All' }}">
         <button type="button" class="status-filter-toggle" id="customerStatusToggle" aria-expanded="false" aria-haspopup="listbox" onclick="customerToggleStatusMenu(event)">
-          <span class="status-filter-label" id="customerStatusLabel">
+          <span class="status-filter-label" id="customerStatusLabel" title="{{ $statusLabelMap[$status ?? 'All'] ?? ($status ?? 'All Status') }}">
             {{ $statusLabelMap[$status ?? 'All'] ?? ($status ?? 'All Status') }}
           </span>
           <span class="status-filter-badge {{ ($status ?? 'All') === 'All' ? 'status-dot-all' : 'status-dot-' . str_replace(' ', '-', ($status ?? 'All')) }}" data-status-badge="{{ $status ?? 'All' }}" hidden></span>
@@ -32,18 +32,18 @@
         </button>
         <div class="status-filter-menu" id="customerStatusMenu" role="listbox" tabindex="-1">
           <button type="button" class="status-filter-item{{ ($status ?? 'All') === 'All' ? ' active' : '' }}" data-status-value="All" style="--stagger:0">
-            <span>All Status</span>
+            <span class="status-filter-item-label" title="All Status">All Status</span>
             <span class="status-filter-badge status-dot-all" data-status-badge="All" hidden></span>
           </button>
           @foreach($customerStatuses as $st)
           <button type="button" class="status-filter-item{{ ($status ?? '') === $st ? ' active' : '' }}" data-status-value="{{ $st }}" style="--stagger:{{ $loop->iteration }}">
-            <span>{{ $statusLabelMap[$st] ?? $st }}</span>
+            <span class="status-filter-item-label" title="{{ $statusLabelMap[$st] ?? $st }}">{{ $statusLabelMap[$st] ?? $st }}</span>
             <span class="status-filter-badge status-dot-{{ str_replace(' ', '-', $st) }}" data-status-badge="{{ $st }}" hidden></span>
           </button>
           @endforeach
         </div>
       </div>
-      <a href="{{ route('customer.catalog') }}" class="btn btn-primary btn-sm">
+      <a href="{{ route('customer.catalog') }}" class="btn btn-primary btn-sm customer-order-again-btn">
         <i class="bi bi-plus me-1"></i>Order Again
       </a>
     </div>
@@ -84,13 +84,15 @@
       gap: .5rem;
       flex-wrap: nowrap;
       align-items: center;
-      width: 100%;
+      justify-content: flex-end;
+      flex: 1 1 560px;
+      min-width: 0;
     }
     .cs-search-bar {
-      flex: 0 0 220px;
-      width: 220px;
-      max-width: 220px;
-      min-width: 0;
+      flex: 1 1 200px;
+      width: auto;
+      max-width: 250px;
+      min-width: 90px;
     }
     .cs-search-bar .form-control {
       min-height: 38px;
@@ -98,10 +100,10 @@
     }
     .status-filter-wrap {
       position: relative;
-      flex: 0 0 220px;
-      width: 220px;
-      max-width: 220px;
-      min-width: 0;
+      flex: 0 0 168px;
+      width: 168px;
+      max-width: 168px;
+      min-width: 124px;
       z-index: 4;
     }
     .status-filter-toggle {
@@ -114,10 +116,34 @@
       font-size: .82rem;
       display: inline-flex;
       align-items: center;
-      gap: .45rem;
+      gap: .35rem;
       justify-content: space-between;
     }
-    .status-filter-label { font-weight: 600; color: #1f2937; }
+    .status-filter-label {
+      font-weight: 600;
+      color: #1f2937;
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: left;
+    }
+    .status-filter-toggle .status-filter-badge {
+      flex: 0 0 auto;
+      margin-left: auto;
+    }
+    .status-filter-item-label {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .status-filter-item .status-filter-badge,
+    .status-filter-chevron {
+      flex: 0 0 auto;
+    }
     .status-filter-chevron { font-size: .72rem; color: #6b7280; transition: transform .16s ease; }
     .status-filter-wrap.is-open .status-filter-chevron { transform: rotate(180deg); }
     .status-filter-wrap.is-open { z-index: 1064; }
@@ -189,11 +215,35 @@
       to { opacity: 1; transform: translateY(0); }
     }
     @media (max-width: 575.98px) {
-      .customer-order-tools { flex-wrap: wrap; }
+      .customer-order-tools {
+        flex-wrap: nowrap;
+        gap: .35rem;
+      }
       .cs-search-bar,
-      .status-filter-wrap { flex: 1 1 100%; width: 100%; max-width: 100%; }
-      .status-filter-toggle { font-size: .79rem; }
+      .status-filter-wrap { max-width: none; }
+      .cs-search-bar {
+        flex: 1 1 0;
+        min-width: 74px;
+      }
+      .status-filter-wrap {
+        flex: 0 0 106px;
+        width: 106px;
+        min-width: 100px;
+        max-width: 106px;
+      }
+      .status-filter-toggle {
+        font-size: .72rem;
+        min-height: 34px;
+        padding: .18rem .34rem;
+      }
       .status-filter-item { font-size: .78rem; }
+      .customer-order-again-btn {
+        min-height: 34px;
+        font-size: .68rem;
+        padding: .18rem .36rem;
+        white-space: nowrap;
+        line-height: 1.1;
+      }
     }
     .customer-review-backdrop {
       position:fixed;
@@ -1402,7 +1452,9 @@ function initCustomerStatusFilter() {
   const selected = String(wrap.dataset.selected || 'All');
   const label = document.getElementById('customerStatusLabel');
   if (label) {
-    label.textContent = customerStatusLabelMap[selected] || (selected === 'All' ? 'All Status' : selected);
+    const labelText = customerStatusLabelMap[selected] || (selected === 'All' ? 'All Status' : selected);
+    label.textContent = labelText;
+    label.title = labelText;
   }
 
   menu.querySelectorAll('.status-filter-item[data-status-value]').forEach((item) => {
