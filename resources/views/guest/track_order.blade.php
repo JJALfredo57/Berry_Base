@@ -1687,6 +1687,15 @@
   }
   #trackReceiptContent > .container,
   #trackReceiptContent > .container-fluid { max-width:100%; }
+  #trackReceiptContent .receipt-history { min-width:0; }
+  #trackReceiptContent .receipt-history-order,
+  #trackReceiptContent .receipt-history-payment,
+  #trackReceiptContent .receipt-history-amount { min-width:0; }
+  #trackReceiptContent .receipt-history-order > :last-child { overflow-wrap:anywhere; }
+  #trackReceiptContent .receipt-history-view.is-loading {
+    pointer-events:none;
+    opacity:.72;
+  }
   @media (max-width:575px) {
     #trackReceiptModal.track-receipt-modal.show { padding:8px; }
     #trackReceiptModal.track-receipt-modal .modal-dialog {
@@ -1701,6 +1710,18 @@
       grid-template-columns:1fr;
     }
     #trackReceiptModal.track-receipt-modal .modal-footer .btn { min-height:44px; }
+    #trackReceiptContent .receipt-history { padding:14px 12px !important; }
+    #trackReceiptContent .receipt-history-head { align-items:flex-start !important; }
+    #trackReceiptContent .receipt-history-head > .btn { width:100%; }
+    #trackReceiptContent .receipt-history-search { display:grid !important; grid-template-columns:1fr; }
+    #trackReceiptContent .receipt-history-search .form-control,
+    #trackReceiptContent .receipt-history-search .btn { width:100%; max-width:none !important; min-height:44px; }
+    #trackReceiptContent .receipt-history-row { display:grid !important; grid-template-columns:minmax(0,1fr) auto; gap:12px !important; align-items:start !important; }
+    #trackReceiptContent .receipt-history-order { grid-column:1 / -1; min-width:0 !important; }
+    #trackReceiptContent .receipt-history-payment,
+    #trackReceiptContent .receipt-history-amount { min-width:0; }
+    #trackReceiptContent .receipt-history-status { justify-self:end; }
+    #trackReceiptContent .receipt-history-view { grid-column:1 / -1; width:100%; min-height:42px; display:inline-flex; align-items:center; justify-content:center; }
   }
   @media print {
     @page { margin: 12mm; }
@@ -1747,6 +1768,9 @@ let trackNotificationsHasMore = false;
 let trackNotificationsLoading = false;
 let trackActiveNotificationTarget = '';
 const trackSeenNotificationIds = new Set();
+const trackReceiptCache = new Map();
+const trackReceiptRequests = new Map();
+let trackReceiptRenderId = 0;
 
 function setTrackReceiptSaveAction(visible) {
   document.getElementById('trackReceiptSaveButton')?.classList.toggle('d-none', !visible);
@@ -1767,6 +1791,38 @@ function receiptStylesForModal(documentView) {
     .join('');
 }
 
+async function loadTrackReceiptMarkup(url) {
+  if (trackReceiptCache.has(url)) return trackReceiptCache.get(url);
+  if (trackReceiptRequests.has(url)) return trackReceiptRequests.get(url);
+
+  const request = fetch(url, {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    credentials: 'same-origin',
+  }).then(async response => {
+    if (!response.ok) throw new Error('Receipt could not be loaded.');
+    const documentView = new DOMParser().parseFromString(await response.text(), 'text/html');
+    const receipt = documentView.querySelector('.receipt-wrap, .container.py-4, .container-fluid.py-4');
+    if (!receipt) throw new Error('Receipt details are unavailable.');
+    receipt.querySelectorAll('.no-print').forEach(element => element.remove());
+    const markup = receiptStylesForModal(documentView) + receipt.outerHTML;
+    trackReceiptCache.set(url, markup);
+    return markup;
+  }).finally(() => trackReceiptRequests.delete(url));
+
+  trackReceiptRequests.set(url, request);
+  return request;
+}
+
+function preloadTrackReceipts(container) {
+  const urls = Array.from(container.querySelectorAll('a[href*="/receipt/"]'))
+    .map(link => link.href)
+    .filter((url, index, list) => url && list.indexOf(url) === index)
+    .slice(0, 5);
+  const preload = () => urls.forEach(url => loadTrackReceiptMarkup(url).catch(() => {}));
+  if ('requestIdleCallback' in window) window.requestIdleCallback(preload, { timeout: 1200 });
+  else window.setTimeout(preload, 250);
+}
+
 async function openTrackReceipt(url, title = 'Payment Receipt') {
   const content = document.getElementById('trackReceiptContent');
   const modalEl = document.getElementById('trackReceiptModal');
@@ -1776,23 +1832,23 @@ async function openTrackReceipt(url, title = 'Payment Receipt') {
   closeReceiptDrawer();
   window.bootstrap?.Modal.getOrCreateInstance(modalEl).show();
   setTrackReceiptSaveAction(false);
-  content.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-muted">Loading receipt…</div>';
+  const renderId = ++trackReceiptRenderId;
+  const cachedMarkup = trackReceiptCache.get(url);
+  if (!cachedMarkup) content.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-muted">Loading receipt…</div>';
   try {
-    const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
-    if (!response.ok) throw new Error('Receipt could not be loaded.');
-    const html = await response.text();
-    const documentView = new DOMParser().parseFromString(html, 'text/html');
-    const receipt = documentView.querySelector('.receipt-wrap, .container.py-4, .container-fluid.py-4');
-    if (!receipt) throw new Error('Receipt details are unavailable.');
-    receipt.querySelectorAll('.no-print').forEach(element => element.remove());
-    content.innerHTML = receiptStylesForModal(documentView) + receipt.outerHTML;
+    const markup = cachedMarkup || await loadTrackReceiptMarkup(url);
+    if (renderId !== trackReceiptRenderId) return;
+    content.innerHTML = markup;
     setTrackReceiptSaveAction(/\/receipt\/\d+(?:[/?#]|$)/.test(url));
+    if (/\/receipts(?:[/?#]|$)/.test(url)) preloadTrackReceipts(content);
   } catch (error) {
+    if (renderId !== trackReceiptRenderId) return;
     content.innerHTML = '<div class="p-4 text-center text-danger"><i class="bi bi-exclamation-circle me-1"></i>Unable to load this receipt. Please try again.</div>';
   }
 }
 
 document.getElementById('trackReceiptModal')?.addEventListener('hidden.bs.modal', function () {
+  trackReceiptRenderId += 1;
   const content = document.getElementById('trackReceiptContent');
   if (content) content.innerHTML = '';
   setTrackReceiptSaveAction(false);
@@ -1802,14 +1858,19 @@ document.getElementById('trackReceiptContent')?.addEventListener('click', functi
   const link = event.target.closest('a[href]');
   if (!link) return;
   const url = link.href || '';
-  if (url.includes('/receipt')) {
-    event.preventDefault();
-    openTrackReceipt(url, 'Payment Receipt');
-  }
-  if (url.includes('/receipts')) {
-    event.preventDefault();
-    openTrackReceipt(url, 'All Receipts');
-  }
+  const title = url.includes('/receipts') ? 'All Receipts' : (url.includes('/receipt') ? 'Payment Receipt' : '');
+  if (!title) return;
+  event.preventDefault();
+  if (link.dataset.receiptLoading === '1') return;
+  const originalHtml = link.innerHTML;
+  link.dataset.receiptLoading = '1';
+  link.classList.add('is-loading');
+  link.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Loading…';
+  openTrackReceipt(url, title).finally(() => {
+    link.dataset.receiptLoading = '';
+    link.classList.remove('is-loading');
+    link.innerHTML = originalHtml;
+  });
 });
 
 const trackNotificationSeenObserver = 'IntersectionObserver' in window

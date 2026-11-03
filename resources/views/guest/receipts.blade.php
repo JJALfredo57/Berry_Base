@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('content')
-<div class="container-fluid py-4" style="padding-left:clamp(12px,3vw,32px);padding-right:clamp(12px,3vw,32px)">
-  <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
+<div class="container-fluid py-4 receipt-history" style="padding-left:clamp(12px,3vw,32px);padding-right:clamp(12px,3vw,32px)">
+  <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3 receipt-history-head">
     <div>
       <h4 class="fw-bold mb-1" style="color:var(--primary)"><i class="bi bi-receipt-cutoff me-2"></i>Receipt History</h4>
       <div class="text-muted small">Payment receipts linked to the phone number of Order #{{ $order->id }}.</div>
@@ -13,7 +13,7 @@
 
   <div class="card mb-3">
     <div class="card-body p-3">
-      <form method="GET" class="d-flex gap-2 flex-wrap">
+      <form method="GET" class="d-flex gap-2 flex-wrap receipt-history-search">
         <input type="text" name="search" class="form-control" value="{{ $search }}" placeholder="Search order #, product, or payment type" style="max-width:420px">
         <button class="btn btn-primary" type="submit"><i class="bi bi-search me-1"></i>Search</button>
         @if($search)
@@ -38,26 +38,26 @@
             ? route('guest.receipt_transaction', ['trackCode' => $r->track_code, 'transactionId' => $r->receipt_id])
             : route('guest.receipt', ['trackCode' => $r->track_code]);
         @endphp
-        <div class="p-3 d-flex align-items-center justify-content-between gap-3 flex-wrap" style="border-bottom:1px solid #eef2f7">
-          <div style="min-width:220px">
+        <div class="p-3 d-flex align-items-center justify-content-between gap-3 flex-wrap receipt-history-row" style="border-bottom:1px solid #eef2f7">
+          <div class="receipt-history-order" style="min-width:220px">
             <div class="fw-bold">Order #{{ $orderId }}</div>
             <div class="small text-muted">{{ $r->product_name }}</div>
           </div>
-          <div>
+          <div class="receipt-history-payment">
             <div class="small text-muted">{{ $typeLabel }}</div>
             <div class="fw-semibold">{{ \Carbon\Carbon::parse($paidDate)->format('M d, Y') }}</div>
           </div>
-          <div>
+          <div class="receipt-history-amount">
             <div class="small text-muted">Amount Paid</div>
             <div class="fw-bold" style="color:#16a34a">PHP {{ number_format($paidAmount, 2) }}</div>
             @if($isLedger && (float) $r->remaining_balance > 0)
               <div class="small text-muted">Balance left: PHP {{ number_format((float) $r->remaining_balance, 2) }}</div>
             @endif
           </div>
-          <div>
+          <div class="receipt-history-status">
             <span class="badge {{ in_array($r->payment_status, ['paid','Paid'], true) ? 'bg-success' : 'bg-primary' }}">{{ ucfirst($r->payment_status) }}</span>
           </div>
-          <a href="{{ $viewUrl }}" class="btn btn-primary btn-sm">
+          <a href="{{ $viewUrl }}" class="btn btn-primary btn-sm receipt-history-view">
             <i class="bi bi-eye me-1"></i>View Receipt
           </a>
         </div>
