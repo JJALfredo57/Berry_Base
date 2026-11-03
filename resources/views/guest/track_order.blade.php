@@ -1775,14 +1775,13 @@ async function openTrackNotification(id) {
   const item = trackNotifications.find(n => String(n.id) === String(id));
   if (!item) return;
   await markTrackNotificationSeen(id);
-  if (item.url && navigateTrackNotificationTarget(item.url)) return;
   openTrackNotificationDetail(id);
 }
 
 async function openTrackNotificationDetail(id) {
   const item = trackNotifications.find(n => String(n.id) === String(id));
   if (!item) return;
-  trackActiveNotificationTarget = item.url || '';
+  trackActiveNotificationTarget = '';
   document.getElementById('trackNotifDetailTitle').textContent = item.title || 'Notification';
   document.getElementById('trackNotifDetailMessage').textContent = item.message || '';
   document.getElementById('trackNotifDetailTime').textContent = item.created_at || '';

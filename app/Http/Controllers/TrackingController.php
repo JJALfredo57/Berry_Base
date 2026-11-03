@@ -330,6 +330,7 @@ class TrackingController extends Controller
                 $transactionQuery = DB::table('payment_transactions as pt')
                     ->join('orders as o', 'o.id', '=', 'pt.order_id')
                     ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+                    ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
                     ->where('pt.track_code', strtoupper($trackCode));
 
                 if ($transactionId) {
@@ -339,8 +340,8 @@ class TrackingController extends Controller
                 $transaction = $transactionQuery
                     ->select(
                         'pt.*',
-                        'o.guest_name',
-                        'o.guest_phone',
+                        DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as guest_name"),
+                        DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as guest_phone"),
                         'o.fulfillment_type',
                         'o.schedule_date',
                         'o.schedule_time',
@@ -372,13 +373,20 @@ class TrackingController extends Controller
 
         $receipt = DB::table('orders as o')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->where('o.track_code', strtoupper($trackCode))
             ->where(function ($q) {
                 $q->where('o.payment_status', 'Paid')
                     ->orWhere('o.payment_status', 'Partial Payment')
                     ->orWhere('o.deposit_status', 'paid');
             })
-            ->select('o.*', DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"), 'p.image_path as product_image')
+            ->select(
+                'o.*',
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as guest_name"),
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as guest_phone"),
+                DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"),
+                'p.image_path as product_image'
+            )
             ->first();
 
         if (!$receipt) abort(404, 'Receipt not found.');
