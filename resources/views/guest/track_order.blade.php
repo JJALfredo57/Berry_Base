@@ -1713,9 +1713,10 @@
     #trackReceiptContent .receipt-history { padding:14px 12px !important; }
     #trackReceiptContent .receipt-history-head { align-items:flex-start !important; }
     #trackReceiptContent .receipt-history-head > .btn { width:100%; }
-    #trackReceiptContent .receipt-history-search { display:grid !important; grid-template-columns:1fr; }
-    #trackReceiptContent .receipt-history-search .form-control,
-    #trackReceiptContent .receipt-history-search .btn { width:100%; max-width:none !important; min-height:44px; }
+    #trackReceiptContent .receipt-history-search { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; }
+    #trackReceiptContent .receipt-history-search .form-control { width:100%; max-width:none !important; min-width:0; min-height:44px; }
+    #trackReceiptContent .receipt-history-search button[type="submit"] { width:auto; max-width:none !important; min-width:88px; min-height:44px; white-space:nowrap; }
+    #trackReceiptContent .receipt-history-search > .btn:not([type="submit"]) { grid-column:1 / -1; width:100%; min-height:42px; }
     #trackReceiptContent .receipt-history-row { display:grid !important; grid-template-columns:minmax(0,1fr) auto; gap:12px !important; align-items:start !important; }
     #trackReceiptContent .receipt-history-order { grid-column:1 / -1; min-width:0 !important; }
     #trackReceiptContent .receipt-history-payment,
@@ -1897,6 +1898,26 @@ document.getElementById('trackReceiptContent')?.addEventListener('click', functi
     link.dataset.receiptLoading = '';
     link.classList.remove('is-loading');
     link.innerHTML = originalHtml;
+  });
+});
+
+document.getElementById('trackReceiptContent')?.addEventListener('submit', function (event) {
+  const form = event.target.closest('form.receipt-history-search');
+  if (!form) return;
+  event.preventDefault();
+  const submitButton = event.submitter || form.querySelector('button[type="submit"]');
+  if (submitButton?.disabled) return;
+  const requestUrl = new URL(form.action || window.location.href, window.location.origin);
+  requestUrl.search = new URLSearchParams(new FormData(form)).toString();
+  const originalHtml = submitButton?.innerHTML;
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Searching…';
+  }
+  openTrackReceipt(requestUrl.toString(), 'All Receipts').finally(() => {
+    if (!submitButton) return;
+    submitButton.disabled = false;
+    submitButton.innerHTML = originalHtml;
   });
 });
 
