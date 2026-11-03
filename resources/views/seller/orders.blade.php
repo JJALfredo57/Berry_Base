@@ -665,7 +665,7 @@
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">REFUND REVIEW NEEDED</div>
           <div style="font-size:.82rem;color:#92400e;line-height:1.5;font-weight:600">
             @if($isNoShowRefund)
-              Customer no-show: retain the 50% deposit and refund the excess PHP {{ number_format((float)$refund->refund_amount, 2) }} only.
+              Customer unclaimed pickup: retain the 50% deposit and refund the excess PHP {{ number_format((float)$refund->refund_amount, 2) }} only.
             @else
               Refund the paid amount of PHP {{ number_format((float)$refund->refund_amount, 2) }} before approving cancellation.
             @endif
@@ -782,20 +782,20 @@
         <form action="{{ route('seller.orders.pickup_no_show', $o->id) }}" method="POST" class="d-flex flex-column flex-sm-row gap-2 align-items-sm-end">
           @csrf
           <div class="flex-grow-1">
-            <label class="form-label small fw-bold mb-1" for="pickupNoShowNote{{ $o->id }}">Customer no-show</label>
+            <label class="form-label small fw-bold mb-1" for="pickupNoShowNote{{ $o->id }}">Customer unclaimed pickup</label>
             <input id="pickupNoShowNote{{ $o->id }}" name="no_show_note" class="form-control form-control-sm" minlength="10" maxlength="500" required
                    placeholder="Record pickup time and contact attempts">
             <div class="small text-muted mt-1">Record only after the agreed pickup time and contact attempts. The 50% deposit is retained.</div>
           </div>
           <button type="submit" class="btn btn-outline-danger btn-sm flex-shrink-0"
-                  data-cs-confirm="Mark this paid order as a customer no-show? The 50% deposit will be retained. Any amount paid above 50% will be queued for manual refund review."
-                  data-cs-title="Confirm Customer No-Show"
-                  data-cs-ok="Record No-Show"
+                  data-cs-confirm="Mark this paid order as customer unclaimed pickup? The 50% deposit will be retained. Any amount paid above 50% will be queued for manual refund review."
+                  data-cs-title="Confirm Unclaimed Pickup"
+                  data-cs-ok="Record Unclaimed"
                   data-cs-ok-color="#b91c1c"
                   data-cs-icon="bi-person-x"
                   data-cs-icon-bg="#ffedd5"
                   data-cs-icon-color="#c2410c">
-            <i class="bi bi-person-x me-1"></i>Record No-Show
+            <i class="bi bi-person-x me-1"></i>Record Unclaimed
           </button>
         </form>
       </div>
