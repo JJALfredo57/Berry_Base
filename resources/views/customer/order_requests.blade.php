@@ -31,6 +31,7 @@
   .request-card {
     background:#fff; border:1px solid #edf0f4; border-radius:16px; overflow:hidden;
     box-shadow:0 10px 26px rgba(15,23,42,.07); transition:transform .18s ease, box-shadow .18s ease;
+    animation:requestCardIn .32s ease both;
   }
   .request-card:hover { transform:translateY(-2px); box-shadow:0 16px 34px rgba(15,23,42,.1); }
   .request-img { width:92px; height:92px; object-fit:cover; border-radius:14px; background:#f8fafc; flex:0 0 auto; }
@@ -47,12 +48,21 @@
   .request-price { color:var(--primary); font-size:1.25rem; font-weight:900; }
   .request-actions { display:flex; gap:.55rem; flex-wrap:wrap; justify-content:flex-end; }
   .request-empty { border:1px dashed #e5e7eb; border-radius:18px; padding:3rem 1rem; background:#fff; }
+  @keyframes requestCardIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @media (max-width: 767.98px) {
+    .request-page { padding-left:.75rem; padding-right:.75rem; }
+    .request-card .p-sm-4 { padding:1rem !important; }
+    .request-card .d-flex.gap-3 { gap:.8rem !important; }
+    .request-card .row { --bs-gutter-x:.6rem; }
+  }
   @media (max-width: 575.98px) {
     .request-hero { border-radius:14px; padding:1rem; }
     .request-card { border-radius:14px; }
     .request-img { width:76px; height:76px; border-radius:12px; }
     .request-actions { justify-content:stretch; }
-    .request-actions .btn { width:100%; }
+    .request-actions .btn { width:100%; min-height:44px; }
+    .request-status { max-width:100%; white-space:normal; }
+    .request-note, .request-note * { overflow-wrap:anywhere; }
   }
 </style>
 
@@ -141,6 +151,9 @@
                   @if(!empty($requestItem->alternative_product_name))
                     <div class="mt-1"><span class="fw-semibold">Alternative:</span> {{ $requestItem->alternative_product_name }}</div>
                   @endif
+                  @if(!empty($requestItem->customer_response))
+                    <div class="mt-1"><span class="fw-semibold">Your reply:</span> {{ $requestItem->customer_response }}</div>
+                  @endif
                 </div>
               </div>
               <div class="col-md-5">
@@ -172,6 +185,11 @@
                 </a>
               @elseif($requestItem->status === 'pending')
                 <button class="btn btn-light fw-semibold" disabled><i class="bi bi-hourglass-split me-1"></i>Waiting for seller</button>
+              @elseif(in_array($requestItem->status, ['schedule_suggested', 'alternative_offered', 'needs_more_details'], true))
+                <a href="{{ route('customer.order_requests.show', $requestItem->id) }}" class="btn btn-primary fw-semibold">
+                  <i class="bi {{ $requestItem->status === 'needs_more_details' ? 'bi-chat-square-text' : 'bi-arrow-repeat' }} me-1"></i>
+                  {{ $requestItem->status === 'needs_more_details' ? 'Reply to seller' : 'Review seller update' }}
+                </a>
               @else
                 <a href="{{ route('customer.catalog') }}" class="btn btn-outline-primary fw-semibold">
                   <i class="bi bi-shop me-1"></i>Browse Cakes

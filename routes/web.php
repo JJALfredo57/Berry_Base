@@ -369,6 +369,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::get('/order-requests/{id}', [\App\Http\Controllers\OrderRequestOfferController::class, 'show'])->name('order_requests.show');
     Route::post('/order-requests/{id}/accept', [\App\Http\Controllers\OrderRequestOfferController::class, 'accept'])->name('order_requests.accept');
     Route::post('/order-requests/{id}/decline', [\App\Http\Controllers\OrderRequestOfferController::class, 'decline'])->name('order_requests.decline');
+    Route::post('/order-requests/{id}/respond', [\App\Http\Controllers\OrderRequestOfferController::class, 'respond'])->name('order_requests.respond');
     Route::get('/cart',             [\App\Http\Controllers\Customer\CartController::class, 'index'])->name('cart');
     Route::post('/cart/add',        [\App\Http\Controllers\Customer\CartController::class, 'store'])->name('cart.add');
     Route::post('/cart/items/{id}/update', [\App\Http\Controllers\Customer\CartController::class, 'update'])->name('cart.items.update');

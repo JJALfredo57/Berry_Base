@@ -897,7 +897,7 @@
       @if($raAlert)
       <div style="border-top:1px solid var(--gray-100);padding:.75rem 1.25rem">
         @include('partials.rider_assignment_alert', ['alert' => $raAlert, 'orderId' => $o->id])
-        @if(($o->status ?? '') !== 'Ready for Rider' && in_array((string) ($o->status ?? ''), ['Confirmed', 'Preparing'], true))
+        @if(($o->status ?? '') === 'Ready for Rider')
         <form action="{{ route('seller.orders.assign_rider', $o->id) }}" method="POST" class="d-flex gap-2 flex-wrap align-items-center mt-2 mb-0">
           @csrf
           <select name="rider_id" class="form-select form-select-sm" style="width:180px" required>

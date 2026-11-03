@@ -7,6 +7,13 @@
   $acceptedAt = $acceptedDate ? \Carbon\Carbon::parse($acceptedDate.' '.($acceptedTime ?: '00:00')) : null;
   $expiresAt = !empty($offer->expires_at) ? \Carbon\Carbon::parse($offer->expires_at) : null;
   $isActiveOffer = in_array($offer->status, ['accepted', 'customer_accepted'], true) && (!$expiresAt || $expiresAt->isFuture());
+  $isScheduleProposal = $offer->status === 'schedule_suggested' && (!$expiresAt || $expiresAt->isFuture());
+  $isAlternativeProposal = $offer->status === 'alternative_offered' && (!$expiresAt || $expiresAt->isFuture());
+  $needsDetails = $offer->status === 'needs_more_details' && (!$expiresAt || $expiresAt->isFuture());
+  $isActionable = $isActiveOffer || $isScheduleProposal || $isAlternativeProposal || $needsDetails;
+  $displayDate = $isScheduleProposal && $offer->suggested_date ? $offer->suggested_date : $acceptedDate;
+  $displayTime = $isScheduleProposal && $offer->suggested_time ? $offer->suggested_time : $acceptedTime;
+  $displayAt = $displayDate ? \Carbon\Carbon::parse($displayDate.' '.($displayTime ?: '00:00')) : null;
   $total = $finalPrice * max(1, (int) $offer->quantity);
 @endphp
 <style>
@@ -30,13 +37,15 @@
           <span class="offer-pill"><i class="bi bi-shop"></i>{{ $offer->shop_name }}</span>
         </div>
         <h1 class="offer-title">{{ $offer->alternative_product_name ?: $offer->product_name }}</h1>
-        <p class="text-muted mb-0">Review the seller's offer. This will become an order only after you accept and finish checkout.</p>
+        <p class="text-muted mb-0">Review the seller update. The published ready-made price stays fixed; it cannot be changed for this request.</p>
 
         <div class="offer-grid">
-          <div class="offer-box"><span class="offer-label">Final Price</span><div class="offer-value">PHP {{ number_format($finalPrice, 2) }} each</div></div>
-          <div class="offer-box"><span class="offer-label">Total</span><div class="offer-value">PHP {{ number_format($total, 2) }}</div></div>
+          @if($finalPrice > 0)
+            <div class="offer-box"><span class="offer-label">Published Price</span><div class="offer-value">PHP {{ number_format($finalPrice, 2) }} each</div></div>
+            <div class="offer-box"><span class="offer-label">Total</span><div class="offer-value">PHP {{ number_format($total, 2) }}</div></div>
+          @endif
           <div class="offer-box"><span class="offer-label">Quantity</span><div class="offer-value">{{ (int)$offer->quantity }} pc{{ (int)$offer->quantity === 1 ? '' : 's' }}</div></div>
-          <div class="offer-box"><span class="offer-label">Accepted Schedule</span><div class="offer-value">{{ $acceptedAt ? $acceptedAt->format('M d, Y g:i A') : 'To confirm' }}</div></div>
+          <div class="offer-box"><span class="offer-label">{{ $isScheduleProposal ? 'Suggested Schedule' : 'Schedule' }}</span><div class="offer-value">{{ $displayAt ? $displayAt->format('M d, Y g:i A') : 'To confirm' }}</div></div>
           @if($expiresAt)<div class="offer-box"><span class="offer-label">Offer Expires</span><div class="offer-value" data-countdown="{{ $expiresAt->toIso8601String() }}">{{ $expiresAt->format('M d, g:i A') }}</div></div>@endif
           @if($offer->allow_similar_cake)<div class="offer-box"><span class="offer-label">Similar Cake</span><div class="offer-value">Allowed by customer</div></div>@endif
         </div>
@@ -46,6 +55,9 @@
         @endif
         @if($offer->customer_note)
           <div class="offer-note" style="background:#f8fafc;border-color:#e5e7eb;color:#334155"><strong>Your request note:</strong><br>{{ $offer->customer_note }}</div>
+        @endif
+        @if($offer->customer_response)
+          <div class="offer-note" style="background:#f8fafc;border-color:#e5e7eb;color:#334155"><strong>Your latest reply:</strong><br>{{ $offer->customer_response }}</div>
         @endif
 
         @if($isActiveOffer)
@@ -63,7 +75,27 @@
               <button class="btn btn-outline-danger w-100 fw-bold" type="submit">Confirm decline</button>
             </form>
           </div>
-        @else
+        @elseif($isScheduleProposal && $isCustomer)
+          <form method="POST" action="{{ route('customer.order_requests.respond', $offer->id) }}" class="mt-3" data-prevent-double-submit>
+            @csrf
+            <input type="hidden" name="action" value="accept_schedule">
+            <button class="offer-btn primary w-100" type="submit" data-loading-text="Preparing checkout..."><i class="bi bi-calendar-check me-1"></i>Accept suggested schedule</button>
+          </form>
+        @elseif($isAlternativeProposal && $isCustomer)
+          <form method="POST" action="{{ route('customer.order_requests.respond', $offer->id) }}" class="mt-3" data-prevent-double-submit>
+            @csrf
+            <input type="hidden" name="action" value="accept_alternative">
+            <button class="offer-btn primary w-100" type="submit" data-loading-text="Preparing checkout..."><i class="bi bi-check2-circle me-1"></i>Accept alternative and checkout</button>
+          </form>
+        @elseif($needsDetails && $isCustomer)
+          <form method="POST" action="{{ route('customer.order_requests.respond', $offer->id) }}" class="mt-3">
+            @csrf
+            <input type="hidden" name="action" value="reply_details">
+            <label class="form-label fw-semibold">Reply to seller</label>
+            <textarea name="customer_response" class="form-control mb-2" rows="3" maxlength="500" required placeholder="Add the details the seller requested"></textarea>
+            <button class="offer-btn primary w-100" type="submit"><i class="bi bi-send me-1"></i>Send details to seller</button>
+          </form>
+        @elseif(!$isActionable)
           <div class="alert alert-warning border-0 mt-3 mb-0">This offer is no longer active. You can send a new request or message the seller.</div>
         @endif
       </div>

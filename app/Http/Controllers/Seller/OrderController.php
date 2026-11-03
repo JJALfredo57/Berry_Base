@@ -803,7 +803,9 @@ class OrderController extends Controller
         if (($order->fulfillment_type ?? 'Pickup') !== 'Delivery') {
             return back()->with('err', 'Only delivery orders can be assigned to a rider.');
         }
-        if (!in_array((string) ($order->status ?? ''), ['Ready for Rider', 'Confirmed', 'Preparing'], true)) {
+        $requiresKitchen = app(OrderTypeService::class)->requiresKitchen($order);
+        $assignableStatuses = $requiresKitchen ? ['Ready for Rider'] : ['Ready for Rider', 'Confirmed'];
+        if (!in_array((string) ($order->status ?? ''), $assignableStatuses, true)) {
             return back()->with('err', 'Assign a rider only after the order is ready for rider handoff.');
         }
 

@@ -95,6 +95,42 @@ class OrderRequestService
         return max(0, round($price, 2));
     }
 
+    /** Ready-made request prices always come from the seller's published catalog price. */
+    public function fixedPriceForRequest(object $row, ?string $productId = null): float
+    {
+        $productId ??= (string) ($row->product_id ?? '');
+        $product = DB::table('products')
+            ->where('id', $productId)
+            ->where('shop_id', $row->shop_id ?? null)
+            ->whereNull('archived_at')
+            ->first();
+
+        if (!$product) {
+            return 0;
+        }
+
+        // A replacement cake uses its own published price; retain a requested
+        // size only when the customer is still ordering the original product.
+        $selectedSize = $productId === (string) ($row->product_id ?? '')
+            ? (string) ($row->selected_size ?? '')
+            : null;
+
+        return max(0, round(CakeshopHelper::resolveProductUnitPrice(
+            (string) $product->id,
+            (float) $product->price,
+            $selectedSize
+        ), 2));
+    }
+
+    public function proposalPrice(object $row): float
+    {
+        if (($row->status ?? '') === 'alternative_offered' && !empty($row->alternative_product_id)) {
+            return $this->fixedPriceForRequest($row, (string) $row->alternative_product_id);
+        }
+
+        return $this->finalOfferPrice($row);
+    }
+
     public function prepareCheckoutFromOffer(Request $request, object $row, bool $customer): array
     {
         if (!in_array(($row->status ?? ''), ['accepted', 'customer_accepted'], true)) {
@@ -117,11 +153,16 @@ class OrderRequestService
         if (!empty($row->seller_response)) $noteParts[] = 'Seller note: ' . $row->seller_response;
         if (!empty($row->is_rush)) $noteParts[] = 'Rush request accepted by seller.';
 
+        $checkoutProductId = $row->alternative_product_id ?: $row->product_id;
         $checkout = [
-            'product_id' => $row->alternative_product_id ?: $row->product_id,
+            'product_id' => $checkoutProductId,
             'quantity' => max(1, (int) $row->quantity),
             'custom_note' => implode(' | ', $noteParts),
-            'selected_size' => trim((string) ($row->selected_size ?? '')),
+            // A replacement product must not inherit a size that belongs to
+            // the original cake; checkout will use the replacement's catalog price.
+            'selected_size' => (string) $checkoutProductId === (string) ($row->product_id ?? '')
+                ? trim((string) ($row->selected_size ?? ''))
+                : '',
             'order_request_id' => $row->id,
             'request_offer_checkout' => true,
             'accepted_unit_price' => $price,
@@ -161,6 +202,87 @@ class OrderRequestService
         return ['ok' => true, 'message' => 'Offer declined.'];
     }
 
+    public function prepareCheckoutFromProposal(Request $request, object $row, string $action): array
+    {
+        $status = (string) ($row->status ?? '');
+        $updates = [];
+
+        if ($action === 'accept_schedule' && $status === 'schedule_suggested') {
+            $acceptedDate = $row->suggested_date;
+            $acceptedTime = substr((string) $row->suggested_time, 0, 5);
+            if (!$acceptedDate || !$acceptedTime) {
+                return ['ok' => false, 'message' => 'The seller schedule is incomplete. Please ask the seller to update it.'];
+            }
+            $schedule = app(FulfillmentScheduleService::class)->validate(
+                $row->shop_id,
+                $acceptedDate,
+                $acceptedTime,
+                ($row->type ?? '') === 'custom' ? 'custom' : 'regular',
+                'Pickup'
+            );
+            if (!$schedule['ok']) return $schedule;
+
+            $updates = [
+                'status' => 'accepted',
+                'accepted_price' => $this->fixedPriceForRequest($row),
+                'accepted_date' => $acceptedDate,
+                'accepted_time' => $acceptedTime,
+                'accepted_datetime' => Carbon::parse($acceptedDate . ' ' . $acceptedTime, config('app.timezone'))->toDateTimeString(),
+            ];
+        }
+
+        if ($action === 'accept_alternative' && $status === 'alternative_offered') {
+            if (empty($row->allow_similar_cake) || empty($row->alternative_product_id)) {
+                return ['ok' => false, 'message' => 'This alternative is no longer available for this request.'];
+            }
+            $price = $this->fixedPriceForRequest($row, (string) $row->alternative_product_id);
+            if ($price <= 0) return ['ok' => false, 'message' => 'The alternative cake is no longer available. Please choose another cake.'];
+
+            $updates = [
+                'status' => 'accepted',
+                'accepted_price' => $price,
+                'accepted_date' => $row->preferred_date,
+                'accepted_time' => substr((string) $row->preferred_time, 0, 5),
+                'accepted_datetime' => $row->preferred_datetime,
+            ];
+        }
+
+        if (!$updates || ($updates['accepted_price'] ?? 0) <= 0) {
+            return ['ok' => false, 'message' => 'This request update is no longer available.'];
+        }
+
+        $updated = DB::table('order_requests')
+            ->where('id', $row->id)
+            ->where('user_id', $request->session()->get('user.id'))
+            ->where('status', $status)
+            ->update($updates + ['updated_at' => now()]);
+        if ($updated !== 1) return ['ok' => false, 'message' => 'This request was updated already. Please refresh and try again.'];
+
+        $fresh = DB::table('order_requests')->where('id', $row->id)->first();
+        return $this->prepareCheckoutFromOffer($request, $fresh, true);
+    }
+
+    public function replyToDetails(object $row, string $response): array
+    {
+        if (($row->status ?? '') !== 'needs_more_details') {
+            return ['ok' => false, 'message' => 'This request is no longer waiting for your details.'];
+        }
+
+        $updated = DB::table('order_requests')
+            ->where('id', $row->id)
+            ->where('status', 'needs_more_details')
+            ->update([
+                'status' => 'pending',
+                'customer_response' => trim($response),
+                'responded_at' => null,
+                'updated_at' => now(),
+            ]);
+        if ($updated !== 1) return ['ok' => false, 'message' => 'This request was updated already. Please refresh and try again.'];
+
+        $this->notifySellerDecision((string) $row->id, 'details_received');
+        return ['ok' => true, 'message' => 'Your details were sent to the seller for review.'];
+    }
+
     public function notifySellerDecision(string $requestId, string $decision, ?string $orderId = null): void
     {
         try {
@@ -173,9 +295,12 @@ class OrderRequestService
                 ->first();
             if (!$row || !$row->seller_id) return;
             $accepted = $decision === 'accepted';
-            $title = $accepted ? 'Customer accepted your offer' : 'Customer declined your offer';
+            $detailsReceived = $decision === 'details_received';
+            $title = $detailsReceived ? 'Customer sent request details' : ($accepted ? 'Customer accepted your offer' : 'Customer declined your offer');
             if ($accepted && !empty($row->is_rush)) $title = '[Rush] ' . $title;
-            $message = ($row->product_name ?: 'Cake request') . ($accepted ? ' is moving to checkout.' : ' was declined by the customer.');
+            $message = ($row->product_name ?: 'Cake request') . ($detailsReceived
+                ? ' has new details ready for your review.'
+                : ($accepted ? ' is moving to checkout.' : ' was declined by the customer.'));
             if ($orderId) $message .= ' Order #' . $orderId . '.';
             if (Schema::hasTable('notifications')) {
                 DB::table('notifications')->insert([

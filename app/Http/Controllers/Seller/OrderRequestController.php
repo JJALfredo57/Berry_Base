@@ -89,7 +89,7 @@ class OrderRequestController extends Controller
         return view('seller.order_requests', compact('shop', 'requests', 'counts', 'tab', 'search', 'alternativeProducts'));
     }
 
-    public function update(Request $request, string $id)
+    public function update(Request $request, string $id, OrderRequestService $service)
     {
         $shop = $this->getShop();
         $orderRequest = DB::table('order_requests')->where('id', $id)->where('shop_id', $shop->id)->first();
@@ -104,10 +104,8 @@ class OrderRequestController extends Controller
         $message = 'Request updated.';
 
         if ($action === 'accept') {
-            $price = $request->input('accepted_price');
-            $fallbackPrice = (float) (DB::table('products')->where('id', $orderRequest->product_id)->value('price') ?? 0);
-            $acceptedPrice = $price !== null && $price !== '' ? max(0, (float) $price) : $fallbackPrice;
-            if ($acceptedPrice <= 0) return back()->with('err', 'Please set a valid accepted price before sending the offer.')->withInput();
+            $acceptedPrice = $service->fixedPriceForRequest($orderRequest);
+            if ($acceptedPrice <= 0) return back()->with('err', 'This cake needs a valid published catalog price before it can be offered.')->withInput();
             $acceptedDate = $request->input('accepted_date') ?: $orderRequest->preferred_date;
             $acceptedTime = substr((string) ($request->input('accepted_time') ?: $orderRequest->preferred_time), 0, 5);
             $scheduleCheck = app(FulfillmentScheduleService::class)->validate(
@@ -149,8 +147,11 @@ class OrderRequestController extends Controller
             }
             $message = 'Suggested schedule sent.';
         } elseif ($action === 'offer_alternative') {
-            if (!$request->input('alternative_product_id') && $response === '') {
-                return back()->with('err', 'Please choose an alternative cake or write your offer.')->withInput();
+            if (!$orderRequest->allow_similar_cake) {
+                return back()->with('err', 'The customer did not allow a similar cake for this request.')->withInput();
+            }
+            if (!$request->input('alternative_product_id')) {
+                return back()->with('err', 'Please choose an available alternative cake from your catalog.')->withInput();
             }
             $data['status'] = 'alternative_offered';
             $data['alternative_product_id'] = $request->input('alternative_product_id') ?: null;
@@ -164,7 +165,7 @@ class OrderRequestController extends Controller
         }
 
         DB::table('order_requests')->where('id', $id)->update($data);
-        app(OrderRequestService::class)->ensureCustomerToken($id);
+        $service->ensureCustomerToken($id);
         $this->notifyCustomer($id, $data['status']);
 
         return back()->with('msg', $message);
