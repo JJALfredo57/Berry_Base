@@ -79,9 +79,10 @@ class DashboardController extends Controller
         // Recent orders
         try {
             $recentOrders = DB::table('orders as o')
+                ->leftJoin('users as u','u.id','=','o.user_id')
                 ->leftJoin('products as p','p.id','=','o.product_id')
                 ->where('o.shop_id', $shopId)
-                ->select('o.*','p.name as product_name')
+                ->select('o.*','p.name as product_name', DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, o.fullname, 'Guest') END as customer_display_name"))
                 ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")
                 ->orderByDesc('o.id')
                 ->limit(8)

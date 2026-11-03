@@ -17,7 +17,7 @@ class KitchenController extends Controller
             ->leftJoin('users as u','u.id','=','o.user_id')
             ->join('products as p','p.id','=','o.product_id')
             ->select('kt.*','kt.status as ticket_status','o.id as order_id',
-                \Illuminate\Support\Facades\DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
+                \Illuminate\Support\Facades\DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as fullname"),
                 'p.name as product_name','p.image_path as product_image',
                 'o.user_id','o.fulfillment_type','o.rider_id','o.rider_sms_sent')
             ->orderByDesc('kt.id')

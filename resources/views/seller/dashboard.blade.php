@@ -125,7 +125,7 @@
         <div style="flex:1;min-width:0">
           <div class="fw-semibold" style="font-size:.85rem">
             Order #{{ $o->id }}
-            <span class="text-muted ms-1 fw-normal" style="font-size:.78rem">{{ $o->guest_name ?? $o->fullname ?? 'Guest' }}</span>
+            <span class="text-muted ms-1 fw-normal" style="font-size:.78rem">{{ $o->customer_display_name ?? 'Guest' }}</span>
           </div>
           <div class="text-muted" style="font-size:.75rem">{{ $o->product_name ?? '—' }} · ₱{{ number_format($o->total_price,2) }}</div>
         </div>

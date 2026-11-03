@@ -1201,12 +1201,15 @@ class RiderController extends Controller
     private function riderDashboardOrders(int $riderId, ?float $lat, ?float $lng)
     {
         $query = DB::table('orders as o')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->leftJoin('rider_remittances as rr', 'rr.order_id', '=', 'o.id')
             ->where('o.rider_id', $riderId)
             ->whereNotIn('o.status', ['Cancelled'])
             ->select(
                 'o.*',
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Customer') END as customer_display_name"),
+                DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as customer_display_phone'),
                 DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"),
                 'p.image_path',
                 'rr.amount as remittance_amount',

@@ -3,8 +3,8 @@
   $isPending = ($order->rider_assignment_status ?? '') === 'pending';
   $isSurpriseDelivery = !empty($order->is_surprise_delivery);
   $surpriseContact = $isSurpriseDelivery ? app(\App\Services\SurpriseContactService::class)->details($order) : null;
-  $displayName = $isSurpriseDelivery ? ($surpriseContact['sender_name'] ?? 'Sender') : ($order->guest_name ?? 'Customer');
-  $displayPhone = $isSurpriseDelivery ? ($surpriseContact['sender_phone'] ?? null) : ($order->guest_phone ?? null);
+  $displayName = $isSurpriseDelivery ? ($surpriseContact['sender_name'] ?? 'Sender') : ($order->customer_display_name ?? 'Customer');
+  $displayPhone = $isSurpriseDelivery ? ($surpriseContact['sender_phone'] ?? null) : ($order->customer_display_phone ?? null);
   $deliveryAddr = $isSurpriseDelivery ? ($order->recipient_address ?? $order->delivery_address ?? 'No delivery address') : ($order->delivery_address ?? 'No delivery address');
   $deliveryLat = $isSurpriseDelivery ? ($order->recipient_latitude ?? $order->latitude ?? null) : ($order->latitude ?? null);
   $deliveryLng = $isSurpriseDelivery ? ($order->recipient_longitude ?? $order->longitude ?? null) : ($order->longitude ?? null);

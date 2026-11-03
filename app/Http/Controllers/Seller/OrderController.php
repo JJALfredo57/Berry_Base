@@ -66,13 +66,13 @@ class OrderController extends Controller
                 ->where('o.shop_id', $shop->id)
                 ->select(
                     'o.*',
-                    DB::raw("COALESCE(o.guest_name, o.fullname, u.fullname, 'Customer') as order_customer_name"),
-                    DB::raw('COALESCE(o.guest_phone, u.phone) as order_customer_phone'),
+                    DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, o.fullname, 'Customer') END as order_customer_name"),
+                    DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as order_customer_phone'),
                     'p.name as product_name',
                     'p.image_path as product_image_path'
                 )
                 ->when($search, fn($q) => $q->where(function ($sq) use ($search, $hasRemittanceTable) {
-                    $sq->whereRaw("COALESCE(o.guest_name, o.fullname, u.fullname) ilike ?", ["%$search%"])
+                    $sq->whereRaw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, o.fullname) END ilike ?", ["%$search%"])
                         ->orWhereRaw("p.name ilike ?", ["%$search%"])
                         ->orWhereRaw("o.payment_status ilike ?", ["%$search%"])
                         ->orWhereRaw("o.payment_method ilike ?", ["%$search%"])
@@ -205,8 +205,8 @@ class OrderController extends Controller
         $product = DB::table('products')->where('id', $order->product_id)->first();
         $productName = $product->name ?? 'Cake';
         $customer = DB::table('users')->where('id', $order->user_id)->first();
-        $fullname = $order->guest_name ?? $customer->fullname ?? 'Customer';
-        $phone = $order->guest_phone ?? $customer->phone ?? '';
+        $fullname = $order->user_id ? ($customer->fullname ?? 'Customer') : ($order->guest_name ?? 'Customer');
+        $phone = $order->user_id ? ($customer->phone ?? '') : ($order->guest_phone ?? '');
         $sizeInfo = !empty($order->selected_size) ? "\nSIZE: {$order->selected_size}" : '';
         $noteInfo = !empty($order->custom_note) ? "\nSPECIAL NOTE: {$order->custom_note}" : '';
         $rushInfo = !empty($order->is_rush) ? "\nPRIORITY: RUSH request-to-bake" : '';
@@ -384,9 +384,9 @@ class OrderController extends Controller
             $shopName  = SmsHelper::getShopName($shop->id ?? null);
             $header    = SmsHelper::header($siteName, $shopName);
             $shopLine  = $shopName ? "\nShop: {$shopName}" : '';
-            $custName  = $order->guest_name
-                ?? DB::table('users')->where('id', $order->user_id)->value('fullname')
-                ?? 'Customer';
+            $custName  = $order->user_id
+                ? (DB::table('users')->where('id', $order->user_id)->value('fullname') ?? 'Customer')
+                : ($order->guest_name ?? 'Customer');
             $trackingLine = empty($order->user_id) && !empty($order->track_code)
                 ? "\n\nYour Tracking Code: {$order->track_code}"
                 : '';
@@ -395,7 +395,7 @@ class OrderController extends Controller
                 'Out for Delivery' => "{$header}\nHi {$custName}! Your order is on its way!\n\nOrder No.: #{$id}{$shopLine}\nStatus: Out for Delivery\n\nOur rider is now heading to your location. Please make sure someone is available to receive your order.{$trackingLine}",
                 'Cancelled'        => "{$header}\nHi {$custName}, your order has been cancelled.\n\nOrder No.: #{$id}{$shopLine}\nStatus: Cancelled\n\nIf you have questions or concerns, please contact us through our shop page. We hope to serve you again soon.",
             ];
-            $phone = $order->guest_phone ?? DB::table('users')->where('id', $order->user_id)->value('phone');
+            $phone = $order->user_id ? DB::table('users')->where('id', $order->user_id)->value('phone') : $order->guest_phone;
             if ($phone && isset($smsMsgs[$newStatus]) && (int) ($mobileStatusNotice['push_sent'] ?? 0) <= 0) {
                 SmsHelper::send($phone, $smsMsgs[$newStatus]);
             }
@@ -517,14 +517,15 @@ class OrderController extends Controller
         $shop = $this->getShop();
         $transaction = DB::table('payment_transactions as pt')
             ->join('orders as o', 'o.id', '=', 'pt.order_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('pt.id', $transactionId)
             ->where('pt.order_id', $id)
             ->where('o.shop_id', $shop->id)
             ->select(
                 'pt.*',
-                'o.guest_name',
-                'o.guest_phone',
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as guest_name"),
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as guest_phone"),
                 'o.fulfillment_type',
                 'o.schedule_date',
                 'o.schedule_time',

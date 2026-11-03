@@ -90,8 +90,8 @@ class MessageController extends Controller
         $shop = $this->getShop();
         $threads = DB::select("
             SELECT o.id order_id, o.status,
-                COALESCE(o.guest_name, u.fullname) as fullname,
-                COALESCE(u.username, 'Guest') as username,
+                CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as fullname,
+                CASE WHEN o.user_id IS NOT NULL THEN u.username ELSE 'Guest' END as username,
                 (SELECT message FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_message,
                 (SELECT created_at FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_time,
                 (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role='customer' AND m.is_read=false) unread_count
@@ -115,9 +115,9 @@ class MessageController extends Controller
             ->where('o.id', $baseOrder->id)
             ->where('o.shop_id', $shop->id)
             ->select('o.*', 'p.name as product_name', 'p.image_path as product_image_path',
-                DB::raw("COALESCE(o.guest_name, o.fullname, u.fullname, 'Customer') as fullname"),
-                DB::raw("COALESCE(u.username, 'Guest') as username"),
-                DB::raw('COALESCE(o.guest_phone, u.phone) as phone'))
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, o.fullname, 'Customer') END as fullname"),
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.username ELSE 'Guest' END as username"),
+                DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as phone'))
             ->first();
 
         if (!$order) return redirect()->route('seller.messages');
@@ -393,7 +393,7 @@ class MessageController extends Controller
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.shop_id', $shop->id)
             ->select('m.*','o.track_code',
-                DB::raw('COALESCE(o.guest_name, (SELECT fullname FROM users WHERE id=o.user_id)) as customer_name'),
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN (SELECT fullname FROM users WHERE id=o.user_id) ELSE o.guest_name END as customer_name"),
                 'p.name as product_name')
             ->orderByDesc('m.created_at')
             ->limit($limit)->get();

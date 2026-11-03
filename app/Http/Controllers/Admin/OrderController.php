@@ -35,16 +35,16 @@ class OrderController extends Controller
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->join('products as p', 'p.id', '=', 'o.product_id')
             ->select('o.*',
-                DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
-                DB::raw('COALESCE(o.guest_phone, u.phone) as phone'),
-                DB::raw("COALESCE(u.username, 'Guest') as username"),
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as fullname"),
+                DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as phone'),
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.username ELSE 'Guest' END as username"),
                 DB::raw("COALESCE(u.email, '') as email"),
                 'p.name as product_name', 'p.image_path', 'p.price')
             ->when($search, fn($q) => $q->where(fn($sq) => $sq
                 ->where('o.id', 'like', "%$search%")
                 ->orWhere('o.track_code', 'like', "%$search%")
-                ->orWhereRaw("COALESCE(o.guest_name, u.fullname) like ?", ["%$search%"])
-                ->orWhereRaw("COALESCE(o.guest_phone, u.phone) like ?", ["%$search%"])
+                ->orWhereRaw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE o.guest_name END like ?", ["%$search%"])
+                ->orWhereRaw("CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END like ?", ["%$search%"])
                 ->orWhere('p.name', 'like', "%$search%")
             ))
             ->when($status && $status !== 'All', fn($q) =>
@@ -139,8 +139,8 @@ class OrderController extends Controller
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->where('o.id', $id)
             ->select('o.*', 'p.name as product_name',
-                DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
-                DB::raw('COALESCE(o.guest_phone, u.phone) as phone'))
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as fullname"),
+                DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as phone'))
             ->first();
 
         if (!$order) return back()->with('err', 'Order not found.');
@@ -569,8 +569,8 @@ class OrderController extends Controller
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->where('o.id', $id)
             ->select('o.*', 'p.name as product_name',
-                DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
-                DB::raw('COALESCE(o.guest_phone, u.phone) as phone'))
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as fullname"),
+                DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as phone'))
             ->first();
 
         if (!$order) return back()->with('err', 'Order not found.');

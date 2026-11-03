@@ -18,8 +18,8 @@ class MessageController extends Controller
     {
         $threads = DB::select("
             SELECT o.id order_id, o.status,
-                COALESCE(o.guest_name, u.fullname) as fullname,
-                COALESCE(u.username, 'Guest') as username,
+                CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as fullname,
+                CASE WHEN o.user_id IS NOT NULL THEN u.username ELSE 'Guest' END as username,
                 (SELECT message FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_message,
                 (SELECT created_at FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_time,
                 (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role='customer' AND m.is_read=false) unread_count
@@ -38,9 +38,9 @@ class MessageController extends Controller
             ->join('products as p', 'p.id', '=', 'o.product_id')
             ->where('o.id', $orderId)
             ->select('o.*', 'p.name as product_name', 'p.image_path',
-                DB::raw('COALESCE(o.guest_name, u.fullname) as fullname'),
-                DB::raw("COALESCE(u.username, 'Guest') as username"),
-                DB::raw('COALESCE(o.guest_phone, u.phone) as phone'))
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as fullname"),
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.username ELSE 'Guest' END as username"),
+                DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as phone'))
             ->first();
 
         if (!$order) return redirect()->route('admin.messages.index');
@@ -120,7 +120,7 @@ class MessageController extends Controller
                 'm.reply_to_id',
                 'm.created_at',
                 'p.name as product_name',
-                DB::raw("COALESCE(o.guest_name, u.fullname, 'Customer') as customer_name"),
+                DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Customer') END as customer_name"),
                 DB::raw('COALESCE(u.profile_photo, NULL) as customer_photo'),
                 DB::raw('COALESCE(u.id, NULL) as customer_user_id'),
                 'o.guest_name',
