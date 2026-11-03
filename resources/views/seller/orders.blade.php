@@ -566,9 +566,11 @@
             </div>
             <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-left:auto">
               <strong style="font-size:.85rem;color:#16a34a">PHP {{ number_format((float)($receipt->amount ?? 0), 2) }}</strong>
-              <a href="{{ route('seller.orders.receipt', ['id' => $o->id, 'transactionId' => $receipt->id]) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+              <button type="button" class="btn btn-outline-primary btn-sm"
+                      data-receipt-url="{{ route('seller.orders.receipt', ['id' => $o->id, 'transactionId' => $receipt->id], false) }}"
+                      data-receipt-title="{{ $receiptLabel }}">
                 <i class="bi bi-eye me-1"></i>View
-              </a>
+              </button>
             </div>
           </div>
         @empty
@@ -1194,6 +1196,44 @@ function showOrderDetail(id) {
   new bootstrap.Modal(document.getElementById('orderDetailModal')).show();
 }
 
+function showSellerReceipt(button) {
+  const url = button?.dataset?.receiptUrl;
+  if (!url) return;
+
+  const modalElement = document.getElementById('sellerReceiptModal');
+  const titleElement = document.getElementById('sellerReceiptModalTitle');
+  const bodyElement = document.getElementById('sellerReceiptModalBody');
+  if (!modalElement || !titleElement || !bodyElement || !window.bootstrap) return;
+
+  titleElement.textContent = button.dataset.receiptTitle || 'Payment Receipt';
+  bodyElement.innerHTML = '<div class="seller-receipt-loading" role="status"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Loading receipt…</span></div>';
+
+  const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+  modal.show();
+
+  fetch(url, { headers: { Accept: 'text/html' }, credentials: 'same-origin' })
+    .then(response => {
+      if (!response.ok) throw new Error('Receipt could not be loaded.');
+      return response.text();
+    })
+    .then(html => {
+      const documentFragment = new DOMParser().parseFromString(html, 'text/html');
+      const receipt = documentFragment.querySelector('.container');
+      if (!receipt) throw new Error('Receipt content is unavailable.');
+      receipt.querySelectorAll('.no-print').forEach(element => element.remove());
+      bodyElement.replaceChildren(receipt);
+      receipt.classList.add('seller-receipt-content');
+    })
+    .catch(() => {
+      bodyElement.innerHTML = '<div class="seller-receipt-error"><i class="bi bi-exclamation-circle"></i><strong>Unable to load this receipt.</strong><span>Please close the window and try again.</span></div>';
+    });
+}
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-receipt-url]');
+  if (button) showSellerReceipt(button);
+});
+
 function toggleCancel(id) {
   const el = document.getElementById(id);
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
@@ -1292,6 +1332,45 @@ document.addEventListener('visibilitychange', () => {
         <button class="btn btn-secondary" data-bs-dismiss="modal" style="font-weight:600">
           <i class="bi bi-arrow-left me-1"></i>Back
         </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #sellerReceiptModal .modal-dialog {
+    width:min(920px, calc(100vw - 24px));
+    max-width:min(920px, calc(100vw - 24px));
+    margin:12px auto;
+    transform:translateY(18px) scale(.96);
+    transition:transform .26s cubic-bezier(.2,.8,.2,1);
+  }
+  #sellerReceiptModal.show .modal-dialog { transform:translateY(0) scale(1); }
+  #sellerReceiptModal .modal-content { max-height:calc(100dvh - 24px); border:0; border-radius:18px; overflow:hidden; box-shadow:0 24px 65px rgba(15,23,42,.25); }
+  #sellerReceiptModal .modal-body { min-height:190px; overflow:auto; padding:0; background:#f8fafc; }
+  #sellerReceiptModal .seller-receipt-content { max-width:860px; padding:20px 14px; }
+  .seller-receipt-loading, .seller-receipt-error { min-height:190px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:.65rem; color:#64748b; font-size:.9rem; }
+  .seller-receipt-loading .spinner-border { width:1.8rem; height:1.8rem; color:var(--primary); }
+  .seller-receipt-error i { color:#dc2626; font-size:1.7rem; }
+  .seller-receipt-error strong { color:#334155; }
+  .seller-receipt-error span { font-size:.8rem; }
+  @media (max-width:575px) {
+    #sellerReceiptModal .modal-dialog { width:calc(100vw - 16px); max-width:calc(100vw - 16px); margin:8px auto; }
+    #sellerReceiptModal .modal-content { max-height:calc(100dvh - 16px); border-radius:14px; }
+    #sellerReceiptModal .seller-receipt-content { padding:12px 8px; }
+  }
+</style>
+
+<div class="modal fade" id="sellerReceiptModal" tabindex="-1" aria-labelledby="sellerReceiptModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-2">
+        <h6 class="modal-title fw-bold" id="sellerReceiptModalTitle"><i class="bi bi-receipt me-1 text-primary"></i>Payment Receipt</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="sellerReceiptModalBody"></div>
+      <div class="modal-footer border-0 pt-2">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-arrow-left me-1"></i>Back to Order</button>
       </div>
     </div>
   </div>
