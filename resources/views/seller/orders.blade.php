@@ -1192,6 +1192,8 @@ function pgSearch(value) {
 
 function showOrderDetail(id) {
   const src = document.getElementById('order-detail-' + id);
+  sellerReceiptOrderContent = null;
+  document.getElementById('orderDetailModalTitle').innerHTML = '<i class="bi bi-receipt me-1 text-primary"></i>Order Details';
   document.getElementById('orderDetailBody').innerHTML = src ? src.innerHTML : '<p class="text-muted">No details found.</p>';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('orderDetailModal')).show();
 }
