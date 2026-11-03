@@ -4561,6 +4561,31 @@ window.BERRY_PUSH_CONTEXT = {
     }
   }
 
+  function showLogoutProgress(form) {
+    const button = form?.querySelector('button[type="submit"]');
+    if (!button || button.dataset.logoutSubmitting === '1') return;
+
+    button.dataset.logoutSubmitting = '1';
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    const label = button.querySelector('.sb-link-text');
+    if (label) label.textContent = 'Signing out…';
+  }
+
+  function bindLogoutForms() {
+    document.querySelectorAll('form[action="{{ route('logout') }}"]').forEach(function (form) {
+      if (form.dataset.logoutBound === '1') return;
+      form.dataset.logoutBound = '1';
+      form.addEventListener('submit', function () {
+        showLogoutProgress(form);
+        unregisterSavedDeviceToken();
+      });
+      if (form.dataset.sellerLogoutForm === '1') {
+        form.addEventListener('submit', function () { prepareSellerMobileLogout(form); }, true);
+      }
+    });
+  }
+
   async function registerBerryPush() {
     savePushDebug('berry_push_last_setup_at', new Date().toISOString());
     if (!window.BERRY_PUSH_CONTEXT.pushEnabled) {
@@ -4626,21 +4651,11 @@ window.BERRY_PUSH_CONTEXT = {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       registerBerryPush();
-      document.querySelectorAll('form[action="{{ route('logout') }}"]').forEach(function (form) {
-        form.addEventListener('submit', unregisterSavedDeviceToken);
-        if (form.dataset.sellerLogoutForm === '1') {
-          form.addEventListener('submit', function () { prepareSellerMobileLogout(form); }, true);
-        }
-      });
+      bindLogoutForms();
     });
   } else {
     registerBerryPush();
-    document.querySelectorAll('form[action="{{ route('logout') }}"]').forEach(function (form) {
-      form.addEventListener('submit', unregisterSavedDeviceToken);
-      if (form.dataset.sellerLogoutForm === '1') {
-        form.addEventListener('submit', function () { prepareSellerMobileLogout(form); }, true);
-      }
-    });
+    bindLogoutForms();
   }
 })();
 </script>

@@ -11,6 +11,17 @@ use Illuminate\Support\Facades\Schema;
 class CakeshopHelper
 {
     /**
+     * Activity-log columns, loaded once per PHP worker.
+     *
+     * Schema inspection makes a database request. Keeping this list prevents
+     * every activity (including logout) from making one request per optional
+     * column before the log itself is inserted.
+     *
+     * @var array<string, bool>|null
+     */
+    private static ?array $activityLogColumns = null;
+
+    /**
      * Generate a unique random string ID (e.g. i74f5ycrfnxd)
      * Checks the given table/column for uniqueness before returning.
      */
@@ -326,24 +337,42 @@ class CakeshopHelper
             ];
 
             $routeName = request()->route()?->getName();
-            if (Schema::hasColumn('activity_logs', 'status')) {
+            $columns = self::activityLogColumns();
+            if (isset($columns['status'])) {
                 $payload['status'] = in_array($status, ['success', 'failed', 'denied'], true) ? $status : 'success';
             }
-            if (Schema::hasColumn('activity_logs', 'target_type')) {
+            if (isset($columns['target_type'])) {
                 $payload['target_type'] = $targetType;
             }
-            if (Schema::hasColumn('activity_logs', 'target_id')) {
+            if (isset($columns['target_id'])) {
                 $payload['target_id'] = $targetId === null ? null : (string) $targetId;
             }
-            if (Schema::hasColumn('activity_logs', 'route_name')) {
+            if (isset($columns['route_name'])) {
                 $payload['route_name'] = $routeName;
             }
-            if (Schema::hasColumn('activity_logs', 'user_agent')) {
+            if (isset($columns['user_agent'])) {
                 $payload['user_agent'] = substr((string) request()->userAgent(), 0, 2000) ?: null;
             }
 
             DB::table('activity_logs')->insert($payload);
         } catch (\Exception $e) {}
+    }
+
+    /** @return array<string, bool> */
+    private static function activityLogColumns(): array
+    {
+        if (self::$activityLogColumns !== null) {
+            return self::$activityLogColumns;
+        }
+
+        try {
+            return self::$activityLogColumns = array_fill_keys(
+                Schema::getColumnListing('activity_logs'),
+                true
+            );
+        } catch (\Exception $e) {
+            return self::$activityLogColumns = [];
+        }
     }
 
     private static function redactActivityDetails(string $details): string
