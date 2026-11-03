@@ -1632,7 +1632,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body p-0" style="min-height:0">
-        <iframe id="trackReceiptFrame" title="Payment receipt" style="width:100%;height:100%;min-height:520px;border:0;background:#fff"></iframe>
+        <div id="trackReceiptContent" style="height:100%;min-height:520px;overflow:auto;background:#fff"><div class="d-flex h-100 align-items-center justify-content-center text-muted">Loading receipt…</div></div>
       </div>
       <div class="modal-footer border-0 pt-2"><button type="button" class="btn btn-light fw-semibold" data-bs-dismiss="modal"><i class="bi bi-arrow-left me-1"></i>Back to Tracking</button></div>
     </div>
@@ -1673,22 +1673,48 @@ let trackNotificationsLoading = false;
 let trackActiveNotificationTarget = '';
 const trackSeenNotificationIds = new Set();
 
-function openTrackReceipt(url, title = 'Payment Receipt') {
-  const frame = document.getElementById('trackReceiptFrame');
+async function openTrackReceipt(url, title = 'Payment Receipt') {
+  const content = document.getElementById('trackReceiptContent');
   const modalEl = document.getElementById('trackReceiptModal');
-  if (!frame || !modalEl || !url) return;
+  if (!content || !modalEl || !url) return;
   const titleEl = document.getElementById('trackReceiptModalTitle');
   if (titleEl) titleEl.innerHTML = '<i class="bi bi-receipt-cutoff me-2 text-primary"></i>' + title;
   closeReceiptDrawer();
   window.setTimeout(function () {
-    frame.src = url;
     window.bootstrap?.Modal.getOrCreateInstance(modalEl).show();
   }, 220);
+  content.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-muted">Loading receipt…</div>';
+  try {
+    const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Receipt could not be loaded.');
+    const html = await response.text();
+    const documentView = new DOMParser().parseFromString(html, 'text/html');
+    const receipt = documentView.querySelector('.receipt-wrap, .container.py-4, .container-fluid.py-4');
+    if (!receipt) throw new Error('Receipt details are unavailable.');
+    const styles = Array.from(documentView.querySelectorAll('style')).map(style => style.outerHTML).join('');
+    content.innerHTML = styles + receipt.outerHTML;
+  } catch (error) {
+    content.innerHTML = '<div class="p-4 text-center text-danger"><i class="bi bi-exclamation-circle me-1"></i>Unable to load this receipt. Please try again.</div>';
+  }
 }
 
 document.getElementById('trackReceiptModal')?.addEventListener('hidden.bs.modal', function () {
-  const frame = document.getElementById('trackReceiptFrame');
-  if (frame) frame.src = 'about:blank';
+  const content = document.getElementById('trackReceiptContent');
+  if (content) content.innerHTML = '';
+});
+
+document.getElementById('trackReceiptContent')?.addEventListener('click', function (event) {
+  const link = event.target.closest('a[href]');
+  if (!link) return;
+  const url = link.href || '';
+  if (url.includes('/receipt')) {
+    event.preventDefault();
+    openTrackReceipt(url, 'Payment Receipt');
+  }
+  if (url.includes('/receipts')) {
+    event.preventDefault();
+    openTrackReceipt(url, 'All Receipts');
+  }
 });
 
 const trackNotificationSeenObserver = 'IntersectionObserver' in window
