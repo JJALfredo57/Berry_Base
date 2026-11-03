@@ -150,7 +150,7 @@
       </div>
       <div class="text-muted text-end thread-order-meta" style="font-size:.75rem">
         <div>Order</div>
-        <div class="fw-semibold text-break">#<span data-order-field="track_code">{{ $order->track_code ?? $order->id }}</span></div>
+        <div class="fw-semibold text-break">#{{ $order->id }}</div>
       </div>
     </div>
 
@@ -406,7 +406,6 @@ async function refreshOrderDetails() {
     if (!data.ok || !data.order) return;
     const o = data.order;
     setOrderField('status', o.status);
-    setOrderField('track_code', o.track_code);
     setOrderField('schedule', o.schedule);
     setOrderField('fulfillment_type', o.fulfillment_type);
     setOrderField('payment_method', o.payment_method);

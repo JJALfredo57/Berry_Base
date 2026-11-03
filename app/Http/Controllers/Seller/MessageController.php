@@ -271,7 +271,6 @@ class MessageController extends Controller
             ->select(
                 'o.id',
                 'o.status',
-                'o.track_code',
                 'o.fulfillment_type',
                 'o.schedule_date',
                 'o.schedule_time',
@@ -293,7 +292,6 @@ class MessageController extends Controller
             'ok' => true,
             'order' => [
                 'status'           => $order->status === 'Pickup' ? 'Ready for Pickup' : $order->status,
-                'track_code'       => $order->track_code ?: $order->id,
                 'schedule'         => $schedule,
                 'fulfillment_type' => $order->fulfillment_type ?? 'Pickup',
                 'payment_method'   => $order->payment_method ?? 'Not set',

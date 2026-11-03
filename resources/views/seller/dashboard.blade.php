@@ -124,7 +124,7 @@
       <div class="d-flex align-items-center gap-3 px-4 py-3" style="border-bottom:1px solid var(--gray-100);transition:background .15s" onmouseenter="this.style.background='var(--gray-50)'" onmouseleave="this.style.background=''">
         <div style="flex:1;min-width:0">
           <div class="fw-semibold" style="font-size:.85rem">
-            #{{ strtoupper(substr($o->track_code,0,8)) }}
+            Order #{{ $o->id }}
             <span class="text-muted ms-1 fw-normal" style="font-size:.78rem">{{ $o->guest_name ?? $o->fullname ?? 'Guest' }}</span>
           </div>
           <div class="text-muted" style="font-size:.75rem">{{ $o->product_name ?? '—' }} · ₱{{ number_format($o->total_price,2) }}</div>

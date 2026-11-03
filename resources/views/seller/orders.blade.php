@@ -234,7 +234,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
       <div>
         <div style="font-size:.95rem;font-weight:700;color:var(--gray-900)">Smart Order Filter</div>
-        <div style="font-size:.8rem;color:var(--gray-500)">Search by customer, product, tracking code, payment, or order status</div>
+        <div style="font-size:.8rem;color:var(--gray-500)">Search by customer, product, payment, or order status</div>
       </div>
       <div class="seller-order-tools">
         <input type="text" id="sellerOrderSearch" class="form-control seller-order-search" placeholder="Search orders..."
@@ -305,7 +305,7 @@
   @endphp
 
   <div class="seller-order-item {{ $needsPickupAction ? 'action-needed' : '' }}"
-       data-search="{{ strtolower(trim(($o->track_code ?? '') . ' ' . ($o->order_customer_name ?? 'customer') . ' ' . ($o->product_name ?? ($custom->cake_name ?? 'custom cake')) . ' ' . ($o->payment_status ?? '') . ' ' . ($o->payment_method ?? '') . ' ' . ($o->status ?? '') . ' ' . ($remittance->status ?? ''))) }}"
+       data-search="{{ strtolower(trim(($o->order_customer_name ?? 'customer') . ' ' . ($o->product_name ?? ($custom->cake_name ?? 'custom cake')) . ' ' . ($o->payment_status ?? '') . ' ' . ($o->payment_method ?? '') . ' ' . ($o->status ?? '') . ' ' . ($remittance->status ?? ''))) }}"
        data-status="{{ strtolower($o->status ?? '') }}"
        data-fulfillment="{{ strtolower($o->fulfillment_type ?? 'pickup') }}"
        data-order-id="{{ $o->id }}"

@@ -72,8 +72,7 @@ class OrderController extends Controller
                     'p.image_path as product_image_path'
                 )
                 ->when($search, fn($q) => $q->where(function ($sq) use ($search, $hasRemittanceTable) {
-                    $sq->whereRaw("o.track_code ilike ?", ["%$search%"])
-                        ->orWhereRaw("COALESCE(o.guest_name, o.fullname, u.fullname) ilike ?", ["%$search%"])
+                    $sq->whereRaw("COALESCE(o.guest_name, o.fullname, u.fullname) ilike ?", ["%$search%"])
                         ->orWhereRaw("p.name ilike ?", ["%$search%"])
                         ->orWhereRaw("o.payment_status ilike ?", ["%$search%"])
                         ->orWhereRaw("o.payment_method ilike ?", ["%$search%"])
