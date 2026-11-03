@@ -89,11 +89,9 @@
                style="background:#fee2e2;border-radius:1.1rem 1.1rem 0 0">
             <div class="d-flex align-items-center gap-2">
               <i class="bi bi-exclamation-triangle-fill text-danger"></i>
-              <strong class="small text-danger">Cancel Request  needs your action!</strong>
+              <strong class="small text-danger">Seller review pending</strong>
             </div>
-            <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelReviewModal{{ $o->id }}">
-              <i class="bi bi-eye me-1"></i>Review Request
-            </button>
+            <span class="small text-muted">Oversight only — the seller will approve, reject, or record the refund.</span>
           </div>
           @elseif($o->cancel_status === 'accepted')
           <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#d1fae5;border-radius:1.1rem 1.1rem 0 0">

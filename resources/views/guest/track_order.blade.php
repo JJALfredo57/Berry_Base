@@ -462,7 +462,7 @@
 
   @if($hasPendingCancel)
   <div class="alert border-0 mb-4" style="background:#fff3cd;color:#854d0e">
-    <i class="bi bi-hourglass-split me-2"></i>Cancellation request pending. Waiting for admin approval.
+    <i class="bi bi-hourglass-split me-2"></i>Cancellation request sent to the seller. Waiting for seller review.
   </div>
   @elseif($cancelApproved)
   <div class="alert border-0 mb-4" style="background:#dcfce7;color:#166534">

@@ -307,7 +307,7 @@ class OrderRefundService
     public function notifyPaidRequest(object $order, object $refund): void
     {
         $amount = number_format((float) $refund->refund_amount, 2);
-        $this->notifyStaff($order, 'Paid Cancellation Needs Review', "Order #{$order->id} has a paid cancellation/refund request for PHP {$amount}.", [
+        $this->notifyStaff($order, 'Seller Refund Review Needed', "Order #{$order->id} has a paid cancellation/refund request for PHP {$amount}. The seller must review it.", [
             'event' => 'refund_request',
             'order_id' => (string) $order->id,
             'refund_id' => (string) $refund->id,

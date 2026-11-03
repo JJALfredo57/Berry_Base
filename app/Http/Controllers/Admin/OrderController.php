@@ -585,6 +585,8 @@ class OrderController extends Controller
 
     public function acceptCancel(Request $request, string $id, OrderRefundService $refunds)
     {
+        return back()->with('err', 'Cancellation and refund reviews are handled by the seller. Admin can monitor this order only.');
+
         $user      = session('user');
         $order     = DB::table('orders')->where('id', $id)->first();
         if (!$order) return back()->with('err', 'Order not found.');
@@ -688,6 +690,8 @@ class OrderController extends Controller
 
     public function rejectCancel(Request $request, string $id, OrderRefundService $refunds)
     {
+        return back()->with('err', 'Cancellation and refund reviews are handled by the seller. Admin can monitor this order only.');
+
         $user      = session('user');
         $order     = DB::table('orders')->where('id', $id)->first();
         if (!$order) return back()->with('err', 'Order not found.');

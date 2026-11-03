@@ -513,7 +513,7 @@
       @if($hasPending)
       <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#fff3cd">
         <i class="bi bi-hourglass-split text-warning"></i>
-        <span class="small fw-semibold text-warning">Cancel request pending  waiting for admin approval.</span>
+        <span class="small fw-semibold text-warning">Cancellation request sent to the seller. Waiting for seller review.</span>
       </div>
       @elseif($wasAccepted)
       <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#d1fae5">

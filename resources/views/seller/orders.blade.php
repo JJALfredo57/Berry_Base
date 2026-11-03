@@ -734,7 +734,7 @@
           <i class="bi bi-exclamation-triangle-fill"></i>
         </div>
         <div style="flex:1;min-width:260px">
-          <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">REFUND REVIEW NEEDED</div>
+          <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">SELLER REFUND ACTION NEEDED</div>
           <div style="font-size:.82rem;color:#92400e;line-height:1.5;font-weight:600">
             @if($isNoShowRefund)
               Customer unclaimed pickup: retain the 50% deposit and refund the excess PHP {{ number_format((float)$refund->refund_amount, 2) }} only.
@@ -766,8 +766,8 @@
             </div>
             <button class="btn btn-success btn-sm mt-2" type="submit"
                     data-cs-confirm="Confirm the GCash refund was sent to the listed account and the uploaded receipt is correct?"
-                    data-cs-title="Approve Refund"
-                    data-cs-ok="Approve & Send Receipt"
+                    data-cs-title="Confirm Refund Sent"
+                    data-cs-ok="Save Receipt"
                     data-cs-icon="bi-cash-coin"
                     data-cs-icon-bg="#dcfce7"
                     data-cs-icon-color="#16a34a">

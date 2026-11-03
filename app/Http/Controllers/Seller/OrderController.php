@@ -314,6 +314,14 @@ class OrderController extends Controller
 
                 return back()->with('msg', "Cancellation/refund request recorded for Order #{$id}. The order will be cancelled after the GCash refund receipt is recorded.");
             }
+
+            try {
+                $refunds->cancelUnpaid($order, trim($validated['cancel_reason']), 'seller');
+            } catch (\DomainException $e) {
+                return back()->with('err', $e->getMessage());
+            }
+
+            return back()->with('msg', "Order #{$id} cancelled. No refund was needed because no payment was collected.");
         }
 
         // COP orders store payment_method='COP'; older orders may have stored 'COD' for pickup.
