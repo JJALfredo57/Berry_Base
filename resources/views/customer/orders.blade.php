@@ -282,15 +282,6 @@
               </div>
             @endif
             <div class="text-muted small">Order #{{ $o->id }} &bull; {{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y') }}</div>
-            @if(!empty($o->track_code))
-              <div class="text-muted small d-flex align-items-center gap-1 flex-wrap">
-                <span>Tracking Code: <strong>{{ $o->track_code }}</strong></span>
-                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none"
-                        onclick="copyTrackingCode('{{ $o->track_code }}')">
-                  <i class="bi bi-clipboard me-1"></i>Copy
-                </button>
-              </div>
-            @endif
           </div>
         </div>
         <div class="text-end mt-2 mt-sm-0">
@@ -1326,25 +1317,6 @@ function trackingToast(message, type = 'success') {
     cakeToast(message, type);
   } else if (typeof showToast === 'function') {
     showToast(message, type);
-  }
-}
-
-async function copyTrackingCode(code) {
-  const value = String(code || '').trim();
-  if (!value) return;
-  try {
-    await navigator.clipboard.writeText(value);
-    trackingToast('Tracking code copied.', 'success');
-  } catch (e) {
-    const input = document.createElement('input');
-    input.value = value;
-    input.style.position = 'fixed';
-    input.style.left = '-9999px';
-    document.body.appendChild(input);
-    input.select();
-    document.execCommand('copy');
-    input.remove();
-    trackingToast('Tracking code copied.', 'success');
   }
 }
 
