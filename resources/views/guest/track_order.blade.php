@@ -1680,9 +1680,7 @@ async function openTrackReceipt(url, title = 'Payment Receipt') {
   const titleEl = document.getElementById('trackReceiptModalTitle');
   if (titleEl) titleEl.innerHTML = '<i class="bi bi-receipt-cutoff me-2 text-primary"></i>' + title;
   closeReceiptDrawer();
-  window.setTimeout(function () {
-    window.bootstrap?.Modal.getOrCreateInstance(modalEl).show();
-  }, 220);
+  window.bootstrap?.Modal.getOrCreateInstance(modalEl).show();
   content.innerHTML = '<div class="d-flex h-100 align-items-center justify-content-center text-muted">Loading receipt…</div>';
   try {
     const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
@@ -1691,6 +1689,7 @@ async function openTrackReceipt(url, title = 'Payment Receipt') {
     const documentView = new DOMParser().parseFromString(html, 'text/html');
     const receipt = documentView.querySelector('.receipt-wrap, .container.py-4, .container-fluid.py-4');
     if (!receipt) throw new Error('Receipt details are unavailable.');
+    receipt.querySelectorAll('.no-print').forEach(element => element.remove());
     const styles = Array.from(documentView.querySelectorAll('style')).map(style => style.outerHTML).join('');
     content.innerHTML = styles + receipt.outerHTML;
   } catch (error) {
