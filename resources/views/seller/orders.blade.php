@@ -1193,7 +1193,7 @@ function pgSearch(value) {
 function showOrderDetail(id) {
   const src = document.getElementById('order-detail-' + id);
   document.getElementById('orderDetailBody').innerHTML = src ? src.innerHTML : '<p class="text-muted">No details found.</p>';
-  new bootstrap.Modal(document.getElementById('orderDetailModal')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('orderDetailModal')).show();
 }
 
 function showSellerReceipt(button) {
