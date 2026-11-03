@@ -1725,13 +1725,11 @@
   }
   @media print {
     @page { margin: 12mm; }
-    body > * { visibility: hidden !important; }
-    .modal-backdrop { display: none !important; }
-    #trackReceiptModal, #trackReceiptModal * { visibility: visible !important; }
-    #trackReceiptModal { position: fixed !important; inset: 0 !important; display: block !important; overflow: visible !important; background: #fff !important; }
+    body.track-receipt-printing > * { display: none !important; }
+    body.track-receipt-printing #trackReceiptModal { position: static !important; inset: auto !important; display: block !important; overflow: visible !important; background: #fff !important; }
     #trackReceiptModal .modal-dialog, #trackReceiptModal .modal-content { width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; min-height: 0 !important; margin: 0 !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; }
     #trackReceiptModal .modal-header, #trackReceiptModal .modal-footer { display: none !important; }
-    #trackReceiptContent { height: auto !important; min-height: 0 !important; overflow: visible !important; }
+    #trackReceiptModal .modal-body, #trackReceiptContent { height: auto !important; min-height: 0 !important; overflow: visible !important; }
   }
 </style>
 
@@ -1778,6 +1776,9 @@ function setTrackReceiptSaveAction(visible) {
 
 function printTrackReceipt() {
   if (!document.querySelector('#trackReceiptContent .receipt-wrap, #trackReceiptContent .receipt-card, #trackReceiptContent .container.py-4, #trackReceiptContent .container-fluid.py-4')) return;
+  const clearPrintState = () => document.body.classList.remove('track-receipt-printing');
+  document.body.classList.add('track-receipt-printing');
+  window.addEventListener('afterprint', clearPrintState, { once: true });
   window.print();
 }
 
