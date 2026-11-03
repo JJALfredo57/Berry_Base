@@ -81,7 +81,9 @@
     }
     .status-filter-wrap {
       position: relative;
-      min-width: 224px;
+      width: 100%;
+      max-width: 200px;
+      min-width: 0;
     }
     .status-filter-toggle {
       width: 100%;
@@ -167,7 +169,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
     @media (max-width: 575.98px) {
-      .status-filter-wrap { min-width: 100%; }
+      .status-filter-wrap { min-width: 100%; max-width: 100%; }
       .status-filter-toggle { font-size: .79rem; }
       .status-filter-item { font-size: .78rem; }
     }
@@ -1420,6 +1422,33 @@ function scheduleCustomerStatusCountPoll() {
   customerStatusCountTimer = setInterval(() => {
     if (!document.hidden) refreshCustomerStatusCounts();
   }, 9000);
+}
+
+function pgFilter(key, value) {
+  const url = new URL(window.location.href);
+  const selected = String(value || 'All');
+  if (!selected || selected === 'All') {
+    url.searchParams.delete(key);
+  } else {
+    url.searchParams.set(key, selected);
+  }
+  url.searchParams.set('page', '1');
+  window.location.href = url.toString();
+}
+
+function pgSearch(value) {
+  const url = new URL(window.location.href);
+  const term = String(value || '').trim();
+  if (!term) {
+    url.searchParams.delete('search');
+  } else {
+    url.searchParams.set('search', term);
+  }
+  url.searchParams.set('page', '1');
+  clearTimeout(window.__customerOrderSearchTimer);
+  window.__customerOrderSearchTimer = setTimeout(() => {
+    window.location.href = url.toString();
+  }, 350);
 }
 
 function customerReviewPromptKey(orderId) {
