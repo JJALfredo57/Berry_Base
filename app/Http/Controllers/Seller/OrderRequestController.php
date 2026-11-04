@@ -134,19 +134,14 @@ class OrderRequestController extends Controller
             if (!$request->input('suggested_date') || !$request->input('suggested_time')) {
                 return back()->with('err', 'Please provide suggested date and time.')->withInput();
             }
+            if (mb_strlen($response) < 5) {
+                return back()->with('err', 'Explain why this alternative schedule is needed.')->withInput();
+            }
             $data['status'] = 'schedule_suggested';
             $data['suggested_date'] = $request->input('suggested_date');
             $data['suggested_time'] = substr((string) $request->input('suggested_time'), 0, 5);
-            $scheduleCheck = app(FulfillmentScheduleService::class)->validate(
-                $shop->id,
-                $data['suggested_date'],
-                $data['suggested_time'],
-                ($orderRequest->type ?? '') === 'custom' ? 'custom' : 'regular',
-                'Pickup'
-            );
-            if (!$scheduleCheck['ok']) {
-                return back()->with('err', $scheduleCheck['message'])->withInput();
-            }
+            $scheduleCheck = $this->checkSuggestedSchedule($shop, $orderRequest, $data['suggested_date'], $data['suggested_time']);
+            if (!$scheduleCheck['ok']) return back()->with('err', $scheduleCheck['message'])->withInput();
             $data['action_expires_at'] = $service->actionDeadline();
             $message = 'Suggested schedule sent.';
         } elseif ($action === 'offer_alternative') {
@@ -176,6 +171,43 @@ class OrderRequestController extends Controller
         $this->notifyCustomer($id, $data['status']);
 
         return back()->with('msg', $message);
+    }
+
+    public function validateSuggestedSchedule(Request $request, string $id, OrderRequestService $service)
+    {
+        $shop = $this->getShop();
+        $service->markExpired();
+        $orderRequest = DB::table('order_requests')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$orderRequest || $orderRequest->status !== 'pending') {
+            return response()->json(['ok' => false, 'message' => 'This request is no longer available for a schedule suggestion.'], 422);
+        }
+
+        $result = $this->checkSuggestedSchedule(
+            $shop,
+            $orderRequest,
+            (string) $request->query('suggested_date', ''),
+            substr((string) $request->query('suggested_time', ''), 0, 5)
+        );
+        return response()->json($result, $result['ok'] ? 200 : 422);
+    }
+
+    private function checkSuggestedSchedule(object $shop, object $orderRequest, string $date, string $time): array
+    {
+        if ($date === '' || $time === '') return ['ok' => false, 'message' => 'Choose a suggested date and time.'];
+        if ($date === (string) $orderRequest->preferred_date && $time === substr((string) $orderRequest->preferred_time, 0, 5)) {
+            return ['ok' => false, 'message' => 'Choose a schedule different from the customer’s original request.'];
+        }
+
+        $preparation = app(\App\Services\PreparationWindowService::class)->validateDate($shop->id, $date, 'custom');
+        if (!$preparation['ok']) return $preparation;
+
+        $schedule = app(FulfillmentScheduleService::class)->validate($shop->id, $date, $time, 'custom', 'Pickup');
+        if (!$schedule['ok']) return $schedule;
+
+        $capacity = app(\App\Services\DailyCapacityService::class)->validate($shop->id, $date, max(1, (int) $orderRequest->quantity));
+        if (!$capacity['allowed']) return ['ok' => false, 'message' => $capacity['message']];
+
+        return ['ok' => true, 'message' => ($capacity['message'] ?? 'Schedule is available.') . ' This suggestion uses the current shop settings.'];
     }
 
     private function notifyCustomer(string $id, string $status): void

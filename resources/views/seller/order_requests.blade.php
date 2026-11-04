@@ -137,12 +137,13 @@
             </details>
             <details>
               <summary><i class="bi bi-calendar-event me-1"></i>Suggest another schedule</summary>
-              <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2">
+              <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2 suggest-schedule-form" data-validation-url="{{ route('seller.order_requests.schedule_validation', $req->id) }}">
                 @csrf
                 <input type="hidden" name="action" value="suggest_schedule">
                 <div class="row g-2 mb-2"><div class="col-7"><input type="date" name="suggested_date" class="form-control form-control-sm" required></div><div class="col-5"><input type="time" name="suggested_time" class="form-control form-control-sm" required></div></div>
-                <textarea name="seller_response" class="form-control form-control-sm mb-2" placeholder="Explain why this schedule is better"></textarea>
-                <button class="btn-or-soft w-100" type="submit">Send schedule</button>
+                <textarea name="seller_response" class="form-control form-control-sm mb-2" minlength="5" maxlength="500" placeholder="Explain why this schedule is better" required></textarea>
+                <div class="small mb-2 schedule-validation-message" role="status" aria-live="polite"></div>
+                <button class="btn-or-soft w-100" type="submit" disabled>Send schedule</button>
               </form>
             </details>
             @if((bool) $req->allow_similar_cake)
@@ -206,6 +207,53 @@
   function tick(){ document.querySelectorAll('[data-countdown]').forEach(render); }
   tick();
   setInterval(tick, 1000);
+})();
+</script>
+<script>
+(() => {
+  const setMessage = (form, message, state) => {
+    const el = form.querySelector('.schedule-validation-message');
+    if (!el) return;
+    el.className = 'small mb-2 schedule-validation-message ' + (state === 'ok' ? 'text-success fw-semibold' : state === 'checking' ? 'text-muted' : 'text-danger fw-semibold');
+    el.textContent = message;
+  };
+  const check = form => {
+    const date = form.querySelector('[name="suggested_date"]')?.value || '';
+    const time = form.querySelector('[name="suggested_time"]')?.value || '';
+    const reason = (form.querySelector('[name="seller_response"]')?.value || '').trim();
+    const button = form.querySelector('button[type="submit"]');
+    if (!date || !time || reason.length < 5) {
+      if (button) button.disabled = true;
+      setMessage(form, 'Choose a date/time and enter at least 5 characters explaining the change.', 'checking');
+      return;
+    }
+    const key = date + '|' + time;
+    form.dataset.validationKey = key;
+    if (button) button.disabled = true;
+    setMessage(form, 'Checking current preparation, shop hours, and kitchen capacity...', 'checking');
+    fetch(form.dataset.validationUrl + '?suggested_date=' + encodeURIComponent(date) + '&suggested_time=' + encodeURIComponent(time), { headers: { Accept: 'application/json' }, cache: 'no-store' })
+      .then(async response => ({ response, data: await response.json() }))
+      .then(({ response, data }) => {
+        if (form.dataset.validationKey !== key) return;
+        const valid = response.ok && data.ok;
+        if (button) button.disabled = !valid;
+        setMessage(form, data.message || (valid ? 'Schedule is available.' : 'Schedule is unavailable.'), valid ? 'ok' : 'error');
+      })
+      .catch(() => {
+        if (form.dataset.validationKey !== key) return;
+        if (button) button.disabled = true;
+        setMessage(form, 'Could not verify the latest shop settings. Please try again.', 'error');
+      });
+  };
+  document.querySelectorAll('.suggest-schedule-form').forEach(form => {
+    ['input', 'change'].forEach(eventName => form.addEventListener(eventName, () => check(form)));
+    form.addEventListener('submit', event => {
+      if (!form.querySelector('button[type="submit"]')?.disabled) return;
+      event.preventDefault();
+      check(form);
+    });
+    check(form);
+  });
 })();
 </script>
 @endsection

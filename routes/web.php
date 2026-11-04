@@ -490,6 +490,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/sidebar-counts',            [\App\Http\Controllers\Seller\DashboardController::class, 'sidebarCounts'])->name('sidebar_counts');
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
     Route::get('/order-requests',            [\App\Http\Controllers\Seller\OrderRequestController::class, 'index'])->name('order_requests');
+    Route::get('/order-requests/{id}/schedule-validation', [\App\Http\Controllers\Seller\OrderRequestController::class, 'validateSuggestedSchedule'])->name('order_requests.schedule_validation');
     Route::post('/order-requests/{id}/update', [\App\Http\Controllers\Seller\OrderRequestController::class, 'update'])->name('order_requests.update');
     Route::get('/orders/status-counts',         [\App\Http\Controllers\Seller\OrderController::class, 'statusCounts'])->name('orders.status_counts');
     Route::get('/orders/{id}/realtime-status', [\App\Http\Controllers\Seller\OrderController::class, 'realtimeStatus'])->name('orders.realtime_status');
