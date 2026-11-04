@@ -707,15 +707,24 @@
                 <div class="catalog-cart-status" data-cart-status role="status" aria-live="polite"></div>
               </form>
               @elseif($isAvailable && !$hasStock)
+              @php
+                $requestBakeSchedule = $requestBakeSchedules[$p->shop_id] ?? [
+                  'earliest_date' => now()->addDays(3)->toDateString(),
+                  'prep_days' => 3,
+                  'shop_open_time' => '09:00',
+                  'shop_close_time' => '19:00',
+                  'required_minutes' => 15,
+                ];
+              @endphp
               <div class="p-3 rounded-3" style="background:var(--primary-bg);border:1px solid var(--primary-light)">
                 <div class="d-flex align-items-start gap-2 mb-2">
                   <div style="width:34px;height:34px;border-radius:10px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><i class="bi bi-send"></i></div>
                   <div><div class="fw-bold" style="color:var(--primary-dark)">Request to Bake</div><div class="small text-muted">This goes to seller review first. If accepted and checked out, it will go to kitchen. Rush timing is marked automatically.</div></div>
                 </div>
-                <form action="{{ route('customer.order_requests.store') }}" method="POST" class="row g-2">
+                <form action="{{ route('customer.order_requests.store') }}" method="POST" class="row g-2" data-request-bake-form data-shop-id="{{ $p->shop_id }}">
                   @csrf
                   <input type="hidden" name="product_id" value="{{ $p->id }}">
-                  <input type="hidden" name="type" value="ready_made">
+                  <input type="hidden" name="type" value="custom">
                   <input type="hidden" name="source" value="catalog">
                   <input type="hidden" name="request_reason" value="{{ count($sizes) > 0 ? 'size_out_of_stock' : 'out_of_stock' }}">
                   @if(count($sizes) > 0)
@@ -736,11 +745,12 @@
                   </div>
                   @endif
                   <div class="col-4"><label class="form-label small fw-semibold">Qty</label><input type="number" name="quantity" min="1" max="20" value="1" class="form-control form-control-sm" required></div>
-                  <div class="col-8 col-md-4"><label class="form-label small fw-semibold">Preferred date</label><input type="date" name="preferred_date" min="{{ now()->toDateString() }}" class="form-control form-control-sm" required></div>
-                  <div class="col-12 col-md-4"><label class="form-label small fw-semibold">Preferred time</label><input type="time" name="preferred_time" class="form-control form-control-sm" required></div>
+                  <div class="col-8 col-md-4"><label class="form-label small fw-semibold">Preferred date</label><input type="date" name="preferred_date" min="{{ $requestBakeSchedule['earliest_date'] }}" class="form-control form-control-sm" required></div>
+                  <div class="col-12 col-md-4"><label class="form-label small fw-semibold">Preferred time</label><input type="time" name="preferred_time" min="{{ $requestBakeSchedule['shop_open_time'] }}" max="{{ $requestBakeSchedule['shop_close_time'] }}" class="form-control form-control-sm" required></div>
+                  <div class="col-12"><div class="small request-bake-schedule-notice" role="status" aria-live="polite" style="min-height:1.25rem"></div></div>
                   <div class="col-12"><label class="form-label small fw-semibold">Allow similar cake? <span class="text-muted" title="Seller may offer a close design, flavor, or size if the exact cake is not possible."><i class="bi bi-info-circle"></i></span></label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="allow_similar_cake" value="1" id="catalogAllowSimilar{{ $p->id }}"><label class="form-check-label small text-muted" for="catalogAllowSimilar{{ $p->id }}">Yes, seller may offer a close alternative.</label></div></div>
                   <div class="col-12"><label class="form-label small fw-semibold">Note to seller</label><textarea name="customer_note" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Occasion, timing, or exact request"></textarea></div>
-                  <div class="col-12"><button type="submit" class="btn btn-primary w-100 fw-semibold"><i class="bi bi-send me-1"></i>Send Kitchen Request</button><div class="small text-muted mt-2">No payment yet. This becomes an order only after seller confirmation.</div></div>
+                  <div class="col-12"><button type="submit" class="btn btn-primary w-100 fw-semibold" data-request-bake-submit><i class="bi bi-send me-1"></i>Send Kitchen Request</button><div class="small text-muted mt-2">No payment yet. This becomes an order only after seller confirmation.</div></div>
                 </form>
               </div>
               @else
@@ -1164,6 +1174,92 @@ document.addEventListener('click', function(e) {
   if (img) catLbOpen(img.dataset.reviewImage || img.src);
 });
 
+</script>
+
+<script>
+const REQUEST_BAKE_SCHEDULES = @json($requestBakeSchedules ?? []);
+
+function requestBakeMinutes(value) {
+  const match = /^(\d{2}):(\d{2})$/.exec(String(value || ''));
+  return match ? (Number(match[1]) * 60) + Number(match[2]) : null;
+}
+
+function requestBakeTime(value) {
+  const minutes = Math.max(0, Math.min(1439, Math.ceil(value / 5) * 5));
+  return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
+}
+
+function setRequestBakeNotice(notice, message, state) {
+  if (!notice) return;
+  notice.className = 'small request-bake-schedule-notice ' + (state === 'error' ? 'text-danger fw-semibold' : state === 'success' ? 'text-success fw-semibold' : 'text-muted');
+  notice.innerHTML = message;
+}
+
+function validateRequestBakeSchedule(form) {
+  const schedule = REQUEST_BAKE_SCHEDULES[form.dataset.shopId] || null;
+  const date = form.querySelector('[name="preferred_date"]');
+  const time = form.querySelector('[name="preferred_time"]');
+  const button = form.querySelector('[data-request-bake-submit]');
+  const notice = form.querySelector('.request-bake-schedule-notice');
+  if (!schedule || !date || !time) return true;
+
+  date.min = schedule.earliest_date;
+  time.max = schedule.shop_close_time;
+  const openMinutes = requestBakeMinutes(schedule.shop_open_time);
+  const closeMinutes = requestBakeMinutes(schedule.shop_close_time);
+  const earliestMinutes = openMinutes + Number(schedule.required_minutes || 0);
+  time.min = requestBakeTime(Math.min(closeMinutes, earliestMinutes));
+  date.setCustomValidity('');
+  time.setCustomValidity('');
+
+  let error = '';
+  if (!date.value) {
+    setRequestBakeNotice(notice, '<i class="bi bi-info-circle me-1"></i>This cake is made to order and needs at least ' + schedule.prep_days + ' preparation day' + (Number(schedule.prep_days) === 1 ? '' : 's') + '. Earliest date: ' + schedule.earliest_date + '.', 'info');
+    if (button) button.disabled = true;
+    return false;
+  }
+  if (earliestMinutes > closeMinutes) {
+    error = 'No available kitchen time fits this shop\'s current preparation setting. Please contact the seller.';
+    time.setCustomValidity(error);
+  } else if (date.value < schedule.earliest_date) {
+    error = 'This cake needs at least ' + schedule.prep_days + ' preparation day' + (Number(schedule.prep_days) === 1 ? '' : 's') + '. Choose ' + schedule.earliest_date + ' or later.';
+    date.setCustomValidity(error);
+  } else if (!time.value) {
+    setRequestBakeNotice(notice, '<i class="bi bi-clock me-1"></i>Choose a time between ' + schedule.shop_open_time + ' and ' + schedule.shop_close_time + '.', 'info');
+    if (button) button.disabled = true;
+    return false;
+  } else {
+    const selectedMinutes = requestBakeMinutes(time.value);
+    if (selectedMinutes === null || selectedMinutes < openMinutes || selectedMinutes > closeMinutes) {
+      error = 'Choose a time within shop hours: ' + schedule.shop_open_time + ' to ' + schedule.shop_close_time + '.';
+    } else if (selectedMinutes < earliestMinutes) {
+      error = 'That time is too soon for kitchen preparation. Earliest available time is ' + requestBakeTime(earliestMinutes) + '.';
+    }
+    if (error) time.setCustomValidity(error);
+  }
+
+  if (error) {
+    setRequestBakeNotice(notice, '<i class="bi bi-exclamation-circle-fill me-1"></i>' + error, 'error');
+    if (button) button.disabled = true;
+    return false;
+  }
+
+  setRequestBakeNotice(notice, '<i class="bi bi-check-circle-fill me-1"></i>Schedule has enough preparation time. The seller will review this kitchen request.', 'success');
+  if (button) button.disabled = false;
+  return true;
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-request-bake-form]').forEach(form => {
+    ['input', 'change'].forEach(eventName => form.addEventListener(eventName, () => validateRequestBakeSchedule(form)));
+    form.addEventListener('submit', function (event) {
+      if (validateRequestBakeSchedule(form)) return;
+      event.preventDefault();
+      (form.querySelector('[name="preferred_date"]:invalid, [name="preferred_time"]:invalid') || form.querySelector('[name="preferred_date"]'))?.reportValidity();
+    });
+    validateRequestBakeSchedule(form);
+  });
+});
 </script>
 
 @push('scripts')

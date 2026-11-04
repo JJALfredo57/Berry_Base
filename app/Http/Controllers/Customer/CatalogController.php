@@ -27,10 +27,24 @@ class CatalogController extends Controller
         $capacityMap = $data['capacityMap'];
         $barangayOptions = $data['barangayOptions'];
         $shopSettings = \App\Helpers\CakeshopHelper::getSettings();
+        $requestBakeSchedules = [];
+        $preparation = app(\App\Services\PreparationWindowService::class);
+        $fulfillment = app(\App\Services\FulfillmentScheduleService::class);
+        foreach ($products->pluck('shop_id')->filter()->unique() as $shopId) {
+            $settings = $fulfillment->settings($shopId);
+            $prepSettings = $preparation->settings($shopId);
+            $requestBakeSchedules[$shopId] = [
+                'earliest_date' => $preparation->earliestDate($shopId, 'custom')->toDateString(),
+                'prep_days' => (int) $prepSettings->custom_cake_prep_days,
+                'shop_open_time' => substr((string) $settings->shop_open_time, 0, 5),
+                'shop_close_time' => substr((string) $settings->shop_close_time, 0, 5),
+                'required_minutes' => $fulfillment->requiredLeadMinutes($shopId, 'custom', 'Pickup'),
+            ];
+        }
 
         return view('customer.catalog', compact(
             'products','bestSellers','productSizes','reviewsMap','productRatings',
-            'productReviews','productReviewCounts','shopSettings','capacityMap','barangayOptions'
+            'productReviews','productReviewCounts','shopSettings','capacityMap','barangayOptions','requestBakeSchedules'
         ));
     }
 

@@ -394,11 +394,18 @@ class OrderRequestService
         $valid = $this->validateRequestPayload($data, $product);
         if (!$valid['ok']) return $valid;
 
+        $preparation = app(PreparationWindowService::class)->validateDate(
+            $product->shop_id ?? null,
+            $data['preferred_date'] ?? null,
+            'custom'
+        );
+        if (!$preparation['ok']) return ['ok' => false, 'message' => $preparation['message']];
+
         $schedule = app(FulfillmentScheduleService::class)->validate(
             $product->shop_id ?? null,
             $data['preferred_date'] ?? null,
             $valid['time'],
-            'regular',
+            'custom',
             'Pickup',
             null,
             null,
@@ -406,7 +413,7 @@ class OrderRequestService
         );
         if (!$schedule['ok']) return ['ok' => false, 'message' => $schedule['message']];
 
-        $rush = $this->rushSnapshot($product->shop_id ?? null, $data['preferred_date'], $valid['time'], 'ready_made');
+        $rush = $this->rushSnapshot($product->shop_id ?? null, $data['preferred_date'], $valid['time'], 'custom');
         $id = CakeshopHelper::generateId('order_requests');
         $note = trim((string) ($data['customer_note'] ?? ''));
         $expiresAt = $rush['preferred_datetime']
@@ -425,7 +432,7 @@ class OrderRequestService
                 'guest_name' => $data['guest_name'] ?? null,
                 'guest_phone' => $data['guest_phone'] ?? null,
                 'product_id' => $product->id,
-                'type' => $data['type'] ?? 'ready_made',
+                'type' => 'custom',
                 'source' => $data['source'] ?? 'shop',
                 'quantity' => $valid['quantity'],
                 'preferred_date' => $data['preferred_date'],
