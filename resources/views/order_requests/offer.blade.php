@@ -48,7 +48,7 @@
           @endif
           <div class="offer-box"><span class="offer-label">Quantity</span><div class="offer-value">{{ (int)$offer->quantity }} pc{{ (int)$offer->quantity === 1 ? '' : 's' }}</div></div>
           <div class="offer-box"><span class="offer-label">{{ $isScheduleProposal ? 'Suggested Schedule' : 'Schedule' }}</span><div class="offer-value">{{ $displayAt ? $displayAt->format('M d, Y g:i A') : 'To confirm' }}</div></div>
-          @if($expiresAt)<div class="offer-box"><span class="offer-label">Offer Expires</span><div class="offer-value" data-countdown="{{ $expiresAt->toIso8601String() }}">{{ $expiresAt->format('M d, g:i A') }}</div></div>@endif
+          @if($expiresAt)<div class="offer-box"><span class="offer-label">Response Deadline</span><div class="offer-value" data-countdown="{{ $expiresAt->toIso8601String() }}">{{ $expiresAt->format('M d, g:i A') }}</div></div>@endif
           @if($offer->allow_similar_cake)<div class="offer-box"><span class="offer-label">Similar Cake</span><div class="offer-value">Allowed by customer</div></div>@endif
         </div>
 
@@ -113,10 +113,10 @@
   function tick(){
     var diff = target - Date.now();
     if(diff <= 0){ el.textContent = 'Expired'; return; }
-    var mins = Math.floor(diff / 60000), h = Math.floor(mins / 60), m = mins % 60;
-    el.textContent = h + 'h ' + m + 'm left';
+    var secs = Math.floor(diff / 1000), h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+    el.textContent = h + 'h ' + m + 'm ' + s + 's left';
   }
-  tick(); setInterval(tick, 30000);
+  tick(); setInterval(tick, 1000);
 })();
 </script>
 @endsection

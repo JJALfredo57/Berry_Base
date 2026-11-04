@@ -223,13 +223,15 @@
     const due = new Date(el.dataset.requestDeadline || '').getTime();
     const diff = due - Date.now();
     if (!Number.isFinite(due) || diff <= 0) { el.textContent = 'Response expired'; return; }
-    const hours = Math.floor(diff / 3600000);
-    const mins = Math.floor((diff % 3600000) / 60000);
-    el.textContent = 'Response due: ' + (hours > 0 ? hours + 'h ' : '') + mins + 'm';
+    const secs = Math.floor(diff / 1000);
+    const hours = Math.floor(secs / 3600);
+    const mins = Math.floor((secs % 3600) / 60);
+    const seconds = secs % 60;
+    el.textContent = 'Response due: ' + (hours > 0 ? hours + 'h ' : '') + mins + 'm ' + seconds + 's';
     el.classList.toggle('rush', diff < 4 * 3600000);
   };
   const tick = () => document.querySelectorAll('[data-request-deadline]').forEach(render);
-  tick(); setInterval(tick, 30000);
+  tick(); setInterval(tick, 1000);
 })();
 </script>
 @endsection

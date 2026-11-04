@@ -125,14 +125,14 @@
         <div class="or-actions">
           @if($req->status === 'pending')
             <details open>
-              <summary><i class="bi bi-check2-circle me-1"></i>Accept request</summary>
+              <summary><i class="bi bi-check2-circle me-1"></i>Accept kitchen request</summary>
               <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2">
                 @csrf
                 <input type="hidden" name="action" value="accept">
-                <div class="small rounded-3 p-2 mb-2" style="background:#ecfdf5;color:#166534"><i class="bi bi-lock-fill me-1"></i>Ready-made price is fixed from your published catalog price.</div>
+                <div class="small rounded-3 p-2 mb-2" style="background:#ecfdf5;color:#166534"><i class="bi bi-lock-fill me-1"></i>Price is based on your published catalog price. The customer has 24 hours to review.</div>
                 <div class="small rounded-3 p-2 mb-2" style="background:#f8fafc;color:#475569"><i class="bi bi-calendar-check me-1"></i>Customer schedule locked: {{ $req->preferred_date }} {{ substr((string)$req->preferred_time,0,5) }}</div>
                 <textarea name="seller_response" class="form-control form-control-sm mb-2" placeholder="Short message for the customer"></textarea>
-                <button class="btn-or-primary w-100" type="submit"><i class="bi bi-check-lg me-1"></i>Send Offer</button>
+                <button class="btn-or-primary w-100" type="submit"><i class="bi bi-check-lg me-1"></i>Accept &amp; send to customer</button>
               </form>
             </details>
             <details>
@@ -195,16 +195,17 @@
     var target = new Date(raw).getTime();
     var diff = target - Date.now();
     if(diff <= 0){ el.textContent = 'Due now / overdue'; el.classList.add('urgent'); return; }
-    var mins = Math.floor(diff / 60000);
-    var days = Math.floor(mins / 1440);
-    var hours = Math.floor((mins % 1440) / 60);
-    var rem = mins % 60;
-    el.textContent = days > 0 ? days + 'd ' + hours + 'h left' : hours + 'h ' + rem + 'm left';
-    el.classList.toggle('urgent', mins < 240);
+    var secs = Math.floor(diff / 1000);
+    var days = Math.floor(secs / 86400);
+    var hours = Math.floor((secs % 86400) / 3600);
+    var mins = Math.floor((secs % 3600) / 60);
+    var rem = secs % 60;
+    el.textContent = days > 0 ? days + 'd ' + hours + 'h ' + mins + 'm ' + rem + 's left' : hours + 'h ' + mins + 'm ' + rem + 's left';
+    el.classList.toggle('urgent', secs < 4 * 3600);
   }
   function tick(){ document.querySelectorAll('[data-countdown]').forEach(render); }
   tick();
-  setInterval(tick, 30000);
+  setInterval(tick, 1000);
 })();
 </script>
 @endsection
