@@ -297,15 +297,20 @@ class OrderController extends Controller
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
-    public function requestCancel(Request $request, string $id, OrderRefundService $refunds)
+    public function requestCancel(Request $request, string $id, OrderRefundService $refunds, SellerCancellationService $cancellations)
     {
         $uid    = session('user')['id'];
         $reason = trim($request->input('cancel_reason', ''));
 
         if (!$reason) return back()->with('error', 'Please provide a reason for cancellation.');
 
+        $cancellations->expirePending(null, (string) $uid);
         $order = DB::table('orders')->where('id', $id)->where('user_id', $uid)->first();
         if (!$order) return back()->with('error', 'Order not found.');
+
+        if (($order->seller_cancel_state ?? '') === 'awaiting_customer') {
+            return back()->with('error', 'The seller has already requested cancellation. Respond to that request before submitting another cancellation.');
+        }
 
         $notAllowed = ['Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'];
         if (in_array($order->status, $notAllowed)) {

@@ -400,7 +400,10 @@
       && \Carbon\Carbon::parse($order->seller_cancel_expires_at)->isFuture();
     $cancelApproved = ($order->cancel_status ?? '') === 'accepted';
     $cancelRejected = ($order->cancel_status ?? '') === 'rejected';
-    $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Pending Price Confirmation', 'Awaiting Deposit', 'Confirmed']) && !$cancelApproved;
+    $canRequestCancel = in_array($order->status, ['Pending', 'Pending Review', 'Pending Price Confirmation', 'Awaiting Deposit', 'Confirmed'])
+      && !$cancelApproved
+      && !$hasPendingCancel
+      && !$sellerCancelAwaiting;
     $canPayOrder = !in_array($order->status, ['Cancelled', 'Delivered', 'Picked Up', 'No Show'], true)
       && !in_array(($order->cancel_status ?? ''), ['pending', 'accepted'], true)
       && !$sellerCancelAwaiting;
@@ -993,7 +996,7 @@
   </div>
   @endif
 
-  @if($canRequestCancel && !$hasPendingCancel && !$cancelApproved)
+  @if($canRequestCancel)
   <div class="mb-3 text-center">
     <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelRequestModal">
       <i class="bi bi-x-circle me-1"></i>{{ $hasDepositLock ? 'Request Cancellation & Refund' : 'Cancel Order' }}

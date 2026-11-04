@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class SellerCancellationService
@@ -33,6 +34,9 @@ class SellerCancellationService
         if (empty($order->user_id)) {
             return ['ok' => false, 'message' => 'This customer must be contacted directly before cancelling because no customer account is linked to this order.'];
         }
+        if (($order->cancel_requested ?? 0) && ($order->cancel_status ?? '') === 'pending') {
+            return ['ok' => false, 'message' => 'The customer already has a pending cancellation request for this order. Review that request before starting another one.'];
+        }
 
         $expiresAt = now()->addMinutes(self::RESPONSE_WINDOW_MINUTES);
         $updated = DB::table('orders')
@@ -41,6 +45,11 @@ class SellerCancellationService
             ->where(function ($query) {
                 $query->whereNull('seller_cancel_state')
                     ->orWhereIn('seller_cancel_state', ['expired', 'customer_declined']);
+            })
+            ->where(function ($query) {
+                $query->whereNull('cancel_requested')
+                    ->orWhere('cancel_requested', 0)
+                    ->orWhere('cancel_status', '!=', 'pending');
             })
             ->update([
                 'seller_cancel_state' => 'awaiting_customer',
@@ -91,22 +100,42 @@ class SellerCancellationService
             return ['ok' => true, 'message' => 'You chose to keep the order. The seller was notified and processing can continue.'];
         }
 
-        $claimed = DB::table('orders')->where('id', $fresh->id)->where('seller_cancel_state', 'awaiting_customer')->update([
-            'seller_cancel_state' => 'customer_accepted',
-            'seller_cancel_responded_at' => now(),
-            'updated_at' => now(),
-        ]);
-        if ($claimed !== 1) return ['ok' => false, 'message' => 'This cancellation request was already answered.'];
+        try {
+            $result = DB::transaction(function () use ($fresh, $data, $refunds) {
+                $locked = DB::table('orders')->where('id', $fresh->id)->lockForUpdate()->first();
+                if (!$locked || ($locked->seller_cancel_state ?? '') !== 'awaiting_customer') {
+                    return ['ok' => false, 'message' => 'This cancellation request was already answered.'];
+                }
 
-        $refund = $refunds->requestPaidRefund($fresh, [
-            'customer_name' => $data['customer_name'] ?? null,
-            'refund_gcash_name' => $data['refund_gcash_name'],
-            'refund_gcash_number' => $data['refund_gcash_number'],
-            'cancel_reason' => $fresh->seller_cancel_reason ?: 'Seller requested cancellation.',
-        ]);
-        $this->notifySeller($fresh, 'Customer accepted cancellation', "Refund details were received for Order #{$fresh->id}. Send the refund and upload its receipt.");
+                DB::table('orders')->where('id', $locked->id)->update([
+                    'seller_cancel_state' => 'customer_accepted',
+                    'seller_cancel_responded_at' => now(),
+                    'updated_at' => now(),
+                ]);
 
-        return ['ok' => true, 'refund' => $refund, 'message' => 'Cancellation accepted. The seller will now send your refund and upload the receipt.'];
+                $refund = $refunds->requestPaidRefund($locked, [
+                    'customer_name' => $data['customer_name'] ?? null,
+                    'refund_gcash_name' => $data['refund_gcash_name'],
+                    'refund_gcash_number' => $data['refund_gcash_number'],
+                    'cancel_reason' => $locked->seller_cancel_reason ?: 'Seller requested cancellation.',
+                ]);
+
+                return ['ok' => true, 'refund' => $refund, 'order' => $locked];
+            });
+        } catch (\Throwable $e) {
+            Log::error('Seller cancellation acceptance failed.', ['order_id' => $fresh->id, 'exception' => $e]);
+            return ['ok' => false, 'message' => 'Unable to record the refund request right now. Please try again.'];
+        }
+
+        if (!($result['ok'] ?? false)) return $result;
+
+        try {
+            $this->notifySeller($result['order'], 'Customer accepted cancellation', "Refund details were received for Order #{$result['order']->id}. Send the refund and upload its receipt.");
+        } catch (\Throwable $e) {
+            Log::warning('Seller cancellation response notification failed.', ['order_id' => $fresh->id, 'exception' => $e]);
+        }
+
+        return ['ok' => true, 'refund' => $result['refund'], 'message' => 'Cancellation accepted. The seller will now send your refund and upload the receipt.'];
     }
 
     private function notifySeller(object $order, string $title, string $message): void
