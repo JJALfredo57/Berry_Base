@@ -86,7 +86,17 @@ class OrderRequestController extends Controller
             ->select('id', 'name')
             ->get();
 
-        return view('seller.order_requests', compact('shop', 'requests', 'counts', 'tab', 'search', 'alternativeProducts'));
+        $scheduleSettings = app(FulfillmentScheduleService::class)->settings($shop->id);
+        $prepSettings = app(\App\Services\PreparationWindowService::class)->settings($shop->id);
+        $suggestionRules = [
+            'earliest_date' => app(\App\Services\PreparationWindowService::class)->earliestDate($shop->id, 'custom')->toDateString(),
+            'prep_days' => (int) $prepSettings->custom_cake_prep_days,
+            'open_time' => substr((string) $scheduleSettings->shop_open_time, 0, 5),
+            'close_time' => substr((string) $scheduleSettings->shop_close_time, 0, 5),
+            'required_minutes' => app(FulfillmentScheduleService::class)->requiredLeadMinutes($shop->id, 'custom', 'Pickup'),
+        ];
+
+        return view('seller.order_requests', compact('shop', 'requests', 'counts', 'tab', 'search', 'alternativeProducts', 'suggestionRules'));
     }
 
     public function update(Request $request, string $id, OrderRequestService $service)

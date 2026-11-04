@@ -137,10 +137,10 @@
             </details>
             <details>
               <summary><i class="bi bi-calendar-event me-1"></i>Suggest another schedule</summary>
-              <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2 suggest-schedule-form" data-validation-url="{{ route('seller.order_requests.schedule_validation', $req->id) }}">
+              <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2 suggest-schedule-form" data-validation-url="{{ route('seller.order_requests.schedule_validation', $req->id) }}" data-earliest-date="{{ $suggestionRules['earliest_date'] }}" data-prep-days="{{ $suggestionRules['prep_days'] }}" data-open-time="{{ $suggestionRules['open_time'] }}" data-close-time="{{ $suggestionRules['close_time'] }}" data-required-minutes="{{ $suggestionRules['required_minutes'] }}">
                 @csrf
                 <input type="hidden" name="action" value="suggest_schedule">
-                <div class="row g-2 mb-2"><div class="col-7"><input type="date" name="suggested_date" class="form-control form-control-sm" required></div><div class="col-5"><input type="time" name="suggested_time" class="form-control form-control-sm" required></div></div>
+                <div class="row g-2 mb-2"><div class="col-7"><input type="date" name="suggested_date" min="{{ $suggestionRules['earliest_date'] }}" class="form-control form-control-sm" required></div><div class="col-5"><input type="time" name="suggested_time" min="{{ $suggestionRules['open_time'] }}" max="{{ $suggestionRules['close_time'] }}" class="form-control form-control-sm" required></div></div>
                 <textarea name="seller_response" class="form-control form-control-sm mb-2" minlength="5" maxlength="500" placeholder="Explain why this schedule is better" required></textarea>
                 <div class="small mb-2 schedule-validation-message" role="status" aria-live="polite"></div>
                 <button class="btn-or-soft w-100" type="submit" disabled>Send schedule</button>
@@ -222,9 +222,28 @@
     const time = form.querySelector('[name="suggested_time"]')?.value || '';
     const reason = (form.querySelector('[name="seller_response"]')?.value || '').trim();
     const button = form.querySelector('button[type="submit"]');
+    const dateInput = form.querySelector('[name="suggested_date"]');
+    const timeInput = form.querySelector('[name="suggested_time"]');
+    const earliestDate = form.dataset.earliestDate || '';
+    const openMinutes = Number((form.dataset.openTime || '00:00').slice(0, 2)) * 60 + Number((form.dataset.openTime || '00:00').slice(3, 5));
+    const closeMinutes = Number((form.dataset.closeTime || '23:59').slice(0, 2)) * 60 + Number((form.dataset.closeTime || '23:59').slice(3, 5));
+    const timeMinutes = /^\d{2}:\d{2}$/.test(time) ? Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5)) : null;
+    const earliestTime = openMinutes + Number(form.dataset.requiredMinutes || 0);
+    dateInput?.setCustomValidity('');
+    timeInput?.setCustomValidity('');
     if (!date || !time || reason.length < 5) {
       if (button) button.disabled = true;
-      setMessage(form, 'Choose a date/time and enter at least 5 characters explaining the change.', 'checking');
+      setMessage(form, !date ? 'Choose a suggested date. This custom cake needs at least ' + (form.dataset.prepDays || 0) + ' preparation days.' : !time ? 'Choose a time within current shop hours.' : 'Enter at least 5 characters explaining the schedule change.', 'checking');
+      return;
+    }
+    let localError = '';
+    if (earliestDate && date < earliestDate) localError = 'This date is too soon. Earliest custom-cake date is ' + earliestDate + '.';
+    else if (timeMinutes === null || timeMinutes < openMinutes || timeMinutes > closeMinutes) localError = 'Choose a time within shop hours: ' + form.dataset.openTime + ' to ' + form.dataset.closeTime + '.';
+    else if (timeMinutes < earliestTime) localError = 'That time is too soon for preparation. Earliest available time is ' + String(Math.floor(earliestTime / 60)).padStart(2, '0') + ':' + String(earliestTime % 60).padStart(2, '0') + '.';
+    if (localError) {
+      if (date < earliestDate) dateInput?.setCustomValidity(localError); else timeInput?.setCustomValidity(localError);
+      if (button) button.disabled = true;
+      setMessage(form, localError, 'error');
       return;
     }
     const key = date + '|' + time;
