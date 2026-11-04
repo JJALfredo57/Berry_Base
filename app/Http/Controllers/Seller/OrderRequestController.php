@@ -204,7 +204,16 @@ class OrderRequestController extends Controller
     private function checkSuggestedSchedule(object $shop, object $orderRequest, string $date, string $time): array
     {
         if ($date === '' || $time === '') return ['ok' => false, 'message' => 'Choose a suggested date and time.'];
-        if ($date === (string) $orderRequest->preferred_date && $time === substr((string) $orderRequest->preferred_time, 0, 5)) {
+        try {
+            $customerSchedule = \Carbon\Carbon::parse($orderRequest->preferred_date . ' ' . substr((string) $orderRequest->preferred_time, 0, 5), config('app.timezone'));
+            $suggestedSchedule = \Carbon\Carbon::parse($date . ' ' . $time, config('app.timezone'));
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'message' => 'Choose a valid suggested date and time.'];
+        }
+        if ($suggestedSchedule->lt($customerSchedule)) {
+            return ['ok' => false, 'message' => 'Suggested schedule cannot be earlier than the customer’s requested date and time.'];
+        }
+        if ($suggestedSchedule->equalTo($customerSchedule)) {
             return ['ok' => false, 'message' => 'Choose a schedule different from the customer’s original request.'];
         }
 

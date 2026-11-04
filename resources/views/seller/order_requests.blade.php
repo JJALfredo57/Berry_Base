@@ -137,10 +137,10 @@
             </details>
             <details>
               <summary><i class="bi bi-calendar-event me-1"></i>Suggest another schedule</summary>
-              <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2 suggest-schedule-form" data-validation-url="{{ route('seller.order_requests.schedule_validation', $req->id) }}" data-earliest-date="{{ $suggestionRules['earliest_date'] }}" data-prep-days="{{ $suggestionRules['prep_days'] }}" data-open-time="{{ $suggestionRules['open_time'] }}" data-close-time="{{ $suggestionRules['close_time'] }}" data-required-minutes="{{ $suggestionRules['required_minutes'] }}">
+              <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2 suggest-schedule-form" data-validation-url="{{ route('seller.order_requests.schedule_validation', $req->id) }}" data-earliest-date="{{ $suggestionRules['earliest_date'] }}" data-prep-days="{{ $suggestionRules['prep_days'] }}" data-open-time="{{ $suggestionRules['open_time'] }}" data-close-time="{{ $suggestionRules['close_time'] }}" data-required-minutes="{{ $suggestionRules['required_minutes'] }}" data-customer-date="{{ $req->preferred_date }}" data-customer-time="{{ substr((string)$req->preferred_time,0,5) }}">
                 @csrf
                 <input type="hidden" name="action" value="suggest_schedule">
-                <div class="row g-2 mb-2"><div class="col-7"><input type="date" name="suggested_date" min="{{ $suggestionRules['earliest_date'] }}" class="form-control form-control-sm" required></div><div class="col-5"><input type="time" name="suggested_time" min="{{ $suggestionRules['open_time'] }}" max="{{ $suggestionRules['close_time'] }}" class="form-control form-control-sm" required></div></div>
+                <div class="row g-2 mb-2"><div class="col-7"><input type="date" name="suggested_date" min="{{ max($suggestionRules['earliest_date'], $req->preferred_date) }}" class="form-control form-control-sm" required></div><div class="col-5"><input type="time" name="suggested_time" min="{{ $suggestionRules['open_time'] }}" max="{{ $suggestionRules['close_time'] }}" class="form-control form-control-sm" required></div></div>
                 <div class="small rounded-3 px-2 py-2 mb-2 schedule-validation-message" role="status" aria-live="polite" style="background:#f8fafc;min-height:38px"></div>
                 <textarea name="seller_response" class="form-control form-control-sm mb-2" minlength="5" maxlength="500" placeholder="Explain why this schedule is better" required></textarea>
                 <button class="btn-or-soft w-100" type="submit" disabled>Send schedule</button>
@@ -244,7 +244,11 @@
       return;
     }
     let localError = '';
-    if (earliestDate && date < earliestDate) localError = 'This date is too soon. Earliest custom-cake date is ' + earliestDate + '.';
+    const customerSchedule = (form.dataset.customerDate || '') + 'T' + (form.dataset.customerTime || '');
+    const suggestedSchedule = date + 'T' + time;
+    if (customerSchedule.length === 16 && suggestedSchedule < customerSchedule) localError = 'Suggested schedule cannot be earlier than the customer’s requested date and time.';
+    else if (customerSchedule.length === 16 && suggestedSchedule === customerSchedule) localError = 'Choose a schedule different from the customer’s original request.';
+    else if (earliestDate && date < earliestDate) localError = 'This date is too soon. Earliest custom-cake date is ' + earliestDate + '.';
     else if (timeMinutes === null || timeMinutes < openMinutes || timeMinutes > closeMinutes) localError = 'Choose a time within shop hours: ' + form.dataset.openTime + ' to ' + form.dataset.closeTime + '.';
     else if (timeMinutes < earliestTime) localError = 'That time is too soon for preparation. Earliest available time is ' + String(Math.floor(earliestTime / 60)).padStart(2, '0') + ':' + String(earliestTime % 60).padStart(2, '0') + '.';
     if (localError) {
