@@ -13,6 +13,12 @@ use Illuminate\Support\Str;
 class OrderRequestService
 {
     public const ACTIVE_STATUSES = ['pending', 'accepted', 'alternative_offered', 'schedule_suggested', 'needs_more_details'];
+    public const ACTION_WINDOW_HOURS = 24;
+
+    public function actionDeadline(): \Carbon\Carbon
+    {
+        return now(config('app.timezone'))->addHours(self::ACTION_WINDOW_HOURS);
+    }
 
     public function rushSnapshot(?string $shopId, ?string $date, ?string $time, string $type = 'ready_made'): array
     {
@@ -275,6 +281,7 @@ class OrderRequestService
                 'status' => 'pending',
                 'customer_response' => trim($response),
                 'responded_at' => null,
+                'action_expires_at' => $this->actionDeadline(),
                 'updated_at' => now(),
             ]);
         if ($updated !== 1) return ['ok' => false, 'message' => 'This request was updated already. Please refresh and try again.'];
@@ -453,6 +460,7 @@ class OrderRequestService
                 'customer_note' => $note ?: null,
                 'status' => 'pending',
                 'expires_at' => $expiresAt,
+                'action_expires_at' => $this->actionDeadline(),
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -526,8 +534,12 @@ class OrderRequestService
         if (!Schema::hasTable('order_requests')) return 0;
         return DB::table('order_requests')
             ->whereIn('status', self::ACTIVE_STATUSES)
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', now())
+            ->where(function ($query) {
+                $query->whereNotNull('expires_at')->where('expires_at', '<=', now())
+                    ->orWhere(function ($actionQuery) {
+                        $actionQuery->whereNotNull('action_expires_at')->where('action_expires_at', '<=', now());
+                    });
+            })
             ->update(['status' => 'expired', 'updated_at' => now()]);
     }
 }

@@ -14,10 +14,11 @@ class OrderRequestController extends Controller
     private const OFFER_STATUSES = ['accepted', 'customer_accepted'];
     private const CLOSED_STATUSES = ['declined', 'customer_declined', 'expired', 'converted', 'cancelled'];
 
-    public function index(Request $request)
+    public function index(Request $request, \App\Services\OrderRequestService $service)
     {
         $uid = (string) (session('user')['id'] ?? '');
         if ($uid === '') abort(403);
+        $service->markExpired();
 
         $filter = $request->input('filter', 'active');
         if (!in_array($filter, ['active', 'offers', 'closed', 'all'], true)) {
@@ -40,7 +41,7 @@ class OrderRequestController extends Controller
         $base = DB::table('order_requests as r')->where('r.user_id', $uid);
         $counts = [
             'active' => (clone $base)->whereIn('r.status', self::ACTIVE_STATUSES)->count(),
-            'offers' => (clone $base)->whereIn('r.status', self::OFFER_STATUSES)->count(),
+            'offers' => (clone $base)->whereIn('r.status', ['accepted', 'customer_accepted', 'schedule_suggested', 'alternative_offered', 'needs_more_details'])->count(),
             'closed' => (clone $base)->whereIn('r.status', self::CLOSED_STATUSES)->count(),
             'all' => (clone $base)->count(),
         ];

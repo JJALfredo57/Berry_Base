@@ -92,9 +92,10 @@ class OrderRequestController extends Controller
     public function update(Request $request, string $id, OrderRequestService $service)
     {
         $shop = $this->getShop();
+        $service->markExpired();
         $orderRequest = DB::table('order_requests')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$orderRequest) return back()->with('err', 'Request not found.');
-        if (!in_array($orderRequest->status, ['pending', 'alternative_offered', 'schedule_suggested', 'needs_more_details'], true)) {
+        if ($orderRequest->status !== 'pending') {
             return back()->with('err', 'This request has already been reviewed.');
         }
 
@@ -106,8 +107,8 @@ class OrderRequestController extends Controller
         if ($action === 'accept') {
             $acceptedPrice = $service->fixedPriceForRequest($orderRequest);
             if ($acceptedPrice <= 0) return back()->with('err', 'This cake needs a valid published catalog price before it can be offered.')->withInput();
-            $acceptedDate = $request->input('accepted_date') ?: $orderRequest->preferred_date;
-            $acceptedTime = substr((string) ($request->input('accepted_time') ?: $orderRequest->preferred_time), 0, 5);
+            $acceptedDate = $orderRequest->preferred_date;
+            $acceptedTime = substr((string) $orderRequest->preferred_time, 0, 5);
             $scheduleCheck = app(FulfillmentScheduleService::class)->validate(
                 $shop->id,
                 $acceptedDate,
@@ -123,6 +124,7 @@ class OrderRequestController extends Controller
             $data['accepted_date'] = $acceptedDate;
             $data['accepted_time'] = $acceptedTime;
             $data['accepted_datetime'] = $acceptedDate ? \Carbon\Carbon::parse($acceptedDate . ' ' . ($acceptedTime ?: '00:00'), config('app.timezone'))->toDateTimeString() : null;
+            $data['action_expires_at'] = $service->actionDeadline();
             $message = 'Offer sent. Waiting for the customer to accept before checkout/payment.';
         } elseif ($action === 'decline') {
             if ($response === '') return back()->with('err', 'Please provide a reason for declining.')->withInput();
@@ -145,6 +147,7 @@ class OrderRequestController extends Controller
             if (!$scheduleCheck['ok']) {
                 return back()->with('err', $scheduleCheck['message'])->withInput();
             }
+            $data['action_expires_at'] = $service->actionDeadline();
             $message = 'Suggested schedule sent.';
         } elseif ($action === 'offer_alternative') {
             if (!$orderRequest->allow_similar_cake) {
@@ -155,14 +158,18 @@ class OrderRequestController extends Controller
             }
             $data['status'] = 'alternative_offered';
             $data['alternative_product_id'] = $request->input('alternative_product_id') ?: null;
+            $data['action_expires_at'] = $service->actionDeadline();
             $message = 'Alternative offer sent.';
         } elseif ($action === 'needs_more_details') {
             if ($response === '') return back()->with('err', 'Please ask what details you need.')->withInput();
             $data['status'] = 'needs_more_details';
+            $data['action_expires_at'] = $service->actionDeadline();
             $message = 'Details request sent.';
         } else {
             return back()->with('err', 'Unknown action.');
         }
+
+        if ($action === 'decline') $data['action_expires_at'] = null;
 
         DB::table('order_requests')->where('id', $id)->update($data);
         $service->ensureCustomerToken($id);

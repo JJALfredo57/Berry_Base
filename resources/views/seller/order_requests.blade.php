@@ -65,6 +65,7 @@
       $customerName = $req->user_fullname ?: ($req->guest_name ?: 'Guest customer');
       $customerPhone = $req->user_phone ?: $req->guest_phone;
       $preferred = $req->preferred_datetime ? \Carbon\Carbon::parse($req->preferred_datetime) : null;
+      $actionDeadline = !empty($req->action_expires_at) ? \Carbon\Carbon::parse($req->action_expires_at) : null;
       $notice = is_numeric($req->requested_notice_minutes) ? (int) $req->requested_notice_minutes : null;
       $noticeLabel = $notice === null ? 'Not computed' : ($notice >= 1440 ? floor($notice / 1440).' day'.(floor($notice / 1440) == 1 ? '' : 's') : max(0, floor($notice / 60)).' hr '.max(0, $notice % 60).' min');
     @endphp
@@ -100,7 +101,7 @@
           @if($req->converted_order_id)
             <div class="or-detail"><span class="or-label">Order</span><div class="or-value">#{{ $req->converted_order_id }}</div></div>
           @endif
-          <div class="or-detail"><span class="or-label">Time Left</span><div class="or-value countdown" data-countdown="{{ $preferred ? $preferred->toIso8601String() : '' }}">Checking...</div></div>
+          <div class="or-detail"><span class="or-label">Action Deadline</span><div class="or-value countdown" data-countdown="{{ $actionDeadline ? $actionDeadline->toIso8601String() : ($preferred ? $preferred->toIso8601String() : '') }}">Checking...</div></div>
           <div class="or-detail"><span class="or-label">Seller Prep Setting</span><div class="or-value">{{ (int)($req->seller_prep_days_at_request ?? 0) }} day{{ (int)($req->seller_prep_days_at_request ?? 0) === 1 ? '' : 's' }}</div></div>
           <div class="or-detail"><span class="or-label">Customer Notice</span><div class="or-value">{{ $noticeLabel }}</div></div>
           @if($req->selected_size ?? null)
@@ -120,18 +121,19 @@
         </div>
 
         <div class="or-actions">
-          @if(in_array($req->status, ['pending','alternative_offered','schedule_suggested','needs_more_details'], true))
+          @if($req->status === 'pending')
             <details open>
               <summary><i class="bi bi-check2-circle me-1"></i>Accept request</summary>
               <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2">
                 @csrf
                 <input type="hidden" name="action" value="accept">
                 <div class="small rounded-3 p-2 mb-2" style="background:#ecfdf5;color:#166534"><i class="bi bi-lock-fill me-1"></i>Ready-made price is fixed from your published catalog price.</div>
-                <div class="row g-2 mb-2"><div class="col-7"><label class="form-label small fw-semibold">Accepted date</label><input type="date" name="accepted_date" value="{{ $req->preferred_date }}" class="form-control form-control-sm"></div><div class="col-5"><label class="form-label small fw-semibold">Time</label><input type="time" name="accepted_time" value="{{ substr((string)$req->preferred_time,0,5) }}" class="form-control form-control-sm"></div></div>
+                <div class="small rounded-3 p-2 mb-2" style="background:#f8fafc;color:#475569"><i class="bi bi-calendar-check me-1"></i>Customer schedule locked: {{ $req->preferred_date }} {{ substr((string)$req->preferred_time,0,5) }}</div>
                 <textarea name="seller_response" class="form-control form-control-sm mb-2" placeholder="Short message for the customer"></textarea>
                 <button class="btn-or-primary w-100" type="submit"><i class="bi bi-check-lg me-1"></i>Send Offer</button>
               </form>
             </details>
+            @if($req->allow_similar_cake)
             <details>
               <summary><i class="bi bi-calendar-event me-1"></i>Suggest another schedule</summary>
               <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2">
@@ -142,6 +144,7 @@
                 <button class="btn-or-soft w-100" type="submit">Send schedule</button>
               </form>
             </details>
+            @endif
             <details>
               <summary><i class="bi bi-shuffle me-1"></i>Offer alternative cake</summary>
               <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2">

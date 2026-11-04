@@ -76,7 +76,7 @@
       </div>
       @if(($counts['offers'] ?? 0) > 0)
         <a href="{{ route('customer.order_requests.index', ['filter' => 'offers']) }}" class="btn btn-primary fw-semibold">
-          <i class="bi bi-check2-circle me-1"></i> Review {{ $counts['offers'] }} offer{{ ($counts['offers'] ?? 0) > 1 ? 's' : '' }}
+          <span class="position-relative d-inline-block"><i class="bi bi-check2-circle me-1"></i><span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"><span class="visually-hidden">Needs action</span></span></span> Review {{ $counts['offers'] }} update{{ ($counts['offers'] ?? 0) > 1 ? 's' : '' }}
         </a>
       @endif
     </div>
@@ -134,6 +134,9 @@
               @endif
               @if($requestItem->preferred_label)
                 <span class="request-chip"><i class="bi bi-calendar-event"></i>{{ $requestItem->preferred_label }}</span>
+              @endif
+              @if(in_array($requestItem->status, ['accepted','schedule_suggested','alternative_offered','needs_more_details'], true) && !empty($requestItem->action_expires_at))
+                <span class="request-chip rush request-action-countdown" data-request-deadline="{{ \Carbon\Carbon::parse($requestItem->action_expires_at)->toIso8601String() }}"><i class="bi bi-hourglass-split"></i> Response due: checking...</span>
               @endif
             </div>
 
@@ -213,4 +216,19 @@
     <div class="mt-3">{{ $requests->links() }}</div>
   @endif
 </div>
+<script>
+(() => {
+  const render = el => {
+    const due = new Date(el.dataset.requestDeadline || '').getTime();
+    const diff = due - Date.now();
+    if (!Number.isFinite(due) || diff <= 0) { el.textContent = 'Response expired'; return; }
+    const hours = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    el.textContent = 'Response due: ' + (hours > 0 ? hours + 'h ' : '') + mins + 'm';
+    el.classList.toggle('rush', diff < 4 * 3600000);
+  };
+  const tick = () => document.querySelectorAll('[data-request-deadline]').forEach(render);
+  tick(); setInterval(tick, 30000);
+})();
+</script>
 @endsection

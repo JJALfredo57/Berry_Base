@@ -9,6 +9,7 @@ class OrderRequestOfferController extends Controller
 {
     public function show(Request $request, OrderRequestService $service, string $id, ?string $token = null)
     {
+        $service->markExpired();
         $role = session('user')['role'] ?? null;
         $userId = $role === 'customer' ? (string) (session('user')['id'] ?? '') : null;
         $offer = $service->findForCustomer($id, $token, $userId);
@@ -25,6 +26,7 @@ class OrderRequestOfferController extends Controller
 
     public function accept(Request $request, OrderRequestService $service, string $id, ?string $token = null)
     {
+        $service->markExpired();
         $role = session('user')['role'] ?? null;
         $userId = $role === 'customer' ? (string) (session('user')['id'] ?? '') : null;
         $offer = $service->findForCustomer($id, $token, $userId);
@@ -42,6 +44,7 @@ class OrderRequestOfferController extends Controller
 
     public function decline(Request $request, OrderRequestService $service, string $id, ?string $token = null)
     {
+        $service->markExpired();
         $request->validate(['customer_decision_note' => 'nullable|string|max:500']);
         $role = session('user')['role'] ?? null;
         $userId = $role === 'customer' ? (string) (session('user')['id'] ?? '') : null;
@@ -57,6 +60,7 @@ class OrderRequestOfferController extends Controller
 
     public function respond(Request $request, OrderRequestService $service, string $id)
     {
+        $service->markExpired();
         $userId = (string) (session('user')['id'] ?? '');
         $offer = $service->findForCustomer($id, null, $userId);
         if (!$offer) abort(404);
