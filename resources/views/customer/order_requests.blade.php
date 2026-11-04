@@ -135,8 +135,9 @@
               @if($requestItem->preferred_label)
                 <span class="request-chip"><i class="bi bi-calendar-event"></i>{{ $requestItem->preferred_label }}</span>
               @endif
-              @if(in_array($requestItem->status, ['accepted','schedule_suggested','alternative_offered','needs_more_details'], true) && !empty($requestItem->action_expires_at))
-                <span class="request-chip rush request-action-countdown" data-request-deadline="{{ \Carbon\Carbon::parse($requestItem->action_expires_at)->toIso8601String() }}"><i class="bi bi-hourglass-split"></i> Response due: checking...</span>
+              @php $responseDeadline = $requestItem->action_expires_at ?? $requestItem->expires_at ?? null; @endphp
+              @if(in_array($requestItem->status, ['pending','accepted','schedule_suggested','alternative_offered','needs_more_details'], true) && $responseDeadline)
+                <span class="request-chip rush request-action-countdown" data-request-deadline="{{ \Carbon\Carbon::parse($responseDeadline)->toIso8601String() }}"><i class="bi bi-hourglass-split"></i> Response due: checking...</span>
               @endif
             </div>
 

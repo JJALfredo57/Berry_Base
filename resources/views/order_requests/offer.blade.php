@@ -5,7 +5,9 @@
   $acceptedDate = $offer->accepted_date ?: $offer->preferred_date;
   $acceptedTime = substr((string)($offer->accepted_time ?: $offer->preferred_time), 0, 5);
   $acceptedAt = $acceptedDate ? \Carbon\Carbon::parse($acceptedDate.' '.($acceptedTime ?: '00:00')) : null;
-  $expiresAt = !empty($offer->expires_at) ? \Carbon\Carbon::parse($offer->expires_at) : null;
+  $expiresAt = !empty($offer->action_expires_at)
+    ? \Carbon\Carbon::parse($offer->action_expires_at)
+    : (!empty($offer->expires_at) ? \Carbon\Carbon::parse($offer->expires_at) : null);
   $isActiveOffer = in_array($offer->status, ['accepted', 'customer_accepted'], true) && (!$expiresAt || $expiresAt->isFuture());
   $isScheduleProposal = $offer->status === 'schedule_suggested' && (!$expiresAt || $expiresAt->isFuture());
   $isAlternativeProposal = $offer->status === 'alternative_offered' && (!$expiresAt || $expiresAt->isFuture());

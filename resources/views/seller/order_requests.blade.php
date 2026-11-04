@@ -65,7 +65,9 @@
       $customerName = $req->user_fullname ?: ($req->guest_name ?: 'Guest customer');
       $customerPhone = $req->user_phone ?: $req->guest_phone;
       $preferred = $req->preferred_datetime ? \Carbon\Carbon::parse($req->preferred_datetime) : null;
-      $actionDeadline = !empty($req->action_expires_at) ? \Carbon\Carbon::parse($req->action_expires_at) : null;
+      $actionDeadline = !empty($req->action_expires_at)
+        ? \Carbon\Carbon::parse($req->action_expires_at)
+        : (!empty($req->expires_at) ? \Carbon\Carbon::parse($req->expires_at) : null);
       $notice = is_numeric($req->requested_notice_minutes) ? (int) $req->requested_notice_minutes : null;
       $noticeLabel = $notice === null ? 'Not computed' : ($notice >= 1440 ? floor($notice / 1440).' day'.(floor($notice / 1440) == 1 ? '' : 's') : max(0, floor($notice / 60)).' hr '.max(0, $notice % 60).' min');
     @endphp
@@ -133,7 +135,6 @@
                 <button class="btn-or-primary w-100" type="submit"><i class="bi bi-check-lg me-1"></i>Send Offer</button>
               </form>
             </details>
-            @if($req->allow_similar_cake)
             <details>
               <summary><i class="bi bi-calendar-event me-1"></i>Suggest another schedule</summary>
               <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2">
@@ -144,7 +145,7 @@
                 <button class="btn-or-soft w-100" type="submit">Send schedule</button>
               </form>
             </details>
-            @endif
+            @if((bool) $req->allow_similar_cake)
             <details>
               <summary><i class="bi bi-shuffle me-1"></i>Offer alternative cake</summary>
               <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2">
@@ -160,6 +161,7 @@
                 <button class="btn-or-soft w-100" type="submit">Offer fixed-price alternative</button>
               </form>
             </details>
+            @endif
             <details>
               <summary><i class="bi bi-x-circle me-1"></i>Decline / ask details</summary>
               <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2">
