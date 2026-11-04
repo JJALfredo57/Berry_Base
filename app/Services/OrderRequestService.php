@@ -401,6 +401,13 @@ class OrderRequestService
         );
         if (!$preparation['ok']) return ['ok' => false, 'message' => $preparation['message']];
 
+        $capacity = app(DailyCapacityService::class)->validate(
+            $product->shop_id ?? null,
+            $data['preferred_date'] ?? null,
+            $valid['quantity']
+        );
+        if (!$capacity['allowed']) return ['ok' => false, 'message' => $capacity['message']];
+
         $schedule = app(FulfillmentScheduleService::class)->validate(
             $product->shop_id ?? null,
             $data['preferred_date'] ?? null,

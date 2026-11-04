@@ -1244,17 +1244,79 @@ function validateRequestBakeSchedule(form) {
     return false;
   }
 
-  setRequestBakeNotice(notice, '<i class="bi bi-check-circle-fill me-1"></i>Schedule has enough preparation time. The seller will review this kitchen request.', 'success');
+  const quantity = Math.max(1, Number(form.querySelector('[name="quantity"]')?.value || 1));
+  const capacityKey = date.value + '|' + quantity;
+  if (form.dataset.capacityPending === '1') {
+    setRequestBakeNotice(notice, '<i class="bi bi-hourglass-split me-1"></i>Checking kitchen capacity for this quantity...', 'info');
+    if (button) button.disabled = true;
+    return false;
+  }
+  if (form.dataset.capacityKey !== capacityKey || form.dataset.capacityAllowed !== '1') {
+    const capacityMessage = form.dataset.capacityMessage || 'Checking kitchen capacity for this quantity...';
+    setRequestBakeNotice(notice, '<i class="bi bi-hourglass-split me-1"></i>' + capacityMessage, 'info');
+    if (button) button.disabled = true;
+    return false;
+  }
+
+  setRequestBakeNotice(notice, '<i class="bi bi-check-circle-fill me-1"></i>' + (form.dataset.capacityMessage || 'Schedule has enough preparation time.') + ' The seller will review this kitchen request.', 'success');
   if (button) button.disabled = false;
   return true;
 }
 
+function checkRequestBakeCapacity(form) {
+  const date = form.querySelector('[name="preferred_date"]');
+  const quantity = Math.max(1, Number(form.querySelector('[name="quantity"]')?.value || 1));
+  const shopId = form.dataset.shopId || '';
+  if (!date?.value || !shopId) return;
+  const key = date.value + '|' + quantity;
+  if (form.dataset.capacityPending === '1' || form.dataset.capacityKey === key) return;
+
+  form.dataset.capacityPending = '1';
+  form.dataset.capacityAllowed = '0';
+  form.dataset.capacityMessage = 'Checking kitchen capacity for this quantity...';
+  validateRequestBakeSchedule(form);
+
+  fetch('/catalog/availability?date=' + encodeURIComponent(date.value) + '&shop_id=' + encodeURIComponent(shopId), { headers: { Accept: 'application/json' }, cache: 'no-store' })
+    .then(response => response.json())
+    .then(data => {
+      if ((date.value + '|' + Math.max(1, Number(form.querySelector('[name="quantity"]')?.value || 1))) !== key) return;
+      const remaining = Number(data.remaining || 0);
+      let message = data.message || 'Kitchen capacity is unavailable.';
+      let allowed = false;
+      if (data.status === 'available' || data.status === 'almost') {
+        allowed = quantity <= remaining;
+        message = allowed
+          ? remaining + ' custom cake slot' + (remaining === 1 ? '' : 's') + ' available for this date.'
+          : 'Only ' + remaining + ' custom cake slot' + (remaining === 1 ? '' : 's') + ' available. Reduce quantity or choose another date.';
+      }
+      form.dataset.capacityKey = key;
+      form.dataset.capacityAllowed = allowed ? '1' : '0';
+      form.dataset.capacityMessage = message;
+    })
+    .catch(() => {
+      if ((date.value + '|' + Math.max(1, Number(form.querySelector('[name="quantity"]')?.value || 1))) !== key) return;
+      form.dataset.capacityKey = key;
+      form.dataset.capacityAllowed = '0';
+      form.dataset.capacityMessage = 'We could not check kitchen capacity. Please try again.';
+    })
+    .finally(() => {
+      if ((date.value + '|' + Math.max(1, Number(form.querySelector('[name="quantity"]')?.value || 1))) === key) {
+        form.dataset.capacityPending = '';
+        validateRequestBakeSchedule(form);
+      }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-request-bake-form]').forEach(form => {
-    ['input', 'change'].forEach(eventName => form.addEventListener(eventName, () => validateRequestBakeSchedule(form)));
+    ['input', 'change'].forEach(eventName => form.addEventListener(eventName, () => {
+      validateRequestBakeSchedule(form);
+      checkRequestBakeCapacity(form);
+    }));
     form.addEventListener('submit', function (event) {
       if (validateRequestBakeSchedule(form)) return;
       event.preventDefault();
+      checkRequestBakeCapacity(form);
       (form.querySelector('[name="preferred_date"]:invalid, [name="preferred_time"]:invalid') || form.querySelector('[name="preferred_date"]'))?.reportValidity();
     });
     validateRequestBakeSchedule(form);
