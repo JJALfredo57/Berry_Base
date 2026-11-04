@@ -141,8 +141,8 @@
                 @csrf
                 <input type="hidden" name="action" value="suggest_schedule">
                 <div class="row g-2 mb-2"><div class="col-7"><input type="date" name="suggested_date" min="{{ $suggestionRules['earliest_date'] }}" class="form-control form-control-sm" required></div><div class="col-5"><input type="time" name="suggested_time" min="{{ $suggestionRules['open_time'] }}" max="{{ $suggestionRules['close_time'] }}" class="form-control form-control-sm" required></div></div>
+                <div class="small rounded-3 px-2 py-2 mb-2 schedule-validation-message" role="status" aria-live="polite" style="background:#f8fafc;min-height:38px"></div>
                 <textarea name="seller_response" class="form-control form-control-sm mb-2" minlength="5" maxlength="500" placeholder="Explain why this schedule is better" required></textarea>
-                <div class="small mb-2 schedule-validation-message" role="status" aria-live="polite"></div>
                 <button class="btn-or-soft w-100" type="submit" disabled>Send schedule</button>
               </form>
             </details>
@@ -215,6 +215,8 @@
     const el = form.querySelector('.schedule-validation-message');
     if (!el) return;
     el.className = 'small mb-2 schedule-validation-message ' + (state === 'ok' ? 'text-success fw-semibold' : state === 'checking' ? 'text-muted' : 'text-danger fw-semibold');
+    el.style.background = state === 'ok' ? '#ecfdf5' : state === 'error' ? '#fef2f2' : '#f8fafc';
+    el.style.border = '1px solid ' + (state === 'ok' ? '#bbf7d0' : state === 'error' ? '#fecaca' : '#e2e8f0');
     el.textContent = message;
   };
   const check = form => {
@@ -231,9 +233,14 @@
     const earliestTime = openMinutes + Number(form.dataset.requiredMinutes || 0);
     dateInput?.setCustomValidity('');
     timeInput?.setCustomValidity('');
-    if (!date || !time || reason.length < 5) {
+    if (!date) {
       if (button) button.disabled = true;
-      setMessage(form, !date ? 'Choose a suggested date. This custom cake needs at least ' + (form.dataset.prepDays || 0) + ' preparation days.' : !time ? 'Choose a time within current shop hours.' : 'Enter at least 5 characters explaining the schedule change.', 'checking');
+      setMessage(form, 'Choose a suggested date. This custom cake needs at least ' + (form.dataset.prepDays || 0) + ' preparation days.', 'checking');
+      return;
+    }
+    if (!time) {
+      if (button) button.disabled = true;
+      setMessage(form, 'Choose a time within current shop hours.', 'checking');
       return;
     }
     let localError = '';
@@ -244,6 +251,11 @@
       if (date < earliestDate) dateInput?.setCustomValidity(localError); else timeInput?.setCustomValidity(localError);
       if (button) button.disabled = true;
       setMessage(form, localError, 'error');
+      return;
+    }
+    if (reason.length < 5) {
+      if (button) button.disabled = true;
+      setMessage(form, 'Add at least 5 characters explaining why this schedule change is needed.', 'checking');
       return;
     }
     const key = date + '|' + time;
