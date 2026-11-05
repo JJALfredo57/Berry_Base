@@ -407,8 +407,11 @@ class CheckoutController extends Controller
         $payment = $payment === 'GCash' ? 'GCash' : $cashPaymentMethod;
         $selectedSize  = trim((string) $request->input('selected_size', $checkout['selected_size'] ?? ''));
         if (!empty($checkout['request_offer_checkout'])) {
-            $sdate = $checkout['schedule_date'] ?? $sdate;
-            $stime = $checkout['schedule_time'] ?? $stime;
+            $sdate = $checkout['schedule_date'] ?? null;
+            $stime = $checkout['schedule_time'] ?? null;
+            if (!$sdate || !$stime) {
+                return back()->with('error', 'The agreed request schedule is missing. Please return to the request and ask the seller to confirm it again.');
+            }
         }
         $surprise = $this->surpriseDeliveryData($request, $fulfillment);
         if (!empty($surprise['error'])) {

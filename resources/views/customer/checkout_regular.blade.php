@@ -403,6 +403,18 @@ document.body.style.paddingRight = '';
             </div>
 
             <div class="row g-3 mt-1">
+              @if(!empty($checkout['request_offer_checkout']))
+              <div class="col-12">
+                <label class="form-label fw-semibold small">Confirmed Schedule</label>
+                <div class="form-control d-flex align-items-center gap-2" style="background:#ecfdf5;border-color:#bbf7d0;color:#166534;min-height:44px">
+                  <i class="bi bi-lock-fill"></i>
+                  <strong>{{ \Carbon\Carbon::parse(($checkout['schedule_date'] ?? '') . ' ' . ($checkout['schedule_time'] ?? '00:00'))->format('M d, Y g:i A') }}</strong>
+                </div>
+                <input type="hidden" name="schedule_date" value="{{ $checkout['schedule_date'] ?? '' }}">
+                <input type="hidden" name="schedule_time" value="{{ $checkout['schedule_time'] ?? '' }}">
+                <div id="custScheduleNotice" class="form-text text-success mt-1"><i class="bi bi-check-circle-fill me-1"></i>Schedule confirmed with the seller. Pickup or delivery can still be selected below.</div>
+              </div>
+              @else
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Preferred Date</label>
                 <input type="date" class="form-control" name="schedule_date" id="custFieldDate" data-error-target="schedule"
@@ -420,6 +432,7 @@ document.body.style.paddingRight = '';
                 <label class="form-label fw-semibold small">Preferred Time</label>
                 <input type="time" class="form-control" name="schedule_time" id="custFieldTime" data-error-target="schedule" value="{{ old('schedule_time', $checkout['schedule_time'] ?? '') }}" min="{{ substr($scheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($scheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')" oninput="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
               </div>
+              @endif
             </div>
             @endif
           </div>
