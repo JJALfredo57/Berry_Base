@@ -251,7 +251,7 @@
   </section>
 </div>
 <style>
-  .request-review-modal{position:fixed;inset:0;z-index:1100;display:none;align-items:center;justify-content:center;padding:14px;background:rgba(15,23,42,.58)}
+  .request-review-modal{position:fixed;inset:0;z-index:1100;display:none;align-items:center;justify-content:center;padding:14px;background:rgba(37,99,235,.34);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
   .request-review-modal.is-open{display:flex;animation:requestReviewFade .18s ease}.request-review-dialog{width:min(520px,100%);max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 28px 84px rgba(15,23,42,.3);animation:requestReviewIn .22s ease}.request-review-dialog header,.request-review-dialog footer{padding:16px;flex:0 0 auto}.request-review-dialog header{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #eef2f7}.request-review-body{padding:16px;overflow:auto}.request-review-meta{font-size:.82rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.request-review-schedule,.request-review-note,.request-review-deadline{border-radius:12px;padding:12px;margin-top:12px}.request-review-schedule{background:#eff6ff;color:#1e3a8a}.request-review-schedule span{display:block;font-size:.72rem;font-weight:800;text-transform:uppercase}.request-review-schedule strong{display:block;margin-top:3px}.request-review-note{background:#f8fafc;color:#334155;white-space:pre-wrap}.request-review-deadline{background:#fff7ed;color:#9a3412;font-weight:800}.request-review-error{display:none;color:#b91c1c;font-size:.82rem;font-weight:700;margin-top:10px}.request-review-dialog footer{display:grid;gap:8px;border-top:1px solid #eef2f7}.request-review-decline{display:none}.request-review-decline.show{display:block}@keyframes requestReviewFade{from{opacity:0}to{opacity:1}}@keyframes requestReviewIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}@media(max-width:575px){.request-review-modal{padding:8px}.request-review-dialog{max-height:calc(100dvh - 16px);border-radius:16px}.request-review-dialog header,.request-review-dialog footer,.request-review-body{padding:14px}}
 </style>
 <script>
@@ -260,6 +260,7 @@ let requestReviewTimer = null;
 function openRequestReview(data) {
   const modal = document.getElementById('requestReviewModal');
   if (!modal) return;
+  if (modal.parentElement !== document.body) document.body.appendChild(modal);
   requestReviewInvoker = document.activeElement;
   document.getElementById('requestReviewTitle').textContent = data.title || 'Kitchen request';
   document.getElementById('requestReviewSeller').textContent = data.seller || '';
@@ -279,6 +280,10 @@ function openRequestReview(data) {
 }
 function closeRequestReview() { const modal=document.getElementById('requestReviewModal'); if(!modal)return; modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true');document.body.style.overflow='';clearInterval(requestReviewTimer);requestReviewInvoker?.focus(); }
 document.addEventListener('keydown', e => { if(e.key==='Escape' && document.getElementById('requestReviewModal')?.classList.contains('is-open')) closeRequestReview(); });
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('requestReviewModal');
+  if (modal && modal.parentElement !== document.body) document.body.appendChild(modal);
+});
 (() => {
   const render = el => {
     const due = new Date(el.dataset.requestDeadline || '').getTime();
