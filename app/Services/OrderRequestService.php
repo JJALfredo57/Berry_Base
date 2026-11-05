@@ -281,16 +281,17 @@ class OrderRequestService
             return ['ok' => false, 'message' => 'This request is no longer waiting for your details.'];
         }
 
+        $replyUpdates = [
+            'status' => 'pending',
+            'customer_response' => trim($response),
+            'responded_at' => null,
+            'updated_at' => now(),
+        ];
+        if (Schema::hasColumn('order_requests', 'action_expires_at')) $replyUpdates['action_expires_at'] = $this->actionDeadline();
         $updated = DB::table('order_requests')
             ->where('id', $row->id)
             ->where('status', 'needs_more_details')
-            ->update([
-                'status' => 'pending',
-                'customer_response' => trim($response),
-                'responded_at' => null,
-                'action_expires_at' => $this->actionDeadline(),
-                'updated_at' => now(),
-            ]);
+            ->update($replyUpdates);
         if ($updated !== 1) return ['ok' => false, 'message' => 'This request was updated already. Please refresh and try again.'];
 
         $this->notifySellerDecision((string) $row->id, 'details_received');
@@ -468,10 +469,10 @@ class OrderRequestService
                 'customer_note' => $note ?: null,
                 'status' => 'pending',
                 'expires_at' => $expiresAt,
-                'action_expires_at' => $this->actionDeadline(),
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
+            if (Schema::hasColumn('order_requests', 'action_expires_at')) $insert['action_expires_at'] = $this->actionDeadline();
             if (Schema::hasColumn('order_requests', 'selected_size')) {
                 $insert['selected_size'] = $valid['selected_size'] ?: null;
             }
@@ -540,14 +541,18 @@ class OrderRequestService
     public function markExpired(): int
     {
         if (!Schema::hasTable('order_requests')) return 0;
-        $expired = DB::table('order_requests')
-            ->whereIn('status', self::ACTIVE_STATUSES)
-            ->where(function ($query) {
+        $expiredQuery = DB::table('order_requests')->whereIn('status', self::ACTIVE_STATUSES);
+        if (Schema::hasColumn('order_requests', 'action_expires_at')) {
+            $expiredQuery->where(function ($query) {
                 $query->whereNotNull('expires_at')->where('expires_at', '<=', now())
                     ->orWhere(function ($actionQuery) {
                         $actionQuery->whereNotNull('action_expires_at')->where('action_expires_at', '<=', now());
                     });
-            })
+            });
+        } else {
+            $expiredQuery->whereNotNull('expires_at')->where('expires_at', '<=', now());
+        }
+        $expired = $expiredQuery
             ->get(['id']);
         if ($expired->isEmpty()) return 0;
         DB::table('order_requests')->whereIn('id', $expired->pluck('id'))->update(['status' => 'expired', 'updated_at' => now()]);
