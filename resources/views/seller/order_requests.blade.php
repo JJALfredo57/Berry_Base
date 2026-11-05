@@ -143,6 +143,7 @@
                 <div class="row g-2 mb-2"><div class="col-7"><input type="date" name="suggested_date" min="{{ max($suggestionRules['earliest_date'], $req->preferred_date) }}" class="form-control form-control-sm" required></div><div class="col-5"><input type="time" name="suggested_time" min="{{ $suggestionRules['open_time'] }}" max="{{ $suggestionRules['close_time'] }}" class="form-control form-control-sm" required></div></div>
                 <div class="small rounded-3 px-2 py-2 mb-2 schedule-validation-message" role="status" aria-live="polite" style="background:#f8fafc;min-height:38px"></div>
                 <textarea name="seller_response" class="form-control form-control-sm mb-2" minlength="5" maxlength="500" placeholder="Explain why this schedule is better" required></textarea>
+                <div class="small mb-2 schedule-reason-message" role="status" aria-live="polite"></div>
                 <button class="btn-or-soft w-100" type="submit" disabled>Send schedule</button>
               </form>
             </details>
@@ -219,6 +220,12 @@
     el.style.border = '1px solid ' + (state === 'ok' ? '#bbf7d0' : state === 'error' ? '#fecaca' : '#e2e8f0');
     el.textContent = message;
   };
+  const setReasonMessage = (form, message) => {
+    const el = form.querySelector('.schedule-reason-message');
+    if (!el) return;
+    el.className = 'small mb-2 schedule-reason-message ' + (message ? 'text-danger fw-semibold' : '');
+    el.textContent = message || '';
+  };
   const check = form => {
     const date = form.querySelector('[name="suggested_date"]')?.value || '';
     const time = form.querySelector('[name="suggested_time"]')?.value || '';
@@ -266,11 +273,8 @@
       setMessage(form, localError, 'error');
       return;
     }
-    if (reason.length < 5) {
-      if (button) button.disabled = true;
-      setMessage(form, 'Add at least 5 characters explaining why this schedule change is needed.', 'checking');
-      return;
-    }
+    const reasonValid = reason.length >= 5;
+    setReasonMessage(form, reasonValid ? '' : 'Add at least 5 characters explaining why this schedule change is needed.');
     const key = date + '|' + time;
     form.dataset.validationKey = key;
     if (button) button.disabled = true;
@@ -280,7 +284,7 @@
       .then(({ response, data }) => {
         if (form.dataset.validationKey !== key) return;
         const valid = response.ok && data.ok;
-        if (button) button.disabled = !valid;
+        if (button) button.disabled = !valid || !reasonValid;
         setMessage(form, data.message || (valid ? 'Schedule is available.' : 'Schedule is unavailable.'), valid ? 'ok' : 'error');
       })
       .catch(() => {
