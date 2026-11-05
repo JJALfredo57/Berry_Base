@@ -231,6 +231,13 @@
     const closeMinutes = Number((form.dataset.closeTime || '23:59').slice(0, 2)) * 60 + Number((form.dataset.closeTime || '23:59').slice(3, 5));
     const timeMinutes = /^\d{2}:\d{2}$/.test(time) ? Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5)) : null;
     const earliestTime = openMinutes + Number(form.dataset.requiredMinutes || 0);
+    const customerTimeMinutes = /^\d{2}:\d{2}$/.test(form.dataset.customerTime || '')
+      ? Number(form.dataset.customerTime.slice(0, 2)) * 60 + Number(form.dataset.customerTime.slice(3, 5))
+      : null;
+    const requiredTime = date === form.dataset.customerDate && customerTimeMinutes !== null
+      ? Math.max(earliestTime, customerTimeMinutes + 1)
+      : earliestTime;
+    timeInput.min = String(Math.floor(requiredTime / 60)).padStart(2, '0') + ':' + String(requiredTime % 60).padStart(2, '0');
     dateInput?.setCustomValidity('');
     timeInput?.setCustomValidity('');
     if (!date) {
@@ -250,7 +257,9 @@
     else if (customerSchedule.length === 16 && suggestedSchedule === customerSchedule) localError = 'Choose a schedule different from the customer’s original request.';
     else if (earliestDate && date < earliestDate) localError = 'This date is too soon. Earliest custom-cake date is ' + earliestDate + '.';
     else if (timeMinutes === null || timeMinutes < openMinutes || timeMinutes > closeMinutes) localError = 'Choose a time within shop hours: ' + form.dataset.openTime + ' to ' + form.dataset.closeTime + '.';
-    else if (timeMinutes < earliestTime) localError = 'That time is too soon for preparation. Earliest available time is ' + String(Math.floor(earliestTime / 60)).padStart(2, '0') + ':' + String(earliestTime % 60).padStart(2, '0') + '.';
+    else if (timeMinutes < requiredTime) localError = date === form.dataset.customerDate
+      ? 'For the same date, choose a time later than the customer’s requested time.'
+      : 'That time is too soon for preparation. Earliest available time is ' + String(Math.floor(requiredTime / 60)).padStart(2, '0') + ':' + String(requiredTime % 60).padStart(2, '0') + '.';
     if (localError) {
       if (date < earliestDate) dateInput?.setCustomValidity(localError); else timeInput?.setCustomValidity(localError);
       if (button) button.disabled = true;
