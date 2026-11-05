@@ -1681,6 +1681,10 @@
   font-size:.65rem;font-weight:700;
   padding:2px 7px;border-radius:99px;min-width:20px;text-align:center;
 }
+.csb-link .csb-dot {
+  width:9px;height:9px;min-width:9px;padding:0;
+  box-shadow:0 0 0 3px rgba(239,68,68,.14);
+}
 
 .csb-divider { height:1px;background:#f3f4f6;margin:8px 0; }
 
@@ -1804,8 +1808,20 @@
     <a href="{{ route('customer.cart') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.cart') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-cart3"></i> Cart
     </a>
+    @php
+      $customerOrderUpdates = 0;
+      try {
+        $customerOrderUpdates = \Illuminate\Support\Facades\Schema::hasTable('orders')
+          ? \Illuminate\Support\Facades\DB::table('orders')
+              ->where('user_id', session('user')['id'] ?? '')
+              ->whereIn('status', ['Pickup', 'Out for Delivery'])
+              ->count()
+          : 0;
+      } catch (\Throwable $e) {}
+    @endphp
     <a href="{{ route('customer.orders') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.orders') || str_starts_with($currentRoute,'customer.custom_orders') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-bag-check"></i> Orders
+      @if($customerOrderUpdates > 0)<span class="csb-badge csb-dot" role="status" aria-label="{{ $customerOrderUpdates }} order{{ $customerOrderUpdates === 1 ? '' : 's' }} ready for pickup or out for delivery" title="{{ $customerOrderUpdates }} order{{ $customerOrderUpdates === 1 ? '' : 's' }} ready for pickup or out for delivery"></span>@endif
     </a>
     @php
       $customerRequestActions = 0;

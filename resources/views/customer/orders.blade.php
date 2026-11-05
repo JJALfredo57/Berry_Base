@@ -5,8 +5,8 @@
   if (!isset($orderAddons))      $orderAddons = [];
   if (!isset($orderReviews))     $orderReviews = [];
   if (!isset($tracking))         $tracking = [];
-  $customerStatuses = ['Awaiting Deposit','Pending Price Confirmation','Pending Review','Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'];
-  $statusLabelMap = ['No Show' => 'Unclaimed'];
+  $customerStatuses = ['Awaiting Deposit','Pending Price Confirmation','Pending Review','Pending','Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'];
+  $statusLabelMap = ['Pickup' => 'Ready for Pickup', 'No Show' => 'Unclaimed'];
   $autoReviewPrompted = false;
 @endphp
 <div class="container-fluid py-4">
@@ -213,6 +213,7 @@
     .status-dot-Pending { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
     .status-dot-Confirmed,
     .status-dot-Preparing,
+    .status-dot-Pickup,
     .status-dot-Ready-for-Rider,
     .status-dot-Out-for-Delivery { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
     .status-dot-Delivered,
@@ -403,7 +404,7 @@
   @php
     $hasDepositLock = ($o->deposit_status ?? null) === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']);
     $canCancel   = in_array($o->status, ['Awaiting Deposit','Pending','Pending Review','Pending Price Confirmation','Confirmed']) && !$o->cancel_requested;
-    $notAllowed  = in_array($o->status, ['Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled']);
+    $notAllowed  = in_array($o->status, ['Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled']);
     $hasPending  = $o->cancel_requested && $o->cancel_status === 'pending';
     $sellerCancelAwaiting = ($o->seller_cancel_state ?? '') === 'awaiting_customer'
       && !empty($o->seller_cancel_expires_at)

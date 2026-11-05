@@ -32,6 +32,7 @@ class OrderController extends Controller
         'Pending',
         'Confirmed',
         'Preparing',
+        'Pickup',
         'Ready for Rider',
         'Out for Delivery',
         'Delivered',
@@ -312,7 +313,7 @@ class OrderController extends Controller
             return back()->with('error', 'The seller has already requested cancellation. Respond to that request before submitting another cancellation.');
         }
 
-        $notAllowed = ['Preparing','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'];
+        $notAllowed = ['Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled'];
         if (in_array($order->status, $notAllowed)) {
             return back()->with('error', "Cannot cancel - status is already '{$order->status}'.");
         }
