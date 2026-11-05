@@ -200,7 +200,7 @@
                   "acceptUrl" => route("customer.order_requests.respond", $requestItem->id),
                   "acceptAction" => $requestItem->status === "schedule_suggested" ? "accept_schedule" : "accept_alternative",
                   "declineUrl" => route("customer.order_requests.decline", $requestItem->id),
-                ]))'>
+                ])'>
                   <i class="bi bi-arrow-repeat me-1"></i>Review seller update
                 </button>
               @elseif($requestItem->status === 'needs_more_details')
