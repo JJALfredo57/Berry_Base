@@ -74,7 +74,7 @@ class OrderRequestController extends Controller
         if ($filter === 'active') {
             $query->whereIn('r.status', self::ACTIVE_STATUSES);
         } elseif ($filter === 'offers') {
-            $query->whereIn('r.status', self::OFFER_STATUSES);
+            $query->whereIn('r.status', ['accepted', 'customer_accepted', 'schedule_suggested', 'alternative_offered', 'needs_more_details']);
         } elseif ($filter === 'closed') {
             $query->whereIn('r.status', self::CLOSED_STATUSES);
         }

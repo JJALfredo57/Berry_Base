@@ -1807,8 +1807,17 @@
     <a href="{{ route('customer.orders') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.orders') || str_starts_with($currentRoute,'customer.custom_orders') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-bag-check"></i> Orders
     </a>
-    <a href="{{ route('customer.order_requests.index') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.order_requests') ? 'active' : '' }}" onclick="closeCustSidebar()">
+    @php
+      $customerRequestActions = 0;
+      try {
+        $customerRequestActions = \Illuminate\Support\Facades\Schema::hasTable('order_requests')
+          ? \Illuminate\Support\Facades\DB::table('order_requests')->where('user_id', session('user')['id'] ?? '')->whereIn('status', ['accepted','customer_accepted','schedule_suggested','alternative_offered','needs_more_details'])->count()
+          : 0;
+      } catch (\Throwable $e) {}
+    @endphp
+    <a href="{{ route('customer.order_requests.index', ['filter' => $customerRequestActions > 0 ? 'offers' : 'active']) }}" class="csb-link {{ str_starts_with($currentRoute,'customer.order_requests') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-send"></i> Requests
+      @if($customerRequestActions > 0)<span class="csb-badge" aria-label="{{ $customerRequestActions }} request updates need action">{{ $customerRequestActions > 9 ? '9+' : $customerRequestActions }}</span>@endif
     </a>
     <a href="{{ route('customer.messages') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.messages') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-chat-dots"></i> Messages

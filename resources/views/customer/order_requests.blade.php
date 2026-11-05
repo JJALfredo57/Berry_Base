@@ -189,10 +189,23 @@
                 </a>
               @elseif($requestItem->status === 'pending')
                 <button class="btn btn-light fw-semibold" disabled><i class="bi bi-hourglass-split me-1"></i>Waiting for seller</button>
-              @elseif(in_array($requestItem->status, ['schedule_suggested', 'alternative_offered', 'needs_more_details'], true))
+              @elseif(in_array($requestItem->status, ['schedule_suggested', 'alternative_offered'], true))
+                <button type="button" class="btn btn-primary fw-semibold request-review-trigger" onclick='openRequestReview(@json([
+                  "title" => $requestItem->display_name,
+                  "seller" => $requestItem->shop_name ?? "Cake shop",
+                  "status" => $requestItem->status,
+                  "schedule" => $requestItem->status === "schedule_suggested" ? trim(($requestItem->suggested_date ?? "") . " " . ($requestItem->suggested_time ?? "")) : $requestItem->preferred_label,
+                  "note" => $requestItem->seller_response ?? "Review this seller update.",
+                  "deadline" => $responseDeadline ? \Carbon\Carbon::parse($responseDeadline)->toIso8601String() : "",
+                  "acceptUrl" => route("customer.order_requests.respond", $requestItem->id),
+                  "acceptAction" => $requestItem->status === "schedule_suggested" ? "accept_schedule" : "accept_alternative",
+                  "declineUrl" => route("customer.order_requests.decline", $requestItem->id),
+                ]))'>
+                  <i class="bi bi-arrow-repeat me-1"></i>Review seller update
+                </button>
+              @elseif($requestItem->status === 'needs_more_details')
                 <a href="{{ route('customer.order_requests.show', $requestItem->id) }}" class="btn btn-primary fw-semibold">
-                  <i class="bi {{ $requestItem->status === 'needs_more_details' ? 'bi-chat-square-text' : 'bi-arrow-repeat' }} me-1"></i>
-                  {{ $requestItem->status === 'needs_more_details' ? 'Reply to seller' : 'Review seller update' }}
+                  <i class="bi bi-chat-square-text me-1"></i>Reply to seller
                 </a>
               @else
                 <a href="{{ route('customer.catalog') }}" class="btn btn-outline-primary fw-semibold">
@@ -217,7 +230,52 @@
     <div class="mt-3">{{ $requests->links() }}</div>
   @endif
 </div>
+<div class="request-review-modal" id="requestReviewModal" aria-hidden="true" onclick="if(event.target===this) closeRequestReview()">
+  <section class="request-review-dialog" role="dialog" aria-modal="true" aria-labelledby="requestReviewTitle" tabindex="-1">
+    <header><div><div class="small text-muted fw-semibold">SELLER UPDATE</div><h5 id="requestReviewTitle" class="mb-0 fw-bold"></h5></div><button type="button" class="btn-close" aria-label="Close" onclick="closeRequestReview()"></button></header>
+    <div class="request-review-body">
+      <div class="request-review-meta" id="requestReviewSeller"></div>
+      <div class="request-review-schedule"><span>Proposed schedule</span><strong id="requestReviewSchedule"></strong></div>
+      <div class="request-review-note" id="requestReviewNote"></div>
+      <div class="request-review-deadline" id="requestReviewDeadline" role="status" aria-live="polite"></div>
+      <div class="request-review-error" id="requestReviewError" role="alert"></div>
+    </div>
+    <footer>
+      <form id="requestReviewAcceptForm" method="POST" data-prevent-double-submit><input type="hidden" name="_token" value="{{ csrf_token() }}"><input type="hidden" name="action" id="requestReviewAction"><button class="btn btn-primary w-100 fw-semibold" type="submit">Accept update</button></form>
+      <button class="btn btn-outline-danger w-100 fw-semibold" type="button" onclick="document.getElementById('requestReviewDeclineBox').classList.toggle('show')">Decline / Cancel</button>
+      <form id="requestReviewDeclineBox" class="request-review-decline" method="POST" data-prevent-double-submit><input type="hidden" name="_token" value="{{ csrf_token() }}"><textarea name="customer_decision_note" class="form-control mb-2" rows="2" maxlength="500" placeholder="Optional reason for declining"></textarea><button class="btn btn-danger w-100 fw-semibold" type="submit">Confirm decline</button></form>
+    </footer>
+  </section>
+</div>
+<style>
+  .request-review-modal{position:fixed;inset:0;z-index:1100;display:none;align-items:center;justify-content:center;padding:14px;background:rgba(15,23,42,.58)}
+  .request-review-modal.is-open{display:flex;animation:requestReviewFade .18s ease}.request-review-dialog{width:min(520px,100%);max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 28px 84px rgba(15,23,42,.3);animation:requestReviewIn .22s ease}.request-review-dialog header,.request-review-dialog footer{padding:16px;flex:0 0 auto}.request-review-dialog header{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #eef2f7}.request-review-body{padding:16px;overflow:auto}.request-review-meta{font-size:.82rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.request-review-schedule,.request-review-note,.request-review-deadline{border-radius:12px;padding:12px;margin-top:12px}.request-review-schedule{background:#eff6ff;color:#1e3a8a}.request-review-schedule span{display:block;font-size:.72rem;font-weight:800;text-transform:uppercase}.request-review-schedule strong{display:block;margin-top:3px}.request-review-note{background:#f8fafc;color:#334155;white-space:pre-wrap}.request-review-deadline{background:#fff7ed;color:#9a3412;font-weight:800}.request-review-error{display:none;color:#b91c1c;font-size:.82rem;font-weight:700;margin-top:10px}.request-review-dialog footer{display:grid;gap:8px;border-top:1px solid #eef2f7}.request-review-decline{display:none}.request-review-decline.show{display:block}@keyframes requestReviewFade{from{opacity:0}to{opacity:1}}@keyframes requestReviewIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}@media(max-width:575px){.request-review-modal{padding:8px}.request-review-dialog{max-height:calc(100dvh - 16px);border-radius:16px}.request-review-dialog header,.request-review-dialog footer,.request-review-body{padding:14px}}
+</style>
 <script>
+let requestReviewInvoker = null;
+let requestReviewTimer = null;
+function openRequestReview(data) {
+  const modal = document.getElementById('requestReviewModal');
+  if (!modal) return;
+  requestReviewInvoker = document.activeElement;
+  document.getElementById('requestReviewTitle').textContent = data.title || 'Kitchen request';
+  document.getElementById('requestReviewSeller').textContent = data.seller || '';
+  document.getElementById('requestReviewSchedule').textContent = data.schedule || 'Schedule to confirm';
+  document.getElementById('requestReviewNote').textContent = data.note || '';
+  document.getElementById('requestReviewAcceptForm').action = data.acceptUrl || '';
+  document.getElementById('requestReviewAction').value = data.acceptAction || '';
+  document.getElementById('requestReviewDeclineBox').action = data.declineUrl || '';
+  document.getElementById('requestReviewDeclineBox').classList.remove('show');
+  document.getElementById('requestReviewError').style.display = 'none';
+  const deadline = document.getElementById('requestReviewDeadline');
+  const target = new Date(data.deadline || '').getTime();
+  const tick = () => { const seconds=Math.floor((target-Date.now())/1000); deadline.textContent = seconds > 0 ? 'Response time: ' + Math.floor(seconds/3600) + 'h ' + Math.floor((seconds%3600)/60) + 'm ' + (seconds%60) + 's' : 'Response window expired'; };
+  clearInterval(requestReviewTimer); tick(); requestReviewTimer = setInterval(tick, 1000);
+  modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
+  modal.querySelector('.request-review-dialog').focus();
+}
+function closeRequestReview() { const modal=document.getElementById('requestReviewModal'); if(!modal)return; modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true');document.body.style.overflow='';clearInterval(requestReviewTimer);requestReviewInvoker?.focus(); }
+document.addEventListener('keydown', e => { if(e.key==='Escape' && document.getElementById('requestReviewModal')?.classList.contains('is-open')) closeRequestReview(); });
 (() => {
   const render = el => {
     const due = new Date(el.dataset.requestDeadline || '').getTime();
