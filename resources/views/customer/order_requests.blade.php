@@ -190,17 +190,20 @@
               @elseif($requestItem->status === 'pending')
                 <button class="btn btn-light fw-semibold" disabled><i class="bi bi-hourglass-split me-1"></i>Waiting for seller</button>
               @elseif(in_array($requestItem->status, ['schedule_suggested', 'alternative_offered'], true))
-                <button type="button" class="btn btn-primary fw-semibold request-review-trigger" onclick='openRequestReview(@json([
-                  "title" => $requestItem->display_name,
-                  "seller" => $requestItem->shop_name ?? "Cake shop",
-                  "status" => $requestItem->status,
-                  "schedule" => $requestItem->status === "schedule_suggested" ? trim(($requestItem->suggested_date ?? "") . " " . ($requestItem->suggested_time ?? "")) : $requestItem->preferred_label,
-                  "note" => $requestItem->seller_response ?? "Review this seller update.",
-                  "deadline" => $responseDeadline ? \Carbon\Carbon::parse($responseDeadline)->toIso8601String() : "",
-                  "acceptUrl" => route("customer.order_requests.respond", $requestItem->id),
-                  "acceptAction" => $requestItem->status === "schedule_suggested" ? "accept_schedule" : "accept_alternative",
-                  "declineUrl" => route("customer.order_requests.decline", $requestItem->id),
-                ])'>
+                @php
+                  $reviewPayload = [
+                    'title' => $requestItem->display_name,
+                    'seller' => $requestItem->shop_name ?? 'Cake shop',
+                    'status' => $requestItem->status,
+                    'schedule' => $requestItem->status === 'schedule_suggested' ? trim(($requestItem->suggested_date ?? '') . ' ' . ($requestItem->suggested_time ?? '')) : $requestItem->preferred_label,
+                    'note' => $requestItem->seller_response ?? 'Review this seller update.',
+                    'deadline' => $responseDeadline ? \Carbon\Carbon::parse($responseDeadline)->toIso8601String() : '',
+                    'acceptUrl' => route('customer.order_requests.respond', $requestItem->id),
+                    'acceptAction' => $requestItem->status === 'schedule_suggested' ? 'accept_schedule' : 'accept_alternative',
+                    'declineUrl' => route('customer.order_requests.decline', $requestItem->id),
+                  ];
+                @endphp
+                <button type="button" class="btn btn-primary fw-semibold request-review-trigger" onclick='openRequestReview(@json($reviewPayload))'>
                   <i class="bi bi-arrow-repeat me-1"></i>Review seller update
                 </button>
               @elseif($requestItem->status === 'needs_more_details')
