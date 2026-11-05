@@ -251,6 +251,7 @@ class OrderController extends Controller
         $newStatus = $request->input('status');
         $orderTypes = app(OrderTypeService::class);
         $isCustomOrder = $orderTypes->isCustom($order);
+        $isRequestBakeOrder = $orderTypes->isRequestBakeOrder($order);
         $requiresKitchen = $orderTypes->requiresKitchen($order);
         $isPickupOrder = ($order->fulfillment_type ?? 'Pickup') === 'Pickup';
         $allowed   = ['Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','Cancelled'];
@@ -281,8 +282,11 @@ class OrderController extends Controller
                 'Out for Delivery' => ['Delivered'],
                 'Pickup' => ['Picked Up'],
             ];
-            $nextMap = $requiresKitchen ? $customNext : $regularNext;
             $currentStatus = (string) ($order->status ?? '');
+            $nextMap = $requiresKitchen ? $customNext : $regularNext;
+            if ($isRequestBakeOrder && $currentStatus === 'Pending') {
+                $nextMap['Pending'] = ['Confirmed'];
+            }
             if (!in_array($newStatus, $nextMap[$currentStatus] ?? [], true)) {
                 return back()->with('err', "Cannot change {$currentStatus} order to {$newStatus} from this page.");
             }
