@@ -61,6 +61,9 @@
         @if($offer->customer_response)
           <div class="offer-note" style="background:#f8fafc;border-color:#e5e7eb;color:#334155"><strong>Your latest reply:</strong><br>{{ $offer->customer_response }}</div>
         @endif
+        @if(in_array($offer->status, ['accepted', 'customer_accepted'], true))
+          <div class="offer-note" style="background:#ecfdf5;border-color:#bbf7d0;color:#166534"><i class="bi bi-shield-check me-1"></i><strong>{{ (int)$offer->quantity }} kitchen slot{{ (int)$offer->quantity === 1 ? '' : 's' }} temporarily held.</strong> Complete checkout before the response deadline to keep this schedule.</div>
+        @endif
 
         @if($isActiveOffer)
           <div class="offer-actions">

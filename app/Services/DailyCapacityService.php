@@ -9,6 +9,7 @@ class DailyCapacityService
 {
     public function snapshot(?string $shopId, ?string $date): array
     {
+        $this->releaseExpiredReservations();
         $date = trim((string) $date);
         if ($date === '') {
             return [
@@ -133,6 +134,67 @@ class DailyCapacityService
             $query->whereNull('shop_id');
         }
 
-        return (int) $query->sum('quantity');
+        $ordered = (int) $query->sum('quantity');
+        $held = 0;
+        if (Schema::hasTable('order_request_capacity_reservations')) {
+            $held = (int) DB::table('order_request_capacity_reservations')
+                ->where('reserved_date', $date)
+                ->where('status', 'active')
+                ->when($shopId, fn ($q) => $q->where('shop_id', $shopId), fn ($q) => $q->whereNull('shop_id'))
+                ->sum('quantity');
+        }
+        return $ordered + $held;
+    }
+
+    public function reserveRequest(object $request, \DateTimeInterface $expiresAt): array
+    {
+        if (!Schema::hasTable('order_request_capacity_reservations')) {
+            return ['ok' => false, 'message' => 'Kitchen capacity reservations are not available yet.'];
+        }
+
+        return DB::transaction(function () use ($request, $expiresAt) {
+            DB::table('order_request_capacity_reservations')
+                ->where('order_request_id', $request->id)
+                ->where('status', 'active')
+                ->update(['status' => 'released', 'updated_at' => now()]);
+
+            $check = $this->validate($request->shop_id ?? null, $request->accepted_date ?? $request->preferred_date, max(1, (int) $request->quantity));
+            if (!$check['allowed']) return ['ok' => false, 'message' => $check['message']];
+
+            DB::table('order_request_capacity_reservations')->updateOrInsert(
+                ['order_request_id' => $request->id],
+                [
+                    'shop_id' => $request->shop_id,
+                    'reserved_date' => $request->accepted_date ?? $request->preferred_date,
+                    'quantity' => max(1, (int) $request->quantity),
+                    'status' => 'active',
+                    'expires_at' => $expiresAt,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+            return ['ok' => true, 'message' => ($check['remaining'] - max(1, (int) $request->quantity)) . ' kitchen slot(s) remain after this hold.'];
+        });
+    }
+
+    public function releaseRequest(string $requestId): void
+    {
+        if (!Schema::hasTable('order_request_capacity_reservations')) return;
+        DB::table('order_request_capacity_reservations')->where('order_request_id', $requestId)->where('status', 'active')
+            ->update(['status' => 'released', 'updated_at' => now()]);
+    }
+
+    public function consumeRequest(string $requestId): void
+    {
+        if (!Schema::hasTable('order_request_capacity_reservations')) return;
+        DB::table('order_request_capacity_reservations')->where('order_request_id', $requestId)->where('status', 'active')
+            ->update(['status' => 'consumed', 'updated_at' => now()]);
+    }
+
+    public function releaseExpiredReservations(): void
+    {
+        if (!Schema::hasTable('order_request_capacity_reservations')) return;
+        DB::table('order_request_capacity_reservations')->where('status', 'active')->whereNotNull('expires_at')->where('expires_at', '<=', now())
+            ->update(['status' => 'released', 'updated_at' => now()]);
     }
 }

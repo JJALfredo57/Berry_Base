@@ -176,6 +176,16 @@ class OrderRequestController extends Controller
 
         if ($action === 'decline') $data['action_expires_at'] = null;
 
+        if ($action === 'accept') {
+            $reservationRequest = (object) array_merge((array) $orderRequest, [
+                'accepted_date' => $data['accepted_date'],
+                'accepted_time' => $data['accepted_time'],
+            ]);
+            $reservation = app(\App\Services\DailyCapacityService::class)->reserveRequest($reservationRequest, $data['action_expires_at']);
+            if (!$reservation['ok']) return back()->with('err', $reservation['message'])->withInput();
+            $message .= ' ' . $reservation['message'];
+        }
+
         DB::table('order_requests')->where('id', $id)->update($data);
         $service->ensureCustomerToken($id);
         $this->notifyCustomer($id, $data['status']);

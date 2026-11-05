@@ -204,6 +204,7 @@ class OrderRequestService
             'customer_decision_at' => now(),
             'updated_at' => now(),
         ]);
+        app(DailyCapacityService::class)->releaseRequest((string) $row->id);
         $this->notifySellerDecision((string) $row->id, 'declined');
         return ['ok' => true, 'message' => 'Offer declined.'];
     }
@@ -235,6 +236,9 @@ class OrderRequestService
                 'accepted_time' => $acceptedTime,
                 'accepted_datetime' => Carbon::parse($acceptedDate . ' ' . $acceptedTime, config('app.timezone'))->toDateTimeString(),
             ];
+            $reservationRequest = (object) array_merge((array) $row, $updates);
+            $reservation = app(DailyCapacityService::class)->reserveRequest($reservationRequest, $this->actionDeadline());
+            if (!$reservation['ok']) return ['ok' => false, 'message' => $reservation['message']];
         }
 
         if ($action === 'accept_alternative' && $status === 'alternative_offered') {
@@ -251,6 +255,9 @@ class OrderRequestService
                 'accepted_time' => substr((string) $row->preferred_time, 0, 5),
                 'accepted_datetime' => $row->preferred_datetime,
             ];
+            $reservationRequest = (object) array_merge((array) $row, $updates);
+            $reservation = app(DailyCapacityService::class)->reserveRequest($reservationRequest, $this->actionDeadline());
+            if (!$reservation['ok']) return ['ok' => false, 'message' => $reservation['message']];
         }
 
         if (!$updates || ($updates['accepted_price'] ?? 0) <= 0) {
@@ -334,6 +341,7 @@ class OrderRequestService
             'converted_at' => now(),
             'updated_at' => now(),
         ]);
+        app(DailyCapacityService::class)->consumeRequest($requestId);
         $this->notifySellerDecision($requestId, 'accepted', $orderId);
     }
 
@@ -532,7 +540,7 @@ class OrderRequestService
     public function markExpired(): int
     {
         if (!Schema::hasTable('order_requests')) return 0;
-        return DB::table('order_requests')
+        $expired = DB::table('order_requests')
             ->whereIn('status', self::ACTIVE_STATUSES)
             ->where(function ($query) {
                 $query->whereNotNull('expires_at')->where('expires_at', '<=', now())
@@ -540,6 +548,10 @@ class OrderRequestService
                         $actionQuery->whereNotNull('action_expires_at')->where('action_expires_at', '<=', now());
                     });
             })
-            ->update(['status' => 'expired', 'updated_at' => now()]);
+            ->get(['id']);
+        if ($expired->isEmpty()) return 0;
+        DB::table('order_requests')->whereIn('id', $expired->pluck('id'))->update(['status' => 'expired', 'updated_at' => now()]);
+        foreach ($expired as $row) app(DailyCapacityService::class)->releaseRequest((string) $row->id);
+        return $expired->count();
     }
 }
