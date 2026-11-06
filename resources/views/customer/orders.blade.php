@@ -44,9 +44,8 @@
         </div>
       </div>
       <a href="{{ route('customer.catalog') }}" class="btn btn-primary btn-sm customer-order-again-btn">
-        <i class="bi bi-plus me-1 customer-order-again-icon"></i>
-        <span class="customer-order-again-text-main">Order</span>
-        <span class="customer-order-again-text-tail"> Again</span>
+        <i class="bi bi-grid me-1 customer-order-again-icon"></i>
+        <span class="customer-order-again-text-main">View Catalog</span>
       </a>
     </div>
   </div>
@@ -151,6 +150,56 @@
       align-items: center;
       gap: .1rem;
       white-space: nowrap;
+    }
+    .customer-order-summary {
+      gap: .9rem;
+    }
+    .customer-order-summary-main {
+      min-width: 0;
+    }
+    .customer-order-summary-main > div:last-child {
+      min-width: 0;
+    }
+    .customer-order-summary-main .fw-bold {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .customer-order-summary-side {
+      flex: 0 0 auto;
+      min-width: 116px;
+    }
+    .customer-order-toggle {
+      border: 0;
+      background: transparent;
+      color: var(--primary);
+      font-size: .77rem;
+      font-weight: 700;
+      padding: .28rem 0 0;
+    }
+    .customer-order-toggle:hover,
+    .customer-order-toggle:focus-visible {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+    .customer-order-toggle .bi {
+      display: inline-block;
+      transition: transform .2s ease;
+    }
+    .customer-order-toggle[aria-expanded="true"] .bi {
+      transform: rotate(180deg);
+    }
+    .customer-order-details {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .24s ease;
+    }
+    .customer-order-details.is-open {
+      grid-template-rows: 1fr;
+    }
+    .customer-order-details-inner {
+      min-height: 0;
+      overflow: hidden;
     }
     .status-filter-chevron { font-size: .72rem; color: #6b7280; transition: transform .16s ease; }
     .status-filter-wrap.is-open .status-filter-chevron { transform: rotate(180deg); }
@@ -275,8 +324,37 @@
       .customer-order-again-btn .customer-order-again-icon {
         margin-right: 0 !important;
       }
-      .customer-order-again-text-tail {
-        display: none;
+      .customer-order-again-text-main {
+        font-size: 0;
+      }
+      .customer-order-again-text-main::after {
+        content: 'Catalog';
+        font-size: .64rem;
+      }
+      .customer-order-summary {
+        align-items: flex-start !important;
+      }
+      .customer-order-summary-main {
+        gap: .65rem !important;
+        flex: 1 1 0;
+      }
+      .customer-order-summary-main .chat-img,
+      .customer-order-summary-main [data-lightbox-gallery] > div,
+      .customer-order-summary-main > div:first-child:not([data-lightbox-gallery]) {
+        flex: 0 0 46px;
+      }
+      .customer-order-summary-main img.chat-img {
+        width: 46px !important;
+        height: 46px !important;
+      }
+      .customer-order-summary-side {
+        min-width: 88px;
+      }
+      .customer-order-summary-side .fw-bold {
+        font-size: .84rem;
+      }
+      .customer-order-toggle {
+        font-size: .72rem;
       }
     }
     .customer-review-backdrop {
@@ -467,8 +545,8 @@
     <div class="card-body p-0">
 
       {{-- Header --}}
-      <div class="d-flex flex-wrap align-items-center justify-content-between p-3 border-bottom">
-        <div class="d-flex align-items-center gap-3">
+      <div class="d-flex flex-wrap align-items-center justify-content-between p-3 border-bottom customer-order-summary">
+        <div class="d-flex align-items-center gap-3 customer-order-summary-main">
           @if($orderThumb)
           <div data-lightbox-gallery="customer-order-{{ $o->id }}" style="display:flex">
             @if($isCustom && count($coRefImgs) > 0)
@@ -508,12 +586,22 @@
             <div class="text-muted small">Order #{{ $o->id }} &bull; {{ \Carbon\Carbon::parse($o->created_at)->format('M d, Y') }}</div>
           </div>
         </div>
-        <div class="text-end mt-2 mt-sm-0">
+        <div class="text-end mt-2 mt-sm-0 customer-order-summary-side">
           <span class="status-badge status-{{ str_replace(' ','-',$displayStatus) }}">{{ $displayStatusLabel }}</span>
           <div class="fw-bold mt-1">PHP {{ number_format($o->total_price,2) }}</div>
+          <button type="button"
+                  class="customer-order-toggle"
+                  aria-expanded="false"
+                  aria-controls="customerOrderDetails{{ $o->id }}"
+                  data-customer-order-toggle>
+            <span data-order-toggle-label>View details</span>
+            <i class="bi bi-chevron-down ms-1" aria-hidden="true"></i>
+          </button>
         </div>
       </div>
 
+      <div class="customer-order-details" id="customerOrderDetails{{ $o->id }}" hidden>
+      <div class="customer-order-details-inner">
       @if($sellerRefundProcessing)
       <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#eff6ff">
         <i class="bi bi-cash-coin text-primary"></i>
@@ -1364,6 +1452,8 @@
         </div>
       </div>
       @endif
+      </div>{{-- /customer-order-details-inner --}}
+      </div>{{-- /customer-order-details --}}
     </div>
   </div>
 
@@ -1452,6 +1542,41 @@
 <script>
 let activeCustomerReviewCard = null;
 const customerStatusLabelMap = @json($statusLabelMap);
+
+function setCustomerOrderDetails(toggle, shouldOpen) {
+  const detailsId = toggle.getAttribute('aria-controls');
+  const details = detailsId ? document.getElementById(detailsId) : null;
+  if (!details) return;
+
+  const label = toggle.querySelector('[data-order-toggle-label]');
+  const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+  if (isOpen === shouldOpen) return;
+
+  if (shouldOpen) {
+    document.querySelectorAll('[data-customer-order-toggle][aria-expanded="true"]').forEach((otherToggle) => {
+      if (otherToggle !== toggle) setCustomerOrderDetails(otherToggle, false);
+    });
+    details.hidden = false;
+    requestAnimationFrame(() => details.classList.add('is-open'));
+  } else {
+    details.classList.remove('is-open');
+    const hideAfterAnimation = (event) => {
+      if (event.propertyName !== 'grid-template-rows' || details.classList.contains('is-open')) return;
+      details.hidden = true;
+      details.removeEventListener('transitionend', hideAfterAnimation);
+    };
+    details.addEventListener('transitionend', hideAfterAnimation);
+  }
+
+  toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+  if (label) label.textContent = shouldOpen ? 'Hide details' : 'View details';
+}
+
+document.querySelectorAll('[data-customer-order-toggle]').forEach((toggle) => {
+  toggle.addEventListener('click', () => {
+    setCustomerOrderDetails(toggle, toggle.getAttribute('aria-expanded') !== 'true');
+  });
+});
 
 function statusBadgeValue(count) {
   const numeric = Number(count || 0);
