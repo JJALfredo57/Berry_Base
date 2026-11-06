@@ -936,9 +936,11 @@ class OrderController extends Controller
             'safe_until' => 'nullable|date|after:now',
             'safe_and_generic' => 'accepted',
         ]);
-        $photo = $this->uploadFile($request->file('finished_cake_photo'), 'uploads/unclaimed-cakes');
         try {
-            app(\App\Services\UnclaimedCakeService::class)->startGrace($order, trim($validated['contact_note']), $photo, (float) $validated['resale_price'], $validated['safe_until'] ?? null);
+            $unclaimed = app(\App\Services\UnclaimedCakeService::class);
+            $unclaimed->assertCanStart($order, (float) $validated['resale_price']);
+            $photo = $this->uploadFile($request->file('finished_cake_photo'), 'uploads/unclaimed-cakes');
+            $unclaimed->startGrace($order, trim($validated['contact_note']), $photo, (float) $validated['resale_price'], $validated['safe_until'] ?? null);
             app(MobileNotificationService::class)->notifyOrderCustomer($order, 'Three-Day Pickup Window Started', "Please claim Order #{$id} within three days. After the deadline it will be marked unclaimed.", ['event' => 'unclaimed_grace']);
         } catch (\DomainException $e) {
             return back()->with('err', $e->getMessage());

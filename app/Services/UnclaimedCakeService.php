@@ -11,9 +11,7 @@ class UnclaimedCakeService
 
     public function startGrace(object $order, string $note, string $photoPath, float $resalePrice, ?string $safeUntil = null): void
     {
-        if (!$this->eligible($order)) throw new \DomainException('Only paid Request to Bake orders waiting for pickup or returned from delivery can start the unclaimed window.');
-        if (!empty($order->unclaimed_grace_expires_at)) throw new \DomainException('The 3-day unclaimed window is already active.');
-        if ($resalePrice <= 0) throw new \DomainException('Enter a valid resale price.');
+        $this->assertCanStart($order, $resalePrice);
 
         DB::transaction(function () use ($order, $note, $photoPath, $resalePrice, $safeUntil) {
             $expires = now()->addDays(3);
@@ -30,6 +28,13 @@ class UnclaimedCakeService
         });
     }
 
+    public function assertCanStart(object $order, float $resalePrice): void
+    {
+        if (!$this->eligible($order)) throw new \DomainException('Only paid Request to Bake orders waiting for pickup or returned from delivery can start the unclaimed window.');
+        if (!empty($order->unclaimed_grace_expires_at)) throw new \DomainException('The 3-day unclaimed window is already active.');
+        if ($resalePrice <= 0) throw new \DomainException('Enter a valid resale price.');
+    }
+
     public function publishExpired(): int
     {
         if (!Schema::hasTable('unclaimed_cake_listings')) return 0;
@@ -37,15 +42,22 @@ class UnclaimedCakeService
             ->where('unclaimed_grace_expires_at', '<=', now())->whereIn('status', ['Pickup', 'Returned to Shop'])->get();
         $count = 0;
         foreach ($orders as $order) {
-            DB::transaction(function () use ($order, &$count) {
-                $listing = DB::table('unclaimed_cake_listings')->where('order_id', $order->id)->lockForUpdate()->first();
-                if (!$listing || $listing->status !== 'scheduled' || (!empty($listing->safe_until) && $listing->safe_until <= now())) return;
-                DB::table('orders')->where('id', $order->id)->update(['status' => 'No Show', 'updated_at' => now()]);
-                DB::table('unclaimed_cake_listings')->where('id', $listing->id)->update(['status' => 'published', 'published_at' => now(), 'updated_at' => now()]);
-                DB::table('order_tracking')->insert(['order_id' => $order->id, 'status' => 'No Show', 'notes' => 'Three-day unclaimed window expired. Ready cake published to catalog.', 'created_at' => now()]);
-                app(MobileNotificationService::class)->notifyOrderCustomer($order, 'Order Marked Unclaimed', "Order #{$order->id} was not claimed within the three-day grace period.", ['event' => 'customer_no_show']);
+            $listing = DB::table('unclaimed_cake_listings')->where('order_id', $order->id)->first();
+            if (!$listing || $listing->status !== 'scheduled') continue;
+            if (DB::table('unclaimed_cake_listings')->where('id', $listing->id)->where('status', 'scheduled')->update(['status' => 'processing', 'updated_at' => now()]) !== 1) continue;
+            try {
+                app(OrderRefundService::class)->recordNoShow($order, 'Three-day unclaimed window expired.', 'system');
+                $safe = empty($listing->safe_until) || $listing->safe_until > now();
+                DB::table('unclaimed_cake_listings')->where('id', $listing->id)->update([
+                    'status' => $safe ? 'published' : 'expired',
+                    'published_at' => $safe ? now() : null,
+                    'updated_at' => now(),
+                ]);
                 $count++;
-            });
+            } catch (\Throwable $e) {
+                DB::table('unclaimed_cake_listings')->where('id', $listing->id)->where('status', 'processing')->update(['status' => 'scheduled', 'updated_at' => now()]);
+                report($e);
+            }
         }
         return $count;
     }

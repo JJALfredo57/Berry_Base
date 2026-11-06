@@ -930,6 +930,12 @@
                     <textarea name="customer_note" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Occasion, delivery concern, or exact request"></textarea>
                   </div>
                   <div class="col-12">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" name="unclaimed_policy_acknowledged" value="1" id="shopRequestBakePolicy{{ $p->id }}" required>
+                      <label class="form-check-label small" for="shopRequestBakePolicy{{ $p->id }}">I understand that an unclaimed Request-to-Bake cake may be marked unclaimed after the 3-day claim period.</label>
+                    </div>
+                  </div>
+                  <div class="col-12">
                     <button type="submit" class="btn btn-primary w-100 fw-semibold"><i class="bi bi-send me-1"></i>Send Kitchen Request</button>
                     <div class="small text-muted mt-2">No payment yet. This becomes an order only after the seller accepts and confirms the next step.</div>
                   </div>
