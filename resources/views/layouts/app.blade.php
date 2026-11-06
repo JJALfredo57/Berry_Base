@@ -1158,7 +1158,8 @@
   @stack('styles')
   <style>
     .cs-checkout-stepper{display:flex;gap:.5rem;margin:0 0 1rem;overflow:auto;padding:.25rem .1rem .65rem}
-    .cs-checkout-step{display:flex;align-items:center;gap:.45rem;white-space:nowrap;border:1.5px solid var(--gray-200);background:rgba(255,255,255,.72);border-radius:999px;padding:.45rem .75rem;font-size:.78rem;font-weight:700;color:var(--gray-500);transition:.2s;pointer-events:none}
+    .cs-checkout-step{display:flex;align-items:center;gap:.45rem;white-space:nowrap;border:1.5px solid var(--gray-200);background:rgba(255,255,255,.72);border-radius:999px;padding:.45rem .75rem;font-size:.78rem;font-weight:700;color:var(--gray-500);transition:.2s;cursor:not-allowed}
+    .cs-checkout-step.is-clickable{cursor:pointer}
     .cs-checkout-step .dot{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--gray-100);font-size:.72rem}
     .cs-checkout-step:not(:last-child)::after{content:"\F285";font-family:"bootstrap-icons";margin-left:.35rem;color:var(--gray-400);font-size:.75rem}
     .cs-checkout-step.active{border-color:var(--primary);color:var(--primary);background:var(--primary-bg,#fff7ed)}
@@ -5826,7 +5827,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var stepper = document.createElement('div');
   stepper.className = 'cs-checkout-stepper';
   stepper.innerHTML = cards.map(function (card, i) {
-    return '<div class="cs-checkout-step" data-step="'+i+'"><span class="dot">'+(i+1)+'</span><span>'+titleOf(card)+'</span></div>';
+    return '<div class="cs-checkout-step" data-step="'+i+'" role="button" tabindex="-1" aria-disabled="true"><span class="dot">'+(i+1)+'</span><span>'+titleOf(card)+'</span></div>';
   }).join('');
   form.insertBefore(stepper, cards[0]);
   var nav = document.createElement('div');
@@ -5883,6 +5884,10 @@ document.addEventListener('DOMContentLoaded', function () {
     stepper.querySelectorAll('.cs-checkout-step').forEach(function (el, idx) {
       el.classList.toggle('active', idx === current);
       el.classList.toggle('done', idx < current);
+        var canReturn = idx <= current;
+        el.classList.toggle('is-clickable', canReturn);
+        el.tabIndex = canReturn ? 0 : -1;
+        el.setAttribute('aria-disabled', canReturn ? 'false' : 'true');
     });
     nav.querySelector('[data-wiz-back]').style.visibility = current === 0 ? 'hidden' : 'visible';
     nextBtn.innerHTML = (navSubmitBtn || customActions) ? 'Next <i class="bi bi-arrow-right ms-1"></i>' : (current === cards.length - 1 ? 'Review Order <i class="bi bi-check2 ms-1"></i>' : 'Next <i class="bi bi-arrow-right ms-1"></i>');
@@ -5890,6 +5895,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (scroll !== false) cards[current].scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   nav.querySelector('[data-wiz-back]').addEventListener('click', function () { showStep(current - 1); });
+  stepper.querySelectorAll('.cs-checkout-step').forEach(function (step) {
+    function returnToCompletedStep() {
+      var target = parseInt(step.dataset.step || '-1', 10);
+      if (target >= 0 && target <= current) showStep(target);
+    }
+    step.addEventListener('click', returnToCompletedStep);
+    step.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); returnToCompletedStep(); }
+    });
+  });
   nextBtn.addEventListener('click', function () {
     if (!currentValid()) return;
     var leavingFulfillment = (form.id === 'checkoutForm' || form.id === 'customOrderForm') && titleOf(cards[current]).includes('Fulfillment');

@@ -100,12 +100,8 @@
                     @enderror
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {{-- 2. Size & Layers --}}
-            <div class="card mb-3">
-              <div class="card-body p-4">
+                <hr class="my-4">
+                {{-- Size & Layers --}}
                 <h6 class="fw-bold mb-3">
                   <i class="bi bi-rulers me-2" style="color:var(--primary)"></i>Size &amp; Layers
                   <span class="badge ms-1" style="background:#fff0f5;color:var(--primary);font-size:.7rem">Affects price</span>
@@ -135,12 +131,8 @@
                     </select>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {{-- 4. Dedication --}}
-            <div class="card mb-3">
-              <div class="card-body p-4">
+                <hr class="my-4">
+                {{-- Cake Message / Dedication --}}
                 <h6 class="fw-bold mb-3">
                   <i class="bi bi-chat-heart me-2" style="color:var(--primary)"></i>Cake Message / Dedication
                 </h6>
@@ -361,6 +353,7 @@
                            value="{{ old('schedule_date') }}" required
                            onchange="updateCustomScheduleSlots(); checkCustCoAvailability()">
                     <div id="custCoAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
+                    <div id="custCoDateAvailability" class="small mt-1" role="alert" aria-live="polite"></div>
                     <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least {{ $customPrepDays }} preparation day{{ $customPrepDays === 1 ? '' : 's' }}.</div>
                     @error('schedule_date')
                       <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ $message }}</div>
@@ -466,6 +459,24 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="customCapacityModal" tabindex="-1" aria-labelledby="customCapacityModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow" style="border-radius:1rem">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" id="customCapacityModalTitle"><i class="bi bi-calendar-x me-2 text-warning"></i>Date capacity reached</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body pt-2">
+        <p class="mb-0" id="customCapacityModalMessage"></p>
+      </div>
+      <div class="modal-footer border-0 pt-0 flex-wrap">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Keep editing</button>
+        <button type="button" class="btn btn-outline-primary" id="customCapacityUseAvailable">Use available quantity</button>
+        <button type="button" class="btn btn-primary" id="customCapacityChangeDate">Change date</button>
       </div>
     </div>
   </div>
@@ -1179,6 +1190,57 @@ function syncRefInput() {
 let custCoAvailabilityIssue = '';
 let custCoAvailabilityPending = false;
 let custCoAvailabilityRequest = 0;
+let custCoCapacityModalSignature = '';
+let custCoCapacityRemaining = null;
+
+function focusCustomDate() {
+  const date = document.getElementById('custCoFieldDate');
+  if (!date) return;
+  date.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => date.focus(), 300);
+}
+
+function setCustomDateAvailability(message = '', state = '', withChangeDate = false) {
+  const feedback = document.getElementById('custCoDateAvailability');
+  if (!feedback) return;
+  feedback.className = 'small mt-1' + (state === 'error' ? ' text-danger fw-semibold' : (state === 'warning' ? ' text-warning fw-semibold' : ''));
+  feedback.innerHTML = message
+    ? '<i class="bi ' + (state === 'error' ? 'bi-exclamation-circle-fill' : 'bi-info-circle-fill') + ' me-1"></i>' + message + (withChangeDate ? ' <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="focusCustomDate()">Change date</button>' : '')
+    : '';
+}
+
+function showCustomCapacityModal(date, requested, remaining) {
+  const signature = [date, requested, remaining].join(':');
+  if (custCoCapacityModalSignature === signature) return;
+  custCoCapacityModalSignature = signature;
+  custCoCapacityRemaining = remaining;
+  const modal = document.getElementById('customCapacityModal');
+  const message = document.getElementById('customCapacityModalMessage');
+  if (!modal || !message || !window.bootstrap?.Modal) return;
+  if (modal.parentElement !== document.body) document.body.appendChild(modal);
+  message.textContent = 'You requested ' + requested + ' custom cakes for ' + date + ', but only ' + remaining + ' slot' + (remaining === 1 ? '' : 's') + ' are available.';
+  window.bootstrap.Modal.getOrCreateInstance(modal).show();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('customCapacityModal');
+  const useAvailable = document.getElementById('customCapacityUseAvailable');
+  const changeDate = document.getElementById('customCapacityChangeDate');
+  if (modal && modal.parentElement !== document.body) document.body.appendChild(modal);
+  useAvailable?.addEventListener('click', () => {
+    const quantity = document.getElementById('custCoQuantity');
+    if (quantity && Number.isInteger(custCoCapacityRemaining)) {
+      quantity.value = String(custCoCapacityRemaining);
+      quantity.dispatchEvent(new Event('input', { bubbles: true }));
+      quantity.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    window.bootstrap?.Modal.getInstance(modal)?.hide();
+  });
+  changeDate?.addEventListener('click', () => {
+    window.bootstrap?.Modal.getInstance(modal)?.hide();
+    setTimeout(focusCustomDate, 180);
+  });
+});
 
 function setCustomQuantityAvailability(message = '', state = '') {
   const input = document.getElementById('custCoQuantity');
@@ -1210,7 +1272,9 @@ function checkCustCoAvailability() {
   custCoAvailabilityIssue = '';
   custCoAvailabilityPending = false;
   setCustomQuantityAvailability();
+  setCustomDateAvailability();
   if (!Number.isInteger(qty) || qty < 1 || qty > 10) {
+    custCoCapacityModalSignature = '';
     if (qtyInput?.value) setCustomQuantityAvailability('Enter a whole number from 1 to 10.', 'error');
     if (el) el.innerHTML = '';
     return;
@@ -1227,29 +1291,33 @@ function checkCustCoAvailability() {
       if (data.status === 'capacity_not_configured') {
         custCoAvailabilityIssue = data.message || 'This shop has not set custom cake daily capacity yet.';
         setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
-        el.innerHTML = '';
+        setCustomDateAvailability(custCoAvailabilityIssue, 'error', true); el.innerHTML = '';
       } else if (data.status === 'invalid') {
         custCoAvailabilityIssue = data.message || 'Date not available.';
         setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
-        el.innerHTML = '';
+        setCustomDateAvailability(custCoAvailabilityIssue, 'error', true); el.innerHTML = '';
       } else if (data.status === 'full') {
         custCoAvailabilityIssue = (data.message || 'This date is fully booked.') + ' Please choose another date.';
         setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
-        el.innerHTML = '';
+        setCustomDateAvailability(custCoAvailabilityIssue, 'error', true); el.innerHTML = '';
       } else if (typeof data.remaining === 'number' && qty > data.remaining) {
         custCoAvailabilityIssue = 'Only ' + data.remaining + ' custom cake slot' + (data.remaining !== 1 ? 's' : '') + ' available on ' + date + '. Reduce quantity or choose another date.';
         setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
-        el.innerHTML = '';
+        setCustomDateAvailability(custCoAvailabilityIssue, 'error', true); el.innerHTML = '';
+        showCustomCapacityModal(date, qty, data.remaining);
       } else if (data.status === 'almost') {
         custCoAvailabilityIssue = '';
+        custCoCapacityModalSignature = '';
         setCustomQuantityAvailability();
         el.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + customCapacityText(data, data.message) + '</span>';
       } else if (data.status === 'available') {
         custCoAvailabilityIssue = '';
+        custCoCapacityModalSignature = '';
         setCustomQuantityAvailability();
         el.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + customCapacityText(data, data.message) + '</span>';
       } else {
         custCoAvailabilityIssue = '';
+        custCoCapacityModalSignature = '';
         setCustomQuantityAvailability();
         el.innerHTML = '';
       }
