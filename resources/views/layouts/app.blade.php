@@ -4685,6 +4685,19 @@ window.BERRY_PUSH_CONTEXT = {
 })();
 </script>
 @stack('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const now = new Date();
+  const max = new Date(now.getFullYear() + 2, 11, 31).toISOString().slice(0, 10);
+  document.querySelectorAll('input[type="date"]').forEach(function (input) {
+    if (!input.max || input.max > max) input.max = max;
+    input.addEventListener('change', function () {
+      if (this.value && this.value > max) this.setCustomValidity('Please choose a date no later than ' + max + '.');
+      else this.setCustomValidity('');
+    });
+  });
+});
+</script>
 
 {{-- ── Global Image Lightbox ─────────────────────────────────────── --}}
 <style>

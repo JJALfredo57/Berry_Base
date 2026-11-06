@@ -309,7 +309,7 @@ class CheckoutController extends Controller
         $request->validate([
             'fulfillment_type' => 'nullable|in:Pickup,Delivery',
             'payment_method' => 'nullable|in:COD,COP,GCash',
-            'schedule_date' => 'nullable|date_format:Y-m-d',
+            'schedule_date' => ['nullable','date_format:Y-m-d','before_or_equal:' . now()->addYears(2)->endOfYear()->toDateString()],
             'schedule_time' => 'nullable|date_format:H:i',
             'custom_note' => 'nullable|string|max:1000',
             'selected_size' => 'nullable|string|max:120',
