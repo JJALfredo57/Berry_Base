@@ -5577,6 +5577,7 @@ function pgFilter(param, val) {
       el = document.createElement('div');
       el.id = id;
       el.style.cssText = 'font-size:.75rem;margin-top:.3rem;color:#6b7280;display:none';
+      if (input.dataset.csHideOptimization === 'true') el.hidden = true;
       var target = input.dataset.sizePreviewTarget ? document.getElementById(input.dataset.sizePreviewTarget) : null;
       if (target) {
         target.querySelectorAll('[id^="img-size-preview-"]').forEach(function(node) {

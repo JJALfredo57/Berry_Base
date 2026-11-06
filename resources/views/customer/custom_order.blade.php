@@ -61,12 +61,15 @@
                     <label for="refImgInput" class="btn btn-outline-primary btn-sm" id="refImgBtn">
                       <i class="bi bi-image me-1"></i>Choose Images
                       <input type="file" id="refImgInput" name="reference_images[]"
-                             accept="image/*" multiple hidden onchange="addRefImages(this)">
+                             accept="image/*" multiple hidden data-cs-hide-optimization="true" onchange="addRefImages(this)">
                     </label>
                     <span class="small text-muted ms-2" id="refImgCount">0 / 5 selected</span>
                     <div class="text-muted mt-1" style="font-size:.75rem">
                       <i class="bi bi-info-circle me-1"></i>Upload photos of the cake design you want — from Pinterest, other bakeries, or your own ideas.
                     </div>
+                    @error('reference_images')
+                      <div class="text-danger small mt-2"><i class="bi bi-exclamation-circle me-1"></i>{{ $message }}</div>
+                    @enderror
                   </div>
                 </div>
                 <div class="row g-3">
@@ -82,10 +85,16 @@
                     </select>
                   </div>
                   <div class="col-sm-6">
-                    <label class="form-label fw-semibold small">Quantity</label>
-                    <input type="number" class="form-control" name="quantity" min="1" max="10"
-                           value="{{ old('quantity',1) }}" onchange="updatePriceSummary();updateCustomScheduleSlots(); checkCustCoAvailability()">
+                    <label class="form-label fw-semibold small">Quantity <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" name="quantity" id="custCoQuantity" min="1" max="10" required inputmode="numeric"
+                           value="{{ old('quantity') }}" aria-describedby="custCoQuantityHelp custCoQuantityAvailability"
+                           oninput="updatePriceSummary();updateCustomScheduleSlots();checkCustCoAvailability()"
+                           onchange="updatePriceSummary();updateCustomScheduleSlots();checkCustCoAvailability()">
                     <div class="form-text text-muted small">For 11+ pcs or bulk next-month orders, send a seller-reviewed bulk request instead of normal checkout.</div>
+                    <div id="custCoQuantityAvailability" class="small mt-1" role="alert" aria-live="polite"></div>
+                    @error('quantity')
+                      <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ $message }}</div>
+                    @enderror
                   </div>
                 </div>
               </div>
@@ -343,13 +352,16 @@
 
                 <div class="row g-3 mt-1">
                   <div class="col-sm-6">
-                    <label class="form-label fw-semibold small">Preferred Date</label>
+                    <label class="form-label fw-semibold small">Preferred Date <span class="text-danger">*</span></label>
                     <input type="date" class="form-control" name="schedule_date" id="custCoFieldDate"
                            min="{{ $customEarliestDate }}"
-                           value="{{ old('schedule_date', $customEarliestDate) }}"
+                           value="{{ old('schedule_date') }}" required
                            onchange="updateCustomScheduleSlots(); checkCustCoAvailability()">
                     <div id="custCoAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
                     <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least {{ $customPrepDays }} preparation day{{ $customPrepDays === 1 ? '' : 's' }}.</div>
+                    @error('schedule_date')
+                      <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ $message }}</div>
+                    @enderror
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Time</label>
@@ -1163,6 +1175,16 @@ function syncRefInput() {
 
 let custCoAvailabilityIssue = '';
 let custCoAvailabilityPending = false;
+let custCoAvailabilityRequest = 0;
+
+function setCustomQuantityAvailability(message = '', state = '') {
+  const input = document.getElementById('custCoQuantity');
+  const feedback = document.getElementById('custCoQuantityAvailability');
+  if (!input || !feedback) return;
+  input.classList.toggle('is-invalid', state === 'error');
+  feedback.className = 'small mt-1' + (state === 'error' ? ' text-danger fw-semibold' : (state === 'warning' ? ' text-warning fw-semibold' : ''));
+  feedback.innerHTML = message ? '<i class="bi ' + (state === 'error' ? 'bi-exclamation-circle-fill' : 'bi-info-circle-fill') + ' me-1"></i>' + message : '';
+}
 
 function customCapacityText(data, fallback) {
   const max = parseInt(data.max ?? 0, 10);
@@ -1176,13 +1198,20 @@ function customCapacityText(data, fallback) {
 
 function checkCustCoAvailability() {
   const dateEl = document.getElementById('custCoFieldDate');
-  if (dateEl && !dateEl.value && dateEl.min) dateEl.value = dateEl.min;
   const date   = dateEl?.value;
   const shopId = '{{ $targetShop->id ?? '' }}';
-  const qty    = parseInt(document.querySelector('[name=quantity]')?.value || '1', 10);
+  const qtyInput = document.getElementById('custCoQuantity');
+  const qty    = parseInt(qtyInput?.value || '', 10);
   const el     = document.getElementById('custCoAvailability');
+  const requestId = ++custCoAvailabilityRequest;
   custCoAvailabilityIssue = '';
   custCoAvailabilityPending = false;
+  setCustomQuantityAvailability();
+  if (!Number.isInteger(qty) || qty < 1 || qty > 10) {
+    if (qtyInput?.value) setCustomQuantityAvailability('Enter a whole number from 1 to 10.', 'error');
+    if (el) el.innerHTML = '';
+    return;
+  }
   if (!date || !el) return;
   custCoAvailabilityPending = true;
   el.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split me-1"></i>Checking custom cake availability...</span>';
@@ -1190,34 +1219,44 @@ function checkCustCoAvailability() {
   fetch(url)
     .then(r => r.json())
     .then(data => {
+      if (requestId !== custCoAvailabilityRequest) return;
       custCoAvailabilityPending = false;
       if (data.status === 'capacity_not_configured') {
         custCoAvailabilityIssue = data.message || 'This shop has not set custom cake daily capacity yet.';
-        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + custCoAvailabilityIssue + '</span>';
+        setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
+        el.innerHTML = '';
       } else if (data.status === 'invalid') {
         custCoAvailabilityIssue = data.message || 'Date not available.';
-        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + custCoAvailabilityIssue + '</span>';
+        setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
+        el.innerHTML = '';
       } else if (data.status === 'full') {
         custCoAvailabilityIssue = (data.message || 'This date is fully booked.') + ' Please choose another date.';
-        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + custCoAvailabilityIssue + '</span>';
+        setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
+        el.innerHTML = '';
       } else if (typeof data.remaining === 'number' && qty > data.remaining) {
-        custCoAvailabilityIssue = 'Only ' + data.remaining + ' custom cake slot' + (data.remaining !== 1 ? 's' : '') + ' available on this date. Please choose another date or reduce quantity.';
-        el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>' + custCoAvailabilityIssue + '</span>';
+        custCoAvailabilityIssue = 'Only ' + data.remaining + ' custom cake slot' + (data.remaining !== 1 ? 's' : '') + ' available on ' + date + '. Reduce quantity or choose another date.';
+        setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
+        el.innerHTML = '';
       } else if (data.status === 'almost') {
         custCoAvailabilityIssue = '';
+        setCustomQuantityAvailability();
         el.innerHTML = '<span class="text-warning fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + customCapacityText(data, data.message) + '</span>';
       } else if (data.status === 'available') {
         custCoAvailabilityIssue = '';
+        setCustomQuantityAvailability();
         el.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>' + customCapacityText(data, data.message) + '</span>';
       } else {
         custCoAvailabilityIssue = '';
+        setCustomQuantityAvailability();
         el.innerHTML = '';
       }
     })
     .catch(() => {
+      if (requestId !== custCoAvailabilityRequest) return;
       custCoAvailabilityPending = false;
       custCoAvailabilityIssue = 'We could not check custom cake availability. Please try again.';
-      el.innerHTML = '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>' + custCoAvailabilityIssue + '</span>';
+      setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
+      el.innerHTML = '';
     });
 }
 </script>

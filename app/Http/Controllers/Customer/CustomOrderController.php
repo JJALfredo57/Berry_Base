@@ -192,6 +192,23 @@ class CustomOrderController extends Controller
     {
         return array_filter($data, fn ($value, $column) => \Illuminate\Support\Facades\Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
     }
+
+    private function storeReferenceImages(Request $request): array
+    {
+        $referenceImages = [];
+        foreach ($request->file('reference_images', []) as $file) {
+            $storedUrl = $this->uploadFile($file, 'uploads/custom_orders');
+            if (!$storedUrl) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'reference_images' => 'We could not save one of your reference images. Please try again.',
+                ]);
+            }
+            $referenceImages[] = $storedUrl;
+        }
+
+        return $referenceImages;
+    }
+
     public function store(Request $request)
     {
         $uid     = session('user')['id'];
@@ -201,6 +218,10 @@ class CustomOrderController extends Controller
         $request->validate([
             'fulfillment_type' => 'nullable|in:Pickup,Delivery',
             'payment_method' => 'nullable|in:COD,COP,GCash',
+            'quantity' => 'required|integer|min:1|max:10',
+            'schedule_date' => 'required|date',
+            'reference_images' => 'nullable|array|max:5',
+            'reference_images.*' => 'image|mimes:jpg,jpeg,png,webp,gif|max:5120',
         ]);
         $shop = $this->resolveVerifiedShop($request->input('shop_slug'));
         if (!$shop) {
@@ -217,25 +238,14 @@ class CustomOrderController extends Controller
         $compLabel  = trim($request->input('design_complexity', ''));
         $dedication = trim($request->input('dedication', ''));
         $timeSlot   = trim($request->input('time_slot', ''));
-        $qty        = max(1, (int)$request->input('quantity', 1));
+        $qty        = (int) $request->input('quantity');
         if ($qty > 10) {
             return back()->with('error', 'For bulk custom cake orders above 10 pcs, please contact the seller or send a bulk request for manual review.')->withInput();
         }
         $customNote = trim($request->input('custom_note', ''));
         $addonInstructions = trim($request->input('addon_instructions', ''));
 
-        // Save reference images
-
-        $refImages = [];
-        if ($request->hasFile('reference_images')) {
-            foreach ($request->file('reference_images') as $file) {
-                if (!$file->isValid()) continue;
-                if ($file->getSize() > 5 * 1024 * 1024) continue;
-                $ext = strtolower($file->getClientOriginalExtension());
-                if (!in_array($ext, ['jpg','jpeg','png','webp','gif'])) continue;
-                $refImages[] = $this->uploadFile($file, 'uploads/custom_orders');
-            }
-        }
+        $refImages = $this->storeReferenceImages($request);
 
         $basePrice           = 1200.00;
         $sizeSurcharge       = 0.00;
@@ -591,6 +601,13 @@ class CustomOrderController extends Controller
 
     private function customCartPayload(Request $request, object $shop): array
     {
+        $request->validate([
+            'quantity' => 'required|integer|min:1|max:10',
+            'schedule_date' => 'required|date',
+            'reference_images' => 'nullable|array|max:5',
+            'reference_images.*' => 'image|mimes:jpg,jpeg,png,webp,gif|max:5120',
+        ]);
+
         $shopId = $shop->id;
         $options = $this->loadOptions($shopId);
         $cakeName = trim($request->input('cake_name', ''));
@@ -600,7 +617,7 @@ class CustomOrderController extends Controller
         $compLabel = trim($request->input('design_complexity', ''));
         $dedication = trim($request->input('dedication', ''));
         $timeSlot = trim($request->input('time_slot', ''));
-        $qty = max(1, (int) $request->input('quantity', 1));
+        $qty = (int) $request->input('quantity');
         if ($qty > 10) return ['ok' => false, 'message' => 'For bulk custom cake orders above 10 pcs, please contact the seller or send a bulk request for manual review.'];
         $customNote = trim($request->input('custom_note', ''));
         $addonInstructions = trim($request->input('addon_instructions', ''));
@@ -649,15 +666,7 @@ class CustomOrderController extends Controller
             }
         }
 
-        $refImages = [];
-        if ($request->hasFile('reference_images')) {
-            foreach ($request->file('reference_images') as $file) {
-                if (!$file->isValid() || $file->getSize() > 5 * 1024 * 1024) continue;
-                $ext = strtolower($file->getClientOriginalExtension());
-                if (!in_array($ext, ['jpg','jpeg','png','webp','gif'])) continue;
-                $refImages[] = $this->uploadFile($file, 'uploads/custom_orders');
-            }
-        }
+        $refImages = $this->storeReferenceImages($request);
 
         $basePrice = 1200.00;
         $sizeSurcharge = 0.00;
