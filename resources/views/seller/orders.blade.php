@@ -907,7 +907,7 @@
       </div>
     @endif
 
-    @if($isRequestBakeOrder && $o->status === 'Returned to Shop')
+    @if($o->status === 'Returned to Shop' && !$isCustomOrder)
     <div style="border-top:1px solid #bfdbfe;padding:.85rem 1.25rem;background:#eff6ff">
       <div class="small fw-bold mb-2" style="color:#1d4ed8"><i class="bi bi-arrow-return-left me-1"></i>Failed delivery returned to shop — confirm safe return, then start the 3-day customer claim window.</div>
       @if(!empty($o->unclaimed_grace_expires_at))
