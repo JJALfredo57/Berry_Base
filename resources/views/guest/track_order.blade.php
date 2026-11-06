@@ -996,7 +996,7 @@
   </div>
   @endif
 
-  @if($canRequestCancel)
+  @if($canRequestCancel && !($customOrder && $customOrder->review_status === 'approved' && $customOrder->price_confirmed === 'pending' && $customOrder->admin_price > 0))
   <div class="mb-3 text-center">
     <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelRequestModal">
       <i class="bi bi-x-circle me-1"></i>{{ $hasDepositLock ? 'Request Cancellation & Refund' : 'Cancel Order' }}
