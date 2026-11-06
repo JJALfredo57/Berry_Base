@@ -422,7 +422,8 @@ class OrderController extends Controller
     public function acceptPrice(string $coId)
     {
         $uid = session('user')['id'];
-        $co  = DB::table('custom_orders')->where('id', $coId)->where('user_id', $uid)->first();
+        $co  = DB::table('custom_orders as co')->leftJoin('orders as o', 'o.id', '=', 'co.order_id')
+            ->where('co.id', $coId)->where(function ($q) use ($uid) { $q->where('co.user_id', $uid)->orWhere('o.user_id', $uid); })->select('co.*')->first();
         if (!$co) return back()->with('err', 'Custom order not found.');
         if ($co->price_confirmed !== 'pending') return back()->with('err', 'Price already responded to.');
         if (($co->review_status ?? '') !== 'approved' || (float) ($co->admin_price ?? 0) <= 0) {

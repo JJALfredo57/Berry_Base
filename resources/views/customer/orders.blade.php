@@ -1315,7 +1315,7 @@
         @endif
 
         {{-- CANCEL REQUEST BUTTON --}}
-        @if($canCancel && !$hasPending && !$wasAccepted)
+        @if($canCancel && !$hasPending && !$wasAccepted && !($isCustom && $co && ($co->review_status ?? '') === 'approved' && ($co->price_confirmed ?? '') === 'pending'))
           <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelModal{{ $o->id }}">
             <i class="bi bi-x-circle me-1"></i>{{ $isCustom && !$hasDepositLock ? 'Cancel Order' : ($hasDepositLock ? 'Request Cancellation & Refund' : 'Request Cancel') }}
           </button>
@@ -1368,7 +1368,7 @@
   </div>
 
   {{-- Cancel Request Modal --}}
-  @if($canCancel && !$hasPending && !$wasAccepted)
+  @if($canCancel && !$hasPending && !$wasAccepted && !($isCustom && $co && ($co->review_status ?? '') === 'approved' && ($co->price_confirmed ?? '') === 'pending'))
   <div class="modal fade" id="cancelModal{{ $o->id }}" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-0" style="border-radius:1.2rem">
