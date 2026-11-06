@@ -1238,6 +1238,12 @@ function showCustomCapacityModal(date, requested, remaining) {
   window.bootstrap.Modal.getOrCreateInstance(modal).show();
 }
 
+function isCustomFulfillmentStepVisible() {
+  const dateField = document.getElementById('custCoFieldDate');
+  const panel = dateField?.closest('.cs-wizard-panel');
+  return !!panel && !panel.classList.contains('cs-hidden');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const modal = document.getElementById('customCapacityModal');
   const useAvailable = document.getElementById('customCapacityUseAvailable');
@@ -1343,7 +1349,7 @@ function checkCustCoAvailability() {
         custCoAvailabilityIssue = 'Only ' + data.remaining + ' custom cake slot' + (data.remaining !== 1 ? 's' : '') + ' available on ' + date + '. Reduce quantity or choose another date.';
         setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
         setCustomDateAvailability(custCoAvailabilityIssue, 'error', true); el.innerHTML = '';
-        showCustomCapacityModal(date, qty, data.remaining);
+        if (!isCustomFulfillmentStepVisible()) showCustomCapacityModal(date, qty, data.remaining);
       } else if (data.status === 'almost') {
         custCoAvailabilityIssue = '';
         custCoCapacityModalSignature = '';
