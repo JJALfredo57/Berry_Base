@@ -298,6 +298,14 @@ class CheckoutController extends Controller
     }
     public function placeOrder(Request $request)
     {
+        $rawScheduleDate = trim((string) $request->input('schedule_date', ''));
+        if ($rawScheduleDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $rawScheduleDate)) {
+            try {
+                $request->merge(['schedule_date' => \Carbon\Carbon::parse($rawScheduleDate)->toDateString()]);
+            } catch (\Throwable $e) {
+                return back()->withInput()->with('error', 'Please select a valid schedule date.');
+            }
+        }
         $request->validate([
             'fulfillment_type' => 'nullable|in:Pickup,Delivery',
             'payment_method' => 'nullable|in:COD,COP,GCash',
