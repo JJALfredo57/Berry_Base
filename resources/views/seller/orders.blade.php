@@ -881,18 +881,21 @@
         </form>
         @endif
         @else
-        <form action="{{ route('seller.orders.pickup_no_show', $o->id) }}" method="POST" class="d-flex flex-column flex-sm-row gap-2 align-items-sm-end">
+        <form action="{{ route('seller.orders.start_unclaimed_window', $o->id) }}" method="POST" enctype="multipart/form-data" class="row g-2 align-items-end">
           @csrf
           <div class="flex-grow-1">
-            <label class="form-label small fw-bold mb-1" for="pickupNoShowNote{{ $o->id }}">Customer unclaimed pickup</label>
-            <input id="pickupNoShowNote{{ $o->id }}" name="no_show_note" class="form-control form-control-sm" minlength="10" maxlength="500" required
+            <label class="form-label small fw-bold mb-1" for="pickupNoShowNote{{ $o->id }}">Contact attempts</label>
+            <input id="pickupNoShowNote{{ $o->id }}" name="contact_note" class="form-control form-control-sm" minlength="10" maxlength="500" required
                    placeholder="Record pickup time and contact attempts">
             <div class="small text-muted mt-1">Record only after the agreed pickup time and contact attempts. The 50% deposit is retained.</div>
           </div>
+          <input name="resale_price" type="number" min="1" step=".01" value="{{ max(1, (float)$o->total_price - (float)$o->deposit_amount) }}" class="form-control form-control-sm" required>
+          <input name="finished_cake_photo" type="file" accept="image/*" class="form-control form-control-sm" required>
+          <label class="small"><input name="safe_and_generic" value="1" type="checkbox" required> Safe and not personalized</label>
           <button type="submit" class="btn btn-outline-danger btn-sm flex-shrink-0"
-                  data-cs-confirm="Mark this paid order as customer unclaimed pickup? The 50% deposit will be retained. Any amount paid above 50% will be queued for manual refund review."
-                  data-cs-title="Confirm Unclaimed Pickup"
-                  data-cs-ok="Record Unclaimed"
+                  data-cs-confirm="Start the 3-day claim period? After expiry, the safe cake will be posted as a pickup-only ready cake."
+                  data-cs-title="Start Unclaimed Window"
+                  data-cs-ok="Start 3 Days"
                   data-cs-ok-color="#b91c1c"
                   data-cs-icon="bi-person-x"
                   data-cs-icon-bg="#ffedd5"

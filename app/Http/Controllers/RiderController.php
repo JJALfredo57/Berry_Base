@@ -1551,7 +1551,7 @@ class RiderController extends Controller
             }
 
             if ($issueType === 'no_show') {
-                if (!empty($order->order_request_id)) {
+                if (($order->order_type ?? 'regular') !== 'custom') {
                     DB::table('orders')->where('id', $orderId)->update([
                         'status' => 'Returned to Shop', 'issue_type' => 'no_show', 'issue_photo' => $photoPath,
                         'issue_note' => $note, 'issue_status' => 'pending', 'updated_at' => now(),

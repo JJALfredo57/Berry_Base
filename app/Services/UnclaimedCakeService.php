@@ -38,7 +38,7 @@ class UnclaimedCakeService
     public function publishExpired(): int
     {
         if (!Schema::hasTable('unclaimed_cake_listings')) return 0;
-        $orders = DB::table('orders')->whereNotNull('order_request_id')->whereNotNull('unclaimed_grace_expires_at')
+        $orders = DB::table('orders')->whereNotNull('unclaimed_grace_expires_at')
             ->where('unclaimed_grace_expires_at', '<=', now())->whereIn('status', ['Pickup', 'Returned to Shop'])->get();
         $count = 0;
         foreach ($orders as $order) {
@@ -64,7 +64,8 @@ class UnclaimedCakeService
 
     private function eligible(object $order): bool
     {
-        return !empty($order->order_request_id) && in_array((string) $order->status, ['Pickup', 'Returned to Shop'], true)
+        return (string) ($order->order_type ?? 'regular') !== 'custom'
+            && in_array((string) $order->status, ['Pickup', 'Returned to Shop'], true)
             && in_array((string) $order->payment_status, ['Partial Payment', 'Paid'], true);
     }
 }
