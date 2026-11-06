@@ -179,6 +179,8 @@ class OrderRequestService
             'rush_reason' => $row->rush_reason,
             'seller_prep_days_at_request' => $row->seller_prep_days_at_request,
             'requested_notice_minutes' => $row->requested_notice_minutes,
+            'unclaimed_policy_accepted_at' => $row->unclaimed_policy_accepted_at ?? null,
+            'unclaimed_policy_version' => $row->unclaimed_policy_version ?? null,
         ];
 
         if (($row->status ?? '') === 'accepted') {
@@ -479,6 +481,8 @@ class OrderRequestService
             if (Schema::hasColumn('order_requests', 'request_reason')) {
                 $insert['request_reason'] = $data['request_reason'] ?? 'out_of_stock';
             }
+            if (Schema::hasColumn('order_requests', 'unclaimed_policy_accepted_at')) $insert['unclaimed_policy_accepted_at'] = $data['unclaimed_policy_accepted_at'] ?? null;
+            if (Schema::hasColumn('order_requests', 'unclaimed_policy_version')) $insert['unclaimed_policy_version'] = $data['unclaimed_policy_version'] ?? null;
             DB::table('order_requests')->insert($insert);
         });
 

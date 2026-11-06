@@ -23,6 +23,7 @@ class OrderRequestController extends Controller
             'preferred_date' => 'nullable|date_format:Y-m-d',
             'preferred_time' => 'nullable|date_format:H:i',
             'customer_note' => 'nullable|string|max:500',
+            'unclaimed_policy_acknowledged' => 'accepted',
         ]);
         $userId = $role === 'customer' ? (string) (session('user')['id'] ?? '') : null;
         $fullname = $role === 'customer' ? (string) (session('user')['fullname'] ?? '') : null;
@@ -42,6 +43,8 @@ class OrderRequestController extends Controller
             'preferred_time' => $request->input('preferred_time'),
             'allow_similar_cake' => $request->boolean('allow_similar_cake'),
             'customer_note' => $request->input('customer_note'),
+            'unclaimed_policy_accepted_at' => now(),
+            'unclaimed_policy_version' => \App\Services\UnclaimedCakeService::POLICY_VERSION,
         ]);
 
         if (!$result['ok']) {

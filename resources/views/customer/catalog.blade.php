@@ -201,6 +201,16 @@
   <button type="button" class="btn btn-outline-primary btn-sm" onclick="resetCatalogFilters()">Clear filters</button>
 </div>
 
+@if(($unclaimedReadyCakes ?? collect())->isNotEmpty())
+<div class="mb-4 p-3 rounded-4" style="background:#fff7ed;border:1px solid #fed7aa">
+  <div class="fw-bold mb-2" style="color:#9a3412"><i class="bi bi-lightning-charge-fill me-1"></i>Ready Cakes Available Now</div>
+  <div class="row g-3">
+    @foreach($unclaimedReadyCakes as $readyCake)
+    <div class="col-sm-6 col-lg-4"><div class="card h-100 border-0 shadow-sm overflow-hidden"><img src="{{ $readyCake->photo_path }}" alt="Ready cake" style="height:150px;width:100%;object-fit:cover"><div class="card-body"><div class="fw-bold">{{ $readyCake->product_name }}</div><div class="small text-muted">{{ $readyCake->selected_size ?: 'Standard size' }} · {{ $readyCake->quantity }} available · Pickup only</div><div class="fw-bold mt-2" style="color:var(--primary)">PHP {{ number_format($readyCake->resale_price, 2) }}</div><div class="small text-muted mt-1">Ready cake—message the seller to reserve.</div></div></div></div>
+    @endforeach
+  </div>
+</div>
+@endif
 <div class="catalog-grid" id="catalogGrid">
     @forelse($products as $p)
     @php
@@ -750,6 +760,15 @@
                   <div class="col-12"><div class="small request-bake-schedule-notice" role="status" aria-live="polite" style="min-height:1.25rem"></div></div>
                   <div class="col-12"><label class="form-label small fw-semibold">Allow similar cake? <span class="text-muted" title="Seller may offer a close design, flavor, or size if the exact cake is not possible."><i class="bi bi-info-circle"></i></span></label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="allow_similar_cake" value="1" id="catalogAllowSimilar{{ $p->id }}"><label class="form-check-label small text-muted" for="catalogAllowSimilar{{ $p->id }}">Yes, seller may offer a close alternative.</label></div></div>
                   <div class="col-12"><label class="form-label small fw-semibold">Note to seller</label><textarea name="customer_note" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Occasion, timing, or exact request"></textarea></div>
+                  <div class="col-12">
+                    <div class="rounded-3 p-2 small" style="background:#fff7ed;border:1px solid #fed7aa;color:#9a3412">
+                      <i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Request-to-Bake no-show policy:</strong> After the agreed pickup or failed-delivery return, you have a 3-day claim period. If unclaimed, payment is retained under the policy and the finished cake may be offered for sale.
+                    </div>
+                    <div class="form-check mt-2">
+                      <input class="form-check-input" type="checkbox" name="unclaimed_policy_acknowledged" value="1" id="requestBakePolicy{{ $p->id }}" required>
+                      <label class="form-check-label small" for="requestBakePolicy{{ $p->id }}">I understand and accept the Request-to-Bake unclaimed-cake policy.</label>
+                    </div>
+                  </div>
                   <div class="col-12"><button type="submit" class="btn btn-primary w-100 fw-semibold" data-request-bake-submit><i class="bi bi-send me-1"></i>Send Kitchen Request</button><div class="small text-muted mt-2">No payment yet. This becomes an order only after seller confirmation.</div></div>
                 </form>
               </div>

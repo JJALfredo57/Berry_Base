@@ -27,6 +27,11 @@ class CatalogController extends Controller
         $capacityMap = $data['capacityMap'];
         $barangayOptions = $data['barangayOptions'];
         $shopSettings = \App\Helpers\CakeshopHelper::getSettings();
+        $unclaimedReadyCakes = \Illuminate\Support\Facades\Schema::hasTable('unclaimed_cake_listings')
+            ? DB::table('unclaimed_cake_listings as u')->join('products as p', 'p.id', '=', 'u.product_id')
+                ->where('u.status', 'published')->where(function ($q) { $q->whereNull('u.safe_until')->orWhere('u.safe_until', '>', now()); })
+                ->select('u.*', 'p.name as product_name')->latest('u.published_at')->get()
+            : collect();
         $requestBakeSchedules = [];
         $preparation = app(\App\Services\PreparationWindowService::class);
         $fulfillment = app(\App\Services\FulfillmentScheduleService::class);
@@ -44,7 +49,7 @@ class CatalogController extends Controller
 
         return view('customer.catalog', compact(
             'products','bestSellers','productSizes','reviewsMap','productRatings',
-            'productReviews','productReviewCounts','shopSettings','capacityMap','barangayOptions','requestBakeSchedules'
+            'productReviews','productReviewCounts','shopSettings','capacityMap','barangayOptions','requestBakeSchedules','unclaimedReadyCakes'
         ));
     }
 

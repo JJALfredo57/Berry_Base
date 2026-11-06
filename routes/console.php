@@ -576,3 +576,6 @@ Artisan::command('customer:unverify {phone : Customer phone number to match} {--
 
 Schedule::command('backup:run')->hourly();
 Schedule::command('orders:expire-unpaid-deposits')->hourly();
+Schedule::call(function () {
+    app(\App\Services\UnclaimedCakeService::class)->publishExpired();
+})->hourly();

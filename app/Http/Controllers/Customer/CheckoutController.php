@@ -741,6 +741,8 @@ class CheckoutController extends Controller
             'payment_method'   => $payment,
             'payment_status'   => 'Unpaid',
             'order_request_id' => $checkout['order_request_id'] ?? null,
+            'unclaimed_policy_accepted_at' => $checkout['unclaimed_policy_accepted_at'] ?? null,
+            'unclaimed_policy_version' => $checkout['unclaimed_policy_version'] ?? null,
             'is_rush' => !empty($checkout['is_rush']),
             'rush_reason' => $checkout['rush_reason'] ?? null,
             'seller_prep_days_at_request' => $checkout['seller_prep_days_at_request'] ?? null,

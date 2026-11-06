@@ -923,4 +923,26 @@ class OrderController extends Controller
 
         return back()->with('msg', $message);
     }
+
+    public function startUnclaimedWindow(Request $request, string $id)
+    {
+        $shop = $this->getShop();
+        $order = DB::table('orders')->where('id', $id)->where('shop_id', $shop->id)->first();
+        if (!$order) return back()->with('err', 'Order not found.');
+        $validated = $request->validate([
+            'contact_note' => 'required|string|min:10|max:500',
+            'resale_price' => 'required|numeric|min:1|max:999999',
+            'finished_cake_photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'safe_until' => 'nullable|date|after:now',
+            'safe_and_generic' => 'accepted',
+        ]);
+        $photo = $this->uploadFile($request->file('finished_cake_photo'), 'uploads/unclaimed-cakes');
+        try {
+            app(\App\Services\UnclaimedCakeService::class)->startGrace($order, trim($validated['contact_note']), $photo, (float) $validated['resale_price'], $validated['safe_until'] ?? null);
+            app(MobileNotificationService::class)->notifyOrderCustomer($order, 'Three-Day Pickup Window Started', "Please claim Order #{$id} within three days. After the deadline it will be marked unclaimed.", ['event' => 'unclaimed_grace']);
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
+        return back()->with('msg', 'Three-day unclaimed window started. The customer was notified.');
+    }
 }

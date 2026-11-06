@@ -506,6 +506,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/orders/{id}/assign-rider', [\App\Http\Controllers\Seller\OrderController::class, 'assignRider'])->name('orders.assign_rider');
     Route::post('/orders/{id}/cancel-rider-assignment', [\App\Http\Controllers\Seller\OrderController::class, 'cancelRiderAssignment'])->name('orders.cancel_rider_assignment');
     Route::post('/orders/{id}/pickup-no-show', [\App\Http\Controllers\Seller\OrderController::class, 'markPickupNoShow'])->name('orders.pickup_no_show');
+    Route::post('/orders/{id}/start-unclaimed-window', [\App\Http\Controllers\Seller\OrderController::class, 'startUnclaimedWindow'])->name('orders.start_unclaimed_window');
 
     // Settings
     Route::get('/settings',          [\App\Http\Controllers\Seller\SettingsController::class, 'index'])->name('settings');

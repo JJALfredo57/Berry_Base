@@ -867,6 +867,20 @@
       </div>
       @endif
       <div style="border-top:1px solid #fed7aa;padding:.85rem 1.25rem;background:#fff7ed">
+        @if($isRequestBakeOrder)
+        @if(!empty($o->unclaimed_grace_expires_at))
+          <div class="small fw-semibold" style="color:#9a3412"><i class="bi bi-hourglass-split me-1"></i>Three-day unclaimed window ends {{ \Carbon\Carbon::parse($o->unclaimed_grace_expires_at)->format('M d, Y g:i A') }}. Customer has been notified.</div>
+        @else
+        <form action="{{ route('seller.orders.start_unclaimed_window', $o->id) }}" method="POST" enctype="multipart/form-data" class="row g-2 align-items-end">
+          @csrf
+          <div class="col-md-4"><label class="form-label small fw-bold mb-1">Contact attempts</label><input name="contact_note" class="form-control form-control-sm" minlength="10" maxlength="500" required placeholder="Call/message date and result"></div>
+          <div class="col-md-2"><label class="form-label small fw-bold mb-1">Resale price</label><input name="resale_price" type="number" min="1" step=".01" value="{{ max(1, (float)$o->total_price - (float)$o->deposit_amount) }}" class="form-control form-control-sm" required></div>
+          <div class="col-md-3"><label class="form-label small fw-bold mb-1">Actual cake photo</label><input name="finished_cake_photo" type="file" accept="image/*" class="form-control form-control-sm" required></div>
+          <div class="col-md-3"><label class="form-label small fw-bold mb-1">Safe until</label><input name="safe_until" type="datetime-local" class="form-control form-control-sm"><div class="form-check mt-1"><input class="form-check-input" name="safe_and_generic" value="1" type="checkbox" required id="safeCake{{ $o->id }}"><label class="form-check-label small" for="safeCake{{ $o->id }}">Safe and not personalized</label></div></div>
+          <div class="col-12"><button type="submit" class="btn btn-outline-danger btn-sm" data-cs-confirm="Start the three-day claim period? After it expires, the confirmed safe cake will be posted as a pickup-only ready cake." data-cs-title="Start Unclaimed Window"><i class="bi bi-clock-history me-1"></i>Start 3-Day Unclaimed Window</button></div>
+        </form>
+        @endif
+        @else
         <form action="{{ route('seller.orders.pickup_no_show', $o->id) }}" method="POST" class="d-flex flex-column flex-sm-row gap-2 align-items-sm-end">
           @csrf
           <div class="flex-grow-1">
@@ -886,7 +900,25 @@
             <i class="bi bi-person-x me-1"></i>Record Unclaimed
           </button>
         </form>
+        @endif
       </div>
+    @endif
+
+    @if($isRequestBakeOrder && $o->status === 'Returned to Shop')
+    <div style="border-top:1px solid #bfdbfe;padding:.85rem 1.25rem;background:#eff6ff">
+      <div class="small fw-bold mb-2" style="color:#1d4ed8"><i class="bi bi-arrow-return-left me-1"></i>Failed delivery returned to shop — confirm safe return, then start the 3-day customer claim window.</div>
+      @if(!empty($o->unclaimed_grace_expires_at))
+        <div class="small" style="color:#1e40af">Claim window ends {{ \Carbon\Carbon::parse($o->unclaimed_grace_expires_at)->format('M d, Y g:i A') }}.</div>
+      @else
+      <form action="{{ route('seller.orders.start_unclaimed_window', $o->id) }}" method="POST" enctype="multipart/form-data" class="row g-2 align-items-end">@csrf
+        <div class="col-md-4"><input name="contact_note" class="form-control form-control-sm" minlength="10" required placeholder="Return confirmation and contact attempts"></div>
+        <div class="col-md-2"><input name="resale_price" type="number" min="1" step=".01" value="{{ max(1, (float)$o->total_price - (float)$o->deposit_amount) }}" class="form-control form-control-sm" required></div>
+        <div class="col-md-3"><input name="finished_cake_photo" type="file" accept="image/*" class="form-control form-control-sm" required></div>
+        <div class="col-md-3"><input name="safe_until" type="datetime-local" class="form-control form-control-sm"><div class="form-check mt-1"><input class="form-check-input" name="safe_and_generic" value="1" type="checkbox" required id="safeReturnedCake{{ $o->id }}"><label class="form-check-label small" for="safeReturnedCake{{ $o->id }}">Safe and not personalized</label></div></div>
+        <div class="col-12"><button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-clock-history me-1"></i>Confirm Return & Start 3 Days</button></div>
+      </form>
+      @endif
+    </div>
     @endif
 
     {{-- Awaiting Deposit - seller info only, no actions until paid --}}

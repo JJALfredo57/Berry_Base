@@ -1551,6 +1551,15 @@ class RiderController extends Controller
             }
 
             if ($issueType === 'no_show') {
+                if (!empty($order->order_request_id)) {
+                    DB::table('orders')->where('id', $orderId)->update([
+                        'status' => 'Returned to Shop', 'issue_type' => 'no_show', 'issue_photo' => $photoPath,
+                        'issue_note' => $note, 'issue_status' => 'pending', 'updated_at' => now(),
+                    ]);
+                    DB::table('order_tracking')->insert(['order_id' => $orderId, 'status' => 'Returned to Shop', 'notes' => 'Rider reported customer unavailable. Seller must confirm return before the three-day claim window starts.', 'created_at' => now()]);
+                    app(MobileNotificationService::class)->notifyOrderCustomer($order, 'Delivery Return Required', "We could not complete delivery for Order #{$orderId}. The cake is returning to the shop.", ['event' => 'delivery_return']);
+                    return response()->json(['ok' => true, 'status' => 'Returned to Shop', 'redirect_url' => route('rider.dashboard')]);
+                }
                 $refunds->recordNoShow($order, $note, 'rider', $photoPath);
                 return response()->json([
                     'ok' => true,
