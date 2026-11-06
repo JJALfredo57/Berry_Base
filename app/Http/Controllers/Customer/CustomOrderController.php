@@ -354,6 +354,17 @@ class CustomOrderController extends Controller
             if (!$locationValidation['ok']) {
                 return back()->with('error', $locationValidation['message'])->withInput();
             }
+
+            $deliveryQuote = app(\App\Services\DeliveryLocationValidationService::class)->quoteStoredDelivery([
+                'fulfillment_type' => $fulfillment,
+                'address' => $address,
+                'latitude' => $lat,
+                'longitude' => $lng,
+                'delivery_zone' => $zone,
+            ], $shopId);
+            if (!$deliveryQuote['ok']) return back()->with('error', $deliveryQuote['message'])->withInput();
+            $zone = $deliveryQuote['zone'] ?: $zone;
+            $deliveryFee = (float) $deliveryQuote['delivery_fee'];
         }
 
         if ($fulfillment === 'Delivery' && !$surprise['enabled'] && $request->has('save_default_address')) {
@@ -459,7 +470,7 @@ class CustomOrderController extends Controller
             'created_at'       => now(),
         ], $surprise['data'] ?? [])));
 
-        DB::table('custom_orders')->insert([
+        $customOrderRow = [
             'id'                => CakeshopHelper::generateId('custom_orders'),
             'order_id'          => $oid,
             'shop_id'           => $shopId,
@@ -476,13 +487,21 @@ class CustomOrderController extends Controller
             'estimated_price'   => $total,
             'price_breakdown'   => json_encode($breakdown),
             'review_status'     => 'pending',
+            'fulfillment_type'  => $fulfillment,
+            'delivery_address'  => $address ?? '',
+            'schedule_date'     => $sdate,
+            'payment_method'    => $payment,
+            'payment_status'    => 'Unpaid',
+            'track_code'        => $trackCode,
             'is_rush'           => $rush['is_rush'] ?? false,
             'rush_reason'       => $rush['rush_reason'] ?? null,
             'seller_prep_days_at_request' => $rush['seller_prep_days_at_request'] ?? null,
             'requested_notice_minutes' => $rush['requested_notice_minutes'] ?? null,
             'rush_detected_at'  => !empty($rush['is_rush']) ? now() : null,
             'created_at'        => now(),
-        ]);
+        ];
+        $customOrderRow = array_filter($customOrderRow, fn ($value, $column) => \Illuminate\Support\Facades\Schema::hasColumn('custom_orders', $column), ARRAY_FILTER_USE_BOTH);
+        DB::table('custom_orders')->insert($customOrderRow);
 
         DB::table('orders')->where('id', $oid)->update(['custom_note' => $fullNote]);
 
@@ -664,6 +683,17 @@ class CustomOrderController extends Controller
             if (!$locationValidation['ok']) {
                 return ['ok' => false, 'message' => $locationValidation['message']];
             }
+
+            $deliveryQuote = app(\App\Services\DeliveryLocationValidationService::class)->quoteStoredDelivery([
+                'fulfillment_type' => $fulfillment,
+                'address' => $address,
+                'latitude' => $lat,
+                'longitude' => $lng,
+                'delivery_zone' => $zone,
+            ], $shopId);
+            if (!$deliveryQuote['ok']) return ['ok' => false, 'message' => $deliveryQuote['message']];
+            $zone = $deliveryQuote['zone'] ?: $zone;
+            $deliveryFee = (float) $deliveryQuote['delivery_fee'];
         }
 
         $refImages = $this->storeReferenceImages($request);

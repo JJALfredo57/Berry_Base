@@ -236,6 +236,16 @@ class PurchaseJourneyRenderingTest extends TestCase
     public function test_custom_cash_delivery_is_saved_as_cod_and_remains_pending_review(): void
     {
         $this->prepareFixture();
+        DB::table('delivery_zones')->insert([
+            'shop_id' => 'TESTSHOP',
+            'barangay' => 'Poblacion',
+            'delivery_fee' => 75,
+            'is_active' => true,
+            'lat' => 15.8095,
+            'lng' => 120.4988,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         $this->withSession(['user' => [
             'id' => 'TESTBUYER',
             'role' => 'customer',
@@ -260,8 +270,16 @@ class PurchaseJourneyRenderingTest extends TestCase
         $order = DB::table('orders')->first();
         $this->assertSame('COD', $order->payment_method);
         $this->assertSame('Delivery', $order->fulfillment_type);
+        $this->assertEquals(75.0, (float) $order->delivery_fee);
         $this->assertSame('Pending Review', $order->status);
         $this->assertSame('Unpaid', $order->payment_status);
+        $this->assertDatabaseHas('custom_orders', [
+            'order_id' => $order->id,
+            'fulfillment_type' => 'Delivery',
+            'delivery_address' => 'House 12, Rizal Street, Poblacion, Bautista, Near school',
+            'payment_method' => 'COD',
+            'payment_status' => 'Unpaid',
+        ]);
     }
 
     public function test_gcash_checkout_requires_full_payment_before_seller_confirmation(): void
@@ -603,6 +621,64 @@ class PurchaseJourneyRenderingTest extends TestCase
         $this->assertSame('COP', $order->payment_method);
         $this->assertSame('Pending Review', $order->status);
         $this->assertSame('Unpaid', $order->payment_status);
+    }
+
+    public function test_custom_cart_checkout_requotes_delivery_and_maps_it_to_custom_order(): void
+    {
+        $this->prepareFixture();
+        DB::table('delivery_zones')->insert([
+            'shop_id' => 'TESTSHOP',
+            'barangay' => 'Poblacion',
+            'delivery_fee' => 80,
+            'is_active' => true,
+            'lat' => 15.8095,
+            'lng' => 120.4988,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $item = (object) [
+            'meta' => json_encode([
+                'cart_type' => 'custom_cake',
+                'shop_id' => 'TESTSHOP',
+                'cake_name' => 'Delivery Cart Custom Cake',
+                'schedule_date' => now()->addDays(10)->toDateString(),
+                'schedule_time' => '14:00',
+                'time_slot' => '14:00',
+                'fulfillment_type' => 'Delivery',
+                'address' => 'House 12, Rizal Street, Poblacion, Bautista, Near school',
+                'latitude' => 15.8095,
+                'longitude' => 120.4988,
+                'delivery_zone' => 'Old zone',
+                'delivery_fee' => 1,
+                'fulfillment_hold_expires_at' => now()->addMinutes(10)->toDateTimeString(),
+                'estimated_total' => 1201,
+                'price_breakdown' => ['delivery_fee' => 1, 'total' => 1201],
+            ]),
+            'shop_id' => 'TESTSHOP',
+            'quantity' => 1,
+            'final_unit_price_snapshot' => 1200,
+            'product_id' => 'TESTCAKE',
+        ];
+
+        $result = app(\App\Services\CustomCartOrderService::class)->createFromCartItem($item, [
+            'user_id' => 'TESTBUYER',
+            'customer_name' => 'Test Buyer',
+            'payment_method' => 'COP',
+        ]);
+
+        $this->assertTrue($result['ok'], $result['message'] ?? '');
+        $order = DB::table('orders')->where('id', $result['order_id'])->first();
+        $this->assertSame('Delivery', $order->fulfillment_type);
+        $this->assertSame('COD', $order->payment_method);
+        $this->assertEquals(80.0, (float) $order->delivery_fee);
+        $this->assertEquals(1280.0, (float) $order->total_price);
+        $this->assertDatabaseHas('custom_orders', [
+            'order_id' => $order->id,
+            'fulfillment_type' => 'Delivery',
+            'delivery_address' => 'House 12, Rizal Street, Poblacion, Bautista, Near school',
+            'payment_method' => 'COD',
+            'payment_status' => 'Unpaid',
+        ]);
     }
 
     public function test_landing_feedback_and_role_based_themes_render(): void

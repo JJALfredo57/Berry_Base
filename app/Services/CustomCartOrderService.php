@@ -40,6 +40,15 @@ class CustomCartOrderService
         $deliveryValidation = app(DeliveryLocationValidationService::class)->validateStoredDelivery($meta, $shopId);
         if (!$deliveryValidation['ok']) return $deliveryValidation;
 
+        // The cart draft may have been created before delivery settings changed.
+        // Re-quote at checkout so the stored fulfillment mapping cannot use a
+        // browser-supplied or stale delivery zone/fee.
+        $storedDeliveryFee = (float) ($meta['delivery_fee'] ?? 0);
+        $deliveryQuote = app(DeliveryLocationValidationService::class)->quoteStoredDelivery($meta, $shopId);
+        if (!$deliveryQuote['ok']) return $deliveryQuote;
+        $meta['delivery_zone'] = $deliveryQuote['zone'] ?? null;
+        $meta['delivery_fee'] = (float) ($deliveryQuote['delivery_fee'] ?? 0);
+
         if ($scheduleTime !== '') {
             $scheduleCheck = app(OrderScheduleService::class)->validate($date, $scheduleTime, $shopId, 'custom', $meta['fulfillment_type'] ?? 'Pickup', isset($meta['latitude']) ? (float) $meta['latitude'] : null, isset($meta['longitude']) ? (float) $meta['longitude'] : null, true);
             if (!$scheduleCheck['ok']) return ['ok' => false, 'message' => $scheduleCheck['message']];
@@ -55,9 +64,13 @@ class CustomCartOrderService
         $addonInstructions = trim((string) ($meta['addon_instructions'] ?? ''));
         $addons = is_array($meta['addons'] ?? null) ? $meta['addons'] : [];
         $breakdown = is_array($meta['price_breakdown'] ?? null) ? $meta['price_breakdown'] : [];
-        $total = max(0, (float) ($meta['estimated_total'] ?? ($item->final_unit_price_snapshot * $qty)));
-        $unitPrice = (float) ($breakdown['unit_price'] ?? ($qty > 0 ? $total / $qty : $total));
         $fulfillment = $meta['fulfillment_type'] ?? 'Pickup';
+        $previousDeliveryFee = (float) ($breakdown['delivery_fee'] ?? $storedDeliveryFee);
+        $quotedDeliveryFee = (float) ($meta['delivery_fee'] ?? 0);
+        $total = max(0, (float) ($meta['estimated_total'] ?? ($item->final_unit_price_snapshot * $qty)) - $previousDeliveryFee + $quotedDeliveryFee);
+        $breakdown['delivery_fee'] = $fulfillment === 'Delivery' ? $quotedDeliveryFee : 0;
+        $breakdown['total'] = $total;
+        $unitPrice = (float) ($breakdown['unit_price'] ?? ($qty > 0 ? $total / $qty : $total));
         $payment = $context['payment_method'] ?? ($meta['payment_method'] ?? 'COD');
         if (!in_array($payment, ['COD', 'COP', 'GCash'], true)) {
             return ['ok' => false, 'message' => 'Please choose a valid payment method for this custom order.'];
@@ -134,6 +147,12 @@ class CustomCartOrderService
                 'estimated_price' => $total,
                 'price_breakdown' => json_encode($breakdown ?: ['total' => $total, 'quantity' => $qty]),
                 'review_status' => 'pending',
+                'fulfillment_type' => $fulfillment,
+                'delivery_address' => $meta['address'] ?? '',
+                'schedule_date' => $date,
+                'payment_method' => $payment,
+                'payment_status' => 'Unpaid',
+                'track_code' => $trackCode,
                 'review_deadline_at' => $meta['seller_review_deadline_at'] ?? optional($prep->reviewDeadline($shopId, $date))->toDateTimeString(),
                 'review_deadline_status' => 'active',
                 'created_at' => now(),

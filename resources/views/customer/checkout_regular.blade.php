@@ -229,6 +229,8 @@ document.body.style.paddingRight = '';
                       <div class="col-sm-6"><i class="bi bi-bag-check me-1"></i>{{ $customMeta['fulfillment_type'] ?? 'Pickup' }}</div>
                       @if(($customMeta['fulfillment_type'] ?? 'Pickup') === 'Delivery')
                         <div class="col-sm-6"><i class="bi bi-geo-alt me-1"></i>{{ $customMeta['address'] ?? 'Address saved with custom request' }}</div>
+                        <div class="col-sm-6"><i class="bi bi-signpost-split me-1"></i>{{ $customMeta['delivery_zone'] ?? 'Delivery zone will be rechecked' }}</div>
+                        <div class="col-sm-6"><i class="bi bi-cash-stack me-1"></i>Delivery fee: ₱{{ number_format((float) ($customMeta['delivery_fee'] ?? 0), 2) }}</div>
                       @endif
                     </div>
                     <div class="text-muted mt-2" style="font-size:.78rem">
@@ -238,6 +240,9 @@ document.body.style.paddingRight = '';
                         Schedule hold expired. Please return to the cart and update fulfillment before checkout.
                       @endif
                     </div>
+                    @if(!$holdActive)
+                      <a class="btn btn-sm btn-outline-primary mt-2" href="{{ route('customer.cart') }}"><i class="bi bi-pencil-square me-1"></i>Update in Cart</a>
+                    @endif
                   </div>
                 @endforeach
               </div>
