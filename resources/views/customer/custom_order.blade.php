@@ -261,6 +261,12 @@
                 </div>
 
                 <div id="deliverySection" style="display:none">
+                  @if($defaultAddr)
+                  <div class="d-flex justify-content-between align-items-start gap-3 p-3 mb-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0">
+                    <div><div class="small fw-bold text-success"><i class="bi bi-geo-alt-fill me-1"></i>Saved delivery address</div><div class="small mt-1">{{ $defaultAddr->full_address }}</div></div>
+                    <a href="{{ route('customer.addresses') }}" class="btn btn-outline-success btn-sm">Change address</a>
+                  </div>
+                  @endif
                   {{-- Map + detect location --}}
                   <div class="mb-2">
                     <label class="form-label fw-semibold small">
