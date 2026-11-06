@@ -149,6 +149,22 @@
                   <textarea class="form-control" name="custom_note" rows="3"
                             placeholder="Color scheme, theme references, allergies, etc.">{{ old('custom_note') }}</textarea>
                 </div>
+                <hr class="my-4">
+                <h6 class="fw-bold mb-3"><i class="bi bi-calendar-event me-2" style="color:var(--primary)"></i>Preferred Schedule</h6>
+                <div class="row g-3">
+                  <div class="col-sm-6">
+                    <label class="form-label fw-semibold small">Preferred Date <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control" name="schedule_date" id="custCoFieldDate" min="{{ $customEarliestDate }}" value="{{ old('schedule_date') }}" required onchange="updateCustomScheduleSlots(); checkCustCoAvailability()">
+                    <div id="custCoAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
+                    <div id="custCoDateAvailability" class="small mt-1" role="alert" aria-live="polite"></div>
+                    <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least {{ $customPrepDays }} preparation day{{ $customPrepDays === 1 ? '' : 's' }}.</div>
+                    @error('schedule_date')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label fw-semibold small">Preferred Time</label>
+                    <input type="time" class="form-control" name="time_slot" id="customFieldTime" min="{{ substr($customScheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($customScheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateCustomScheduleSlots()" oninput="updateCustomScheduleSlots()">
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -345,25 +361,6 @@
                   </div>
                 </div>
 
-                <div class="row g-3 mt-1">
-                  <div class="col-sm-6">
-                    <label class="form-label fw-semibold small">Preferred Date <span class="text-danger">*</span></label>
-                    <input type="date" class="form-control" name="schedule_date" id="custCoFieldDate"
-                           min="{{ $customEarliestDate }}"
-                           value="{{ old('schedule_date') }}" required
-                           onchange="updateCustomScheduleSlots(); checkCustCoAvailability()">
-                    <div id="custCoAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
-                    <div id="custCoDateAvailability" class="small mt-1" role="alert" aria-live="polite"></div>
-                    <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least {{ $customPrepDays }} preparation day{{ $customPrepDays === 1 ? '' : 's' }}.</div>
-                    @error('schedule_date')
-                      <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ $message }}</div>
-                    @enderror
-                  </div>
-                  <div class="col-sm-6">
-                    <label class="form-label fw-semibold small">Preferred Time</label>
-                    <input type="time" class="form-control" name="time_slot" id="customFieldTime" min="{{ substr($customScheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($customScheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateCustomScheduleSlots()" oninput="updateCustomScheduleSlots()">
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -1349,7 +1346,6 @@ function checkCustCoAvailability() {
         custCoAvailabilityIssue = 'Only ' + data.remaining + ' custom cake slot' + (data.remaining !== 1 ? 's' : '') + ' available on ' + date + '. Reduce quantity or choose another date.';
         setCustomQuantityAvailability(custCoAvailabilityIssue, 'error');
         setCustomDateAvailability(custCoAvailabilityIssue, 'error', true); el.innerHTML = '';
-        if (!isCustomFulfillmentStepVisible()) showCustomCapacityModal(date, qty, data.remaining);
       } else if (data.status === 'almost') {
         custCoAvailabilityIssue = '';
         custCoCapacityModalSignature = '';
