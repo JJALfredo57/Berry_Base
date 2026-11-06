@@ -70,6 +70,9 @@
                     @error('reference_images')
                       <div class="text-danger small mt-2"><i class="bi bi-exclamation-circle me-1"></i>{{ $message }}</div>
                     @enderror
+                    @if($errors->has('reference_images.*'))
+                      <div class="text-danger small mt-2"><i class="bi bi-exclamation-circle me-1"></i>{{ $errors->first('reference_images.*') }}</div>
+                    @endif
                   </div>
                 </div>
                 <div class="row g-3">
