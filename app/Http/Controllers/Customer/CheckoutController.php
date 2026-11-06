@@ -982,4 +982,15 @@ class CheckoutController extends Controller
 
         return redirect()->route('track.order', $trackCode)->with('msg', $successMsg);
     }
+
+    public function validateVoucher(Request $request)
+    {
+        $uid = session('user.id');
+        $checkout = session('checkout', []);
+        $product = DB::table('products')->where('id', $checkout['product_id'] ?? '')->first();
+        if (!$uid || !$product) return response()->json(['ok' => false, 'message' => 'Checkout session expired.'], 422);
+        $amount = max(0, (float) ($request->input('subtotal') ?? 0));
+        $result = app(VoucherService::class)->validate($request->input('voucher_code'), $amount, $product->shop_id ?? null, $uid);
+        return response()->json(['ok' => (bool) $result['ok'], 'message' => $result['message'] ?? '', 'discount' => (float) ($result['discount'] ?? 0)]);
+    }
 }

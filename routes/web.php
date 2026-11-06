@@ -381,6 +381,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
 
     Route::get('/checkout',         [CustomerCheckout::class, 'show'])->name('checkout');
     Route::post('/checkout/place',  [CustomerCheckout::class, 'placeOrder'])->name('checkout.place');
+    Route::post('/checkout/voucher/validate', [CustomerCheckout::class, 'validateVoucher'])->name('checkout.voucher.validate');
 
     Route::get('/orders',                          [CustomerOrder::class, 'index'])->name('orders');
     Route::get('/orders/status-counts',            [CustomerOrder::class, 'statusCounts'])->name('orders.status_counts');

@@ -480,7 +480,7 @@ document.body.style.paddingRight = '';
             <div class="form-text">Tap Use to preview voucher savings. Final validation still happens securely when you place the order.</div>
               </div>
               <div class="modal-footer py-2">
-                <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal">Apply</button>
+                <div class="small text-danger" id="voucherApplyError"></div><button type="button" class="btn btn-primary w-100" id="voucherApplyBtn">Apply</button>
               </div>
             </div>
           </div>
@@ -1617,6 +1617,12 @@ document.querySelectorAll('[data-voucher-code]').forEach(btn => {
 document.getElementById('voucherCodeInput')?.addEventListener('input', () => {
   voucherPreviewDiscount = 0;
   updateTotal(getCurrentAddonTotal());
+});
+document.getElementById('voucherApplyBtn')?.addEventListener('click', async function () {
+  const input = document.getElementById('voucherCodeInput'), error = document.getElementById('voucherApplyError');
+  const code = (input?.value || '').trim(); if (!code) { error.textContent = 'Enter a voucher code.'; return; }
+  this.disabled = true; error.textContent = '';
+  try { const r = await fetch(@json(route('customer.checkout.voucher.validate')), {method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':@json(csrf_token())},body:JSON.stringify({voucher_code:code,subtotal:BASE_PRICE + getCurrentAddonTotal()})}); const d = await r.json(); if (!d.ok) { input.value=''; voucherPreviewDiscount=0; updateTotal(getCurrentAddonTotal()); error.textContent=d.message || 'Invalid voucher code.'; return; } voucherPreviewDiscount=Number(d.discount||0); updateTotal(getCurrentAddonTotal()); bootstrap.Modal.getInstance(document.getElementById('promoModal'))?.hide(); } catch(e) { error.textContent='Unable to validate voucher. Try again.'; } finally { this.disabled=false; }
 });
 document.getElementById('pointsToRedeem')?.addEventListener('input', () => updateTotal(getCurrentAddonTotal()));
 </script>
