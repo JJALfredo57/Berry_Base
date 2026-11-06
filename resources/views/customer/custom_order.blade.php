@@ -472,11 +472,18 @@
       </div>
       <div class="modal-body pt-2">
         <p class="mb-0" id="customCapacityModalMessage"></p>
+        <div id="customCapacityDateEditor" class="mt-3" hidden>
+          <label for="customCapacityDateInput" class="form-label fw-semibold small">Choose another preferred date</label>
+          <input type="date" class="form-control" id="customCapacityDateInput">
+          <div class="form-text">We will check availability again using your current quantity.</div>
+          <div id="customCapacityDateError" class="small text-danger fw-semibold mt-2" role="alert"></div>
+        </div>
       </div>
       <div class="modal-footer border-0 pt-0 flex-wrap">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Keep editing</button>
         <button type="button" class="btn btn-outline-primary" id="customCapacityUseAvailable">Use available quantity</button>
         <button type="button" class="btn btn-primary" id="customCapacityChangeDate">Change date</button>
+        <button type="button" class="btn btn-primary" id="customCapacitySaveDate" hidden>Save new date</button>
       </div>
     </div>
   </div>
@@ -1218,6 +1225,15 @@ function showCustomCapacityModal(date, requested, remaining) {
   const message = document.getElementById('customCapacityModalMessage');
   if (!modal || !message || !window.bootstrap?.Modal) return;
   if (modal.parentElement !== document.body) document.body.appendChild(modal);
+  const editor = document.getElementById('customCapacityDateEditor');
+  const editorInput = document.getElementById('customCapacityDateInput');
+  const saveDate = document.getElementById('customCapacitySaveDate');
+  const changeDate = document.getElementById('customCapacityChangeDate');
+  const formDate = document.getElementById('custCoFieldDate');
+  if (editor) editor.hidden = true;
+  if (editorInput) { editorInput.value = formDate?.value || ''; editorInput.min = formDate?.min || ''; }
+  if (saveDate) saveDate.hidden = true;
+  if (changeDate) changeDate.hidden = false;
   message.textContent = 'You requested ' + requested + ' custom cakes for ' + date + ', but only ' + remaining + ' slot' + (remaining === 1 ? '' : 's') + ' are available.';
   window.bootstrap.Modal.getOrCreateInstance(modal).show();
 }
@@ -1226,6 +1242,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const modal = document.getElementById('customCapacityModal');
   const useAvailable = document.getElementById('customCapacityUseAvailable');
   const changeDate = document.getElementById('customCapacityChangeDate');
+  const saveDate = document.getElementById('customCapacitySaveDate');
+  const editor = document.getElementById('customCapacityDateEditor');
+  const editorInput = document.getElementById('customCapacityDateInput');
+  const editorError = document.getElementById('customCapacityDateError');
   if (modal && modal.parentElement !== document.body) document.body.appendChild(modal);
   useAvailable?.addEventListener('click', () => {
     const quantity = document.getElementById('custCoQuantity');
@@ -1237,8 +1257,27 @@ document.addEventListener('DOMContentLoaded', () => {
     window.bootstrap?.Modal.getInstance(modal)?.hide();
   });
   changeDate?.addEventListener('click', () => {
+    const formDate = document.getElementById('custCoFieldDate');
+    if (editor) editor.hidden = false;
+    if (editorInput) {
+      editorInput.value = formDate?.value || '';
+      editorInput.min = formDate?.min || '';
+      editorInput.focus();
+      try { editorInput.showPicker?.(); } catch (_) {}
+    }
+    if (editorError) editorError.textContent = '';
+    changeDate.hidden = true;
+    if (saveDate) saveDate.hidden = false;
+  });
+  saveDate?.addEventListener('click', () => {
+    const formDate = document.getElementById('custCoFieldDate');
+    if (!editorInput?.value) { if (editorError) editorError.textContent = 'Please choose a preferred date.'; return; }
+    if (editorInput.min && editorInput.value < editorInput.min) { if (editorError) editorError.textContent = 'Choose a date on or after ' + editorInput.min + '.'; return; }
+    if (formDate) {
+      formDate.value = editorInput.value;
+      formDate.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     window.bootstrap?.Modal.getInstance(modal)?.hide();
-    setTimeout(focusCustomDate, 180);
   });
 });
 
