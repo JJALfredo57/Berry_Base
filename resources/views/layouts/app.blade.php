@@ -5884,10 +5884,9 @@ document.addEventListener('DOMContentLoaded', function () {
     stepper.querySelectorAll('.cs-checkout-step').forEach(function (el, idx) {
       el.classList.toggle('active', idx === current);
       el.classList.toggle('done', idx < current);
-        var canReturn = idx <= current;
-        el.classList.toggle('is-clickable', canReturn);
-        el.tabIndex = canReturn ? 0 : -1;
-        el.setAttribute('aria-disabled', canReturn ? 'false' : 'true');
+        el.classList.add('is-clickable');
+        el.tabIndex = 0;
+        el.setAttribute('aria-disabled', 'false');
     });
     nav.querySelector('[data-wiz-back]').style.visibility = current === 0 ? 'hidden' : 'visible';
     nextBtn.innerHTML = (navSubmitBtn || customActions) ? 'Next <i class="bi bi-arrow-right ms-1"></i>' : (current === cards.length - 1 ? 'Review Order <i class="bi bi-check2 ms-1"></i>' : 'Next <i class="bi bi-arrow-right ms-1"></i>');
@@ -5896,13 +5895,22 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   nav.querySelector('[data-wiz-back]').addEventListener('click', function () { showStep(current - 1); });
   stepper.querySelectorAll('.cs-checkout-step').forEach(function (step) {
-    function returnToCompletedStep() {
+    function goToStep() {
       var target = parseInt(step.dataset.step || '-1', 10);
-      if (target >= 0 && target <= current) showStep(target);
+      if (target < 0) return;
+      for (var idx = 0; idx < target; idx++) {
+        if (!silentCardValid(cards[idx])) {
+          showStep(idx);
+          var firstInvalid = Array.from(cards[idx].querySelectorAll('input,select,textarea')).find(function (el) { return !el.disabled && el.offsetParent !== null && !el.checkValidity(); });
+          if (firstInvalid) firstInvalid.reportValidity();
+          return;
+        }
+      }
+      showStep(target);
     }
-    step.addEventListener('click', returnToCompletedStep);
+    step.addEventListener('click', goToStep);
     step.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); returnToCompletedStep(); }
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); goToStep(); }
     });
   });
   nextBtn.addEventListener('click', function () {
