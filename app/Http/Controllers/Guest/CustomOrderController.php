@@ -692,7 +692,9 @@ class CustomOrderController extends Controller
     /** Guest accepts final price set by admin */
     public function acceptPrice(string $coId)
     {
-        $co = DB::table('custom_orders')->where('id', $coId)->whereNotNull('guest_phone')->first();
+        // Tracking-link access is verified against the linked order's track code below.
+        // Registered customers may have no guest_phone, but may still use their valid tracking link.
+        $co = DB::table('custom_orders')->where('id', $coId)->first();
         if (!$co) return back()->with('err', 'Custom order not found.');
         if ($co->price_confirmed !== 'pending') return back()->with('err', 'Price already responded to.');
         if (($co->review_status ?? '') !== 'approved' || (float) ($co->admin_price ?? 0) <= 0) {
@@ -807,7 +809,7 @@ class CustomOrderController extends Controller
     /** Guest cancels custom order after price set */
     public function cancelPrice(string $coId, OrderRefundService $refunds)
     {
-        $co = DB::table('custom_orders')->where('id', $coId)->whereNotNull('guest_phone')->first();
+        $co = DB::table('custom_orders')->where('id', $coId)->first();
         if (!$co) return back()->with('err', 'Custom order not found.');
         if ($co->price_confirmed !== 'pending') return back()->with('err', 'Price already responded to.');
 
