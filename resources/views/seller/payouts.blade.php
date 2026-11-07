@@ -181,7 +181,13 @@
 
   <div class="col-lg-8">
     <div class="card mb-4">
-      <div class="card-header"><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Payout Requests</div>
+      <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
+        <span><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Payout Requests</span>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#payoutHistoryModal">
+          <i class="bi bi-clock-history me-1"></i>Transaction History
+          <span class="badge text-bg-primary ms-1">{{ (int)($payoutHistoryCount ?? 0) }}</span>
+        </button>
+      </div>
       <div class="table-responsive">
         <table class="table align-middle mb-0">
           <thead><tr><th>ID</th><th>Status</th><th class="text-end">Net</th><th>Receipt Proof</th><th>Date</th></tr></thead>
@@ -239,6 +245,19 @@
 </div>
 
 <style>
+  #payoutHistoryModal.payout-history-modal .modal-dialog {
+    width:min(980px, calc(100vw - 24px));
+    max-width:min(980px, calc(100vw - 24px)) !important;
+    margin:0 !important;
+    transform:translateY(14px) scale(.97);
+    transition:transform .22s ease;
+  }
+  #payoutHistoryModal.payout-history-modal.show { display:flex !important; align-items:center; justify-content:center; padding:12px !important; overflow:hidden; }
+  #payoutHistoryModal.payout-history-modal.show .modal-dialog { transform:translateY(0) scale(1); }
+  #payoutHistoryModal.payout-history-modal .modal-content { max-height:calc(100dvh - 24px); border-radius:1rem; overflow:hidden; }
+  #payoutHistoryModal.payout-history-modal .modal-body { overflow:auto; -webkit-overflow-scrolling:touch; }
+  #payoutHistoryModal .payout-history-table th { white-space:nowrap; font-size:.76rem; color:#64748b; text-transform:uppercase; }
+  @media(max-width:575px) { #payoutHistoryModal.payout-history-modal .modal-footer .btn { min-height:44px; } }
   #payoutReceiptViewerModal.payout-receipt-modal .modal-dialog {
     width:min(920px, calc(100vw - 24px));
     max-width:min(920px, calc(100vw - 24px)) !important;
@@ -316,11 +335,59 @@
   </div>
 </div>
 
+<div class="modal fade payout-history-modal" id="payoutHistoryModal" tabindex="-1" aria-labelledby="payoutHistoryTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <div>
+          <h5 class="modal-title fw-bold" id="payoutHistoryTitle"><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Payout Transaction History</h5>
+          <div class="small text-muted">Latest {{ $payouts->count() }} of {{ (int)($payoutHistoryCount ?? 0) }} payout request{{ (int)($payoutHistoryCount ?? 0) === 1 ? '' : 's' }}.</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close payout history"></button>
+      </div>
+      <div class="modal-body pt-3">
+        @if($payouts->isEmpty())
+          <div class="text-center py-5 text-muted"><i class="bi bi-receipt-cutoff d-block mb-2" style="font-size:2rem;color:var(--primary)"></i>No payout requests yet.</div>
+        @else
+          <div class="table-responsive">
+            <table class="table align-middle mb-0 payout-history-table">
+              <thead><tr><th>ID</th><th>Status</th><th class="text-end">Net</th><th>Receipt / Reference</th><th>Date</th></tr></thead>
+              <tbody>
+              @foreach($payouts as $p)
+                <tr>
+                  <td class="fw-semibold">#{{ $p->id }}</td>
+                  <td><span class="badge text-bg-{{ ($p->status ?? '') === 'paid' ? 'success' : 'warning' }}">{{ ucfirst(str_replace('_', ' ', $p->status ?? 'pending')) }}</span></td>
+                  <td class="text-end fw-semibold">₱{{ number_format((float)($p->net_amount ?? 0), 2) }}</td>
+                  <td>
+                    @if(!empty($p->payout_receipt_path ?? null))
+                      <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-download-url="{{ route('seller.payouts.receipt_download', $p->id) }}" data-receipt-title="Payout Receipt #{{ $p->id }}"><i class="bi bi-image me-1"></i>View Receipt</button>
+                      @if($p->reference_number)<div class="small text-muted mt-1">Ref: {{ $p->reference_number }}</div>@endif
+                    @else
+                      <span class="small text-muted">Pending admin transfer</span>
+                    @endif
+                  </td>
+                  <td class="small text-muted">{{ $p->created_at ? \Carbon\Carbon::parse($p->created_at)->format('M d, Y g:i A') : '—' }}</td>
+                </tr>
+              @endforeach
+              </tbody>
+            </table>
+          </div>
+        @endif
+      </div>
+      <div class="modal-footer border-0 pt-0"><button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">Close</button></div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const receiptModal = document.getElementById('payoutReceiptViewerModal');
+  const historyModal = document.getElementById('payoutHistoryModal');
   if (receiptModal && receiptModal.parentElement !== document.body) {
     document.body.appendChild(receiptModal);
+  }
+  if (historyModal && historyModal.parentElement !== document.body) {
+    document.body.appendChild(historyModal);
   }
 
   function formatCountdown(ms) {
@@ -367,6 +434,9 @@ document.addEventListener('DOMContentLoaded', function() {
     button.addEventListener('click', function() {
       const url = button.dataset.receiptUrl;
       if (!url) return;
+      if (historyModal && historyModal.classList.contains('show') && window.bootstrap) {
+        bootstrap.Modal.getInstance(historyModal)?.hide();
+      }
       document.getElementById('payoutReceiptViewerTitle').textContent = button.dataset.receiptTitle || 'Payout Receipt';
       document.getElementById('payoutReceiptViewerImage').src = url;
       const downloadButton = document.getElementById('payoutReceiptViewerDownload');

@@ -45,6 +45,9 @@ class PayoutController extends Controller
             ->orderByDesc('created_at')
             ->limit(20)
             ->get();
+        $payoutHistoryCount = DB::table('seller_payouts')
+            ->where('shop_id', $shop->id)
+            ->count();
         $refunds = Schema::hasTable('order_refunds')
             ? DB::table('order_refunds')->where('shop_id', $shop->id)->orderByDesc('created_at')->limit(12)->get()
             : collect();
@@ -55,7 +58,7 @@ class PayoutController extends Controller
             ->orderBy('release_at')
             ->first();
 
-        return view('seller.payouts', compact('shop', 'payoutSettings', 'summary', 'ledgers', 'payouts', 'refunds', 'nextClearingLedger'));
+        return view('seller.payouts', compact('shop', 'payoutSettings', 'summary', 'ledgers', 'payouts', 'payoutHistoryCount', 'refunds', 'nextClearingLedger'));
     }
 
     public function saveDetails(Request $request)
