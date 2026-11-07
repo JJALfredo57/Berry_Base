@@ -256,6 +256,12 @@
                 @php
                   $savedAddrUsable = $defaultAddr && !empty($defaultAddr->full_address) && $defaultAddr->latitude !== null && $defaultAddr->longitude !== null;
                   $useSavedAddress = $savedAddrUsable && (string) old('use_saved_address', '1') === '1';
+                  $savedAddressPayload = $savedAddrUsable ? [
+                    'text' => $defaultAddr->full_address,
+                    'zone' => $defaultAddr->barangay_name ?? '',
+                    'lat' => (float) $defaultAddr->latitude,
+                    'lng' => (float) $defaultAddr->longitude,
+                  ] : null;
                 @endphp
                 <div class="d-flex gap-3 mb-3">
                   @php $oldFulfillment = old('fulfillment_type', 'Pickup'); @endphp
@@ -602,7 +608,7 @@ const COVERAGE_RADIUS = Math.max(1000, SHOP_META.coverageRadius || 5000);
 let deliveryFee = 0;
 let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
-const SAVED_ADDRESS = @json($savedAddrUsable ? ['text' => $defaultAddr->full_address, 'zone' => $defaultAddr->barangay_name ?? '', 'lat' => (float) $defaultAddr->latitude, 'lng' => (float) $defaultAddr->longitude] : null);
+const SAVED_ADDRESS = @json($savedAddressPayload);
 
 // ── Haversine ─────────────────────────────────────────
 function haversine(lat1, lon1, lat2, lon2) {
