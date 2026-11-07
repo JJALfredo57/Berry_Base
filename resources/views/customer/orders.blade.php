@@ -734,14 +734,20 @@
         </div>
         @endif
 
-        {{-- Quick details --}}
-        <div class="d-flex flex-wrap gap-2 mb-2" style="font-size:.78rem">
-          @if($co->cake_name)<span class="badge bg-light text-dark">{{ $co->cake_name }}</span>@endif
-          @if($co->flavor)<span class="badge bg-light text-dark"> {{ $co->flavor }}</span>@endif
-          @if($co->size_label)<span class="badge bg-light text-dark">{{ $co->size_label }}</span>@endif
-          @if($co->layers)<span class="badge bg-light text-dark"> {{ $co->layers }}</span>@endif
-          @if($co->design_complexity)<span class="badge bg-light text-dark"> {{ $co->design_complexity }}</span>@endif
+        {{-- Complete custom-cake details belong in this expanded order card. --}}
+        <div class="row g-2 mb-3">
+          @if($co->cake_name)<div class="col-12 col-sm-6"><div class="p-2 rounded-2 h-100" style="background:#fff;border:1px solid #f3e8df"><div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Cake Name</div><div class="fw-semibold small">{{ $co->cake_name }}</div></div></div>@endif
+          @if($co->flavor)<div class="col-6 col-sm-3"><div class="p-2 rounded-2 h-100" style="background:#fff;border:1px solid #f3e8df"><div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Flavor</div><div class="fw-semibold small">{{ $co->flavor }}</div></div></div>@endif
+          @if($co->size_label)<div class="col-6 col-sm-3"><div class="p-2 rounded-2 h-100" style="background:#fff;border:1px solid #f3e8df"><div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Size</div><div class="fw-semibold small">{{ $co->size_label }}</div></div></div>@endif
+          @if($co->layers)<div class="col-6 col-sm-3"><div class="p-2 rounded-2 h-100" style="background:#fff;border:1px solid #f3e8df"><div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Layers</div><div class="fw-semibold small">{{ $co->layers }}</div></div></div>@endif
+          @if($co->design_complexity)<div class="col-6 col-sm-3"><div class="p-2 rounded-2 h-100" style="background:#fff;border:1px solid #f3e8df"><div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Design</div><div class="fw-semibold small">{{ $co->design_complexity }}</div></div></div>@endif
+          @if($co->time_slot)<div class="col-6 col-sm-3"><div class="p-2 rounded-2 h-100" style="background:#fff;border:1px solid #f3e8df"><div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Time</div><div class="fw-semibold small">{{ $co->time_slot }}</div></div></div>@endif
+          @if($co->dedication)<div class="col-12"><div class="p-2 rounded-2" style="background:#fff;border:1px solid #f3e8df"><div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Dedication</div><div class="fw-semibold small">“{{ $co->dedication }}”</div></div></div>@endif
+          @if($co->custom_note)<div class="col-12"><div class="p-2 rounded-2" style="background:#fff;border:1px solid #f3e8df"><div class="text-muted" style="font-size:.68rem;text-transform:uppercase">Notes</div><div class="small">{{ $co->custom_note }}</div></div></div>@endif
         </div>
+        @if(isset($orderAddons[$o->id]) && count($orderAddons[$o->id]) > 0)
+        <div class="mb-3"><div class="fw-semibold small mb-1" style="color:var(--primary)"><i class="bi bi-gift me-1"></i>Add-ons</div><div class="d-flex flex-wrap gap-1">@foreach($orderAddons[$o->id] as $oa)<span class="badge" style="background:#f0fdf4;color:#166534;font-size:.75rem">{{ $oa->addon_name }}@if($oa->addon_price > 0) +PHP {{ number_format($oa->addon_price,2) }}@endif</span>@endforeach</div></div>
+        @endif
 
         {{-- Admin approved price --}}
         @if($co->review_status === 'approved' && $co->admin_price)
@@ -954,11 +960,6 @@
           @if($co->progress_message)
           <div class="small text-muted">{{ str_replace('[custom_order:'.$co->id.']', '', $co->progress_message) }}</div>
           @endif
-          {{-- Button to view full custom order details --}}
-          <button class="btn btn-sm btn-outline-primary mt-2"
-                  data-bs-toggle="modal" data-bs-target="#coDetailModal{{ $co->id }}">
-            <i class="bi bi-eye me-1"></i>View My Custom Order Details
-          </button>
         </div>
         @endif
 
@@ -976,11 +977,6 @@
         </div>
         @endif
 
-        {{-- View full details button (always visible for custom orders) --}}
-        <button class="btn btn-sm btn-link px-0 mt-1" style="color:var(--primary);font-size:.78rem"
-                data-bs-toggle="modal" data-bs-target="#coDetailModal{{ $co->id }}">
-          <i class="bi bi-info-circle me-1"></i>View Full Custom Order Details
-        </button>
       </div>
 
       {{-- Custom Order Detail Modal --}}

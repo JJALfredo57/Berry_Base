@@ -231,6 +231,10 @@ class PurchaseJourneyRenderingTest extends TestCase
         $this->assertSame('Pickup', $order->fulfillment_type);
         $this->assertSame('Pending Review', $order->status);
         $this->assertSame('Unpaid', $order->payment_status);
+        $this->get('/customer/orders')->assertOk()
+            ->assertSee('Cake Name')
+            ->assertDontSee('View Full Custom Order Details')
+            ->assertDontSee('View My Custom Order Details');
     }
 
     public function test_custom_order_rejects_a_preferred_date_beyond_the_rolling_booking_window(): void
