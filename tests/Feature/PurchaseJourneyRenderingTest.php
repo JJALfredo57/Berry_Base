@@ -237,7 +237,7 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertDontSee('View My Custom Order Details');
     }
 
-    public function test_custom_order_rejects_a_preferred_date_beyond_the_rolling_booking_window(): void
+    public function test_custom_order_rejects_a_preferred_date_beyond_the_one_month_booking_window(): void
     {
         $this->prepareFixture();
         $this->withSession(['user' => [
@@ -247,7 +247,7 @@ class PurchaseJourneyRenderingTest extends TestCase
             'cake_name' => 'Too Far Ahead Cake',
             'quantity' => 1,
             'fulfillment_type' => 'Pickup',
-            'schedule_date' => now()->addDays(8)->toDateString(),
+            'schedule_date' => now()->addMonthNoOverflow()->addDay()->toDateString(),
             'time_slot' => '14:00',
             'payment_method' => 'COP',
         ])->assertRedirect();

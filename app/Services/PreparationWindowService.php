@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 class PreparationWindowService
 {
-    public const BOOKING_WINDOW_DAYS = 7;
+    public const BOOKING_WINDOW_MONTHS = 1;
 
     public function settings(?string $shopId): object
     {
@@ -39,7 +39,7 @@ class PreparationWindowService
 
     public function latestDate(): Carbon
     {
-        return now(config('app.timezone'))->startOfDay()->addDays(self::BOOKING_WINDOW_DAYS);
+        return now(config('app.timezone'))->startOfDay()->addMonthNoOverflow(self::BOOKING_WINDOW_MONTHS);
     }
 
     public function validateDate(?string $shopId, ?string $date, string $type): array
@@ -59,10 +59,10 @@ class PreparationWindowService
         if ($earliest->gt($latest)) {
             return [
                 'ok' => false,
-                'message' => 'This seller requires ' . $earliest->diffInDays(now(config('app.timezone'))->startOfDay()) . ' preparation days, which is longer than the current ' . self::BOOKING_WINDOW_DAYS . '-day booking window. Please contact the seller for a later schedule.',
+                'message' => 'This seller requires ' . $earliest->diffInDays(now(config('app.timezone'))->startOfDay()) . ' preparation days, which is longer than the current one-month booking window. Please contact the seller for a later schedule.',
                 'earliest_date' => $earliest->toDateString(),
                 'latest_date' => $latest->toDateString(),
-                'booking_window_days' => self::BOOKING_WINDOW_DAYS,
+                'booking_window_months' => self::BOOKING_WINDOW_MONTHS,
             ];
         }
         if ($selected->lt($earliest)) {
@@ -83,10 +83,10 @@ class PreparationWindowService
         if ($selected->gt($latest)) {
             return [
                 'ok' => false,
-                'message' => 'Preferred dates are available only through ' . $latest->format('M d, Y') . '. Please choose a date within the next ' . self::BOOKING_WINDOW_DAYS . ' days.',
+                'message' => 'Preferred dates are available only through ' . $latest->format('M d, Y') . '. Please choose a date within the next month.',
                 'earliest_date' => $earliest->toDateString(),
                 'latest_date' => $latest->toDateString(),
-                'booking_window_days' => self::BOOKING_WINDOW_DAYS,
+                'booking_window_months' => self::BOOKING_WINDOW_MONTHS,
             ];
         }
 
@@ -94,7 +94,7 @@ class PreparationWindowService
             'ok' => true,
             'earliest_date' => $earliest->toDateString(),
             'latest_date' => $latest->toDateString(),
-            'booking_window_days' => self::BOOKING_WINDOW_DAYS,
+            'booking_window_months' => self::BOOKING_WINDOW_MONTHS,
         ];
     }
 
