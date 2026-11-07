@@ -10,12 +10,12 @@
 @endphp
 @push('styles')
 <style>
-.bb-estimate{border:1px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb);border-radius:.85rem;background:linear-gradient(135deg,var(--primary-bg,#fff7fb),#fff);padding:.8rem .9rem}
+.bb-estimate{border:1px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb);border-radius:.85rem;background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 9%,#fff),#fff);padding:.8rem .9rem;color:#1f2937}
 .bb-estimate-head{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:.76rem;color:var(--primary)}
 .bb-estimate-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;margin-top:.55rem;text-align:center}
 .bb-estimate-grid>div+div{border-left:1px solid color-mix(in srgb,var(--primary) 18%,#e5e7eb)}
 .bb-estimate-grid b{display:block;font-size:.88rem;line-height:1.25;color:var(--primary)}
-.bb-estimate-grid small{display:block;font-size:.58rem;letter-spacing:.04em;text-transform:uppercase;color:#6b7280}
+.bb-estimate-grid small{display:block;font-size:.58rem;letter-spacing:.04em;text-transform:uppercase;color:#4b5563}
 </style>
 @endpush
 <div class="container-fluid py-4">
@@ -630,6 +630,10 @@ let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
 const SAVED_ADDRESS = @json($savedAddressPayload);
 
+function customThemeColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#e91e63';
+}
+
 // ── Haversine ─────────────────────────────────────────
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -747,16 +751,15 @@ function onPinSet(lat, lng) {
     const feeEl  = document.getElementById('calcFeeDisplay');
     const hdrEl  = document.getElementById('deliveryCalcHeader');
     const freeEl = document.getElementById('deliveryFreeTag');
+    hdrEl.style.background = '';
     if (fee === 0) {
       feeEl.textContent  = 'FREE';
-      feeEl.style.color  = '#059669';
+      feeEl.style.color  = 'var(--primary)';
       freeEl.style.display = '';
-      hdrEl.style.background = 'linear-gradient(135deg,#059669 0%,#047857 100%)';
     } else {
       feeEl.textContent  = '₱' + fee.toFixed(2);
-      feeEl.style.color  = '#1e40af';
+      feeEl.style.color  = 'var(--primary)';
       freeEl.style.display = 'none';
-      hdrEl.style.background = 'linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)';
     }
 
     // ETA
@@ -767,7 +770,7 @@ function onPinSet(lat, lng) {
     if (fee === 0 && SHOP_META.freeRadius > 0) {
       const freeLabel = SHOP_META.freeRadius >= 1000
         ? (SHOP_META.freeRadius / 1000).toFixed(1) + ' km' : SHOP_META.freeRadius + ' m';
-      bd.innerHTML = `<i class="bi bi-gift me-1" style="color:#059669"></i>Free delivery within ${freeLabel} from shop`;
+      bd.innerHTML = `<i class="bi bi-gift me-1" style="color:var(--primary)"></i>Free delivery within ${freeLabel} from shop`;
     } else if (fee > 0) {
       const freeKm = Math.max(0, (SHOP_META.freeRadius || 0) / 1000);
       const chargeKm = Math.max(0, km - freeKm);
@@ -784,9 +787,9 @@ function onPinSet(lat, lng) {
 
     // Route line
     const pts = [[SHOP_META.lat, SHOP_META.lng], [lat, lng]];
-    if (routeLine) routeLine.setLatLngs(pts);
+    if (routeLine) { routeLine.setLatLngs(pts); routeLine.setStyle({ color: customThemeColor() }); }
     else routeLine = L.polyline(pts, {
-      color: '#6366f1', weight: 2, dashArray: '7 5', opacity: .65
+      color: customThemeColor(), weight: 2, dashArray: '7 5', opacity: .65
     }).addTo(map);
 
     // Summary fee row
@@ -1139,7 +1142,7 @@ function initMap() {
 
   if (SHOP_META.lat && SHOP_META.lng) {
     const shopIcon = L.divIcon({
-      html: `<div style="background:#6366f1;width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 12px rgba(99,102,241,.55);display:flex;align-items:center;justify-content:center">
+      html: `<div style="background:var(--primary,#e91e63);width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 12px color-mix(in srgb,var(--primary) 55%,transparent);display:flex;align-items:center;justify-content:center">
                <span style="transform:rotate(45deg);font-size:15px;line-height:1">🏪</span>
              </div>`,
       className:'', iconSize:[36,36], iconAnchor:[18,36]
