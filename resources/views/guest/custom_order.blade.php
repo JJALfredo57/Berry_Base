@@ -4,6 +4,7 @@
   $customPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($targetShop->id ?? null);
   $customPrepDays = (int) $customPrepSettings->custom_cake_prep_days;
   $customEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($targetShop->id ?? null, 'custom')->toDateString();
+  $customLatestDate = app(\App\Services\PreparationWindowService::class)->latestDate()->toDateString();
   $customScheduleSlots = app(\App\Services\FulfillmentScheduleService::class)->slotsForCheckout($targetShop->id ?? null, 'custom');
   $customScheduleSettings = app(\App\Services\FulfillmentScheduleService::class)->settings($targetShop->id ?? null);
 @endphp
@@ -343,6 +344,7 @@
                     <label class="form-label fw-semibold small">Preferred Date</label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
                            min="{{ $customEarliestDate }}"
+                           max="{{ $customLatestDate }}"
                            value="{{ old('schedule_date', $customEarliestDate) }}"
                            onchange="cvValidateDate(this);updateCustomScheduleSlots(); checkCoGuestAvailability()"
                            oninput="cvValidateDate(this)">

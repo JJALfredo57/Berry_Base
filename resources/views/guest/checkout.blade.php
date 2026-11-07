@@ -278,7 +278,7 @@ document.body.style.paddingRight = '';
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Date</label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
-                           min="{{ date('Y-m-d') }}" onchange="cvValidateDate(this);checkCheckoutAvailability()" oninput="cvValidateDate(this)">
+                           min="{{ date('Y-m-d') }}" max="{{ app(\App\Services\PreparationWindowService::class)->latestDate()->toDateString() }}" onchange="cvValidateDate(this);checkCheckoutAvailability()" oninput="cvValidateDate(this)">
                     <div class="cv-msg" id="msgDate"></div>
                     <div class="form-text"><i class="bi bi-info-circle me-1"></i>Minimum 1 day ahead for preparation. You can order for today or any future date.</div>
                     <div id="checkoutAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>

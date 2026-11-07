@@ -391,6 +391,7 @@ function customRescheduleOpen(button) {
   if (dateInput) {
     dateInput.value = button.dataset.date || '';
     dateInput.min = new Date().toISOString().slice(0, 10);
+    dateInput.max = @json(app(\App\Services\PreparationWindowService::class)->latestDate()->toDateString());
   }
   if (timeInput) timeInput.value = button.dataset.time || '';
   dialog.querySelectorAll('[name="fulfillment_type"]').forEach(input => {

@@ -233,6 +233,25 @@ class PurchaseJourneyRenderingTest extends TestCase
         $this->assertSame('Unpaid', $order->payment_status);
     }
 
+    public function test_custom_order_rejects_a_preferred_date_beyond_the_rolling_booking_window(): void
+    {
+        $this->prepareFixture();
+        $this->withSession(['user' => [
+            'id' => 'TESTBUYER', 'role' => 'customer', 'fullname' => 'Test Buyer',
+        ]])->post('/customer/custom-order/place', [
+            'shop_slug' => 'test-cake-shop',
+            'cake_name' => 'Too Far Ahead Cake',
+            'quantity' => 1,
+            'fulfillment_type' => 'Pickup',
+            'schedule_date' => now()->addDays(8)->toDateString(),
+            'time_slot' => '14:00',
+            'payment_method' => 'COP',
+        ])->assertRedirect();
+
+        $this->assertStringContainsString('available only through', (string) session('error'));
+        $this->assertDatabaseCount('orders', 0);
+    }
+
     public function test_custom_cash_delivery_is_saved_as_cod_and_remains_pending_review(): void
     {
         $this->prepareFixture();

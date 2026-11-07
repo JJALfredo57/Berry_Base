@@ -222,7 +222,7 @@ document.body.style.paddingRight = '';
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Preferred Date</label>
                 <input type="date" class="form-control" name="schedule_date" id="custFieldDate"
-                       min="{{ date('Y-m-d') }}"
+                       min="{{ date('Y-m-d') }}" max="{{ app(\App\Services\PreparationWindowService::class)->latestDate()->toDateString() }}"
                        onchange="checkCustAvailability()">
                 <div id="custCheckoutAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
                 <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date.</div>

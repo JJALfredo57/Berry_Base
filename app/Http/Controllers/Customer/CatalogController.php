@@ -40,6 +40,7 @@ class CatalogController extends Controller
             $prepSettings = $preparation->settings($shopId);
             $requestBakeSchedules[$shopId] = [
                 'earliest_date' => $preparation->earliestDate($shopId, 'custom')->toDateString(),
+                'latest_date' => $preparation->latestDate()->toDateString(),
                 'prep_days' => (int) $prepSettings->custom_cake_prep_days,
                 'shop_open_time' => substr((string) $settings->shop_open_time, 0, 5),
                 'shop_close_time' => substr((string) $settings->shop_close_time, 0, 5),

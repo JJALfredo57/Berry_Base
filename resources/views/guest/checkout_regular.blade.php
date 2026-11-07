@@ -25,6 +25,7 @@
   $readyPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($product->shop_id ?? null);
   $readyPrepDays = (int) $readyPrepSettings->ready_made_prep_days;
   $readyMadeEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($product->shop_id ?? null, 'regular')->toDateString();
+  $readyMadeLatestDate = app(\App\Services\PreparationWindowService::class)->latestDate()->toDateString();
   $regularScheduleSlots = app(\App\Services\FulfillmentScheduleService::class)->slotsForCheckout($product->shop_id ?? null, 'regular');
   $scheduleSettings = app(\App\Services\FulfillmentScheduleService::class)->settings($product->shop_id ?? null);
 @endphp
@@ -366,6 +367,7 @@ document.body.style.paddingRight = '';
                     <label class="form-label fw-semibold small">Preferred Date <span class="text-danger">*</span></label>
                     <input type="date" class="form-control cv-field" name="schedule_date" id="fieldDate"
                            min="{{ !empty($checkout['request_offer_checkout']) ? ($checkout['schedule_date'] ?? $readyMadeEarliestDate) : $readyMadeEarliestDate }}"
+                           max="{{ $readyMadeLatestDate }}"
                            onchange="cvValidateDate(this);updateRegularScheduleSlots('fieldDate','fieldTime','msgDate')"
                            oninput="cvValidateDate(this)">
                     <div class="cv-msg" id="msgDate"></div>

@@ -4,6 +4,7 @@
   $customPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($targetShop->id ?? null);
   $customPrepDays = (int) $customPrepSettings->custom_cake_prep_days;
   $customEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($targetShop->id ?? null, 'custom')->toDateString();
+  $customLatestDate = app(\App\Services\PreparationWindowService::class)->latestDate()->toDateString();
   $customScheduleSlots = app(\App\Services\FulfillmentScheduleService::class)->slotsForCheckout($targetShop->id ?? null, 'custom');
   $customScheduleSettings = app(\App\Services\FulfillmentScheduleService::class)->settings($targetShop->id ?? null);
 @endphp
@@ -164,10 +165,10 @@
                 <div class="row g-3">
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Date <span class="text-danger">*</span></label>
-                    <input type="date" class="form-control" name="schedule_date" id="custCoFieldDate" min="{{ $customEarliestDate }}" value="{{ old('schedule_date') }}" required onchange="updateCustomScheduleSlots(); checkCustCoAvailability()">
+                    <input type="date" class="form-control" name="schedule_date" id="custCoFieldDate" min="{{ $customEarliestDate }}" max="{{ $customLatestDate }}" value="{{ old('schedule_date') }}" required onchange="updateCustomScheduleSlots(); checkCustCoAvailability()">
                     <div id="custCoAvailability" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
                     <div id="custCoDateAvailability" class="small mt-1" role="alert" aria-live="polite"></div>
-                    <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least {{ $customPrepDays }} preparation day{{ $customPrepDays === 1 ? '' : 's' }}.</div>
+                    <div class="form-text text-muted small"><i class="bi bi-info-circle me-1"></i>Custom cakes need at least {{ $customPrepDays }} preparation day{{ $customPrepDays === 1 ? '' : 's' }}. Booking is available through {{ \Carbon\Carbon::parse($customLatestDate)->format('M d, Y') }}.</div>
                     @error('schedule_date')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                   </div>
                   <div class="col-sm-6">
@@ -476,7 +477,7 @@
         <p class="mb-0" id="customCapacityModalMessage"></p>
         <div id="customCapacityDateEditor" class="mt-3" hidden>
           <label for="customCapacityDateInput" class="form-label fw-semibold small">Choose another preferred date</label>
-          <input type="date" class="form-control" id="customCapacityDateInput">
+          <input type="date" class="form-control" id="customCapacityDateInput" max="{{ $customLatestDate }}">
           <div class="form-text">We will check availability again using your current quantity.</div>
           <div id="customCapacityDateError" class="small text-danger fw-semibold mt-2" role="alert"></div>
         </div>
@@ -1293,7 +1294,7 @@ function showCustomCapacityModal(date, requested, remaining) {
   const changeDate = document.getElementById('customCapacityChangeDate');
   const formDate = document.getElementById('custCoFieldDate');
   if (editor) editor.hidden = true;
-  if (editorInput) { editorInput.value = formDate?.value || ''; editorInput.min = formDate?.min || ''; }
+  if (editorInput) { editorInput.value = formDate?.value || ''; editorInput.min = formDate?.min || ''; editorInput.max = formDate?.max || ''; }
   if (saveDate) saveDate.hidden = true;
   if (changeDate) changeDate.hidden = false;
   message.textContent = 'You requested ' + requested + ' custom cakes for ' + date + ', but only ' + remaining + ' slot' + (remaining === 1 ? '' : 's') + ' are available.';
@@ -1330,6 +1331,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editorInput) {
       editorInput.value = formDate?.value || '';
       editorInput.min = formDate?.min || '';
+      editorInput.max = formDate?.max || '';
       editorInput.focus();
       try { editorInput.showPicker?.(); } catch (_) {}
     }
@@ -1341,6 +1343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const formDate = document.getElementById('custCoFieldDate');
     if (!editorInput?.value) { if (editorError) editorError.textContent = 'Please choose a preferred date.'; return; }
     if (editorInput.min && editorInput.value < editorInput.min) { if (editorError) editorError.textContent = 'Choose a date on or after ' + editorInput.min + '.'; return; }
+    if (editorInput.max && editorInput.value > editorInput.max) { if (editorError) editorError.textContent = 'Choose a date on or before ' + editorInput.max + '.'; return; }
     if (formDate) {
       formDate.value = editorInput.value;
       formDate.dispatchEvent(new Event('change', { bubbles: true }));

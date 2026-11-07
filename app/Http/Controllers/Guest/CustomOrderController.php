@@ -323,6 +323,9 @@ class CustomOrderController extends Controller
             return back()->with('error', 'Please select your preferred date.')->withInput();
         }
 
+        $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($shopId, $sdate, 'custom');
+        if (!$prepDate['ok']) return back()->with('error', $prepDate['message'])->withInput();
+
         $rush = app(\App\Services\OrderRequestService::class)->rushSnapshot($shopId, $sdate, $timeSlot, 'custom');
 
         $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng, true);
@@ -590,6 +593,8 @@ class CustomOrderController extends Controller
         if ($flavor === '') return ['ok' => false, 'message' => 'Please select a cake flavor.'];
         if ($sizeLabel === '') return ['ok' => false, 'message' => 'Please select a cake size.'];
         if (!$sdate) return ['ok' => false, 'message' => 'Please select your preferred date.'];
+        $prepDate = app(\App\Services\PreparationWindowService::class)->validateDate($shopId, $sdate, 'custom');
+        if (!$prepDate['ok']) return ['ok' => false, 'message' => $prepDate['message']];
         $rush = app(\App\Services\OrderRequestService::class)->rushSnapshot($shopId, $sdate, $timeSlot, 'custom');
 
         $scheduleCheck = app(\App\Services\OrderScheduleService::class)->validate($sdate, $timeSlot, $shopId, 'custom', $fulfillment, $lat, $lng, true);

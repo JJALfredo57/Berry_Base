@@ -910,7 +910,7 @@
                   </div>
                   <div class="col-8 col-md-4">
                     <label class="form-label small fw-semibold">Preferred date</label>
-                    <input type="date" name="preferred_date" min="{{ now()->toDateString() }}" class="form-control form-control-sm" required>
+                    <input type="date" name="preferred_date" min="{{ now()->toDateString() }}" max="{{ app(\App\Services\PreparationWindowService::class)->latestDate()->toDateString() }}" class="form-control form-control-sm" required>
                   </div>
                   <div class="col-12 col-md-4">
                     <label class="form-label small fw-semibold">Preferred time</label>

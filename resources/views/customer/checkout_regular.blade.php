@@ -31,6 +31,7 @@
   $readyPrepSettings = app(\App\Services\PreparationWindowService::class)->settings($product->shop_id ?? null);
   $readyPrepDays = (int) $readyPrepSettings->ready_made_prep_days;
   $readyMadeEarliestDate = app(\App\Services\PreparationWindowService::class)->earliestDate($product->shop_id ?? null, 'regular')->toDateString();
+  $readyMadeLatestDate = app(\App\Services\PreparationWindowService::class)->latestDate()->toDateString();
   $regularScheduleSlots = app(\App\Services\FulfillmentScheduleService::class)->slotsForCheckout($product->shop_id ?? null, 'regular');
   $scheduleSettings = app(\App\Services\FulfillmentScheduleService::class)->settings($product->shop_id ?? null);
   $sweetDealScheduleLimit = $isGroupCheckout
@@ -425,7 +426,7 @@ document.body.style.paddingRight = '';
                 <input type="date" class="form-control" name="schedule_date" id="custFieldDate" data-error-target="schedule"
                        value="{{ old('schedule_date', $checkout['schedule_date'] ?? '') }}"
                        min="{{ !empty($checkout['request_offer_checkout']) ? ($checkout['schedule_date'] ?? $readyMadeEarliestDate) : $readyMadeEarliestDate }}"
-                       @if($sweetDealMaxDate) max="{{ $sweetDealMaxDate }}" data-sweet-deal-max-label="{{ $sweetDealMaxLabel }}" @endif
+                       max="{{ $sweetDealMaxDate && $sweetDealMaxDate < $readyMadeLatestDate ? $sweetDealMaxDate : $readyMadeLatestDate }}" @if($sweetDealMaxDate) data-sweet-deal-max-label="{{ $sweetDealMaxLabel }}" @endif
                        onchange="updateRegularScheduleSlots('custFieldDate','custFieldTime','custScheduleNotice')">
                 <div id="custScheduleNotice" class="mt-1" style="font-size:.8rem;min-height:18px"></div>
                 <div class="form-text"><i class="bi bi-info-circle me-1"></i>You can order for today or any future date while a time is still open.</div>
