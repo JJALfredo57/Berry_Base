@@ -188,7 +188,8 @@
           <span class="badge text-bg-primary ms-1">{{ (int)($payoutHistoryCount ?? 0) }}</span>
         </button>
       </div>
-      <div class="table-responsive">
+      <div class="card-body py-3 small text-muted"><i class="bi bi-info-circle me-1"></i>Open Transaction History to review payout status, transfer references, and receipt proofs.</div>
+      <div class="table-responsive d-none" aria-hidden="true">
         <table class="table align-middle mb-0">
           <thead><tr><th>ID</th><th>Status</th><th class="text-end">Net</th><th>Receipt Proof</th><th>Date</th></tr></thead>
           <tbody>
