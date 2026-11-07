@@ -173,7 +173,8 @@
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Time</label>
-                    <input type="time" class="form-control" name="time_slot" id="customFieldTime" min="{{ substr($customScheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($customScheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateCustomScheduleSlots()" oninput="updateCustomScheduleSlots()">
+                    <input type="time" class="form-control" name="time_slot" id="customFieldTime" aria-describedby="custCoTimeAvailability" min="{{ substr($customScheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($customScheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateCustomScheduleSlots()" oninput="updateCustomScheduleSlots()">
+                    <div id="custCoTimeAvailability" class="small mt-1" role="alert" aria-live="polite"></div>
                   </div>
                 </div>
               </div>
@@ -551,6 +552,21 @@ function customRequiredLeadMinutes() {
 function updateCustomScheduleSlots() {
   const timeEl = document.getElementById('customFieldTime') || document.querySelector('[name="time_slot"]');
   if (!timeEl) return true;
+  const feedback = document.getElementById('custCoTimeAvailability');
+  const clearFeedback = () => {
+    timeEl.classList.remove('is-invalid', 'is-valid');
+    if (feedback) { feedback.className = 'small mt-1'; feedback.innerHTML = ''; }
+  };
+  const showError = message => {
+    timeEl.classList.remove('is-valid');
+    timeEl.classList.add('is-invalid');
+    if (feedback) {
+      feedback.className = 'small mt-1 text-danger fw-semibold';
+      feedback.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i>' + message;
+    }
+    timeEl.setCustomValidity(message);
+    return false;
+  };
   const dateEl = document.getElementById('customFieldDate') || document.querySelector('[name="schedule_date"]');
   const open = @json(substr($customScheduleSettings->shop_open_time ?? '09:00', 0, 5));
   const close = @json(substr($customScheduleSettings->shop_close_time ?? '19:00', 0, 5));
@@ -565,17 +581,19 @@ function updateCustomScheduleSlots() {
   timeEl.max = close;
   timeEl.setCustomValidity('');
   if (earliestAllowed > closeMins) {
-    timeEl.setCustomValidity('No available time on this date has enough preparation allowance. Please choose another date.');
-    return false;
+    return showError('No available time on this date has enough preparation allowance. Please choose another date.');
+  }
+  if (!timeEl.value) {
+    clearFeedback();
+    return true;
   }
   if (timeEl.value && (selectedMins < openMins || selectedMins > closeMins)) {
-    timeEl.setCustomValidity(`Please choose a time within shop hours: ${customFormatTime(openMins)} to ${customFormatTime(closeMins)}.`);
-    return false;
+    return showError(`Please choose a time within shop hours: ${customFormatTime(openMins)} to ${customFormatTime(closeMins)}.`);
   }
   if (timeEl.value && selectedMins < earliestAllowed) {
-    timeEl.setCustomValidity(`Earliest available time is ${customFormatTime(earliestAllowed)}.`);
-    return false;
+    return showError(`Earliest available time is ${customFormatTime(earliestAllowed)}.`);
   }
+  clearFeedback();
   return true;
 }
 // ── Price maps ────────────────────────────────────────
@@ -705,6 +723,7 @@ function onPinSet(lat, lng) {
     const feeRow = document.getElementById('feeRow');
     if (feeRow) feeRow.style.display = 'none';
     updatePriceSummary();
+    updateCustomScheduleSlots();
     reverseGeocode(lat, lng);
     return;
   }
@@ -781,6 +800,7 @@ function onPinSet(lat, lng) {
   }
 
   updatePriceSummary();
+  updateCustomScheduleSlots();
   reverseGeocode(lat, lng);
 }
 
@@ -879,6 +899,7 @@ function toggleDelivery() {
   updatePaymentMethodLabel();
   toggleSurpriseDelivery();
   updatePriceSummary();
+  updateCustomScheduleSlots();
 }
 
 function usingSavedAddress() {
