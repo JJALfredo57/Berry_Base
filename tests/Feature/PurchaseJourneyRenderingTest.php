@@ -215,6 +215,7 @@ class PurchaseJourneyRenderingTest extends TestCase
             'cake_name' => 'Birthday Cake',
             'quantity' => 1,
             'fulfillment_type' => 'Pickup',
+            'use_saved_address' => '1',
             'schedule_date' => now()->addDays(5)->toDateString(),
             'time_slot' => '14:00',
             'payment_method' => 'COD',

@@ -865,6 +865,13 @@ function updateAddonPanelState() {
 function toggleDelivery() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
+  if (!isDelivery) {
+    const savedAddressFlag = document.getElementById('useSavedAddress');
+    if (savedAddressFlag) savedAddressFlag.value = '0';
+  } else if (SAVED_ADDRESS) {
+    const savedAddressFlag = document.getElementById('useSavedAddress');
+    if (savedAddressFlag) savedAddressFlag.value = '1';
+  }
   if (isDelivery && !map) initMap();
   if (isDelivery && usingSavedAddress()) setAddressMode(true);
   if (isDelivery && map) setTimeout(() => map.invalidateSize(), 50);

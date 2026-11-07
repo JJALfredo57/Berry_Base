@@ -300,7 +300,7 @@ class CustomOrderController extends Controller
         $addressCodes = app(\App\Services\PsgcService::class)->addressCodesFromRequest($request);
         $sdate       = $request->input('schedule_date') ?: null;
         $savedAddress = $fulfillment === 'Delivery' ? $this->savedDeliveryAddress($request, (string) $uid) : null;
-        if ($request->boolean('use_saved_address') && !$savedAddress) {
+        if ($fulfillment === 'Delivery' && $request->boolean('use_saved_address') && !$savedAddress) {
             return back()->with('error', 'Your saved delivery location is unavailable. Choose another location or use pickup.')->withInput();
         }
         if ($savedAddress) {
@@ -687,7 +687,7 @@ class CustomOrderController extends Controller
         $sdate = $request->input('schedule_date') ?: null;
         $payment = $request->input('payment_method', 'COD');
         $savedAddress = $fulfillment === 'Delivery' ? $this->savedDeliveryAddress($request, $uid) : null;
-        if ($request->boolean('use_saved_address') && !$savedAddress) {
+        if ($fulfillment === 'Delivery' && $request->boolean('use_saved_address') && !$savedAddress) {
             return ['ok' => false, 'message' => 'Your saved delivery location is unavailable. Choose another location or use pickup.'];
         }
         if ($savedAddress) {
