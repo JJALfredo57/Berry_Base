@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Services\OrderRefundService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class PurchaseJourneyRenderingTest extends TestCase
@@ -221,6 +222,7 @@ class PurchaseJourneyRenderingTest extends TestCase
             'schedule_date' => now()->addDays(5)->toDateString(),
             'time_slot' => '14:00',
             'payment_method' => 'COD',
+            'reference_images' => [UploadedFile::fake()->create('pickup-reference.png', 10, 'image/png')],
         ];
 
         $this->postJson('/customer/custom-order/place', array_merge($submission, ['payment_method' => 'invalid']))
@@ -240,6 +242,23 @@ class PurchaseJourneyRenderingTest extends TestCase
             ->assertDontSee('View My Custom Order Details');
     }
 
+    public function test_custom_order_requires_a_reference_image(): void
+    {
+        $this->prepareFixture();
+        $this->withSession(['user' => ['id' => 'TESTBUYER', 'role' => 'customer', 'fullname' => 'Test Buyer']])
+            ->postJson('/customer/custom-order/place', [
+                'shop_slug' => 'test-cake-shop',
+                'cake_name' => 'Missing Reference Cake',
+                'quantity' => 1,
+                'fulfillment_type' => 'Pickup',
+                'schedule_date' => now()->addDays(5)->toDateString(),
+                'time_slot' => '14:00',
+                'payment_method' => 'COP',
+            ])->assertUnprocessable()->assertJsonValidationErrors('reference_images');
+
+        $this->assertDatabaseCount('orders', 0);
+    }
+
     public function test_custom_order_rejects_a_preferred_date_beyond_the_one_month_booking_window(): void
     {
         $this->prepareFixture();
@@ -253,6 +272,7 @@ class PurchaseJourneyRenderingTest extends TestCase
             'schedule_date' => now()->addMonthNoOverflow()->addDay()->toDateString(),
             'time_slot' => '14:00',
             'payment_method' => 'COP',
+            'reference_images' => [UploadedFile::fake()->create('future-reference.png', 10, 'image/png')],
         ])->assertRedirect();
 
         $this->assertStringContainsString('available only through', (string) session('error'));
@@ -286,6 +306,7 @@ class PurchaseJourneyRenderingTest extends TestCase
             'schedule_date' => now()->addDays(5)->toDateString(),
             'time_slot' => '14:00',
             'payment_method' => 'COP',
+            'reference_images' => [UploadedFile::fake()->create('delivery-reference.png', 10, 'image/png')],
             'delivery_zone' => 'Poblacion',
             'address' => 'House 12, Rizal Street, Poblacion, Bautista, Near school',
             'latitude' => '15.8095',
@@ -329,6 +350,7 @@ class PurchaseJourneyRenderingTest extends TestCase
                 'quantity' => 1, 'fulfillment_type' => 'Delivery', 'use_saved_address' => '1',
                 'schedule_date' => now()->addDays(5)->toDateString(), 'time_slot' => '14:00',
                 'payment_method' => 'COP',
+                'reference_images' => [UploadedFile::fake()->create('saved-address-reference.png', 10, 'image/png')],
             ])->assertRedirect();
 
         $this->assertFalse(session()->has('error'), session('error') ?? '');

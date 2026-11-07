@@ -235,8 +235,8 @@ class CustomOrderController extends Controller
             'payment_method' => 'nullable|in:COD,COP,GCash',
             'quantity' => 'required|integer|min:1|max:10',
             'schedule_date' => 'required|date',
-            'reference_images' => 'nullable|array|max:5',
-            'reference_images.*' => 'image|mimes:jpg,jpeg,png,webp,gif|max:5120',
+            'reference_images' => 'required|array|min:1|max:5',
+            'reference_images.*' => 'required|image|mimes:jpg,jpeg,png,webp,gif|max:5120',
         ]);
         $shop = $this->resolveVerifiedShop($request->input('shop_slug'));
         if (!$shop) {
@@ -661,8 +661,8 @@ class CustomOrderController extends Controller
         $request->validate([
             'quantity' => 'required|integer|min:1|max:10',
             'schedule_date' => 'required|date',
-            'reference_images' => 'nullable|array|max:5',
-            'reference_images.*' => 'image|mimes:jpg,jpeg,png,webp,gif|max:5120',
+            'reference_images' => 'required|array|min:1|max:5',
+            'reference_images.*' => 'required|image|mimes:jpg,jpeg,png,webp,gif|max:5120',
         ]);
 
         $shopId = $shop->id;

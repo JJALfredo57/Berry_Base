@@ -295,6 +295,7 @@ class CustomOrderController extends Controller
                 $refImages[] = $this->uploadFile($file, 'uploads/custom_orders');
             }
         }
+        if (empty($refImages)) return back()->with('error', 'Please upload at least one cake reference image so the seller can match your design.')->withInput();
 
         $basePrice = 1200.00; $sizeSurcharge = 0; $layerSurcharge = 0; $complexitySurcharge = 0;
         if ($sizeLabel) { $so = $options['sizes']->firstWhere('label',$sizeLabel); if ($so) $sizeSurcharge = (float)$so->price; }
@@ -622,6 +623,7 @@ class CustomOrderController extends Controller
                 $refImages[] = $this->uploadFile($file, 'uploads/custom_orders');
             }
         }
+        if (empty($refImages)) return ['ok' => false, 'message' => 'Please upload at least one cake reference image so the seller can match your design.'];
 
         $basePrice = 1200.00;
         $sizeSurcharge = 0.00;

@@ -54,15 +54,15 @@
                 {{-- Reference Images --}}
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">
-                    📎 Reference / Inspiration Images
-                    <span class="text-muted fw-normal">(optional, up to 5)</span>
+                    📎 Reference / Inspiration Images <span class="text-danger">*</span>
+                    <span class="text-muted fw-normal">(at least 1, up to 5)</span>
                   </label>
                   <div class="border rounded-3 p-3" style="border-style:dashed!important;border-color:var(--primary)!important;background:#fff9fb">
                     <div id="refImgPreviewStrip" class="d-flex flex-wrap gap-2 mb-2" style="min-height:0"></div>
                     <label for="refImgInput" class="btn btn-outline-primary btn-sm" id="refImgBtn">
                       <i class="bi bi-image me-1"></i>Choose Images
                       <input type="file" id="refImgInput" name="reference_images[]"
-                             accept="image/*" multiple hidden onchange="addRefImages(this)">
+                             accept="image/*" multiple hidden required onchange="addRefImages(this)">
                     </label>
                     <span class="small text-muted ms-2" id="refImgCount">0 / 5 selected</span>
                     <div class="text-muted mt-1" style="font-size:clamp(.7rem,1.4vw,.75rem)">

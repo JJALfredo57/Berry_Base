@@ -64,20 +64,21 @@
                 {{-- Reference Images --}}
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">
-                    📎 Reference / Inspiration Images
-                    <span class="text-muted fw-normal">(optional, up to 5)</span>
+                    📎 Reference / Inspiration Images <span class="text-danger">*</span>
+                    <span class="text-muted fw-normal">(at least 1, up to 5)</span>
                   </label>
                   <div class="border rounded-3 p-3" style="border-style:dashed!important;border-color:var(--primary)!important;background:#fff9fb">
                     <div id="refImgPreviewStrip" class="d-flex flex-wrap gap-2 mb-2" style="min-height:0"></div>
                     <label for="refImgInput" class="btn btn-outline-primary btn-sm" id="refImgBtn">
                       <i class="bi bi-image me-1"></i>Choose Images
                       <input type="file" id="refImgInput" name="reference_images[]"
-                             accept="image/*" multiple hidden data-cs-hide-optimization="true" onchange="addRefImages(this)">
+                             accept="image/*" multiple hidden required data-cs-hide-optimization="true" onchange="addRefImages(this)">
                     </label>
                     <span class="small text-muted ms-2" id="refImgCount">0 / 5 selected</span>
                     <div class="text-muted mt-1" style="font-size:.75rem">
-                      <i class="bi bi-info-circle me-1"></i>Upload photos of the cake design you want — from Pinterest, other bakeries, or your own ideas.
+                      <i class="bi bi-info-circle me-1"></i>Upload at least one photo of the cake design you want so the seller can match it.
                     </div>
+                    <div id="refImgError" class="small text-danger fw-semibold mt-2" role="alert" aria-live="polite"></div>
                     @error('reference_images')
                       <div class="text-danger small mt-2"><i class="bi bi-exclamation-circle me-1"></i>{{ $message }}</div>
                     @enderror
@@ -1184,6 +1185,7 @@ function customSetSubmitAction(action) {
 function submitCustomCakeToCart(btn) {
   customSetSubmitAction('add_to_cart');
   const form = document.getElementById('customOrderForm');
+  if (!validateReferenceImages(true)) return false;
   const requiredFields = Array.from(form.querySelectorAll('[name="cake_name"],[name="flavor"],[name="size"],[name="schedule_date"]'));
   for (const field of requiredFields) {
     if (!field.value) { field.reportValidity(); return false; }
@@ -1204,6 +1206,7 @@ function submitCustomCakeToCart(btn) {
   return false;
 }
 function confirmCustomOrder(btn) {
+  if (!validateReferenceImages(true)) return false;
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
   if (isDelivery) {
     const lat  = document.getElementById('lat')?.value;
@@ -1251,6 +1254,18 @@ function addRefImages(input) {
   renderRefPreviews();
 }
 
+function validateReferenceImages(showError = false) {
+  const error = document.getElementById('refImgError');
+  const button = document.getElementById('refImgBtn');
+  const valid = refFiles.length > 0;
+  if (error) error.innerHTML = !valid && showError ? '<i class="bi bi-exclamation-circle-fill me-1"></i>Please upload at least one cake reference image.' : '';
+  if (button) {
+    button.classList.toggle('btn-outline-danger', !valid && showError);
+    button.classList.toggle('btn-outline-primary', valid || !showError);
+  }
+  return valid;
+}
+
 function renderRefPreviews() {
   const strip = document.getElementById('refImgPreviewStrip');
   const count = document.getElementById('refImgCount');
@@ -1258,6 +1273,7 @@ function renderRefPreviews() {
   strip.innerHTML = '';
   count.textContent = refFiles.length + ' / ' + MAX_REF + ' selected';
   btn.style.display = refFiles.length >= MAX_REF ? 'none' : '';
+  validateReferenceImages(refFiles.length === 0 && document.getElementById('refImgInput')?.dataset?.touched === '1');
 
   refFiles.forEach((file, idx) => {
     const wrap = document.createElement('div');
@@ -1283,6 +1299,7 @@ function syncRefInput() {
   const dt = new DataTransfer();
   refFiles.forEach(f => dt.items.add(f));
   input.files = dt.files;
+  input.dataset.touched = '1';
 }
 
 let custCoAvailabilityIssue = '';
