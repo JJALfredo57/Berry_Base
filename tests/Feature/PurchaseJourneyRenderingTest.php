@@ -121,7 +121,8 @@ class PurchaseJourneyRenderingTest extends TestCase
         $this->get('/customer/checkout')->assertOk()->assertSee('Test Cake')->assertSee('value="COP"', false);
         $this->get('/customer/custom-order?shop=test-cake-shop')->assertOk()
             ->assertSee('value="COP"', false)
-            ->assertSee('custCoTimeAvailability', false);
+            ->assertSee('custCoTimeAvailability', false)
+            ->assertSee('validateCustomWizardStep', false);
         $this->post('/cart/add', ['product_id' => 'TESTCAKE', 'quantity' => 1])->assertRedirect(route('customer.cart'));
         $this->get('/customer/cart')->assertOk()
             ->assertSee('Test Cake')

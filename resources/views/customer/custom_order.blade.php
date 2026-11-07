@@ -69,7 +69,7 @@
                   </label>
                   <div class="border rounded-3 p-3" style="border-style:dashed!important;border-color:var(--primary)!important;background:#fff9fb">
                     <div id="refImgPreviewStrip" class="d-flex flex-wrap gap-2 mb-2" style="min-height:0"></div>
-                    <label for="refImgInput" class="btn btn-outline-primary btn-sm" id="refImgBtn">
+                    <label for="refImgInput" class="btn btn-outline-primary btn-sm" id="refImgBtn" tabindex="0">
                       <i class="bi bi-image me-1"></i>Choose Images
                       <input type="file" id="refImgInput" name="reference_images[]"
                              accept="image/*" multiple hidden required data-cs-hide-optimization="true" onchange="addRefImages(this)">
@@ -174,7 +174,7 @@
                   </div>
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Preferred Time</label>
-                    <input type="time" class="form-control" name="time_slot" id="customFieldTime" aria-describedby="custCoTimeAvailability" min="{{ substr($customScheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($customScheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateCustomScheduleSlots()" oninput="updateCustomScheduleSlots()">
+                    <input type="time" class="form-control" name="time_slot" id="customFieldTime" required aria-describedby="custCoTimeAvailability" min="{{ substr($customScheduleSettings->shop_open_time ?? '09:00', 0, 5) }}" max="{{ substr($customScheduleSettings->shop_close_time ?? '19:00', 0, 5) }}" onchange="updateCustomScheduleSlots()" oninput="updateCustomScheduleSlots()">
                     <div id="custCoTimeAvailability" class="small mt-1" role="alert" aria-live="polite"></div>
                   </div>
                 </div>
@@ -1265,6 +1265,54 @@ function validateReferenceImages(showError = false) {
   }
   return valid;
 }
+
+function focusCustomWizardField(field) {
+  if (!field) return;
+  field.classList?.add('is-invalid');
+  field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => field.focus?.({ preventScroll: true }), 320);
+}
+
+window.validateCustomWizardStep = function(panel) {
+  if (!panel) return true;
+
+  const referenceInput = panel.querySelector('#refImgInput');
+  if (referenceInput && !validateReferenceImages(true)) {
+    focusCustomWizardField(document.getElementById('refImgBtn'));
+    return false;
+  }
+
+  const timeInput = panel.querySelector('#customFieldTime');
+  if (timeInput) {
+    if (!timeInput.value) {
+      const feedback = document.getElementById('custCoTimeAvailability');
+      const message = 'Please choose your preferred time.';
+      timeInput.setCustomValidity(message);
+      timeInput.classList.add('is-invalid');
+      if (feedback) {
+        feedback.className = 'small mt-1 text-danger fw-semibold';
+        feedback.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i>' + message;
+      }
+      focusCustomWizardField(timeInput);
+      return false;
+    }
+    if (!updateCustomScheduleSlots() || !timeInput.checkValidity()) {
+      focusCustomWizardField(timeInput);
+      return false;
+    }
+  }
+
+  const fields = Array.from(panel.querySelectorAll('input,select,textarea')).filter(field =>
+    !field.disabled && field.type !== 'hidden' && field.offsetParent !== null
+  );
+  const firstInvalid = fields.find(field => !field.checkValidity());
+  if (firstInvalid) {
+    focusCustomWizardField(firstInvalid);
+    firstInvalid.reportValidity();
+    return false;
+  }
+  return true;
+};
 
 function renderRefPreviews() {
   const strip = document.getElementById('refImgPreviewStrip');

@@ -5843,6 +5843,9 @@ document.addEventListener('DOMContentLoaded', function () {
     nav.appendChild(navSubmitBtn);
   }
   function currentValid() {
+    if (form.id === 'customOrderForm' && typeof window.validateCustomWizardStep === 'function' && !window.validateCustomWizardStep(cards[current])) {
+      return false;
+    }
     var fields = Array.from(cards[current].querySelectorAll('input,select,textarea')).filter(function (el) {
       return !el.disabled && el.type !== 'hidden' && !el.closest('.cs-hidden') && el.offsetParent !== null;
     });
@@ -5899,6 +5902,10 @@ document.addEventListener('DOMContentLoaded', function () {
       var target = parseInt(step.dataset.step || '-1', 10);
       if (target < 0) return;
       for (var idx = 0; idx < target; idx++) {
+        if (form.id === 'customOrderForm' && typeof window.validateCustomWizardStep === 'function' && !window.validateCustomWizardStep(cards[idx])) {
+          showStep(idx);
+          return;
+        }
         if (!silentCardValid(cards[idx])) {
           showStep(idx);
           var firstInvalid = Array.from(cards[idx].querySelectorAll('input,select,textarea')).find(function (el) { return !el.disabled && el.offsetParent !== null && !el.checkValidity(); });
