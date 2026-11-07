@@ -282,6 +282,37 @@ class PurchaseJourneyRenderingTest extends TestCase
         ]);
     }
 
+    public function test_custom_order_uses_the_customer_saved_delivery_location(): void
+    {
+        $this->prepareFixture();
+        DB::table('delivery_zones')->insert([
+            'shop_id' => 'TESTSHOP', 'barangay' => 'Poblacion', 'delivery_fee' => 75,
+            'is_active' => true, 'lat' => 15.8095, 'lng' => 120.4988,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('user_addresses')->insert([
+            'user_id' => 'TESTBUYER', 'label_name' => 'Home',
+            'full_address' => 'House 12, Rizal Street, Poblacion, Bautista, Near school',
+            'latitude' => 15.8095, 'longitude' => 120.4988,
+            'barangay_name' => 'Poblacion', 'is_default' => true, 'created_at' => now(),
+        ]);
+
+        $this->withSession(['user' => ['id' => 'TESTBUYER', 'role' => 'customer', 'fullname' => 'Test Buyer']])
+            ->post('/customer/custom-order/place', [
+                'shop_slug' => 'test-cake-shop', 'cake_name' => 'Saved Address Cake',
+                'quantity' => 1, 'fulfillment_type' => 'Delivery', 'use_saved_address' => '1',
+                'schedule_date' => now()->addDays(5)->toDateString(), 'time_slot' => '14:00',
+                'payment_method' => 'COP',
+            ])->assertRedirect();
+
+        $this->assertFalse(session()->has('error'), session('error') ?? '');
+        $this->assertDatabaseHas('orders', [
+            'fulfillment_type' => 'Delivery',
+            'payment_method' => 'COD',
+            'delivery_address' => 'House 12, Rizal Street, Poblacion, Bautista, Near school',
+        ]);
+    }
+
     public function test_gcash_checkout_requires_full_payment_before_seller_confirmation(): void
     {
         $this->prepareFixture();

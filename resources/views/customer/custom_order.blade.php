@@ -7,6 +7,16 @@
   $customScheduleSlots = app(\App\Services\FulfillmentScheduleService::class)->slotsForCheckout($targetShop->id ?? null, 'custom');
   $customScheduleSettings = app(\App\Services\FulfillmentScheduleService::class)->settings($targetShop->id ?? null);
 @endphp
+@push('styles')
+<style>
+.bb-estimate{border:1px solid color-mix(in srgb,var(--primary) 22%,#e5e7eb);border-radius:.85rem;background:linear-gradient(135deg,var(--primary-bg,#fff7fb),#fff);padding:.8rem .9rem}
+.bb-estimate-head{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:.76rem;color:var(--primary)}
+.bb-estimate-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;margin-top:.55rem;text-align:center}
+.bb-estimate-grid>div+div{border-left:1px solid color-mix(in srgb,var(--primary) 18%,#e5e7eb)}
+.bb-estimate-grid b{display:block;font-size:.88rem;line-height:1.25;color:var(--primary)}
+.bb-estimate-grid small{display:block;font-size:.58rem;letter-spacing:.04em;text-transform:uppercase;color:#6b7280}
+</style>
+@endpush
 <div class="container-fluid py-4">
   <div class="row justify-content-center">
     <div class="col-lg-10">
@@ -243,15 +253,20 @@
             <div class="card mb-3">
               <div class="card-body p-4">
                 <h6 class="fw-bold mb-3"><i class="bi bi-truck me-2" style="color:var(--primary)"></i>Fulfillment</h6>
+                @php
+                  $savedAddrUsable = $defaultAddr && !empty($defaultAddr->full_address) && $defaultAddr->latitude !== null && $defaultAddr->longitude !== null;
+                  $useSavedAddress = $savedAddrUsable && (string) old('use_saved_address', '1') === '1';
+                @endphp
                 <div class="d-flex gap-3 mb-3">
+                  @php $oldFulfillment = old('fulfillment_type', 'Pickup'); @endphp
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="fulfillment_type" value="Pickup"
-                           id="pickup" checked onchange="toggleDelivery()">
+                           id="pickup" {{ $oldFulfillment !== 'Delivery' ? 'checked' : '' }} onchange="toggleDelivery()">
                     <label class="form-check-label fw-semibold" for="pickup"><i class="bi bi-bag me-1"></i>Pickup</label>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="radio" name="fulfillment_type" value="Delivery"
-                           id="delivery" onchange="toggleDelivery()">
+                           id="delivery" {{ $oldFulfillment === 'Delivery' ? 'checked' : '' }} onchange="toggleDelivery()">
                     <label class="form-check-label fw-semibold" for="delivery"><i class="bi bi-bicycle me-1"></i>Delivery</label>
                   </div>
                 </div>
@@ -261,31 +276,33 @@
                 </div>
 
                 <div id="deliverySection" style="display:none">
-                  @if($defaultAddr)
-                  <div class="d-flex justify-content-between align-items-start gap-3 p-3 mb-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0">
-                    <div><div class="small fw-bold text-success"><i class="bi bi-geo-alt-fill me-1"></i>Saved delivery address</div><div class="small mt-1">{{ $defaultAddr->full_address }}</div></div>
-                    <a href="{{ route('customer.addresses') }}" class="btn btn-outline-success btn-sm">Change address</a>
+                  <input type="hidden" name="use_saved_address" id="useSavedAddress" value="{{ $useSavedAddress ? '1' : '0' }}">
+                  @if($savedAddrUsable)
+                  <div id="savedAddressBox" class="mb-3 p-3 rounded-3" style="border:1.5px solid color-mix(in srgb,var(--primary) 25%,#e5e7eb);background:var(--primary-bg,#fff5f8)">
+                    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                      <div class="min-width-0">
+                        <div class="fw-semibold small"><i class="bi bi-geo-alt-fill me-1" style="color:var(--primary)"></i>Delivering to your saved location</div>
+                        <div class="small mt-1" id="savedAddressText" style="word-break:break-word">{{ $defaultAddr->full_address }}</div>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-outline-primary" onclick="setAddressMode(false)"><i class="bi bi-pencil me-1"></i>Change location</button>
+                    </div>
                   </div>
                   @endif
                   {{-- Map + detect location --}}
-                  <div class="mb-2">
+                  <div class="mb-2" id="pinBox" @if($useSavedAddress) style="display:none" @endif>
                     <label class="form-label fw-semibold small">
                       <i class="bi bi-pin-map me-1" style="color:var(--primary)"></i><span id="deliveryPinLabel">Pin Your Delivery Location</span>
                       <span class="text-danger">*</span>
                     </label>
-                    <div class="form-text mb-2" id="deliveryPinHelp"><i class="bi bi-info-circle me-1"></i>Tap <strong>Detect My Location</strong> or click the map to pin your exact delivery address.</div>
-                    <div id="mapWrapper" style="position:relative">
-                      <div id="map" style="height:300px;border-radius:.9rem;border:2px dashed #f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15)"></div>
-                      <div id="mapOverlay" style="position:absolute;top:12px;left:12px;right:64px;display:flex;z-index:999;pointer-events:none">
-                        <div style="background:#fff;border:1.5px solid #bbf7d0;border-radius:.85rem;padding:.65rem .8rem;box-shadow:0 4px 18px rgba(0,0,0,.16);max-width:320px;font-size:.72rem;color:#166534;font-weight:700">
-                          <i class="bi bi-map me-1"></i>The green coverage area shows where this seller delivers. You can also click the map to pin manually.
-                        </div>
-                      </div>
-                      <button type="button" class="btn btn-primary btn-sm" onclick="detectMyLocation()" id="detectBtn" style="position:absolute;right:12px;bottom:12px;z-index:1000;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.18)">
-                        <i class="bi bi-crosshair me-1"></i>Detect My Location
-                      </button>
+                    <div class="d-flex gap-2 mb-2 align-items-center flex-wrap">
+                      <button type="button" class="btn btn-sm btn-outline-primary" onclick="detectMyLocation()" id="detectBtn"><i class="bi bi-crosshair me-1"></i>Detect My Location</button>
+                      <span class="text-muted" style="font-size:.78rem">or click/tap anywhere on the map</span>
+                      @if($savedAddrUsable)<button type="button" class="btn btn-sm btn-link ms-auto p-0" onclick="setAddressMode(true)">Use saved location</button>@endif
                     </div>
-                    <div id="msgMap" class="cv-msg" style="font-size:.74rem;margin-top:4px;min-height:16px"></div>
+                    <div class="map-lock-wrap is-locked" id="mapLockWrap">
+                      <div id="map" style="height:260px;border-radius:.9rem;border:1.5px solid #dee2e6"></div>
+                      <div class="map-lock-msg"><span><i class="bi bi-lock me-1"></i>Fill in your address first to pin your location</span></div>
+                    </div>
                     <input type="hidden" name="latitude"  id="lat">
                     <input type="hidden" name="longitude" id="lng">
                     <input type="hidden" name="delivery_zone"  id="deliveryZoneInput" value="">
@@ -298,51 +315,27 @@
 
                   {{-- Fee + ETA display --}}
                   <div id="deliveryCalcBox" style="display:none" class="mb-3">
-                    <div style="border-radius:.9rem;overflow:hidden;border:1.5px solid #ddd6fe;box-shadow:0 4px 16px rgba(99,102,241,.1)">
-                      <div id="deliveryCalcHeader" style="padding:.7rem 1.1rem;background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)">
-                        <div class="d-flex align-items-center justify-content-between">
-                          <span class="fw-semibold text-white" style="font-size:.85rem">
-                            <i class="bi bi-bicycle me-2"></i>Delivery Quote
-                          </span>
-                          <span id="deliveryFreeTag" style="display:none;background:rgba(255,255,255,.25);color:#fff;font-size:.68rem;font-weight:700;border-radius:2rem;padding:2px 10px;letter-spacing:.05em">
-                            FREE DELIVERY
-                          </span>
-                        </div>
-                      </div>
-                      <div style="background:#f5f3ff;padding:.9rem 1rem">
-                        <div class="row g-0 text-center mb-2">
-                          <div class="col-4" style="border-right:1px solid #ddd6fe">
-                            <div class="fw-bold" id="distDisplay" style="font-size:1.05rem;color:#6366f1;line-height:1.2">—</div>
-                            <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Distance</div>
-                          </div>
-                          <div class="col-4" style="border-right:1px solid #ddd6fe">
-                            <div class="fw-bold" id="calcFeeDisplay" style="font-size:1.05rem;color:#1e40af;line-height:1.2">₱0.00</div>
-                            <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Delivery Fee</div>
-                          </div>
-                          <div class="col-4">
-                            <div class="fw-bold" id="calcEtaDisplay" style="font-size:1.05rem;color:#059669;line-height:1.2">—</div>
-                            <div class="text-muted" style="font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;margin-top:2px">Est. Arrival</div>
-                          </div>
-                        </div>
-                        <div id="feeBreakdown" style="border-top:1px dashed #c4b5fd;padding-top:.5rem;font-size:.72rem;color:#6b7280;line-height:1.7"></div>
-                      </div>
+                    <div class="bb-estimate" id="deliveryCalcHeader">
+                      <div class="bb-estimate-head"><span><i class="bi bi-bicycle me-1"></i>Delivery Estimate</span><span id="deliveryFreeTag" style="display:none;background:var(--primary);color:#fff;font-size:.6rem;font-weight:700;border-radius:2rem;padding:1px 8px;letter-spacing:.05em">FREE</span></div>
+                      <div class="bb-estimate-grid"><div><b id="distDisplay">—</b><small>Distance</small></div><div><b id="calcFeeDisplay">₱0.00</b><small>Fee</small></div><div><b id="calcEtaDisplay">—</b><small>Arrival</small></div></div>
+                      <div id="feeBreakdown" style="border-top:1px dashed #e5c0cf;margin-top:.35rem;padding-top:.3rem;font-size:.68rem;color:#6b7280;line-height:1.5"></div>
                     </div>
                   </div>
 
                   {{-- Address --}}
-                  <div class="mb-3">
+                  <fieldset id="newAddressBox" class="mb-3 border-0 p-0 m-0 min-width-0" {{ $useSavedAddress ? 'disabled style=display:none' : '' }}>
                     <label class="form-label fw-semibold small">
-                      Full Address
+                      Delivery Address
                       <span id="addressLoading" style="display:none;font-size:.75rem;color:var(--primary);font-weight:400">
                         <span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>
                         Fetching address…
                       </span>
                     </label>
-                    @include('partials.delivery_address_fields', ['prefix' => 'checkout', 'title' => 'Detailed Delivery Address'])
-                    <textarea class="form-control" name="address" id="addressField" rows="2"
-                      placeholder="Pin your location on the map to auto-fill, or type your address">{{ $defaultAddr ? $defaultAddr->full_address : '' }}</textarea>
-                  </div>
-                  <div class="form-check mb-1">
+                    <div class="form-text mt-0 mb-2">Your pin shows where to deliver. Enter your complete address below.</div>
+                    @include('partials.delivery_address_fields', ['prefix' => 'checkout', 'title' => 'Detailed Delivery Address', 'mapWrapId' => 'mapLockWrap', 'mapBtnId' => 'detectBtn'])
+                    <textarea class="form-control bg-light" name="address" id="addressField" rows="2" readonly placeholder="Your address appears here as you fill in the fields above">{{ old('address', '') }}</textarea>
+                  </fieldset>
+                  <div class="form-check mb-1" id="saveAddressOption" @if($useSavedAddress) style="display:none" @endif>
                     <input class="form-check-input" type="checkbox" name="save_default_address" id="saveAddr">
                     <label class="form-check-label small" for="saveAddr">Save as default address</label>
                   </div>
@@ -596,6 +589,8 @@ const BASE_CUSTOM = 1200;
 const SHOP_META = {
   lat:           {{ $shopSettings->shop_lat        ?? 'null' }},
   lng:           {{ $shopSettings->shop_lng        ?? 'null' }},
+  baseFee:       {{ (float)($shopSettings->base_fee ?? 30) }},
+  feePerKm:      {{ (float)($shopSettings->fee_per_km ?? 15) }},
   feePerMeter:   {{ (float)($shopSettings->fee_per_meter       ?? 0.05) }},
   maintenanceKm: {{ (float)($shopSettings->maintenance_per_km  ?? 5) }},
   fuelKm:        {{ (float)($shopSettings->fuel_per_km         ?? 8) }},
@@ -607,6 +602,7 @@ const COVERAGE_RADIUS = Math.max(1000, SHOP_META.coverageRadius || 5000);
 let deliveryFee = 0;
 let map, marker, routeLine;
 let deliveryCoverageBlocked = false;
+const SAVED_ADDRESS = @json($savedAddrUsable ? ['text' => $defaultAddr->full_address, 'zone' => $defaultAddr->barangay_name ?? '', 'lat' => (float) $defaultAddr->latitude, 'lng' => (float) $defaultAddr->longitude] : null);
 
 // ── Haversine ─────────────────────────────────────────
 function haversine(lat1, lon1, lat2, lon2) {
@@ -617,9 +613,10 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 function calcFee(dist) {
-  if (SHOP_META.freeRadius > 0 && dist <= SHOP_META.freeRadius) return 0;
   const km = dist / 1000;
-  return Math.ceil(SHOP_META.feePerMeter * dist + (SHOP_META.maintenanceKm + SHOP_META.fuelKm) * km);
+  const freeKm = Math.max(0, (SHOP_META.freeRadius || 0) / 1000);
+  const chargeKm = Math.max(0, km - freeKm);
+  return chargeKm <= 0 ? 0 : Math.ceil(SHOP_META.baseFee + SHOP_META.feePerKm * chargeKm);
 }
 
 function calcEtaMinutes(dist) {
@@ -745,11 +742,13 @@ function onPinSet(lat, lng) {
         ? (SHOP_META.freeRadius / 1000).toFixed(1) + ' km' : SHOP_META.freeRadius + ' m';
       bd.innerHTML = `<i class="bi bi-gift me-1" style="color:#059669"></i>Free delivery within ${freeLabel} from shop`;
     } else if (fee > 0) {
-      const basePart = (SHOP_META.feePerMeter * dist).toFixed(2);
-      const kmPart   = ((SHOP_META.maintenanceKm + SHOP_META.fuelKm) * km).toFixed(2);
+      const freeKm = Math.max(0, (SHOP_META.freeRadius || 0) / 1000);
+      const chargeKm = Math.max(0, km - freeKm);
+      const basePart = Number(SHOP_META.baseFee || 0).toFixed(2);
+      const kmPart   = (Number(SHOP_META.feePerKm || 0) * chargeKm).toFixed(2);
       bd.innerHTML =
-        `<div class="d-flex justify-content-between"><span><i class="bi bi-geo-alt me-1"></i>₱${SHOP_META.feePerMeter}/m × ${Math.round(dist)} m</span><span class="fw-semibold">₱${basePart}</span></div>` +
-        `<div class="d-flex justify-content-between"><span><i class="bi bi-droplet me-1"></i>Fuel + maintenance × ${km.toFixed(2)} km</span><span class="fw-semibold">₱${kmPart}</span></div>`;
+        `<div class="d-flex justify-content-between"><span><i class="bi bi-geo-alt me-1"></i>Base delivery fee</span><span class="fw-semibold">₱${basePart}</span></div>` +
+        `<div class="d-flex justify-content-between"><span><i class="bi bi-signpost me-1"></i>₱${SHOP_META.feePerKm}/km × ${chargeKm.toFixed(2)} km excess</span><span class="fw-semibold">₱${kmPart}</span></div>`;
     } else {
       bd.innerHTML = '';
     }
@@ -860,11 +859,61 @@ function toggleDelivery() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
   if (isDelivery && !map) initMap();
+  if (isDelivery && usingSavedAddress()) setAddressMode(true);
+  if (isDelivery && map) setTimeout(() => map.invalidateSize(), 50);
   if (!isDelivery) { deliveryFee = 0; }
   updatePaymentMethodLabel();
   toggleSurpriseDelivery();
   updatePriceSummary();
 }
+
+function usingSavedAddress() {
+  return !!SAVED_ADDRESS && document.getElementById('useSavedAddress')?.value === '1';
+}
+
+function composeCustomAddress() {
+  const value = key => (document.getElementById('checkoutAddress' + key)?.value || '').trim();
+  return ['House', 'Street', 'Subdivision', 'Barangay', 'City', 'Province'].map(value).filter(Boolean).join(', ');
+}
+
+function refreshCustomAddressSummary() {
+  const field = document.getElementById('addressField');
+  if (!field || usingSavedAddress()) return;
+  field.value = composeCustomAddress();
+}
+
+function setAddressMode(useSaved) {
+  const flag = document.getElementById('useSavedAddress');
+  if (!flag || !SAVED_ADDRESS) return;
+  flag.value = useSaved ? '1' : '0';
+  const newBox = document.getElementById('newAddressBox');
+  const pinBox = document.getElementById('pinBox');
+  const savedBox = document.getElementById('savedAddressBox');
+  if (newBox) { newBox.disabled = useSaved; newBox.style.display = useSaved ? 'none' : ''; }
+  if (pinBox) pinBox.style.display = useSaved ? 'none' : '';
+  if (savedBox) savedBox.style.display = useSaved ? '' : 'none';
+  const saveOption = document.getElementById('saveAddressOption');
+  if (saveOption) saveOption.style.display = useSaved ? 'none' : '';
+  if (useSaved) {
+    document.getElementById('addressField').value = SAVED_ADDRESS.text;
+    document.getElementById('deliveryZoneInput').value = SAVED_ADDRESS.zone || '';
+    if (!map) initMap();
+    setMarkerAt(L.latLng(SAVED_ADDRESS.lat, SAVED_ADDRESS.lng), true);
+  } else {
+    refreshCustomAddressSummary();
+    document.getElementById('lat').value = '';
+    document.getElementById('lng').value = '';
+    deliveryFee = 0;
+    document.getElementById('deliveryFeeInput').value = 0;
+    document.getElementById('deliveryCalcBox').style.display = 'none';
+    if (map) setTimeout(() => map.invalidateSize(), 50);
+  }
+  updatePriceSummary();
+}
+
+document.addEventListener('psgc-sync', event => {
+  if (event.detail?.prefix === 'checkout') refreshCustomAddressSummary();
+});
 
 function updatePaymentMethodLabel() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
@@ -1065,8 +1114,10 @@ function initMap() {
   drawCoverageAreas();
 
   @if($defaultAddr && ($defaultAddr->latitude ?? null) && ($defaultAddr->longitude ?? null))
-    setMarkerAt(L.latLng({{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}), true);
-    map.setView([{{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}], 15);
+    if (usingSavedAddress()) {
+      setMarkerAt(L.latLng({{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}), true);
+      map.setView([{{ $defaultAddr->latitude }}, {{ $defaultAddr->longitude }}], 15);
+    }
   @endif
 
   map.on('click', e => setMarkerAt(e.latlng, true));
@@ -1143,6 +1194,8 @@ function confirmCustomOrder(btn) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (!usingSavedAddress()) refreshCustomAddressSummary();
+  toggleDelivery();
   updatePaymentMethodLabel();
   toggleSurpriseDelivery();
   updatePriceSummary();

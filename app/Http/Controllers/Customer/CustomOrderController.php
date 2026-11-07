@@ -193,6 +193,21 @@ class CustomOrderController extends Controller
         return array_filter($data, fn ($value, $column) => \Illuminate\Support\Facades\Schema::hasColumn('orders', $column), ARRAY_FILTER_USE_BOTH);
     }
 
+    private function savedDeliveryAddress(Request $request, string $userId): ?object
+    {
+        if (!$request->boolean('use_saved_address')) return null;
+
+        $query = DB::table('user_addresses')->where('user_id', $userId);
+        if (\Illuminate\Support\Facades\Schema::hasColumn('user_addresses', 'archived_at')) {
+            $query->whereNull('archived_at');
+        }
+        $address = $query->orderByDesc('is_default')->orderByDesc('id')->first();
+
+        return $address && !empty($address->full_address) && $address->latitude !== null && $address->longitude !== null
+            ? $address
+            : null;
+    }
+
     private function storeReferenceImages(Request $request): array
     {
         $referenceImages = [];
@@ -284,6 +299,24 @@ class CustomOrderController extends Controller
         $lng         = $request->input('longitude') !== '' ? (float)$request->input('longitude') : null;
         $addressCodes = app(\App\Services\PsgcService::class)->addressCodesFromRequest($request);
         $sdate       = $request->input('schedule_date') ?: null;
+        $savedAddress = $fulfillment === 'Delivery' ? $this->savedDeliveryAddress($request, (string) $uid) : null;
+        if ($request->boolean('use_saved_address') && !$savedAddress) {
+            return back()->with('error', 'Your saved delivery location is unavailable. Choose another location or use pickup.')->withInput();
+        }
+        if ($savedAddress) {
+            $address = (string) $savedAddress->full_address;
+            $lat = (float) $savedAddress->latitude;
+            $lng = (float) $savedAddress->longitude;
+            $zone = (string) ($savedAddress->barangay_name ?? $zone);
+            $addressCodes = [
+                'province_code' => $savedAddress->province_code ?? null,
+                'province_name' => $savedAddress->province_name ?? null,
+                'city_municipality_code' => $savedAddress->city_municipality_code ?? null,
+                'city_municipality_name' => $savedAddress->city_municipality_name ?? null,
+                'barangay_code' => $savedAddress->barangay_code ?? null,
+                'barangay_name' => $savedAddress->barangay_name ?? null,
+            ];
+        }
         $cashPaymentMethod = $fulfillment === 'Delivery' ? 'COD' : 'COP';
         $payment = $request->input('payment_method', $cashPaymentMethod);
         $payment = $payment === 'GCash' ? 'GCash' : $cashPaymentMethod;
@@ -349,8 +382,10 @@ class CustomOrderController extends Controller
         }
 
         if ($fulfillment === 'Delivery') {
-            $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
-                ->validateRequest($request, $lat, $lng, $zone, true, 'address', $shopId);
+            $locationValidation = $savedAddress
+                ? app(\App\Services\DeliveryLocationValidationService::class)->validate($address, $lat, $lng, $zone, false)
+                : app(\App\Services\DeliveryLocationValidationService::class)
+                    ->validateRequest($request, $lat, $lng, $zone, true, 'address', $shopId);
             if (!$locationValidation['ok']) {
                 return back()->with('error', $locationValidation['message'])->withInput();
             }
@@ -609,7 +644,7 @@ class CustomOrderController extends Controller
                 ->with('error', 'Custom cake ordering is available only for Verified Sellers. Please choose a verified shop.');
         }
 
-        $payload = $this->customCartPayload($request, $shop);
+        $payload = $this->customCartPayload($request, $shop, $uid);
         if (!$payload['ok']) return back()->with('error', $payload['message'])->withInput();
 
         $result = app(CartService::class)->addCustomDraft($request, $uid, $shop, $payload['data']);
@@ -618,7 +653,7 @@ class CustomOrderController extends Controller
             : back()->with('error', $result['message'])->withInput();
     }
 
-    private function customCartPayload(Request $request, object $shop): array
+    private function customCartPayload(Request $request, object $shop, string $uid): array
     {
         $request->validate([
             'quantity' => 'required|integer|min:1|max:10',
@@ -648,6 +683,16 @@ class CustomOrderController extends Controller
         $lng = $request->input('longitude') !== '' ? (float) $request->input('longitude') : null;
         $sdate = $request->input('schedule_date') ?: null;
         $payment = $request->input('payment_method', 'COD');
+        $savedAddress = $fulfillment === 'Delivery' ? $this->savedDeliveryAddress($request, $uid) : null;
+        if ($request->boolean('use_saved_address') && !$savedAddress) {
+            return ['ok' => false, 'message' => 'Your saved delivery location is unavailable. Choose another location or use pickup.'];
+        }
+        if ($savedAddress) {
+            $address = (string) $savedAddress->full_address;
+            $lat = (float) $savedAddress->latitude;
+            $lng = (float) $savedAddress->longitude;
+            $zone = (string) ($savedAddress->barangay_name ?? $zone);
+        }
 
         if ($cakeName === '') return ['ok' => false, 'message' => 'Please enter a cake / occasion name.'];
         if ($flavor === '') return ['ok' => false, 'message' => 'Please select a cake flavor.'];
@@ -678,8 +723,10 @@ class CustomOrderController extends Controller
         }
 
         if ($fulfillment === 'Delivery') {
-            $locationValidation = app(\App\Services\DeliveryLocationValidationService::class)
-                ->validateRequest($request, $lat, $lng, $zone, true, 'address', $shopId);
+            $locationValidation = $savedAddress
+                ? app(\App\Services\DeliveryLocationValidationService::class)->validate($address, $lat, $lng, $zone, false)
+                : app(\App\Services\DeliveryLocationValidationService::class)
+                    ->validateRequest($request, $lat, $lng, $zone, true, 'address', $shopId);
             if (!$locationValidation['ok']) {
                 return ['ok' => false, 'message' => $locationValidation['message']];
             }
