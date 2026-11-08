@@ -62,7 +62,7 @@
                     <td><div class="small">Min PHP {{ number_format($voucher->minimum_order_amount,2) }}</div><div class="small text-muted">Per customer: {{ $voucher->per_customer_limit ?: 'No limit' }}</div></td>
                     <td><span class="badge {{ $voucher->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $voucher->is_active ? 'Active' : 'Paused' }}</span></td>
                     <td class="text-end">
-                      <form method="POST" action="{{ route($ctx['route_prefix'].'.vouchers.toggle', $voucher->id) }}">@csrf<button class="btn btn-outline-secondary btn-sm">{{ $voucher->is_active ? 'Pause' : 'Activate' }}</button></form>
+                      <form method="POST" action="{{ route($ctx['route_prefix'].'.vouchers.toggle', $voucher->id) }}">@csrf<button class="btn btn-outline-secondary btn-sm" style="white-space:nowrap;overflow-wrap:normal;min-width:68px">{{ $voucher->is_active ? 'Pause' : 'Activate' }}</button></form>
                     </td>
                   </tr>
                 @empty
