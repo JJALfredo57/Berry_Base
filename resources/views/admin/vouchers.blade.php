@@ -32,7 +32,7 @@
               <div class="col-6"><label class="form-label small fw-semibold">Per Customer</label><input type="number" min="1" max="1000" name="per_customer_limit" class="form-control" value="1"></div>
             </div>
             <div class="mt-2"><label class="form-label small fw-semibold">Audience</label><select name="audience" id="voucher-audience" class="form-select"><option value="public">Public</option><option value="assigned">Assigned customer only</option></select></div>
-            <div class="mt-2 d-none" id="customer-wrap"><label class="form-label small fw-semibold">Customer for Assigned Voucher</label><input name="customer_identifier" id="voucher-customer" class="form-control" placeholder="Customer email, phone, or ID"></div>
+            <div class="mt-2 d-none" id="customer-wrap"><label class="form-label small fw-semibold">Customer for Assigned Voucher</label><input id="voucher-customer" class="form-control" autocomplete="off" placeholder="Search name, email, or phone"><input type="hidden" name="customer_identifier" id="voucher-customer-id"><div id="voucher-customer-results" class="list-group mt-1"></div></div>
             <div class="row g-2 mt-1">
               <div class="col-6"><label class="form-label small fw-semibold">Starts</label><input type="datetime-local" name="starts_at" class="form-control voucher-date"></div>
               <div class="col-6"><label class="form-label small fw-semibold">Ends</label><input type="datetime-local" name="ends_at" class="form-control voucher-date"></div>

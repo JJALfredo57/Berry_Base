@@ -165,4 +165,16 @@ class VoucherController extends Controller
         );
         return back()->with('msg', 'Voucher status updated.');
     }
+
+    public function searchCustomers(Request $request)
+    {
+        $ctx = $this->context();
+        if ($ctx['role'] !== 'seller') abort(403);
+        $term = trim((string) $request->query('q', ''));
+        if (mb_strlen($term) < 2) return response()->json([]);
+        return response()->json(DB::table('users as u')->join('orders as o', 'o.user_id', '=', 'u.id')
+            ->where('o.shop_id', $ctx['shop_id'])->where('u.role', 'customer')
+            ->where(fn ($q) => $q->where('u.fullname', 'like', "%{$term}%")->orWhere('u.email', 'like', "%{$term}%")->orWhere('u.phone', 'like', "%{$term}%"))
+            ->select('u.id','u.fullname','u.email','u.phone')->distinct()->limit(8)->get());
+    }
 }

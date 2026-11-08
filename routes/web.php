@@ -470,6 +470,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/vouchers', [\App\Http\Controllers\Admin\VoucherController::class, 'index'])->name('vouchers.index');
     Route::post('/vouchers', [\App\Http\Controllers\Admin\VoucherController::class, 'store'])->name('vouchers.store');
     Route::post('/vouchers/{id}/toggle', [\App\Http\Controllers\Admin\VoucherController::class, 'toggle'])->name('vouchers.toggle');
+    Route::get('/vouchers/customers/search', [\App\Http\Controllers\Admin\VoucherController::class, 'searchCustomers'])->name('vouchers.customers.search');
     Route::get('/payouts',   [\App\Http\Controllers\Seller\PayoutController::class, 'index'])->name('payouts');
     Route::post('/payouts/details', [\App\Http\Controllers\Seller\PayoutController::class, 'saveDetails'])->name('payouts.details');
     Route::post('/payouts/request', [\App\Http\Controllers\Seller\PayoutController::class, 'requestManual'])->name('payouts.request');
