@@ -179,7 +179,7 @@
     <div class="or-empty">
       <i class="bi bi-inbox" style="font-size:2rem;color:#cbd5e1"></i>
       <h2 class="h5 mt-2 mb-1">No requests here</h2>
-      <p class="mb-0">New request-to-bake items will appear here with rush ones at the top.</p>
+      <p class="mb-0">New request-to-bake items will appear here for your review.</p>
     </div>
   @endforelse
 
