@@ -55,6 +55,20 @@
 #edit-map{height:220px}
 .pin-hint{font-size:.75rem;color:#6366f1;background:#eef2ff;border-radius:8px;padding:.45rem .8rem;display:none}
 .pin-hint.show{display:block}
+#editModal .modal-dialog{max-height:calc(100dvh - 2rem)}
+#editModal .modal-content{max-height:calc(100dvh - 2rem)}
+
+@media(max-width:640px){
+  .zone-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem;max-height:none;overflow:visible;padding-right:0}
+  .zone-card{min-width:0;padding:.7rem .75rem}
+  .zname,.zaddr{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .zaddr{font-size:.68rem}
+  .zbtns{margin-top:.45rem}
+  .zbtns .btn{min-height:30px}
+  #edit-map{height:min(34dvh,240px)}
+  #editModal .modal-dialog{margin:.75rem;max-height:calc(100dvh - 1.5rem)}
+  #editModal .modal-content{max-height:calc(100dvh - 1.5rem)}
+}
 
 /* ── Route Coverage Panel ───────────────────────────── */
 .route-panel{background:#fff;border-radius:16px;padding:1.3rem 1.3rem 1rem;box-shadow:0 2px 16px rgba(99,102,241,.12);border:1.5px solid #e0e7ff;margin-top:1rem}
@@ -356,12 +370,12 @@
 </div>
 
 {{-- ── Edit Modal ──────────────────────────────────────── --}}
-<div class="modal fade" id="editModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content border-0" style="border-radius:16px">
       <div class="modal-header py-2 border-0 pb-0">
-        <h6 class="modal-title fw-bold"><i class="bi bi-pencil-square me-1"></i>Edit Coverage Area</h6>
-        <button class="btn-close" data-bs-dismiss="modal"></button>
+        <h6 class="modal-title fw-bold" id="editModalTitle"><i class="bi bi-pencil-square me-1"></i>Edit Coverage Area</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form method="POST" id="edit-form">
         @csrf
@@ -1050,9 +1064,54 @@ function setStatus(pct, html) {
 // ── EDIT MODAL ─────────────────────────────────────────
 // ═══════════════════════════════════════════════════════
 
-let editMap = null, editMarker = null, editPinMode = false;
+const editModalElement = document.getElementById('editModal');
+if (editModalElement.parentElement !== document.body) {
+    document.body.appendChild(editModalElement);
+}
+
+let editMap = null, editMarker = null, editCoverageLayer = null, editPinMode = false, editingZoneId = null;
+
+function isActiveZone(zone) {
+    return zone?.is_active === true || Number(zone?.is_active) === 1;
+}
+
+function renderEditCoverage(previewLat, previewLng) {
+    if (!editMap) return;
+    if (editCoverageLayer) editMap.removeLayer(editCoverageLayer);
+
+    const currentZone = zonesData.find(zone => String(zone.id) === String(editingZoneId));
+    const coveragePoints = zonesData
+        .filter(zone => isActiveZone(zone) && zone.lat && zone.lng && String(zone.id) !== String(editingZoneId))
+        .map(zone => [Number(zone.lat), Number(zone.lng)]);
+
+    if (isActiveZone(currentZone) && previewLat && previewLng) {
+        coveragePoints.push([Number(previewLat), Number(previewLng)]);
+    }
+    if (!coveragePoints.length) return;
+
+    if (window.turf) {
+        const polygons = coveragePoints.map(([lat, lng]) => turf.circle(
+            [lng, lat], coverageRadius / 1000, { steps: 64, units: 'kilometers' }
+        ));
+        const mergedCoverage = polygons.length === 1
+            ? polygons[0]
+            : turf.union(turf.featureCollection(polygons));
+
+        editCoverageLayer = L.geoJSON(mergedCoverage, {
+            style: { color: '#16a34a', weight: 2, opacity: .82, fillColor: '#22c55e', fillOpacity: .22 },
+            interactive: false,
+        }).addTo(editMap);
+        return;
+    }
+
+    editCoverageLayer = L.featureGroup(coveragePoints.map(([lat, lng]) => L.circle([lat, lng], {
+        radius: coverageRadius, color: '#16a34a', weight: 2, opacity: .8,
+        fillColor: '#22c55e', fillOpacity: .18, interactive: false,
+    }))).addTo(editMap);
+}
 
 function openEditModal(id, barangay, zoneAddress, lat, lng) {
+    editingZoneId = id;
     const form = document.getElementById('edit-form');
     form.action = `/seller/zones/${id}/update`;
     document.getElementById('edit-barangay').value     = barangay;
@@ -1061,10 +1120,10 @@ function openEditModal(id, barangay, zoneAddress, lat, lng) {
     document.getElementById('edit-lng').value          = lng  || '';
     updateEditCoords(lat, lng, zoneAddress || '');
 
-    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+    const modal = new bootstrap.Modal(editModalElement);
     modal.show();
 
-    document.getElementById('editModal').addEventListener('shown.bs.modal', function onShown() {
+    editModalElement.addEventListener('shown.bs.modal', function onShown() {
         this.removeEventListener('shown.bs.modal', onShown);
         const clat = lat  || currentShopLat || 13.41;
         const clng = lng  || currentShopLng || 122.56;
@@ -1076,8 +1135,12 @@ function openEditModal(id, barangay, zoneAddress, lat, lng) {
             editMap.setView([clat, clng], 14);
         }
         if (editMarker) { editMap.removeLayer(editMarker); editMarker = null; }
+        renderEditCoverage(lat, lng);
         if (lat && lng) editMarker = L.marker([lat, lng]).addTo(editMap).bindPopup('Coverage area').openPopup();
         editMap.invalidateSize();
+        if (editCoverageLayer?.getBounds?.().isValid()) {
+            editMap.fitBounds(editCoverageLayer.getBounds().pad(0.08), { maxZoom: 14 });
+        }
     });
 }
 
@@ -1093,6 +1156,7 @@ function setEditPin(lat, lng) {
     document.getElementById('edit-lng').value = lng.toFixed(7);
     if (editMarker) editMap.removeLayer(editMarker);
     editMarker = L.marker([lat, lng]).addTo(editMap).bindPopup('Coverage area').openPopup();
+    renderEditCoverage(lat, lng);
     if (editPinMode) toggleEditPinMode();
 
     fetchWithTimeout(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, {}, 7000)
@@ -1119,8 +1183,11 @@ function updateEditCoords(lat, lng, addr) {
         + (addr ? `<br><span class="text-muted" style="font-size:.74rem">${addr}</span>` : '');
 }
 
-document.getElementById('editModal').addEventListener('hidden.bs.modal', () => {
+editModalElement.addEventListener('hidden.bs.modal', () => {
     if (editPinMode) toggleEditPinMode();
+    if (editCoverageLayer && editMap) editMap.removeLayer(editCoverageLayer);
+    editCoverageLayer = null;
+    editingZoneId = null;
 });
 
 // ── Utilities ──────────────────────────────────────────
