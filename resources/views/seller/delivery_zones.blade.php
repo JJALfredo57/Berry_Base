@@ -385,11 +385,16 @@
           <div class="row g-3">
             <div class="col-12">
               <label class="form-label small fw-semibold mb-1">Area / Barangay Name <span class="text-danger">*</span></label>
-              <input type="text" name="barangay" id="edit-barangay" class="form-control form-control-sm" required>
+              <input type="text" name="barangay" id="edit-barangay" class="form-control form-control-sm" required readonly
+                     aria-describedby="edit-address-status">
             </div>
             <div class="col-12">
               <label class="form-label small fw-semibold mb-1">Full Address</label>
-              <textarea name="zone_address" id="edit-zone-address" class="form-control form-control-sm" rows="2"></textarea>
+              <textarea name="zone_address" id="edit-zone-address" class="form-control form-control-sm" rows="2" readonly
+                        aria-describedby="edit-address-status"></textarea>
+              <div id="edit-address-status" class="form-text">
+                <i class="bi bi-geo-alt-fill me-1"></i>Automatically updated from the map pin.
+              </div>
             </div>
             <div class="col-12">
               <div class="d-flex align-items-center justify-content-between mb-1">
@@ -412,7 +417,7 @@
           <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">
             <i class="bi bi-x-circle me-1"></i>Cancel
           </button>
-          <button type="submit" class="btn btn-sm btn-primary px-4">
+          <button type="submit" class="btn btn-sm btn-primary px-4" id="edit-save-btn">
             <i class="bi bi-check-circle me-1"></i>Save Changes
           </button>
         </div>
@@ -1070,6 +1075,25 @@ if (editModalElement.parentElement !== document.body) {
 }
 
 let editMap = null, editMarker = null, editCoverageLayer = null, editPinMode = false, editingZoneId = null;
+let editGeocodeRequestId = 0, editAddressReady = true;
+
+function setEditAddressLookupState(state, message = '') {
+    const status = document.getElementById('edit-address-status');
+    const saveButton = document.getElementById('edit-save-btn');
+    editAddressReady = state === 'ready';
+    saveButton.disabled = !editAddressReady;
+
+    if (state === 'loading') {
+        status.className = 'form-text text-primary';
+        status.innerHTML = '<span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem"></span>Finding the barangay and full address for this pin…';
+    } else if (state === 'error') {
+        status.className = 'form-text text-danger';
+        status.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i>' + escHtml(message || 'Could not identify this pin. Choose another location.');
+    } else {
+        status.className = 'form-text text-success';
+        status.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Barangay and address match the current map pin.';
+    }
+}
 
 function isActiveZone(zone) {
     return zone?.is_active === true || Number(zone?.is_active) === 1;
@@ -1112,12 +1136,17 @@ function renderEditCoverage(previewLat, previewLng) {
 
 function openEditModal(id, barangay, zoneAddress, lat, lng) {
     editingZoneId = id;
+    editGeocodeRequestId++;
     const form = document.getElementById('edit-form');
     form.action = `/seller/zones/${id}/update`;
     document.getElementById('edit-barangay').value     = barangay;
     document.getElementById('edit-zone-address').value = zoneAddress || '';
     document.getElementById('edit-lat').value          = lat  || '';
     document.getElementById('edit-lng').value          = lng  || '';
+    setEditAddressLookupState(
+        lat && lng && barangay && zoneAddress ? 'ready' : 'error',
+        'Pin a map location to automatically identify its barangay and full address.'
+    );
     updateEditCoords(lat, lng, zoneAddress || '');
 
     const modal = new bootstrap.Modal(editModalElement);
@@ -1152,6 +1181,7 @@ function toggleEditPinMode() {
 }
 
 function setEditPin(lat, lng) {
+    const requestId = ++editGeocodeRequestId;
     document.getElementById('edit-lat').value = lat.toFixed(7);
     document.getElementById('edit-lng').value = lng.toFixed(7);
     if (editMarker) editMap.removeLayer(editMarker);
@@ -1159,18 +1189,32 @@ function setEditPin(lat, lng) {
     renderEditCoverage(lat, lng);
     if (editPinMode) toggleEditPinMode();
 
+    document.getElementById('edit-barangay').value = '';
+    document.getElementById('edit-zone-address').value = '';
+    setEditAddressLookupState('loading');
+
     fetchWithTimeout(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, {}, 7000)
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error('Address lookup is unavailable.');
+            return r.json();
+        })
         .then(d => {
+            if (requestId !== editGeocodeRequestId) return;
             const a    = d.address || {};
             const brgy = a.village || a.suburb || a.neighbourhood || a.quarter || a.hamlet || '';
             const full = [a.road, a.village || a.suburb || a.neighbourhood || a.quarter || a.hamlet,
                           a.city || a.town || a.municipality, a.state].filter(Boolean).join(', ') || d.display_name || '';
-            if (brgy) document.getElementById('edit-barangay').value    = brgy;
-            if (full)  document.getElementById('edit-zone-address').value = full;
+            if (!brgy || !full) throw new Error('This pin has no recognizable barangay or full address. Please choose another location.');
+            document.getElementById('edit-barangay').value = brgy;
+            document.getElementById('edit-zone-address').value = full;
             updateEditCoords(lat, lng, full);
+            setEditAddressLookupState('ready');
         })
-        .catch(() => updateEditCoords(lat, lng, ''));
+        .catch(error => {
+            if (requestId !== editGeocodeRequestId) return;
+            updateEditCoords(lat, lng, '');
+            setEditAddressLookupState('error', error.message);
+        });
 }
 
 function updateEditCoords(lat, lng, addr) {
@@ -1184,10 +1228,17 @@ function updateEditCoords(lat, lng, addr) {
 }
 
 editModalElement.addEventListener('hidden.bs.modal', () => {
+    editGeocodeRequestId++;
     if (editPinMode) toggleEditPinMode();
     if (editCoverageLayer && editMap) editMap.removeLayer(editCoverageLayer);
     editCoverageLayer = null;
     editingZoneId = null;
+});
+
+document.getElementById('edit-form').addEventListener('submit', event => {
+    if (editAddressReady) return;
+    event.preventDefault();
+    document.getElementById('edit-address-status').scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
 
 // ── Utilities ──────────────────────────────────────────
