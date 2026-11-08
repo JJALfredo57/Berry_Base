@@ -31,6 +31,28 @@ class CustomOrderController extends Controller
         return $shop;
     }
 
+    private function notifyCustomerAction(object $order, string $title, string $message, ?string $smsMessage = null): void
+    {
+        if (!empty($order->user_id)) {
+            DB::table('notifications')->insert([
+                'receiver_role' => 'customer',
+                'receiver_user_id' => (string) $order->user_id,
+                'order_id' => (string) $order->id,
+                'title' => $title,
+                'message' => $message,
+                'is_read' => false,
+                'created_at' => now(),
+            ]);
+            app(MobileNotificationService::class)->notifyOrderCustomer(
+                $order,
+                $title,
+                $message,
+                ['event' => 'custom_order_action', 'order_id' => (string) $order->id],
+                $smsMessage
+            );
+        }
+    }
+
     public function index(Request $request)
     {
         try {
@@ -151,7 +173,7 @@ class CustomOrderController extends Controller
         $shop  = $this->getShop();
         $price = (float)$request->input('admin_price', 0);
         $co    = DB::table('custom_orders as co')->join('orders as o', 'o.id', '=', 'co.order_id')
-            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.guest_phone', 'o.guest_name', 'o.track_code', 'o.status as order_status')->first();
+            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.id as id', 'o.user_id', 'o.guest_phone', 'o.guest_name', 'o.track_code', 'o.status as order_status')->first();
         if (!$co) return back()->with('err', 'Custom order not found.');
         if (($co->order_status ?? '') === 'Cancelled') return back()->with('err', 'This custom order was cancelled by the customer and cannot be reviewed.');
         if ($co->review_status !== 'pending') return back()->with('err', 'Already reviewed.');
@@ -168,6 +190,13 @@ class CustomOrderController extends Controller
         }
         DB::table('custom_orders')->where('id', $id)->update($approveData);
         DB::table('orders')->where('id', $co->order_id)->update(['status' => 'Pending Price Confirmation', 'total_price' => $price]);
+
+        $this->notifyCustomerAction(
+            $co,
+            'Custom Order Price Update',
+            "Your custom order #{$co->order_id} was approved. Please review and respond to the final price of PHP " . number_format($price, 2) . '.',
+            "Your custom order #{$co->order_id} was approved. Final price: PHP " . number_format($price, 2) . '. Please open Berry Base to respond.'
+        );
 
         // Notify customer
         if ($co->guest_phone) {
@@ -200,7 +229,7 @@ class CustomOrderController extends Controller
         $shop   = $this->getShop();
         $reason = trim($request->input('reason', ''));
         $co     = DB::table('custom_orders as co')->join('orders as o', 'o.id', '=', 'co.order_id')
-            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.guest_phone', 'o.guest_name', 'o.track_code', 'o.status as order_status')->first();
+            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.id as id', 'o.user_id', 'o.guest_phone', 'o.guest_name', 'o.track_code', 'o.status as order_status')->first();
         if (!$co) return back()->with('err', 'Not found.');
         if (($co->order_status ?? '') === 'Cancelled') return back()->with('err', 'This custom order was already cancelled by the customer.');
         if (!$reason) return back()->with('err', 'Please provide a reason.');
@@ -208,6 +237,12 @@ class CustomOrderController extends Controller
         DB::table('orders')->where('id', $co->order_id)->update(['status' => 'Cancelled']);
         app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder((string) $co->order_id);
         app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder((string) $co->order_id);
+        $this->notifyCustomerAction(
+            $co,
+            'Custom Order Not Approved',
+            "Your custom order #{$co->order_id} was not approved. Reason: {$reason}",
+            "Your custom order #{$co->order_id} was not approved. Reason: {$reason}"
+        );
         if ($co->guest_phone) {
             $siteName = config('app.name', 'Cake Shop');
             $shopName = SmsHelper::getShopName($shop->id ?? null);
@@ -235,7 +270,7 @@ class CustomOrderController extends Controller
     {
         $shop = $this->getShop();
         $co   = DB::table('custom_orders as co')->join('orders as o', 'o.id', '=', 'co.order_id')
-            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.guest_phone', 'o.guest_name', 'o.track_code')->first();
+            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.id as id', 'o.user_id', 'o.guest_phone', 'o.guest_name', 'o.track_code')->first();
         if (!$co) return back()->with('err', 'Not found.');
 
         $photoPath = null;
@@ -251,6 +286,14 @@ class CustomOrderController extends Controller
         if (Schema::hasColumn('custom_orders', 'progress_sent_at'))
             $progressData['progress_sent_at'] = now();
         if ($progressData) DB::table('custom_orders')->where('id', $id)->update($progressData);
+        if ($progressData) {
+            $this->notifyCustomerAction(
+                $co,
+                'Custom Order Progress Update',
+                "Your seller posted a progress update for custom order #{$co->order_id}.",
+                "Your custom order #{$co->order_id} has a new seller progress update."
+            );
+        }
         return back()->with('msg', 'Progress update sent.');
     }
 }

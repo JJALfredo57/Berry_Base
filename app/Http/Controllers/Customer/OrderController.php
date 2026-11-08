@@ -150,7 +150,32 @@ class OrderController extends Controller
             $customOrderLoyaltyQuotes[$coForDiscounts->id] = app(LoyaltyService::class)->redemptionQuote($uid, $finalPrice, 0, $customOrderVerified);
         }
 
-        return view('customer.orders', compact('orders','tracking','orderAddons','orderItems','orderReviews','checkoutGroupOrders','customOrderData','customOrderVouchers','customOrderLoyaltyQuotes','loyaltySettings','customOrderVerified','search','status'));
+        $unreadCustomActionOrderIds = collect();
+        if ($orderIds) {
+            $unreadCustomActionOrderIds = DB::table('notifications')
+                ->where('receiver_role', 'customer')
+                ->where('receiver_user_id', $uid)
+                ->whereIn('order_id', $orderIds)
+                ->where('is_read', false)
+                ->whereIn('title', ['Custom Order Price Update', 'Custom Order Not Approved', 'Custom Order Progress Update'])
+                ->pluck('order_id')->map(fn ($id) => (string) $id)->unique()->values();
+        }
+
+        return view('customer.orders', compact('orders','tracking','orderAddons','orderItems','orderReviews','checkoutGroupOrders','customOrderData','customOrderVouchers','customOrderLoyaltyQuotes','loyaltySettings','customOrderVerified','unreadCustomActionOrderIds','search','status'));
+    }
+
+    public function markCustomActionRead(string $id)
+    {
+        $uid = (string) session('user')['id'];
+        if (!DB::table('orders')->where('id', $id)->where('user_id', $uid)->exists()) abort(404);
+
+        DB::table('notifications')
+            ->where('receiver_role', 'customer')->where('receiver_user_id', $uid)->where('order_id', $id)
+            ->where('is_read', false)
+            ->whereIn('title', ['Custom Order Price Update', 'Custom Order Not Approved', 'Custom Order Progress Update'])
+            ->update(['is_read' => true, 'updated_at' => now()]);
+
+        return response()->json(['ok' => true]);
     }
 
     private function applyCustomFinalDiscounts(Request $request, object $order, object $co, float $finalPrice, string $uid): array

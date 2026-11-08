@@ -384,6 +384,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::post('/checkout/voucher/validate', [CustomerCheckout::class, 'validateVoucher'])->name('checkout.voucher.validate');
 
     Route::get('/orders',                          [CustomerOrder::class, 'index'])->name('orders');
+    Route::post('/orders/{id}/custom-action-read', [CustomerOrder::class, 'markCustomActionRead'])->name('orders.custom_action_read');
     Route::get('/orders/status-counts',            [CustomerOrder::class, 'statusCounts'])->name('orders.status_counts');
     Route::get('/orders/{id}/status',              [CustomerOrder::class, 'status'])->name('orders.status');
     Route::post('/orders/{id}/cancel-request',     [CustomerOrder::class, 'requestCancel'])->name('orders.cancel_request');

@@ -529,6 +529,7 @@
       && ($o->payment_status ?? '') !== 'Paid'
       && ($o->status ?? '') !== 'Cancelled'
       && $qrAmount >= 100;
+    $hasUnreadCustomAction = in_array((string) $o->id, ($unreadCustomActionOrderIds ?? collect())->all(), true);
   @endphp
 
   <div class="cust-order-item"
@@ -540,6 +541,7 @@
        data-deposit-status="{{ $o->deposit_status }}"
        data-tracking-count="{{ $orderTrackingRows->count() }}"
        data-latest-tracking-at="{{ $latestTrackingAt }}"
+       data-custom-action-read-url="{{ route('customer.orders.custom_action_read', $o->id) }}"
        data-updated-at="{{ $o->updated_at }}">
   <div class="card mb-3">
     <div class="card-body p-0">
@@ -567,7 +569,7 @@
           </div>
           @endif
               <div>
-            <div class="fw-bold">{{ $o->product_name }}</div>
+            <div class="fw-bold d-flex align-items-center gap-2">{{ $o->product_name }} @if($hasUnreadCustomAction)<span class="rounded-circle bg-danger" style="width:9px;height:9px" title="Seller action needs your attention" aria-label="Seller action needs your attention"></span>@endif</div>
             @if(count($items) > 1)
               <div class="small" style="color:var(--primary);font-weight:700">
                 <i class="bi bi-link-45deg me-1"></i>{{ count($items) }} cakes checked out together
@@ -851,8 +853,8 @@
             for your custom cake. Please accept or cancel.
           </div>
           @php $acceptTotal = (float)$co->admin_price; @endphp
-          <div class="d-flex gap-2 flex-wrap">
-            <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST" class="custom-final-price-form flex-grow-1" data-payment-mode="{{ ($o->payment_method ?? '') === 'GCash' ? 'full' : 'deposit' }}">
+          <div class="d-grid gap-2">
+            <form action="{{ route('customer.custom_orders.accept_price', $co->id) }}" method="POST" class="custom-final-price-form w-100" data-payment-mode="{{ ($o->payment_method ?? '') === 'GCash' ? 'full' : 'deposit' }}">
               @csrf
               @php
                 $coVoucherOptions = $customOrderVouchers[$co->id] ?? [];
@@ -920,9 +922,9 @@
                 <i class="bi bi-check-circle me-1"></i> Accept Price
               </button>
             </form>
-            <form action="{{ route('customer.custom_orders.cancel_price', $co->id) }}" method="POST" class="d-inline">
+            <form action="{{ route('customer.custom_orders.cancel_price', $co->id) }}" method="POST" class="w-100">
               @csrf
-              <button type="submit" class="btn btn-outline-danger btn-sm"
+              <button type="submit" class="btn btn-outline-danger btn-sm w-100"
                       data-cs-confirm="Cancel this custom order?"
                       data-cs-title="Cancel Custom Order"
                       data-cs-ok="Cancel Order"
@@ -1553,6 +1555,14 @@ function setCustomerOrderDetails(toggle, shouldOpen) {
       if (otherToggle !== toggle) setCustomerOrderDetails(otherToggle, false);
     });
     details.hidden = false;
+    const card = toggle.closest('.cust-order-item');
+    const readUrl = card?.dataset.customActionReadUrl;
+    if (readUrl && !card?.dataset.customActionRead) {
+      fetch(readUrl, { method: 'POST', headers: { 'X-CSRF-TOKEN': @json(csrf_token()), 'Accept': 'application/json' } })
+        .then(response => response.ok && card.querySelector('[title="Seller action needs your attention"]')?.remove())
+        .then(() => { if (card) card.dataset.customActionRead = '1'; })
+        .catch(() => {});
+    }
     requestAnimationFrame(() => details.classList.add('is-open'));
   } else {
     details.classList.remove('is-open');

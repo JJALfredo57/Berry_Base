@@ -1818,6 +1818,13 @@
               ->whereIn('status', ['Pickup', 'Out for Delivery'])
               ->count()
           : 0;
+        $customerOrderUpdates += \Illuminate\Support\Facades\Schema::hasTable('notifications')
+          ? \Illuminate\Support\Facades\DB::table('notifications')
+              ->where('receiver_role', 'customer')->where('receiver_user_id', session('user')['id'] ?? '')
+              ->where('is_read', false)
+              ->whereIn('title', ['Custom Order Price Update', 'Custom Order Not Approved', 'Custom Order Progress Update'])
+              ->count()
+          : 0;
       } catch (\Throwable $e) {}
     @endphp
     <a href="{{ route('customer.orders') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.orders') || str_starts_with($currentRoute,'customer.custom_orders') ? 'active' : '' }}" onclick="closeCustSidebar()">
