@@ -133,6 +133,17 @@
     </div>
 
     {{-- Edit Modal --}}
+    @php
+      $formatLegacyRiderPhone = function ($value) {
+        $digits = preg_replace('/\D/', '', (string) $value);
+        if (preg_match('/^9\d{9}$/', $digits)) return '+63' . $digits;
+        if (preg_match('/^09\d{9}$/', $digits)) return '+63' . substr($digits, 1);
+        if (preg_match('/^639\d{9}$/', $digits)) return '+' . $digits;
+        return (string) $value;
+      };
+      $editPhone = $formatLegacyRiderPhone($r->phone ?? '');
+      $editEmergencyPhone = $formatLegacyRiderPhone($r->emergency_contact_phone ?? '');
+    @endphp
     <div class="modal fade rider-form-modal" id="editRiderModal{{ $r->id }}" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:480px">
         <div class="modal-content border-0" style="border-radius:1.2rem;overflow:hidden">
@@ -158,7 +169,7 @@
                 </div>
                 <div class="col-sm-6">
                   <label class="form-label fw-semibold small">Phone <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control input-validated" name="phone" value="{{ $r->phone }}" required
+                  <input type="text" class="form-control input-validated" name="phone" value="{{ $editPhone }}" required
                          inputmode="tel" autocomplete="tel"
                          placeholder="+639XXXXXXXXX" pattern="^\+639\d{9}$"
                          data-rule="phone" data-label="Phone" oninput="liveValidate(this)">
@@ -187,7 +198,7 @@
                 </div>
                 <div class="col-sm-6">
                   <label class="form-label fw-semibold small">Phone</label>
-                  <input type="text" class="form-control input-validated" name="emergency_contact_phone" value="{{ $r->emergency_contact_phone }}"
+                  <input type="text" class="form-control input-validated" name="emergency_contact_phone" value="{{ $editEmergencyPhone }}"
                          inputmode="tel" autocomplete="tel"
                          placeholder="+639XXXXXXXXX" pattern="^\+639\d{9}$" data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
                   <div class="field-msg"></div>

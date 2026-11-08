@@ -46,6 +46,11 @@ class RiderController extends Controller
     private function normalizePhone(?string $phone): ?string
     {
         $phone = trim((string) $phone);
+        $digits = preg_replace('/\D/', '', $phone);
+        if (preg_match('/^9\d{9}$/', $digits)) $phone = '+63' . $digits;
+        elseif (preg_match('/^09\d{9}$/', $digits)) $phone = '+63' . substr($digits, 1);
+        elseif (preg_match('/^639\d{9}$/', $digits)) $phone = '+' . $digits;
+
         return preg_match('/^\+639\d{9}$/', $phone) ? $phone : null;
     }
 
