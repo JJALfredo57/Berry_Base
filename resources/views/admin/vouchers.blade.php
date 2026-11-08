@@ -1,5 +1,6 @@
 @extends('layouts.app')
 @section('content')
+<style>.voucher-field-error{display:none;color:#b42318;font-size:.75rem;margin-top:.3rem}.is-invalid+.voucher-field-error{display:block}.voucher-preview{position:sticky;top:12px}.voucher-row{transition:transform .18s ease,box-shadow .18s ease}.voucher-row:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(15,23,42,.06)}@media(max-width:768px){.voucher-preview{position:static}}</style>
 <div class="container-fluid py-4">
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
@@ -17,9 +18,9 @@
       <div class="card">
         <div class="card-body">
           <h6 class="fw-bold mb-3">Create Voucher</h6>
-          <form method="POST" action="{{ route($ctx['route_prefix'].'.vouchers.store') }}" id="voucher-form">
+          <form method="POST" action="{{ route($ctx['route_prefix'].'.vouchers.store') }}" id="voucher-form" novalidate>
             @csrf
-            <div class="mb-2"><label class="form-label small fw-semibold">Code</label><div class="input-group"><input name="code" id="voucher-code" class="form-control text-uppercase" maxlength="40" required placeholder="BERRY100"><button class="btn btn-outline-secondary" type="button" id="voucher-generate">Generate</button></div></div>
+            <div class="mb-2"><label class="form-label small fw-semibold">Code <span class="text-danger">*</span></label><div class="input-group"><input name="code" id="voucher-code" class="form-control text-uppercase" maxlength="40" required placeholder="BERRY100"><button class="btn btn-outline-secondary" type="button" id="voucher-generate">Generate</button></div><div class="voucher-field-error"></div></div>
             <div class="mb-2"><label class="form-label small fw-semibold">Name</label><input name="name" class="form-control" required placeholder="PHP 100 off"></div>
             <div class="mb-2"><label class="form-label small fw-semibold">Description</label><textarea name="description" class="form-control" rows="2"></textarea></div>
             <div class="row g-2">
@@ -78,5 +79,8 @@
 </div>
 <script>
 (() => { const f=document.getElementById('voucher-form'); if(!f)return; const type=f.querySelector('#voucher-type'),aud=f.querySelector('#voucher-audience'),max=document.getElementById('max-discount-wrap'),cust=document.getElementById('customer-wrap'),code=document.getElementById('voucher-code'),gen=document.getElementById('voucher-generate'),preview=document.getElementById('voucher-preview'),submit=document.getElementById('voucher-submit'),dates=[...f.querySelectorAll('.voucher-date')]; const now=new Date(),limit=new Date(now);limit.setFullYear(limit.getFullYear()+1); const fmt=d=>d.toISOString().slice(0,16); dates.forEach(x=>{x.min=fmt(now);x.max=fmt(limit)}); const sync=()=>{const percent=type.value==='percent', assigned=aud.value==='assigned',value=f.discount_value.value||'0',min=f.minimum_order_amount.value||'0';max.classList.toggle('d-none',!percent); max.querySelector('input').required=percent; cust.classList.toggle('d-none',!assigned); f.customer_identifier.required=assigned; preview.textContent=`${percent?value+'% off':'₱'+value+' off'} · minimum order ₱${min} · ${assigned?'assigned customer':'public'}`}; gen.onclick=()=>{code.value='SHOP'+Math.random().toString(36).slice(2,8).toUpperCase();code.dispatchEvent(new Event('input'))}; f.addEventListener('input',sync); f.addEventListener('change',sync); f.addEventListener('submit',()=>{submit.disabled=true;submit.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Creating…'}); sync(); })();
+</script>
+<script>
+(() => {const f=document.getElementById('voucher-form');if(!f)return;const btn=document.getElementById('voucher-submit');const validate=()=>{let ok=true;f.querySelectorAll('input[required],select[required]').forEach(x=>{const bad=!x.value||!x.checkValidity();x.classList.toggle('is-invalid',bad);const e=x.closest('.mb-2,.col-6,.mt-2')?.querySelector('.voucher-field-error');if(e){e.textContent=bad?(x.name.includes('date')?'Choose a valid date within one year.':'This field is required or invalid.'):''}if(bad)ok=false});const s=f.starts_at?.value,e=f.ends_at?.value;if(s&&e&&e<s){f.ends_at.classList.add('is-invalid');ok=false}btn.disabled=!ok;return ok};f.addEventListener('input',validate);f.addEventListener('change',validate);f.addEventListener('submit',ev=>{if(!validate()){ev.preventDefault();f.querySelector('.is-invalid')?.focus();}});validate();})();
 </script>
 @endsection
