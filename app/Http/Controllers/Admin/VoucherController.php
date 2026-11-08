@@ -58,11 +58,11 @@ class VoucherController extends Controller
             'name' => 'required|string|max:120',
             'description' => 'nullable|string|max:500',
             'discount_type' => 'required|in:percent,fixed',
-            'discount_value' => 'required|numeric|min:0.01',
-            'max_discount' => 'nullable|numeric|min:0',
-            'minimum_order_amount' => 'nullable|numeric|min:0',
-            'usage_limit' => 'nullable|integer|min:1',
-            'per_customer_limit' => 'nullable|integer|min:1',
+            'discount_value' => 'required|numeric|min:0.01|max:100000',
+            'max_discount' => 'nullable|numeric|min:0|max:100000',
+            'minimum_order_amount' => 'nullable|numeric|min:0|max:1000000',
+            'usage_limit' => 'nullable|integer|min:1|max:100000',
+            'per_customer_limit' => 'nullable|integer|min:1|max:1000',
             'audience' => 'required|in:public,assigned',
             'customer_identifier' => 'nullable|string|max:120',
             'starts_at' => 'nullable|date',
@@ -74,6 +74,13 @@ class VoucherController extends Controller
         }
         if ($data['discount_type'] === 'percent' && empty($data['max_discount'])) {
             return back()->with('err', 'Set a maximum discount for percent vouchers.')->withInput();
+        }
+        $now = now(config('app.timezone'));
+        $latest = $now->copy()->addYear();
+        foreach (['starts_at','ends_at'] as $field) {
+            if (!empty($data[$field]) && \Carbon\Carbon::parse($data[$field], config('app.timezone'))->gt($latest)) {
+                return back()->with('err', 'Voucher dates can be scheduled only up to one year ahead.')->withInput();
+            }
         }
 
         $code = strtoupper(preg_replace('/\s+/', '', $data['code']));
@@ -106,8 +113,8 @@ class VoucherController extends Controller
             'per_customer_limit' => $data['per_customer_limit'] ?? null,
             'first_order_only' => $request->boolean('first_order_only'),
             'requires_verified_customer' => $request->boolean('requires_verified_customer'),
-            'stack_with_product_discount' => $request->boolean('stack_with_product_discount', true),
-            'is_active' => $request->boolean('is_active', true),
+            'stack_with_product_discount' => $request->boolean('stack_with_product_discount', false),
+            'is_active' => true,
             'starts_at' => $data['starts_at'] ?: null,
             'ends_at' => $data['ends_at'] ?: null,
             'created_at' => now(),
