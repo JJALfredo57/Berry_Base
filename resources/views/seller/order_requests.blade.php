@@ -7,7 +7,7 @@
     'accepted' => ['label' => 'Waiting for Customer', 'bg' => '#dcfce7', 'fg' => '#166534', 'icon' => 'bi-check-circle'],
     'customer_accepted' => ['label' => 'Customer Accepted', 'bg' => '#dbeafe', 'fg' => '#1d4ed8', 'icon' => 'bi-bag-check'],
     'customer_declined' => ['label' => 'Customer Declined', 'bg' => '#fee2e2', 'fg' => '#991b1b', 'icon' => 'bi-person-x'],
-    'converted' => ['label' => 'Converted to Order', 'bg' => '#ede9fe', 'fg' => '#6d28d9', 'icon' => 'bi-receipt'],
+    'converted' => ['label' => 'Order Created', 'bg' => '#ede9fe', 'fg' => '#6d28d9', 'icon' => 'bi-receipt'],
     'alternative_offered' => ['label' => 'Alternative Offered', 'bg' => '#eff6ff', 'fg' => '#1d4ed8', 'icon' => 'bi-shuffle'],
     'schedule_suggested' => ['label' => 'Schedule Suggested', 'bg' => '#f0f9ff', 'fg' => '#0369a1', 'icon' => 'bi-calendar-event'],
     'needs_more_details' => ['label' => 'Needs Details', 'bg' => '#fef3c7', 'fg' => '#92400e', 'icon' => 'bi-question-circle'],
@@ -18,7 +18,7 @@
     'pending' => 'Pending',
     'suggested' => 'Seller Replies',
     'accepted' => 'Accepted',
-    'converted' => 'Converted',
+    'converted' => 'Order Created',
     'declined' => 'Closed',
     'all' => 'All',
   ];
@@ -26,6 +26,7 @@
 
 <style>
 .order-request-shell{max-width:1240px;margin:0 auto;padding:1rem 1rem 2rem}.or-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem}.or-title{font-size:clamp(1.25rem,2vw,1.75rem);font-weight:800;margin:0;color:#111827}.or-sub{color:#64748b;margin:.25rem 0 0;font-size:.92rem}.or-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin-bottom:1rem}.or-stat{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:.9rem 1rem;box-shadow:0 10px 24px rgba(15,23,42,.05)}.or-stat strong{display:block;font-size:1.4rem;line-height:1;color:#111827}.or-stat span{font-size:.78rem;color:#64748b}.or-toolbar{display:flex;gap:.75rem;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:.75rem;margin-bottom:1rem}.or-tabs{display:flex;gap:.45rem;overflow:auto;padding-bottom:.1rem}.or-tab{display:inline-flex;align-items:center;gap:.35rem;white-space:nowrap;border:1px solid #e5e7eb;background:#fff;color:#475569;text-decoration:none;border-radius:999px;padding:.45rem .72rem;font-weight:700;font-size:.82rem}.or-tab.active{background:#e91e63;color:#fff;border-color:#e91e63}.or-tab .count{font-size:.72rem;background:rgba(15,23,42,.08);border-radius:999px;padding:.06rem .38rem}.or-tab.active .count{background:rgba(255,255,255,.22)}.or-search{display:flex;gap:.5rem;min-width:min(100%,320px)}.or-search .form-control{border-radius:999px}.or-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;margin-bottom:1rem;box-shadow:0 14px 34px rgba(15,23,42,.06);animation:or-in .3s ease both}.or-card.is-rush{border-color:#fb7185;box-shadow:0 16px 36px rgba(225,29,72,.12)}.or-card-head{display:flex;gap:.9rem;padding:1rem;border-bottom:1px solid #f1f5f9;align-items:center}.or-img{width:78px;height:78px;border-radius:12px;object-fit:cover;background:#f8fafc;flex:0 0 auto}.or-img-ph{width:78px;height:78px;border-radius:12px;background:#fce7f3;color:#be185d;display:flex;align-items:center;justify-content:center;font-size:1.6rem}.or-main{flex:1;min-width:0}.or-name{font-weight:800;color:#111827;margin:0;font-size:1.02rem;overflow-wrap:anywhere}.or-meta{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.45rem}.or-pill{display:inline-flex;align-items:center;gap:.3rem;border-radius:999px;padding:.28rem .55rem;font-size:.72rem;font-weight:800;background:#f8fafc;color:#475569}.or-pill.rush{background:#fff1f2;color:#be123c}.or-pill.status{background:var(--or-bg);color:var(--or-fg)}.or-body{display:grid;grid-template-columns:1.15fr .85fr;gap:1rem;padding:1rem}.or-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.or-detail{background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:.75rem;min-width:0}.or-label{display:block;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;font-size:.68rem;font-weight:800;margin-bottom:.25rem}.or-value{color:#111827;font-weight:750;font-size:.9rem;overflow-wrap:anywhere}.or-note{grid-column:1/-1}.or-actions{background:#fbfdff;border:1px solid #e5e7eb;border-radius:14px;padding:.85rem}.or-actions summary{cursor:pointer;font-weight:800;color:#334155;margin:.2rem 0}.or-actions details{border-top:1px solid #e5e7eb;padding-top:.65rem;margin-top:.65rem}.or-actions details:first-child{border-top:0;padding-top:0;margin-top:0}.or-actions textarea{min-height:72px}.or-empty{background:#fff;border:1px dashed #cbd5e1;border-radius:16px;padding:2rem;text-align:center;color:#64748b}.countdown{font-variant-numeric:tabular-nums}.countdown.urgent{color:#be123c}.btn-or-primary{background:#e91e63;color:#fff;border:0;border-radius:10px;padding:.55rem .8rem;font-weight:800}.btn-or-soft{background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:10px;padding:.55rem .8rem;font-weight:800}@keyframes or-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@media(max-width:768px){.order-request-shell{padding:.75rem}.or-header{display:block}.or-header .btn{margin-top:.7rem}.or-summary{grid-template-columns:1fr 1fr}.or-toolbar{align-items:stretch}.or-search{width:100%}.or-card-head{align-items:flex-start}.or-body{grid-template-columns:1fr}.or-detail-grid{grid-template-columns:1fr}.or-img,.or-img-ph{width:64px;height:64px}.or-actions{padding:.75rem}.or-actions button{min-height:42px}}@media(max-width:430px){.or-summary{grid-template-columns:1fr}.or-card-head{padding:.85rem}.or-body{padding:.85rem}.or-name{font-size:.95rem}.or-search{min-width:0}.or-search .form-control{min-width:0}.or-tabs{margin-inline:-.1rem}.or-pill{max-width:100%;white-space:normal}}
+.or-card{margin-bottom:.55rem;border-radius:14px;box-shadow:none;overflow:visible}.or-card-head{padding:.7rem .85rem;border-bottom:0}.or-img,.or-img-ph{width:52px;height:52px;border-radius:10px}.or-img-ph{font-size:1.25rem}.or-name{font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.or-meta{margin-top:.25rem}.or-card>.or-body{display:none}.or-row-actions{margin-left:auto;display:flex;align-items:center;gap:.5rem;flex-shrink:0}.or-details-btn{white-space:nowrap}.or-details-modal .modal-dialog{max-width:920px}.or-details-modal .modal-content{border:0;border-radius:18px;overflow:hidden}.or-details-modal .modal-body{padding:0}.or-details-modal .or-body{display:grid;grid-template-columns:1.15fr .85fr;gap:1rem;padding:1rem}.or-details-modal .or-actions{position:sticky;top:0;align-self:start}.or-details-modal .modal-header{border-bottom:1px solid #f1f5f9}.or-details-modal.fade .modal-dialog{transform:translateY(16px) scale(.98);transition:transform .2s ease-out}.or-details-modal.show .modal-dialog{transform:translateY(0) scale(1)}@media(max-width:768px){.or-card-head{padding:.65rem}.or-row-actions{align-self:flex-start}.or-details-btn{padding:.42rem .55rem;font-size:.76rem}.or-details-modal .modal-dialog{margin:.65rem}.or-details-modal .or-body{grid-template-columns:1fr;padding:.85rem}.or-details-modal .or-actions{position:static}}@media(max-width:430px){.or-card-head{gap:.6rem}.or-img,.or-img-ph{width:46px;height:46px}.or-card-head .small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.or-meta .or-pill:nth-child(n+3){display:none}}
 </style>
 
 <div class="order-request-shell">
@@ -298,6 +299,30 @@
       check(form);
     });
     check(form);
+  });
+})();
+</script>
+<script>
+(() => {
+  document.querySelectorAll('.or-card').forEach((card, index) => {
+    const details = card.querySelector(':scope > .or-body');
+    const title = card.querySelector('.or-name')?.textContent?.trim() || 'Request details';
+    if (!details) return;
+    const modalId = `order-request-details-${index}`;
+    const modal = document.createElement('div');
+    modal.className = 'modal fade or-details-modal';
+    modal.id = modalId;
+    modal.tabIndex = -1;
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header py-2"><h2 class="modal-title h6 fw-bold mb-0"></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"></div></div></div>`;
+    modal.querySelector('.modal-title').textContent = title;
+    modal.querySelector('.modal-body').appendChild(details);
+    document.body.appendChild(modal);
+    const actions = document.createElement('div');
+    actions.className = 'or-row-actions';
+    actions.innerHTML = '<button type="button" class="btn btn-sm btn-outline-primary fw-semibold or-details-btn"><i class="bi bi-eye me-1"></i>See details</button>';
+    actions.querySelector('button').addEventListener('click', () => bootstrap.Modal.getOrCreateInstance(modal).show());
+    card.querySelector('.or-card-head').appendChild(actions);
   });
 })();
 </script>
