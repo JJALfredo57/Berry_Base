@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Helpers\SmsHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -44,14 +45,14 @@ class RiderController extends Controller
 
     private function normalizePhone(?string $phone): ?string
     {
-        $digits = preg_replace('/\D/', '', (string) $phone);
-        if (!$digits) return null;
+        $phone = trim((string) $phone);
+        return preg_match('/^\+639\d{9}$/', $phone) ? $phone : null;
+    }
 
-        if (strlen($digits) === 10) return '+63' . $digits;
-        if (strlen($digits) === 11 && $digits[0] === '0') return '+63' . substr($digits, 1);
-        if (strlen($digits) === 12 && str_starts_with($digits, '63')) return '+' . $digits;
-
-        return $digits;
+    private function validName(string $name): bool
+    {
+        return mb_strlen($name) >= 2 && mb_strlen($name) <= 120
+            && (bool) preg_match("/^[\p{L}][\p{L}\s.'-]*$/u", $name);
     }
 
     public function store(Request $request)
@@ -59,16 +60,14 @@ class RiderController extends Controller
         $shop  = $this->getShop();
         $name  = trim($request->input('name', ''));
         $phone = trim($request->input('phone', ''));
-        if (!$name) return back()->with('err', 'Rider name is required.');
+        if (!$this->validName($name)) return back()->with('err', 'Enter a valid rider full name using letters, spaces, apostrophes, periods, or hyphens.')->withInput();
         $phone = $this->normalizePhone($phone);
-        $loginPin = preg_replace('/\D/', '', (string) $request->input('login_pin', ''));
-        if ($loginPin !== '' && (strlen($loginPin) < 4 || strlen($loginPin) > 12)) {
-            return back()->with('err', 'Rider login PIN must be 4 to 12 digits.')->withInput();
-        }
-        if ($loginPin === '') {
-            $loginPin = (string) random_int(100000, 999999);
-        }
-        $emergencyPhone = $this->normalizePhone($request->input('emergency_contact_phone', ''));
+        if (!$phone) return back()->with('err', 'Rider phone must use the format +639XXXXXXXXX.')->withInput();
+        if (DB::table('riders')->where('phone', $phone)->exists()) return back()->with('err', 'This rider phone number is already in use.')->withInput();
+        $rawEmergencyPhone = trim((string) $request->input('emergency_contact_phone', ''));
+        $emergencyPhone = $rawEmergencyPhone === '' ? null : $this->normalizePhone($rawEmergencyPhone);
+        if ($rawEmergencyPhone !== '' && !$emergencyPhone) return back()->with('err', 'Emergency phone must use the format +639XXXXXXXXX.')->withInput();
+        $loginPin = (string) random_int(100000, 999999);
         $data = [
             'shop_id'                => $shop->id,
             'name'                   => $name,
@@ -90,8 +89,11 @@ class RiderController extends Controller
             $data['password_must_change'] = true;
         }
         DB::table('riders')->insert($data);
+        $smsSent = SmsHelper::send($phone, "You have been added as a Berry Base rider. Login phone: {$phone}. Temporary PIN: {$loginPin}. You must create your own password after your first login.");
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Add Rider', $name);
-        return back()->with('msg', "Rider '{$name}' added. Login PIN: {$loginPin}");
+        return back()->with($smsSent ? 'msg' : 'warn', $smsSent
+            ? "Rider '{$name}' added. Temporary access was sent by SMS."
+            : "Rider '{$name}' was added, but the temporary-access SMS could not be sent. Check SMS settings before asking the rider to log in.");
     }
 
     public function update(Request $request, string $id)
@@ -99,28 +101,23 @@ class RiderController extends Controller
         $shop  = $this->getShop();
         $rider = DB::table('riders')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$rider) return back()->with('err', 'Rider not found.');
+        $name = trim((string) $request->input('name', $rider->name));
+        if (!$this->validName($name)) return back()->with('err', 'Enter a valid rider full name using letters, spaces, apostrophes, periods, or hyphens.')->withInput();
         $phone = $this->normalizePhone($request->input('phone', ''));
-        $emergencyPhone = $this->normalizePhone($request->input('emergency_contact_phone', ''));
-        $loginPin = preg_replace('/\D/', '', (string) $request->input('login_pin', ''));
-        if ($loginPin !== '' && (strlen($loginPin) < 4 || strlen($loginPin) > 12)) {
-            return back()->with('err', 'Rider login PIN must be 4 to 12 digits.')->withInput();
-        }
+        if (!$phone) return back()->with('err', 'Rider phone must use the format +639XXXXXXXXX.')->withInput();
+        if (DB::table('riders')->where('phone', $phone)->where('id', '<>', $id)->exists()) return back()->with('err', 'This rider phone number is already in use.')->withInput();
+        $rawEmergencyPhone = trim((string) $request->input('emergency_contact_phone', ''));
+        $emergencyPhone = $rawEmergencyPhone === '' ? null : $this->normalizePhone($rawEmergencyPhone);
+        if ($rawEmergencyPhone !== '' && !$emergencyPhone) return back()->with('err', 'Emergency phone must use the format +639XXXXXXXXX.')->withInput();
         $data = [
-            'name'                   => trim($request->input('name', $rider->name)),
+            'name'                   => $name,
             'nickname'               => trim($request->input('nickname', '')) ?: null,
-            'phone'                  => $phone ?: $rider->phone,
+            'phone'                  => $phone,
             'vehicle_type'           => $request->input('vehicle_type') ?: null,
             'license_plate'          => trim($request->input('license_plate', '')) ?: null,
             'emergency_contact_name'  => trim($request->input('emergency_contact_name', '')) ?: null,
             'emergency_contact_phone' => $emergencyPhone,
         ];
-        if ($loginPin !== '' && Schema::hasColumn('riders', 'login_pin_hash')) {
-            $data['login_pin_hash'] = Hash::make($loginPin);
-            $data['login_pin_set_at'] = now();
-            if (Schema::hasColumn('riders', 'password_must_change')) {
-                $data['password_must_change'] = true;
-            }
-        }
         DB::table('riders')->where('id', $id)->update($data);
         return back()->with('msg', 'Rider updated.');
     }

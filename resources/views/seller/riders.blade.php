@@ -133,7 +133,7 @@
     </div>
 
     {{-- Edit Modal --}}
-    <div class="modal fade" id="editRiderModal{{ $r->id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal fade rider-form-modal" id="editRiderModal{{ $r->id }}" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:480px">
         <div class="modal-content border-0" style="border-radius:1.2rem;overflow:hidden">
           <div class="modal-header border-0 pt-4 px-4">
@@ -160,15 +160,8 @@
                   <label class="form-label fw-semibold small">Phone <span class="text-danger">*</span></label>
                   <input type="text" class="form-control input-validated" name="phone" value="{{ $r->phone }}" required
                          inputmode="tel" autocomplete="tel"
+                         placeholder="+639XXXXXXXXX" pattern="^\+639\d{9}$"
                          data-rule="phone" data-label="Phone" oninput="liveValidate(this)">
-                  <div class="field-msg"></div>
-                </div>
-                <div class="col-sm-6">
-                  <label class="form-label fw-semibold small">Reset Login PIN</label>
-                  <input type="password" class="form-control input-validated" name="login_pin"
-                         inputmode="numeric" autocomplete="new-password" maxlength="12"
-                         placeholder="Leave blank to keep current PIN"
-                         data-rule="pin" data-label="Login PIN" oninput="liveValidate(this)">
                   <div class="field-msg"></div>
                 </div>
                 <div class="col-sm-6">
@@ -196,7 +189,7 @@
                   <label class="form-label fw-semibold small">Phone</label>
                   <input type="text" class="form-control input-validated" name="emergency_contact_phone" value="{{ $r->emergency_contact_phone }}"
                          inputmode="tel" autocomplete="tel"
-                         placeholder="09XXXXXXXXX" data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
+                         placeholder="+639XXXXXXXXX" pattern="^\+639\d{9}$" data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
                   <div class="field-msg"></div>
                 </div>
               </div>
@@ -215,7 +208,7 @@
 </div>
 
 {{-- Add Rider Modal --}}
-<div class="modal fade" id="addRiderModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade rider-form-modal" id="addRiderModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width:480px">
     <div class="modal-content border-0" style="border-radius:1.2rem;overflow:hidden">
       <div class="modal-header border-0 pt-4 px-4">
@@ -240,17 +233,12 @@
             </div>
             <div class="col-sm-6">
               <label class="form-label fw-semibold small">Phone Number <span class="text-danger">*</span></label>
-              <input type="text" class="form-control input-validated" name="phone" placeholder="09XXXXXXXXX" required
+              <input type="text" class="form-control input-validated" name="phone" required
                      inputmode="tel" autocomplete="tel"
+                     placeholder="+639XXXXXXXXX" pattern="^\+639\d{9}$"
                      data-rule="phone" data-label="Phone" oninput="liveValidate(this)">
               <div class="field-msg"></div>
-            </div>
-            <div class="col-sm-6">
-              <label class="form-label fw-semibold small">Login PIN</label>
-              <input type="password" class="form-control input-validated" name="login_pin" placeholder="Auto-generate if blank"
-                     inputmode="numeric" autocomplete="new-password" maxlength="12"
-                     data-rule="pin" data-label="Login PIN" oninput="liveValidate(this)">
-              <div class="field-msg"></div>
+              <div class="form-text mt-1">A temporary access PIN will be generated and sent by SMS. The rider must create a personal password after first login.</div>
             </div>
             <div class="col-sm-6">
               <label class="form-label fw-semibold small">Vehicle Type</label>
@@ -275,9 +263,9 @@
             </div>
             <div class="col-sm-6">
               <label class="form-label fw-semibold small">Phone</label>
-              <input type="text" class="form-control input-validated" name="emergency_contact_phone" placeholder="09XXXXXXXXX"
+              <input type="text" class="form-control input-validated" name="emergency_contact_phone"
                      inputmode="tel" autocomplete="tel"
-                     data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
+                     placeholder="+639XXXXXXXXX" pattern="^\+639\d{9}$" data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
               <div class="field-msg"></div>
             </div>
           </div>
@@ -305,11 +293,11 @@ const rules = {
     errChar: 'Only letters and spaces are allowed — no numbers or special characters.',
   },
   phone: {
-    pattern: /^\+?[0-9]{7,15}$/,
-    minLen:  7,
-    maxLen:  15,
-    hint:    'Digits only, optional + at the start',
-    errChar: 'Use digits only, optional + at the start.',
+    pattern: /^\+639\d{9}$/,
+    minLen:  13,
+    maxLen:  13,
+    hint:    'Use +639XXXXXXXXX',
+    errChar: 'Use the exact Philippine format +639XXXXXXXXX.',
   },
   plate: {
     pattern: /^[A-Za-z0-9\s\-]+$/,
@@ -475,10 +463,23 @@ function validateRiderForm(form) {
   if (!allValid) {
     // Scroll to first error
     const first = form.querySelector('.is-invalid');
-    if (first) first.scrollIntoView({ behavior:'smooth', block:'center' });
+    if (first) {
+      first.scrollIntoView({ behavior:'smooth', block:'center' });
+      setTimeout(() => first.focus({ preventScroll:true }), 250);
+    }
   }
   return allValid;
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.rider-form-modal').forEach(function(modal) {
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    modal.addEventListener('shown.bs.modal', function() {
+      modal.querySelector('input[name="name"]')?.focus();
+      modal.querySelectorAll('.input-validated').forEach(liveValidate);
+    });
+  });
+});
 </script>
 @endpush
 @endsection
