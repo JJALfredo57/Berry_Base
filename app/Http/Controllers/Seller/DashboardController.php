@@ -81,8 +81,11 @@ class DashboardController extends Controller
             $recentOrders = DB::table('orders as o')
                 ->leftJoin('users as u','u.id','=','o.user_id')
                 ->leftJoin('products as p','p.id','=','o.product_id')
+                ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
                 ->where('o.shop_id', $shopId)
-                ->select('o.*','p.name as product_name', DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, o.fullname, 'Guest') END as customer_display_name"))
+                ->select('o.*', 'p.image_path as product_image', 'co.reference_images', 'co.cake_name as custom_cake_name',
+                    DB::raw("COALESCE(co.cake_name, p.name, 'Custom Cake') as product_name"),
+                    DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, o.fullname, 'Guest') END as customer_display_name"))
                 ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")
                 ->orderByDesc('o.id')
                 ->limit(8)

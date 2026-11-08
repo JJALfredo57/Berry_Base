@@ -131,7 +131,19 @@
         <a href="{{ route('seller.orders') }}" class="btn btn-outline-primary btn-sm">View All</a>
       </div>
       @forelse($recentOrders as $o)
+      @php
+        $referenceImages = json_decode($o->reference_images ?? '[]', true);
+        $referenceImages = is_array($referenceImages) ? array_values(array_filter($referenceImages)) : [];
+        $isCustomOrder = ($o->order_type ?? '') === 'custom' || !empty($o->custom_cake_name);
+        $orderThumbnail = $isCustomOrder ? ($referenceImages[0] ?? null) : ($o->product_image ?? null);
+      @endphp
       <div class="d-flex align-items-center gap-3 px-4 py-3" style="border-bottom:1px solid var(--gray-100);transition:background .15s" onmouseenter="this.style.background='var(--gray-50)'" onmouseleave="this.style.background=''">
+        <div class="flex-shrink-0" style="width:48px;height:48px;border-radius:.7rem;overflow:hidden;background:var(--primary-bg,#fff7fb);border:1px solid color-mix(in srgb,var(--primary) 18%,#e5e7eb)">
+          @if($orderThumbnail)
+            <img src="{{ $orderThumbnail }}" alt="{{ $o->product_name }}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.parentElement.querySelector('.dashboard-order-fallback').style.display='flex'">
+          @endif
+          <i class="bi {{ $isCustomOrder ? 'bi-palette' : 'bi-cake2' }} dashboard-order-fallback" style="{{ $orderThumbnail ? 'display:none;' : 'display:flex;' }}color:var(--primary);font-size:1.25rem;height:100%;align-items:center;justify-content:center"></i>
+        </div>
         <div style="flex:1;min-width:0">
           <div class="fw-semibold" style="font-size:.85rem">
             Order #{{ $o->id }}
