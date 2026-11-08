@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('content')
-<style>.voucher-field-error{display:none;color:#b42318;font-size:.75rem;margin-top:.3rem}.is-invalid+.voucher-field-error{display:block}.voucher-preview{position:sticky;top:12px}.voucher-row{transition:transform .18s ease,box-shadow .18s ease}.voucher-row:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(15,23,42,.06)}@media(max-width:768px){.voucher-preview{position:static}}</style>
+<style>.voucher-field-error{display:none;color:#b42318;font-size:.75rem;margin-top:.3rem}.is-invalid+.voucher-field-error{display:block}.voucher-modal.fade .modal-dialog{transform:translateY(16px) scale(.98);transition:transform .2s ease}.voucher-modal.show .modal-dialog{transform:none}@media(min-width:992px){#voucher-list-column{width:100%}.row:has(#voucher-list-column)>.col-lg-4{display:none}}@media(max-width:768px){.voucher-modal .modal-dialog{margin:.5rem}}</style>
 <div class="container-fluid py-4">
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
@@ -45,10 +45,10 @@
         </div>
       </div>
     </div>
-    <div class="col-lg-8">
+    <div class="col-lg-8" id="voucher-list-column">
       <div class="card">
         <div class="card-body">
-          <h6 class="fw-bold mb-3">Voucher List</h6>
+          <div class="d-flex justify-content-between align-items-center gap-2 mb-3"><h6 class="fw-bold mb-0">Voucher List</h6><button class="btn btn-primary btn-sm" type="button" id="open-voucher-modal"><i class="bi bi-plus-lg me-1"></i>Create Voucher</button></div>
           <div class="table-responsive">
             <table class="table align-middle">
               <thead><tr><th>Code</th><th>Discount</th><th>Audience</th><th>Limits</th><th>Status</th><th></th></tr></thead>
@@ -83,4 +83,5 @@
 <script>
 (() => {const f=document.getElementById('voucher-form');if(!f)return;const btn=document.getElementById('voucher-submit');const validate=()=>{let ok=true;f.querySelectorAll('input[required],select[required]').forEach(x=>{const bad=!x.value||!x.checkValidity();x.classList.toggle('is-invalid',bad);const e=x.closest('.mb-2,.col-6,.mt-2')?.querySelector('.voucher-field-error');if(e){e.textContent=bad?(x.name.includes('date')?'Choose a valid date within one year.':'This field is required or invalid.'):''}if(bad)ok=false});const s=f.starts_at?.value,e=f.ends_at?.value;if(s&&e&&e<s){f.ends_at.classList.add('is-invalid');ok=false}btn.disabled=!ok;return ok};f.addEventListener('input',validate);f.addEventListener('change',validate);f.addEventListener('submit',ev=>{if(!validate()){ev.preventDefault();f.querySelector('.is-invalid')?.focus();}});validate();})();
 </script>
+<script>(()=>{const form=document.getElementById('voucher-form'),btn=document.getElementById('open-voucher-modal');if(!form||!btn)return;const card=form.closest('.card');const modal=document.createElement('div');modal.className='modal fade voucher-modal';modal.tabIndex=-1;modal.innerHTML='<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Create Voucher</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"></div></div></div>';modal.querySelector('.modal-body').appendChild(card);document.body.appendChild(modal);btn.onclick=()=>bootstrap.Modal.getOrCreateInstance(modal).show();})();</script>
 @endsection
