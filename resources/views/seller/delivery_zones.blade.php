@@ -447,6 +447,7 @@
 
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
 <script>
 // ── State ──────────────────────────────────────────────
 const zonesData       = @json($zones);
@@ -493,28 +494,64 @@ function makeCoverageIcon(active) {
 // ── Place delivery coverage areas and zone markers ──────
 const zoneMarkers = {};
 const coverageBounds = [];
+const activeCoveragePolygons = [];
 zonesData.forEach(z => {
     if (!z.lat || !z.lng) return;
     const latLng = [parseFloat(z.lat), parseFloat(z.lng)];
     const isActive = z.is_active === true || Number(z.is_active) === 1;
-    const color = isActive ? '#16a34a' : '#9ca3af';
+    if (isActive && window.turf) {
+        coverageBounds.push(latLng);
+        activeCoveragePolygons.push(turf.circle(
+            [latLng[1], latLng[0]], coverageRadius / 1000,
+            { steps: 64, units: 'kilometers' }
+        ));
+    } else {
+        L.circle(latLng, {
+            radius: coverageRadius,
+            color: isActive ? '#16a34a' : '#9ca3af',
+            weight: isActive ? 2 : 1.5,
+            opacity: isActive ? .8 : .45,
+            fillColor: isActive ? '#22c55e' : '#9ca3af',
+            fillOpacity: isActive ? .18 : .06,
+            dashArray: isActive ? null : '5 5',
+            interactive: false,
+        }).addTo(map);
+        if (isActive) coverageBounds.push(latLng);
+    }
 
-    L.circle(latLng, {
-        radius: coverageRadius,
-        color,
-        weight: isActive ? 2 : 1.5,
-        opacity: isActive ? .8 : .45,
-        fillColor: color,
-        fillOpacity: isActive ? .18 : .06,
-        dashArray: isActive ? null : '5 5',
-        interactive: false,
-    }).addTo(map);
-
-    if (isActive) coverageBounds.push(latLng);
     zoneMarkers[z.id] = L.marker(latLng, { icon: makeCoverageIcon(isActive) })
         .addTo(map)
         .bindPopup(`<b>${z.barangay}</b><br><small>${isActive ? 'Active delivery coverage' : 'Inactive coverage area'}${z.zone_address ? '<br>'+z.zone_address : ''}</small>`);
 });
+
+function renderMergedActiveCoverage() {
+    if (!activeCoveragePolygons.length) return;
+
+    try {
+        const mergedCoverage = activeCoveragePolygons.length === 1
+            ? activeCoveragePolygons[0]
+            : turf.union(turf.featureCollection(activeCoveragePolygons));
+
+        if (!mergedCoverage) return;
+        L.geoJSON(mergedCoverage, {
+            style: {
+                color: '#16a34a', weight: 2, opacity: .82,
+                fillColor: '#22c55e', fillOpacity: .22,
+            },
+            interactive: false,
+        }).addTo(map);
+    } catch (error) {
+        console.warn('Could not merge delivery coverage areas.', error);
+        activeCoveragePolygons.forEach(polygon => {
+            L.geoJSON(polygon, {
+                style: { color: '#16a34a', weight: 1.5, opacity: .65, fillColor: '#22c55e', fillOpacity: .14 },
+                interactive: false,
+            }).addTo(map);
+        });
+    }
+}
+
+renderMergedActiveCoverage();
 
 // ── Shop marker ────────────────────────────────────────
 let shopMarker = null;
