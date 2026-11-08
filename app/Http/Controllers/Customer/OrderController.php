@@ -157,8 +157,18 @@ class OrderController extends Controller
                 ->where('receiver_user_id', $uid)
                 ->whereIn('order_id', $orderIds)
                 ->where('is_read', false)
-                ->whereIn('title', ['Custom Order Price Update', 'Custom Order Not Approved', 'Custom Order Progress Update'])
+                ->whereIn('title', ['Custom Order Not Approved', 'Custom Order Progress Update'])
                 ->pluck('order_id')->map(fn ($id) => (string) $id)->unique()->values();
+
+            $pendingPriceOrderIds = DB::table('custom_orders as co')
+                ->join('orders as o', 'o.id', '=', 'co.order_id')
+                ->where('o.user_id', $uid)
+                ->whereIn('o.id', $orderIds)
+                ->where('co.review_status', 'approved')
+                ->where('co.price_confirmed', 'pending')
+                ->pluck('o.id')
+                ->map(fn ($id) => (string) $id);
+            $unreadCustomActionOrderIds = $unreadCustomActionOrderIds->merge($pendingPriceOrderIds)->unique()->values();
         }
 
         return view('customer.orders', compact('orders','tracking','orderAddons','orderItems','orderReviews','checkoutGroupOrders','customOrderData','customOrderVouchers','customOrderLoyaltyQuotes','loyaltySettings','customOrderVerified','unreadCustomActionOrderIds','search','status'));
@@ -172,7 +182,7 @@ class OrderController extends Controller
         DB::table('notifications')
             ->where('receiver_role', 'customer')->where('receiver_user_id', $uid)->where('order_id', $id)
             ->where('is_read', false)
-            ->whereIn('title', ['Custom Order Price Update', 'Custom Order Not Approved', 'Custom Order Progress Update'])
+            ->whereIn('title', ['Custom Order Not Approved', 'Custom Order Progress Update'])
             ->update(['is_read' => true, 'updated_at' => now()]);
 
         return response()->json(['ok' => true]);
@@ -476,6 +486,9 @@ class OrderController extends Controller
             'price_confirmed'       => 'accepted',
             'customer_confirmed_at' => now(),
         ]);
+        DB::table('notifications')->where('receiver_role', 'customer')->where('receiver_user_id', $uid)
+            ->where('order_id', $co->order_id)->where('title', 'Custom Order Price Update')->where('is_read', false)
+            ->update(['is_read' => true, 'updated_at' => now()]);
 
         DB::table('orders')->where('id', $co->order_id)->update([
             'deposit_required' => 1,
@@ -663,6 +676,9 @@ class OrderController extends Controller
             'price_confirmed'      => 'cancelled',
             'customer_confirmed_at'=> now(),
         ]);
+        DB::table('notifications')->where('receiver_role', 'customer')->where('receiver_user_id', $uid)
+            ->where('order_id', $co->order_id)->where('title', 'Custom Order Price Update')->where('is_read', false)
+            ->update(['is_read' => true, 'updated_at' => now()]);
 
         if ($co->order_id) {
             DB::table('orders')->where('id', $co->order_id)->update(['status' => 'Cancelled']);

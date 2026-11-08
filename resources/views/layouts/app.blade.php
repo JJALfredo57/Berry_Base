@@ -1822,7 +1822,15 @@
           ? \Illuminate\Support\Facades\DB::table('notifications')
               ->where('receiver_role', 'customer')->where('receiver_user_id', session('user')['id'] ?? '')
               ->where('is_read', false)
-              ->whereIn('title', ['Custom Order Price Update', 'Custom Order Not Approved', 'Custom Order Progress Update'])
+              ->whereIn('title', ['Custom Order Not Approved', 'Custom Order Progress Update'])
+              ->count()
+          : 0;
+        $customerOrderUpdates += \Illuminate\Support\Facades\Schema::hasTable('custom_orders')
+          ? \Illuminate\Support\Facades\DB::table('custom_orders as co')
+              ->join('orders as o', 'o.id', '=', 'co.order_id')
+              ->where('o.user_id', session('user')['id'] ?? '')
+              ->where('co.review_status', 'approved')
+              ->where('co.price_confirmed', 'pending')
               ->count()
           : 0;
       } catch (\Throwable $e) {}
