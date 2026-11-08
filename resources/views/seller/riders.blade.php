@@ -313,9 +313,9 @@ const rules = {
 };
 
 function sanitizePhoneValue(value) {
-  let next = String(value || '').replace(/[^\d+]/g, '');
-  next = next.replace(/\+(?!^)/g, '');
-  return next;
+  const next = String(value || '').replace(/[^\d+]/g, '');
+  if (!next.startsWith('+')) return next.replace(/\+/g, '');
+  return `+${next.slice(1).replace(/\+/g, '')}`;
 }
 
 function normalizePhilippinePhone(value) {
