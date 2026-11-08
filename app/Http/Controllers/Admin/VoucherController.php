@@ -69,6 +69,13 @@ class VoucherController extends Controller
             'ends_at' => 'nullable|date|after_or_equal:starts_at',
         ]);
 
+        if ($data['discount_type'] === 'percent' && (float) $data['discount_value'] > 100) {
+            return back()->with('err', 'Percent discount cannot exceed 100%.')->withInput();
+        }
+        if ($data['discount_type'] === 'percent' && empty($data['max_discount'])) {
+            return back()->with('err', 'Set a maximum discount for percent vouchers.')->withInput();
+        }
+
         $code = strtoupper(preg_replace('/\s+/', '', $data['code']));
         if (DB::table('vouchers')->whereRaw('UPPER(code) = ?', [$code])->exists()) {
             return back()->with('err', 'Voucher code already exists.')->withInput();
@@ -110,9 +117,9 @@ class VoucherController extends Controller
         if (Schema::hasColumn('vouchers', 'created_by_role')) $payload['created_by_role'] = $ctx['role'];
         if (Schema::hasColumn('vouchers', 'created_by_id')) $payload['created_by_id'] = session('user')['id'] ?? null;
 
-        $voucherId = DB::table('vouchers')->insertGetId($payload);
-
-        if ($customer && Schema::hasTable('voucher_assignments')) {
+        DB::transaction(function () use ($payload, $customer, $data, $ctx, &$voucherId) {
+            $voucherId = DB::table('vouchers')->insertGetId($payload);
+            if (!$customer || !Schema::hasTable('voucher_assignments')) return;
             DB::table('voucher_assignments')->insert([
                 'voucher_id' => $voucherId,
                 'user_id' => $customer->id,
@@ -124,7 +131,7 @@ class VoucherController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-        }
+        });
 
         CakeshopHelper::logActivity(session('user')['id'] ?? 'system', $ctx['role'], 'Create Voucher', "Created voucher {$code}");
         return back()->with('msg', 'Voucher created.');

@@ -17,21 +17,21 @@
       <div class="card">
         <div class="card-body">
           <h6 class="fw-bold mb-3">Create Voucher</h6>
-          <form method="POST" action="{{ route($ctx['route_prefix'].'.vouchers.store') }}">
+          <form method="POST" action="{{ route($ctx['route_prefix'].'.vouchers.store') }}" id="voucher-form">
             @csrf
-            <div class="mb-2"><label class="form-label small fw-semibold">Code</label><input name="code" class="form-control text-uppercase" maxlength="40" required placeholder="BERRY100"></div>
+            <div class="mb-2"><label class="form-label small fw-semibold">Code</label><div class="input-group"><input name="code" id="voucher-code" class="form-control text-uppercase" maxlength="40" required placeholder="BERRY100"><button class="btn btn-outline-secondary" type="button" id="voucher-generate">Generate</button></div></div>
             <div class="mb-2"><label class="form-label small fw-semibold">Name</label><input name="name" class="form-control" required placeholder="PHP 100 off"></div>
             <div class="mb-2"><label class="form-label small fw-semibold">Description</label><textarea name="description" class="form-control" rows="2"></textarea></div>
             <div class="row g-2">
-              <div class="col-6"><label class="form-label small fw-semibold">Type</label><select name="discount_type" class="form-select"><option value="fixed">Fixed</option><option value="percent">Percent</option></select></div>
+              <div class="col-6"><label class="form-label small fw-semibold">Type</label><select name="discount_type" id="voucher-type" class="form-select"><option value="fixed">Fixed</option><option value="percent">Percent</option></select></div>
               <div class="col-6"><label class="form-label small fw-semibold">Value</label><input type="number" step="0.01" min="0.01" name="discount_value" class="form-control" required></div>
-              <div class="col-6"><label class="form-label small fw-semibold">Max Discount</label><input type="number" step="0.01" min="0" name="max_discount" class="form-control"></div>
+              <div class="col-6" id="max-discount-wrap"><label class="form-label small fw-semibold">Max Discount</label><input type="number" step="0.01" min="0" name="max_discount" class="form-control"></div>
               <div class="col-6"><label class="form-label small fw-semibold">Min Order</label><input type="number" step="0.01" min="0" name="minimum_order_amount" class="form-control" value="0"></div>
               <div class="col-6"><label class="form-label small fw-semibold">Total Limit</label><input type="number" min="1" name="usage_limit" class="form-control"></div>
               <div class="col-6"><label class="form-label small fw-semibold">Per Customer</label><input type="number" min="1" name="per_customer_limit" class="form-control" value="1"></div>
             </div>
-            <div class="mt-2"><label class="form-label small fw-semibold">Audience</label><select name="audience" class="form-select"><option value="public">Public</option><option value="assigned">Assigned customer only</option></select></div>
-            <div class="mt-2"><label class="form-label small fw-semibold">Customer for Assigned Voucher</label><input name="customer_identifier" class="form-control" placeholder="Customer email, phone, or ID"></div>
+            <div class="mt-2"><label class="form-label small fw-semibold">Audience</label><select name="audience" id="voucher-audience" class="form-select"><option value="public">Public</option><option value="assigned">Assigned customer only</option></select></div>
+            <div class="mt-2 d-none" id="customer-wrap"><label class="form-label small fw-semibold">Customer for Assigned Voucher</label><input name="customer_identifier" id="voucher-customer" class="form-control" placeholder="Customer email, phone, or ID"></div>
             <div class="row g-2 mt-1">
               <div class="col-6"><label class="form-label small fw-semibold">Starts</label><input type="datetime-local" name="starts_at" class="form-control"></div>
               <div class="col-6"><label class="form-label small fw-semibold">Ends</label><input type="datetime-local" name="ends_at" class="form-control"></div>
@@ -40,7 +40,7 @@
             <div class="form-check"><input class="form-check-input" type="checkbox" name="first_order_only" value="1" id="firstOrderOnly"><label class="form-check-label small" for="firstOrderOnly">First order only</label></div>
             <div class="form-check"><input class="form-check-input" type="checkbox" name="stack_with_product_discount" value="1" id="stackDiscount" checked><label class="form-check-label small" for="stackDiscount">Can stack with product discounts</label></div>
             <div class="form-check"><input class="form-check-input" type="checkbox" name="is_active" value="1" id="activeVoucher" checked><label class="form-check-label small" for="activeVoucher">Active</label></div>
-            <button class="btn btn-primary w-100 mt-3"><i class="bi bi-plus-circle me-1"></i>Create Voucher</button>
+            <div class="small rounded-3 p-2 mt-3" id="voucher-preview" style="background:var(--primary-bg)">Complete the required fields to preview this voucher.</div><button class="btn btn-primary w-100 mt-3" id="voucher-submit"><i class="bi bi-plus-circle me-1"></i>Create Voucher</button>
           </form>
         </div>
       </div>
@@ -77,4 +77,7 @@
     </div>
   </div>
 </div>
+<script>
+(() => { const f=document.getElementById('voucher-form'); if(!f)return; const type=f.querySelector('#voucher-type'),aud=f.querySelector('#voucher-audience'),max=document.getElementById('max-discount-wrap'),cust=document.getElementById('customer-wrap'),code=document.getElementById('voucher-code'),gen=document.getElementById('voucher-generate'),preview=document.getElementById('voucher-preview'),submit=document.getElementById('voucher-submit'); const sync=()=>{const percent=type.value==='percent', assigned=aud.value==='assigned',value=f.discount_value.value||'0',min=f.minimum_order_amount.value||'0';max.classList.toggle('d-none',!percent); max.querySelector('input').required=percent; cust.classList.toggle('d-none',!assigned); f.customer_identifier.required=assigned; preview.textContent=`${percent?value+'% off':'₱'+value+' off'} · minimum order ₱${min} · ${assigned?'assigned customer':'public'}`}; gen.onclick=()=>{code.value='SHOP'+Math.random().toString(36).slice(2,8).toUpperCase();code.dispatchEvent(new Event('input'))}; f.addEventListener('input',sync); f.addEventListener('change',sync); f.addEventListener('submit',()=>{submit.disabled=true;submit.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Creating…'}); sync(); })();
+</script>
 @endsection
