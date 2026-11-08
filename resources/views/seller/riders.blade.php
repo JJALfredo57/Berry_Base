@@ -160,7 +160,7 @@
                   <label class="form-label fw-semibold small">Phone <span class="text-danger">*</span></label>
                   <input type="text" class="form-control input-validated" name="phone" value="{{ $r->form_phone }}" required
                          inputmode="tel" autocomplete="tel"
-                         placeholder="+639XXXXXXXXX" pattern="^\+639\d{9}$"
+                         placeholder="09XXXXXXXXX or +639XXXXXXXXX"
                          data-rule="phone" data-label="Phone" oninput="liveValidate(this)">
                   <div class="field-msg"></div>
                 </div>
@@ -189,7 +189,7 @@
                   <label class="form-label fw-semibold small">Phone</label>
                   <input type="text" class="form-control input-validated" name="emergency_contact_phone" value="{{ $r->form_emergency_phone }}"
                          inputmode="tel" autocomplete="tel"
-                         placeholder="+639XXXXXXXXX" pattern="^\+639\d{9}$" data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
+                         placeholder="09XXXXXXXXX or +639XXXXXXXXX" data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
                   <div class="field-msg"></div>
                 </div>
               </div>
@@ -235,7 +235,7 @@
               <label class="form-label fw-semibold small">Phone Number <span class="text-danger">*</span></label>
               <input type="text" class="form-control input-validated" name="phone" required
                      inputmode="tel" autocomplete="tel"
-                     placeholder="+639XXXXXXXXX" pattern="^\+639\d{9}$"
+                     placeholder="09XXXXXXXXX or +639XXXXXXXXX"
                      data-rule="phone" data-label="Phone" oninput="liveValidate(this)">
               <div class="field-msg"></div>
               <div class="form-text mt-1">A temporary access PIN will be generated and sent by SMS. The rider must create a personal password after first login.</div>
@@ -265,7 +265,7 @@
               <label class="form-label fw-semibold small">Phone</label>
               <input type="text" class="form-control input-validated" name="emergency_contact_phone"
                      inputmode="tel" autocomplete="tel"
-                     placeholder="+639XXXXXXXXX" pattern="^\+639\d{9}$" data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
+                     placeholder="09XXXXXXXXX or +639XXXXXXXXX" data-rule="phone" data-label="Emergency phone" oninput="liveValidate(this)">
               <div class="field-msg"></div>
             </div>
           </div>
@@ -293,11 +293,8 @@ const rules = {
     errChar: 'Only letters and spaces are allowed — no numbers or special characters.',
   },
   phone: {
-    pattern: /^\+639\d{9}$/,
-    minLen:  13,
-    maxLen:  13,
-    hint:    'Use +639XXXXXXXXX',
-    errChar: 'Use the exact Philippine format +639XXXXXXXXX.',
+    hint:    'Use 09XXXXXXXXX or +639XXXXXXXXX',
+    errChar: 'Enter a valid Philippine mobile number.',
   },
   plate: {
     pattern: /^[A-Za-z0-9\s\-]+$/,
@@ -321,10 +318,23 @@ function sanitizePhoneValue(value) {
   return next;
 }
 
-function normalizeInputValue(input) {
+function normalizePhilippinePhone(value) {
+  const clean = sanitizePhoneValue(value);
+  const digits = clean.replace(/\D/g, '');
+
+  if (/^9\d{9}$/.test(digits)) return `+63${digits}`;
+  if (/^09\d{9}$/.test(digits)) return `+63${digits.slice(1)}`;
+  if (/^639\d{9}$/.test(digits)) return `+${digits}`;
+  return null;
+}
+
+function normalizeInputValue(input, commit = false) {
   if (input.dataset?.rule !== 'phone') return;
   const clean = sanitizePhoneValue(input.value);
   if (input.value !== clean) input.value = clean;
+
+  const normalized = normalizePhilippinePhone(clean);
+  if (commit && normalized) input.value = normalized;
 }
 
 function canAcceptChar(input, char) {
@@ -363,6 +373,17 @@ function liveValidate(input) {
   }
 
   if (!rule) return true;
+
+  if (input.dataset.rule === 'phone') {
+    const normalized = normalizePhilippinePhone(val);
+    if (!normalized) {
+      triggerShake(input);
+      setInputState(input, msg, 'err', rule.errChar);
+      return false;
+    }
+    setInputState(input, msg, 'ok', `✓ ${label} will be saved as ${normalized}.`);
+    return true;
+  }
 
   // Character check
   if (!rule.pattern.test(val)) {
@@ -468,8 +489,18 @@ function validateRiderForm(form) {
       setTimeout(() => first.focus({ preventScroll:true }), 250);
     }
   }
+  if (allValid) {
+    form.querySelectorAll('input[data-rule="phone"]').forEach(input => normalizeInputValue(input, true));
+  }
   return allValid;
 }
+
+document.addEventListener('focusout', function(e) {
+  const input = e.target;
+  if (input.dataset?.rule !== 'phone') return;
+  normalizeInputValue(input, true);
+  liveValidate(input);
+});
 
 document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.rider-form-modal').forEach(function(modal) {
