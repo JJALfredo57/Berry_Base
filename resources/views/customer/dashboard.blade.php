@@ -24,7 +24,7 @@
       ->leftJoin('products as p','p.id','=','o.product_id')
       ->leftJoin('custom_orders as co','co.order_id','=','o.id')
       ->where('o.user_id',$uid)
-      ->select('o.*', DB::raw("COALESCE(p.name, co.cake_name, 'Custom Cake') as product_name"), 'p.image_path')
+      ->select('o.*', DB::raw("COALESCE(co.cake_name, p.name, 'Custom Cake') as product_name"), 'p.image_path', 'co.reference_images', 'co.cake_name as custom_cake_name')
       ->orderByDesc('o.id')->limit(5)->get();
   @endphp
 
@@ -74,12 +74,18 @@
   </div>
 
   @forelse($recentOrders as $o)
+  @php
+    $referenceImages = json_decode($o->reference_images ?? '[]', true);
+    $referenceImages = is_array($referenceImages) ? array_values(array_filter($referenceImages)) : [];
+    $isCustomOrder = ($o->order_type ?? '') === 'custom' || !empty($o->custom_cake_name);
+    $recentOrderImage = $isCustomOrder ? ($referenceImages[0] ?? null) : ($o->image_path ?? null);
+  @endphp
   <div class="card mb-2">
     <div class="card-body p-3 d-flex align-items-center gap-3">
-      <img src="{{ $o->image_path }}" style="width:48px;height:48px;object-fit:cover;border-radius:.6rem"
+      <img src="{{ $recentOrderImage ?: $o->image_path }}" style="width:48px;height:48px;object-fit:cover;border-radius:.6rem"
            onerror="this.src='https://placehold.co/48x48/f3f3f3/bbb?text=🎂'">
       <div class="flex-grow-1">
-        <div class="fw-semibold small">{{ $o->product_name }}</div>
+        <div class="fw-semibold small">{{ $o->product_name }} @if($isCustomOrder)<span class="badge ms-1" style="background:var(--primary-bg,#fff7fb);color:var(--primary);font-size:.6rem">Custom</span>@endif</div>
         <div class="text-muted" style="font-size:.75rem">Order #{{ $o->id }} · {{ \Carbon\Carbon::parse($o->created_at)->format('M d') }}</div>
       </div>
       <span class="status-badge status-{{ str_replace(' ','-',$o->status) }}">{{ $o->status }}</span>
