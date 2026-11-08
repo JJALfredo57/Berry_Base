@@ -10,6 +10,8 @@
 .map-card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.09)}
 .map-toolbar{display:flex;align-items:center;gap:.45rem;padding:.75rem 1rem;background:#fff;border-bottom:1px solid #f0f0f0;flex-wrap:wrap}
 .map-toolbar h6{margin:0;font-weight:700;font-size:.95rem;flex:1;min-width:120px}
+.coverage-legend{display:flex;align-items:center;gap:.35rem;font-size:.72rem;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:999px;padding:.28rem .55rem;white-space:nowrap}
+.coverage-legend-dot{width:9px;height:9px;border-radius:50%;background:#22c55e;border:1px solid #15803d;box-shadow:0 0 0 2px rgba(34,197,94,.16)}
 
 /* ── Stats ──────────────────────────────────────────── */
 .dz-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem}
@@ -164,6 +166,9 @@
           <button id="btn-pin-mode" class="btn btn-sm btn-outline-primary" onclick="togglePinMode()">
             <i class="bi bi-geo-alt-plus"></i> Add Area
           </button>
+          <span class="coverage-legend" title="The green areas show where customers can place delivery orders.">
+            <span class="coverage-legend-dot"></span>Active delivery coverage
+          </span>
         </div>
 
         {{-- Set shop hint --}}
@@ -446,6 +451,7 @@
 // ── State ──────────────────────────────────────────────
 const zonesData       = @json($zones);
 const existingNames   = new Set(zonesData.map(z => z.barangay.toLowerCase()));
+const coverageRadius  = Math.max(1000, {{ (int)($shopSettings->delivery_coverage_radius ?? 5000) }});
 const shopLat         = parseFloat(document.getElementById('shop-meta').dataset.lat) || 0;
 const shopLng         = parseFloat(document.getElementById('shop-meta').dataset.lng) || 0;
 const shopHasLocation = document.getElementById('shop-meta').dataset.hasPin === '1';
@@ -477,20 +483,37 @@ const destIcon = L.divIcon({
 });
 
 function makeCoverageIcon(active) {
-    const c = active ? 'var(--primary,#e91e8c)' : '#bbb';
+    const c = active ? '#16a34a' : '#9ca3af';
     return L.divIcon({
         html: `<div style="background:${c};width:12px;height:12px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>`,
         className: '', iconSize: [12,12], iconAnchor: [6,6]
     });
 }
 
-// ── Place zone markers ─────────────────────────────────
+// ── Place delivery coverage areas and zone markers ──────
 const zoneMarkers = {};
+const coverageBounds = [];
 zonesData.forEach(z => {
     if (!z.lat || !z.lng) return;
-    zoneMarkers[z.id] = L.marker([z.lat, z.lng], { icon: makeCoverageIcon(z.is_active) })
+    const latLng = [parseFloat(z.lat), parseFloat(z.lng)];
+    const isActive = z.is_active === true || Number(z.is_active) === 1;
+    const color = isActive ? '#16a34a' : '#9ca3af';
+
+    L.circle(latLng, {
+        radius: coverageRadius,
+        color,
+        weight: isActive ? 2 : 1.5,
+        opacity: isActive ? .8 : .45,
+        fillColor: color,
+        fillOpacity: isActive ? .18 : .06,
+        dashArray: isActive ? null : '5 5',
+        interactive: false,
+    }).addTo(map);
+
+    if (isActive) coverageBounds.push(latLng);
+    zoneMarkers[z.id] = L.marker(latLng, { icon: makeCoverageIcon(isActive) })
         .addTo(map)
-        .bindPopup(`<b>${z.barangay}</b>${z.zone_address ? '<br><small>'+z.zone_address+'</small>' : ''}`);
+        .bindPopup(`<b>${z.barangay}</b><br><small>${isActive ? 'Active delivery coverage' : 'Inactive coverage area'}${z.zone_address ? '<br>'+z.zone_address : ''}</small>`);
 });
 
 // ── Shop marker ────────────────────────────────────────
@@ -501,6 +524,11 @@ function placeShopMarker(lat, lng) {
         .addTo(map).bindPopup('<b>🏪 Your Shop</b>');
 }
 if (currentHasShop) placeShopMarker(currentShopLat, currentShopLng);
+
+if (currentHasShop) coverageBounds.push([currentShopLat, currentShopLng]);
+if (coverageBounds.length > 1) {
+    map.fitBounds(L.latLngBounds(coverageBounds).pad(0.15), { maxZoom: 15 });
+}
 
 function locateShop() {
     if (!currentHasShop) { toggleSetShopMode(); return; }
