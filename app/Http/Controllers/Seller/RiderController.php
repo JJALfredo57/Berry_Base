@@ -23,6 +23,12 @@ class RiderController extends Controller
     {
         $shop   = $this->getShop();
         $riders = DB::table('riders')->where('shop_id', $shop->id)->orderBy('name')->get();
+        $riders->each(function ($rider) {
+            // Keep legacy numbers editable under the current +639XXXXXXXXX rule.
+            $rider->form_phone = $this->normalizePhone($rider->phone) ?? $rider->phone;
+            $rider->form_emergency_phone = $this->normalizePhone($rider->emergency_contact_phone)
+                ?? $rider->emergency_contact_phone;
+        });
         $riderIds = $riders->pluck('id')->toArray();
         $incidents = []; $deliveries = []; $riderRatings = [];
         if ($riderIds) {
