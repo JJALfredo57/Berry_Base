@@ -57,10 +57,7 @@ class PaymentController extends Controller
         $payload = [
             'data' => [
                 'attributes' => [
-                    'billing' => [
-                        'name'  => $order->guest_name ?? 'Customer',
-                        'phone' => $phone,
-                    ],
+                    'billing' => $this->paymongoBilling($order),
                     'line_items' => [[
                         'currency' => 'PHP',
                         'amount'   => $amountCentavos,
@@ -243,10 +240,7 @@ class PaymentController extends Controller
         $payload = [
             'data' => [
                 'attributes' => [
-                    'billing' => [
-                        'name'  => $order->guest_name ?? 'Customer',
-                        'phone' => $phone,
-                    ],
+                    'billing' => $this->paymongoBilling($order),
                     'line_items' => [[
                         'currency' => 'PHP',
                         'amount'   => $amountCentavos,
@@ -590,7 +584,7 @@ class PaymentController extends Controller
         $payload = [
             'data' => [
                 'attributes' => [
-                    'billing'    => ['name' => $order->guest_name ?? 'Customer', 'phone' => $phone],
+                    'billing'    => $this->paymongoBilling($order),
                     'line_items' => [[
                         'currency' => 'PHP',
                         'amount'   => $amountCentavos,
@@ -1457,6 +1451,27 @@ class PaymentController extends Controller
         }
     }
 
+    private function paymongoBilling(object $order): array
+    {
+        $account = null;
+        if (!empty($order->user_id)) {
+            $account = DB::table('users')
+                ->where('id', $order->user_id)
+                ->first(['fullname', 'email', 'phone']);
+        }
+
+        $billing = [
+            'name' => trim((string) ($account->fullname ?? $order->guest_name ?? $order->fullname ?? 'Customer')) ?: 'Customer',
+            'phone' => $this->formatPaymongoCheckoutPhone($account->phone ?? $order->guest_phone ?? ''),
+        ];
+        $email = trim((string) ($account->email ?? $order->guest_email ?? ''));
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $billing['email'] = $email;
+        }
+
+        return $billing;
+    }
+
     private function formatPaymongoCheckoutPhone(?string $phone): string
     {
         $digits = preg_replace('/\D/', '', (string) $phone);
@@ -1518,7 +1533,7 @@ class PaymentController extends Controller
 
         $payload = [
             'data' => ['attributes' => [
-                'billing'      => ['name' => DB::table('users')->where('id', $uid)->value('fullname') ?? 'Customer'],
+                'billing'      => $this->paymongoBilling($order),
                 'line_items'   => [[
                     'currency'   => 'PHP',
                     'amount'     => $amountCentavos,
