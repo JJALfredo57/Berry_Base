@@ -189,7 +189,7 @@ class PayoutController extends Controller
 
     public function createManual(Request $request, string $shopId)
     {
-        $id = $this->payouts->createPayoutForShop($shopId, 'manual', trim((string) $request->input('admin_note', '')) ?: null);
+        $id = $this->payouts->createPayoutForShop($shopId, 'manual', trim((string) $request->input('admin_note', '')) ?: 'Created by Super Admin.', 'super_admin', 'super_admin', (string) (session('user')['id'] ?? ''));
         if (!$id) {
             return back()->with('err', 'No eligible payout was created. Check available balance, minimum amount, payout pause, or seller details.');
         }

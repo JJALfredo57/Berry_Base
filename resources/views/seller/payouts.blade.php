@@ -196,7 +196,7 @@
           @forelse($payouts as $p)
             <tr>
               <td>#{{ $p->id }}</td>
-              <td><span class="badge text-bg-{{ $p->status === 'paid' ? 'success' : 'warning' }}">{{ ucfirst(str_replace('_',' ', $p->status)) }}</span></td>
+              <td><span class="badge text-bg-{{ $p->status === 'paid' ? 'success' : 'warning' }}">{{ ucfirst(str_replace('_',' ', $p->status)) }}</span><div class="small text-muted mt-1">{{ ($p->request_source ?? null) === 'seller' ? 'Requested by you' : (($p->request_source ?? null) === 'super_admin' ? 'Created by Super Admin' : (!empty($p->admin_note) && str_contains(strtolower($p->admin_note), 'requested by seller') ? 'Requested by you' : 'Source not recorded (legacy)')) }}</div></td>
               <td class="text-end fw-semibold">₱{{ number_format($p->net_amount, 2) }}</td>
               <td>
                 @if(!empty($p->payout_receipt_path ?? null))
@@ -357,7 +357,7 @@
               @foreach($payouts as $p)
                 <tr>
                   <td class="fw-semibold">#{{ $p->id }}</td>
-                  <td><span class="badge text-bg-{{ ($p->status ?? '') === 'paid' ? 'success' : 'warning' }}">{{ ucfirst(str_replace('_', ' ', $p->status ?? 'pending')) }}</span></td>
+                  <td><span class="badge text-bg-{{ ($p->status ?? '') === 'paid' ? 'success' : 'warning' }}">{{ ucfirst(str_replace('_', ' ', $p->status ?? 'pending')) }}</span><div class="small text-muted mt-1">{{ ($p->request_source ?? null) === 'seller' ? 'Requested by you' : (($p->request_source ?? null) === 'super_admin' ? 'Created by Super Admin' : (!empty($p->admin_note) && str_contains(strtolower($p->admin_note), 'requested by seller') ? 'Requested by you' : 'Source not recorded (legacy)')) }}</div></td>
                   <td class="text-end fw-semibold">₱{{ number_format((float)($p->net_amount ?? 0), 2) }}</td>
                   <td>
                     @if(!empty($p->payout_receipt_path ?? null))

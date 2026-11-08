@@ -305,7 +305,7 @@ class SellerPayoutService
             ->get();
     }
 
-    public function createPayoutForShop(string $shopId, string $mode, ?string $note = null): ?int
+    public function createPayoutForShop(string $shopId, string $mode, ?string $note = null, string $source = 'system', ?string $actorRole = null, ?string $actorId = null): ?int
     {
         $shop = DB::table('shops')->where('id', $shopId)->first();
         if (!$shop || !empty($shop->payout_paused)) return null;
@@ -326,12 +326,12 @@ class SellerPayoutService
         if ($net < (float) ($settings->payout_minimum_amount ?? 0)) return null;
 
         $payoutId = null;
-        DB::transaction(function () use ($shop, $ledgers, $mode, $net, $note, &$payoutId) {
+        DB::transaction(function () use ($shop, $ledgers, $mode, $net, $note, $source, $actorRole, $actorId, &$payoutId) {
             $gross = round((float) $ledgers->sum('gross_amount'), 2);
             $commission = round((float) $ledgers->sum('commission_amount'), 2);
             $status = $mode === 'automatic' ? 'processing' : 'requested';
 
-            $payoutId = DB::table('seller_payouts')->insertGetId([
+            $payload = [
                 'shop_id' => $shop->id,
                 'seller_id' => $shop->seller_id,
                 'mode' => $mode,
@@ -348,7 +348,11 @@ class SellerPayoutService
                 'processed_at' => $mode === 'automatic' ? now() : null,
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('seller_payouts', 'request_source')) $payload['request_source'] = $source;
+            if (Schema::hasColumn('seller_payouts', 'requested_by_role')) $payload['requested_by_role'] = $actorRole;
+            if (Schema::hasColumn('seller_payouts', 'requested_by_user_id')) $payload['requested_by_user_id'] = $actorId;
+            $payoutId = DB::table('seller_payouts')->insertGetId($payload);
 
             foreach ($ledgers as $ledger) {
                 DB::table('seller_payout_items')->insert([

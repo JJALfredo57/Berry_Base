@@ -96,7 +96,7 @@ class PayoutController extends Controller
             return back()->with('err', 'Complete your payout details before requesting a payout.');
         }
 
-        $id = $this->payouts->createPayoutForShop($shop->id, 'manual', 'Requested by seller.');
+        $id = $this->payouts->createPayoutForShop($shop->id, 'manual', 'Requested by seller.', 'seller', 'seller', (string) session('user')['id']);
         if (!$id) {
             return back()->with('err', 'No eligible payout yet. Check available balance, minimum payout amount, or clearing period.');
         }
