@@ -29,23 +29,22 @@ class OrderRequestService
             : (int) $settings->ready_made_prep_days;
 
         $noticeMinutes = null;
-        $isRush = false;
         $preferredAt = null;
 
         try {
             if ($date) {
                 $preferredAt = Carbon::parse($date . ' ' . (substr((string) $time, 0, 5) ?: '00:00'), config('app.timezone'));
                 $noticeMinutes = (int) round(now(config('app.timezone'))->diffInMinutes($preferredAt, false));
-                $minimumAt = now(config('app.timezone'))->addDays(max(0, $prepDays));
-                $isRush = $preferredAt->lt($minimumAt);
+                // Preparation windows are enforced before a request is created;
+                // requests are no longer categorized or prioritized as "rush".
             }
         } catch (\Throwable $e) {
             $preferredAt = null;
         }
 
         return [
-            'is_rush' => $isRush,
-            'rush_reason' => $isRush ? 'prep_window_short' : null,
+            'is_rush' => false,
+            'rush_reason' => null,
             'seller_prep_days_at_request' => max(0, $prepDays),
             'requested_notice_minutes' => $noticeMinutes,
             'preferred_datetime' => $preferredAt?->toDateTimeString(),
@@ -157,7 +156,6 @@ class OrderRequestService
         $noteParts = [];
         if (!empty($row->customer_note)) $noteParts[] = (string) $row->customer_note;
         if (!empty($row->seller_response)) $noteParts[] = 'Seller note: ' . $row->seller_response;
-        if (!empty($row->is_rush)) $noteParts[] = 'Rush request accepted by seller.';
 
         $checkoutProductId = $row->alternative_product_id ?: $row->product_id;
         $checkout = [
@@ -175,8 +173,8 @@ class OrderRequestService
             'accepted_total_price' => $price * max(1, (int) $row->quantity),
             'schedule_date' => $acceptedDate,
             'schedule_time' => $acceptedTime,
-            'is_rush' => (bool) $row->is_rush,
-            'rush_reason' => $row->rush_reason,
+            'is_rush' => false,
+            'rush_reason' => null,
             'seller_prep_days_at_request' => $row->seller_prep_days_at_request,
             'requested_notice_minutes' => $row->requested_notice_minutes,
             'unclaimed_policy_accepted_at' => $row->unclaimed_policy_accepted_at ?? null,
@@ -314,7 +312,6 @@ class OrderRequestService
             $accepted = $decision === 'accepted';
             $detailsReceived = $decision === 'details_received';
             $title = $detailsReceived ? 'Customer sent request details' : ($accepted ? 'Customer accepted your offer' : 'Customer declined your offer');
-            if ($accepted && !empty($row->is_rush)) $title = '[Rush] ' . $title;
             $message = ($row->product_name ?: 'Cake request') . ($detailsReceived
                 ? ' has new details ready for your review.'
                 : ($accepted ? ' is moving to checkout.' : ' was declined by the customer.'));
@@ -463,8 +460,8 @@ class OrderRequestService
                 'preferred_date' => $data['preferred_date'],
                 'preferred_time' => $valid['time'],
                 'preferred_datetime' => $rush['preferred_datetime'],
-                'is_rush' => $rush['is_rush'],
-                'rush_reason' => $rush['rush_reason'],
+            'is_rush' => false,
+            'rush_reason' => null,
                 'seller_prep_days_at_request' => $rush['seller_prep_days_at_request'],
                 'requested_notice_minutes' => $rush['requested_notice_minutes'],
                 'allow_similar_cake' => !empty($data['allow_similar_cake']),
@@ -492,10 +489,8 @@ class OrderRequestService
         return [
             'ok' => true,
             'id' => $id,
-            'is_rush' => $rush['is_rush'],
-            'message' => $rush['is_rush']
-                ? 'Rush request to bake sent. The seller will confirm if the kitchen can prepare it in time.'
-                : 'Request to bake sent. The seller will review it before it becomes an order.',
+            'is_rush' => false,
+            'message' => 'Request to bake sent. The seller will review it before it becomes an order.',
         ];
     }
 
@@ -511,7 +506,7 @@ class OrderRequestService
                 ->first();
             if (!$request || !$request->seller_id) return;
 
-            $title = $request->is_rush ? 'Rush kitchen request received' : 'Kitchen request received';
+            $title = 'Kitchen request received';
             $when = trim(($request->preferred_date ?? '') . ' ' . ($request->preferred_time ?? ''));
             $sizeText = !empty($request->selected_size) ? ' (' . $request->selected_size . ')' : '';
             $message = ($request->product_name ?: 'Cake request') . $sizeText . ' requested to bake for ' . $when . '.';
@@ -520,7 +515,7 @@ class OrderRequestService
                 DB::table('notifications')->insert([
                 'receiver_role' => 'seller',
                 'receiver_user_id' => $request->seller_id,
-                'title' => $request->is_rush ? '[Rush] ' . $title : $title,
+                'title' => $title,
                 'message' => $message,
                 'is_read' => false,
                 'created_at' => now(),

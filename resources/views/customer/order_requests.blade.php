@@ -72,7 +72,7 @@
       <div>
         <div class="text-uppercase fw-bold small mb-1" style="color:var(--primary);letter-spacing:.04em">My Requests</div>
         <h4 class="fw-bold mb-1">Kitchen requests and seller offers</h4>
-        <p class="text-muted mb-0 small">Track request-to-bake items here, including rush kitchen requests, seller accepted offers, declined requests, and requests converted to orders.</p>
+        <p class="text-muted mb-0 small">Track request-to-bake items here, including seller accepted offers, declined requests, and requests converted to orders.</p>
       </div>
       @if(($counts['offers'] ?? 0) > 0)
         <a href="{{ route('customer.order_requests.index', ['filter' => 'offers']) }}" class="btn btn-primary fw-semibold">
@@ -118,9 +118,6 @@
             </div>
 
             <div class="d-flex gap-2 flex-wrap my-3">
-              @if($requestItem->is_rush)
-                <span class="request-chip rush"><i class="bi bi-lightning-charge-fill"></i>Rush request</span>
-              @endif
               @if(($requestItem->request_reason ?? '') === 'size_out_of_stock')
                 <span class="request-chip"><i class="bi bi-rulers"></i>Size request</span>
               @elseif(($requestItem->request_reason ?? '') === 'out_of_stock')
@@ -224,7 +221,7 @@
     <div class="request-empty text-center">
       <i class="bi bi-send" style="font-size:2.5rem;color:#cbd5e1"></i>
       <h6 class="fw-bold mt-3 mb-1">No requests here yet</h6>
-      <p class="text-muted small mb-3">Accepted seller offers, rush kitchen requests, and pending request-to-bake items will show in this account page.</p>
+      <p class="text-muted small mb-3">Accepted seller offers and pending request-to-bake items will show in this account page.</p>
       <a href="{{ route('customer.catalog') }}" class="btn btn-primary fw-semibold"><i class="bi bi-shop me-1"></i>Browse Cakes</a>
     </div>
   @endforelse

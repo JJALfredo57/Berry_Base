@@ -729,7 +729,7 @@
               <div class="p-3 rounded-3" style="background:var(--primary-bg);border:1px solid var(--primary-light)">
                 <div class="d-flex align-items-start gap-2 mb-2">
                   <div style="width:34px;height:34px;border-radius:10px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><i class="bi bi-send"></i></div>
-                  <div><div class="fw-bold" style="color:var(--primary-dark)">Request to Bake</div><div class="small text-muted">This goes to seller review first. If accepted and checked out, it will go to kitchen. Rush timing is marked automatically.</div></div>
+                  <div><div class="fw-bold" style="color:var(--primary-dark)">Request to Bake</div><div class="small text-muted">This goes to seller review first. If accepted and checked out, it will go to kitchen.</div></div>
                 </div>
                 <form action="{{ route('customer.order_requests.store') }}" method="POST" class="row g-2" data-request-bake-form data-shop-id="{{ $p->shop_id }}">
                   @csrf

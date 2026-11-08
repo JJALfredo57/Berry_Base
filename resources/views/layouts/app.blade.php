@@ -3483,7 +3483,7 @@ function applySellerSidebarCounts(counts) {
   setSellerSidebarBadge('kitchen', counts.kitchen, (counts.kitchen_pending || 0) + ' pending, ' + (counts.kitchen_preparing || 0) + ' preparing');
   setSellerSidebarBadge('messages', counts.messages, 'Unread customer messages');
   setSellerSidebarBadge('custom_orders', counts.custom_orders, 'Custom orders awaiting review');
-  setSellerSidebarBadge('order_requests', counts.order_requests, (counts.rush_requests || 0) + ' rush, ' + (counts.order_requests || 0) + ' pending');
+  setSellerSidebarBadge('order_requests', counts.order_requests, (counts.order_requests || 0) + ' pending');
   setSellerSidebarBadge('reviews', counts.reviews, 'New reviews awaiting review');
   setSellerSidebarBadge('feedback', counts.feedback, 'Open platform feedback');
   if (typeof counts.messages !== 'undefined') setBubbleBadgeCount(counts.messages, true);

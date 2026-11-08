@@ -16,7 +16,6 @@
   ];
   $tabs = [
     'pending' => 'Pending',
-    'rush' => 'Rush',
     'suggested' => 'Seller Replies',
     'accepted' => 'Accepted',
     'converted' => 'Converted',
@@ -39,7 +38,6 @@
   </div>
 
   <div class="or-summary">
-    <div class="or-stat"><strong>{{ number_format($counts['rush'] ?? 0) }}</strong><span>Rush pending</span></div>
     <div class="or-stat"><strong>{{ number_format($counts['pending'] ?? 0) }}</strong><span>Total pending</span></div>
     <div class="or-stat"><strong>{{ number_format($counts['suggested'] ?? 0) }}</strong><span>Waiting for customer</span></div>
   </div>
@@ -71,7 +69,7 @@
       $notice = is_numeric($req->requested_notice_minutes) ? (int) $req->requested_notice_minutes : null;
       $noticeLabel = $notice === null ? 'Not computed' : ($notice >= 1440 ? floor($notice / 1440).' day'.(floor($notice / 1440) == 1 ? '' : 's') : max(0, floor($notice / 60)).' hr '.max(0, $notice % 60).' min');
     @endphp
-    <div class="or-card {{ $req->is_rush ? 'is-rush' : '' }}">
+    <div class="or-card">
       <div class="or-card-head">
         @if($req->image_path)
           <img class="or-img" src="{{ $req->image_path }}" alt="{{ $req->product_name }}">
@@ -82,7 +80,6 @@
           <h2 class="or-name">{{ $req->product_name ?: 'Cake request' }}</h2>
           <div class="small text-muted">Request #{{ $req->id }} by {{ $customerName }}{{ $customerPhone ? ' - '.$customerPhone : '' }}</div>
           <div class="or-meta">
-            @if($req->is_rush)<span class="or-pill rush"><i class="bi bi-lightning-charge-fill"></i>Rush</span>@endif
             <span class="or-pill status" style="--or-bg:{{ $meta['bg'] }};--or-fg:{{ $meta['fg'] }}"><i class="bi {{ $meta['icon'] }}"></i>{{ $meta['label'] }}</span>
             <span class="or-pill"><i class="bi bi-bag"></i>{{ $req->quantity }} pc{{ (int)$req->quantity === 1 ? '' : 's' }}</span>
             @if(($req->request_reason ?? '') === 'size_out_of_stock')<span class="or-pill"><i class="bi bi-rulers"></i>Size request</span>@elseif(($req->request_reason ?? '') === 'out_of_stock')<span class="or-pill"><i class="bi bi-box-seam"></i>Request to bake</span>@endif

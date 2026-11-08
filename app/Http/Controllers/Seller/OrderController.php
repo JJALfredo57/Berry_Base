@@ -211,7 +211,6 @@ class OrderController extends Controller
         $phone = $order->user_id ? ($customer->phone ?? '') : ($order->guest_phone ?? '');
         $sizeInfo = !empty($order->selected_size) ? "\nSIZE: {$order->selected_size}" : '';
         $noteInfo = !empty($order->custom_note) ? "\nSPECIAL NOTE: {$order->custom_note}" : '';
-        $rushInfo = !empty($order->is_rush) ? "\nPRIORITY: RUSH request-to-bake" : '';
         $schedInfo = !empty($order->schedule_date)
             ? "\nSCHEDULE: " . date('M d, Y', strtotime($order->schedule_date)) . (!empty($order->schedule_time) ? ' at ' . date('g:i A', strtotime($order->schedule_time)) : '')
             : '';
@@ -222,7 +221,7 @@ class OrderController extends Controller
             . "Customer: {$fullname}" . ($phone ? " ({$phone})" : '') . "\n"
             . "Product: {$productName}\n"
             . "Qty: {$order->quantity}"
-            . $sizeInfo . $rushInfo . $noteInfo . $addonList . $schedInfo . $sourceInfo
+            . $sizeInfo . $noteInfo . $addonList . $schedInfo . $sourceInfo
             . "\nFulfillment: " . ($order->fulfillment_type ?? 'Pickup')
             . "\n===========================";
 

@@ -34,7 +34,6 @@
       @endif
       <div class="offer-info">
         <div class="offer-meta">
-          @if($offer->is_rush)<span class="offer-pill rush"><i class="bi bi-lightning-charge-fill"></i>Rush request</span>@endif
           <span class="offer-pill ok"><i class="bi bi-check-circle"></i>{{ $offer->status === 'accepted' ? 'Seller accepted' : ucfirst(str_replace('_',' ', $offer->status)) }}</span>
           <span class="offer-pill"><i class="bi bi-shop"></i>{{ $offer->shop_name }}</span>
         </div>

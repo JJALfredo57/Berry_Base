@@ -25,7 +25,7 @@ class OrderRequestController extends Controller
         $shop = $this->getShop();
         $service->markExpired();
         $tab = $request->input('tab', 'pending');
-        if (!in_array($tab, ['pending', 'rush', 'accepted', 'suggested', 'converted', 'declined', 'all'], true)) $tab = 'pending';
+        if (!in_array($tab, ['pending', 'accepted', 'suggested', 'converted', 'declined', 'all'], true)) $tab = 'pending';
         $search = trim((string) $request->input('search', ''));
 
         $query = DB::table('order_requests as r')
@@ -34,9 +34,7 @@ class OrderRequestController extends Controller
             ->where('r.shop_id', $shop->id)
             ->select('r.*', 'p.name as product_name', 'p.image_path', 'p.flavor', 'p.classification', 'u.fullname as user_fullname', 'u.phone as user_phone');
 
-        if ($tab === 'rush') {
-            $query->where('r.is_rush', true)->where('r.status', 'pending');
-        } elseif ($tab === 'pending') {
+        if ($tab === 'pending') {
             $query->where('r.status', 'pending');
         } elseif ($tab === 'accepted') {
             $query->whereIn('r.status', ['accepted', 'customer_accepted']);
@@ -59,18 +57,17 @@ class OrderRequestController extends Controller
         }
 
         $requests = $query
-            ->orderByRaw("CASE WHEN r.status = 'pending' AND r.is_rush = true THEN 0 WHEN r.status = 'pending' THEN 1 ELSE 2 END")
+            ->orderByRaw("CASE WHEN r.status = 'pending' THEN 0 ELSE 1 END")
             ->orderByRaw('CASE WHEN r.preferred_datetime IS NULL THEN 1 ELSE 0 END')
             ->orderBy('r.preferred_datetime')
             ->orderByDesc('r.created_at')
             ->paginate(12)
             ->withQueryString();
 
-        $counts = ['pending' => 0, 'rush' => 0, 'accepted' => 0, 'suggested' => 0, 'converted' => 0, 'declined' => 0, 'all' => 0];
+        $counts = ['pending' => 0, 'accepted' => 0, 'suggested' => 0, 'converted' => 0, 'declined' => 0, 'all' => 0];
         if (Schema::hasTable('order_requests')) {
             $base = DB::table('order_requests')->where('shop_id', $shop->id);
             $counts['pending'] = (clone $base)->where('status', 'pending')->count();
-            $counts['rush'] = (clone $base)->where('status', 'pending')->where('is_rush', true)->count();
             $counts['accepted'] = (clone $base)->whereIn('status', ['accepted', 'customer_accepted'])->count();
             $counts['converted'] = (clone $base)->where('status', 'converted')->count();
             $counts['suggested'] = (clone $base)->whereIn('status', ['alternative_offered', 'schedule_suggested', 'needs_more_details'])->count();

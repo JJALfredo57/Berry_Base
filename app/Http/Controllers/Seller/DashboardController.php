@@ -145,7 +145,6 @@ class DashboardController extends Controller
             'messages' => 0,
             'custom_orders' => 0,
             'order_requests' => 0,
-            'rush_requests' => 0,
             'reviews' => 0,
             'feedback' => 0,
             'pickup_ready' => 0,
@@ -207,11 +206,6 @@ class DashboardController extends Controller
                 $counts['order_requests'] = (int) DB::table('order_requests')
                     ->where('shop_id', $shopId)
                     ->where('status', 'pending')
-                    ->count();
-                $counts['rush_requests'] = (int) DB::table('order_requests')
-                    ->where('shop_id', $shopId)
-                    ->where('status', 'pending')
-                    ->where('is_rush', true)
                     ->count();
             }
 
