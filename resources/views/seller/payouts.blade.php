@@ -16,24 +16,22 @@
   } elseif (($summary['available'] ?? 0) < $minimumPayout) {
     $requestBlockReason = 'Your available balance is below the minimum payout amount of ₱'.number_format($minimumPayout, 2).'.';
   }
+  $availableBalance = (float)($summary['available'] ?? 0);
+  $payoutProgress = $minimumPayout > 0 ? min(100, round(($availableBalance / $minimumPayout) * 100)) : 100;
+  $payoutState = empty($shop->payout_account_name) || empty($shop->payout_account_number) ? 'details' : (empty($shop->payout_details_verified) ? 'verification' : ($availableBalance < $minimumPayout ? 'minimum' : ($requestBlockReason ? 'clearing' : 'ready')));
+  $payoutStateCopy = [
+    'details' => ['Set up your GCash details', 'Add the exact registered account name and mobile number to begin.', 'bi-bank'],
+    'verification' => ['Waiting for admin verification', 'Your details are saved. An admin needs to verify them before payout requests.', 'bi-patch-check'],
+    'minimum' => ['Keep building your available balance', 'You are '.number_format($payoutProgress).'% of the way to the minimum payout.', 'bi-graph-up-arrow'],
+    'clearing' => ['Earnings are still clearing', 'Paid and delivered orders become available after the platform hold period.', 'bi-hourglass-split'],
+    'ready' => ['Your payout is ready to request', 'Your account is verified and your available balance meets the minimum.', 'bi-check2-circle'],
+  ][$payoutState];
 @endphp
 <div class="cs-page-header">
   <div>
     <h4 class="cs-page-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary)"></i>Payouts</h4>
     <p class="cs-page-sub">Track your earnings and keep your payout details accurate.</p>
   </div>
-  @if($requestBlockReason)
-    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="alert(@js($requestBlockReason))">
-      <i class="bi bi-cash-coin me-1"></i>Request Payout
-    </button>
-  @else
-    <form action="{{ route('seller.payouts.request') }}" method="POST" data-prevent-double-submit>
-      @csrf
-      <button class="btn btn-primary btn-sm" type="submit" data-loading-text="Submitting...">
-        <i class="bi bi-cash-coin me-1"></i>Request Payout
-      </button>
-    </form>
-  @endif
 </div>
 
 @if(session('msg'))
@@ -46,7 +44,27 @@
   <div class="alert alert-danger">{{ $e }}</div>
 @endforeach
 
-<div class="alert alert-info d-flex gap-3 align-items-start">
+<section class="payout-readiness-card payout-state-{{ $payoutState }}" aria-labelledby="payoutReadinessTitle">
+  <div class="payout-readiness-main">
+    <div class="payout-live-label"><span></span>Live payout status</div>
+    <div class="payout-readiness-title-row"><div class="payout-readiness-icon"><i class="bi {{ $payoutStateCopy[2] }}"></i></div><div><h2 id="payoutReadinessTitle">{{ $payoutStateCopy[0] }}</h2><p>{{ $payoutStateCopy[1] }}</p></div></div>
+    <div class="payout-live-time"><i class="bi bi-clock me-1"></i>Local time: <time data-live-clock aria-live="polite">Loading...</time></div>
+  </div>
+  <div class="payout-readiness-action">
+    <small>Available now</small><div class="payout-available-value">&#8369;{{ number_format($availableBalance, 2) }}</div>
+    <div class="payout-progress-track" role="progressbar" aria-label="Progress toward minimum payout" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $payoutProgress }}"><span style="width:{{ $payoutProgress }}%"></span></div>
+    <small>{{ $minimumPayout > 0 ? number_format($payoutProgress).'% of minimum reached' : 'No minimum payout amount' }}</small>
+    @if($payoutState === 'details' || $payoutState === 'verification')
+      <a href="#payout-details" class="btn btn-primary payout-hero-btn"><i class="bi bi-bank me-1"></i>{{ $payoutState === 'details' ? 'Add GCash Details' : 'Review GCash Details' }}</a>
+    @elseif($payoutState === 'ready')
+      <form action="{{ route('seller.payouts.request') }}" method="POST" data-prevent-double-submit>@csrf<button class="btn btn-primary payout-hero-btn" type="submit" data-loading-text="Submitting..."><i class="bi bi-cash-coin me-1"></i>Request Payout</button></form>
+    @else
+      <button class="btn btn-outline-secondary payout-hero-btn" type="button" onclick="alert(@js($requestBlockReason))"><i class="bi bi-info-circle me-1"></i>Why can’t I request?</button>
+    @endif
+  </div>
+</section>
+
+<div class="alert alert-info d-flex gap-3 align-items-start payout-rule-note">
   <i class="bi bi-info-circle-fill fs-5"></i>
   <div>
     <strong>Reminder:</strong> earnings become available only after an order is paid, delivered, and cleared by the platform hold period.
@@ -54,7 +72,7 @@
   </div>
 </div>
 
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-4 payout-summary-grid">
   @foreach([
     ['Clearing', $summary['pending'], 'bi-hourglass-split', '#92400e', '#fffbeb'],
     ['Available', $summary['available'], 'bi-cash-stack', '#166534', '#ecfdf5'],
@@ -62,7 +80,7 @@
     ['Paid Out', $summary['paid'], 'bi-check2-circle', '#6d28d9', '#f5f3ff'],
     ['Refund Deductions', $summary['refund_deductions'] ?? 0, 'bi-arrow-counterclockwise', '#b91c1c', '#fef2f2'],
   ] as [$label, $value, $icon, $color, $bg])
-  <div class="col-6 col-lg">
+  <div class="col-6 col-lg {{ $label === 'Refund Deductions' ? 'payout-secondary-stat' : '' }}">
     <div class="cs-stat-card h-100">
       <div class="cs-stat-icon" style="background:{{ $bg }}"><i class="bi {{ $icon }}" style="color:{{ $color }}"></i></div>
       <div class="cs-stat-body">
@@ -146,9 +164,21 @@
   </div>
 </div>
 
+<section class="card mb-4 payout-steps-card" aria-labelledby="payoutStepsTitle">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3"><div><div class="text-uppercase small fw-bold" style="color:var(--primary);letter-spacing:.08em">Simple process</div><h5 id="payoutStepsTitle" class="mb-0">How your payout moves</h5></div><span class="small text-muted">Manual admin review</span></div>
+    <div class="payout-steps">
+      <div class="payout-step"><span>1</span><div><strong>Earn</strong><small>Order is paid and delivered.</small></div></div>
+      <div class="payout-step"><span>2</span><div><strong>Clear</strong><small>Hold period finishes.</small></div></div>
+      <div class="payout-step"><span>3</span><div><strong>Request</strong><small>Submit when eligible.</small></div></div>
+      <div class="payout-step"><span>4</span><div><strong>Receive</strong><small>Admin sends to verified GCash.</small></div></div>
+    </div>
+  </div>
+</section>
+
 <div class="row g-4">
   <div class="col-lg-4">
-    <div class="card">
+    <div class="card" id="payout-details">
       <div class="card-header"><i class="bi bi-bank me-2" style="color:var(--primary)"></i>Payout Details</div>
       <div class="card-body">
         <div class="mb-3">
@@ -246,6 +276,13 @@
 </div>
 
 <style>
+  .payout-readiness-card{display:flex;justify-content:space-between;gap:1.5rem;padding:clamp(1rem,3vw,1.6rem);margin:0 0 1rem;border:1px solid color-mix(in srgb,var(--primary) 22%,#fff);border-radius:18px;background:linear-gradient(135deg,var(--primary-bg),#fff 66%);box-shadow:0 12px 30px rgba(15,23,42,.06);animation:payout-enter .38s ease both}
+  .payout-readiness-main{min-width:0}.payout-live-label{display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--primary)}.payout-live-label span{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.55);animation:payout-pulse 1.9s infinite}.payout-readiness-title-row{display:flex;align-items:flex-start;gap:.75rem;margin:.55rem 0}.payout-readiness-icon{display:grid;place-items:center;width:42px;height:42px;flex:0 0 auto;border-radius:13px;background:var(--primary);color:#fff;font-size:1.25rem}.payout-readiness-title-row h2{font-size:clamp(1.05rem,2vw,1.3rem);margin:0;color:var(--gray-900)}.payout-readiness-title-row p{margin:.18rem 0 0;color:var(--gray-600);max-width:620px}.payout-live-time{font-size:.8rem;color:var(--gray-600)}
+  .payout-readiness-action{min-width:min(100%,260px);display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:.35rem}.payout-readiness-action small{color:var(--gray-600);font-size:.75rem}.payout-available-value{font-weight:800;font-size:1.45rem;color:#166534}.payout-progress-track{height:9px;overflow:hidden;background:#d1fae5;border-radius:99px}.payout-progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#16a34a,#22c55e);transition:width .5s ease}.payout-hero-btn{margin-top:.45rem;white-space:nowrap;overflow-wrap:normal}.payout-rule-note{font-size:.86rem}.payout-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem}.payout-step{display:flex;gap:.55rem;align-items:flex-start;padding:.7rem;border:1px solid var(--gray-100);border-radius:12px;background:#fff}.payout-step>span{display:grid;place-items:center;width:25px;height:25px;flex:0 0 auto;border-radius:50%;background:var(--primary-bg);color:var(--primary);font-size:.75rem;font-weight:800}.payout-step strong,.payout-step small{display:block}.payout-step small{font-size:.72rem;color:var(--gray-500);margin-top:.12rem}
+  .payout-data-table .table{min-width:760px}.payout-data-table .btn{white-space:nowrap;overflow-wrap:normal}@keyframes payout-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes payout-pulse{70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}}
+  @media(max-width:767px){.payout-readiness-card{flex-direction:column;gap:1rem}.payout-readiness-action{width:100%;min-width:0}.payout-hero-btn{width:100%;min-height:44px}.payout-summary-grid .payout-secondary-stat{display:none}.payout-steps{grid-template-columns:1fr 1fr}.payout-step{min-height:66px}.payout-rule-note{align-items:flex-start!important}}
+  @media(max-width:399px){.payout-steps{grid-template-columns:1fr}.payout-readiness-card{padding:.9rem}.payout-readiness-title-row{gap:.55rem}}
+  @media(prefers-reduced-motion:reduce){.payout-readiness-card,.payout-live-label span{animation:none}.payout-progress-track span{transition:none}}
   #payoutHistoryModal.payout-history-modal .modal-dialog {
     width:min(980px, calc(100vw - 24px));
     max-width:min(980px, calc(100vw - 24px)) !important;
@@ -384,6 +421,14 @@
 document.addEventListener('DOMContentLoaded', function() {
   const receiptModal = document.getElementById('payoutReceiptViewerModal');
   const historyModal = document.getElementById('payoutHistoryModal');
+  const liveClock = document.querySelector('[data-live-clock]');
+  function updateLiveClock() {
+    if (!liveClock) return;
+    liveClock.dateTime = new Date().toISOString();
+    liveClock.textContent = new Intl.DateTimeFormat(undefined, { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit' }).format(new Date());
+  }
+  updateLiveClock();
+  if (liveClock) setInterval(updateLiveClock, 1000);
   if (receiptModal && receiptModal.parentElement !== document.body) {
     document.body.appendChild(receiptModal);
   }
