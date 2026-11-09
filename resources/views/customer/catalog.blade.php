@@ -13,6 +13,7 @@
   gap:1rem;
 }
 .catalog-item{ transition: all .3s ease; }
+.catalog-card-trigger{cursor:pointer}.catalog-card-trigger:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 38%,transparent);outline-offset:3px}
 @media (hover: hover) {
   .catalog-card:hover {
     transform: translateY(-8px) scale(1.02) !important;
@@ -249,7 +250,7 @@
          data-classification="{{ strtolower($p->classification ?? '') }}"
          data-seller="{{ strtolower($p->shop_name ?? '') }}"
          data-barangays="{{ $p->delivery_barangays_filter ?? '||' }}">
-      <div class="catalog-card card h-100" style="{{ ($isArchived || !$isAvailable) ? 'opacity:.72' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
+      <div class="catalog-card card h-100 {{ (!$isArchived && $isAvailable) ? 'catalog-card-trigger' : '' }}" @if(!$isArchived && $isAvailable) role="button" tabindex="0" aria-label="View details for {{ $p->name }}" data-catalog-modal="#detailModal{{ $p->id }}" @endif style="{{ ($isArchived || !$isAvailable) ? 'opacity:.72' : '' }};transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease">
 
         {{-- Image --}}
         <div class="catalog-img-wrap img-zoom-wrap position-relative overflow-hidden" style="border-radius:1.1rem 1.1rem 0 0;height:260px">
@@ -1441,6 +1442,19 @@ function toggleCatalogFilters(open) {
 
 document.addEventListener('DOMContentLoaded', function() {
   filterCatalog(true);
+  document.querySelectorAll('.catalog-card-trigger').forEach(card => {
+    const openDetail = () => {
+      const modal = document.querySelector(card.dataset.catalogModal);
+      if (modal && window.bootstrap?.Modal) bootstrap.Modal.getOrCreateInstance(modal).show();
+    };
+    card.addEventListener('click', event => {
+      if (event.target.closest('a,button,input,select,textarea,label')) return;
+      openDetail();
+    });
+    card.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openDetail(); }
+    });
+  });
 });
 
 window.filterCatalog = filterCatalog;
