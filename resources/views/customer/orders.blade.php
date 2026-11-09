@@ -499,8 +499,8 @@
     $latestTrackingAt = (string) optional($orderTrackingRows->last())->created_at;
     $isPickupFlow = ($o->fulfillment_type ?? '') === 'Pickup';
     $steps = $isPickupFlow
-      ? ['Pending','Confirmed','Preparing','Pickup','Picked Up']
-      : ['Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered'];
+      ? ($isCustom ? ['Pending','Confirmed','Preparing','Pickup','Picked Up'] : ['Pending','Confirmed','Pickup','Picked Up'])
+      : ($isCustom ? ['Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered'] : ['Pending','Confirmed','Ready for Rider','Out for Delivery','Delivered']);
     $statusOrder = array_flip($steps);
     $effectiveStatus = $o->status;
     if (isset($statusOrder[$latestTrackingStatus]) && ($statusOrder[$latestTrackingStatus] ?? -1) > ($statusOrder[$effectiveStatus] ?? -1)) {
@@ -1192,7 +1192,7 @@
         </div>
       </div>
       @endif{{-- end custom order banner --}}
-      @php $steps = ['Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered']; @endphp
+      @php $steps = $isCustom ? ['Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered'] : ['Pending','Confirmed','Ready for Rider','Out for Delivery','Delivered']; @endphp
       @if($o->status === 'Awaiting Deposit' && ($o->payment_status ?? '') !== 'Paid' && ($o->deposit_status ?? '') !== 'paid')
       <div class="px-3 py-3">
         <div style="border-radius:.85rem;overflow:hidden;border:1.5px solid #fed7aa">

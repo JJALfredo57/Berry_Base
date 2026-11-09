@@ -493,10 +493,15 @@
   {{-- Progress Bar (non-cancelled) --}}
   @if(!in_array($order->status, ['Cancelled', 'No Show'], true))
   @php
+    $requiresBaking = data_get($order, 'order_type') === 'custom' || filled(data_get($order, 'custom_order_id'));
     if ($isPickup) {
-      $steps = ['Pending'=>'Received','Confirmed'=>'Confirmed','Preparing'=>'Baking','Pickup'=>'Ready','Picked Up'=>'Picked Up'];
+      $steps = $requiresBaking
+        ? ['Pending'=>'Received','Confirmed'=>'Confirmed','Preparing'=>'Baking','Pickup'=>'Ready','Picked Up'=>'Picked Up']
+        : ['Pending'=>'Received','Confirmed'=>'Confirmed','Pickup'=>'Ready for Pickup','Picked Up'=>'Picked Up'];
     } else {
-      $steps = ['Pending'=>'Received','Confirmed'=>'Confirmed','Preparing'=>'Baking','Ready for Rider'=>'Ready for Rider','Out for Delivery'=>'On the Way','Delivered'=>'Delivered'];
+      $steps = $requiresBaking
+        ? ['Pending'=>'Received','Confirmed'=>'Confirmed','Preparing'=>'Baking','Ready for Rider'=>'Ready for Rider','Out for Delivery'=>'On the Way','Delivered'=>'Delivered']
+        : ['Pending'=>'Received','Confirmed'=>'Confirmed','Ready for Rider'=>'Ready for Rider','Out for Delivery'=>'On the Way','Delivered'=>'Delivered'];
     }
     $stepKeys = array_keys($steps);
 
@@ -505,8 +510,8 @@
     if ($statusForProgress === 'Awaiting Deposit')              $statusForProgress = 'Pending';
     if ($statusForProgress === 'Pending Review')                $statusForProgress = 'Pending';
     if ($statusForProgress === 'Pending Price Confirmation')    $statusForProgress = 'Pending';
-    if ($isPickup && in_array($statusForProgress, ['Ready for Rider','Out for Delivery'], true)) $statusForProgress = 'Preparing';
-    if (!$isPickup && $statusForProgress === 'Pickup')          $statusForProgress = 'Preparing';
+    if ($isPickup && in_array($statusForProgress, ['Ready for Rider','Out for Delivery'], true)) $statusForProgress = $requiresBaking ? 'Preparing' : 'Pickup';
+    if (!$isPickup && $statusForProgress === 'Pickup')          $statusForProgress = $requiresBaking ? 'Preparing' : 'Ready for Rider';
     if (!$isPickup && $statusForProgress === 'Picked Up')       $statusForProgress = 'Delivered';
 
     $current = array_search($statusForProgress, $stepKeys);
