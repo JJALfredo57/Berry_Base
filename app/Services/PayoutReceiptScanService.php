@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Http;
 
 class PayoutReceiptScanService
 {
@@ -29,6 +30,15 @@ class PayoutReceiptScanService
     }
     private function readText(string $path): string
     {
+        $url = trim((string) config('services.ocr.service_url', ''));
+        if (strtolower((string) config('services.ocr.driver', 'auto')) !== 'local' && $url !== '') {
+            try {
+                $client = Http::timeout(max(5, min(45, (int) config('services.ocr.service_timeout', 30))))->acceptJson();
+                if ($token = trim((string) config('services.ocr.service_token', ''))) $client = $client->withToken($token);
+                $response = $client->attach('file', fopen($path, 'r'), basename($path))->post($url, ['lang' => config('services.ocr.tesseract_lang', 'eng'), 'mode' => 'payout_receipt']);
+                if ($response->successful()) return (string) ($response->json('text') ?? $response->json('data.text') ?? '');
+            } catch (\Throwable) { /* fall through to the local OCR engine */ }
+        }
         $binary = (string) config('services.ocr.tesseract_binary', 'tesseract');
         $result = Process::timeout(max(5, min(60, (int) config('services.ocr.tesseract_timeout', 20))))->run([$binary, $path, 'stdout', '-l', (string) config('services.ocr.tesseract_lang', 'eng')]);
         return $result->successful() ? $result->output() : '';
