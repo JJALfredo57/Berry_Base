@@ -429,6 +429,7 @@
 
     $paymentTotalAmount = max(0, (float) ($order->total_price ?? 0));
     $paymentDepositAmount = max(0, (float) ($order->deposit_amount ?? 0));
+    $paymentIsFull = $paymentTotalAmount > 0 && abs($paymentDepositAmount - $paymentTotalAmount) < 0.01;
     $paymentDepositPaid = ($order->deposit_status ?? null) === 'paid' || in_array(($order->payment_status ?? ''), ['Partial Payment', 'Paid'], true);
     $paymentPaidAmount = ($order->payment_status ?? '') === 'Paid'
       ? $paymentTotalAmount
@@ -726,7 +727,7 @@
             @elseif($order->deposit_required && $order->deposit_status === 'pending')
             <div class="track-payment-note warning">
               <i class="bi bi-clock"></i>
-              <span>Deposit of &#8369;{{ number_format($paymentDepositAmount, 2) }} pending.</span>
+              <span>{{ $paymentIsFull ? 'Full payment' : 'Deposit' }} of &#8369;{{ number_format($paymentDepositAmount, 2) }} pending.</span>
             </div>
             @endif
           </div>

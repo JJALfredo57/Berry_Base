@@ -678,7 +678,7 @@
           @elseif(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'pending')
           <div class="col-12">
             <i class="bi bi-exclamation-circle me-1" style="color:#880E4F"></i>
-            <span style="color:#880E4F;font-weight:600">Deposit required: PHP {{ number_format($o->deposit_amount,2) }} not yet paid</span>
+            <span style="color:#880E4F;font-weight:600">{{ $qrIsFullPayment ? 'Full payment' : 'Deposit' }} required: PHP {{ number_format($o->deposit_amount,2) }} not yet paid</span>
           </div>
           @endif
           @if($o->schedule_date)
@@ -766,7 +766,7 @@
               @elseif(($o->deposit_status ?? '') === 'paid')
                 <span class="badge bg-success" style="font-size:.7rem"><i class="bi bi-check2-circle me-1"></i>Deposit paid</span>
               @else
-                <span class="badge bg-primary" style="font-size:.7rem"><i class="bi bi-clock-history me-1"></i>Awaiting deposit</span>
+            <span class="badge bg-primary" style="font-size:.7rem"><i class="bi bi-clock-history me-1"></i>Awaiting {{ $qrIsFullPayment ? 'full payment' : 'deposit' }}</span>
               @endif
             @endif
           @endif

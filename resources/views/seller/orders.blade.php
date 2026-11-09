@@ -283,6 +283,7 @@
     $hasPaidAmount = ($o->payment_status ?? '') === 'Paid'
       || ($o->deposit_status ?? '') === 'paid'
       || ($o->payment_status ?? '') === 'Partial Payment';
+    $isFullPayment = (float) ($o->total_price ?? 0) > 0 && abs((float) ($o->deposit_amount ?? 0) - (float) ($o->total_price ?? 0)) < 0.01;
     $hasPaidCancelRequest = $refund && ($refund->status ?? '') === 'pending';
     $sellerCancelAwaiting = ($o->seller_cancel_state ?? '') === 'awaiting_customer'
       && !empty($o->seller_cancel_expires_at)
@@ -481,9 +482,9 @@
       <div style="margin-bottom:1rem;background:#FCE4EC;border-radius:10px;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem">
         <i class="bi bi-lock-fill" style="color:#880E4F;font-size:1.1rem;flex-shrink:0"></i>
         <div>
-          <div style="font-size:.78rem;font-weight:800;color:#880E4F;letter-spacing:.04em">AWAITING DEPOSIT</div>
+          <div style="font-size:.78rem;font-weight:800;color:#880E4F;letter-spacing:.04em">AWAITING {{ $isFullPayment ? 'FULL PAYMENT' : 'DEPOSIT' }}</div>
           <div style="font-size:.8rem;color:#880E4F;margin-top:.1rem">
-            Customer must pay {{ number_format((float)($o->deposit_amount ?? 0), 2) }} deposit via GCash before this order enters the queue.
+            Customer must pay {{ number_format((float)($o->deposit_amount ?? 0), 2) }} {{ $isFullPayment ? 'in full' : 'as a deposit' }} via GCash before this order enters the queue.
           </div>
         </div>
       </div>
@@ -946,7 +947,7 @@
         </div>
       </div>
       <span style="background:#FCE4EC;color:#880E4F;border:1.5px solid #F48FB1;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:700;margin-left:auto">
-        <i class="bi bi-hourglass-split"></i> Awaiting Customer Payment
+          <i class="bi bi-hourglass-split"></i> Awaiting {{ $isFullPayment ? 'Full Payment' : 'Customer Deposit' }}
       </span>
     </div>
     @endif

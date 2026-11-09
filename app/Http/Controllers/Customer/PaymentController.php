@@ -346,8 +346,8 @@ class PaymentController extends Controller
 
         DB::table('order_tracking')->insert([
             'order_id'   => $orderId,
-            'status'     => 'Deposit Paid',
-            'notes'      => 'Deposit of ₱' . number_format($order->deposit_amount, 2) . ' paid via GCash.',
+            'status'     => $isFullPayment ? 'Full Payment Paid' : 'Deposit Paid',
+            'notes'      => ($isFullPayment ? 'Full payment of ₱' : 'Deposit of ₱') . number_format($order->deposit_amount, 2) . ' paid via GCash.',
             'created_at' => now(),
         ]);
 
@@ -362,8 +362,8 @@ class PaymentController extends Controller
         DB::table('notifications')->insert([
             'receiver_role'    => 'admin',
             'receiver_user_id' => null,
-            'title'            => 'Deposit Paid — Order #' . $orderId,
-            'message'          => "{$custName} paid ₱" . number_format($order->deposit_amount, 2) . " deposit for Order #{$orderId}.",
+            'title'            => ($isFullPayment ? 'Full Payment Paid' : 'Deposit Paid') . ' — Order #' . $orderId,
+            'message'          => "{$custName} paid ₱" . number_format($order->deposit_amount, 2) . ($isFullPayment ? " in full for Order #{$orderId}." : " deposit for Order #{$orderId}."),
             'is_read' => false,
             'created_at'       => now(),
         ]);
