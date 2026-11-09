@@ -494,7 +494,7 @@
         <div>
           <div style="font-size:.78rem;font-weight:800;color:#2E7D32;letter-spacing:.04em">DEPOSIT RECEIVED</div>
           <div style="font-size:.8rem;color:#2E7D32;margin-top:.1rem">
-            {{ number_format((float)($o->deposit_amount ?? 0), 2) }} deposit paid. Remaining {{ number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) }} to be collected on {{ $o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup' }}.
+            {{ number_format((float)($o->deposit_amount ?? 0), 2) }} {{ $isFullPayment ? 'paid in full' : 'deposit paid. Remaining ' . number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) . ' to be collected on ' . ($o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup') }}.
           </div>
         </div>
       </div>
@@ -942,7 +942,7 @@
         <div>
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">WAITING FOR DEPOSIT</div>
           <div style="font-size:.82rem;color:#880E4F;line-height:1.5;font-weight:600">
-            Customer needs to pay the 50% deposit ({{ number_format((float)($o->deposit_amount ?? 0),2) }}) via GCash. The order will appear in your queue once payment is confirmed.
+            Customer needs to pay {{ $isFullPayment ? 'the full amount' : 'the 50% deposit' }} ({{ number_format((float)($o->deposit_amount ?? 0),2) }}) via GCash. The order will appear in your queue once payment is confirmed.
           </div>
         </div>
       </div>
