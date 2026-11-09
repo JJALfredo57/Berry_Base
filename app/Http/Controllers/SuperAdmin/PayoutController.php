@@ -4,6 +4,7 @@ namespace App\Http\Controllers\SuperAdmin;
 use App\Http\Controllers\Controller;
 use App\Services\MobileNotificationService;
 use App\Services\SellerPayoutService;
+use App\Services\PayoutReceiptScanService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ class PayoutController extends Controller
 {
     use UploadsFiles;
 
-    public function __construct(private SellerPayoutService $payouts, private MobileNotificationService $notifications)
+    public function __construct(private SellerPayoutService $payouts, private MobileNotificationService $notifications, private PayoutReceiptScanService $receiptScanner)
     {
     }
 
@@ -212,7 +213,7 @@ class PayoutController extends Controller
     {
         $validated = $request->validate([
             'payout_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
-            'reference_number' => 'nullable|string|min:3|max:120',
+            'reference_number' => 'required|string|min:6|max:120',
             'admin_note' => 'nullable|string|max:500',
         ], [
             'payout_receipt.required' => 'Upload the GCash receipt screenshot before marking payout as paid.',
@@ -223,15 +224,23 @@ class PayoutController extends Controller
         if (!$payout) return back()->with('err', 'Payout not found.');
         if ($payout->status === 'paid') return back()->with('msg', 'This payout was already marked as paid.');
 
+        $scan = $this->receiptScanner->scan($request->file('payout_receipt'), $payout);
+        if (!$scan['ok'] || ($scan['reference_number'] ?? null) !== $validated['reference_number']) {
+            return back()->with('err', implode(' ', $scan['errors'] ?? ['Receipt scan failed. Please scan the receipt again.']));
+        }
+        if (DB::table('seller_payouts')->where('id', '<>', $payoutId)->where('reference_number', $scan['reference_number'])->exists()) {
+            return back()->with('err', 'This receipt reference is already linked to another payout.');
+        }
+
         $receiptPath = $this->uploadFile($request->file('payout_receipt'), 'uploads/payout_receipts');
         if (!$receiptPath) {
             return back()->with('err', 'Receipt upload failed. Please try again with a smaller JPG/PNG/WebP image.');
         }
 
-        DB::transaction(function () use ($payout, $validated, $receiptPath) {
+        DB::transaction(function () use ($payout, $validated, $receiptPath, $scan, $request) {
             $updates = [
                 'status' => 'paid',
-                'reference_number' => $validated['reference_number'] ?? $payout->reference_number,
+                'reference_number' => $scan['reference_number'],
                 'admin_note' => $validated['admin_note'] ?? $payout->admin_note,
                 'processed_at' => $payout->processed_at ?? now(),
                 'paid_at' => now(),
@@ -239,6 +248,12 @@ class PayoutController extends Controller
             ];
             if (Schema::hasColumn('seller_payouts', 'payout_receipt_path')) {
                 $updates['payout_receipt_path'] = $receiptPath;
+            }
+            if (Schema::hasColumn('seller_payouts', 'receipt_scan_status')) {
+                $updates['receipt_scan_status'] = 'verified';
+                $updates['receipt_scan_data'] = json_encode($scan);
+                $updates['receipt_scanned_at'] = now();
+                $updates['payout_receipt_hash'] = hash_file('sha256', $request->file('payout_receipt')->getRealPath());
             }
 
             DB::table('seller_payouts')->where('id', $payout->id)->update($updates);
@@ -257,6 +272,17 @@ class PayoutController extends Controller
         ]);
 
         return back()->with('msg', "Payout #{$payoutId} marked as paid.");
+    }
+
+    public function scanReceipt(Request $request, int $payoutId)
+    {
+        $request->validate(['payout_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120']);
+        $payout = DB::table('seller_payouts')->where('id', $payoutId)->first();
+        if (!$payout || $payout->status === 'paid') return response()->json(['ok' => false, 'errors' => ['This payout is not available for payment.']], 422);
+        $scan = $this->receiptScanner->scan($request->file('payout_receipt'), $payout);
+        if (($scan['reference_number'] ?? null) && DB::table('seller_payouts')->where('id', '<>', $payoutId)->where('reference_number', $scan['reference_number'])->exists()) $scan['errors'][] = 'This receipt reference is already linked to another payout.';
+        $scan['ok'] = empty($scan['errors']);
+        return response()->json($scan, $scan['ok'] ? 200 : 422);
     }
 
     public function runAutomatic()

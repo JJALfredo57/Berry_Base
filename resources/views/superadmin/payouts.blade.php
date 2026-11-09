@@ -56,8 +56,7 @@
           @csrf
           <div class="mb-3">
             <label class="form-label fw-semibold">Payout Mode</label>
-            <input type="text" class="form-control" value="Manual - admin reviews and marks paid" readonly aria-readonly="true">
-            <input type="hidden" name="payout_mode" value="manual">
+            <div class="form-control bg-light d-flex align-items-center gap-2" aria-label="Payout mode: Manual, locked"><i class="bi bi-lock-fill text-muted"></i><span>Manual — admin reviews and marks paid</span></div>
             <div class="form-text">Payout mode is locked to Manual. Admin review is required before marking payout as paid.</div>
           </div>
           <div class="row g-2">
@@ -255,9 +254,12 @@
               @if($p->status !== 'paid')
                 <form action="{{ route('superadmin.payouts.mark_paid', $p->id) }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2 justify-content-end payout-mark-paid-form" data-prevent-double-submit>
                   @csrf
-                  <input type="file" name="payout_receipt" class="form-control form-control-sm" accept="image/*" required style="max-width:220px">
-                  <input name="reference_number" class="form-control form-control-sm" placeholder="Reference no. (optional)" style="max-width:180px">
-                  <button class="btn btn-success btn-sm" type="submit">Mark Paid</button>
+                  <div class="payout-receipt-scan flex-grow-1" data-scan-url="{{ route('superadmin.payouts.scan_receipt', $p->id) }}">
+                    <input type="file" name="payout_receipt" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp" required>
+                    <div class="small mt-1 payout-scan-message" aria-live="polite">Upload a GCash receipt to scan its reference, amount, and recipient.</div>
+                    <input name="reference_number" class="form-control form-control-sm mt-1 payout-reference" placeholder="Scanned reference number" readonly required>
+                  </div>
+                  <button class="btn btn-success btn-sm" type="submit" disabled>Mark Paid</button>
                 </form>
               @else
                 <div class="text-muted small">{{ $p->paid_at }}</div>
@@ -446,6 +448,28 @@ document.addEventListener('DOMContentLoaded', function() {
       list.appendChild(card);
     });
     wrapper.after(list);
+  });
+  document.addEventListener('change', async event => {
+    const input = event.target.closest('input[name="payout_receipt"]');
+    if (!input) return;
+    const form = input.closest('form');
+    const box = input.closest('.payout-receipt-scan');
+    const message = box.querySelector('.payout-scan-message');
+    const reference = box.querySelector('.payout-reference');
+    const submit = form.querySelector('button[type="submit"]');
+    reference.value = ''; submit.disabled = true;
+    if (!input.files[0]) { message.textContent = 'Select a receipt image to scan.'; return; }
+    if (input.files[0].size > 5 * 1024 * 1024) { message.textContent = 'Receipt image must be 5 MB or smaller.'; message.className = 'small mt-1 payout-scan-message text-danger'; return; }
+    message.textContent = 'Scanning receipt…'; message.className = 'small mt-1 payout-scan-message text-muted';
+    const body = new FormData(); body.append('payout_receipt', input.files[0]);
+    try {
+      const response = await fetch(box.dataset.scanUrl, { method:'POST', headers:{'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '', 'Accept':'application/json'}, body });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error((data.errors || ['Receipt could not be verified.']).join(' '));
+      reference.value = data.reference_number;
+      message.textContent = 'Receipt verified. Reference ' + data.reference_number + ' detected.';
+      message.className = 'small mt-1 payout-scan-message text-success'; submit.disabled = false;
+    } catch (error) { message.textContent = error.message; message.className = 'small mt-1 payout-scan-message text-danger'; }
   });
   const receiptModal = document.getElementById('payoutReceiptViewerModal');
   if (receiptModal && receiptModal.parentElement !== document.body) {
