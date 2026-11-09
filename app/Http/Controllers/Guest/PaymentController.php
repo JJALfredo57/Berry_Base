@@ -145,7 +145,7 @@ class PaymentController extends Controller
             return back()->with('error', 'This order cannot be modified at this stage.');
 
         if ($order->payment_status === 'Paid')
-            return back()->with('error', 'This order is already fully paid.');
+            return back()->with('msg', 'Payment is already complete. No further payment is needed.');
 
         $customOrder = DB::table('custom_orders')->where('order_id', $order->id)->first();
         if ($customOrder && (

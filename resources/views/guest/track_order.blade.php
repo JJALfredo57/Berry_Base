@@ -435,6 +435,7 @@
       : ($paymentDepositPaid ? min($paymentTotalAmount, $paymentDepositAmount) : 0);
     $paymentRemainingBalance = max(0, round($paymentTotalAmount - $paymentPaidAmount, 2));
     $paymentFullyPaid = ($order->payment_status ?? '') === 'Paid' || $paymentRemainingBalance <= 0.009;
+    $canPayOrder = $canPayOrder && !$paymentFullyPaid;
     $paymentDueLabel = $isPickup ? 'pickup' : 'delivery';
     if ($paymentFullyPaid && ($order->status ?? '') === 'Awaiting Deposit') {
       $sc = $statusColors['Confirmed'];
