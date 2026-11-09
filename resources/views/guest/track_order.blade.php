@@ -1345,11 +1345,15 @@
         }
       @endphp
       @foreach($tracking->sortByDesc('created_at') as $t)
+      @php
+        $timelineStatus = $paymentIsFull && ($t->status ?? '') === 'Awaiting Deposit' ? 'Awaiting Full Payment' : $t->status;
+        $timelineNotes = $paymentIsFull && is_string($t->notes ?? null) ? preg_replace('/\bdeposit\b/i', 'full payment', $t->notes) : $t->notes;
+      @endphp
       <div class="d-flex gap-3 mb-3">
         <div style="width:10px;height:10px;border-radius:50%;background:var(--primary);margin-top:5px;flex-shrink:0"></div>
         <div>
-          <div class="fw-semibold small">{{ $t->status }}</div>
-          @if($t->notes)<div class="text-muted small">{{ $t->notes }}</div>@endif
+          <div class="fw-semibold small">{{ $timelineStatus }}</div>
+          @if($timelineNotes)<div class="text-muted small">{{ $timelineNotes }}</div>@endif
           @if($t->status === 'Delivered' && $deliveryProofUrl !== '')
             <button type="button" class="proof-view-btn" onclick="openDeliveryProof(@js($deliveryProofUrl))">
               <i class="bi bi-image"></i>View Proof

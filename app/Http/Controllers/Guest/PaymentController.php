@@ -397,8 +397,8 @@ class PaymentController extends Controller
         try {
             DB::table('order_tracking')->insert([
                 'order_id'   => $order->id,
-                'status'     => 'Deposit Paid',
-                'notes'      => 'Deposit of ' . number_format($order->deposit_amount, 2) . ' paid via GCash.',
+                'status'     => $isFullPayment ? 'Full Payment Paid' : 'Deposit Paid',
+                'notes'      => ($isFullPayment ? 'Full payment of ' : 'Deposit of ') . number_format($order->deposit_amount, 2) . ' paid via GCash.',
                 'created_at' => now(),
             ]);
         } catch (\Exception $e) {}
@@ -440,7 +440,7 @@ class PaymentController extends Controller
             DB::table('notifications')->insert([
                 'receiver_role'    => 'admin',
                 'receiver_user_id' => null,
-                'title'            => 'Deposit Paid - Order #' . $order->id,
+            'title'            => ($isFullPayment ? 'Full Payment Paid' : 'Deposit Paid') . ' - Order #' . $order->id,
                 'message'          => ($order->guest_name ?? 'Guest') . ' paid PHP ' . number_format($order->deposit_amount, 2) . ' for Order #' . $order->id . '. ' . $statusMessage,
                 'is_read' => false,
                 'created_at'       => now(),

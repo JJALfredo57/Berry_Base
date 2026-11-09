@@ -668,7 +668,7 @@
           @php $remainingBalance = max(0, (float)$o->total_price - (float)$o->deposit_amount); @endphp
           <div class="col-12">
             <i class="bi bi-cash-stack me-1" style="color:#16a34a"></i>
-            <span style="color:#16a34a;font-weight:600">Deposit paid: PHP {{ number_format($o->deposit_amount,2) }}</span>
+            <span style="color:#16a34a;font-weight:600">{{ $qrIsFullPayment ? 'Full payment' : 'Deposit' }} paid: PHP {{ number_format($o->deposit_amount,2) }}</span>
             @if($o->payment_status === 'Paid' || $remainingBalance <= 0)
             <span class="ms-2" style="color:#16a34a;font-weight:600">Fully paid</span>
             @else
@@ -764,7 +764,7 @@
               @if(($o->payment_status ?? '') === 'Paid')
                 <span class="badge bg-success" style="font-size:.7rem"><i class="bi bi-shield-check me-1"></i>Fully paid</span>
               @elseif(($o->deposit_status ?? '') === 'paid')
-                <span class="badge bg-success" style="font-size:.7rem"><i class="bi bi-check2-circle me-1"></i>Deposit paid</span>
+                <span class="badge bg-success" style="font-size:.7rem"><i class="bi bi-check2-circle me-1"></i>{{ $qrIsFullPayment ? 'Full payment' : 'Deposit' }} paid</span>
               @else
             <span class="badge bg-primary" style="font-size:.7rem"><i class="bi bi-clock-history me-1"></i>Awaiting {{ $qrIsFullPayment ? 'full payment' : 'deposit' }}</span>
               @endif
@@ -1199,7 +1199,7 @@
         <div style="border-radius:.85rem;overflow:hidden;border:1.5px solid #fed7aa">
           <div style="background:linear-gradient(90deg,#d97706,#ea580c);padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem">
             <i class="bi bi-shield-lock-fill" style="color:#fff;font-size:.9rem"></i>
-            <span style="color:#fff;font-weight:700;font-size:.82rem;flex:1">Deposit Required  Activate Your Order</span>
+            <span style="color:#fff;font-weight:700;font-size:.82rem;flex:1">{{ $qrIsFullPayment ? 'Full Payment' : 'Deposit' }} Required  Activate Your Order</span>
             @php $pmMode = \App\Helpers\CakeshopHelper::getPaymongoMode(); @endphp
             @if($pmMode === 'test')
               <span style="background:rgba(255,255,255,.22);color:#fef9c3;border-radius:20px;padding:1px 8px;font-size:.62rem;font-weight:700">TEST</span>
@@ -1242,7 +1242,7 @@
         <div class="d-flex align-items-center gap-3 p-3 rounded-3" style="background:#E8F5E9;border:1.5px solid #A5D6A7">
           <i class="bi bi-check-circle-fill" style="font-size:1.4rem;color:#2E7D32;flex-shrink:0"></i>
           <div class="small">
-            <div class="fw-bold" style="color:#2E7D32">Deposit Paid PHP {{ number_format($o->deposit_amount,2) }}</div>
+            <div class="fw-bold" style="color:#2E7D32">{{ $qrIsFullPayment ? 'Full Payment' : 'Deposit' }} Paid PHP {{ number_format($o->deposit_amount,2) }}</div>
             @if($o->payment_status === 'Paid' || $remainingBalance <= 0)
             <div style="color:#388E3C">This order is fully paid. No remaining balance is due.</div>
             @else
