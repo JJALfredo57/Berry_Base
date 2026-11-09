@@ -522,7 +522,8 @@
     $qrDepositAmount = max(0, (float) ($o->deposit_amount ?? 0));
     $qrDepositPaid = ($o->deposit_status ?? null) === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment', 'Paid'], true);
     $qrRemainingAmount = max(0, round($qrTotalAmount - ($qrDepositPaid ? $qrDepositAmount : 0), 2));
-    $qrPaymentType = $qrDepositPaid ? 'remaining' : (($o->deposit_required ?? false) ? 'deposit' : 'full');
+    $qrIsFullPayment = $qrTotalAmount > 0 && abs($qrDepositAmount - $qrTotalAmount) < 0.01;
+    $qrPaymentType = $qrDepositPaid ? 'remaining' : ($qrIsFullPayment ? 'full' : (($o->deposit_required ?? false) ? 'deposit' : 'full'));
     $qrAmount = $qrPaymentType === 'remaining' ? $qrRemainingAmount : ($qrPaymentType === 'deposit' ? $qrDepositAmount : $qrTotalAmount);
     $canShowCustomerQr = !empty($o->track_code)
       && ($o->payment_method ?? '') === 'GCash'
@@ -1367,7 +1368,7 @@
                   data-check-url="{{ route('guest.payment_qr.check', $o->track_code) }}"
                   data-payment-type="{{ $qrPaymentType }}"
                   data-amount="{{ number_format($qrAmount, 2, '.', '') }}">
-            <i class="bi bi-qr-code me-1"></i>Show Payment QR
+            <i class="bi bi-qr-code me-1"></i>Show {{ $qrPaymentType === 'full' ? 'Full Payment' : ($qrPaymentType === 'remaining' ? 'Remaining Balance' : 'Deposit') }} QR
           </button>
           @endif
         @endif
@@ -1385,7 +1386,7 @@
           </button>
         @endif
 
-        @if(($o->deposit_required ?? false) && ($o->deposit_status ?? '') === 'pending' && $o->status === 'Awaiting Deposit')
+        @if(($o->deposit_required ?? false) && !$qrIsFullPayment && ($o->deposit_status ?? '') === 'pending' && $o->status === 'Awaiting Deposit')
           @if($canShowCustomerQr)
           <button type="button"
                   class="btn btn-outline-primary btn-sm customer-qr-trigger"
