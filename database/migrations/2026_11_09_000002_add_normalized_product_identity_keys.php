@@ -10,10 +10,10 @@ return new class extends Migration {
     {
         $duplicateProducts = DB::table('products')
             ->selectRaw('shop_id, LOWER(TRIM(name)) as name_key, LOWER(TRIM(classification)) as class_key, COUNT(*) as total')
-            ->groupBy('shop_id', 'name_key', 'class_key')->having('total', '>', 1)->exists();
+            ->groupBy('shop_id', 'name_key', 'class_key')->havingRaw('COUNT(*) > 1')->exists();
         $duplicateSizes = DB::table('product_sizes')
             ->selectRaw('product_id, LOWER(TRIM(label)) as label_key, COUNT(*) as total')
-            ->groupBy('product_id', 'label_key')->having('total', '>', 1)->exists();
+            ->groupBy('product_id', 'label_key')->havingRaw('COUNT(*) > 1')->exists();
 
         if ($duplicateProducts || $duplicateSizes) {
             throw new RuntimeException('Duplicate product or size identities must be resolved before enabling strict uniqueness.');
