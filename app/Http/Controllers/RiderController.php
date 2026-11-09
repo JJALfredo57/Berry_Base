@@ -259,9 +259,10 @@ class RiderController extends Controller
         $order = DB::table('orders as o')
             ->join('products as p', 'p.id', '=', 'o.product_id')
             ->leftJoin('riders as r', 'r.id', '=', 'o.rider_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->where('o.id', $orderId)
             ->where('o.rider_token', $token)
-            ->select('o.*', 'p.name as product_name', 'r.name as rider_name')
+            ->select('o.*', 'p.name as product_name', 'r.name as rider_name', 'u.fullname as customer_fullname', 'u.profile_photo as customer_profile_photo')
             ->first();
 
         if (!$order) abort(404, 'Invalid delivery link.');
@@ -270,9 +271,10 @@ class RiderController extends Controller
         $order = DB::table('orders as o')
             ->join('products as p', 'p.id', '=', 'o.product_id')
             ->leftJoin('riders as r', 'r.id', '=', 'o.rider_id')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
             ->where('o.id', $orderId)
             ->where('o.rider_token', $token)
-            ->select('o.*', 'p.name as product_name', 'r.name as rider_name')
+            ->select('o.*', 'p.name as product_name', 'r.name as rider_name', 'u.fullname as customer_fullname', 'u.profile_photo as customer_profile_photo')
             ->first();
         if (!$order) abort(404, 'Invalid delivery link.');
 
@@ -1210,6 +1212,7 @@ class RiderController extends Controller
                 'o.*',
                 DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Customer') END as customer_display_name"),
                 DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as customer_display_phone'),
+                'u.profile_photo as customer_profile_photo',
                 DB::raw("COALESCE(p.name, 'Custom Cake') as product_name"),
                 'p.image_path',
                 'rr.amount as remittance_amount',

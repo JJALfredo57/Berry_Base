@@ -79,7 +79,10 @@
         @endif
         <div class="or-main">
           <h2 class="or-name">{{ $req->product_name ?: 'Cake request' }}</h2>
-          <div class="small text-muted">Request #{{ $req->id }} by {{ $customerName }}{{ $customerPhone ? ' - '.$customerPhone : '' }}</div>
+          <div class="small text-muted d-flex align-items-center gap-1">
+            @if(!empty($req->customer_profile_photo))<img src="{{ $req->customer_profile_photo }}" alt="{{ $customerName }}" style="width:22px;height:22px;border-radius:50%;object-fit:cover" onerror="this.remove()">@else<span style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;font-size:.6rem;display:inline-flex;align-items:center;justify-content:center">{{ strtoupper(substr($customerName, 0, 1)) }}</span>@endif
+            <span>Request #{{ $req->id }} by {{ $customerName }}{{ $customerPhone ? ' - '.$customerPhone : '' }}</span>
+          </div>
           <div class="or-meta">
             <span class="or-pill status" style="--or-bg:{{ $meta['bg'] }};--or-fg:{{ $meta['fg'] }}"><i class="bi {{ $meta['icon'] }}"></i>{{ $meta['label'] }}</span>
             <span class="or-pill"><i class="bi bi-bag"></i>{{ $req->quantity }} pc{{ (int)$req->quantity === 1 ? '' : 's' }}</span>

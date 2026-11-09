@@ -92,6 +92,7 @@ class MessageController extends Controller
             SELECT o.id order_id, o.status,
                 CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as fullname,
                 CASE WHEN o.user_id IS NOT NULL THEN u.username ELSE 'Guest' END as username,
+                u.profile_photo as customer_profile_photo,
                 (SELECT message FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_message,
                 (SELECT created_at FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_time,
                 (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role='customer' AND m.is_read=false) unread_count
@@ -117,7 +118,8 @@ class MessageController extends Controller
             ->select('o.*', 'p.name as product_name', 'p.image_path as product_image_path',
                 DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, o.fullname, 'Customer') END as fullname"),
                 DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.username ELSE 'Guest' END as username"),
-                DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as phone'))
+                DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as phone'),
+                'u.profile_photo as customer_profile_photo')
             ->first();
 
         if (!$order) return redirect()->route('seller.messages');

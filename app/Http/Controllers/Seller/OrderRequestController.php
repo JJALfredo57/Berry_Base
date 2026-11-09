@@ -32,7 +32,7 @@ class OrderRequestController extends Controller
             ->leftJoin('products as p', 'p.id', '=', 'r.product_id')
             ->leftJoin('users as u', 'u.id', '=', 'r.user_id')
             ->where('r.shop_id', $shop->id)
-            ->select('r.*', 'p.name as product_name', 'p.image_path', 'p.flavor', 'p.classification', 'u.fullname as user_fullname', 'u.phone as user_phone');
+            ->select('r.*', 'p.name as product_name', 'p.image_path', 'p.flavor', 'p.classification', 'u.fullname as user_fullname', 'u.phone as user_phone', 'u.profile_photo as customer_profile_photo');
 
         if ($tab === 'pending') {
             $query->where('r.status', 'pending');

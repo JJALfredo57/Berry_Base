@@ -372,7 +372,14 @@
             <span style="background:#ecfdf5;color:#047857;font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px">Ready-made</span>
           @endif
         </div>
-        <div style="font-size:.8rem;color:var(--gray-700);font-weight:600">{{ $o->order_customer_name ?? 'Customer' }}</div>
+        <div style="font-size:.8rem;color:var(--gray-700);font-weight:600;display:flex;align-items:center;gap:.4rem">
+          @if(!empty($o->customer_profile_photo))
+            <img src="{{ $o->customer_profile_photo }}" alt="{{ $o->order_customer_name }}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.remove()">
+          @else
+            <span style="width:26px;height:26px;border-radius:50%;background:var(--primary);color:#fff;font-size:.7rem;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">{{ strtoupper(substr($o->order_customer_name ?? 'C', 0, 1)) }}</span>
+          @endif
+          <span>{{ $o->order_customer_name ?? 'Customer' }}</span>
+        </div>
         <div style="font-size:.75rem;color:var(--gray-500)">
           {{ $o->product_name ?? ($custom->cake_name ?? 'Custom Cake') }}
           &bull; {{ $o->fulfillment_type ?? 'Pickup' }} @if(!empty($o->is_surprise_delivery)) <span class="badge" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa"><i class="bi bi-gift me-1"></i>Surprise</span> @endif

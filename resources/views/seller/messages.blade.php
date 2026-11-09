@@ -7,8 +7,12 @@
   <a href="{{ route('seller.messages.thread', $t->order_id) }}" class="text-decoration-none">
     <div class="card mb-2 {{ $t->unread_count > 0 ? '' : '' }}" style="{{ $t->unread_count > 0 ? 'border-left:3px solid var(--primary)' : '' }}">
       <div class="card-body d-flex align-items-center gap-3 p-3">
-        <div style="width:44px;height:44px;border-radius:50%;background:{{ $t->unread_count > 0 ? 'var(--primary)' : '#e9ecef' }};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <i class="bi bi-person {{ $t->unread_count > 0 ? 'text-white' : 'text-muted' }}"></i>
+        <div style="width:44px;height:44px;border-radius:50%;background:{{ $t->unread_count > 0 ? 'var(--primary)' : '#e9ecef' }};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+          @if(!empty($t->customer_profile_photo))
+            <img src="{{ $t->customer_profile_photo }}" alt="{{ $t->fullname }}" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">
+          @else
+            <span class="{{ $t->unread_count > 0 ? 'text-white' : 'text-muted' }} fw-bold">{{ strtoupper(substr($t->fullname ?? 'C', 0, 1)) }}</span>
+          @endif
         </div>
         <div class="flex-grow-1 overflow-hidden">
           <div class="d-flex justify-content-between align-items-center">

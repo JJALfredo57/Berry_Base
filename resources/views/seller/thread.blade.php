@@ -3,13 +3,14 @@
 <style>
 /* ── Layout ── */
 .thread-header{background:#fff;border:1px solid #e9ecef;border-radius:14px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px}
-.thread-avatar{width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0}
+.thread-avatar{width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0;overflow:hidden}
 .thread-card{border:1px solid #e9ecef;border-radius:14px;overflow:hidden;background:#fff}
 /* ── Chat box ── */
 .chat-box{height:460px;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:6px;background:#f8f9fa}
 .msg-row{display:flex;gap:8px;align-items:flex-end}
 .msg-row.mine{flex-direction:row-reverse}
-.msg-av{width:28px;height:28px;border-radius:50%;background:#dee2e6;color:#666;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;flex-shrink:0;text-transform:uppercase}
+.msg-av{width:28px;height:28px;border-radius:50%;background:#dee2e6;color:#666;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;flex-shrink:0;text-transform:uppercase;overflow:hidden}
+.thread-avatar img,.msg-av img{width:100%;height:100%;object-fit:cover}
 .msg-av.mine{background:var(--primary);color:#fff}
 .msg-group{display:flex;flex-direction:column;max-width:72%;gap:2px}
 .msg-group.mine{align-items:flex-end}
@@ -139,7 +140,13 @@
     <div class="thread-header">
       <a href="{{ route('seller.messages') }}" class="btn btn-sm btn-light" style="border-radius:10px"><i class="bi bi-arrow-left"></i></a>
       <div class="thread-topline">
-        <div class="thread-avatar">{{ strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}</div>
+        <div class="thread-avatar">
+          @if(!empty($order->customer_profile_photo))
+            <img src="{{ $order->customer_profile_photo }}" alt="{{ $order->fullname }}" onerror="this.remove()">
+          @else
+            {{ strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}
+          @endif
+        </div>
         <div class="flex-grow-1 min-width-0">
           <div class="fw-bold text-truncate" style="font-size:.95rem">{{ $order->fullname }}</div>
           <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -278,7 +285,7 @@
              data-read="{{ $m->is_read ? '1' : '0' }}"
              data-reply-sender="{{ $isMine ? 'You' : ($order->fullname ?? 'Customer') }}"
              data-reply-snippet="{{ trim((string) $m->message) !== '' ? Str::limit($m->message, 80) : (count($imgs) ? 'Photo message' : 'Message') }}">
-          <div class="msg-av {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'Me' : strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}</div>
+          <div class="msg-av {{ $isMine ? 'mine' : '' }}">@if($isMine)Me@elseif(!empty($order->customer_profile_photo))<img src="{{ $order->customer_profile_photo }}" alt="{{ $order->fullname }}" onerror="this.remove()">@else{{ strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}@endif</div>
           <div class="msg-group {{ $isMine ? 'mine' : '' }}">
             <div class="sender-lbl {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'You' : ($order->fullname ?? 'Customer') }}</div>
             <div class="bubble {{ $isMine ? 'mine' : 'theirs' }} {{ count($imgs) ? 'has-media' : '' }} {{ $isImageOnly ? 'image-only' : '' }}">
@@ -375,6 +382,7 @@ const sendUrl = '{{ route("seller.messages.send", $orderId) }}';
 const orderDataUrl = '{{ route("seller.messages.thread_order_data", $orderId) }}';
 const newMessagesUrl = '{{ route("seller.messages.thread_new_messages", $orderId) }}';
 const customerName = @json($order->fullname ?? 'Customer');
+const customerProfilePhoto = @json($order->customer_profile_photo ?? null);
 const reactionUrlTemplate = '{{ route("seller.messages.react", [$orderId, "__ID__"]) }}';
 const reactionSnapshotsUrl = '{{ route("seller.messages.reaction_snapshots", $orderId) }}';
 if (cb) cb.scrollTop = cb.scrollHeight;
@@ -777,6 +785,9 @@ function renderThreadMessage(message) {
   const reactionHtml = BerryMessageInteractions.reactionsHtml(message.reactions || [], isMine);
   const senderName = isMine ? 'You' : (message.sender_role === 'customer' ? customerName : 'Admin');
   const avatarText = isMine ? 'Me' : threadEscAttr(String(senderName || 'C').slice(0, 1).toUpperCase());
+  const avatarHtml = !isMine && message.sender_role === 'customer' && customerProfilePhoto
+    ? `<img src="${threadEscAttr(customerProfilePhoto)}" alt="${threadEscAttr(customerName)}" onerror="this.remove()">`
+    : avatarText;
   const row = document.createElement('div');
   row.className = 'msg-row' + (isMine ? ' mine' : '');
   row.dataset.msgId = String(id);
@@ -785,7 +796,7 @@ function renderThreadMessage(message) {
   row.dataset.replySender = senderName;
   row.dataset.replySnippet = hasText ? String(message.message).slice(0, 90) : (hasMedia ? 'Photo message' : 'Message');
   row.innerHTML = `
-    <div class="msg-av ${isMine ? 'mine' : ''}">${avatarText}</div>
+    <div class="msg-av ${isMine ? 'mine' : ''}">${avatarHtml}</div>
     <div class="msg-group ${isMine ? 'mine' : ''}">
       <div class="sender-lbl ${isMine ? 'mine' : ''}">${escHtml(senderName)}</div>
       <div class="bubble ${isMine ? 'mine' : 'theirs'}${hasMedia ? ' has-media' : ''}${imageOnly ? ' image-only' : ''}">

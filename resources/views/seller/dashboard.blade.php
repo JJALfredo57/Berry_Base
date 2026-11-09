@@ -145,9 +145,14 @@
           <i class="bi {{ $isCustomOrder ? 'bi-palette' : 'bi-cake2' }} dashboard-order-fallback" style="{{ $orderThumbnail ? 'display:none;' : 'display:flex;' }}color:var(--primary);font-size:1.25rem;height:100%;align-items:center;justify-content:center"></i>
         </div>
         <div style="flex:1;min-width:0">
-          <div class="fw-semibold" style="font-size:.85rem">
-            Order #{{ $o->id }}
-            <span class="text-muted ms-1 fw-normal" style="font-size:.78rem">{{ $o->customer_display_name ?? 'Guest' }}</span>
+          <div class="fw-semibold d-flex align-items-center gap-1" style="font-size:.85rem">
+            @if(!empty($o->customer_profile_photo))
+              <img src="{{ $o->customer_profile_photo }}" alt="{{ $o->customer_display_name }}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.remove()">
+            @else
+              <span style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;font-size:.62rem;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">{{ strtoupper(substr($o->customer_display_name ?? 'G', 0, 1)) }}</span>
+            @endif
+            <span>Order #{{ $o->id }}</span>
+            <span class="text-muted ms-1 fw-normal text-truncate" style="font-size:.78rem">{{ $o->customer_display_name ?? 'Guest' }}</span>
           </div>
           <div class="text-muted" style="font-size:.75rem">{{ $o->product_name ?? '—' }} · ₱{{ number_format($o->total_price,2) }}</div>
         </div>

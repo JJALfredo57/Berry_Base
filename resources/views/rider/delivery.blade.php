@@ -269,7 +269,7 @@
 @php
   $isSurpriseDelivery = !empty($order->is_surprise_delivery);
   $surpriseContact = $isSurpriseDelivery ? app(\App\Services\SurpriseContactService::class)->details($order) : null;
-  $displayName = $isSurpriseDelivery ? ($surpriseContact['sender_name'] ?? 'Sender') : ($order->guest_name ?? 'Customer');
+  $displayName = $isSurpriseDelivery ? ($surpriseContact['sender_name'] ?? 'Sender') : ($order->customer_fullname ?? $order->guest_name ?? 'Customer');
   $displayPhone = $isSurpriseDelivery ? ($surpriseContact['sender_phone'] ?? null) : ($order->guest_phone ?? null);
   $deliveryAddr = $isSurpriseDelivery ? ($order->recipient_address ?? $order->delivery_address ?? $order->address ?? null) : ($order->delivery_address ?? $order->address ?? null);
   $deliveryLat = $isSurpriseDelivery ? ($order->recipient_latitude ?? $order->latitude ?? null) : ($order->latitude ?? null);
@@ -297,6 +297,13 @@
   </div>
   @endif
   <div class="section-title">Customer</div>
+
+  @if(!$isSurpriseDelivery && !empty($order->customer_profile_photo))
+  <div class="row">
+    <img src="{{ $order->customer_profile_photo }}" alt="{{ $displayName }}" style="width:clamp(38px,9vw,50px);height:clamp(38px,9vw,50px);border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.parentElement.remove()">
+    <div class="row-body"><div class="row-label">Customer Photo</div><div class="row-sub">Profile photo</div></div>
+  </div>
+  @endif
 
   <div class="row">
     <div class="row-icon" style="background:var(--primary-bg);color:var(--primary-dark)">👤</div>

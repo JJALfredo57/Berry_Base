@@ -31,7 +31,14 @@
 
   <div class="order-body">
     <ul class="detail">
-      <li><i class="bi bi-person"></i><span>{{ $displayName }}{{ $displayPhone ? ' · '.$displayPhone : '' }} @if($isSurpriseDelivery)<span class="badge b-pending">Surprise</span>@endif</span></li>
+      <li>
+        @if(!$isSurpriseDelivery && !empty($order->customer_profile_photo))
+          <img src="{{ $order->customer_profile_photo }}" alt="{{ $displayName }}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.remove()">
+        @else
+          <i class="bi bi-person"></i>
+        @endif
+        <span>{{ $displayName }}{{ $displayPhone ? ' · '.$displayPhone : '' }} @if($isSurpriseDelivery)<span class="badge b-pending">Surprise</span>@endif</span>
+      </li>
       @if($isSurpriseDelivery)<li><i class="bi bi-gift"></i><span>Contact sender first · Recipient: {{ $surpriseContact['recipient_name'] }}{{ $surpriseContact['backup_phone'] ? ' · backup '.$surpriseContact['backup_phone'] : '' }}</span></li>@endif
       <li><i class="bi bi-geo-alt"></i><span>{{ $deliveryAddr }}</span></li>
       <li><i class="bi bi-calendar-event"></i><span>{{ $order->schedule_date ?? 'No date' }} {{ $order->schedule_time ?? '' }}</span></li>

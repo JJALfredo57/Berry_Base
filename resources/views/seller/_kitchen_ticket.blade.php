@@ -3,8 +3,9 @@
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
       <div>
         <h6 class="fw-bold mb-0">Order #{{ $t->order_id }} — {{ $t->product_name }}</h6>
-        <div class="text-muted small">
-          {{ $t->fullname }}
+        <div class="text-muted small d-flex align-items-center gap-1">
+          @if(!empty($t->customer_profile_photo))<img src="{{ $t->customer_profile_photo }}" alt="{{ $t->fullname }}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.remove()">@else<span style="width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;font-size:.65rem;display:inline-flex;align-items:center;justify-content:center">{{ strtoupper(substr($t->fullname ?? 'C', 0, 1)) }}</span>@endif
+          <span>{{ $t->fullname }}</span>
           &bull;
           <span class="badge {{ $isDelivery ? 'bg-info text-dark' : '' }}" style="{{ !$isDelivery ? 'background:#ede9fe;color:#5b21b6' : '' }}">
             {{ $isDelivery ? '🚴 Delivery' : '🏪 Pickup' }}

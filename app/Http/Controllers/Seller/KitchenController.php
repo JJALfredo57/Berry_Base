@@ -27,6 +27,7 @@ class KitchenController extends Controller
             ->join('products as p','p.id','=','o.product_id')
             ->select('kt.*','kt.status as ticket_status','o.id as order_id',
                 \Illuminate\Support\Facades\DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, 'Guest') END as fullname"),
+                'u.profile_photo as customer_profile_photo',
                 'p.name as product_name','p.image_path as product_image',
                 'o.user_id','o.fulfillment_type','o.rider_id','o.rider_sms_sent','o.custom_note')
             ->where('o.shop_id', $shop->id)

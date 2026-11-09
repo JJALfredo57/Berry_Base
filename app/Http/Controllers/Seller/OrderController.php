@@ -70,6 +70,7 @@ class OrderController extends Controller
                     'o.*',
                     DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, o.fullname, 'Customer') END as order_customer_name"),
                     DB::raw('CASE WHEN o.user_id IS NOT NULL THEN u.phone ELSE o.guest_phone END as order_customer_phone'),
+                    'u.profile_photo as customer_profile_photo',
                     'p.name as product_name',
                     'p.image_path as product_image_path'
                 )
