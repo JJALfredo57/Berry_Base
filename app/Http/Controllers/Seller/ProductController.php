@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Schema;
 class ProductController extends Controller
 {
     use UploadsFiles;
+    private function normalizedKey(string $value): string
+    {
+        return mb_strtolower(trim(preg_replace('/\s+/', ' ', $value)));
+    }
     private function getShop(): object
     {
         $uid  = session('user')['id'];
@@ -81,7 +85,11 @@ class ProductController extends Controller
 
         $discounts = CakeshopHelper::getDiscountConfigMap($pids);
 
-        return view('seller.products', compact('shop','products','productSizes','archivedSizes','discounts','maxProd','search','tab','archivedCount','hasArchivedCol'));
+        $productIdentities = DB::table('products')->where('shop_id', $shop->id)
+            ->select('id', 'name', 'classification')->get()
+            ->map(fn($product) => ['id' => $product->id, 'name' => $this->normalizedKey($product->name), 'classification' => $this->normalizedKey((string) $product->classification)]);
+
+        return view('seller.products', compact('shop','products','productSizes','archivedSizes','discounts','maxProd','search','tab','archivedCount','hasArchivedCol','productIdentities'));
     }
 
     public function store(Request $request)
@@ -123,10 +131,11 @@ class ProductController extends Controller
         }
 
         // Duplicate check within shop
+        $nameKey = $this->normalizedKey($validated['name']);
+        $classKey = $this->normalizedKey($validated['classification']);
         $exists = DB::table('products')
             ->where('shop_id', $shop->id)
-            ->whereRaw('LOWER(name) = ?', [strtolower($validated['name'])])
-            ->where('classification', $validated['classification'])
+            ->when(Schema::hasColumn('products', 'name_key'), fn($q) => $q->where('name_key', $nameKey)->where('classification_key', $classKey), fn($q) => $q->whereRaw('LOWER(name) = ?', [$nameKey])->whereRaw('LOWER(classification) = ?', [$classKey]))
             ->exists();
         if ($exists) return back()->withInput()->with('err', "A \"{$validated['classification']}\" product named \"{$validated['name']}\" already exists in your shop.");
 
@@ -139,10 +148,12 @@ class ProductController extends Controller
             'id'             => CakeshopHelper::generateId('products'),
             'shop_id'        => $shop->id,
             'name'           => $validated['name'],
+            'name_key'       => $nameKey,
             'description'    => $validated['description'] ?? null,
             'price'          => $validated['price'],
             'image_path'     => $img,
             'classification' => $validated['classification'],
+            'classification_key' => $classKey,
             'flavor'         => $validated['flavor'] ?? null,
             'available_quantity' => array_key_exists('available_quantity', $validated) ? (int) $validated['available_quantity'] : 0,
             'is_available' => true,
@@ -180,19 +191,22 @@ class ProductController extends Controller
         }
 
         // Duplicate check (exclude current product)
+        $nameKey = $this->normalizedKey($validated['name']);
+        $classKey = $this->normalizedKey($validated['classification']);
         $exists = DB::table('products')
             ->where('shop_id', $shop->id)
             ->where('id', '!=', $id)
-            ->whereRaw('LOWER(name) = ?', [strtolower($validated['name'])])
-            ->where('classification', $validated['classification'])
+            ->when(Schema::hasColumn('products', 'name_key'), fn($q) => $q->where('name_key', $nameKey)->where('classification_key', $classKey), fn($q) => $q->whereRaw('LOWER(name) = ?', [$nameKey])->whereRaw('LOWER(classification) = ?', [$classKey]))
             ->exists();
         if ($exists) return back()->withInput()->with('err', "Another product with this name already exists.");
 
         $updates = [
             'name'           => $validated['name'],
+            'name_key'       => $nameKey,
             'description'    => $validated['description'] ?? null,
             'price'          => $validated['price'],
             'classification' => $validated['classification'],
+            'classification_key' => $classKey,
             'flavor'         => $validated['flavor'] ?? null,
             'available_quantity' => array_key_exists('available_quantity', $validated) ? (int) $validated['available_quantity'] : 0,
             'updated_at'     => now(),
@@ -369,9 +383,10 @@ class ProductController extends Controller
             return back()->withInput()->with('err', 'Size label cannot be blank.');
         }
 
+        $labelKey = $this->normalizedKey($validated['label']);
         $exists = DB::table('product_sizes')
             ->where('product_id', $productId)
-            ->whereRaw('LOWER(label) = ?', [strtolower($validated['label'])])
+            ->when(Schema::hasColumn('product_sizes', 'label_key'), fn($q) => $q->where('label_key', $labelKey), fn($q) => $q->whereRaw('LOWER(label) = ?', [$labelKey]))
             ->exists();
         if ($exists) return back()->with('err', "A size \"{$validated['label']}\" already exists for this product.");
 
@@ -379,6 +394,7 @@ class ProductController extends Controller
         DB::table('product_sizes')->insert([
             'product_id' => $productId,
             'label'      => $validated['label'],
+            'label_key'  => $labelKey,
             'price'      => $validated['price'],
             'available_quantity' => array_key_exists('available_quantity', $validated) ? (int) $validated['available_quantity'] : 0,
             'is_active' => true,

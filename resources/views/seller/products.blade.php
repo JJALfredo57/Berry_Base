@@ -38,7 +38,7 @@
     .seller-product-summary>div:nth-child(2){flex-basis:calc(100% - 64px)}
   }
 </style>
-<div>
+<div id="sellerProductsRoot" data-product-identities='@json($productIdentities ?? [])'>
 
 {{-- Header --}}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:2rem">
@@ -729,6 +729,20 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.querySelectorAll('input[type="file"][name="image"]').forEach(input => input.addEventListener('change', () => validateProductImage(input)));
 });
+function sellerKey(value) { return (value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase(); }
+function validateProductIdentity(form) {
+  const name = sellerKey(form.querySelector('[name="name"]')?.value);
+  const classification = sellerKey(form.querySelector('[name="classification"]')?.value);
+  const currentId = form.closest('.seller-product-modal')?.id?.replace('productModal-', '') || '';
+  const identities = JSON.parse(document.getElementById('sellerProductsRoot')?.dataset.productIdentities || '[]');
+  const duplicate = name && classification && identities.some(item => item.id !== currentId && item.name === name && item.classification === classification);
+  const input = form.querySelector('[name="name"]');
+  let feedback = input?.parentElement.querySelector('.seller-duplicate-feedback');
+  if (input && !feedback) { feedback = document.createElement('small'); feedback.className = 'seller-field-error seller-duplicate-feedback'; input.parentElement.appendChild(feedback); }
+  if (feedback) feedback.textContent = duplicate ? 'A product with this name and classification already exists.' : '';
+  input?.classList.toggle('seller-invalid', duplicate);
+  return !duplicate;
+}
 function previewImg(input, previewId) {
   const img = document.getElementById(previewId);
   if (!img) return;
@@ -816,9 +830,12 @@ function bindSellerProductValidation(form) {
   };
   Object.keys(rules).forEach(name => form.querySelector(`[name="${name}"]`)?.addEventListener('input', event => show(event.target)));
   form.querySelector('[name="classification"]')?.addEventListener('change', event => show(event.target));
+  form.querySelector('[name="name"]')?.addEventListener('input', () => validateProductIdentity(form));
+  form.querySelector('[name="classification"]')?.addEventListener('change', () => validateProductIdentity(form));
   form.addEventListener('submit', event => {
     const firstInvalid = Object.keys(rules).map(name => form.querySelector(`[name="${name}"]`)).find(input => input && !show(input));
     if (firstInvalid) { event.preventDefault(); firstInvalid.focus(); return; }
+    if (!validateProductIdentity(form)) { event.preventDefault(); form.querySelector('[name="name"]')?.focus(); return; }
     const imageInput = form.querySelector('input[type="file"][name="image"]');
     if (imageInput && !validateProductImage(imageInput)) { event.preventDefault(); imageInput.focus(); return; }
     const button = form.querySelector('button[type="submit"]');
