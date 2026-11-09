@@ -30,6 +30,10 @@ class SellerCancellationService
 
     public function start(object $order, string $reason): array
     {
+        if (!Schema::hasColumn('orders', 'seller_cancel_state') || !Schema::hasColumn('orders', 'seller_cancel_expires_at')) {
+            Log::error('Seller cancellation fields are missing from orders.', ['order_id' => $order->id ?? null]);
+            return ['ok' => false, 'message' => 'Cancellation requests are temporarily unavailable. Please try again after the latest update is deployed.'];
+        }
         $this->expirePending($order->shop_id ?? null);
         if (empty($order->user_id)) {
             return ['ok' => false, 'message' => 'This customer must be contacted directly before cancelling because no customer account is linked to this order.'];
