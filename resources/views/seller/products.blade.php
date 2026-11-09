@@ -1,6 +1,18 @@
 @extends('layouts.app')
 @section('page_title','Products')
 @section('content')
+<style>
+  .seller-product-item{box-shadow:0 3px 12px rgba(15,23,42,.04);transition:box-shadow .18s ease,transform .18s ease}
+  .seller-product-item:hover{box-shadow:0 10px 26px rgba(15,23,42,.08);transform:translateY(-1px)}
+  @media(max-width:700px){
+    .seller-product-item>div:first-child{padding:.875rem!important;gap:.75rem!important}
+    .seller-product-item>div:first-child>div:first-child{width:56px!important;height:56px!important}
+    .seller-product-item>div:first-child>div:last-child{width:100%;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem!important}
+    .seller-product-item>div:first-child>div:last-child button,.seller-product-item>div:first-child>div:last-child form{width:100%}
+    .seller-product-item>div:first-child>div:last-child button{min-height:40px;width:100%;padding:.35rem!important}
+    #sellerProductSearch{max-width:none!important;width:100%}
+  }
+</style>
 <div>
 
 {{-- Header --}}
