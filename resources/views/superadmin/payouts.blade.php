@@ -84,8 +84,8 @@
         <span><i class="bi bi-shop me-2" style="color:var(--primary)"></i>Seller Balances</span>
         <span class="badge text-bg-light">Mode: Manual / Active</span>
       </div>
-      <div class="table-responsive">
-        <table class="table align-middle mb-0">
+      <div class="table-responsive payout-table-scroll">
+        <table class="table align-middle mb-0 payout-balances-table">
           <thead>
             <tr>
               <th>Seller</th>
@@ -148,8 +148,8 @@
                 </td>
                 <td class="text-end fw-semibold">₱{{ number_format($shop->available_balance, 2) }}</td>
                 <td class="text-end">₱{{ number_format($shop->processing_balance, 2) }}</td>
-                <td class="text-end">
-                  <div class="d-flex gap-2 justify-content-end flex-wrap">
+                <td class="text-end payout-row-action">
+                  <div class="d-flex gap-2 justify-content-end payout-action-group">
                     @if($missingPayoutDetails)
                       <form action="{{ route('superadmin.payouts.request_seller_details', $shop->id) }}" method="POST" data-prevent-double-submit>
                         @csrf
@@ -190,8 +190,8 @@
 @if(($refunds ?? collect())->count() > 0)
 <div class="card mt-4">
   <div class="card-header"><i class="bi bi-arrow-counterclockwise me-2" style="color:#b91c1c"></i>Recent Refund Requests</div>
-  <div class="table-responsive">
-    <table class="table align-middle mb-0">
+  <div class="table-responsive payout-table-scroll">
+    <table class="table align-middle mb-0 payout-refunds-table">
       <thead>
         <tr>
           <th>Order</th>
@@ -221,8 +221,8 @@
 
 <div class="card mt-4">
   <div class="card-header"><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Payouts</div>
-  <div class="table-responsive">
-    <table class="table align-middle mb-0">
+  <div class="table-responsive payout-table-scroll">
+    <table class="table align-middle mb-0 payout-history-admin-table">
       <thead>
         <tr>
           <th>ID</th>
@@ -251,9 +251,9 @@
                 <span class="text-muted">Pending receipt</span>
               @endif
             </td>
-            <td class="text-end">
+            <td class="text-end payout-row-action">
               @if($p->status !== 'paid')
-                <form action="{{ route('superadmin.payouts.mark_paid', $p->id) }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2 justify-content-end flex-wrap" data-prevent-double-submit>
+                <form action="{{ route('superadmin.payouts.mark_paid', $p->id) }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2 justify-content-end payout-mark-paid-form" data-prevent-double-submit>
                   @csrf
                   <input type="file" name="payout_receipt" class="form-control form-control-sm" accept="image/*" required style="max-width:220px">
                   <input name="reference_number" class="form-control form-control-sm" placeholder="Reference no. (optional)" style="max-width:180px">
@@ -276,6 +276,32 @@
 </div>
 
 <style>
+  .payout-table-scroll { border-radius:0 0 var(--radius-lg) var(--radius-lg); }
+  .payout-balances-table { min-width:940px !important; }
+  .payout-refunds-table { min-width:720px !important; }
+  .payout-history-admin-table { min-width:980px !important; }
+  .payout-row-action { width:1%; min-width:154px; white-space:nowrap; }
+  .payout-action-group { flex-wrap:nowrap; }
+  .payout-row-action form { flex:0 0 auto; }
+  .payout-row-action .btn,
+  .payout-action-group .btn {
+    width:max-content;
+    max-width:none;
+    min-height:36px;
+    white-space:nowrap;
+    overflow-wrap:normal !important;
+    word-break:normal;
+  }
+  .payout-mark-paid-form { flex-wrap:nowrap; min-width:440px; }
+  .payout-mark-paid-form .form-control { min-width:150px; }
+  .payout-mark-paid-form .btn { flex:0 0 auto; white-space:nowrap; }
+  @media(max-width:767px) {
+    .payout-table-scroll { margin-inline:-.35rem; width:calc(100% + .7rem); }
+    .payout-balances-table { min-width:900px !important; }
+    .payout-history-admin-table { min-width:920px !important; }
+    .payout-row-action { min-width:150px; }
+    .payout-row-action .btn { min-height:40px; }
+  }
   #payoutReceiptViewerModal.payout-receipt-modal .modal-dialog {
     width:min(920px, calc(100vw - 24px));
     max-width:min(920px, calc(100vw - 24px)) !important;
