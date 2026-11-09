@@ -100,7 +100,7 @@ class ProductController extends Controller
 
         $validated = $request->validate([
             'name'           => 'required|string|min:2|max:100',
-            'price'          => 'required|numeric|min:1',
+            'price'          => 'required|numeric|min:1|max:99999999.99',
             'classification' => 'required|string|max:50',
             'description'    => 'nullable|string|max:500',
             'flavor'         => 'nullable|string|max:100',
@@ -114,6 +114,13 @@ class ProductController extends Controller
             'image.mimes'             => 'Image must be JPG, PNG, or WebP.',
             'image.max'               => 'Image must not exceed 5MB.',
         ]);
+
+        // Keep duplicate checks predictable even when a seller enters extra spaces.
+        $validated['name'] = trim(preg_replace('/\s+/', ' ', $validated['name']));
+        $validated['classification'] = trim($validated['classification']);
+        if ($validated['name'] === '') {
+            return back()->withInput()->with('err', 'Product name cannot be blank.');
+        }
 
         // Duplicate check within shop
         $exists = DB::table('products')
@@ -154,7 +161,7 @@ class ProductController extends Controller
 
         $validated = $request->validate([
             'name'           => 'required|string|min:2|max:100',
-            'price'          => 'required|numeric|min:1',
+            'price'          => 'required|numeric|min:1|max:99999999.99',
             'classification' => 'required|string|max:50',
             'description'    => 'nullable|string|max:500',
             'flavor'         => 'nullable|string|max:100',
@@ -165,6 +172,12 @@ class ProductController extends Controller
             'price.required' => 'Price is required.',
             'price.min'      => 'Price must be at least Ã¢â€šÂ±1.',
         ]);
+
+        $validated['name'] = trim(preg_replace('/\s+/', ' ', $validated['name']));
+        $validated['classification'] = trim($validated['classification']);
+        if ($validated['name'] === '') {
+            return back()->withInput()->with('err', 'Product name cannot be blank.');
+        }
 
         // Duplicate check (exclude current product)
         $exists = DB::table('products')
@@ -343,13 +356,18 @@ class ProductController extends Controller
 
         $validated = $request->validate([
             'label' => 'required|string|max:50',
-            'price' => 'required|numeric|min:1',
+            'price' => 'required|numeric|min:1|max:99999999.99',
             'available_quantity' => 'nullable|integer|min:0|max:9999',
         ],[
             'label.required' => 'Size label is required.',
             'price.required' => 'Size price is required.',
             'price.min'      => 'Price must be at least PHP 1.',
         ]);
+
+        $validated['label'] = trim(preg_replace('/\s+/', ' ', $validated['label']));
+        if ($validated['label'] === '') {
+            return back()->withInput()->with('err', 'Size label cannot be blank.');
+        }
 
         $exists = DB::table('product_sizes')
             ->where('product_id', $productId)

@@ -4,13 +4,38 @@
 <style>
   .seller-product-item{box-shadow:0 3px 12px rgba(15,23,42,.04);transition:box-shadow .18s ease,transform .18s ease}
   .seller-product-item:hover{box-shadow:0 10px 26px rgba(15,23,42,.08);transform:translateY(-1px)}
+  .seller-product-summary{cursor:pointer}
+  .seller-product-summary:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 35%,transparent);outline-offset:-3px}
+  .seller-product-summary:hover{background:var(--gray-50)}
+  .seller-product-open-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--primary-bg);color:var(--primary);flex:0 0 auto}
+  .seller-product-modal{position:fixed;inset:0;z-index:1080;display:none;align-items:center;justify-content:center;padding:14px;background:rgba(15,23,42,.58)}
+  .seller-product-modal.is-open{display:flex}
+  .seller-product-dialog{width:min(720px,100%);max-height:calc(100dvh - 28px);display:flex;flex-direction:column;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.28);overflow:hidden}
+  .seller-product-modal-header,.seller-product-modal-footer{display:flex;align-items:center;gap:.75rem;padding:.8rem 1rem;background:#fff;flex:0 0 auto}
+  .seller-product-modal-header{border-bottom:1px solid var(--gray-100);justify-content:space-between}
+  .seller-product-modal-footer{border-top:1px solid var(--gray-100);justify-content:space-between;flex-wrap:wrap}
+  .seller-product-close{border:0;background:var(--gray-100);width:36px;height:36px;border-radius:50%;font-size:1.2rem;color:var(--gray-700)}
+  .seller-product-modal-body{padding:1rem;overflow:hidden;min-height:0}
+  .seller-product-modal-page{display:none}.seller-product-modal-page.is-active{display:block}
+  .seller-size-entry{display:none}.seller-size-entry.is-current{display:block}
+  .seller-product-accordion{display:none!important}
+  .seller-product-tabs{display:flex;gap:.4rem;padding:.65rem 1rem 0;background:#fff;flex:0 0 auto}
+  .seller-product-tab{border:1px solid var(--gray-200);border-radius:999px;background:#fff;padding:.36rem .75rem;font-size:.78rem;font-weight:700;color:var(--gray-600)}
+  .seller-product-tab.is-active{color:#fff;background:var(--primary);border-color:var(--primary)}
+  .seller-field-error{display:block;min-height:17px;margin-top:.22rem;color:#b91c1c;font-size:.72rem;font-weight:600}
+  .seller-invalid{border-color:#dc2626!important;box-shadow:0 0 0 .14rem rgba(220,38,38,.12)!important}
   @media(max-width:700px){
-    .seller-product-item>div:first-child{padding:.875rem!important;gap:.75rem!important}
-    .seller-product-item>div:first-child>div:first-child{width:56px!important;height:56px!important}
-    .seller-product-item>div:first-child>div:last-child{width:100%;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem!important}
-    .seller-product-item>div:first-child>div:last-child button,.seller-product-item>div:first-child>div:last-child form{width:100%}
-    .seller-product-item>div:first-child>div:last-child button{min-height:40px;width:100%;padding:.35rem!important}
+    .seller-product-summary{padding:.75rem!important;gap:.65rem!important;align-items:flex-start!important}
+    .seller-product-summary>div:first-child{width:52px!important;height:52px!important}
+    .seller-product-dialog{border-radius:14px;max-height:calc(100dvh - 16px)}
+    .seller-product-modal{padding:8px}
+    .seller-product-modal-body{padding:.75rem}
+    .seller-product-modal .row{--bs-gutter-y:.65rem}
     #sellerProductSearch{max-width:none!important;width:100%}
+  }
+  @media(max-width:430px){
+    .seller-product-summary{flex-wrap:wrap!important}
+    .seller-product-summary>div:nth-child(2){flex-basis:calc(100% - 64px)}
   }
 </style>
 <div>
@@ -159,11 +184,12 @@
   $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : 0;
 @endphp
 <div class="seller-product-item"
+     id="sellerProduct-{{ $p->id }}"
      data-search="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? ''))) }}"
      data-classification="{{ strtolower($p->classification ?? '') }}"
      data-status="{{ $p->is_available ? 'visible' : 'hidden' }}"
      style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid {{ ($hasArchivedCol && $p->archived_at) ? '#fcd34d' : ($p->is_available ? 'var(--gray-100)' : 'var(--gray-200)') }};margin-bottom:1rem;overflow:hidden;opacity:{{ ($hasArchivedCol && $p->archived_at) ? '.75' : ($p->is_available ? '1' : '.65') }}">
-  <div style="display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;flex-wrap:wrap">
+   <div class="seller-product-summary" style="display:flex;align-items:center;gap:1rem;padding:.75rem 1.25rem;flex-wrap:nowrap" role="button" tabindex="0" aria-haspopup="dialog" onclick="openProductModal('{{ $p->id }}','details')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProductModal('{{ $p->id }}','details')}">
 
     {{-- Product Image --}}
     <div style="width:72px;height:72px;border-radius:var(--radius-md);overflow:hidden;flex-shrink:0;background:var(--gray-100)">
@@ -225,29 +251,21 @@
       </div>
     </div>
 
-    {{-- Actions --}}
-    <div style="display:flex;gap:.5rem;flex-shrink:0;flex-wrap:wrap">
-      {{-- Edit & Discount always available --}}
-      <button type="button" onclick="toggleEditForm('edit-{{ $p->id }}')"
-              style="background:var(--info-bg,#E3F2FD);color:#1565C0;border:1.5px solid #90CAF9;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
-        <i class="bi bi-pencil"></i> Edit
-      </button>
-      <button type="button" onclick="toggleDiscountForm('discount-{{ $p->id }}')"
-              style="background:#fff7ed;color:#c2410c;border:1.5px solid #fdba74;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
-        <i class="bi bi-tags"></i> Discount
-      </button>
-      @if($hasArchivedCol && $p->archived_at)
+    {{-- Open popup --}}
+    <div class="seller-product-open-icon" aria-hidden="true">
+      <i class="bi bi-chevron-right"></i>
+      @if(false && $hasArchivedCol && $p->archived_at)
         {{-- Archived: show Restore only --}}
-        <form action="{{ route('seller.products.restore', $p->id) }}" method="POST" class="d-inline"
+        <form action="{{ route('seller.products.restore', $p->id) }}" method="POST" class="d-inline archive-action"
               data-cs-confirm="Restore &quot;{{ addslashes($p->name) }}&quot;? Customers can order it again." data-cs-title="Restore Product" data-cs-icon="bi-arrow-counterclockwise" data-cs-icon-bg="#ecfdf5" data-cs-icon-color="#059669" data-cs-ok="Restore" data-cs-ok-color="#059669">
           @csrf
           <button type="submit" style="background:#ecfdf5;color:#059669;border:1.5px solid #6ee7b7;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
             <i class="bi bi-arrow-counterclockwise"></i> Restore
           </button>
         </form>
-      @else
+      @elseif(false)
         {{-- Active: show Archive --}}
-        <form action="{{ route('seller.products.archive', $p->id) }}" method="POST" class="d-inline"
+        <form action="{{ route('seller.products.archive', $p->id) }}" method="POST" class="d-inline archive-action"
               data-cs-confirm="Archive &quot;{{ addslashes($p->name) }}&quot;? It will show as Out of Stock to customers." data-cs-title="Archive Product" data-cs-icon="bi-archive" data-cs-icon-bg="#fffbeb" data-cs-icon-color="#d97706" data-cs-ok="Archive" data-cs-ok-color="#d97706">
           @csrf
           <button type="submit" style="background:#fffbeb;color:#92400e;border:1.5px solid #fcd34d;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
@@ -258,6 +276,8 @@
     </div>
   </div>
 
+  <div class="seller-product-accordion" id="productDetails-{{ $p->id }}" hidden>
+  <div class="seller-product-accordion-inner">
   {{-- Active Sizes --}}
   @php $archivedSz = collect($archivedSizes[$p->id] ?? []); @endphp
   @if($sizes->count() > 0 || $archivedSz->count() > 0)
@@ -266,7 +286,7 @@
     <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
       <span style="font-size:.72rem;font-weight:700;color:var(--gray-500);margin-right:.25rem">SIZES:</span>
       @foreach($sizes as $sz)
-      <span style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:var(--gray-700);display:inline-flex;align-items:center;gap:.4rem">
+      <span data-size-label="{{ strtolower(trim($sz->label)) }}" style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:var(--gray-700);display:inline-flex;align-items:center;gap:.4rem">
         <span>{{ $sz->label }} - PHP {{ number_format($sz->price,2) }}</span>
         <span style="color:{{ (int)$sz->available_quantity <= 0 ? '#b91c1c' : ((int)$sz->available_quantity <= 3 ? '#92400e' : '#047857') }}">
           {{ 'Stock: '.max(0, (int)$sz->available_quantity) }}
@@ -291,7 +311,7 @@
     <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.4rem">
       <span style="font-size:.72rem;font-weight:700;color:#d97706;margin-right:.25rem">ARCHIVED SIZES:</span>
       @foreach($archivedSz as $sz)
-      <span style="background:#fffbeb;border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:#92400e;display:inline-flex;align-items:center;gap:.4rem;opacity:.8">
+      <span data-size-label="{{ strtolower(trim($sz->label)) }}" style="background:#fffbeb;border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:.2rem .6rem;font-size:.75rem;color:#92400e;display:inline-flex;align-items:center;gap:.4rem;opacity:.8">
         <span>{{ $sz->label }} - PHP {{ number_format($sz->price,2) }}</span>
         <span style="color:{{ (int)$sz->available_quantity <= 0 ? '#b91c1c' : ((int)$sz->available_quantity <= 3 ? '#92400e' : '#047857') }}">
           {{ 'Stock: '.max(0, (int)$sz->available_quantity) }}
@@ -308,9 +328,26 @@
     @endif
   </div>
   @endif
+  <div style="padding:.65rem 1.25rem;background:var(--gray-50);font-size:.78rem;color:var(--gray-600);display:flex;justify-content:space-between;gap:.75rem;align-items:center;flex-wrap:wrap">
+    <span>Open <strong>Manage</strong> to edit product details, sizes, or stock.</span>
+    <button type="button" class="btn btn-sm btn-primary" onclick="openProductModal('{{ $p->id }}','details')"><i class="bi bi-pencil me-1"></i>Manage product</button>
+  </div>
+  </div>
+  </div>
 
-  {{-- Edit Form --}}
-  <div id="discount-{{ $p->id }}" style="display:none;border-top:1.5px solid #fed7aa;padding:1.25rem;background:#fffaf3">
+  <div class="seller-product-modal" id="productModal-{{ $p->id }}" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="productModalTitle-{{ $p->id }}" onclick="if(event.target===this) closeProductModal('{{ $p->id }}')">
+    <div class="seller-product-dialog">
+      <div class="seller-product-modal-header">
+        <div style="min-width:0"><div id="productModalTitle-{{ $p->id }}" style="font-weight:800;color:var(--gray-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $p->name }}</div><div style="font-size:.72rem;color:var(--gray-500)">Edit one product at a time</div></div>
+        <button type="button" class="seller-product-close" aria-label="Close product editor" onclick="closeProductModal('{{ $p->id }}')">&times;</button>
+      </div>
+      <div class="seller-product-tabs" role="tablist">
+        <button type="button" class="seller-product-tab" data-product-tab="details" onclick="setProductModalPage('{{ $p->id }}','details')">Details</button>
+        <button type="button" class="seller-product-tab" data-product-tab="sizes" onclick="setProductModalPage('{{ $p->id }}','sizes')">Sizes &amp; Stock</button>
+        <button type="button" class="seller-product-tab" data-product-tab="discount" onclick="setProductModalPage('{{ $p->id }}','discount')">Discount</button>
+      </div>
+      <div class="seller-product-modal-body">
+  <div id="discount-{{ $p->id }}" class="seller-product-modal-page" data-product-page="discount">
     <form action="{{ route('seller.products.discount', $p->id) }}" method="POST" class="seller-discount-form" data-product-price="{{ (float) $p->price }}" data-product-stock="{{ $stockTracked ? $stockQty : '' }}" onsubmit="return validateSellerDiscountForm(this, true)">
       @csrf
       <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
@@ -394,11 +431,11 @@
 
       <div style="display:flex;gap:.75rem;margin-top:1rem">
         <button type="submit" class="btn btn-primary" style="padding:.5rem 1.25rem;font-weight:600">Save Discount</button>
-        <button type="button" onclick="toggleDiscountForm('discount-{{ $p->id }}')" class="btn btn-secondary">Cancel</button>
+        <button type="button" onclick="closeProductModal('{{ $p->id }}')" class="btn btn-secondary">Cancel</button>
       </div>
     </form>
   </div>
-  <div id="edit-{{ $p->id }}" style="display:none;border-top:1.5px solid var(--primary-light);padding:1.25rem;background:#FFF8F8">
+  <div id="edit-{{ $p->id }}" class="seller-product-modal-page" data-product-page="details">
     <form action="{{ route('seller.products.update', $p->id) }}" method="POST" enctype="multipart/form-data" novalidate>
       @csrf
       <div class="row g-3">
@@ -446,32 +483,39 @@
         </div>
       </div>
 
-      {{-- Add Size --}}
-      <div style="margin-top:1rem;padding-top:1rem;border-top:1px dashed var(--gray-300)">
-        <div style="font-size:.8rem;font-weight:700;color:var(--gray-700);margin-bottom:.6rem">Add Size Option</div>
-        <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
-          <div>
-            <input type="text" class="form-control" name="new_size_label" placeholder="e.g. 6-inch" style="width:140px">
-          </div>
-          <div>
-            <input type="number" class="form-control" name="new_size_price" placeholder="PHP" step="0.01" min="1" style="width:120px">
-          </div>
-          <div>
-            <input type="number" class="form-control" name="new_size_available_quantity" placeholder="Stock" min="0" max="9999" step="1" style="width:110px">
-          </div>
-          <a href="{{ route('seller.products.sizes.store', $p->id) }}" style="display:none" id="sizeFormAction-{{ $p->id }}"></a>
-          <button type="button" onclick="submitSize('{{ $p->id }}')"
-                  style="background:var(--gray-100);color:var(--gray-700);border:1.5px solid var(--gray-200);border-radius:var(--radius-md);padding:.5rem 1rem;font-size:.8rem;font-weight:600;cursor:pointer">
-            <i class="bi bi-plus-lg"></i> Add Size
-          </button>
-        </div>
-      </div>
-
       <div style="display:flex;gap:.75rem;margin-top:1rem">
         <button type="submit" class="btn btn-primary" style="padding:.5rem 1.25rem;font-weight:600">Save Changes</button>
-        <button type="button" onclick="toggleEditForm('edit-{{ $p->id }}')" class="btn btn-secondary">Cancel</button>
+        <button type="button" onclick="closeProductModal('{{ $p->id }}')" class="btn btn-secondary">Cancel</button>
       </div>
     </form>
+   </div>
+   <div class="seller-product-modal-page" data-product-page="sizes" data-size-editor id="sizeEditor-{{ $p->id }}">
+     <div style="font-size:.92rem;font-weight:800;color:var(--gray-900);margin-bottom:.2rem">Sizes &amp; stock</div>
+     <p style="font-size:.74rem;color:var(--gray-500);margin-bottom:.75rem">Edit one size at a time. Use the arrows to move between sizes.</p>
+     @forelse($sizes as $sz)
+       <div class="seller-size-entry" data-size-entry>
+         <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem;border:1px solid var(--gray-200);border-radius:12px;background:#fafafa">
+           <div><div style="font-weight:800;color:var(--gray-900)">{{ $sz->label }}</div><div style="font-size:.76rem;color:var(--gray-500)">PHP {{ number_format($sz->price,2) }}</div></div>
+           <form action="{{ route('seller.products.sizes.stock', $sz->id) }}" method="POST" style="display:flex;align-items:end;gap:.45rem">@csrf<div><label class="form-label" style="font-size:.7rem;margin-bottom:.2rem">Stock</label><input class="form-control" type="number" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" style="width:94px"></div><button class="btn btn-primary btn-sm" type="submit">Save</button></form>
+         </div>
+         <form action="{{ route('seller.products.sizes.archive', $sz->id) }}" method="POST" data-cs-confirm="Archive size &quot;{{ addslashes($sz->label) }}&quot;? It can be restored later." data-cs-title="Archive Size" style="margin-top:.6rem;text-align:right">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-archive me-1"></i>Archive size</button></form>
+       </div>
+     @empty
+       <div class="seller-size-entry" data-size-entry><div class="alert alert-light border mb-0">No sizes yet. Add the first size below.</div></div>
+     @endforelse
+     <div style="display:flex;justify-content:space-between;align-items:center;margin:.7rem 0"><button type="button" class="btn btn-sm btn-secondary" onclick="moveSizeEntry('{{ $p->id }}',-1)"><i class="bi bi-chevron-left"></i> Previous</button><span class="seller-size-position" style="font-size:.74rem;color:var(--gray-500)"></span><button type="button" class="btn btn-sm btn-secondary" onclick="moveSizeEntry('{{ $p->id }}',1)">Next <i class="bi bi-chevron-right"></i></button></div>
+     <div style="padding-top:.75rem;border-top:1px dashed var(--gray-300)"><div style="font-size:.8rem;font-weight:800;margin-bottom:.45rem">Add a size</div><div class="row g-2"><div class="col-5"><input type="text" class="form-control" name="new_size_label" maxlength="50" placeholder="e.g. 6-inch"></div><div class="col-4"><input type="number" class="form-control" name="new_size_price" placeholder="Price" step="0.01" min="1"></div><div class="col-3"><input type="number" class="form-control" name="new_size_available_quantity" placeholder="Stock" min="0" max="9999" step="1"></div></div><button type="button" class="btn btn-primary btn-sm mt-2" onclick="submitSize('{{ $p->id }}')"><i class="bi bi-plus-lg me-1"></i>Add Size</button></div>
+   </div>
+       </div>
+      <div class="seller-product-modal-footer">
+        <small style="color:var(--gray-500)"><i class="bi bi-info-circle me-1"></i>Changes are validated before saving.</small>
+        @if($hasArchivedCol && $p->archived_at)
+          <form action="{{ route('seller.products.restore', $p->id) }}" method="POST" data-cs-confirm="Restore &quot;{{ addslashes($p->name) }}&quot;? Customers can order it again." data-cs-title="Restore Product" data-cs-ok="Restore">@csrf<button type="submit" class="btn btn-sm" style="background:#ecfdf5;color:#047857;border:1px solid #6ee7b7"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button></form>
+        @else
+          <form action="{{ route('seller.products.archive', $p->id) }}" method="POST" data-cs-confirm="Archive &quot;{{ addslashes($p->name) }}&quot;? It will be hidden from customers." data-cs-title="Archive Product" data-cs-ok="Archive" data-cs-ok-color="#d97706">@csrf<button type="submit" class="btn btn-sm" style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d"><i class="bi bi-archive me-1"></i>Archive</button></form>
+        @endif
+      </div>
+    </div>
   </div>
 </div>
 @empty
@@ -500,14 +544,88 @@ function toggleAddForm() {
   f.style.display = f.style.display === 'none' ? 'block' : 'none';
   if (f.style.display === 'block') f.scrollIntoView({behavior:'smooth',block:'start'});
 }
-function toggleEditForm(id) {
-  const f = document.getElementById(id);
-  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+let activeSellerProductModal = null;
+let sellerProductModalTrigger = null;
+
+function toggleProductAccordion(id, event) {
+  if (event?.target?.closest('button,input,select,textarea,form,a')) return;
+  const item = document.getElementById('sellerProduct-' + id);
+  const panel = document.getElementById('productDetails-' + id);
+  if (!item || !panel) return;
+  const opening = !item.classList.contains('is-open');
+  document.querySelectorAll('.seller-product-item.is-open').forEach(other => {
+    if (other === item) return;
+    other.classList.remove('is-open');
+    other.querySelector('.seller-product-summary')?.setAttribute('aria-expanded', 'false');
+    const otherPanel = other.querySelector('.seller-product-accordion');
+    if (otherPanel) { otherPanel.classList.remove('is-open'); setTimeout(() => { if (!other.classList.contains('is-open')) otherPanel.hidden = true; }, 220); }
+  });
+  panel.hidden = false;
+  requestAnimationFrame(() => panel.classList.toggle('is-open', opening));
+  item.classList.toggle('is-open', opening);
+  item.querySelector('.seller-product-summary')?.setAttribute('aria-expanded', String(opening));
+  if (!opening) setTimeout(() => { if (!item.classList.contains('is-open')) panel.hidden = true; }, 220);
 }
-function toggleDiscountForm(id) {
-  const f = document.getElementById(id);
-  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+
+function openProductModal(id, page = 'details') {
+  const modal = document.getElementById('productModal-' + id);
+  if (!modal) return;
+  sellerProductModalTrigger = document.activeElement;
+  if (modal.parentElement !== document.body) document.body.appendChild(modal);
+  activeSellerProductModal = modal;
+  modal.classList.add('is-open');
+  modal.setAttribute('aria-hidden', 'false');
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
+  setProductModalPage(id, page);
+  setTimeout(() => modal.querySelector('.seller-product-close')?.focus(), 0);
 }
+
+function closeProductModal(id) {
+  const modal = document.getElementById('productModal-' + id);
+  if (!modal) return;
+  modal.classList.remove('is-open');
+  modal.setAttribute('aria-hidden', 'true');
+  if (activeSellerProductModal === modal) {
+    activeSellerProductModal = null;
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+  }
+  sellerProductModalTrigger?.focus?.();
+}
+
+function setProductModalPage(id, page) {
+  const modal = document.getElementById('productModal-' + id);
+  if (!modal) return;
+  modal.querySelectorAll('[data-product-page]').forEach(panel => panel.classList.toggle('is-active', panel.dataset.productPage === page));
+  modal.querySelectorAll('[data-product-tab]').forEach(tab => {
+    const selected = tab.dataset.productTab === page;
+    tab.classList.toggle('is-active', selected);
+    tab.setAttribute('aria-selected', String(selected));
+  });
+  if (page === 'sizes') showSizeEntry(modal, 0);
+}
+
+function showSizeEntry(modal, requestedIndex) {
+  const entries = [...modal.querySelectorAll('[data-size-entry]')];
+  if (!entries.length) return;
+  const current = Number(modal.dataset.sizeIndex || 0);
+  const index = Math.max(0, Math.min(entries.length - 1, Number.isFinite(requestedIndex) ? requestedIndex : current));
+  modal.dataset.sizeIndex = String(index);
+  entries.forEach((entry, itemIndex) => entry.classList.toggle('is-current', itemIndex === index));
+  const position = modal.querySelector('.seller-size-position');
+  if (position) position.textContent = `${index + 1} of ${entries.length}`;
+}
+
+function moveSizeEntry(productId, direction) {
+  const modal = document.getElementById('productModal-' + productId);
+  if (!modal) return;
+  showSizeEntry(modal, Number(modal.dataset.sizeIndex || 0) + direction);
+}
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && activeSellerProductModal) closeProductModal(activeSellerProductModal.id.replace('productModal-', ''));
+});
 function validateSellerDiscountForm(form, showAlert = false) {
   if (!form) return true;
   const enabled = form.querySelector('[name="discount_enabled"]')?.checked;
@@ -601,6 +719,15 @@ function validateSellerDiscountForm(form, showAlert = false) {
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.seller-discount-form').forEach(form => validateSellerDiscountForm(form, false));
+  document.querySelectorAll('form[action*="/products"]').forEach(form => {
+    if (form.querySelector('[name="name"]') && form.querySelector('[name="classification"]')) bindSellerProductValidation(form);
+  });
+  document.querySelectorAll('[name="new_size_label"]').forEach(input => {
+    ['input','change'].forEach(type => input.addEventListener(type, () => validateSizeDraft(input.closest('[data-size-editor]'))));
+    const editor = input.closest('[data-size-editor]');
+    editor?.querySelectorAll('[name="new_size_price"],[name="new_size_available_quantity"]').forEach(field => ['input','change'].forEach(type => field.addEventListener(type, () => validateSizeDraft(editor))));
+  });
+  document.querySelectorAll('input[type="file"][name="image"]').forEach(input => input.addEventListener('change', () => validateProductImage(input)));
 });
 function previewImg(input, previewId) {
   const img = document.getElementById(previewId);
@@ -611,17 +738,92 @@ function previewImg(input, previewId) {
   reader.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
   reader.readAsDataURL(file);
 }
+function validateProductImage(input) {
+  const file = input.files?.[0];
+  const allowed = ['image/jpeg','image/png','image/webp'];
+  const message = file && (!allowed.includes(file.type) || file.size > 5 * 1024 * 1024) ? 'Use a JPG, PNG, or WebP image no larger than 5MB.' : '';
+  input.classList.toggle('seller-invalid', Boolean(message));
+  let feedback = input.parentElement.querySelector('.seller-image-feedback');
+  if (!feedback) { feedback = document.createElement('small'); feedback.className = 'seller-field-error seller-image-feedback'; input.parentElement.appendChild(feedback); }
+  feedback.textContent = message;
+  return !message;
+}
 function submitSize(productId) {
-  const label = document.querySelector(`#edit-${productId} input[name="new_size_label"]`).value.trim();
-  const price = document.querySelector(`#edit-${productId} input[name="new_size_price"]`).value.trim();
-  const stock = document.querySelector(`#edit-${productId} input[name="new_size_available_quantity"]`)?.value.trim() || '';
-  if (!label || !price) { csAlert('Please enter size label and price.'); return; }
+  const editor = document.getElementById('sizeEditor-' + productId);
+  const labelInput = editor?.querySelector('input[name="new_size_label"]');
+  const priceInput = editor?.querySelector('input[name="new_size_price"]');
+  const stockInput = editor?.querySelector('input[name="new_size_available_quantity"]');
+  const label = labelInput?.value.trim() || '';
+  const price = priceInput?.value.trim() || '';
+  const stock = stockInput?.value.trim() || '';
+  const message = validateSizeDraft(editor, true);
+  if (message) {
+    if (labelInput) labelInput.classList.toggle('seller-invalid', message.includes('label') || message.includes('already'));
+    if (priceInput) priceInput.classList.toggle('seller-invalid', message.includes('price'));
+    if (stockInput) stockInput.classList.toggle('seller-invalid', message.includes('stock'));
+    if (typeof csAlert === 'function') csAlert(message);
+    (message.includes('price') ? priceInput : message.includes('stock') ? stockInput : labelInput)?.focus();
+    return;
+  }
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = '{{ url("/seller/products") }}/' + productId + '/sizes';
-  form.innerHTML = `@csrf<input name="label" value="${label}"><input name="price" value="${price}"><input name="available_quantity" value="${stock}">`;
+  form.innerHTML = '@csrf';
+  [['label',label],['price',price],['available_quantity',stock]].forEach(([name,value]) => { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.appendChild(input); });
   document.body.appendChild(form);
   form.submit();
+}
+
+function validateSizeDraft(editor, showEmpty = false) {
+  if (!editor) return 'Size editor is unavailable.';
+  const productId = editor.id.replace('sizeEditor-', '');
+  const labelInput = editor.querySelector('input[name="new_size_label"]');
+  const priceInput = editor.querySelector('input[name="new_size_price"]');
+  const stockInput = editor.querySelector('input[name="new_size_available_quantity"]');
+  const label = labelInput?.value.trim() || '';
+  const price = priceInput?.value.trim() || '';
+  const stock = stockInput?.value.trim() || '';
+  const existingLabels = [...document.querySelectorAll(`#sellerProduct-${productId} [data-size-label]`)].map(el => el.dataset.sizeLabel.toLowerCase());
+  let message = '';
+  if (showEmpty && (label.length < 1 || label.length > 50)) message = 'Enter a size label (maximum 50 characters).';
+  else if (label && existingLabels.includes(label.toLowerCase())) message = 'This size already exists for this product.';
+  else if ((showEmpty || price) && (!price || Number(price) < 1)) message = 'Size price must be at least PHP 1.';
+  else if (stock !== '' && (!Number.isInteger(Number(stock)) || Number(stock) < 0 || Number(stock) > 9999)) message = 'Size stock must be a whole number from 0 to 9999.';
+  [labelInput, priceInput, stockInput].forEach(input => input?.classList.remove('seller-invalid'));
+  if (message.includes('label') || message.includes('already')) labelInput?.classList.add('seller-invalid');
+  if (message.includes('price')) priceInput?.classList.add('seller-invalid');
+  if (message.includes('stock')) stockInput?.classList.add('seller-invalid');
+  let feedback = editor.querySelector('.seller-size-feedback');
+  if (!feedback) { feedback = document.createElement('small'); feedback.className = 'seller-field-error seller-size-feedback'; editor.querySelector('[name="new_size_available_quantity"]')?.parentElement?.parentElement?.appendChild(feedback); }
+  if (feedback) feedback.textContent = message;
+  return message;
+}
+
+function bindSellerProductValidation(form) {
+  const rules = {
+    name: value => value.trim().length < 2 ? 'Product name must contain at least 2 characters.' : value.trim().length > 100 ? 'Product name must be 100 characters or less.' : '',
+    price: value => !value || Number(value) < 1 ? 'Price must be at least PHP 1.' : Number(value) > 99999999.99 ? 'Price is too high.' : '',
+    classification: value => !value ? 'Choose a classification.' : '',
+    available_quantity: value => value !== '' && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 9999) ? 'Stock must be a whole number from 0 to 9999.' : ''
+  };
+  const show = input => {
+    const message = rules[input.name]?.(input.value) || '';
+    input.classList.toggle('seller-invalid', Boolean(message));
+    let feedback = input.parentElement.querySelector('.seller-field-error');
+    if (!feedback) { feedback = document.createElement('small'); feedback.className = 'seller-field-error'; input.parentElement.appendChild(feedback); }
+    feedback.textContent = message;
+    return !message;
+  };
+  Object.keys(rules).forEach(name => form.querySelector(`[name="${name}"]`)?.addEventListener('input', event => show(event.target)));
+  form.querySelector('[name="classification"]')?.addEventListener('change', event => show(event.target));
+  form.addEventListener('submit', event => {
+    const firstInvalid = Object.keys(rules).map(name => form.querySelector(`[name="${name}"]`)).find(input => input && !show(input));
+    if (firstInvalid) { event.preventDefault(); firstInvalid.focus(); return; }
+    const imageInput = form.querySelector('input[type="file"][name="image"]');
+    if (imageInput && !validateProductImage(imageInput)) { event.preventDefault(); imageInput.focus(); return; }
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.textContent = 'Saving...'; }
+  });
 }
 
 function filterSellerProducts() {
