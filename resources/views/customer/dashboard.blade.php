@@ -82,10 +82,10 @@
     $recentOrderDetails = [
       'id' => $o->id, 'name' => $o->product_name, 'status' => $o->status,
       'date' => \Carbon\Carbon::parse($o->created_at)->format('M d, Y h:i A'),
-      'image' => $recentOrderImage ?: $o->image_path, 'quantity' => $o->quantity ?? 1,
-      'total' => $o->total_price ?? $o->price ?? null, 'payment' => $o->payment_method ?? null,
-      'paymentStatus' => $o->payment_status ?? null, 'fulfillment' => $o->delivery_method ?? $o->order_type ?? null,
-      'address' => $o->delivery_address ?? null, 'notes' => $o->notes ?? $o->special_instructions ?? null,
+      'image' => $recentOrderImage ?: data_get($o, 'image_path'), 'quantity' => data_get($o, 'quantity', 1),
+      'total' => data_get($o, 'total_price', data_get($o, 'price')), 'payment' => data_get($o, 'payment_method'),
+      'paymentStatus' => data_get($o, 'payment_status'), 'fulfillment' => data_get($o, 'delivery_method', data_get($o, 'order_type')),
+      'address' => data_get($o, 'delivery_address'), 'notes' => data_get($o, 'notes', data_get($o, 'special_instructions')),
     ];
   @endphp
   <button type="button" class="card mb-2 w-100 border-0 text-start recent-order-trigger" data-order="{{ json_encode($recentOrderDetails, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) }}">
