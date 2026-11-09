@@ -303,7 +303,8 @@
   .payout-detail-footer { border-top:1px solid var(--gray-100); border-bottom:0; justify-content:flex-end; }
   .payout-detail-body { overflow:auto; padding:1rem; -webkit-overflow-scrolling:touch; }
   .payout-detail-grid { display:grid; gap:.65rem; }.payout-detail-field { padding:.7rem; border-radius:10px; background:var(--gray-50); }.payout-detail-field small { display:block; margin-bottom:.22rem; color:var(--gray-500); font-weight:700; text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; }.payout-detail-field .form-control { margin-top:.45rem; }
-  @media(max-width:767px) {
+  /* The admin sidebar narrows the usable content area before the viewport reaches phone width. */
+  @media(max-width:991px) {
     .payout-table-scroll { display:none; }
     .payout-mobile-list { display:grid; gap:.65rem; padding:.75rem; }
     .payout-mobile-card { width:100%; border:1px solid var(--gray-200); border-radius:12px; padding:.85rem; background:#fff; color:inherit; text-align:left; box-shadow:0 2px 7px rgba(15,23,42,.04); }
@@ -413,7 +414,23 @@ document.addEventListener('DOMContentLoaded', function() {
       const values = cells.map(cell => cell.textContent.trim().replace(/\s+/g, ' '));
       const card = document.createElement('button');
       card.type = 'button'; card.className = 'payout-mobile-card';
-      card.innerHTML = '<div class="payout-mobile-card-head"><span class="payout-mobile-card-title">' + (values[0] || 'Payout record') + '</span><i class="bi bi-chevron-right"></i></div><div class="payout-mobile-card-meta"><span>' + (values[1] || '') + '</span><span>' + (values.find(value => value.includes('₱')) || values[2] || '') + '</span></div>';
+      card.replaceChildren();
+      const cardHead = document.createElement('div');
+      cardHead.className = 'payout-mobile-card-head';
+      const cardTitle = document.createElement('span');
+      cardTitle.className = 'payout-mobile-card-title';
+      cardTitle.textContent = values[0] || 'Payout record';
+      const cardIcon = document.createElement('i');
+      cardIcon.className = 'bi bi-chevron-right';
+      cardHead.append(cardTitle, cardIcon);
+      const cardMeta = document.createElement('div');
+      cardMeta.className = 'payout-mobile-card-meta';
+      const firstMeta = document.createElement('span');
+      firstMeta.textContent = values[1] || '';
+      const secondMeta = document.createElement('span');
+      secondMeta.textContent = values[2] || '';
+      cardMeta.append(firstMeta, secondMeta);
+      card.append(cardHead, cardMeta);
       card.addEventListener('click', () => {
         const grid = mobileDetailModal.querySelector('.payout-detail-grid');
         grid.replaceChildren();
