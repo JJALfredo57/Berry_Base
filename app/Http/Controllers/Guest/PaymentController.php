@@ -556,7 +556,7 @@ class PaymentController extends Controller
         // Allowed statuses for payment
         $isPickup   = $order->fulfillment_type === 'Pickup';
         $payStatus  = $isPickup ? 'Pickup' : 'Ready for Rider';
-        if ($order->status !== $payStatus)
+        if ($order->status !== $payStatus && $order->status !== 'Awaiting Deposit')
             return redirect()->route('track.order', $trackCode)
                 ->with('error', 'Payment is not available at this stage yet.');
 
@@ -1194,7 +1194,7 @@ class PaymentController extends Controller
         if (!in_array($type, ['full', 'remaining'], true)) {
             return ['ok' => false, 'error' => 'Invalid QR payment type.'];
         }
-        if (($order->status ?? '') !== $payStatus && !in_array(($order->status ?? ''), ['Pending', 'Pending Review', 'Pending Price Confirmation'], true)) {
+        if (($order->status ?? '') !== $payStatus && !in_array(($order->status ?? ''), ['Awaiting Deposit', 'Pending', 'Pending Review', 'Pending Price Confirmation'], true)) {
             return ['ok' => false, 'error' => 'Payment is not available at this stage yet.'];
         }
 
