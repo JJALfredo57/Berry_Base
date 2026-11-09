@@ -285,7 +285,15 @@
              data-read="{{ $m->is_read ? '1' : '0' }}"
              data-reply-sender="{{ $isMine ? 'You' : ($order->fullname ?? 'Customer') }}"
              data-reply-snippet="{{ trim((string) $m->message) !== '' ? Str::limit($m->message, 80) : (count($imgs) ? 'Photo message' : 'Message') }}">
-          <div class="msg-av {{ $isMine ? 'mine' : '' }}">@if($isMine)Me@elseif(!empty($order->customer_profile_photo))<img src="{{ $order->customer_profile_photo }}" alt="{{ $order->fullname }}" onerror="this.remove()">@else{{ strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}@endif</div>
+          <div class="msg-av {{ $isMine ? 'mine' : '' }}">
+            @if($isMine)
+              Me
+            @elseif(!empty($order->customer_profile_photo))
+              <img src="{{ $order->customer_profile_photo }}" alt="{{ $order->fullname }}" onerror="this.remove()">
+            @else
+              {{ strtoupper(substr($order->fullname ?? 'C', 0, 1)) }}
+            @endif
+          </div>
           <div class="msg-group {{ $isMine ? 'mine' : '' }}">
             <div class="sender-lbl {{ $isMine ? 'mine' : '' }}">{{ $isMine ? 'You' : ($order->fullname ?? 'Customer') }}</div>
             <div class="bubble {{ $isMine ? 'mine' : 'theirs' }} {{ count($imgs) ? 'has-media' : '' }} {{ $isImageOnly ? 'image-only' : '' }}">
