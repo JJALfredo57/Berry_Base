@@ -23,6 +23,7 @@
   .seller-product-tab{border:1px solid var(--gray-200);border-radius:999px;background:#fff;padding:.36rem .75rem;font-size:.78rem;font-weight:700;color:var(--gray-600)}
   .seller-product-tab.is-active{color:#fff;background:var(--primary);border-color:var(--primary)}
   .seller-field-error{display:block;min-height:17px;margin-top:.22rem;color:#b91c1c;font-size:.72rem;font-weight:600}
+  .seller-field-hint{display:flex;justify-content:flex-end;min-height:17px;margin-top:.22rem;color:var(--gray-500);font-size:.72rem}
   .seller-invalid{border-color:#dc2626!important;box-shadow:0 0 0 .14rem rgba(220,38,38,.12)!important}
   @media(max-width:700px){
     .seller-product-summary{padding:.75rem!important;gap:.65rem!important;align-items:flex-start!important}
@@ -143,11 +144,13 @@
         <label class="form-label">Description <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
         <textarea class="form-control" name="description" rows="2" maxlength="500"
                   placeholder="Describe your product...">{{ old('description') }}</textarea>
+        <small class="seller-field-hint" data-character-counter="description" data-character-limit="500"></small>
       </div>
       <div class="col-md-3">
         <label class="form-label">Flavor <span style="color:var(--gray-400);font-weight:400">(optional)</span></label>
         <input type="text" class="form-control" name="flavor" value="{{ old('flavor') }}"
                placeholder="e.g. Chocolate, Ube, Red Velvet" maxlength="100">
+        <small class="seller-field-hint" data-character-counter="flavor" data-character-limit="100"></small>
       </div>
       <div class="col-md-3">
         <label class="form-label">Available Cakes <span style="color:var(--gray-400);font-weight:400">(blank = 0)</span></label>
@@ -459,11 +462,13 @@
         </div>
         <div class="col-md-5">
           <label class="form-label">Description</label>
-          <textarea class="form-control" name="description" rows="2">{{ $p->description }}</textarea>
+          <textarea class="form-control" name="description" rows="2" maxlength="500">{{ $p->description }}</textarea>
+          <small class="seller-field-hint" data-character-counter="description" data-character-limit="500"></small>
         </div>
         <div class="col-md-3">
           <label class="form-label">Flavor</label>
-          <input type="text" class="form-control" name="flavor" value="{{ $p->flavor }}">
+          <input type="text" class="form-control" name="flavor" value="{{ $p->flavor }}" maxlength="100">
+          <small class="seller-field-hint" data-character-counter="flavor" data-character-limit="100"></small>
         </div>
         <div class="col-md-3">
           <label class="form-label">Available Cakes</label>
@@ -496,7 +501,7 @@
        <div class="seller-size-entry" data-size-entry>
          <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem;border:1px solid var(--gray-200);border-radius:12px;background:#fafafa">
            <div><div style="font-weight:800;color:var(--gray-900)">{{ $sz->label }}</div><div style="font-size:.76rem;color:var(--gray-500)">PHP {{ number_format($sz->price,2) }}</div></div>
-           <form action="{{ route('seller.products.sizes.stock', $sz->id) }}" method="POST" style="display:flex;align-items:end;gap:.45rem">@csrf<div><label class="form-label" style="font-size:.7rem;margin-bottom:.2rem">Stock</label><input class="form-control" type="number" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" style="width:94px"></div><button class="btn btn-primary btn-sm" type="submit">Save</button></form>
+           <form action="{{ route('seller.products.sizes.stock', $sz->id) }}" method="POST" data-size-stock-form style="display:flex;align-items:end;gap:.45rem">@csrf<div><label class="form-label" style="font-size:.7rem;margin-bottom:.2rem">Stock</label><input class="form-control" type="number" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" style="width:94px"><small class="seller-field-error" data-field-feedback="available_quantity"></small></div><button class="btn btn-primary btn-sm" type="submit">Save</button></form>
          </div>
          <form action="{{ route('seller.products.sizes.archive', $sz->id) }}" method="POST" data-cs-confirm="Archive size &quot;{{ addslashes($sz->label) }}&quot;? It can be restored later." data-cs-title="Archive Size" style="margin-top:.6rem;text-align:right">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-archive me-1"></i>Archive size</button></form>
        </div>
@@ -504,7 +509,7 @@
        <div class="seller-size-entry" data-size-entry><div class="alert alert-light border mb-0">No sizes yet. Add the first size below.</div></div>
      @endforelse
      <div style="display:flex;justify-content:space-between;align-items:center;margin:.7rem 0"><button type="button" class="btn btn-sm btn-secondary" onclick="moveSizeEntry('{{ $p->id }}',-1)"><i class="bi bi-chevron-left"></i> Previous</button><span class="seller-size-position" style="font-size:.74rem;color:var(--gray-500)"></span><button type="button" class="btn btn-sm btn-secondary" onclick="moveSizeEntry('{{ $p->id }}',1)">Next <i class="bi bi-chevron-right"></i></button></div>
-     <div style="padding-top:.75rem;border-top:1px dashed var(--gray-300)"><div style="font-size:.8rem;font-weight:800;margin-bottom:.45rem">Add a size</div><div class="row g-2"><div class="col-5"><input type="text" class="form-control" name="new_size_label" maxlength="50" placeholder="e.g. 6-inch"></div><div class="col-4"><input type="number" class="form-control" name="new_size_price" placeholder="Price" step="0.01" min="1"></div><div class="col-3"><input type="number" class="form-control" name="new_size_available_quantity" placeholder="Stock" min="0" max="9999" step="1"></div></div><button type="button" class="btn btn-primary btn-sm mt-2" onclick="submitSize('{{ $p->id }}')"><i class="bi bi-plus-lg me-1"></i>Add Size</button></div>
+     <div style="padding-top:.75rem;border-top:1px dashed var(--gray-300)"><div style="font-size:.8rem;font-weight:800;margin-bottom:.45rem">Add a size</div><div class="row g-2"><div class="col-5"><input type="text" class="form-control" name="new_size_label" maxlength="50" placeholder="e.g. 6-inch"><small class="seller-field-error" data-field-feedback="new_size_label"></small></div><div class="col-4"><input type="number" class="form-control" name="new_size_price" placeholder="Price" step="0.01" min="1"><small class="seller-field-error" data-field-feedback="new_size_price"></small></div><div class="col-3"><input type="number" class="form-control" name="new_size_available_quantity" placeholder="Stock" min="0" max="9999" step="1"><small class="seller-field-error" data-field-feedback="new_size_available_quantity"></small></div></div><button type="button" class="btn btn-primary btn-sm mt-2" data-add-size-button onclick="submitSize('{{ $p->id }}')"><i class="bi bi-plus-lg me-1"></i>Add Size</button></div>
    </div>
        </div>
       <div class="seller-product-modal-footer">
@@ -626,6 +631,20 @@ function moveSizeEntry(productId, direction) {
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && activeSellerProductModal) closeProductModal(activeSellerProductModal.id.replace('productModal-', ''));
 });
+function setSellerFieldFeedback(input, message) {
+  if (!input) return;
+  input.classList.toggle('seller-invalid', Boolean(message));
+  const container = input.closest('.col-md-2,.col-md-3,.col-md-4,.col-md-5,.col-md-6,div') || input.parentElement;
+  const feedback = container.querySelector(`[data-field-feedback="${input.name}"]`) || input.parentElement.querySelector(`[data-field-feedback="${input.name}"]`);
+  if (feedback) feedback.textContent = message || '';
+}
+function sellerNumberError(value, { min = 0, max = 9999, required = false, label = 'Value', integer = false } = {}) {
+  if (value === '') return required ? `${label} is required.` : '';
+  const number = Number(value);
+  if (!Number.isFinite(number) || (integer && !Number.isInteger(number))) return `${label} must be ${integer ? 'a whole number' : 'a valid number'}.`;
+  if (number < min || number > max) return integer ? `${label} must be a whole number from ${min} to ${max}.` : `${label} must be from ${min} to ${max}.`;
+  return '';
+}
 function validateSellerDiscountForm(form, showAlert = false) {
   if (!form) return true;
   const enabled = form.querySelector('[name="discount_enabled"]')?.checked;
@@ -674,6 +693,7 @@ function validateSellerDiscountForm(form, showAlert = false) {
   }
 
   if (valueFeedback && messages.length) valueFeedback.textContent = messages[0];
+  valueInput?.classList.toggle('seller-invalid', messages.length > 0);
 
   const start = startInput?.value ? new Date(startInput.value) : null;
   const end = endInput?.value ? new Date(endInput.value) : null;
@@ -692,11 +712,12 @@ function validateSellerDiscountForm(form, showAlert = false) {
     dateMessages.push('Fresh Until cannot be later than End date.');
   }
   if (dateFeedback) dateFeedback.textContent = dateMessages[0] || '';
+  [startInput, endInput, bestInput].forEach(input => input?.classList.toggle('seller-invalid', dateMessages.length > 0));
 
   if (dealValue !== null) {
-    if (Number.isNaN(dealValue) || dealValue < 0) {
+    if (Number.isNaN(dealValue) || !Number.isInteger(dealValue) || dealValue < 0) {
       valid = false;
-      if (dealFeedback) dealFeedback.textContent = 'Deal Pcs cannot be negative.';
+      if (dealFeedback) dealFeedback.textContent = 'Deal Pcs must be a whole number that is not negative.';
     } else if (stock !== null && dealValue > stock) {
       valid = false;
       if (dealFeedback) dealFeedback.textContent = 'Deal Pcs cannot be higher than available cakes.';
@@ -704,6 +725,7 @@ function validateSellerDiscountForm(form, showAlert = false) {
       dealFeedback.textContent = '';
     }
   }
+  dealInput?.classList.toggle('seller-invalid', Boolean(dealFeedback?.textContent));
 
   if (saveBtn) {
     saveBtn.disabled = !valid;
@@ -718,16 +740,19 @@ function validateSellerDiscountForm(form, showAlert = false) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.seller-discount-form').forEach(form => validateSellerDiscountForm(form, false));
+  document.querySelectorAll('.seller-discount-form').forEach(form => bindSellerDiscountValidation(form));
   document.querySelectorAll('form[action*="/products"]').forEach(form => {
     if (form.querySelector('[name="name"]') && form.querySelector('[name="classification"]')) bindSellerProductValidation(form);
   });
   document.querySelectorAll('[name="new_size_label"]').forEach(input => {
-    ['input','change'].forEach(type => input.addEventListener(type, () => validateSizeDraft(input.closest('[data-size-editor]'))));
+    ['input','change','blur'].forEach(type => input.addEventListener(type, () => validateSizeDraft(input.closest('[data-size-editor]'), type === 'blur')));
     const editor = input.closest('[data-size-editor]');
-    editor?.querySelectorAll('[name="new_size_price"],[name="new_size_available_quantity"]').forEach(field => ['input','change'].forEach(type => field.addEventListener(type, () => validateSizeDraft(editor))));
+    editor?.querySelectorAll('[name="new_size_price"],[name="new_size_available_quantity"]').forEach(field => ['input','change','blur'].forEach(type => field.addEventListener(type, () => validateSizeDraft(editor, type === 'blur'))));
+    validateSizeDraft(editor);
   });
   document.querySelectorAll('input[type="file"][name="image"]').forEach(input => input.addEventListener('change', () => validateProductImage(input)));
+  document.querySelectorAll('[data-size-stock-form]').forEach(form => bindSizeStockValidation(form));
+  document.querySelectorAll('[data-character-counter]').forEach(counter => bindCharacterCounter(counter));
 });
 function sellerKey(value) { return (value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase(); }
 function validateProductIdentity(form) {
@@ -770,15 +795,13 @@ function submitSize(productId) {
   const label = labelInput?.value.trim() || '';
   const price = priceInput?.value.trim() || '';
   const stock = stockInput?.value.trim() || '';
-  const message = validateSizeDraft(editor, true);
-  if (message) {
-    if (labelInput) labelInput.classList.toggle('seller-invalid', message.includes('label') || message.includes('already'));
-    if (priceInput) priceInput.classList.toggle('seller-invalid', message.includes('price'));
-    if (stockInput) stockInput.classList.toggle('seller-invalid', message.includes('stock'));
-    if (typeof csAlert === 'function') csAlert(message);
-    (message.includes('price') ? priceInput : message.includes('stock') ? stockInput : labelInput)?.focus();
+  const validation = validateSizeDraft(editor, true);
+  if (!validation.valid) {
+    validation.firstInvalid?.focus();
     return;
   }
+  const button = editor?.querySelector('[data-add-size-button]');
+  if (button) { button.disabled = true; button.textContent = 'Adding...'; }
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = '{{ url("/seller/products") }}/' + productId + '/sizes';
@@ -789,28 +812,53 @@ function submitSize(productId) {
 }
 
 function validateSizeDraft(editor, showEmpty = false) {
-  if (!editor) return 'Size editor is unavailable.';
+  if (!editor) return { valid: false, firstInvalid: null };
   const productId = editor.id.replace('sizeEditor-', '');
   const labelInput = editor.querySelector('input[name="new_size_label"]');
   const priceInput = editor.querySelector('input[name="new_size_price"]');
   const stockInput = editor.querySelector('input[name="new_size_available_quantity"]');
-  const label = labelInput?.value.trim() || '';
+  const label = sellerKey(labelInput?.value);
   const price = priceInput?.value.trim() || '';
   const stock = stockInput?.value.trim() || '';
-  const existingLabels = [...document.querySelectorAll(`#sellerProduct-${productId} [data-size-label]`)].map(el => el.dataset.sizeLabel.toLowerCase());
-  let message = '';
-  if (showEmpty && (label.length < 1 || label.length > 50)) message = 'Enter a size label (maximum 50 characters).';
-  else if (label && existingLabels.includes(label.toLowerCase())) message = 'This size already exists for this product.';
-  else if ((showEmpty || price) && (!price || Number(price) < 1)) message = 'Size price must be at least PHP 1.';
-  else if (stock !== '' && (!Number.isInteger(Number(stock)) || Number(stock) < 0 || Number(stock) > 9999)) message = 'Size stock must be a whole number from 0 to 9999.';
-  [labelInput, priceInput, stockInput].forEach(input => input?.classList.remove('seller-invalid'));
-  if (message.includes('label') || message.includes('already')) labelInput?.classList.add('seller-invalid');
-  if (message.includes('price')) priceInput?.classList.add('seller-invalid');
-  if (message.includes('stock')) stockInput?.classList.add('seller-invalid');
-  let feedback = editor.querySelector('.seller-size-feedback');
-  if (!feedback) { feedback = document.createElement('small'); feedback.className = 'seller-field-error seller-size-feedback'; editor.querySelector('[name="new_size_available_quantity"]')?.parentElement?.parentElement?.appendChild(feedback); }
-  if (feedback) feedback.textContent = message;
-  return message;
+  const existingLabels = [...document.querySelectorAll(`#sellerProduct-${productId} [data-size-label]`)].map(el => sellerKey(el.dataset.sizeLabel));
+  const errors = {
+    new_size_label: !label ? (showEmpty ? 'Size label is required.' : '') : label.length > 50 ? 'Size label must be 50 characters or less.' : existingLabels.includes(label) ? 'This size already exists for this product.' : '',
+    new_size_price: sellerNumberError(price, { min: 1, max: 99999999.99, required: showEmpty, label: 'Size price' }),
+    new_size_available_quantity: sellerNumberError(stock, { min: 0, max: 9999, label: 'Size stock', integer: true })
+  };
+  setSellerFieldFeedback(labelInput, errors.new_size_label);
+  setSellerFieldFeedback(priceInput, errors.new_size_price);
+  setSellerFieldFeedback(stockInput, errors.new_size_available_quantity);
+  const firstInvalid = [[labelInput, errors.new_size_label], [priceInput, errors.new_size_price], [stockInput, errors.new_size_available_quantity]].find(([, message]) => message)?.[0] || null;
+  const valid = Boolean(label) && Boolean(price) && !firstInvalid;
+  const button = editor.querySelector('[data-add-size-button]');
+  if (button) button.disabled = !valid;
+  return { valid, firstInvalid };
+}
+
+function bindSizeStockValidation(form) {
+  const input = form.querySelector('[name="available_quantity"]');
+  const button = form.querySelector('button[type="submit"]');
+  const validate = () => {
+    const message = sellerNumberError(input?.value ?? '', { min: 0, max: 9999, required: true, label: 'Stock', integer: true });
+    setSellerFieldFeedback(input, message);
+    if (button) button.disabled = Boolean(message);
+    return !message;
+  };
+  ['input', 'change', 'blur'].forEach(type => input?.addEventListener(type, validate));
+  form.addEventListener('submit', event => {
+    if (!validate()) { event.preventDefault(); input?.focus(); return; }
+    if (button) { button.disabled = true; button.textContent = 'Saving...'; }
+  });
+  validate();
+}
+
+function bindCharacterCounter(counter) {
+  const input = counter.parentElement.querySelector(`[name="${counter.dataset.characterCounter}"]`);
+  const limit = Number(counter.dataset.characterLimit || 0);
+  const update = () => { counter.textContent = `${input?.value.length || 0}/${limit}`; };
+  input?.addEventListener('input', update);
+  update();
 }
 
 function bindSellerProductValidation(form) {
@@ -820,18 +868,31 @@ function bindSellerProductValidation(form) {
     classification: value => !value ? 'Choose a classification.' : '',
     available_quantity: value => value !== '' && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 9999) ? 'Stock must be a whole number from 0 to 9999.' : ''
   };
+  const fieldMessage = input => rules[input.name]?.(input.value) || '';
   const show = input => {
-    const message = rules[input.name]?.(input.value) || '';
+    const message = fieldMessage(input);
     input.classList.toggle('seller-invalid', Boolean(message));
     let feedback = input.parentElement.querySelector('.seller-field-error');
     if (!feedback) { feedback = document.createElement('small'); feedback.className = 'seller-field-error'; input.parentElement.appendChild(feedback); }
     feedback.textContent = message;
+    updateSaveState();
     return !message;
+  };
+  const updateSaveState = () => {
+    const fieldsValid = Object.keys(rules).every(name => {
+      const input = form.querySelector(`[name="${name}"]`);
+      return !input || !fieldMessage(input);
+    });
+    const valid = fieldsValid && validateProductIdentity(form) && validateProductImage(form.querySelector('input[type="file"][name="image"]'));
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = !valid;
+    return valid;
   };
   Object.keys(rules).forEach(name => form.querySelector(`[name="${name}"]`)?.addEventListener('input', event => show(event.target)));
   form.querySelector('[name="classification"]')?.addEventListener('change', event => show(event.target));
-  form.querySelector('[name="name"]')?.addEventListener('input', () => validateProductIdentity(form));
-  form.querySelector('[name="classification"]')?.addEventListener('change', () => validateProductIdentity(form));
+  form.querySelector('[name="name"]')?.addEventListener('input', updateSaveState);
+  form.querySelector('[name="classification"]')?.addEventListener('change', updateSaveState);
+  form.querySelector('input[type="file"][name="image"]')?.addEventListener('change', updateSaveState);
   form.addEventListener('submit', event => {
     const firstInvalid = Object.keys(rules).map(name => form.querySelector(`[name="${name}"]`)).find(input => input && !show(input));
     if (firstInvalid) { event.preventDefault(); firstInvalid.focus(); return; }
@@ -841,6 +902,18 @@ function bindSellerProductValidation(form) {
     const button = form.querySelector('button[type="submit"]');
     if (button) { button.disabled = true; button.textContent = 'Saving...'; }
   });
+  updateSaveState();
+}
+
+function bindSellerDiscountValidation(form) {
+  const fields = form.querySelectorAll('[name="discount_enabled"],[name="discount_type"],[name="discount_value"],[name="discount_starts_at"],[name="discount_ends_at"],[name="best_enjoyed_by"],[name="deal_quantity_limit"]');
+  fields.forEach(field => ['input', 'change', 'blur'].forEach(type => field.addEventListener(type, () => validateSellerDiscountForm(form, false))));
+  form.addEventListener('submit', event => {
+    if (!validateSellerDiscountForm(form, false)) { event.preventDefault(); form.querySelector('.seller-invalid')?.focus(); return; }
+    const button = form.querySelector('button[type="submit"]');
+    if (button) { button.disabled = true; button.textContent = 'Saving...'; }
+  });
+  validateSellerDiscountForm(form, false);
 }
 
 function filterSellerProducts() {

@@ -317,6 +317,9 @@ class ProductController extends Controller
             return back()->with('err', 'Fixed discount cannot be higher than the product price.');
         }
         if ($dealQuantityLimit !== null && $dealQuantityLimit !== '') {
+            if (!preg_match('/^\d+$/', (string) $dealQuantityLimit)) {
+                return back()->with('err', 'Sweet Deal quantity limit must be a whole number.');
+            }
             $dealQuantityLimit = (int) $dealQuantityLimit;
             if ($dealQuantityLimit < 0 || $dealQuantityLimit > 9999) {
                 return back()->with('err', 'Sweet Deal quantity limit must be between 0 and 9999.');
