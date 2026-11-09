@@ -507,7 +507,11 @@
     $stepKeys = array_keys($steps);
 
     // Map mismatched / pre-confirmed statuses to nearest progress step
-    $statusForProgress = $order->status;
+    // Payment completion is the effective confirmation state even if a legacy order row
+    // still carries Awaiting Deposit while its payment update is being synchronized.
+    $statusForProgress = $paymentFullyPaid && ($order->status ?? '') === 'Awaiting Deposit'
+      ? 'Confirmed'
+      : $order->status;
     if ($statusForProgress === 'Awaiting Deposit')              $statusForProgress = 'Pending';
     if ($statusForProgress === 'Pending Review')                $statusForProgress = 'Pending';
     if ($statusForProgress === 'Pending Price Confirmation')    $statusForProgress = 'Pending';
