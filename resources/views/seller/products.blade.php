@@ -135,6 +135,13 @@
 </div>
 
 {{-- Products Grid --}}
+<style>
+.seller-product-item{box-shadow:0 3px 12px rgba(15,23,42,.04);transition:box-shadow .18s,transform .18s}
+.seller-product-item:hover{box-shadow:0 10px 26px rgba(15,23,42,.08);transform:translateY(-1px)}
+.product-card-main{display:grid!important;grid-template-columns:72px minmax(0,1fr) auto;align-items:center!important}
+.product-actions{justify-content:flex-end}.product-size-details summary{cursor:pointer;list-style:none;color:var(--primary);font-size:.78rem;font-weight:700}.product-size-details summary::-webkit-details-marker{display:none}.product-size-details summary i{transition:transform .15s}.product-size-details[open] summary i{transform:rotate(90deg)}
+@media(max-width:700px){.product-card-main{grid-template-columns:56px minmax(0,1fr)!important;gap:.75rem!important;padding:.875rem!important}.product-card-main>div:first-child{width:56px!important;height:56px!important}.product-actions{grid-column:1/-1;width:100%;display:grid!important;grid-template-columns:1fr 1fr 1fr!important}.product-actions button,.product-actions form button{width:100%;min-height:40px}.product-size-details{padding:.7rem .875rem!important}.product-size-details span{max-width:100%}}
+</style>
 @forelse($products as $p)
 @php
   $sizes = collect($productSizes[$p->id] ?? []);
@@ -151,7 +158,7 @@
      data-classification="{{ strtolower($p->classification ?? '') }}"
      data-status="{{ $p->is_available ? 'visible' : 'hidden' }}"
      style="background:#fff;border-radius:var(--radius-lg);border:1.5px solid {{ ($hasArchivedCol && $p->archived_at) ? '#fcd34d' : ($p->is_available ? 'var(--gray-100)' : 'var(--gray-200)') }};margin-bottom:1rem;overflow:hidden;opacity:{{ ($hasArchivedCol && $p->archived_at) ? '.75' : ($p->is_available ? '1' : '.65') }}">
-  <div style="display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;flex-wrap:wrap">
+  <div class="product-card-main" style="display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;flex-wrap:wrap">
 
     {{-- Product Image --}}
     <div style="width:72px;height:72px;border-radius:var(--radius-md);overflow:hidden;flex-shrink:0;background:var(--gray-100)">
@@ -214,7 +221,7 @@
     </div>
 
     {{-- Actions --}}
-    <div style="display:flex;gap:.5rem;flex-shrink:0;flex-wrap:wrap">
+    <div class="product-actions" style="display:flex;gap:.5rem;flex-shrink:0;flex-wrap:wrap">
       {{-- Edit & Discount always available --}}
       <button type="button" onclick="toggleEditForm('edit-{{ $p->id }}')"
               style="background:var(--info-bg,#E3F2FD);color:#1565C0;border:1.5px solid #90CAF9;border-radius:var(--radius-md);padding:.35rem .875rem;font-size:.78rem;font-weight:600;cursor:pointer">
@@ -249,7 +256,9 @@
   {{-- Active Sizes --}}
   @php $archivedSz = collect($archivedSizes[$p->id] ?? []); @endphp
   @if($sizes->count() > 0 || $archivedSz->count() > 0)
-  <div style="border-top:1px solid var(--gray-100);padding:.625rem 1.25rem;background:var(--gray-50)">
+  <details class="product-size-details" style="border-top:1px solid var(--gray-100);padding:.625rem 1.25rem;background:var(--gray-50)">
+    <summary><i class="bi bi-chevron-right me-1"></i>Manage {{ $sizes->count() }} active size{{ $sizes->count() !== 1 ? 's' : '' }}@if($archivedSz->count()), {{ $archivedSz->count() }} archived@endif</summary>
+    <div style="margin-top:.65rem">
     @if($sizes->count() > 0)
     <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
       <span style="font-size:.72rem;font-weight:700;color:var(--gray-500);margin-right:.25rem">SIZES:</span>
@@ -294,7 +303,8 @@
       @endforeach
     </div>
     @endif
-  </div>
+    </div>
+  </details>
   @endif
 
   {{-- Edit Form --}}
