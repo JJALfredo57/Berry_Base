@@ -79,8 +79,16 @@
     $referenceImages = is_array($referenceImages) ? array_values(array_filter($referenceImages)) : [];
     $isCustomOrder = ($o->order_type ?? '') === 'custom' || !empty($o->custom_cake_name);
     $recentOrderImage = $isCustomOrder ? ($referenceImages[0] ?? null) : ($o->image_path ?? null);
+    $recentOrderDetails = [
+      'id' => $o->id, 'name' => $o->product_name, 'status' => $o->status,
+      'date' => \Carbon\Carbon::parse($o->created_at)->format('M d, Y h:i A'),
+      'image' => $recentOrderImage ?: $o->image_path, 'quantity' => $o->quantity ?? 1,
+      'total' => $o->total_price ?? $o->price ?? null, 'payment' => $o->payment_method ?? null,
+      'paymentStatus' => $o->payment_status ?? null, 'fulfillment' => $o->delivery_method ?? $o->order_type ?? null,
+      'address' => $o->delivery_address ?? null, 'notes' => $o->notes ?? $o->special_instructions ?? null,
+    ];
   @endphp
-  <button type="button" class="card mb-2 w-100 border-0 text-start recent-order-trigger" data-order='@json(["id"=>$o->id,"name"=>$o->product_name,"status"=>$o->status,"date"=>\Carbon\Carbon::parse($o->created_at)->format("M d, Y h:i A"),"image"=>$recentOrderImage ?: $o->image_path,"quantity"=>$o->quantity ?? 1,"total"=>$o->total_price ?? $o->price ?? null,"payment"=>$o->payment_method ?? null,"paymentStatus"=>$o->payment_status ?? null,"fulfillment"=>$o->delivery_method ?? $o->order_type ?? null,"address"=>$o->delivery_address ?? null,"notes"=>$o->notes ?? $o->special_instructions ?? null])'>
+  <button type="button" class="card mb-2 w-100 border-0 text-start recent-order-trigger" data-order="{{ json_encode($recentOrderDetails, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) }}">
     <div class="card-body p-3 d-flex align-items-center gap-3">
       <img src="{{ $recentOrderImage ?: $o->image_path }}" style="width:48px;height:48px;object-fit:cover;border-radius:.6rem"
            onerror="this.src='https://placehold.co/48x48/f3f3f3/bbb?text=🎂'">
