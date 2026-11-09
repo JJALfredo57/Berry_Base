@@ -80,7 +80,7 @@
     $isCustomOrder = ($o->order_type ?? '') === 'custom' || !empty($o->custom_cake_name);
     $recentOrderImage = $isCustomOrder ? ($referenceImages[0] ?? null) : ($o->image_path ?? null);
   @endphp
-  <div class="card mb-2">
+  <button type="button" class="card mb-2 w-100 border-0 text-start recent-order-trigger" data-order='@json(["id"=>$o->id,"name"=>$o->product_name,"status"=>$o->status,"date"=>\Carbon\Carbon::parse($o->created_at)->format("M d, Y h:i A"),"image"=>$recentOrderImage ?: $o->image_path,"quantity"=>$o->quantity ?? 1,"total"=>$o->total_price ?? $o->price ?? null,"payment"=>$o->payment_method ?? null,"paymentStatus"=>$o->payment_status ?? null,"fulfillment"=>$o->delivery_method ?? $o->order_type ?? null,"address"=>$o->delivery_address ?? null,"notes"=>$o->notes ?? $o->special_instructions ?? null])'>
     <div class="card-body p-3 d-flex align-items-center gap-3">
       <img src="{{ $recentOrderImage ?: $o->image_path }}" style="width:48px;height:48px;object-fit:cover;border-radius:.6rem"
            onerror="this.src='https://placehold.co/48x48/f3f3f3/bbb?text=🎂'">
@@ -90,7 +90,7 @@
       </div>
       <span class="status-badge status-{{ str_replace(' ','-',$o->status) }}">{{ $o->status }}</span>
     </div>
-  </div>
+  </button>
   @empty
   <div class="card text-center py-4">
     <i class="bi bi-bag" style="font-size:2.5rem;color:#ddd"></i>
@@ -99,4 +99,11 @@
   </div>
   @endforelse
 </div>
+<style>
+.recent-order-trigger{transition:transform .18s ease,box-shadow .18s ease;cursor:pointer}.recent-order-trigger:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(15,23,42,.1)}.recent-order-trigger:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 35%,transparent);outline-offset:3px}.recent-order-modal{position:fixed;inset:0;z-index:1090;display:none;padding:12px;background:rgba(15,23,42,.58)}.recent-order-modal.is-open{display:flex;align-items:center;justify-content:center}.recent-order-dialog{width:min(560px,100%);max-height:calc(100dvh - 24px);display:flex;flex-direction:column;overflow:hidden;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.3)}.recent-order-header,.recent-order-footer{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:1rem;border-bottom:1px solid #eee}.recent-order-footer{border-top:1px solid #eee;border-bottom:0}.recent-order-body{overflow:auto;padding:1rem}.recent-order-hero{display:flex;gap:.9rem;align-items:center;margin-bottom:1rem}.recent-order-hero img{width:72px;height:72px;object-fit:cover;border-radius:12px;background:#f3f4f6}.recent-order-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}.recent-order-field{padding:.72rem;border-radius:10px;background:#f8fafc}.recent-order-field small{display:block;color:#6b7280;font-weight:700;text-transform:uppercase;font-size:.65rem;letter-spacing:.06em;margin-bottom:.18rem}@media(max-width:575px){.recent-order-grid{grid-template-columns:1fr}.recent-order-dialog{border-radius:14px}}
+</style>
+<div class="recent-order-modal" id="recentOrderModal" role="dialog" aria-modal="true" aria-labelledby="recentOrderModalTitle" aria-hidden="true"><div class="recent-order-dialog"><div class="recent-order-header"><strong id="recentOrderModalTitle">Order details</strong><button type="button" class="btn-close" aria-label="Close order details"></button></div><div class="recent-order-body"><div class="recent-order-hero"><img id="recentOrderImage" alt="Order item"><div><div class="fw-bold" id="recentOrderName"></div><div class="text-muted small" id="recentOrderMeta"></div></div></div><div class="recent-order-grid" id="recentOrderFields"></div></div><div class="recent-order-footer"><a class="btn btn-outline-primary btn-sm" href="{{ route('customer.orders') }}">View all orders</a><button type="button" class="btn btn-secondary btn-sm">Close</button></div></div></div>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{const modal=document.getElementById('recentOrderModal'),fields=document.getElementById('recentOrderFields'),close=()=>{modal.classList.remove('is-open');modal.setAttribute('aria-hidden','true');document.body.style.overflow=''};document.querySelectorAll('.recent-order-trigger').forEach(trigger=>trigger.addEventListener('click',()=>{const o=JSON.parse(trigger.dataset.order);document.getElementById('recentOrderName').textContent=o.name;document.getElementById('recentOrderMeta').textContent=`Order #${o.id} · ${o.date} · ${o.status}`;const image=document.getElementById('recentOrderImage');image.src=o.image||'https://placehold.co/72x72/f3f3f3/bbb?text=Cake';fields.replaceChildren();[['Status',o.status],['Quantity',o.quantity],['Total',o.total!==null?'₱'+Number(o.total).toLocaleString('en-PH',{minimumFractionDigits:2}):'—'],['Payment',o.paymentStatus||o.payment||'—'],['Fulfillment',o.fulfillment||'—'],['Delivery address',o.address||'—'],['Notes',o.notes||'—']].forEach(([label,value])=>{const f=document.createElement('div');f.className='recent-order-field';const l=document.createElement('small');l.textContent=label;const v=document.createElement('div');v.textContent=value;f.append(l,v);fields.append(f)});modal.classList.add('is-open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';modal.querySelector('.btn-close').focus()}));modal.addEventListener('click',e=>{if(e.target===modal||e.target.closest('.btn-close,.recent-order-footer button'))close()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('is-open'))close()})});
+</script>
 @endsection
