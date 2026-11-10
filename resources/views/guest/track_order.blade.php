@@ -1359,11 +1359,6 @@
           <button type="button" aria-label="Message {{ $deliveryDriver->name }}" title="Message driver" data-delivery-message data-role="customer" data-label="{{ $deliveryDriver->name }} &middot; Order #{{ $order->id }}" data-index="{{ route('customer.delivery_messages.index', $order->id) }}" data-send="{{ route('customer.delivery_messages.send', $order->id) }}" style="width:42px;height:42px;border:0;border-radius:50%;background:transparent;color:var(--primary);font-size:1.35rem;display:grid;place-items:center;flex:0 0 auto"><i class="bi bi-chat-dots"></i></button>
         @endif
       </div>
-      <div class="d-flex align-items-center gap-2 mt-3 pt-3" style="border-top:1px solid var(--bs-border-color,#f0f0f0)">
-        <img src="{{ $driverCakeImage }}" alt="{{ $order->product_name }}" style="width:42px;height:42px;object-fit:cover;border-radius:10px" onerror="this.src='https://placehold.co/42x42/fce4ec/e91e63?text=Cake'">
-        <div class="flex-grow-1" style="min-width:0"><div class="small fw-semibold text-truncate">{{ $order->product_name }}</div><div class="small text-muted">Order #{{ $order->id }}</div></div>
-        <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" data-bs-toggle="modal" data-bs-target="#deliveryDriverOrderModal">Order details</button>
-      </div>
     </div>
   </section>
   <div class="modal fade" id="deliveryDriverOrderModal" tabindex="-1" aria-labelledby="deliveryDriverOrderTitle" aria-hidden="true">
