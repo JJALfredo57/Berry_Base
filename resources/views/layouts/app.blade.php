@@ -2054,14 +2054,16 @@
       ? str_starts_with($currentRoute, 'customer.cart')
       : $currentRoute === 'cart';
   @endphp
-  <a href="{{ $topbarCartRoute }}"
-     class="cust-topbar-cart {{ $topbarCartActive ? 'active' : '' }}"
-     aria-label="Cart with {{ (int)($topbarCartCount ?? 0) }} item{{ (int)($topbarCartCount ?? 0) === 1 ? '' : 's' }}">
-    <i class="bi bi-cart3"></i>
-    @if((int)($topbarCartCount ?? 0) > 0)
-      <span class="cust-topbar-cart-badge">{{ (int)$topbarCartCount > 99 ? '99+' : $topbarCartCount }}</span>
-    @endif
-  </a>
+  @if(!($role === 'customer' && $currentRoute === 'customer.cart'))
+    <a href="{{ $topbarCartRoute }}"
+       class="cust-topbar-cart {{ $topbarCartActive ? 'active' : '' }}"
+       aria-label="Cart with {{ (int)($topbarCartCount ?? 0) }} item{{ (int)($topbarCartCount ?? 0) === 1 ? '' : 's' }}">
+      <i class="bi bi-cart3"></i>
+      @if((int)($topbarCartCount ?? 0) > 0)
+        <span class="cust-topbar-cart-badge">{{ (int)$topbarCartCount > 99 ? '99+' : $topbarCartCount }}</span>
+      @endif
+    </a>
+  @endif
 </div>
 
 {{-- Become Seller modal --}}
