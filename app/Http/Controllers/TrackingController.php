@@ -248,7 +248,7 @@ class TrackingController extends Controller
         $customer = session('user');
         $deliveryRiderId = (int) ($order->delivery_rider_id ?? $order->rider_id ?? 0);
         $deliveryRiderName = trim((string) ($order->delivery_rider_name ?? $order->rider_name ?? ''));
-        if (!$deliveryRiderId && Schema::hasTable('rider_remittances')) {
+        if (!$deliveryRiderId && ($order->status ?? '') === 'Delivered' && Schema::hasTable('rider_remittances')) {
             $deliveryRiderId = (int) DB::table('rider_remittances')->where('order_id', $order->id)->value('rider_id');
             $deliveryRiderName = $deliveryRiderId
                 ? (string) (DB::table('riders')->where('id', $deliveryRiderId)->value('name') ?? '')

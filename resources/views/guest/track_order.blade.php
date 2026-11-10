@@ -1347,40 +1347,28 @@
       if (is_array($driverImages) && !empty($driverImages[0])) $driverCakeImage = $driverImages[0];
     }
   @endphp
-  <div class="card mb-3" id="delivery-driver-card" style="border:1px solid #edf0f3;border-radius:14px;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.05)">
-    <div class="card-body p-3 d-flex align-items-center gap-3">
-      <div aria-hidden="true" style="width:46px;height:46px;border-radius:50%;background:#fff1eb;color:var(--primary);display:grid;place-items:center;flex:0 0 auto;font-size:1.35rem"><i class="bi bi-person-badge"></i></div>
-      <div class="flex-grow-1" style="min-width:0">
-        <div class="fw-semibold" style="font-size:.95rem">Delivery Driver</div>
-        <div class="small text-muted text-truncate">{{ $deliveryDriver->name }} · {{ $deliveryDriver->state }}</div>
-      </div>
-      @if($deliveryDriver->can_message)
-      <button type="button" aria-label="Message {{ $deliveryDriver->name }}" title="Message driver" data-delivery-message data-role="customer" data-label="{{ $deliveryDriver->name }} · Order #{{ $order->id }}" data-index="{{ route('customer.delivery_messages.index', $order->id) }}" data-send="{{ route('customer.delivery_messages.send', $order->id) }}" style="width:42px;height:42px;border:0;border-radius:50%;background:transparent;color:var(--primary);font-size:1.35rem;display:grid;place-items:center;flex:0 0 auto"><i class="bi bi-chat-dots"></i></button>
-      @endif
-    </div>
-  </div>
-  <div class="d-none" id="delivery-message">
+  <section class="card mb-3" id="delivery-driver-card" aria-labelledby="deliveryDriverTitle" style="border:1px solid #edf0f3;border-radius:14px;background:var(--bs-body-bg,#fff);box-shadow:0 2px 10px rgba(15,23,42,.05)">
     <div class="card-body p-3">
-      <div class="small fw-bold text-uppercase mb-2" style="letter-spacing:.06em;color:var(--primary)"><i class="bi bi-truck me-1"></i>Delivery Driver</div>
-      @if($deliveryDriver->can_message)
-      <button type="button" class="w-100 border-0 bg-transparent p-0 text-start d-flex align-items-center gap-3" data-delivery-message data-role="customer" data-label="{{ $deliveryDriver->name }} · Order #{{ $order->id }}" data-index="{{ route('customer.delivery_messages.index', $order->id) }}" data-send="{{ route('customer.delivery_messages.send', $order->id) }}" aria-label="Message {{ $deliveryDriver->name }}">
-      @else
       <div class="d-flex align-items-center gap-3">
-      @endif
-        <div class="rounded-circle text-white fw-bold flex-shrink-0" style="width:46px;height:46px;background:var(--primary);display:grid;place-items:center">{{ strtoupper(mb_substr($deliveryDriver->name, 0, 1)) }}</div>
-        <div class="flex-grow-1"><div class="fw-bold">{{ $deliveryDriver->name }}</div><div class="small text-muted">{{ $deliveryDriver->state }}{{ $deliveryDriver->can_message ? ' · Tap to message' : '' }}</div></div>
-        @if($deliveryDriver->can_message)
-          <span class="btn btn-sm" style="background:var(--primary);color:#fff"><i class="bi bi-chat-dots me-1"></i>Message</span>
-        @endif
-      @if($deliveryDriver->can_message)
-        </button>
-      @else
+        <div class="rounded-circle text-white fw-bold flex-shrink-0" aria-hidden="true" style="width:46px;height:46px;background:var(--primary);display:grid;place-items:center">{{ strtoupper(mb_substr($deliveryDriver->name, 0, 1)) }}</div>
+        <div class="flex-grow-1" style="min-width:0">
+          <div class="fw-semibold" id="deliveryDriverTitle" style="font-size:.95rem">Delivery Driver</div>
+          <div class="small text-muted text-truncate">{{ $deliveryDriver->name }} &middot; {{ $deliveryDriver->state }}</div>
         </div>
-      @endif
-      <div class="d-flex align-items-center gap-2 mt-3 pt-3" style="border-top:1px solid #f0f0f0"><img src="{{ $driverCakeImage }}" alt="{{ $order->product_name }}" style="width:42px;height:42px;object-fit:cover;border-radius:10px" onerror="this.src='https://placehold.co/42x42/fce4ec/e91e63?text=Cake'"><div class="flex-grow-1 min-w-0"><div class="small fw-semibold text-truncate">{{ $order->product_name }}</div><div class="small text-muted">Order #{{ $order->id }}</div></div><button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" data-bs-toggle="modal" data-bs-target="#deliveryDriverOrderModal">Order details</button></div>
+        @if($deliveryDriver->can_message)
+          <button type="button" aria-label="Message {{ $deliveryDriver->name }}" title="Message driver" data-delivery-message data-role="customer" data-label="{{ $deliveryDriver->name }} &middot; Order #{{ $order->id }}" data-index="{{ route('customer.delivery_messages.index', $order->id) }}" data-send="{{ route('customer.delivery_messages.send', $order->id) }}" style="width:42px;height:42px;border:0;border-radius:50%;background:transparent;color:var(--primary);font-size:1.35rem;display:grid;place-items:center;flex:0 0 auto"><i class="bi bi-chat-dots"></i></button>
+        @endif
+      </div>
+      <div class="d-flex align-items-center gap-2 mt-3 pt-3" style="border-top:1px solid var(--bs-border-color,#f0f0f0)">
+        <img src="{{ $driverCakeImage }}" alt="{{ $order->product_name }}" style="width:42px;height:42px;object-fit:cover;border-radius:10px" onerror="this.src='https://placehold.co/42x42/fce4ec/e91e63?text=Cake'">
+        <div class="flex-grow-1" style="min-width:0"><div class="small fw-semibold text-truncate">{{ $order->product_name }}</div><div class="small text-muted">Order #{{ $order->id }}</div></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" data-bs-toggle="modal" data-bs-target="#deliveryDriverOrderModal">Order details</button>
+      </div>
     </div>
+  </section>
+  <div class="modal fade" id="deliveryDriverOrderModal" tabindex="-1" aria-labelledby="deliveryDriverOrderTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="deliveryDriverOrderTitle">Order details</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><div class="d-flex gap-3 align-items-center"><img src="{{ $driverCakeImage }}" alt="{{ $order->product_name }}" style="width:72px;height:72px;object-fit:cover;border-radius:12px" onerror="this.src='https://placehold.co/72x72/fce4ec/e91e63?text=Cake'"><div><div class="fw-bold">{{ $order->product_name }}</div><div class="small text-muted">Order #{{ $order->id }} &middot; Qty {{ $order->quantity }}</div><div class="small text-muted">{{ $order->fulfillment_type }} &middot; {{ $order->status }}</div></div></div><hr><div class="row g-2 small"><div class="col-6"><div class="text-muted">Total</div><div class="fw-bold">&#8369;{{ number_format((float) $order->total_price, 2) }}</div></div><div class="col-6"><div class="text-muted">Payment</div><div class="fw-bold">{{ $order->payment_status }}</div></div>@if($order->schedule_date)<div class="col-12"><div class="text-muted">Schedule</div><div class="fw-bold">{{ \Carbon\Carbon::parse($order->schedule_date)->format('M d, Y') }} {{ $order->schedule_time }}</div></div>@endif</div></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button></div></div></div>
   </div>
-  <div class="modal fade" id="deliveryDriverOrderModal" tabindex="-1" aria-labelledby="deliveryDriverOrderTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="deliveryDriverOrderTitle">Order details</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><div class="d-flex gap-3 align-items-center"><img src="{{ $driverCakeImage }}" alt="{{ $order->product_name }}" style="width:72px;height:72px;object-fit:cover;border-radius:12px" onerror="this.src='https://placehold.co/72x72/fce4ec/e91e63?text=Cake'"><div><div class="fw-bold">{{ $order->product_name }}</div><div class="small text-muted">Order #{{ $order->id }} · Qty {{ $order->quantity }}</div><div class="small text-muted">{{ $order->fulfillment_type }} · {{ $order->status }}</div></div></div><hr><div class="row g-2 small"><div class="col-6"><div class="text-muted">Total</div><div class="fw-bold">₱{{ number_format((float) $order->total_price, 2) }}</div></div><div class="col-6"><div class="text-muted">Payment</div><div class="fw-bold">{{ $order->payment_status }}</div></div>@if($order->schedule_date)<div class="col-12"><div class="text-muted">Schedule</div><div class="fw-bold">{{ \Carbon\Carbon::parse($order->schedule_date)->format('M d, Y') }} {{ $order->schedule_time }}</div></div>@endif</div></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button></div></div></div></div>
   @endif
 
   {{-- Order Timeline --}}

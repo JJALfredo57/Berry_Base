@@ -6,6 +6,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class DeliveryMessageService
@@ -189,10 +190,13 @@ class DeliveryMessageService
     private function conversationRiderId(object $order): int
     {
         $riderId = (int) ($order->delivery_rider_id ?? $order->rider_id ?? 0);
-        if ($riderId || !Schema::hasTable('rider_remittances')) {
+        if ($riderId || ($order->status ?? '') !== 'Delivered' || !Schema::hasTable('rider_remittances')) {
             return $riderId;
         }
 
-        return (int) DB::table('rider_remittances')->where('order_id', $order->id)->value('rider_id');
+        return (int) DB::table('rider_remittances')
+            ->where('order_id', $order->id)
+            ->whereNotNull('rider_id')
+            ->value('rider_id');
     }
 }

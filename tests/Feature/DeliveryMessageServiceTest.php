@@ -26,6 +26,9 @@ class DeliveryMessageServiceTest extends TestCase
             $table->increments('id'); $table->string('order_id'); $table->unsignedInteger('rider_id'); $table->string('customer_user_id');
             $table->string('sender_type'); $table->string('sender_id'); $table->text('message')->nullable(); $table->text('image_path')->nullable(); $table->timestamp('read_at')->nullable(); $table->timestamps();
         });
+        Schema::create('rider_remittances', function ($table) {
+            $table->increments('id'); $table->string('order_id'); $table->unsignedInteger('rider_id')->nullable();
+        });
         DB::table('orders')->insert(['id' => 'D1', 'user_id' => 10, 'rider_id' => 5, 'fulfillment_type' => 'Delivery', 'rider_assignment_status' => 'accepted', 'status' => 'Out for Delivery']);
         $notifications = Mockery::mock(MobileNotificationService::class);
         $notifications->shouldReceive('notifyRider')->zeroOrMoreTimes();
@@ -75,5 +78,22 @@ class DeliveryMessageServiceTest extends TestCase
         $order = app(DeliveryMessageService::class)->customerConversation('D1', ['id' => 10, 'role' => 'customer']);
 
         $this->assertSame('D1', $order->id);
+    }
+
+    public function test_delivered_order_can_use_a_remittance_rider_when_no_snapshot_exists(): void
+    {
+        DB::table('orders')->where('id', 'D1')->update([
+            'status' => 'Delivered',
+            'rider_id' => null,
+            'delivery_rider_id' => null,
+            'delivery_rider_name' => null,
+        ]);
+        DB::table('rider_remittances')->insert(['order_id' => 'D1', 'rider_id' => 5]);
+
+        $service = app(DeliveryMessageService::class);
+        $order = $service->customerConversation('D1', ['id' => 10, 'role' => 'customer']);
+
+        $this->assertSame('D1', $order->id);
+        $this->assertSame('D1', $service->riderConversation('D1', (object) ['id' => 5])->id);
     }
 }
