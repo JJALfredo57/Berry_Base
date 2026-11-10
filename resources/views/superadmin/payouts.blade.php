@@ -295,7 +295,7 @@
 </div>
 
 <style>
-  .payout-table-scroll { border-radius:0 0 var(--radius-lg) var(--radius-lg); }
+  .payout-table-scroll { display:none; }
   .payout-section-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
   .payout-attention { display:inline-flex; align-items:center; gap:.42rem; border-radius:999px; padding:.28rem .58rem; background:#fff7ed; color:#9a3412; font-size:.72rem; font-weight:800; }
   .payout-attention-dot { width:.55rem; height:.55rem; border-radius:50%; background:#f97316; box-shadow:0 0 0 0 rgba(249,115,22,.5); animation:payoutAttentionPulse 1.8s infinite; }
@@ -322,7 +322,7 @@
   .payout-mark-paid-form { flex-wrap:nowrap; min-width:440px; }
   .payout-mark-paid-form .form-control { min-width:150px; }
   .payout-mark-paid-form .btn { flex:0 0 auto; white-space:nowrap; }
-  .payout-mobile-list { display:none; }
+  .payout-mobile-list { display:grid; gap:.65rem; padding:.75rem; }
   .payout-detail-modal { position:fixed; inset:0; z-index:1090; display:none; padding:12px; background:rgba(15,23,42,.58); }
   .payout-detail-modal.is-open { display:flex; align-items:center; justify-content:center; }
   .payout-detail-dialog { width:min(560px,100%); max-height:calc(100dvh - 24px); display:flex; flex-direction:column; overflow:hidden; border-radius:18px; background:#fff; box-shadow:0 24px 70px rgba(15,23,42,.3); }
@@ -330,10 +330,10 @@
   .payout-detail-footer { border-top:1px solid var(--gray-100); border-bottom:0; justify-content:flex-end; }
   .payout-detail-body { overflow:auto; padding:1rem; -webkit-overflow-scrolling:touch; }
   .payout-detail-grid { display:grid; gap:.65rem; }.payout-detail-field { padding:.7rem; border-radius:10px; background:var(--gray-50); }.payout-detail-field small { display:block; margin-bottom:.22rem; color:var(--gray-500); font-weight:700; text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; }.payout-detail-field .form-control { margin-top:.45rem; }
+  .payout-mobile-card.is-action-required { border-color:#fdba74; background:#fffaf0; box-shadow:inset 3px 0 #f97316,0 2px 7px rgba(15,23,42,.04); }
+  .payout-mobile-card.is-action-required .payout-mobile-card-title::before { content:''; display:inline-block; width:.55rem; height:.55rem; margin-right:.45rem; border-radius:50%; background:#f97316; vertical-align:middle; }
   /* The admin sidebar narrows the usable content area before the viewport reaches phone width. */
   @media(max-width:575px) {
-    .payout-table-scroll { display:none; }
-    .payout-mobile-list { display:grid; gap:.65rem; padding:.75rem; }
     .payout-mobile-card { width:100%; border:1px solid var(--gray-200); border-radius:12px; padding:.85rem; background:#fff; color:inherit; text-align:left; box-shadow:0 2px 7px rgba(15,23,42,.04); }
     .payout-mobile-card:focus-visible { outline:3px solid color-mix(in srgb,var(--primary) 35%,transparent); outline-offset:2px; }
     .payout-mobile-card-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }.payout-mobile-card-title { font-weight:800; min-width:0; }.payout-mobile-card-meta { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; margin-top:.7rem; }.payout-mobile-card-meta span { min-width:0; color:var(--gray-600); font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -447,12 +447,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const headers = [...table.querySelectorAll('thead th')].map(header => header.textContent.trim() || 'Details');
     const list = document.createElement('div');
     list.className = 'payout-mobile-list';
+    const cards = [];
     [...table.querySelectorAll('tbody tr')].forEach(row => {
       const cells = [...row.querySelectorAll('td')];
       if (!cells.length || cells.length === 1) return;
       const values = cells.map(cell => cell.textContent.trim().replace(/\s+/g, ' '));
       const card = document.createElement('button');
       card.type = 'button'; card.className = 'payout-mobile-card';
+      const needsAction = row.classList.contains('is-action-required') || /Request Details|Create Payout|Mark Refund Sent|Mark Paid/.test(values.join(' '));
+      if (needsAction) card.classList.add('is-action-required');
       card.replaceChildren();
       const cardHead = document.createElement('div');
       cardHead.className = 'payout-mobile-card-head';
@@ -471,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
       cardMeta.append(firstMeta, secondMeta);
       card.append(cardHead, cardMeta);
       card.addEventListener('click', () => openPayoutDetails(cells, headers, values));
-      list.appendChild(card);
+      cards.push({ card, needsAction });
       if (row.classList.contains('payout-detail-trigger')) {
         const openRow = event => {
           if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
@@ -482,6 +485,7 @@ document.addEventListener('DOMContentLoaded', function() {
         row.addEventListener('keydown', openRow);
       }
     });
+    cards.sort((a, b) => Number(b.needsAction) - Number(a.needsAction)).forEach(item => list.appendChild(item.card));
     wrapper.after(list);
   });
   document.addEventListener('change', async event => {
