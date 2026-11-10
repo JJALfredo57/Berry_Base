@@ -68,6 +68,7 @@ class OrderController extends Controller
         $orderAddons = [];
         $orderItems = [];
         $orderReviews = [];
+        $orderRefunds = [];
         $customOrderData = [];
         $customOrderVouchers = [];
         $customOrderLoyaltyQuotes = [];
@@ -95,6 +96,13 @@ class OrderController extends Controller
             try {
                 $reviewRows = DB::table('order_reviews')->whereIn('order_id', $orderIds)->get();
                 foreach ($reviewRows as $r) $orderReviews[$r->order_id] = $r;
+            } catch (\Exception $e) {}
+            try {
+                if (Schema::hasTable('order_refunds')) {
+                    foreach (DB::table('order_refunds')->whereIn('order_id', $orderIds)->orderByDesc('id')->get() as $refund) {
+                        if (!isset($orderRefunds[$refund->order_id])) $orderRefunds[$refund->order_id] = $refund;
+                    }
+                }
             } catch (\Exception $e) {}
             try {
                 $coRows = DB::table('custom_orders')->whereIn('order_id', $orderIds)->get();
@@ -171,7 +179,7 @@ class OrderController extends Controller
             $unreadCustomActionOrderIds = $unreadCustomActionOrderIds->merge($pendingPriceOrderIds)->unique()->values();
         }
 
-        return view('customer.orders', compact('orders','tracking','orderAddons','orderItems','orderReviews','checkoutGroupOrders','customOrderData','customOrderVouchers','customOrderLoyaltyQuotes','loyaltySettings','customOrderVerified','unreadCustomActionOrderIds','search','status'));
+        return view('customer.orders', compact('orders','tracking','orderAddons','orderItems','orderReviews','orderRefunds','checkoutGroupOrders','customOrderData','customOrderVouchers','customOrderLoyaltyQuotes','loyaltySettings','customOrderVerified','unreadCustomActionOrderIds','search','status'));
     }
 
     public function markCustomActionRead(string $id)
@@ -388,9 +396,11 @@ class OrderController extends Controller
                         $fail('Enter a valid Philippine GCash number, such as 09171234567 or +639171234567.');
                     }
                 }],
+                'refund_details_confirmed' => ['accepted'],
             ], [
                 'refund_gcash_name.required' => 'Enter the GCash account name for the refund.',
                 'refund_gcash_number.required' => 'Enter the GCash number for the refund.',
+                'refund_details_confirmed.accepted' => 'Confirm that your refund recipient details are correct.',
             ]);
             $gcashNumber = $refunds->normalizeGcashNumber($validated['refund_gcash_number']);
 
@@ -462,6 +472,8 @@ class OrderController extends Controller
                 return back()->with('error', 'Enter a valid GCash number in 09XXXXXXXXX or +639XXXXXXXXX format.');
             }
             $data += $validated;
+            $data['refund_gcash_name'] = trim($data['refund_gcash_name']);
+            $data['refund_gcash_number'] = $refunds->normalizeGcashNumber($data['refund_gcash_number']);
         }
 
         $result = $cancellations->respond($order, $action, $data, $refunds);

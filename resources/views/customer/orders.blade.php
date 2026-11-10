@@ -481,6 +481,7 @@
 @forelse($orders as $o)
   @php
     $hasDepositLock = ($o->deposit_status ?? null) === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']);
+    $refund = $orderRefunds[$o->id] ?? null;
     $canCancel   = in_array($o->status, ['Awaiting Deposit','Pending','Pending Review','Pending Price Confirmation','Confirmed']) && !$o->cancel_requested;
     $notAllowed  = in_array($o->status, ['Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled']);
     $hasPending  = $o->cancel_requested && $o->cancel_status === 'pending';
@@ -628,7 +629,7 @@
       @elseif($wasAccepted)
       <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#d1fae5">
         <i class="bi bi-check-circle text-success"></i>
-        <span class="small fw-semibold text-success">Cancel request approved.
+        <span class="small fw-semibold text-success">{{ in_array(($refund->status ?? ''), ['approved_for_admin_refund', 'processing']) ? 'Order cancelled. Refund processing has started; estimated time is 3–5 working days.' : 'Cancel request approved.' }}
           @if($o->cancel_admin_note) <span class="fw-normal">{{ $o->cancel_admin_note }}</span> @endif
         </span>
       </div>
@@ -1519,7 +1520,8 @@
                 <div id="cancel-gcash-number-error-{{ $o->id }}" class="invalid-feedback d-block" aria-live="polite"></div>
               </div>
             </div>
-            <div class="small text-muted mb-3">The seller must review the request and record the refund receipt before cancellation is complete.</div>
+            <input type="hidden" name="refund_details_confirmed" value="0">
+            <div class="small text-muted mb-3">Your recipient details will be locked after confirmation. Once seller-approved, Super Admin processes the refund within 3–5 working days.</div>
             @endif
             <div class="d-flex gap-2 justify-content-end">
               <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Never mind</button>
@@ -2296,6 +2298,12 @@ document.querySelectorAll('[data-cancel-request-form]').forEach(function (form) 
       event.preventDefault();
       form.querySelector('.is-invalid')?.focus();
       return;
+    }
+    if (name && number && form.elements.refund_details_confirmed?.value !== '1') {
+      event.preventDefault();
+      const normalized = String(number.value).replace(/[\s()\-]/g, '').replace(/^09/, '+639').replace(/^9/, '+639').replace(/^639/, '+639');
+      if (!window.confirm('Confirm cancellation request\n\nReason: ' + reason.value.trim() + '\n\nRefund recipient:\n' + name.value.trim() + '\n' + normalized + '\n\nThese details cannot be changed after you send the request.')) return;
+      form.elements.refund_details_confirmed.value = '1';
     }
     if (submit) submit.disabled = true;
   });

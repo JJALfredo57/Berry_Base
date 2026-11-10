@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Services\MobileNotificationService;
 use App\Services\SellerPayoutService;
 use App\Services\PayoutReceiptScanService;
+use App\Services\OrderRefundService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,7 +42,7 @@ class PayoutController extends Controller
             'processing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['requested', 'processing'])->sum('seller_net_amount'),
             'paid' => (float) DB::table('seller_payout_ledgers')->where('status', 'paid')->sum('seller_net_amount'),
             'refund_deductions' => abs((float) DB::table('seller_payout_ledgers')->where('seller_net_amount', '<', 0)->sum('seller_net_amount')),
-            'pending_refunds' => Schema::hasTable('order_refunds') ? (int) DB::table('order_refunds')->where('status', 'pending')->count() : 0,
+            'pending_refunds' => Schema::hasTable('order_refunds') ? (int) DB::table('order_refunds')->whereIn('status', ['pending', 'pending_seller_approval', 'approved_for_admin_refund', 'processing'])->count() : 0,
         ];
 
         $shops = DB::table('shops as s')
@@ -68,7 +69,7 @@ class PayoutController extends Controller
                     ->where('seller_net_amount', '<', 0)
                     ->sum('seller_net_amount'));
                 $shop->pending_refunds = Schema::hasTable('order_refunds')
-                    ? (int) DB::table('order_refunds')->where('shop_id', $shop->id)->where('status', 'pending')->count()
+                    ? (int) DB::table('order_refunds')->where('shop_id', $shop->id)->whereIn('status', ['pending', 'pending_seller_approval', 'approved_for_admin_refund', 'processing'])->count()
                     : 0;
                 $nextClearing = DB::table('seller_payout_ledgers')
                     ->where('shop_id', $shop->id)
@@ -283,6 +284,38 @@ class PayoutController extends Controller
         if (($scan['reference_number'] ?? null) && DB::table('seller_payouts')->where('id', '<>', $payoutId)->where('reference_number', $scan['reference_number'])->exists()) $scan['errors'][] = 'This receipt reference is already linked to another payout.';
         $scan['ok'] = empty($scan['errors']);
         return response()->json($scan, $scan['ok'] ? 200 : 422);
+    }
+
+    public function scanRefundReceipt(Request $request, int $refundId)
+    {
+        $request->validate(['refund_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120']);
+        $refund = DB::table('order_refunds')->where('id', $refundId)->first();
+        if (!$refund || !in_array($refund->status, ['approved_for_admin_refund', 'processing'], true)) return response()->json(['ok' => false, 'errors' => ['This refund is not awaiting Super Admin action.']], 422);
+        $scan = $this->receiptScanner->scanRefund($request->file('refund_receipt'), $refund);
+        return response()->json($scan, $scan['ok'] ? 200 : 422);
+    }
+
+    public function markRefundSent(Request $request, int $refundId, OrderRefundService $refunds)
+    {
+        $validated = $request->validate([
+            'refund_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'reference_number' => 'required|string|min:6|max:120',
+            'admin_note' => 'nullable|string|max:500',
+        ]);
+        $refund = DB::table('order_refunds')->where('id', $refundId)->first();
+        if (!$refund || !in_array($refund->status, ['approved_for_admin_refund', 'processing'], true)) return back()->with('err', 'This refund is not awaiting Super Admin action.');
+        $order = DB::table('orders')->where('id', $refund->order_id)->first();
+        if (!$order) return back()->with('err', 'The order for this refund no longer exists.');
+        $scan = $this->receiptScanner->scanRefund($request->file('refund_receipt'), $refund);
+        if (!$scan['ok'] || !hash_equals((string) ($scan['reference_number'] ?? ''), trim($validated['reference_number']))) return back()->with('err', implode(' ', $scan['errors'] ?? ['Receipt scan validation failed.']));
+        $receiptPath = $this->uploadFile($request->file('refund_receipt'), 'uploads/refund_receipts');
+        if (!$receiptPath) return back()->with('err', 'Receipt upload failed. Please try again with a valid image.');
+        try {
+            $refunds->completeAdminRefund($order, $refund, $receiptPath, $scan, trim((string) ($validated['admin_note'] ?? '')), (string) (session('user')['id'] ?? ''), hash_file('sha256', $request->file('refund_receipt')->getRealPath()));
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
+        return back()->with('msg', "Refund #{$refundId} marked as completed.");
     }
 
     public function runAutomatic()

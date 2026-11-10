@@ -492,7 +492,7 @@
           <div style="font-size:.8rem;color:#991B1B;margin-top:.1rem">
             @if($refund && $refund->status === 'refunded')
               Refund sent. Reference: {{ $refund->reference_number ?: 'receipt uploaded' }}.
-            @elseif($refund && $refund->status === 'pending')
+            @elseif($refund && in_array($refund->status, ['pending', 'pending_seller_approval']))
               Paid cancellation/refund request is waiting for review.
             @elseif($o->deposit_status === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']))
               Cancelled with payment recorded. Check refund status before payout.
@@ -693,11 +693,11 @@
       @endif
 
       @if($refund)
-      <div style="margin-top:.65rem;background:{{ $refund->status === 'pending' ? '#fff7ed' : ($refund->status === 'refunded' ? '#ecfdf5' : '#f8fafc') }};border-radius:8px;padding:.75rem .9rem;font-size:.81rem;color:#111827;border:1px solid {{ $refund->status === 'pending' ? '#fed7aa' : ($refund->status === 'refunded' ? '#bbf7d0' : '#e5e7eb') }}">
+      <div style="margin-top:.65rem;background:{{ in_array($refund->status, ['pending', 'pending_seller_approval']) ? '#fff7ed' : ($refund->status === 'refunded' ? '#ecfdf5' : '#f8fafc') }};border-radius:8px;padding:.75rem .9rem;font-size:.81rem;color:#111827;border:1px solid {{ in_array($refund->status, ['pending', 'pending_seller_approval']) ? '#fed7aa' : ($refund->status === 'refunded' ? '#bbf7d0' : '#e5e7eb') }}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap">
           <div>
             <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#92400e;margin-bottom:.25rem">
-              {{ $refund->status === 'pending' ? 'Paid Cancellation / Refund Request' : 'Refund Status' }}
+              {{ in_array($refund->status, ['pending', 'pending_seller_approval']) ? 'Paid Cancellation / Refund Request' : 'Refund Status' }}
             </div>
             <div><strong>Refund amount:</strong> {{ number_format((float)$refund->refund_amount, 2) }}</div>
             <div><strong>GCash:</strong> {{ $refund->refund_gcash_name }} / {{ $refund->refund_gcash_number }}</div>
@@ -782,44 +782,29 @@
           <i class="bi bi-exclamation-triangle-fill"></i>
         </div>
         <div style="flex:1;min-width:260px">
-          <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">SELLER REFUND ACTION NEEDED</div>
+          <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">CANCELLATION APPROVAL NEEDED</div>
           <div style="font-size:.82rem;color:#92400e;line-height:1.5;font-weight:600">
             @if($isNoShowRefund)
-              Customer unclaimed pickup: retain the 50% deposit and refund the excess PHP {{ number_format((float)$refund->refund_amount, 2) }} only.
+              Customer unclaimed pickup: Super Admin will refund the eligible excess PHP {{ number_format((float)$refund->refund_amount, 2) }}.
             @else
-              Refund the paid amount of PHP {{ number_format((float)$refund->refund_amount, 2) }} before approving cancellation.
+              Approve to cancel immediately. Super Admin will refund PHP {{ number_format((float)$refund->refund_amount, 2) }} within 3–5 working days.
             @endif
           </div>
         </div>
       </div>
       <div class="row g-3 mt-1">
         <div class="col-lg-7">
-          <form action="{{ route('seller.orders.accept_cancel', $o->id) }}" method="POST" enctype="multipart/form-data" data-prevent-double-submit>
+          <div class="small mb-2"><strong>Locked refund recipient:</strong><br>{{ $refund->refund_gcash_name }}<br><span class="text-muted">{{ $refund->refund_gcash_number }}</span></div>
+          <form action="{{ route('seller.orders.accept_cancel', $o->id) }}" method="POST" data-prevent-double-submit>
             @csrf
-            <label class="form-label small fw-bold">Refund receipt screenshot <span class="text-danger">*</span></label>
-            <input type="file" name="refund_receipt" class="form-control form-control-sm mb-2" accept="image/*" required>
-            <div class="row g-2">
-              <div class="col-md-6">
-                <input name="refund_gcash_name" class="form-control form-control-sm" maxlength="160" placeholder="GCash account name" value="{{ $refund->refund_gcash_name ?? '' }}" required>
-              </div>
-              <div class="col-md-6">
-                <input name="refund_gcash_number" class="form-control form-control-sm" maxlength="80" inputmode="tel" placeholder="09XXXXXXXXX or +639XXXXXXXXX" value="{{ $refund->refund_gcash_number ?? '' }}" required>
-              </div>
-              <div class="col-md-5">
-                <input name="reference_number" class="form-control form-control-sm" placeholder="GCash ref no.">
-              </div>
-              <div class="col-md-7">
-                <input name="admin_note" class="form-control form-control-sm" placeholder="Note to customer" value="Cancellation approved and refund sent.">
-              </div>
-            </div>
             <button class="btn btn-success btn-sm mt-2" type="submit"
-                    data-cs-confirm="Confirm the GCash refund was sent to the listed account and the uploaded receipt is correct?"
-                    data-cs-title="Confirm Refund Sent"
-                    data-cs-ok="Save Receipt"
+                    data-cs-confirm="Approve cancellation? The order will be cancelled immediately and Super Admin will process the refund within 3–5 working days."
+                    data-cs-title="Approve Cancellation"
+                    data-cs-ok="Approve for Refund"
                     data-cs-icon="bi-cash-coin"
                     data-cs-icon-bg="#dcfce7"
                     data-cs-icon-color="#16a34a">
-              <i class="bi bi-check2-circle me-1"></i>Record Refund Sent
+              <i class="bi bi-check2-circle me-1"></i>Approve for Super Admin Refund
             </button>
           </form>
         </div>

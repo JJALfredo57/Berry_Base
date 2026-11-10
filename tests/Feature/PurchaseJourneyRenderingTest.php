@@ -90,10 +90,11 @@ class PurchaseJourneyRenderingTest extends TestCase
             'deposit_status' => 'paid', 'payment_status' => 'Partial Payment',
         ]);
         $this->post('/customer/orders/'.$order->id.'/cancel-request', [
-            'cancel_reason' => 'Changed plans', 'refund_gcash_name' => 'Test Buyer', 'refund_gcash_number' => '09172222222',
+            'cancel_reason' => 'Changed plans', 'refund_gcash_name' => 'Test Buyer', 'refund_gcash_number' => '09172222222', 'refund_details_confirmed' => '1',
         ])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'Confirmed', 'cancel_status' => 'pending']);
         $this->assertDatabaseCount('order_refunds', 1);
+        $this->assertDatabaseHas('order_refunds', ['order_id' => $order->id, 'status' => 'pending_seller_approval']);
     }
 
     public function test_customer_deposit_qr_opens_in_a_responsive_modal(): void

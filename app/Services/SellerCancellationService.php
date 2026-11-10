@@ -122,14 +122,22 @@ class SellerCancellationService
         }
 
         if (!($result['ok'] ?? false)) return $result;
+        // The seller initiated this cancellation, so no duplicate seller approval is required.
+        try {
+            $sellerId = (string) (DB::table('shops')->where('id', $result['order']->shop_id)->value('seller_id') ?? '');
+            $refunds->approveForAdminRefund($result['order'], $result['refund'], $sellerId);
+        } catch (\Throwable $e) {
+            Log::error('Seller-initiated cancellation could not enter the Super Admin refund queue.', ['order_id' => $fresh->id, 'exception' => $e]);
+            return ['ok' => false, 'message' => 'Unable to queue the refund for Super Admin. Please try again.'];
+        }
 
         try {
-            $this->notifySeller($result['order'], 'Customer accepted cancellation', "Refund details were received for Order #{$result['order']->id}. Send the refund and upload its receipt.");
+            $this->notifySeller($result['order'], 'Customer accepted cancellation', "Order #{$result['order']->id} is cancelled. Super Admin will process the customer refund.");
         } catch (\Throwable $e) {
             Log::warning('Seller cancellation response notification failed.', ['order_id' => $fresh->id, 'exception' => $e]);
         }
 
-        return ['ok' => true, 'refund' => $result['refund'], 'message' => 'Cancellation accepted. The seller will now send your refund and upload the receipt.'];
+        return ['ok' => true, 'refund' => $result['refund'], 'message' => 'Cancellation accepted. The order is cancelled and Super Admin will process the refund within 3–5 working days.'];
     }
 
     private function notifySeller(object $order, string $title, string $message): void

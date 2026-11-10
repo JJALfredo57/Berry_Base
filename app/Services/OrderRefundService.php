@@ -90,7 +90,8 @@ class OrderRefundService
                 'cancel_reason' => $data['cancel_reason'],
                 'refund_amount' => $paidAmount,
                 'payment_amount_paid' => $paidAmount,
-                'status' => 'pending',
+                'status' => 'pending_seller_approval',
+                'customer_refund_confirmed_at' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -107,7 +108,7 @@ class OrderRefundService
             DB::table('order_tracking')->insert([
                 'order_id' => $order->id,
                 'status' => $order->status,
-                'notes' => 'Cancellation and refund request submitted. Refund GCash details are waiting for seller review.',
+                'notes' => 'Cancellation and refund request submitted. Customer refund recipient details are locked while seller approval is pending.',
                 'created_at' => now(),
             ]);
 
@@ -205,6 +206,10 @@ class OrderRefundService
     public function reject(object $order, object $refund, string $note, string $role, string $userId): void
     {
         DB::transaction(function () use ($order, $refund, $note, $role, $userId) {
+            $locked = DB::table('order_refunds')->where('id', $refund->id)->lockForUpdate()->first();
+            if (!$locked || !in_array($locked->status, ['pending', 'pending_seller_approval'], true)) {
+                throw new \DomainException('This cancellation request is no longer awaiting seller review.');
+            }
             DB::table('order_refunds')->where('id', $refund->id)->update([
                 'status' => 'rejected',
                 'reviewed_by_role' => $role,
@@ -233,6 +238,62 @@ class OrderRefundService
             'event' => 'refund_rejected',
             'refund_id' => (string) $refund->id,
         ]);
+    }
+
+    /** Seller approval ends fulfilment immediately; only Super Admin can send the money. */
+    public function approveForAdminRefund(object $order, object $refund, string $userId): void
+    {
+        DB::transaction(function () use ($order, $refund, $userId) {
+            $freshOrder = DB::table('orders')->where('id', $order->id)->lockForUpdate()->first();
+            $freshRefund = DB::table('order_refunds')->where('id', $refund->id)->lockForUpdate()->first();
+            if (!$freshOrder || !$freshRefund || !in_array($freshRefund->status, ['pending', 'pending_seller_approval'], true)) {
+                throw new \DomainException('This refund is no longer awaiting seller approval.');
+            }
+            if (empty($freshRefund->refund_gcash_name) || empty($freshRefund->refund_gcash_number)) {
+                throw new \DomainException('Customer-confirmed refund details are required before approval.');
+            }
+            DB::table('order_refunds')->where('id', $refund->id)->update([
+                'status' => 'approved_for_admin_refund',
+                'seller_approved_at' => now(), 'seller_approved_by_user_id' => $userId,
+                'seller_approved_by_role' => 'seller', 'updated_at' => now(),
+            ]);
+            DB::table('orders')->where('id', $order->id)->update([
+                'status' => 'Cancelled', 'cancel_status' => 'accepted', 'cancel_requested' => 1,
+                'cancel_admin_note' => 'Approved by seller. Refund is being processed by Super Admin (3–5 working days).',
+                'updated_at' => now(),
+            ]);
+            DB::table('order_tracking')->insert(['order_id' => $order->id, 'status' => 'Cancelled', 'notes' => 'Cancellation approved. Refund processing by Super Admin has started.', 'created_at' => now()]);
+        });
+        $fresh = DB::table('orders')->where('id', $order->id)->first() ?: $order;
+        app(ProductStockService::class)->releaseForOrder($fresh);
+        app(VoucherService::class)->rollbackRedemptionForOrder((string) $order->id);
+        app(LoyaltyService::class)->rollbackRedeemForOrder((string) $order->id);
+        app(LoyaltyService::class)->rollbackEarnForOrder((string) $order->id);
+        $this->notifications->notifyOrderCustomer($fresh, 'Refund Processing', 'Your order has been cancelled. Refund processing has started; estimated time is 3–5 working days.', ['event' => 'refund_processing', 'refund_id' => (string) $refund->id]);
+        $this->notifyStaff($fresh, 'Super Admin Refund Action Required', 'A seller-approved refund is ready for Super Admin processing.', ['event' => 'admin_refund_required', 'refund_id' => (string) $refund->id]);
+    }
+
+    public function completeAdminRefund(object $order, object $refund, string $receiptPath, array $scan, ?string $note, string $userId, string $hash): void
+    {
+        DB::transaction(function () use ($order, $refund, $receiptPath, $scan, $note, $userId, $hash) {
+            $fresh = DB::table('order_refunds')->where('id', $refund->id)->lockForUpdate()->first();
+            if (!$fresh || !in_array($fresh->status, ['approved_for_admin_refund', 'processing'], true)) throw new \DomainException('Refund is not awaiting Super Admin completion.');
+            $reference = (string) ($scan['reference_number'] ?? '');
+            if (!$scan['ok'] || $reference === '') throw new \DomainException('Receipt validation failed.');
+            if (DB::table('order_refunds')->where('id', '<>', $refund->id)->where('reference_number', $reference)->exists() || DB::table('seller_payouts')->where('reference_number', $reference)->exists()) throw new \DomainException('This transaction reference was already used.');
+            DB::table('order_refunds')->where('id', $refund->id)->update([
+                'status' => 'refunded', 'receipt_path' => $receiptPath, 'reference_number' => $reference,
+                'review_note' => $note, 'receipt_uploaded_at' => now(), 'admin_refund_started_at' => $fresh->admin_refund_started_at ?: now(),
+                'admin_refund_completed_at' => now(), 'admin_refund_user_id' => $userId,
+                'refund_receipt_hash' => $hash, 'receipt_scan_status' => 'verified',
+                'receipt_scan_data' => json_encode($scan), 'receipt_scanned_at' => now(), 'updated_at' => now(),
+            ]);
+            DB::table('order_tracking')->insert(['order_id' => $order->id, 'status' => 'Refunded', 'notes' => 'Refund completed by Super Admin. Reference: ' . $reference, 'created_at' => now()]);
+        });
+        $this->createRefundLedger($order, $refund);
+        $fresh = DB::table('orders')->where('id', $order->id)->first() ?: $order;
+        $this->notifications->notifyOrderCustomer($fresh, 'Refund Completed', 'Your refund has been completed. Reference: ' . ($scan['reference_number'] ?? ''), ['event' => 'refund_sent', 'refund_id' => (string) $refund->id]);
+        $this->notifyStaff($fresh, 'Refund Completed', 'Refund completed by Super Admin.', ['event' => 'refund_sent', 'refund_id' => (string) $refund->id]);
     }
 
     public function markRefunded(object $order, object $refund, string $receiptPath, ?string $referenceNumber, string $note, string $role, string $userId, ?string $gcashName = null, ?string $gcashNumber = null): void
@@ -306,7 +367,7 @@ class OrderRefundService
     public function pendingForOrder(string $orderId): ?object
     {
         if (!Schema::hasTable('order_refunds')) return null;
-        return DB::table('order_refunds')->where('order_id', $orderId)->where('status', 'pending')->orderByDesc('id')->first();
+        return DB::table('order_refunds')->where('order_id', $orderId)->whereIn('status', ['pending', 'pending_seller_approval'])->orderByDesc('id')->first();
     }
 
     public function validateGcashNumber(string $number): bool

@@ -188,7 +188,7 @@
 
 @if(($refunds ?? collect())->count() > 0)
 <div class="card mt-4">
-  <div class="card-header"><i class="bi bi-arrow-counterclockwise me-2" style="color:#b91c1c"></i>Recent Refund Requests</div>
+  <div class="card-header"><i class="bi bi-arrow-counterclockwise me-2" style="color:#b91c1c"></i>Refund Queue</div>
   <div class="table-responsive payout-table-scroll">
     <table class="table align-middle mb-0 payout-refunds-table">
       <thead>
@@ -198,7 +198,7 @@
           <th>Status</th>
           <th>GCash</th>
           <th class="text-end">Amount</th>
-          <th>Reference</th>
+          <th>Reference / Action</th>
         </tr>
       </thead>
       <tbody>
@@ -206,10 +206,25 @@
         <tr>
           <td>#{{ $r->order_id }}</td>
           <td>{{ $r->shop_name ?? 'Shop' }}</td>
-          <td><span class="badge text-bg-{{ $r->status === 'refunded' ? 'success' : ($r->status === 'rejected' ? 'danger' : 'warning') }}">{{ ucfirst($r->status) }}</span></td>
+          <td><span class="badge text-bg-{{ $r->status === 'refunded' ? 'success' : ($r->status === 'rejected' ? 'danger' : 'warning') }}">{{ ucfirst(str_replace('_', ' ', $r->status)) }}</span></td>
           <td class="small">{{ $r->refund_gcash_name }}<br><span class="text-muted">{{ $r->refund_gcash_number }}</span></td>
           <td class="text-end fw-semibold">₱{{ number_format((float)$r->refund_amount, 2) }}</td>
-          <td class="small text-muted">{{ $r->reference_number ?: 'Pending' }}</td>
+          <td class="small">
+            @if(in_array($r->status, ['approved_for_admin_refund', 'processing']))
+              <form action="{{ route('superadmin.refunds.mark_sent', $r->id) }}" method="POST" enctype="multipart/form-data" class="refund-mark-sent-form" data-prevent-double-submit>
+                @csrf
+                <div class="payout-receipt-scan" data-scan-url="{{ route('superadmin.refunds.scan_receipt', $r->id) }}">
+                  <input type="file" name="refund_receipt" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp" required>
+                  <div class="small mt-1 payout-scan-message" aria-live="polite">Upload a GCash receipt to verify recipient, amount, and reference.</div>
+                  <input name="reference_number" class="form-control form-control-sm mt-1 payout-reference" placeholder="Scanned reference number" readonly required>
+                  <input name="admin_note" class="form-control form-control-sm mt-1" maxlength="500" placeholder="Internal note (optional)">
+                </div>
+                <button class="btn btn-success btn-sm mt-2" type="submit" disabled>Mark Refund Sent</button>
+              </form>
+            @else
+              <span class="text-muted">{{ $r->reference_number ?: 'Pending' }}</span>
+            @endif
+          </td>
         </tr>
         @endforeach
       </tbody>
@@ -450,7 +465,7 @@ document.addEventListener('DOMContentLoaded', function() {
     wrapper.after(list);
   });
   document.addEventListener('change', async event => {
-    const input = event.target.closest('input[name="payout_receipt"]');
+    const input = event.target.closest('input[name="payout_receipt"], input[name="refund_receipt"]');
     if (!input) return;
     const form = input.closest('form');
     const box = input.closest('.payout-receipt-scan');
@@ -461,7 +476,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!input.files[0]) { message.textContent = 'Select a receipt image to scan.'; return; }
     if (input.files[0].size > 5 * 1024 * 1024) { message.textContent = 'Receipt image must be 5 MB or smaller.'; message.className = 'small mt-1 payout-scan-message text-danger'; return; }
     message.textContent = 'Scanning receipt…'; message.className = 'small mt-1 payout-scan-message text-muted';
-    const body = new FormData(); body.append('payout_receipt', input.files[0]);
+    const body = new FormData(); body.append(input.name, input.files[0]);
     try {
       const response = await fetch(box.dataset.scanUrl, { method:'POST', headers:{'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '', 'Accept':'application/json'}, body });
       const data = await response.json();

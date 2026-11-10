@@ -39,7 +39,7 @@ class OrderActionService
     public function sellerSummary(string $shopId): array
     {
         $refundRequests = Schema::hasTable('order_refunds')
-            ? (int) DB::table('order_refunds')->where('shop_id', $shopId)->where('status', 'pending')->count()
+            ? (int) DB::table('order_refunds')->where('shop_id', $shopId)->whereIn('status', ['pending', 'pending_seller_approval'])->count()
             : 0;
 
         return ['refund_requests' => $refundRequests, 'total' => $refundRequests];

@@ -781,39 +781,13 @@ class OrderController extends Controller
         $refund = $refunds->pendingForOrder($id);
         if (!$refund) return back()->with('err', 'No pending refund request found for this order.');
 
-        $validated = $request->validate([
-            'refund_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
-            'reference_number' => 'nullable|string|max:120',
-            'admin_note' => 'nullable|string|max:500',
-            'refund_gcash_name' => 'required|string|min:2|max:160',
-            'refund_gcash_number' => 'required|string|max:80',
-        ], [
-            'refund_receipt.required' => 'Upload the GCash refund receipt before approving.',
-            'refund_receipt.image' => 'The refund receipt must be an image.',
-            'refund_gcash_name.required' => 'Confirm the destination GCash account name.',
-            'refund_gcash_number.required' => 'Confirm the destination GCash number.',
-        ]);
-        if (!$refunds->validateGcashNumber(trim($validated['refund_gcash_number']))) {
-            return back()->with('err', 'Enter a valid GCash refund number in 09XXXXXXXXX or +639XXXXXXXXX format.');
-        }
-
-        $receiptPath = $this->uploadFile($request->file('refund_receipt'), 'uploads/refund_receipts');
-        if (!$receiptPath) return back()->with('err', 'Receipt upload failed. Please try again.');
-
         $user = session('user');
-        $refunds->markRefunded(
-            $order,
-            $refund,
-            $receiptPath,
-            $validated['reference_number'] ?? null,
-            trim((string) ($validated['admin_note'] ?? 'Cancellation approved and refund sent.')),
-            'seller',
-            (string) ($user['id'] ?? ''),
-            trim($validated['refund_gcash_name']),
-            trim($validated['refund_gcash_number'])
-        );
-
-        return back()->with('msg', "Order #{$id} cancelled and refund receipt sent to customer tracking page.");
+        try {
+            $refunds->approveForAdminRefund($order, $refund, (string) ($user['id'] ?? ''));
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
+        return back()->with('msg', "Order #{$id} was cancelled. Super Admin will process the refund within 3–5 working days.");
     }
 
     public function rejectCancel(Request $request, string $id, OrderRefundService $refunds)

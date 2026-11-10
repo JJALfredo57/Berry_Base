@@ -623,6 +623,8 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/payouts/seller/{id}/create', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'createManual'])->name('payouts.create_manual');
     Route::post('/payouts/{id}/paid',          [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markPaid'])->name('payouts.mark_paid');
     Route::post('/payouts/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanReceipt'])->name('payouts.scan_receipt');
+    Route::post('/refunds/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRefundReceipt'])->name('refunds.scan_receipt');
+    Route::post('/refunds/{id}/mark-sent',     [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRefundSent'])->name('refunds.mark_sent');
     Route::get('/payouts/{id}/receipt-download', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'downloadReceipt'])->name('payouts.receipt_download');
     Route::get('/feedback',                    [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'index'])->name('feedback');
     Route::post('/feedback/{id}',              [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'update'])->name('feedback.update');

@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 
 class PayoutReceiptScanService
 {
@@ -27,6 +28,27 @@ class PayoutReceiptScanService
         if (!$amountMatch) $errors[] = 'The receipt amount does not match this payout.';
         if (!$accountMatch) $errors[] = 'The receipt recipient does not match the seller’s verified payout details.';
         return ['ok' => !$errors, 'reference_number' => $reference, 'errors' => $errors, 'text_length' => mb_strlen($text), 'amount_match' => $amountMatch, 'account_match' => $accountMatch];
+    }
+
+    public function scanRefund(UploadedFile $file, object $refund): array
+    {
+        $text = $this->readText($file->getRealPath());
+        $compact = preg_replace('/\s+/', ' ', strtoupper($text));
+        $reference = $this->reference($compact);
+        $amounts = $this->amounts($compact);
+        $expected = number_format((float) $refund->refund_amount, 2, '.', '');
+        $number = preg_replace('/\D/', '', (string) ($refund->refund_gcash_number ?? ''));
+        $name = strtoupper(trim((string) ($refund->refund_gcash_name ?? '')));
+        $recipientMatch = ($number !== '' && str_contains(preg_replace('/\D/', '', $compact), ltrim($number, '63')))
+            || ($name !== '' && str_contains($compact, $name));
+        $errors = [];
+        if (mb_strlen(trim($text)) < 12) $errors[] = 'The receipt image is not readable. Upload a clearer, uncropped screenshot.';
+        if (!(str_contains($compact, 'GCASH') || str_contains($compact, 'REFERENCE') || str_contains($compact, 'SUCCESSFUL'))) $errors[] = 'This image does not look like a supported GCash payment receipt.';
+        if (!$reference) $errors[] = 'No transaction reference number was found in the receipt.';
+        if (!in_array($expected, $amounts, true)) $errors[] = 'The receipt amount does not match this refund.';
+        if (!$recipientMatch) $errors[] = 'The receipt recipient does not match the locked customer refund details.';
+        if ($reference && (DB::table('order_refunds')->where('id', '<>', $refund->id)->where('reference_number', $reference)->exists() || DB::table('seller_payouts')->where('reference_number', $reference)->exists())) $errors[] = 'This transaction reference was already used.';
+        return ['ok' => !$errors, 'reference_number' => $reference, 'errors' => $errors, 'text_length' => mb_strlen($text), 'amount_match' => in_array($expected, $amounts, true), 'recipient_match' => $recipientMatch];
     }
     private function readText(string $path): string
     {

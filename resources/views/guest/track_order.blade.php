@@ -696,10 +696,15 @@
                 <i class="bi bi-cash-coin"></i>
                 <span>Order cancelled. Refund sent.</span>
               </div>
-              @elseif(($refund ?? null) && ($refund->status ?? '') === 'pending')
+              @elseif(($refund ?? null) && in_array(($refund->status ?? ''), ['pending', 'pending_seller_approval']))
               <div class="track-payment-note warning">
                 <i class="bi bi-hourglass-split"></i>
-                <span>Order cancelled. Refund request is waiting for seller review.</span>
+                <span>Cancellation request submitted. Waiting for seller approval.</span>
+              </div>
+              @elseif(($refund ?? null) && in_array(($refund->status ?? ''), ['approved_for_admin_refund', 'processing']))
+              <div class="track-payment-note warning">
+                <i class="bi bi-hourglass-split"></i>
+                <span>Order cancelled. Refund processing has started. Estimated refund time: 3–5 working days.</span>
               </div>
               @else
               <div class="track-payment-note success">
