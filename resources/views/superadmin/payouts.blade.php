@@ -295,7 +295,7 @@
 </div>
 
 <style>
-  .payout-table-scroll { display:none; }
+  .payout-table-scroll { display:none !important; }
   .payout-section-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
   .payout-attention { display:inline-flex; align-items:center; gap:.42rem; border-radius:999px; padding:.28rem .58rem; background:#fff7ed; color:#9a3412; font-size:.72rem; font-weight:800; }
   .payout-attention-dot { width:.55rem; height:.55rem; border-radius:50%; background:#f97316; box-shadow:0 0 0 0 rgba(249,115,22,.5); animation:payoutAttentionPulse 1.8s infinite; }
