@@ -188,7 +188,8 @@
 
 @if(($refunds ?? collect())->count() > 0)
 <div class="card mt-4">
-  <div class="card-header"><i class="bi bi-arrow-counterclockwise me-2" style="color:#b91c1c"></i>Refund Queue</div>
+  @php $refundActionCount = $refunds->whereIn('status', ['approved_for_admin_refund', 'processing'])->count(); @endphp
+  <div class="card-header payout-section-head"><span><i class="bi bi-arrow-counterclockwise me-2" style="color:#b91c1c"></i>Refund Queue</span>@if($refundActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $refundActionCount }} needs action</span>@endif</div>
   <div class="table-responsive payout-table-scroll">
     <table class="table align-middle mb-0 payout-refunds-table">
       <thead>
@@ -203,7 +204,7 @@
       </thead>
       <tbody>
         @foreach($refunds as $r)
-        <tr>
+        <tr class="payout-detail-trigger {{ in_array($r->status, ['approved_for_admin_refund', 'processing']) ? 'is-action-required' : '' }}" tabindex="0" role="button" aria-label="Open refund #{{ $r->order_id }} details">
           <td>#{{ $r->order_id }}</td>
           <td>{{ $r->shop_name ?? 'Shop' }}</td>
           <td><span class="badge text-bg-{{ $r->status === 'refunded' ? 'success' : ($r->status === 'rejected' ? 'danger' : 'warning') }}">{{ ucfirst(str_replace('_', ' ', $r->status)) }}</span></td>
@@ -234,7 +235,8 @@
 @endif
 
 <div class="card mt-4">
-  <div class="card-header"><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Payouts</div>
+  @php $payoutActionCount = $payouts->where('status', '!=', 'paid')->count(); @endphp
+  <div class="card-header payout-section-head"><span><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Payouts</span>@if($payoutActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $payoutActionCount }} needs action</span>@endif</div>
   <div class="table-responsive payout-table-scroll">
     <table class="table align-middle mb-0 payout-history-admin-table">
       <thead>
@@ -250,7 +252,7 @@
       </thead>
       <tbody>
         @forelse($payouts as $p)
-          <tr>
+          <tr class="payout-detail-trigger {{ $p->status !== 'paid' ? 'is-action-required' : '' }}" tabindex="0" role="button" aria-label="Open payout #{{ $p->id }} details">
             <td>#{{ $p->id }}</td>
             <td><div class="fw-semibold">{{ $p->shop_name }}</div><div class="small text-muted">{{ $p->seller_name }}</div></td>
             <td>{{ ucfirst($p->mode) }}</td>
@@ -294,6 +296,14 @@
 
 <style>
   .payout-table-scroll { border-radius:0 0 var(--radius-lg) var(--radius-lg); }
+  .payout-section-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
+  .payout-attention { display:inline-flex; align-items:center; gap:.42rem; border-radius:999px; padding:.28rem .58rem; background:#fff7ed; color:#9a3412; font-size:.72rem; font-weight:800; }
+  .payout-attention-dot { width:.55rem; height:.55rem; border-radius:50%; background:#f97316; box-shadow:0 0 0 0 rgba(249,115,22,.5); animation:payoutAttentionPulse 1.8s infinite; }
+  @keyframes payoutAttentionPulse { 70% { box-shadow:0 0 0 .42rem rgba(249,115,22,0); } 100% { box-shadow:0 0 0 0 rgba(249,115,22,0); } }
+  .payout-detail-trigger { cursor:pointer; }
+  .payout-detail-trigger.is-action-required > td { background:#fffaf0; }
+  .payout-detail-trigger.is-action-required > td:first-child { box-shadow:inset 3px 0 #f97316; }
+  .payout-detail-trigger:focus-visible { outline:3px solid color-mix(in srgb,var(--primary) 35%,transparent); outline-offset:-3px; }
   .payout-balances-table { min-width:940px !important; }
   .payout-refunds-table { min-width:720px !important; }
   .payout-history-admin-table { min-width:980px !important; }
@@ -321,7 +331,7 @@
   .payout-detail-body { overflow:auto; padding:1rem; -webkit-overflow-scrolling:touch; }
   .payout-detail-grid { display:grid; gap:.65rem; }.payout-detail-field { padding:.7rem; border-radius:10px; background:var(--gray-50); }.payout-detail-field small { display:block; margin-bottom:.22rem; color:var(--gray-500); font-weight:700; text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; }.payout-detail-field .form-control { margin-top:.45rem; }
   /* The admin sidebar narrows the usable content area before the viewport reaches phone width. */
-  @media(max-width:991px) {
+  @media(max-width:575px) {
     .payout-table-scroll { display:none; }
     .payout-mobile-list { display:grid; gap:.65rem; padding:.75rem; }
     .payout-mobile-card { width:100%; border:1px solid var(--gray-200); border-radius:12px; padding:.85rem; background:#fff; color:inherit; text-align:left; box-shadow:0 2px 7px rgba(15,23,42,.04); }
@@ -420,6 +430,18 @@ document.addEventListener('DOMContentLoaded', function() {
   const closeMobileDetail = () => { mobileDetailModal.classList.remove('is-open'); document.body.style.overflow = ''; };
   mobileDetailModal.addEventListener('click', event => { if (event.target === mobileDetailModal || event.target.closest('.btn-close,.payout-detail-footer button')) closeMobileDetail(); });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && mobileDetailModal.classList.contains('is-open')) closeMobileDetail(); });
+  const openPayoutDetails = (cells, headers, values) => {
+    const grid = mobileDetailModal.querySelector('.payout-detail-grid');
+    grid.replaceChildren();
+    cells.forEach((cell, index) => {
+      const field = document.createElement('div'); field.className = 'payout-detail-field';
+      const label = document.createElement('small'); label.textContent = headers[index] || 'Details';
+      const content = document.createElement('div'); content.innerHTML = cell.innerHTML;
+      field.append(label, content); grid.appendChild(field);
+    });
+    mobileDetailModal.querySelector('.payout-detail-title').textContent = values[0] || 'Payout details';
+    mobileDetailModal.classList.add('is-open'); document.body.style.overflow = 'hidden';
+  };
   document.querySelectorAll('.payout-table-scroll').forEach(wrapper => {
     const table = wrapper.querySelector('table');
     const headers = [...table.querySelectorAll('thead th')].map(header => header.textContent.trim() || 'Details');
@@ -448,19 +470,17 @@ document.addEventListener('DOMContentLoaded', function() {
       secondMeta.textContent = values[2] || '';
       cardMeta.append(firstMeta, secondMeta);
       card.append(cardHead, cardMeta);
-      card.addEventListener('click', () => {
-        const grid = mobileDetailModal.querySelector('.payout-detail-grid');
-        grid.replaceChildren();
-        cells.forEach((cell, index) => {
-          const field = document.createElement('div'); field.className = 'payout-detail-field';
-          const label = document.createElement('small'); label.textContent = headers[index] || 'Details';
-          const content = document.createElement('div'); content.innerHTML = cell.innerHTML;
-          field.append(label, content); grid.appendChild(field);
-        });
-        mobileDetailModal.querySelector('.payout-detail-title').textContent = values[0] || 'Payout details';
-        mobileDetailModal.classList.add('is-open'); document.body.style.overflow = 'hidden';
-      });
+      card.addEventListener('click', () => openPayoutDetails(cells, headers, values));
       list.appendChild(card);
+      if (row.classList.contains('payout-detail-trigger')) {
+        const openRow = event => {
+          if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+          if (event.target.closest('button,input,label,select,textarea,a,form')) return;
+          event.preventDefault(); openPayoutDetails(cells, headers, values);
+        };
+        row.addEventListener('click', openRow);
+        row.addEventListener('keydown', openRow);
+      }
     });
     wrapper.after(list);
   });
