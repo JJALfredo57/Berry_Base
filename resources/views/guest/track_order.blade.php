@@ -1347,7 +1347,19 @@
       if (is_array($driverImages) && !empty($driverImages[0])) $driverCakeImage = $driverImages[0];
     }
   @endphp
-  <div class="card mb-3 track-action-panel" id="delivery-message" style="border-radius:14px;overflow:hidden">
+  <div class="card mb-3" id="delivery-driver-card" style="border:1px solid #edf0f3;border-radius:14px;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.05)">
+    <div class="card-body p-3 d-flex align-items-center gap-3">
+      <div aria-hidden="true" style="width:46px;height:46px;border-radius:50%;background:#fff1eb;color:var(--primary);display:grid;place-items:center;flex:0 0 auto;font-size:1.35rem"><i class="bi bi-person-badge"></i></div>
+      <div class="flex-grow-1" style="min-width:0">
+        <div class="fw-semibold" style="font-size:.95rem">Delivery Driver</div>
+        <div class="small text-muted text-truncate">{{ $deliveryDriver->name }} · {{ $deliveryDriver->state }}</div>
+      </div>
+      @if($deliveryDriver->can_message)
+      <button type="button" aria-label="Message {{ $deliveryDriver->name }}" title="Message driver" data-delivery-message data-role="customer" data-label="{{ $deliveryDriver->name }} · Order #{{ $order->id }}" data-index="{{ route('customer.delivery_messages.index', $order->id) }}" data-send="{{ route('customer.delivery_messages.send', $order->id) }}" style="width:42px;height:42px;border:0;border-radius:50%;background:transparent;color:var(--primary);font-size:1.35rem;display:grid;place-items:center;flex:0 0 auto"><i class="bi bi-chat-dots"></i></button>
+      @endif
+    </div>
+  </div>
+  <div class="d-none" id="delivery-message">
     <div class="card-body p-3">
       <div class="small fw-bold text-uppercase mb-2" style="letter-spacing:.06em;color:var(--primary)"><i class="bi bi-truck me-1"></i>Delivery Driver</div>
       @if($deliveryDriver->can_message)
