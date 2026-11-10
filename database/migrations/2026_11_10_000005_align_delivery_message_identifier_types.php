@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
@@ -11,7 +11,14 @@ return new class extends Migration {
             return;
         }
 
-        Schema::table('delivery_messages', function (Blueprint $table) {
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE delivery_messages MODIFY order_id VARCHAR(64) NOT NULL');
+            DB::statement('ALTER TABLE delivery_messages MODIFY customer_user_id VARCHAR(64) NOT NULL');
+            DB::statement('ALTER TABLE delivery_messages MODIFY sender_id VARCHAR(64) NOT NULL');
+            return;
+        }
+
+        Schema::table('delivery_messages', function ($table) {
             $table->string('order_id', 64)->change();
             $table->string('customer_user_id', 64)->change();
             $table->string('sender_id', 64)->change();

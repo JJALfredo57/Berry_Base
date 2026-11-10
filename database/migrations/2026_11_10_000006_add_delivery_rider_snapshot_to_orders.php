@@ -13,10 +13,10 @@ return new class extends Migration {
 
         Schema::table('orders', function (Blueprint $table) {
             if (!Schema::hasColumn('orders', 'delivery_rider_id')) {
-                $table->unsignedBigInteger('delivery_rider_id')->nullable()->index()->after('rider_id');
+                $table->unsignedBigInteger('delivery_rider_id')->nullable()->index();
             }
             if (!Schema::hasColumn('orders', 'delivery_rider_name')) {
-                $table->string('delivery_rider_name', 160)->nullable()->after('delivery_rider_id');
+                $table->string('delivery_rider_name', 160)->nullable();
             }
         });
     }
