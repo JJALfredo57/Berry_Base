@@ -1356,9 +1356,15 @@
       <div class="d-flex align-items-center gap-3">
       @endif
         <div class="rounded-circle text-white fw-bold flex-shrink-0" style="width:46px;height:46px;background:var(--primary);display:grid;place-items:center">{{ strtoupper(mb_substr($deliveryDriver->name, 0, 1)) }}</div>
-        <div class="flex-grow-1"><div class="fw-bold">{{ $deliveryDriver->name }}</div><div class="small text-muted">{{ $deliveryDriver->state }}@if($deliveryDriver->can_message) · Tap to message@endif</div></div>
-        @if($deliveryDriver->can_message)<span class="btn btn-sm" style="background:var(--primary);color:#fff"><i class="bi bi-chat-dots me-1"></i>Message</span>@endif
-      @if($deliveryDriver->can_message)</button>@else</div>@endif
+        <div class="flex-grow-1"><div class="fw-bold">{{ $deliveryDriver->name }}</div><div class="small text-muted">{{ $deliveryDriver->state }}{{ $deliveryDriver->can_message ? ' · Tap to message' : '' }}</div></div>
+        @if($deliveryDriver->can_message)
+          <span class="btn btn-sm" style="background:var(--primary);color:#fff"><i class="bi bi-chat-dots me-1"></i>Message</span>
+        @endif
+      @if($deliveryDriver->can_message)
+        </button>
+      @else
+        </div>
+      @endif
       <div class="d-flex align-items-center gap-2 mt-3 pt-3" style="border-top:1px solid #f0f0f0"><img src="{{ $driverCakeImage }}" alt="{{ $order->product_name }}" style="width:42px;height:42px;object-fit:cover;border-radius:10px" onerror="this.src='https://placehold.co/42x42/fce4ec/e91e63?text=Cake'"><div class="flex-grow-1 min-w-0"><div class="small fw-semibold text-truncate">{{ $order->product_name }}</div><div class="small text-muted">Order #{{ $order->id }}</div></div><button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" data-bs-toggle="modal" data-bs-target="#deliveryDriverOrderModal">Order details</button></div>
     </div>
   </div>
