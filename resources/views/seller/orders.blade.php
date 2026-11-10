@@ -307,12 +307,14 @@
       || ($o->payment_status ?? '') === 'Partial Payment';
     $isFullPayment = (float) ($o->total_price ?? 0) > 0 && abs((float) ($o->deposit_amount ?? 0) - (float) ($o->total_price ?? 0)) < 0.01;
     $hasPaidCancelRequest = $refund && ($refund->status ?? '') === 'pending';
+    $customerCancelAwaiting = ($o->cancel_requested ?? 0) && ($o->cancel_status ?? '') === 'pending';
     $sellerCancelAwaiting = ($o->seller_cancel_state ?? '') === 'awaiting_customer'
       && !empty($o->seller_cancel_expires_at)
       && \Carbon\Carbon::parse($o->seller_cancel_expires_at)->isFuture();
     $isNoShowRefund = $refund && str_starts_with((string) ($refund->cancel_reason ?? ''), 'No-show balance refund:');
     $isCancelledOrder = ($o->status ?? '') === 'Cancelled' || ($o->cancel_status ?? '') === 'accepted';
     $needsRemittanceAction = $remittance && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected'], true);
+    $cancellationHold = $customerCancelAwaiting || $sellerCancelAwaiting || $hasPaidCancelRequest;
     $needsPickupAction = ($o->status ?? '') === 'Pickup' || $hasPaidCancelRequest || $needsRemittanceAction;
     $orderStatusLabel = ($o->status ?? '') === 'Pickup' ? 'Ready for Pickup' : (($o->status ?? '') === 'No Show' ? 'Unclaimed' : $o->status);
     $sc = match($o->status) {
@@ -836,7 +838,7 @@
     @endif
 
     {{-- Pickup Ready: Picked Up button or payment warning --}}
-    @if($o->status === 'Pickup')
+    @if($o->status === 'Pickup' && !$cancellationHold)
       @php
         // COP orders store payment_method='COP'; legacy orders may have 'COD' for pickup.
         $isCashPickup = ($o->fulfillment_type ?? 'Pickup') === 'Pickup'
@@ -1002,7 +1004,7 @@
     @endif
 
     {{-- Status Actions (non-final, non-pickup orders) --}}
-    @if(!in_array($o->status, ['Awaiting Deposit','Delivered','Picked Up','No Show','Cancelled','Pickup']))
+    @if(!$cancellationHold && !in_array($o->status, ['Awaiting Deposit','Delivered','Picked Up','No Show','Cancelled','Pickup']))
     <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fff8fb 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
       <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
         <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#fdf2f8;color:#be185d;display:flex;align-items:center;justify-content:center;flex-shrink:0">
