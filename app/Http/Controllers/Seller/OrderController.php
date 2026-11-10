@@ -463,7 +463,12 @@ class OrderController extends Controller
             return back()->with('err', 'This order has no payment. Use Cancel Order to cancel it immediately.');
         }
 
-        $result = $cancellations->start($order, trim($validated['cancel_reason']));
+        try {
+            $result = $cancellations->start($order, trim($validated['cancel_reason']));
+        } catch (\Throwable $e) {
+            \Log::error('Seller cancellation request failed.', ['order_id' => $id, 'exception' => $e]);
+            return back()->with('err', 'Unable to start the cancellation request right now. Please try again.');
+        }
         if (!($result['ok'] ?? false)) return back()->with('err', $result['message']);
 
         return back()->with('msg', 'Cancellation request sent to the customer. They have 10 minutes to accept or keep the order.');
