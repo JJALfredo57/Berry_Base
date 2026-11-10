@@ -410,6 +410,14 @@ class CheckoutController extends Controller
         $addressCodes  = app(\App\Services\PsgcService::class)->addressCodesFromRequest($request);
         $sdate         = $request->input('schedule_date') ?: null;
         $stime         = $request->input('schedule_time') ?: null;
+        if ($fulfillment !== 'Delivery') {
+            $deliveryFee = 0.0;
+            $zone = '';
+            $address = '';
+            $lat = null;
+            $lng = null;
+            $addressCodes = [];
+        }
         $cashPaymentMethod = $fulfillment === 'Delivery' ? 'COD' : 'COP';
         $payment = $request->input('payment_method', $cashPaymentMethod);
         $payment = $payment === 'GCash' ? 'GCash' : $cashPaymentMethod;

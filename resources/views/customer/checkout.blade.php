@@ -636,7 +636,15 @@ function toggleDelivery() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
   if (isDelivery && !map) initMap();
-  if (!isDelivery) deliveryFee = 0;
+  if (!isDelivery) {
+    deliveryFee = 0;
+    const feeInput = document.getElementById('deliveryFeeInput');
+    if (feeInput) feeInput.value = 0;
+    const feeRow = document.getElementById('feeRow');
+    if (feeRow) feeRow.style.display = 'none';
+    const calcBox = document.getElementById('deliveryCalcBox');
+    if (calcBox) calcBox.style.display = 'none';
+  }
   updatePaymentMethodLabel();
   updateTotal(getCurrentAddonTotal());
 }

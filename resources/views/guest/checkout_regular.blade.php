@@ -941,8 +941,9 @@ function toggleDelivery() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
   if (isDelivery && !map) initMap();
+  if (!isDelivery) clearDetectedDeliveryZone();
   updateCashPaymentCopy();
-  updateFee();
+  if (isDelivery) updateFee();
   updateRegularScheduleSlots('fieldDate','fieldTime','msgDate');
 }
 

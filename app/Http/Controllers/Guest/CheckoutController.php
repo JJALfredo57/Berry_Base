@@ -386,6 +386,15 @@ class CheckoutController extends Controller
         $sdate         = trim($request->input('schedule_date','')) ?: null;
         $stime         = trim($request->input('schedule_time','')) ?: null;
         $payment       = $request->input('payment_method','COD');
+        if ($fulfillment !== 'Delivery') {
+            $deliveryFee = 0.0;
+            $serviceCharge = 0.0;
+            $zone = '';
+            $address = '';
+            $lat = null;
+            $lng = null;
+            $addressCodes = [];
+        }
         $selectedSize  = trim($request->input('selected_size', $checkout['selected_size'] ?? ''));
         if (!empty($checkout['request_offer_checkout'])) {
             $sdate = $checkout['schedule_date'] ?? $sdate;
