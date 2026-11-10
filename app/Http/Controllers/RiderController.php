@@ -120,11 +120,12 @@ class RiderController extends Controller
             $this->syncRiderActiveBatch((int) $rider->id);
         }
         $orders = $this->riderDashboardOrders((int) $rider->id, $lat, $lng);
+        $deliveryMessageOrders = app(\App\Services\DeliveryMessageService::class)->riderSummaries((int) $rider->id, $orders);
         $unremitted = $this->riderUnremittedSummary((int) $rider->id);
         $bulkRemittance = $this->riderBulkRemittanceSummary((int) $rider->id);
         $settings = CakeshopHelper::getSettings();
 
-        return view('rider.dashboard', compact('rider', 'orders', 'unremitted', 'bulkRemittance', 'settings', 'lat', 'lng'));
+        return view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'settings', 'lat', 'lng'));
     }
 
     /** Lightweight poll target so the dashboard can refresh itself when assignments change. */

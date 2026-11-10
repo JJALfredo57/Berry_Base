@@ -492,6 +492,10 @@
   </div>
   @endif
 
+  @if(($deliveryMessageUi->assigned ?? false))
+  <div class="card mb-3 track-action-panel" id="delivery-message" style="border-radius:14px"><div class="card-body p-3 d-flex align-items-center gap-3 flex-wrap"><div class="rounded-circle text-white fw-bold" style="width:42px;height:42px;background:var(--primary);display:grid;place-items:center">{{ strtoupper(mb_substr($order->rider_name ?: 'R', 0, 1)) }}</div><div class="flex-grow-1"><div class="small text-muted">{{ ($deliveryMessageUi->accepted ?? false) ? 'Your rider' : 'Rider assigned' }}</div><div class="fw-bold">{{ $order->rider_name ?: 'Assigned rider' }}</div><div class="small text-muted">{{ ($deliveryMessageUi->accepted ?? false) ? 'Out for delivery' : 'Awaiting rider confirmation' }}</div></div>@if($deliveryMessageUi->can_message ?? false)<button type="button" class="btn btn-sm" style="background:var(--primary);color:#fff" data-delivery-message data-role="customer" data-label="{{ $order->rider_name ?: 'Your rider' }} · Order #{{ $order->id }}" data-index="{{ route('customer.delivery_messages.index', $order->id) }}" data-send="{{ route('customer.delivery_messages.send', $order->id) }}"><i class="bi bi-chat-dots me-1"></i>Message rider</button>@elseif($deliveryMessageUi->guest ?? false)<a class="btn btn-sm btn-outline-secondary" href="{{ route('login') }}">Sign in to message rider</a>@endif</div></div>
+  @endif
+
   {{-- Progress Bar (non-cancelled) --}}
   @if(!in_array($order->status, ['Cancelled', 'No Show'], true))
   @php
@@ -3196,6 +3200,8 @@ document.querySelectorAll('[data-seller-cancel-countdown]').forEach(function (ca
 // Auto-highlight stars on load
 setRating(5);
 </script>
+
+@include('partials.delivery_message_popup')
 
 @push('scripts')
 @endpush

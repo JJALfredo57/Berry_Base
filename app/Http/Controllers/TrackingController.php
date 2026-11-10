@@ -197,8 +197,9 @@ class TrackingController extends Controller
         $order = DB::table('orders as o')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+            ->leftJoin('riders as r', 'r.id', '=', 'o.rider_id')
             ->where('o.track_code', strtoupper($trackCode))
-            ->select('o.*', 'p.name as product_name', 'p.image_path', 'p.classification', 'u.fullname as user_fullname')
+            ->select('o.*', 'p.name as product_name', 'p.image_path', 'p.classification', 'u.fullname as user_fullname', 'r.name as rider_name')
             ->first();
 
         if (!$order) abort(404, 'Order not found. Please check your tracking link.');
@@ -244,9 +245,20 @@ class TrackingController extends Controller
         }
 
         $refund = app(OrderRefundService::class)->latestForOrder((string) $order->id);
+        $customer = session('user');
+        $deliveryMessageUi = (object) [
+            'assigned' => ($order->fulfillment_type ?? '') === 'Delivery' && !empty($order->rider_id),
+            'accepted' => ($order->rider_assignment_status ?? '') === 'accepted',
+            'can_message' => ($order->fulfillment_type ?? '') === 'Delivery'
+                && ($order->rider_assignment_status ?? '') === 'accepted'
+                && ($order->status ?? '') === 'Out for Delivery'
+                && is_array($customer) && ($customer['role'] ?? '') === 'customer'
+                && (string) ($customer['id'] ?? '') === (string) ($order->user_id ?? ''),
+            'guest' => !is_array($customer),
+        ];
 
         return view('guest.track_order', compact(
-            'order','tracking','addons','orderItems','customOrder','checkoutGroupOrders','statusSteps','currentStep','recentReceipts','receiptCount','refund'
+            'order','tracking','addons','orderItems','customOrder','checkoutGroupOrders','statusSteps','currentStep','recentReceipts','receiptCount','refund','deliveryMessageUi'
         ));
     }
 

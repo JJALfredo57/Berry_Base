@@ -310,6 +310,9 @@ class MobileNotificationService
             if ($event === 'message' && !empty($order->id)) {
                 return route('customer.messages.thread', $order->id, false);
             }
+            if ($event === 'delivery_message' && !empty($order->track_code)) {
+                return route('track.order', $order->track_code, false) . '#delivery-message';
+            }
 
             return route('customer.orders', [], false) . $this->eventHash($event);
         }

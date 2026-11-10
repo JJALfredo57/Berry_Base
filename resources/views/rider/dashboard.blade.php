@@ -222,6 +222,8 @@
         </div>
       </section>
 
+      <section class="section" aria-label="Customer messages"><div class="section-head"><h2><i class="bi bi-chat-dots" style="color:var(--primary)"></i>Customer messages</h2></div><div class="list">@forelse($deliveryMessageOrders as $messageOrder)<article class="order" id="delivery-message-{{ $messageOrder->id }}"><div class="order-head"><div><div class="order-id">Order #{{ $messageOrder->id }}</div><div class="product">{{ $messageOrder->customer_display_name ?: 'Customer' }}</div><div class="small text-muted mt-1">{{ $messageOrder->delivery_last_message ?: ($messageOrder->delivery_last_image ? 'Image attachment' : 'No messages yet') }}</div></div><button type="button" class="btn btn-outline" style="width:auto" data-delivery-message data-role="rider" data-label="{{ $messageOrder->customer_display_name ?: 'Customer' }} · Order #{{ $messageOrder->id }}" data-index="{{ route('rider.delivery_messages.index', $messageOrder->id) }}" data-send="{{ route('rider.delivery_messages.send', $messageOrder->id) }}">Open conversation @if($messageOrder->delivery_unread_count)<span class="count-pill">{{ $messageOrder->delivery_unread_count }}</span>@endif</button></div></article>@empty<div class="empty"><i class="bi bi-chat-square-text"></i><div class="t">No customer messages</div><div>Messages for active deliveries will appear here.</div></div>@endforelse</div></section>
+
       <section class="section" aria-label="COD remittance">
         <div class="section-head"><h2><i class="bi bi-wallet2" style="color:var(--primary)"></i>COD remittance</h2></div>
         <details class="remit-hub" {{ ($bulkRemittance['ready_count'] > 0 || $bulkRemittance['active_batch'] || $unremitted['rejected'] > 0) ? 'open' : '' }}>
@@ -317,6 +319,7 @@
 
   <div class="toast-stack" id="toasts" aria-live="polite"></div>
 
+  @include('partials.delivery_message_popup')
   <script>
     const FEED_URL = @json(route('rider.dashboard.feed'));
     const POLL_MS = 5000;

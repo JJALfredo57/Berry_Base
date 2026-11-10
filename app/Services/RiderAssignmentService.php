@@ -52,7 +52,7 @@ class RiderAssignmentService
             return ['ok' => false, 'message' => $this->alreadyAssignedMessage($orderId)];
         }
 
-        $this->track($orderId, 'Rider Assignment Pending', "Assigned to rider: {$rider->name}. Waiting for rider confirmation.");
+        $this->track($orderId, 'Rider Assignment Pending', "Rider assigned: {$rider->name}. Waiting for rider confirmation.");
 
         $freshOrder = DB::table('orders')->where('id', $orderId)->first() ?: $order;
         $url = route('rider.show', [$orderId, $token], false);
@@ -215,7 +215,7 @@ class RiderAssignmentService
 
         $riderName = DB::table('riders')->where('id', $order->rider_id)->value('name') ?: 'Rider';
         $this->track((string) $order->id, 'Rider Accepted Delivery', "{$riderName} accepted the delivery assignment.");
-        $this->track((string) $order->id, 'Out for Delivery', "{$riderName} is now out for delivery.");
+        $this->track((string) $order->id, 'Out for Delivery', "{$riderName} is on the way.");
         $this->notifySeller($order, 'Rider Accepted Delivery', "{$riderName} accepted Order #{$order->id}.", 'rider_assignment_accepted');
         try {
             $freshOrder = DB::table('orders')->where('id', $order->id)->first() ?: $order;

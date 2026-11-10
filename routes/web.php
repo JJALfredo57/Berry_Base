@@ -314,6 +314,9 @@ Route::get('/rider/password/setup', [\App\Http\Controllers\RiderController::clas
 Route::post('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetupUpdate'])->name('rider.password.setup.update');
 Route::get('/rider/dashboard', [\App\Http\Controllers\RiderController::class, 'dashboard'])->name('rider.dashboard');
 Route::get('/rider/dashboard/feed', [RiderController::class, 'dashboardFeed'])->name('rider.dashboard.feed');
+Route::get('/rider/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'riderIndex'])->name('rider.delivery_messages.index');
+Route::post('/rider/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'riderSend'])->name('rider.delivery_messages.send');
+Route::post('/rider/orders/{orderId}/delivery-messages/read', [\App\Http\Controllers\DeliveryMessageController::class, 'riderRead'])->name('rider.delivery_messages.read');
 Route::post('/rider/logout', [\App\Http\Controllers\RiderController::class, 'logout'])->name('rider.logout');
 Route::post('/rider/remittance/bulk/paymongo-qr', [\App\Http\Controllers\RiderController::class, 'generateBulkRemittanceQr'])->name('rider.remittance.bulk.qr');
 Route::post('/rider/remittance/bulk/check-paymongo', [\App\Http\Controllers\RiderController::class, 'checkBulkRemittanceQr'])->name('rider.remittance.bulk.check');
@@ -408,6 +411,10 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::post('/messages/mark-read-msg/{id}',       [CustomerMessage::class, 'markReadMsg'])->name('messages.mark_read_msg');
     Route::post('/messages/mark-order-read/{orderId}',[CustomerMessage::class, 'markOrderRead'])->name('messages.mark_order_read');
     Route::post('/messages/read-statuses',             [CustomerMessage::class, 'readStatuses'])->name('messages.read_statuses');
+
+    Route::get('/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'customerIndex'])->name('delivery_messages.index');
+    Route::post('/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'customerSend'])->name('delivery_messages.send');
+    Route::post('/orders/{orderId}/delivery-messages/read', [\App\Http\Controllers\DeliveryMessageController::class, 'customerRead'])->name('delivery_messages.read');
 
     Route::get('/profile',         [CustomerProfile::class, 'show'])->name('profile');
     Route::post('/profile/update', [CustomerProfile::class, 'update'])->name('profile.update');
