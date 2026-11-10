@@ -965,9 +965,10 @@ function onPinSet(lat, lng) {
     const km    = dist / 1000;
     const fee   = calcFee(dist);
     const mins  = calcEtaMinutes(dist);
-    deliveryFee = fee;
+    const isDelivery = document.querySelector('[name=fulfillment_type]:checked')?.value === 'Delivery';
+    deliveryFee = isDelivery ? fee : 0;
 
-    document.getElementById('deliveryFeeInput').value = fee;
+    document.getElementById('deliveryFeeInput').value = deliveryFee;
 
     // Distance
     document.getElementById('distDisplay').textContent =
@@ -1010,7 +1011,8 @@ function onPinSet(lat, lng) {
     // Update summary panel fee row
     const feeRow = document.getElementById('feeRow');
     if (feeRow) {
-      feeRow.style.display = fee > 0 ? 'flex' : 'none';
+      if (isDelivery && fee > 0) feeRow.style.display = 'flex';
+      else feeRow.style.setProperty('display', 'none', 'important');
       const feeDisp = document.getElementById('feeDisplay');
       if (feeDisp) feeDisp.textContent = '₱' + fee.toFixed(2);
     }
