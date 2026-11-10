@@ -326,12 +326,13 @@
   .payout-mobile-list { gap:0; padding:0; }
   .payout-mobile-card { width:100%; min-height:64px; border:0; border-bottom:1px solid var(--gray-100); border-radius:0; padding:.9rem 1rem; background:transparent; color:inherit; text-align:left; box-shadow:none; transition:background .16s ease, transform .16s ease; }
   .payout-mobile-card:last-child { border-bottom:0; }
-  .payout-mobile-card:hover { background:#f8fafc; }
+  .payout-mobile-card:hover { background:color-mix(in srgb,var(--primary) 6%,#fff); transform:translateY(-2px); box-shadow:0 8px 18px rgba(15,23,42,.08); }
+  .payout-mobile-card:hover .bi-chevron-right { color:var(--primary); transform:translateX(3px); }
   .payout-mobile-card:focus-visible { outline:3px solid color-mix(in srgb,var(--primary) 32%,transparent); outline-offset:-3px; }
   .payout-mobile-card-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
   .payout-mobile-card-title { font-weight:800; color:var(--gray-900); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .payout-mobile-card-head .bi-chevron-right { color:var(--gray-400); font-size:.85rem; flex:0 0 auto; }
-  .payout-mobile-card-meta { display:flex; align-items:center; gap:.55rem; margin-top:.26rem; min-width:0; color:var(--gray-600); font-size:.79rem; }
+  .payout-mobile-card-head .bi-chevron-right { color:var(--gray-400); font-size:.85rem; flex:0 0 auto; transition:transform .16s ease,color .16s ease; }
+  .payout-mobile-card-meta { display:flex; align-items:center; gap:.55rem; width:100%; max-width:100%; overflow:hidden; margin-top:.26rem; min-width:0; color:var(--gray-600); font-size:.79rem; }
   .payout-mobile-card-meta span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .payout-mobile-card-meta span:first-child { flex:1 1 auto; }
   .payout-mobile-card.has-status .payout-mobile-card-meta span:last-child { flex:0 1 auto; border-radius:999px; padding:.16rem .45rem; background:#f1f5f9; color:#475569; font-size:.68rem; font-weight:800; }
@@ -344,6 +345,7 @@
   .payout-detail-grid { display:grid; gap:.65rem; }.payout-detail-field { padding:.7rem; border-radius:10px; background:var(--gray-50); }.payout-detail-field small { display:block; margin-bottom:.22rem; color:var(--gray-500); font-weight:700; text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; }.payout-detail-field .form-control { margin-top:.45rem; }
   .payout-mobile-card.is-action-required { background:#fffaf0; box-shadow:inset 3px 0 #f97316; }
   .payout-mobile-card.is-action-required .payout-mobile-card-title::before { content:''; display:inline-block; width:.55rem; height:.55rem; margin-right:.45rem; border-radius:50%; background:#f97316; vertical-align:middle; }
+  @media (hover:none) { .payout-mobile-card:hover { transform:none; box-shadow:none; } }
   /* The admin sidebar narrows the usable content area before the viewport reaches phone width. */
   @media(max-width:575px) {
     .payout-balances-table { min-width:900px !important; }
@@ -454,6 +456,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.payout-table-scroll').forEach(wrapper => {
     const table = wrapper.querySelector('table');
     const headers = [...table.querySelectorAll('thead th')].map(header => header.textContent.trim() || 'Details');
+    const isSellerBalances = headers.includes('Payout Details');
     const list = document.createElement('div');
     list.className = 'payout-mobile-list';
     const cards = [];
@@ -478,9 +481,11 @@ document.addEventListener('DOMContentLoaded', function() {
       const cardMeta = document.createElement('div');
       cardMeta.className = 'payout-mobile-card-meta';
       const firstMeta = document.createElement('span');
-      firstMeta.textContent = values[1] || '';
+      firstMeta.textContent = isSellerBalances
+        ? (String(values[1] || '').includes('No payout details') ? 'Payout details needed' : 'Payout details verified')
+        : (values[1] || '');
       const secondMeta = document.createElement('span');
-      secondMeta.textContent = values[2] || '';
+      secondMeta.textContent = isSellerBalances ? (values[3] ? 'Available ' + values[3] : '') : (values[2] || '');
       cardMeta.append(firstMeta, secondMeta);
       card.append(cardHead, cardMeta);
       card.addEventListener('click', () => openPayoutDetails(cells, headers, values));
