@@ -2,7 +2,7 @@
 @section('content')
 <div class="container-fluid py-4 cart-page-shell">
   <style>
-    .cart-page-shell{max-width:1540px;margin-inline:auto;padding-inline:clamp(.15rem,1.5vw,1rem)}
+    .cart-page-shell{max-width:1540px;margin-inline:auto;padding-inline:clamp(.15rem,1.5vw,1rem);padding-bottom:calc(116px + env(safe-area-inset-bottom))}
     .cart-page-head{padding:1rem 1.1rem;border:1px solid color-mix(in srgb,var(--primary) 16%,#e5e7eb);border-radius:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--primary-bg) 72%,#fff),#fff);box-shadow:0 10px 30px rgba(15,23,42,.05)}
     .cart-title-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--primary),var(--primary-dark));box-shadow:0 8px 18px color-mix(in srgb,var(--primary) 24%,transparent);flex:0 0 auto}
     .cart-add-more{display:inline-flex;align-items:center;gap:.65rem;min-height:44px;padding:.55rem .9rem;border:1px solid color-mix(in srgb,var(--primary) 28%,#fff);border-radius:13px;background:#fff;color:var(--primary);font-weight:750;text-decoration:none;box-shadow:0 7px 18px color-mix(in srgb,var(--primary) 10%,transparent);transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
@@ -32,8 +32,9 @@
     .cart-item-price{color:var(--primary);white-space:nowrap;padding:.3rem .55rem;border-radius:9px;background:var(--primary-bg)}
     .cart-shop-footer{padding:1rem;background:#fcfcfd;border-top:1px solid #f1f5f9}
     .cart-checkout-btn{min-height:42px;border-radius:11px;padding-inline:1rem;font-weight:750;box-shadow:0 7px 16px color-mix(in srgb,var(--primary) 18%,transparent)}
-    .cart-summary-card{border:1px solid color-mix(in srgb,var(--primary) 14%,#e5e7eb);border-radius:18px;box-shadow:0 10px 30px rgba(15,23,42,.06);overflow:hidden}
-    .cart-summary-title{display:flex;align-items:center;gap:.6rem;padding-bottom:.75rem;margin-bottom:.75rem;border-bottom:1px solid #f1f5f9}
+    .cart-rewards-note{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.1rem;border:1px solid #e5e7eb;border-radius:15px;background:#f8fafc}
+    .cart-selection-bar{position:fixed;z-index:1025;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.8rem clamp(14px,4vw,28px) calc(.8rem + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid color-mix(in srgb,var(--primary) 18%,#e5e7eb);box-shadow:0 -8px 24px rgba(15,23,42,.08)}
+    .cart-selection-meta{min-width:0}.cart-selection-total{color:var(--primary);font-size:clamp(1rem,2.8vw,1.2rem);white-space:nowrap}
     .cart-empty-card{border:1px dashed color-mix(in srgb,var(--primary) 28%,#cbd5e1);border-radius:18px;background:linear-gradient(145deg,#fff,var(--primary-bg));box-shadow:none}
     .cart-qty-wrap{display:flex;flex-direction:column;gap:.35rem}
     .cart-qty-control{display:inline-grid;grid-template-columns:38px minmax(54px,70px) 38px;align-items:center;border:1px solid #e5e7eb;border-radius:999px;overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.04)}
@@ -71,7 +72,7 @@
       .cart-item-img{width:68px!important;height:68px!important}
       .cart-item-title-row{flex-direction:column;gap:.35rem}.cart-item-price{font-size:.82rem}
       .cart-shop-footer{align-items:stretch!important}.cart-shop-footer form,.cart-checkout-btn{width:100%}
-      .cart-summary-card{position:static!important}.cart-select-label{font-size:.66rem}
+      .cart-select-label{font-size:.66rem}.cart-selection-bar{align-items:flex-start;gap:.65rem;padding-top:.7rem;padding-bottom:calc(.7rem + env(safe-area-inset-bottom))}
     }
     @media(max-width:374.98px){.cart-shop-head{padding:.8rem .65rem!important}.cart-shop-head-grid{grid-template-columns:26px minmax(0,1fr)}.cart-group-item{padding:.8rem .65rem}.cart-item-layout{grid-template-columns:26px 60px minmax(0,1fr);gap:.5rem}.cart-item-img{width:60px!important;height:60px!important}.cart-page-head{padding:.85rem}}
     @media(prefers-reduced-motion:reduce){.cart-add-more,.cart-check{transition-duration:.01ms!important}.cart-add-more:hover{transform:none}}
@@ -90,8 +91,7 @@
   @if(session('msg'))<div class="alert alert-success border-0">{{ session('msg') }}</div>@endif
   @if(session('error'))<div class="alert alert-danger border-0">{{ session('error') }}</div>@endif
 
-  <div class="row g-3">
-    <div class="col-lg-8">
+  <div class="cart-list">
       @forelse(($groups ?? collect()) as $group)
         @php $checkoutFormId = 'customerCartCheckout' . $loop->iteration; @endphp
         <div class="cart-shop-card mb-3" data-cart-group="{{ $checkoutFormId }}">
@@ -265,30 +265,33 @@
           </div>
         </div>
       @endforelse
-    </div>
-
-    <div class="col-lg-4">
-      <div class="card cart-summary-card position-sticky" style="top:1rem">
-        <div class="card-body">
-          <div class="cart-summary-title"><span class="cart-add-more-icon"><i class="bi bi-receipt"></i></span><div><div class="fw-bold">Cart Summary</div><div class="text-muted" style="font-size:.72rem">All cakes currently saved</div></div></div>
-          <div class="d-flex justify-content-between small text-muted mb-2"><span>Items</span><span>{{ $items->sum('quantity') }}</span></div>
-          <div class="d-flex justify-content-between mb-3"><span class="fw-semibold">Subtotal</span><span class="fw-bold">PHP {{ number_format($subtotal, 2) }}</span></div>
-          <div class="rounded-3 p-3 mb-3" style="background:#f8fafc;border:1px solid #e5e7eb">
-            <div class="small fw-semibold"><i class="bi bi-stars me-1" style="color:var(--primary)"></i>{{ (int)($loyalty->points_balance ?? 0) > 0 ? 'Membership Level' : 'Starting Level' }}: {{ $loyalty->tier ?? 'Bronze' }}</div>
-            <div class="text-muted small">{{ (int)($loyalty->points_balance ?? 0) }} available points</div>
-          </div>
-          @if($verificationStatus !== 'approved')
-            <a href="{{ route('customer.verification') }}" class="btn btn-outline-primary w-100 btn-sm">
-              <i class="bi bi-shield-check me-1"></i>Unlock verified rewards
-            </a>
-          @else
-            <div class="alert alert-success py-2 small mb-0"><i class="bi bi-patch-check-fill me-1"></i>Verified benefits unlocked.</div>
-          @endif
+    @if(($items ?? collect())->isNotEmpty())
+      <div class="cart-rewards-note mt-3">
+        <div>
+          <div class="small fw-semibold"><i class="bi bi-stars me-1" style="color:var(--primary)"></i>{{ (int)($loyalty->points_balance ?? 0) > 0 ? 'Membership Level' : 'Starting Level' }}: {{ $loyalty->tier ?? 'Bronze' }}</div>
+          <div class="text-muted small">{{ (int)($loyalty->points_balance ?? 0) }} available points</div>
         </div>
+        @if($verificationStatus !== 'approved')
+          <a href="{{ route('customer.verification') }}" class="btn btn-outline-primary btn-sm flex-shrink-0"><i class="bi bi-shield-check me-1"></i>Unlock rewards</a>
+        @else
+          <span class="small text-success fw-semibold"><i class="bi bi-patch-check-fill me-1"></i>Verified benefits unlocked</span>
+        @endif
       </div>
-    </div>
+    @endif
   </div>
 </div>
+@if(($items ?? collect())->isNotEmpty())
+  <div class="cart-selection-bar" aria-live="polite">
+    <div class="cart-selection-meta">
+      <div class="fw-bold">Cart Summary</div>
+      <div class="text-muted small" data-cart-selection-count>0 selected</div>
+    </div>
+    <div class="text-end">
+      <div class="text-muted small">Selected subtotal</div>
+      <div class="fw-bold cart-selection-total" data-cart-selection-total>PHP 0.00</div>
+    </div>
+  </div>
+@endif
 <div class="cart-fixed-dialog" id="cartQtyDialog" role="dialog" aria-modal="true" aria-labelledby="cartQtyDialogTitle">
   <div class="cart-dialog-card">
     <div class="cart-dialog-body">
@@ -530,6 +533,22 @@ document.addEventListener('DOMContentLoaded', function () {
       selectAll.setAttribute('aria-checked', selectAll.indeterminate ? 'mixed' : String(selectAll.checked));
     }
     checks.forEach(check => check.closest('.cart-group-item')?.classList.toggle('is-selected', check.checked));
+    refreshCartSelectionBar();
+  }
+
+  function refreshCartSelectionBar() {
+    const selected = Array.from(document.querySelectorAll('.cart-item-check:checked'));
+    const selectedQty = selected.reduce((sum, check) => sum + (parseInt(check.dataset.itemQuantity || '0', 10) || 0), 0);
+    const selectedTotal = selected.reduce((sum, check) => sum + (parseFloat(check.dataset.itemSubtotal || '0') || 0), 0);
+    const count = document.querySelector('[data-cart-selection-count]');
+    const total = document.querySelector('[data-cart-selection-total]');
+
+    if (count) {
+      count.textContent = selected.length
+        ? selected.length + ' selected cake option' + (selected.length > 1 ? 's' : '') + ' • ' + selectedQty + ' item' + (selectedQty > 1 ? 's' : '')
+        : 'No cakes selected';
+    }
+    if (total) total.textContent = money(selectedTotal);
   }
 
   document.querySelectorAll('.cart-item-check').forEach(check => {
