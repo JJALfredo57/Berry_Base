@@ -2,16 +2,16 @@
 <style>
   .dm-modal{position:fixed;inset:0;z-index:1080;display:none;align-items:center;justify-content:center;padding:12px;background:#11182799}
   .dm-modal.open{display:flex}.dm-dialog{width:min(660px,100%);height:min(760px,calc(100dvh - 24px));display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:var(--bs-body-bg,#fff);border-radius:18px;box-shadow:0 24px 60px #0004;overflow:hidden}
-  .dm-head,.dm-compose{padding:14px 16px}.dm-head{border-bottom:1px solid var(--bs-border-color,#e5e7eb)}.dm-compose{border-top:1px solid var(--bs-border-color,#e5e7eb)}
+  .dm-head,.dm-compose,.dm-list{min-width:0}.dm-head,.dm-compose{padding:14px 16px}.dm-head{border-bottom:1px solid var(--bs-border-color,#e5e7eb)}.dm-compose{border-top:1px solid var(--bs-border-color,#e5e7eb)}
   .dm-list{min-height:0;overflow:auto;padding:16px;display:grid;align-content:start;gap:10px;background:var(--bs-tertiary-bg,#fafafa)}.dm-bubble{max-width:82%;padding:10px 12px;border:1px solid var(--bs-border-color,#e5e7eb);border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere}.dm-bubble.mine{margin-left:auto;background:var(--primary,#7B3A0F);color:#fff;border-color:transparent}.dm-bubble img{max-width:100%;margin-top:8px;border-radius:10px;display:block}.dm-time{font-size:11px;opacity:.72;margin-top:5px}
-  .dm-row{display:flex;gap:8px}.dm-row textarea{flex:1;min-width:0;border:1px solid #d1d5db;border-radius:12px;padding:10px;font:inherit;resize:none}.dm-send,.dm-close,.dm-back{border:0;cursor:pointer}.dm-send{background:var(--primary,#7B3A0F);color:#fff;border-radius:12px;padding:10px 14px;font-weight:700}.dm-close{border-radius:50%;width:38px;height:38px}.dm-back{background:transparent;color:var(--bs-secondary-color,#4b5563);font-weight:700;padding:6px 0}.dm-quick{display:flex;overflow:auto;gap:7px;margin:8px 0}.dm-quick button{white-space:nowrap;border:1px solid #d1d5db;background:var(--bs-body-bg,#fff);border-radius:999px;padding:6px 9px;font-size:12px;cursor:pointer}
+  .dm-row{display:flex;min-width:0;gap:8px}.dm-row textarea{flex:1;min-width:0;border:1px solid #d1d5db;border-radius:12px;padding:10px;font:inherit;resize:none}.dm-send,.dm-close,.dm-back{border:0;cursor:pointer;flex:0 0 auto}.dm-send{background:var(--primary,#7B3A0F);color:#fff;border-radius:12px;padding:10px 14px;font-weight:700}.dm-close{border-radius:50%;width:38px;height:38px}.dm-back{background:transparent;color:var(--bs-secondary-color,#4b5563);font-weight:700;padding:6px 0}.dm-quick{display:flex;max-width:100%;overflow:auto;gap:7px;margin:8px 0}.dm-quick button{white-space:nowrap;border:1px solid #d1d5db;background:var(--bs-body-bg,#fff);border-radius:999px;padding:6px 9px;font-size:12px;cursor:pointer}
   @media (max-width:575.98px){.dm-modal{padding:8px}.dm-dialog{height:calc(100dvh - 16px);border-radius:14px}.dm-head,.dm-compose{padding:12px}.dm-quick{margin:6px 0}.dm-send{padding:10px 12px}}
 </style>
 <div class="dm-modal" id="deliveryMessageModal" aria-hidden="true">
   <section class="dm-dialog" role="dialog" aria-modal="true" aria-labelledby="deliveryMessageTitle" tabindex="-1">
     <header class="dm-head d-flex align-items-center gap-2">
       <button type="button" class="dm-back" aria-label="Back to order" data-dm-close><i class="bi bi-arrow-left"></i></button>
-      <div class="flex-grow-1"><strong id="deliveryMessageTitle">Delivery messages</strong><div class="small text-muted" id="deliveryMessageSubtitle"></div></div>
+      <div class="flex-grow-1" style="min-width:0"><strong id="deliveryMessageTitle">Delivery messages</strong><div class="small text-muted text-truncate" id="deliveryMessageSubtitle"></div></div>
       <button type="button" class="dm-close" aria-label="Close messages" data-dm-close><i class="bi bi-x-lg"></i></button>
     </header>
     <div class="dm-list" id="deliveryMessageList" aria-live="polite"></div>
