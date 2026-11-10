@@ -21,7 +21,11 @@ class OrderRefundValidationTest extends TestCase
 
         $this->assertTrue($service->validateGcashNumber('09171234567'));
         $this->assertTrue($service->validateGcashNumber('+639171234567'));
+        $this->assertTrue($service->validateGcashNumber('9171234567'));
+        $this->assertTrue($service->validateGcashNumber('+63 917-123-4567'));
+        $this->assertSame('+639171234567', $service->normalizeGcashNumber('0917 123 4567'));
         $this->assertFalse($service->validateGcashNumber('0917123456'));
+        $this->assertFalse($service->validateGcashNumber('+629171234567'));
         $this->assertFalse($service->validateGcashNumber('abc09171234567'));
     }
 }

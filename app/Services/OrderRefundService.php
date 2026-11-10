@@ -311,7 +311,17 @@ class OrderRefundService
 
     public function validateGcashNumber(string $number): bool
     {
-        return (bool) preg_match('/^(09\d{9}|\+639\d{9})$/', trim($number));
+        return $this->normalizeGcashNumber($number) !== null;
+    }
+
+    public function normalizeGcashNumber(string $number): ?string
+    {
+        $number = preg_replace('/[\s()\-]+/', '', trim($number));
+        if (preg_match('/^09\d{9}$/', $number)) return '+63' . substr($number, 1);
+        if (preg_match('/^9\d{9}$/', $number)) return '+63' . $number;
+        if (preg_match('/^639\d{9}$/', $number)) return '+' . $number;
+        if (preg_match('/^\+639\d{9}$/', $number)) return $number;
+        return null;
     }
 
     public function validateGcashAccountName(string $name): bool
@@ -319,11 +329,11 @@ class OrderRefundService
         $name = trim((string) preg_replace('/\s+/', ' ', $name));
         if (!preg_match("/^[\p{L}][\p{L} .'-]*$/u", $name)) return false;
 
-        $parts = array_values(array_filter(preg_split('/\s+/', str_replace(['.', "'", '-'], ' ', $name)) ?: []));
+        $parts = array_values(array_filter(preg_split('/\s+/', $name) ?: []));
         if (count($parts) < 2 || strlen($name) < 5) return false;
 
         foreach ($parts as $part) {
-            if (mb_strlen($part) < 2) return false;
+            if (mb_strlen((string) preg_replace('/[^\p{L}]/u', '', $part)) < 2) return false;
         }
 
         return true;

@@ -336,9 +336,13 @@ class OrderController extends Controller
     public function requestCancel(Request $request, string $id, OrderRefundService $refunds, SellerCancellationService $cancellations)
     {
         $uid    = session('user')['id'];
-        $reason = trim($request->input('cancel_reason', ''));
-
-        if (!$reason) return back()->with('error', 'Please provide a reason for cancellation.');
+        $validatedReason = $request->validate([
+            'cancel_reason' => ['required', 'string', 'min:5', 'max:500'],
+        ], [
+            'cancel_reason.required' => 'Please provide a reason for cancellation.',
+            'cancel_reason.min' => 'Cancellation reason must be at least 5 characters.',
+        ]);
+        $reason = trim($validatedReason['cancel_reason']);
 
         $cancellations->expirePending(null, (string) $uid);
         $order = DB::table('orders')->where('id', $id)->where('user_id', $uid)->first();
@@ -371,18 +375,26 @@ class OrderController extends Controller
 
         if ($refunds->hasPaidAmount($order)) {
             $validated = $request->validate([
-                'refund_gcash_name' => 'required|string|min:2|max:160',
-                'refund_gcash_number' => ['required', 'string', 'max:80', 'regex:/^[0-9+()\\-\\s]+$/'],
+                'refund_gcash_name' => ['required', 'string', 'max:160', function ($attribute, $value, $fail) use ($refunds) {
+                    if (!$refunds->validateGcashAccountName((string) $value)) {
+                        $fail('Enter the full GCash account name using letters only.');
+                    }
+                }],
+                'refund_gcash_number' => ['required', 'string', 'max:80', function ($attribute, $value, $fail) use ($refunds) {
+                    if (!$refunds->validateGcashNumber((string) $value)) {
+                        $fail('Enter a valid Philippine GCash number, such as 09171234567 or +639171234567.');
+                    }
+                }],
             ], [
                 'refund_gcash_name.required' => 'Enter the GCash account name for the refund.',
                 'refund_gcash_number.required' => 'Enter the GCash number for the refund.',
-                'refund_gcash_number.regex' => 'Enter a valid GCash phone number.',
             ]);
+            $gcashNumber = $refunds->normalizeGcashNumber($validated['refund_gcash_number']);
 
             $refunds->requestPaidRefund($order, [
                 'customer_name' => session('user')['fullname'] ?? null,
                 'refund_gcash_name' => trim($validated['refund_gcash_name']),
-                'refund_gcash_number' => trim($validated['refund_gcash_number']),
+                'refund_gcash_number' => $gcashNumber,
                 'cancel_reason' => $reason,
             ]);
             $refund = $refunds->pendingForOrder($id);

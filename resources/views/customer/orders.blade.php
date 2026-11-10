@@ -1491,22 +1491,25 @@
             <strong>Note:</strong> @if($isCustom && !$hasDepositLock) This unpaid custom order will be cancelled immediately. No seller approval is needed. @else Cancellation requests are only available before preparation. Paid amounts require seller review and a manually recorded GCash refund. Deposits are retained for no-show orders. @endif
           </div>
 
-          <form action="{{ route('customer.orders.cancel_request', $o->id) }}" method="POST">
+          <form action="{{ route('customer.orders.cancel_request', $o->id) }}" method="POST" data-cancel-request-form novalidate>
             @csrf
             <div class="mb-3">
               <label class="form-label fw-semibold small">Reason for Cancellation <span class="text-danger">*</span></label>
-              <textarea class="form-control" name="cancel_reason" rows="3" required
+              <textarea class="form-control" name="cancel_reason" rows="3" required minlength="5" maxlength="500" aria-describedby="cancel-reason-error-{{ $o->id }}"
                         placeholder="Please explain why you want to cancel this order"></textarea>
+              <div id="cancel-reason-error-{{ $o->id }}" class="invalid-feedback d-block" aria-live="polite"></div>
             </div>
             @if($hasDepositLock)
             <div class="row g-2 mb-3">
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Refund GCash account name <span class="text-danger">*</span></label>
-                <input class="form-control" name="refund_gcash_name" maxlength="160" required>
+                <input class="form-control" name="refund_gcash_name" maxlength="160" required autocomplete="name" aria-describedby="cancel-gcash-name-error-{{ $o->id }}" placeholder="e.g. Juan Dela Cruz">
+                <div id="cancel-gcash-name-error-{{ $o->id }}" class="invalid-feedback d-block" aria-live="polite"></div>
               </div>
               <div class="col-sm-6">
                 <label class="form-label fw-semibold small">Refund GCash number <span class="text-danger">*</span></label>
-                <input class="form-control" name="refund_gcash_number" maxlength="80" inputmode="tel" required>
+                <input class="form-control" name="refund_gcash_number" maxlength="80" inputmode="tel" required autocomplete="tel" aria-describedby="cancel-gcash-number-error-{{ $o->id }}" placeholder="0917 123 4567">
+                <div id="cancel-gcash-number-error-{{ $o->id }}" class="invalid-feedback d-block" aria-live="polite"></div>
               </div>
             </div>
             <div class="small text-muted mb-3">The seller must review the request and record the refund receipt before cancellation is complete.</div>
@@ -2252,6 +2255,40 @@ function setupCustomPriceForms() {
 setupCustomPriceForms();
 initCustomerReviewStars();
 initCustomerQrButtons();
+document.querySelectorAll('[data-cancel-request-form]').forEach(function (form) {
+  const reason = form.elements.cancel_reason;
+  const name = form.elements.refund_gcash_name;
+  const number = form.elements.refund_gcash_number;
+  const submit = form.querySelector('button[type="submit"]');
+  const phoneOk = value => /^(09\d{9}|9\d{9}|639\d{9}|\+639\d{9})$/.test(String(value || '').replace(/[\s()\-]/g, ''));
+  const nameOk = value => {
+    const cleaned = String(value || '').trim().replace(/\s+/g, ' ');
+    const parts = cleaned.split(' ').filter(Boolean);
+    return /^[\p{L}][\p{L} .'-]*$/u.test(cleaned) && cleaned.length >= 5 && parts.length >= 2 && parts.every(part => Array.from(part.replace(/[^\p{L}]/gu, '')).length >= 2);
+  };
+  const show = (field, valid, message) => {
+    if (!field) return valid;
+    field.classList.toggle('is-invalid', !valid);
+    const error = document.getElementById(field.getAttribute('aria-describedby'));
+    if (error) error.textContent = valid ? '' : message;
+    return valid;
+  };
+  const validate = () => {
+    const reasonValid = show(reason, String(reason?.value || '').trim().length >= 5, 'Enter a cancellation reason with at least 5 characters.');
+    const nameValid = !name || show(name, nameOk(name.value), 'Enter the full GCash account name using letters only.');
+    const numberValid = !number || show(number, phoneOk(number.value), 'Use a Philippine number: 09XXXXXXXXX or +639XXXXXXXXX.');
+    return reasonValid && nameValid && numberValid;
+  };
+  [reason, name, number].filter(Boolean).forEach(field => field.addEventListener('input', validate));
+  form.addEventListener('submit', function (event) {
+    if (!validate()) {
+      event.preventDefault();
+      form.querySelector('.is-invalid')?.focus();
+      return;
+    }
+    if (submit) submit.disabled = true;
+  });
+});
 document.querySelectorAll('[data-seller-cancel-countdown]').forEach(function (card) {
   const target = new Date(card.dataset.sellerCancelCountdown).getTime();
   const label = card.querySelector('.seller-cancel-countdown');
