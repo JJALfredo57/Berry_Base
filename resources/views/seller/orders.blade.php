@@ -1088,7 +1088,7 @@
 
     {{-- Cancel Reason --}}
     <div id="cancel-{{ $o->id }}" style="display:none;border-top:1px solid var(--gray-100);padding:.875rem 1.25rem;background:#FFEBEE">
-      <form action="{{ $hasPaidAmount ? route('seller.orders.request_cancellation', $o->id) : route('seller.orders.status', $o->id) }}" method="POST" novalidate>
+      <form action="{{ $hasPaidAmount ? route('seller.orders.request_cancellation', $o->id) : route('seller.orders.status', $o->id) }}" method="POST" data-cs-confirm="{{ $hasPaidAmount ? 'Send this cancellation request to the customer? They have 10 minutes to accept or keep the order.' : 'Cancel this unpaid order?' }}" data-cs-title="Confirm Cancellation" data-cs-ok="{{ $hasPaidAmount ? 'Send Request' : 'Cancel Order' }}" data-cs-ok-color="#C62828">
         @csrf
         @if(!$hasPaidAmount)<input type="hidden" name="status" value="Cancelled">@endif
         <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
@@ -1096,20 +1096,14 @@
             <label class="form-label" style="font-size:.78rem;color:#C62828;font-weight:700">Cancellation Reason <span style="color:var(--danger)">*</span></label>
             <input type="text" class="form-control" name="cancel_reason" required minlength="5"
                    placeholder="e.g. Unavailable ingredients, customer request..."
-                   oninvalid="this.setCustomValidity('Please enter a reason (min 5 chars)')"
-                   oninput="this.setCustomValidity('')">
+                   oninvalid="this.classList.add('is-invalid');document.getElementById('cancel-reason-error-{{ $o->id }}').textContent='Please enter a cancellation reason with at least 5 characters.'"
+                   oninput="this.setCustomValidity('');if(this.value.trim().length>=5){this.classList.remove('is-invalid');document.getElementById('cancel-reason-error-{{ $o->id }}').textContent=''}">
+            <div id="cancel-reason-error-{{ $o->id }}" class="invalid-feedback d-block" aria-live="polite"></div>
           </div>
           @if($hasPaidAmount)
           <div class="small text-primary w-100"><i class="bi bi-info-circle me-1"></i>The customer will receive a 10-minute request. They must accept and provide their GCash refund details before you send the refund.</div>
           @endif
-          <button type="submit" style="background:#C62828;color:#fff;border:none;border-radius:var(--radius-md);padding:.5rem 1rem;font-size:.8rem;font-weight:600;cursor:pointer"
-                  data-cs-confirm="{{ $hasPaidAmount ? 'Send this cancellation request to the customer? They have 10 minutes to accept or keep the order.' : 'Cancel this unpaid order?' }}"
-                  data-cs-title="Confirm Cancellation"
-                  data-cs-ok="{{ $hasPaidAmount ? 'Send Request' : 'Cancel Order' }}"
-                  data-cs-ok-color="#C62828"
-                  data-cs-icon="bi-x-octagon"
-                  data-cs-icon-bg="#fee2e2"
-                  data-cs-icon-color="#C62828">
+          <button type="submit" style="background:#C62828;color:#fff;border:none;border-radius:var(--radius-md);padding:.5rem 1rem;font-size:.8rem;font-weight:600;cursor:pointer">
             {{ $hasPaidAmount ? 'Request Customer Confirmation' : 'Confirm Cancel' }}
           </button>
           <button type="button" onclick="toggleCancel('cancel-{{ $o->id }}')"
