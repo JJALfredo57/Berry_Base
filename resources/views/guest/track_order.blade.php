@@ -1383,9 +1383,11 @@
       @endphp
       <div class="d-flex gap-3 mb-3">
         <div style="width:10px;height:10px;border-radius:50%;background:var(--primary);margin-top:5px;flex-shrink:0"></div>
-        <div>
+        <div style="min-width:0;flex:1">
           <div class="fw-semibold small">{{ $timelineStatus }}</div>
-          @if($timelineNotes)<div class="text-muted small">{{ $timelineNotes }}</div>@endif
+          @if($timelineNotes)
+            <button type="button" class="text-muted small border-0 bg-transparent p-0 text-start w-100 text-truncate" title="View full timeline detail" data-timeline-detail data-timeline-status="{{ $timelineStatus }}" data-timeline-note="{{ $timelineNotes }}" data-timeline-date="{{ \Carbon\Carbon::parse($t->created_at)->format('M d, Y g:i A') }}">{{ $timelineNotes }}</button>
+          @endif
           @if($t->status === 'Delivered' && $deliveryProofUrl !== '')
             <button type="button" class="proof-view-btn" onclick="openDeliveryProof(@js($deliveryProofUrl))">
               <i class="bi bi-image"></i>View Proof
@@ -1411,6 +1413,27 @@
       @endforeach
     </div>
   </div>
+
+  <div class="modal fade" id="timelineDetailModal" tabindex="-1" aria-labelledby="timelineDetailTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="timelineDetailTitle">Order update</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><p class="mb-2" id="timelineDetailNote"></p><div class="small text-muted" id="timelineDetailDate"></div></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button></div></div></div>
+  </div>
+  <script>
+  (() => {
+    const modalElement = document.getElementById('timelineDetailModal');
+    if (!modalElement || modalElement.dataset.ready) return;
+    modalElement.dataset.ready = 'true';
+    if (modalElement.parentElement !== document.body) document.body.appendChild(modalElement);
+    const title = document.getElementById('timelineDetailTitle'), note = document.getElementById('timelineDetailNote'), date = document.getElementById('timelineDetailDate');
+    document.addEventListener('click', event => {
+      const trigger = event.target.closest('[data-timeline-detail]');
+      if (!trigger) return;
+      title.textContent = trigger.dataset.timelineStatus || 'Order update';
+      note.textContent = trigger.dataset.timelineNote || '';
+      date.textContent = trigger.dataset.timelineDate || '';
+      window.bootstrap?.Modal.getOrCreateInstance(modalElement).show();
+    });
+  })();
+  </script>
 
   {{-- Back to Catalog --}}
   <div class="text-center mb-4">
