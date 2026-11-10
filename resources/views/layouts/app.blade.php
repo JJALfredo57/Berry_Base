@@ -2663,6 +2663,14 @@ window.alert = csAlert;
 document.addEventListener('click', function(e) {
   var el = e.target.closest('[data-cs-confirm]');
   if (!el) return;
+  // A confirmation attribute may live on a form. Validate before opening the
+  // dialog because the confirmed path uses form.submit(), which bypasses the
+  // browser's built-in constraint validation.
+  if (el.tagName === 'FORM' && !el.checkValidity()) {
+    e.preventDefault(); e.stopImmediatePropagation();
+    el.reportValidity();
+    return;
+  }
   var msg = el.getAttribute('data-cs-confirm');
   e.preventDefault(); e.stopImmediatePropagation();
   cakeConfirm({
