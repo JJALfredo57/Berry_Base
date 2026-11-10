@@ -20,7 +20,7 @@ class DeliveryMessageServiceTest extends TestCase
 
         Schema::create('orders', function ($table) {
             $table->string('id')->primary(); $table->string('user_id')->nullable(); $table->unsignedInteger('rider_id')->nullable();
-            $table->string('fulfillment_type'); $table->string('rider_assignment_status')->nullable(); $table->string('status'); $table->string('track_code')->nullable();
+            $table->string('fulfillment_type'); $table->string('rider_assignment_status')->nullable(); $table->unsignedInteger('delivery_rider_id')->nullable(); $table->string('delivery_rider_name')->nullable(); $table->string('status'); $table->string('track_code')->nullable();
         });
         Schema::create('delivery_messages', function ($table) {
             $table->increments('id'); $table->string('order_id'); $table->unsignedInteger('rider_id'); $table->string('customer_user_id');
@@ -66,5 +66,14 @@ class DeliveryMessageServiceTest extends TestCase
         DB::table('orders')->where('id', 'D1')->update(['status' => 'Delivered']);
         $this->expectException(HttpException::class);
         app(DeliveryMessageService::class)->customerConversation('D1', ['id' => 10, 'role' => 'customer']);
+    }
+
+    public function test_delivered_order_with_rider_snapshot_remains_available(): void
+    {
+        DB::table('orders')->where('id', 'D1')->update(['status' => 'Delivered', 'delivery_rider_id' => 5, 'delivery_rider_name' => 'Rider One']);
+
+        $order = app(DeliveryMessageService::class)->customerConversation('D1', ['id' => 10, 'role' => 'customer']);
+
+        $this->assertSame('D1', $order->id);
     }
 }

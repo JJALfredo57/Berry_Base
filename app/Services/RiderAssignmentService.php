@@ -204,16 +204,18 @@ class RiderAssignmentService
             return;
         }
 
+        $riderName = DB::table('riders')->where('id', $order->rider_id)->value('name') ?: 'Rider';
         DB::table('orders')->where('id', $order->id)->update($this->filterExistingColumns('orders', [
             'rider_assignment_status' => 'accepted',
             'rider_accepted_at' => now(),
             'rider_declined_at' => null,
             'rider_decline_reason' => null,
+            'delivery_rider_id' => $order->rider_id,
+            'delivery_rider_name' => $riderName,
             'status' => 'Out for Delivery',
             'updated_at' => now(),
         ]));
 
-        $riderName = DB::table('riders')->where('id', $order->rider_id)->value('name') ?: 'Rider';
         $this->track((string) $order->id, 'Rider Accepted Delivery', "{$riderName} accepted the delivery assignment.");
         $this->track((string) $order->id, 'Out for Delivery', "{$riderName} is on the way.");
         $this->notifySeller($order, 'Rider Accepted Delivery', "{$riderName} accepted Order #{$order->id}.", 'rider_assignment_accepted');

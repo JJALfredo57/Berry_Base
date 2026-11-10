@@ -30,7 +30,7 @@ class DeliveryMessageService
     public function riderConversation(string $orderId, object $rider): object
     {
         $order = $this->order($orderId);
-        if ((int) $order->rider_id !== (int) $rider->id) {
+        if ($this->conversationRiderId($order) !== (int) $rider->id) {
             throw new HttpException(403, 'This conversation is assigned to another rider.');
         }
 
@@ -42,7 +42,7 @@ class DeliveryMessageService
     {
         return DB::table('delivery_messages')
             ->where('order_id', $order->id)
-            ->where('rider_id', $order->rider_id)
+            ->where('rider_id', $this->conversationRiderId($order))
             ->orderBy('id')
             ->get(['id', 'sender_type', 'sender_id', 'message', 'image_path', 'read_at', 'created_at']);
     }
@@ -52,7 +52,7 @@ class DeliveryMessageService
         $opposite = $recipientType === 'customer' ? 'rider' : 'customer';
         return DB::table('delivery_messages')
             ->where('order_id', $order->id)
-            ->where('rider_id', $order->rider_id)
+            ->where('rider_id', $this->conversationRiderId($order))
             ->where('sender_type', $opposite)
             ->whereNull('read_at')
             ->update(['read_at' => now(), 'updated_at' => now()]);
@@ -69,7 +69,7 @@ class DeliveryMessageService
         $id = DB::transaction(function () use ($order, $senderType, $senderId, $message, $imagePath) {
             $duplicate = DB::table('delivery_messages')
                 ->where('order_id', $order->id)
-                ->where('rider_id', $order->rider_id)
+                ->where('rider_id', $this->conversationRiderId($order))
                 ->where('sender_type', $senderType)
                 ->where('sender_id', $senderId)
                 ->where('message', $message)
@@ -82,7 +82,7 @@ class DeliveryMessageService
 
             return DB::table('delivery_messages')->insertGetId([
                 'order_id' => $order->id,
-                'rider_id' => $order->rider_id,
+                'rider_id' => $this->conversationRiderId($order),
                 'customer_user_id' => $order->user_id,
                 'sender_type' => $senderType,
                 'sender_id' => $senderId,
@@ -142,15 +142,20 @@ class DeliveryMessageService
 
     private function active(object $order): bool
     {
-        return ($order->fulfillment_type ?? '') === 'Delivery'
-            && !empty($order->rider_id)
-            && ($order->rider_assignment_status ?? '') === 'accepted'
+        if (($order->fulfillment_type ?? '') !== 'Delivery' || !empty($order->user_id) === false || !$this->conversationRiderId($order)) {
+            return false;
+        }
+
+        if (($order->status ?? '') === 'Delivered') {
+            return !empty($order->delivery_rider_id);
+        }
+
+        return ($order->rider_assignment_status ?? '') === 'accepted'
             && ($order->status ?? '') === 'Out for Delivery'
-            && !in_array(($order->status ?? ''), self::CLOSED_STATUSES, true)
-            && !empty($order->user_id);
+            && !in_array(($order->status ?? ''), self::CLOSED_STATUSES, true);
     }
 
-    private function limit(object $order, string $senderType, int $senderId): void
+    private function limit(object $order, string $senderType, string $senderId): void
     {
         $key = "delivery-message:{$senderType}:{$senderId}:{$order->id}";
         if (RateLimiter::tooManyAttempts($key, 10)) {
@@ -165,8 +170,9 @@ class DeliveryMessageService
             $preview = $message !== '' ? mb_strimwidth($message, 0, 90, '...') : 'Image attachment';
             $notifications = app(MobileNotificationService::class);
             if ($senderType === 'customer') {
-                $phone = DB::table('riders')->where('id', $order->rider_id)->value('phone');
-                $notifications->notifyRider((int) $order->rider_id, $phone, 'New customer message', "Order #{$order->id}: {$preview}", [
+                $riderId = $this->conversationRiderId($order);
+                $phone = DB::table('riders')->where('id', $riderId)->value('phone');
+                $notifications->notifyRider($riderId, $phone, 'New customer message', "Order #{$order->id}: {$preview}", [
                     'event' => 'delivery_message', 'order_id' => (string) $order->id,
                 ], null, route('rider.dashboard', [], false) . '#delivery-message-' . $order->id);
                 return;
@@ -178,5 +184,10 @@ class DeliveryMessageService
         } catch (\Throwable $e) {
             Log::warning('Delivery message notification failed', ['order_id' => $order->id, 'message' => $e->getMessage()]);
         }
+    }
+
+    private function conversationRiderId(object $order): int
+    {
+        return (int) ($order->delivery_rider_id ?? $order->rider_id ?? 0);
     }
 }
