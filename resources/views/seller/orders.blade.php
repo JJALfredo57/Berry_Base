@@ -36,6 +36,28 @@
     border-radius:99px;
     white-space:nowrap;
   }
+  .seller-cancel-form {
+    display:grid;
+    grid-template-rows:0fr;
+    overflow:hidden;
+    padding:0 1.25rem;
+    border-top:0 solid var(--gray-100);
+    background:#FFEBEE;
+    opacity:0;
+    transform:translateY(-.35rem);
+    transition:grid-template-rows .22s ease, padding .22s ease, border-width .22s ease, opacity .16s ease, transform .22s ease;
+  }
+  .seller-cancel-form > form { min-height:0; overflow:hidden; }
+  .seller-cancel-form.is-open {
+    grid-template-rows:1fr;
+    padding:.875rem 1.25rem;
+    border-top-width:1px;
+    opacity:1;
+    transform:translateY(0);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .seller-cancel-form { transition:none; }
+  }
   @media (max-width:575px) {
     .seller-action-pill,
     .seller-remit-pill {
@@ -1087,7 +1109,7 @@
     </div>
 
     {{-- Cancel Reason --}}
-    <div id="cancel-{{ $o->id }}" data-seller-cancel-form style="display:none;border-top:1px solid var(--gray-100);padding:.875rem 1.25rem;background:#FFEBEE">
+    <div id="cancel-{{ $o->id }}" class="seller-cancel-form" data-seller-cancel-form>
       <form action="{{ $hasPaidAmount ? route('seller.orders.request_cancellation', $o->id) : route('seller.orders.status', $o->id) }}" method="POST" data-cs-confirm="{{ $hasPaidAmount ? 'Send this cancellation request to the customer? They have 10 minutes to accept or keep the order.' : 'Cancel this unpaid order?' }}" data-cs-title="Confirm Cancellation" data-cs-ok="{{ $hasPaidAmount ? 'Send Request' : 'Cancel Order' }}" data-cs-ok-color="#C62828">
         @csrf
         @if(!$hasPaidAmount)<input type="hidden" name="status" value="Cancelled">@endif
@@ -1295,11 +1317,11 @@ document.addEventListener('click', event => {
 function toggleCancel(id) {
   const el = document.getElementById(id);
   if (!el) return;
-  const shouldOpen = el.style.display === 'none';
+  const shouldOpen = !el.classList.contains('is-open');
   document.querySelectorAll('[data-seller-cancel-form]').forEach(function (form) {
-    form.style.display = 'none';
+    form.classList.remove('is-open');
   });
-  if (shouldOpen) el.style.display = 'block';
+  if (shouldOpen) el.classList.add('is-open');
 }
 
 function filterSellerOrders() {
