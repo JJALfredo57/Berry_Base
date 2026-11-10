@@ -61,12 +61,16 @@ class PayoutReceiptScanService
     {
         $url = trim((string) config('services.ocr.service_url', ''));
         if (strtolower((string) config('services.ocr.driver', 'auto')) !== 'local' && $url !== '') {
-            try {
-                $client = Http::timeout(max(5, min(45, (int) config('services.ocr.service_timeout', 30))))->acceptJson();
-                if ($token = trim((string) config('services.ocr.service_token', ''))) $client = $client->withToken($token);
-                $response = $client->attach('file', fopen($path, 'r'), basename($path))->post($url, ['lang' => config('services.ocr.tesseract_lang', 'eng'), 'mode' => 'payout_receipt']);
-                if ($response->successful()) return (string) ($response->json('text') ?? $response->json('data.text') ?? '');
-            } catch (\Throwable) { /* fall through to the local OCR engine */ }
+            $remote = $this->readRemoteText($url, $path);
+            if ($this->hasReceiptSignals($remote)) return $remote;
+            $enhancedPath = $this->enhancedImagePath($path);
+            if ($enhancedPath) {
+                try {
+                    $enhancedRemote = $this->readRemoteText($url, $enhancedPath);
+                    if ($this->hasReceiptSignals($enhancedRemote)) return $enhancedRemote;
+                    if (mb_strlen(trim($enhancedRemote)) > mb_strlen(trim($remote))) $remote = $enhancedRemote;
+                } finally { @unlink($enhancedPath); }
+            }
         }
         $original = $this->runLocalOcr($path, '6');
         $enhancedPath = $this->enhancedImagePath($path);
@@ -77,6 +81,22 @@ class PayoutReceiptScanService
         } finally {
             @unlink($enhancedPath);
         }
+    }
+
+    private function readRemoteText(string $url, string $path): string
+    {
+        try {
+            $client = Http::timeout(max(5, min(45, (int) config('services.ocr.service_timeout', 30))))->acceptJson();
+            if ($token = trim((string) config('services.ocr.service_token', ''))) $client = $client->withToken($token);
+            $response = $client->attach('file', fopen($path, 'r'), basename($path))->post($url, ['lang' => config('services.ocr.tesseract_lang', 'eng'), 'mode' => 'payout_receipt']);
+            return $response->successful() ? (string) ($response->json('text') ?? $response->json('data.text') ?? '') : '';
+        } catch (\Throwable) { return ''; }
+    }
+
+    private function hasReceiptSignals(string $text): bool
+    {
+        $text = strtoupper($text);
+        return str_contains($text, 'GCASH') || str_contains($text, 'REF') || str_contains($text, 'TOTAL AMOUNT');
     }
 
     private function runLocalOcr(string $path, string $pageSegmentationMode): string
@@ -106,7 +126,10 @@ class PayoutReceiptScanService
     }
     private function reference(string $text): ?string
     {
-        if (preg_match('/(?:REFERENCE|REF(?:ERENCE)?\s*(?:NO|NUMBER)?|TRANSACTION\s*(?:ID|NO)?)[\s.:#-]*([A-Z0-9-]{6,})/', $text, $m)) return $m[1];
+        if (preg_match('/(?:REFERENCE|REF(?:ERENCE)?\s*(?:NO|NUMBER)?|TRANSACTION\s*(?:ID|NO)?)[\s.:#-]*([A-Z0-9]{6,}|[0-9][0-9\s-]{5,})/', $text, $m)) {
+            $reference = preg_replace('/[^A-Z0-9]/', '', $m[1]);
+            return strlen($reference) >= 6 ? $reference : null;
+        }
         return null;
     }
     private function amounts(string $text): array
