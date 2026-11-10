@@ -952,7 +952,7 @@ function onPinSet(lat, lng) {
     document.getElementById('deliveryFeeInput').value = 0;
     document.getElementById('deliveryCalcBox').style.display = 'none';
     const feeRow = document.getElementById('feeRow');
-    if (feeRow) feeRow.style.display = 'none';
+    if (feeRow) feeRow.style.setProperty('display', 'none', 'important');
     updateTotal(getCurrentAddonTotal());
     reverseGeocode(lat, lng);
     return;
@@ -1249,7 +1249,7 @@ function toggleDelivery() {
     const feeInput = document.getElementById('deliveryFeeInput');
     if (feeInput) feeInput.value = 0;
     const feeRow = document.getElementById('feeRow');
-    if (feeRow) feeRow.style.display = 'none';
+    if (feeRow) feeRow.style.setProperty('display', 'none', 'important');
     const calcBox = document.getElementById('deliveryCalcBox');
     if (calcBox) calcBox.style.display = 'none';
   }

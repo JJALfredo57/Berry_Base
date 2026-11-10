@@ -822,7 +822,7 @@ function updateCoverageStatus(lat, lng, matchedOption = null) {
     const feePreview = document.getElementById('feePreview');
     if (feePreview) feePreview.style.display = 'none';
     const feeRow = document.getElementById('feeRow');
-    if (feeRow) feeRow.style.display = 'none';
+    if (feeRow) feeRow.style.setProperty('display', 'none', 'important');
     updateTotal(getCurrentAddonTotal());
   }
 }
@@ -968,7 +968,7 @@ function clearDetectedDeliveryZone(message = '') {
   if (oocNotice) oocNotice.style.display = 'none';
 
   const feeRow = document.getElementById('feeRow');
-  if (feeRow) feeRow.style.display = 'none';
+  if (feeRow) feeRow.style.setProperty('display', 'none', 'important');
 
   const msg = document.getElementById('msgZone');
   if (msg) {
@@ -1339,7 +1339,7 @@ function updateFee() {
   if (isDelivery && deliveryFee > 0) {
     if (feeRow) { feeRow.style.display = 'flex'; document.getElementById('feeDisplay').textContent = zoneType === 'ooc' ? '₱250+' : '₱' + deliveryFee.toFixed(2); }
   } else {
-    if (feeRow) feeRow.style.display = 'none';
+    if (feeRow) feeRow.style.setProperty('display', 'none', 'important');
   }
 
   if (document.getElementById('deliveryFeeInput'))
