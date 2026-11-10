@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Services\OrderRefundService;
+use App\Services\OrderActionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\UploadedFile;
@@ -10,6 +11,28 @@ use Tests\TestCase;
 
 class PurchaseJourneyRenderingTest extends TestCase
 {
+    public function test_order_action_summary_counts_only_active_role_scoped_actions(): void
+    {
+        $this->prepareFixture();
+        $order = $this->createRegularOrder('GCash');
+        DB::table('orders')->where('id', $order->id)->update([
+            'seller_cancel_state' => 'awaiting_customer',
+            'seller_cancel_expires_at' => now()->addMinutes(10),
+        ]);
+
+        $actions = app(OrderActionService::class);
+        $this->assertSame(1, $actions->customerSummary('TESTBUYER')['seller_cancellations']);
+        $this->assertSame(0, $actions->customerSummary('OTHERBUYER')['total']);
+
+        DB::table('order_refunds')->insert([
+            'order_id' => $order->id, 'shop_id' => $order->shop_id, 'track_code' => $order->track_code,
+            'refund_amount' => $order->total_price, 'payment_amount_paid' => $order->total_price,
+            'status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->assertSame(1, $actions->sellerSummary('TESTSHOP')['refund_requests']);
+        $this->assertSame(0, $actions->sellerSummary('OTHERSHOP')['total']);
+    }
+
     public function test_cancelled_custom_order_is_read_only_for_seller(): void
     {
         $this->prepareFixture();
