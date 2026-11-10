@@ -323,6 +323,18 @@
   .payout-mark-paid-form .form-control { min-width:150px; }
   .payout-mark-paid-form .btn { flex:0 0 auto; white-space:nowrap; }
   .payout-mobile-list { display:grid; gap:.65rem; padding:.75rem; }
+  .payout-mobile-list { gap:0; padding:0; }
+  .payout-mobile-card { width:100%; min-height:64px; border:0; border-bottom:1px solid var(--gray-100); border-radius:0; padding:.9rem 1rem; background:transparent; color:inherit; text-align:left; box-shadow:none; transition:background .16s ease, transform .16s ease; }
+  .payout-mobile-card:last-child { border-bottom:0; }
+  .payout-mobile-card:hover { background:#f8fafc; }
+  .payout-mobile-card:focus-visible { outline:3px solid color-mix(in srgb,var(--primary) 32%,transparent); outline-offset:-3px; }
+  .payout-mobile-card-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+  .payout-mobile-card-title { font-weight:800; color:var(--gray-900); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .payout-mobile-card-head .bi-chevron-right { color:var(--gray-400); font-size:.85rem; flex:0 0 auto; }
+  .payout-mobile-card-meta { display:flex; align-items:center; gap:.55rem; margin-top:.26rem; min-width:0; color:var(--gray-600); font-size:.79rem; }
+  .payout-mobile-card-meta span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .payout-mobile-card-meta span:first-child { flex:1 1 auto; }
+  .payout-mobile-card.has-status .payout-mobile-card-meta span:last-child { flex:0 1 auto; border-radius:999px; padding:.16rem .45rem; background:#f1f5f9; color:#475569; font-size:.68rem; font-weight:800; }
   .payout-detail-modal { position:fixed; inset:0; z-index:1090; display:none; padding:12px; background:rgba(15,23,42,.58); }
   .payout-detail-modal.is-open { display:flex; align-items:center; justify-content:center; }
   .payout-detail-dialog { width:min(560px,100%); max-height:calc(100dvh - 24px); display:flex; flex-direction:column; overflow:hidden; border-radius:18px; background:#fff; box-shadow:0 24px 70px rgba(15,23,42,.3); }
@@ -330,13 +342,10 @@
   .payout-detail-footer { border-top:1px solid var(--gray-100); border-bottom:0; justify-content:flex-end; }
   .payout-detail-body { overflow:auto; padding:1rem; -webkit-overflow-scrolling:touch; }
   .payout-detail-grid { display:grid; gap:.65rem; }.payout-detail-field { padding:.7rem; border-radius:10px; background:var(--gray-50); }.payout-detail-field small { display:block; margin-bottom:.22rem; color:var(--gray-500); font-weight:700; text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; }.payout-detail-field .form-control { margin-top:.45rem; }
-  .payout-mobile-card.is-action-required { border-color:#fdba74; background:#fffaf0; box-shadow:inset 3px 0 #f97316,0 2px 7px rgba(15,23,42,.04); }
+  .payout-mobile-card.is-action-required { background:#fffaf0; box-shadow:inset 3px 0 #f97316; }
   .payout-mobile-card.is-action-required .payout-mobile-card-title::before { content:''; display:inline-block; width:.55rem; height:.55rem; margin-right:.45rem; border-radius:50%; background:#f97316; vertical-align:middle; }
   /* The admin sidebar narrows the usable content area before the viewport reaches phone width. */
   @media(max-width:575px) {
-    .payout-mobile-card { width:100%; border:1px solid var(--gray-200); border-radius:12px; padding:.85rem; background:#fff; color:inherit; text-align:left; box-shadow:0 2px 7px rgba(15,23,42,.04); }
-    .payout-mobile-card:focus-visible { outline:3px solid color-mix(in srgb,var(--primary) 35%,transparent); outline-offset:2px; }
-    .payout-mobile-card-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }.payout-mobile-card-title { font-weight:800; min-width:0; }.payout-mobile-card-meta { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; margin-top:.7rem; }.payout-mobile-card-meta span { min-width:0; color:var(--gray-600); font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .payout-balances-table { min-width:900px !important; }
     .payout-history-admin-table { min-width:920px !important; }
     .payout-row-action { min-width:150px; }
@@ -454,6 +463,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const values = cells.map(cell => cell.textContent.trim().replace(/\s+/g, ' '));
       const card = document.createElement('button');
       card.type = 'button'; card.className = 'payout-mobile-card';
+      if (headers.includes('Status')) card.classList.add('has-status');
       const needsAction = row.classList.contains('is-action-required') || /Request Details|Create Payout|Mark Refund Sent|Mark Paid/.test(values.join(' '));
       if (needsAction) card.classList.add('is-action-required');
       card.replaceChildren();
