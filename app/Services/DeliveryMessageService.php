@@ -147,7 +147,7 @@ class DeliveryMessageService
         }
 
         if (($order->status ?? '') === 'Delivered') {
-            return !empty($order->delivery_rider_id);
+            return $this->conversationRiderId($order) > 0;
         }
 
         return ($order->rider_assignment_status ?? '') === 'accepted'
@@ -188,6 +188,11 @@ class DeliveryMessageService
 
     private function conversationRiderId(object $order): int
     {
-        return (int) ($order->delivery_rider_id ?? $order->rider_id ?? 0);
+        $riderId = (int) ($order->delivery_rider_id ?? $order->rider_id ?? 0);
+        if ($riderId || !Schema::hasTable('rider_remittances')) {
+            return $riderId;
+        }
+
+        return (int) DB::table('rider_remittances')->where('order_id', $order->id)->value('rider_id');
     }
 }

@@ -246,15 +246,30 @@ class TrackingController extends Controller
 
         $refund = app(OrderRefundService::class)->latestForOrder((string) $order->id);
         $customer = session('user');
-        $deliveryDriver = null;
+        $deliveryRiderId = (int) ($order->delivery_rider_id ?? $order->rider_id ?? 0);
+        $deliveryRiderName = trim((string) ($order->delivery_rider_name ?? $order->rider_name ?? ''));
+        if (!$deliveryRiderId && Schema::hasTable('rider_remittances')) {
+            $deliveryRiderId = (int) DB::table('rider_remittances')->where('order_id', $order->id)->value('rider_id');
+            $deliveryRiderName = $deliveryRiderId
+                ? (string) (DB::table('riders')->where('id', $deliveryRiderId)->value('name') ?? '')
+                : '';
+        }
+        $deliveryDriver = $deliveryRiderId && $deliveryRiderName !== '' ? (object) [
+            'id' => $deliveryRiderId,
+            'name' => $deliveryRiderName,
+            'state' => ($order->status ?? '') === 'Delivered'
+                ? 'Delivered your order'
+                : (($order->status ?? '') === 'Out for Delivery' ? 'Out for delivery' : 'Delivery driver'),
+            'can_message' => ($order->fulfillment_type ?? '') === 'Delivery'
+                && is_array($customer)
+                && ($customer['role'] ?? '') === 'customer'
+                && (string) ($customer['id'] ?? '') === (string) ($order->user_id ?? '')
+                && in_array(($order->status ?? ''), ['Out for Delivery', 'Delivered'], true),
+        ] : null;
         $deliveryMessageUi = (object) [
             'assigned' => ($order->fulfillment_type ?? '') === 'Delivery' && !empty($order->rider_id),
             'accepted' => ($order->rider_assignment_status ?? '') === 'accepted',
-            'can_message' => ($order->fulfillment_type ?? '') === 'Delivery'
-                && ($order->rider_assignment_status ?? '') === 'accepted'
-                && ($order->status ?? '') === 'Out for Delivery'
-                && is_array($customer) && ($customer['role'] ?? '') === 'customer'
-                && (string) ($customer['id'] ?? '') === (string) ($order->user_id ?? ''),
+            'can_message' => (bool) ($deliveryDriver?->can_message ?? false),
             'guest' => !is_array($customer),
         ];
 

@@ -61,9 +61,9 @@ class DeliveryMessageServiceTest extends TestCase
         }
     }
 
-    public function test_closed_delivery_is_not_available(): void
+    public function test_cancelled_delivery_is_not_available(): void
     {
-        DB::table('orders')->where('id', 'D1')->update(['status' => 'Delivered']);
+        DB::table('orders')->where('id', 'D1')->update(['status' => 'Cancelled']);
         $this->expectException(HttpException::class);
         app(DeliveryMessageService::class)->customerConversation('D1', ['id' => 10, 'role' => 'customer']);
     }
