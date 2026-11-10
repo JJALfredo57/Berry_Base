@@ -502,12 +502,17 @@
       ? ($isCustom ? ['Pending','Confirmed','Preparing','Pickup','Picked Up'] : ['Pending','Confirmed','Pickup','Picked Up'])
       : ($isCustom ? ['Pending','Confirmed','Preparing','Ready for Rider','Out for Delivery','Delivered'] : ['Pending','Confirmed','Ready for Rider','Out for Delivery','Delivered']);
     $statusOrder = array_flip($steps);
+    $cancellationHold = $hasPending || $sellerCancelAwaiting;
     $effectiveStatus = $o->status;
     if (isset($statusOrder[$latestTrackingStatus]) && ($statusOrder[$latestTrackingStatus] ?? -1) > ($statusOrder[$effectiveStatus] ?? -1)) {
       $effectiveStatus = $latestTrackingStatus;
     }
-    $displayStatus = (($o->payment_status ?? '') === 'Paid' && ($effectiveStatus ?? '') === 'Awaiting Deposit') ? 'Confirmed' : $effectiveStatus;
-    $displayStatusLabel = $statusLabelMap[$displayStatus] ?? $displayStatus;
+    $displayStatus = $cancellationHold
+      ? 'Cancellation Pending'
+      : ((($o->payment_status ?? '') === 'Paid' && ($effectiveStatus ?? '') === 'Awaiting Deposit') ? 'Confirmed' : $effectiveStatus);
+    $displayStatusLabel = $sellerCancelAwaiting
+      ? 'Seller Cancellation Request'
+      : ($statusLabelMap[$displayStatus] ?? $displayStatus);
     $coRefImgs = [];
     if ($co && !empty($co->reference_images)) {
       $dec = json_decode($co->reference_images, true);
@@ -540,6 +545,8 @@
        data-order-status="{{ $effectiveStatus }}"
        data-payment-status="{{ $o->payment_status }}"
        data-deposit-status="{{ $o->deposit_status }}"
+       data-cancel-status="{{ $o->cancel_status ?? '' }}"
+       data-seller-cancel-state="{{ $o->seller_cancel_state ?? '' }}"
        data-tracking-count="{{ $orderTrackingRows->count() }}"
        data-latest-tracking-at="{{ $latestTrackingAt }}"
        data-custom-action-read-url="{{ route('customer.orders.custom_action_read', $o->id) }}"
@@ -590,7 +597,7 @@
           </div>
         </div>
         <div class="text-end mt-2 mt-sm-0 customer-order-summary-side">
-          <span class="status-badge status-{{ str_replace(' ','-',$displayStatus) }}">{{ $displayStatusLabel }}</span>
+          <span class="status-badge status-{{ str_replace(' ','-',$displayStatus) }}" @if($cancellationHold) style="background:#fff3cd;color:#856404" @endif>{{ $displayStatusLabel }}</span>
           <div class="fw-bold mt-1">PHP {{ number_format($o->total_price,2) }}</div>
           <button type="button"
                   class="customer-order-toggle"
@@ -1859,6 +1866,8 @@ function customerOrderChanged(card, next) {
     orderStatus: next.status,
     paymentStatus: next.payment_status,
     depositStatus: next.deposit_status,
+    cancelStatus: next.cancel_status,
+    sellerCancelState: next.seller_cancel_state,
     trackingCount: next.tracking_count,
     latestTrackingAt: next.latest_tracking_at,
     updatedAt: next.updated_at
@@ -1871,6 +1880,8 @@ function rememberCustomerOrderSnapshot(card, next) {
   card.dataset.orderStatus = String(next.status ?? '');
   card.dataset.paymentStatus = String(next.payment_status ?? '');
   card.dataset.depositStatus = String(next.deposit_status ?? '');
+  card.dataset.cancelStatus = String(next.cancel_status ?? '');
+  card.dataset.sellerCancelState = String(next.seller_cancel_state ?? '');
   card.dataset.trackingCount = String(next.tracking_count ?? '');
   card.dataset.latestTrackingAt = String(next.latest_tracking_at ?? '');
   card.dataset.updatedAt = String(next.updated_at ?? '');

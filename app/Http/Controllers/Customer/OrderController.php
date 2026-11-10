@@ -274,7 +274,7 @@ class OrderController extends Controller
         $order = DB::table('orders')
             ->where('id', $id)
             ->where('user_id', $uid)
-            ->select('id', 'status', 'payment_status', 'deposit_status', 'total_price', 'deposit_amount', 'paid_at', 'deposit_paid_at', 'updated_at')
+            ->select('id', 'status', 'payment_status', 'deposit_status', 'cancel_status', 'seller_cancel_state', 'total_price', 'deposit_amount', 'paid_at', 'deposit_paid_at', 'updated_at')
             ->first();
 
         if (!$order) {
@@ -288,13 +288,16 @@ class OrderController extends Controller
         $trackingCount = (clone $trackingQuery)->count();
         $latestTrackingAt = (clone $trackingQuery)->max('created_at');
         $final = in_array($order->status, ['Delivered', 'Picked Up', 'No Show', 'Cancelled'], true);
-        $active = in_array($order->status, ['Preparing', 'Ready for Rider', 'Out for Delivery', 'Pickup'], true);
+        $cancellationPending = ($order->cancel_status ?? '') === 'pending' || ($order->seller_cancel_state ?? '') === 'awaiting_customer';
+        $active = !$cancellationPending && in_array($order->status, ['Preparing', 'Ready for Rider', 'Out for Delivery', 'Pickup'], true);
 
         return response()->json([
             'ok' => true,
             'status' => $order->status,
             'payment_status' => $order->payment_status,
             'deposit_status' => $order->deposit_status,
+            'cancel_status' => $order->cancel_status,
+            'seller_cancel_state' => $order->seller_cancel_state,
             'total_price' => (string) round((float) ($order->total_price ?? 0), 2),
             'deposit_amount' => (string) round((float) ($order->deposit_amount ?? 0), 2),
             'paid_at' => (string) ($order->paid_at ?? ''),
@@ -303,7 +306,7 @@ class OrderController extends Controller
             'updated_at' => (string) ($order->updated_at ?? ''),
             'latest_tracking_at' => (string) ($latestTrackingAt ?? ''),
             'final' => $final,
-            'interval_ms' => $final ? 0 : ($active ? 10000 : 25000),
+            'interval_ms' => $final ? 0 : ($cancellationPending ? 10000 : ($active ? 10000 : 25000)),
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 

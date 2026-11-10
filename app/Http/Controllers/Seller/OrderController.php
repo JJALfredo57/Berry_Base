@@ -257,6 +257,10 @@ class OrderController extends Controller
         $allowed   = ['Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','Cancelled'];
         if (!in_array($newStatus, $allowed)) return back()->with('err', 'Invalid status.');
 
+        if ($newStatus !== 'Cancelled' && (($order->cancel_status ?? '') === 'pending' || ($order->seller_cancel_state ?? '') === 'awaiting_customer')) {
+            return back()->with('err', 'This order cannot move forward while a cancellation request is awaiting a response or refund review.');
+        }
+
         if ($newStatus !== 'Cancelled') {
             if (!$requiresKitchen && $newStatus === 'Preparing') {
                 return back()->with('err', 'Stock ready-made orders skip kitchen preparation. Confirm it, then mark ready for pickup or assign a rider.');
