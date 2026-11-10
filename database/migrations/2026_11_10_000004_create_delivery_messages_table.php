@@ -13,11 +13,11 @@ return new class extends Migration {
 
         Schema::create('delivery_messages', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->unsignedBigInteger('order_id');
+            $table->string('order_id', 64);
             $table->unsignedBigInteger('rider_id');
-            $table->unsignedBigInteger('customer_user_id');
+            $table->string('customer_user_id', 64);
             $table->string('sender_type', 20);
-            $table->unsignedBigInteger('sender_id');
+            $table->string('sender_id', 64);
             $table->text('message')->nullable();
             $table->text('image_path')->nullable();
             $table->timestamp('read_at')->nullable();

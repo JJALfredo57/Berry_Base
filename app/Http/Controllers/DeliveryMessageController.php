@@ -23,7 +23,7 @@ class DeliveryMessageController extends Controller
     {
         $order = $messages->customerConversation($orderId, (array) session('user'));
         $payload = $this->validatedPayload($request);
-        $message = $messages->send($order, 'customer', (int) session('user.id'), $payload['message'], $this->storeImage($request));
+        $message = $messages->send($order, 'customer', (string) session('user.id'), $payload['message'], $this->storeImage($request));
         return response()->json(['ok' => true, 'message' => $message], 201);
     }
 
@@ -45,7 +45,7 @@ class DeliveryMessageController extends Controller
         $rider = $this->rider();
         $order = $messages->riderConversation($orderId, $rider);
         $payload = $this->validatedPayload($request);
-        $message = $messages->send($order, 'rider', (int) $rider->id, $payload['message'], $this->storeImage($request));
+        $message = $messages->send($order, 'rider', (string) $rider->id, $payload['message'], $this->storeImage($request));
         return response()->json(['ok' => true, 'message' => $message], 201);
     }
 

@@ -58,7 +58,7 @@ class DeliveryMessageService
             ->update(['read_at' => now(), 'updated_at' => now()]);
     }
 
-    public function send(object $order, string $senderType, int $senderId, string $message, ?string $imagePath): object
+    public function send(object $order, string $senderType, string $senderId, string $message, ?string $imagePath): object
     {
         $message = trim($message);
         if ($message === '' && !$imagePath) {
