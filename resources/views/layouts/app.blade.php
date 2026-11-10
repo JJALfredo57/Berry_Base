@@ -1425,6 +1425,7 @@
     'pending_orders' => 0,
     'kitchen_pending' => 0,
     'kitchen_preparing' => 0,
+      'cancellation_actions' => 0,
   ], $sellerSidebarCounts ?? []);
   $sbCount = fn($key) => (int) ($sellerSidebarCounts[$key] ?? 0);
   $sbCountLabel = fn($count) => $count > 99 ? '99+' : (string) $count;
@@ -1451,7 +1452,7 @@
     </a>
     <a href="{{ route('seller.orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.orders') ? 'active' : '' }}">
       <i class="bi bi-bag-check"></i><span class="sb-link-text">Orders</span>
-      <span class="sb-badge warn" data-seller-badge="orders" title="{{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending, {{ $sbCount('remittance_actions') }} COD remittance action, {{ $sbCount('rider_actions') }} need a new rider" style="{{ $sbCount('orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('orders')) }}</span>
+      <span class="sb-badge warn" data-seller-badge="orders" title="{{ $sbCount('cancellation_actions') }} cancellation/refund request{{ $sbCount('cancellation_actions') === 1 ? '' : 's' }} need action, {{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending" style="{{ $sbCount('orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('orders')) }}</span>
     </a>
     <a href="{{ route('seller.kitchen') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.kitchen') ? 'active' : '' }}">
       <i class="bi bi-fire"></i><span class="sb-link-text">Kitchen</span>
@@ -1810,9 +1811,9 @@
       <i class="bi bi-cart3"></i> Cart
     </a>
     @php
-      $customerOrderUpdates = 0;
+        $customerOrderUpdates = (int) ($customerActionSummary['seller_cancellations'] ?? 0);
       try {
-        $customerOrderUpdates = \Illuminate\Support\Facades\Schema::hasTable('orders')
+        $customerOrderUpdates += \Illuminate\Support\Facades\Schema::hasTable('orders')
           ? \Illuminate\Support\Facades\DB::table('orders')
               ->where('user_id', session('user')['id'] ?? '')
               ->whereIn('status', ['Pickup', 'Out for Delivery'])
@@ -1837,7 +1838,7 @@
     @endphp
     <a href="{{ route('customer.orders') }}" class="csb-link {{ str_starts_with($currentRoute,'customer.orders') || str_starts_with($currentRoute,'customer.custom_orders') ? 'active' : '' }}" onclick="closeCustSidebar()">
       <i class="bi bi-bag-check"></i> Orders
-      @if($customerOrderUpdates > 0)<span class="csb-badge csb-dot" role="status" aria-label="{{ $customerOrderUpdates }} order{{ $customerOrderUpdates === 1 ? '' : 's' }} ready for pickup or out for delivery" title="{{ $customerOrderUpdates }} order{{ $customerOrderUpdates === 1 ? '' : 's' }} ready for pickup or out for delivery"></span>@endif
+       @if($customerOrderUpdates > 0)<span class="csb-badge" role="status" aria-label="{{ $customerOrderUpdates }} order action{{ $customerOrderUpdates === 1 ? '' : 's' }} needed" title="{{ $customerOrderUpdates }} order action{{ $customerOrderUpdates === 1 ? '' : 's' }} needed">{{ $customerOrderUpdates > 9 ? '9+' : $customerOrderUpdates }}</span>@endif
     </a>
     @php
       $customerRequestActions = 0;
@@ -3487,7 +3488,7 @@ function setSellerSidebarBadge(key, count, title) {
 
 function applySellerSidebarCounts(counts) {
   if (!counts || MC_ROLE !== 'seller') return;
-  setSellerSidebarBadge('orders', counts.orders, (counts.pickup_ready || 0) + ' ready for pickup, ' + (counts.pending_orders || 0) + ' pending, ' + (counts.rider_actions || 0) + ' need a new rider');
+  setSellerSidebarBadge('orders', counts.orders, (counts.cancellation_actions || 0) + ' cancellation/refund requests need action, ' + (counts.pickup_ready || 0) + ' ready for pickup, ' + (counts.pending_orders || 0) + ' pending');
   setSellerSidebarBadge('kitchen', counts.kitchen, (counts.kitchen_pending || 0) + ' pending, ' + (counts.kitchen_preparing || 0) + ' preparing');
   setSellerSidebarBadge('messages', counts.messages, 'Unread customer messages');
   setSellerSidebarBadge('custom_orders', counts.custom_orders, 'Custom orders awaiting review');

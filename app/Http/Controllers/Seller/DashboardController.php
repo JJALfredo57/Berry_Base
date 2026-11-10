@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Services\OrderActionService;
 
 class DashboardController extends Controller
 {
@@ -113,9 +114,10 @@ class DashboardController extends Controller
                 ->count();
         } catch (\Exception $e) { $unreadMsg = 0; }
 
+        $sellerActionSummary = app(OrderActionService::class)->sellerSummary((string) $shopId);
         return view('seller.dashboard', compact(
             'shop','stats','commission','netRevenue',
-            'payoutSummary','recentOrders','pendingCustom','unreadMsg'
+            'payoutSummary','recentOrders','pendingCustom','unreadMsg','sellerActionSummary'
         ));
     }
 
@@ -153,6 +155,7 @@ class DashboardController extends Controller
             'remittance_actions' => 0,
             'rider_actions' => 0,
             'kitchen_preparing' => 0,
+            'cancellation_actions' => 0,
         ];
 
         try {
@@ -171,7 +174,8 @@ class DashboardController extends Controller
                     ->count();
             }
             $counts['rider_actions'] = app(\App\Services\RiderAssignmentService::class)->countNeedingReassignment($shopId);
-            $counts['orders'] = $counts['pending_orders'] + $counts['pickup_ready'] + $counts['remittance_actions'] + $counts['rider_actions'];
+            $counts['cancellation_actions'] = app(OrderActionService::class)->sellerSummary($shopId)['total'];
+            $counts['orders'] = $counts['pending_orders'] + $counts['pickup_ready'] + $counts['remittance_actions'] + $counts['rider_actions'] + $counts['cancellation_actions'];
 
             $counts['messages'] = (int) DB::table('messages as m')
                 ->join('orders as o', 'o.id', '=', 'm.order_id')

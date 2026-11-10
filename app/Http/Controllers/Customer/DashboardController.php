@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
+use App\Services\OrderActionService;
 
 class DashboardController extends Controller
 {
@@ -13,6 +14,7 @@ class DashboardController extends Controller
             ->where('receiver_role','customer')
             ->where('receiver_user_id', $uid)
             ->update(['is_read' => true]);
-        return view('customer.dashboard');
+        $customerActionSummary = app(OrderActionService::class)->customerSummary((string) $uid);
+        return view('customer.dashboard', compact('customerActionSummary'));
     }
 }

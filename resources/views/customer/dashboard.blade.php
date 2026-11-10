@@ -33,6 +33,23 @@
     <p class="text-muted small">Here's a summary of your orders.</p>
   </div>
 
+  @if(($customerActionSummary['total'] ?? 0) > 0)
+  <section class="alert border-0 mb-4 p-3" style="background:#fff7ed;border:1.5px solid #fdba74!important;color:#9a3412" aria-labelledby="customerActionTitle">
+    <div class="d-flex align-items-start gap-3 flex-wrap">
+      <div style="width:42px;height:42px;border-radius:12px;background:#f97316;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div class="flex-grow-1" style="min-width:200px">
+        <strong id="customerActionTitle">Action needed on {{ $customerActionSummary['total'] }} order{{ $customerActionSummary['total'] === 1 ? '' : 's' }}</strong>
+        <div class="small mt-1">
+          @if(($customerActionSummary['seller_cancellations'] ?? 0) > 0){{ $customerActionSummary['seller_cancellations'] }} seller cancellation request{{ $customerActionSummary['seller_cancellations'] === 1 ? '' : 's' }} need{{ $customerActionSummary['seller_cancellations'] === 1 ? 's' : '' }} your response.@endif
+          @if(($customerActionSummary['seller_cancellations'] ?? 0) > 0 && ($customerActionSummary['price_confirmations'] ?? 0) > 0) · @endif
+          @if(($customerActionSummary['price_confirmations'] ?? 0) > 0){{ $customerActionSummary['price_confirmations'] }} custom price confirmation{{ $customerActionSummary['price_confirmations'] === 1 ? '' : 's' }} waiting.@endif
+        </div>
+      </div>
+      <a href="{{ route('customer.orders') }}" class="btn btn-sm flex-shrink-0" style="background:#ea580c;color:#fff;border:none;font-weight:700"><i class="bi bi-bag-check me-1"></i>Review orders</a>
+    </div>
+  </section>
+  @endif
+
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
       <div class="card text-center p-3 h-100">

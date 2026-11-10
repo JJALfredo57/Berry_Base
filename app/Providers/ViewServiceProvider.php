@@ -1,6 +1,7 @@
 <?php
 namespace App\Providers;
 use App\Helpers\CakeshopHelper;
+use App\Services\OrderActionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
@@ -27,7 +28,9 @@ class ViewServiceProvider extends ServiceProvider
                 'pending_orders' => 0,
                 'kitchen_pending' => 0,
                 'kitchen_preparing' => 0,
+                'cancellation_actions' => 0,
             ];
+            $customerActionSummary = ['seller_cancellations' => 0, 'price_confirmations' => 0, 'total' => 0];
 
             if ($user && isset($user['role'])) {
                 try {
@@ -120,8 +123,9 @@ class ViewServiceProvider extends ServiceProvider
                                     ->count()
                                 : 0;
 
+                            $cancellationActions = app(OrderActionService::class)->sellerSummary((string) $shop->id)['total'];
                             $sellerSidebarCounts = [
-                                'orders' => $pendingOrders + $pickupReady + $remittanceActions + $riderActions,
+                                'orders' => $pendingOrders + $pickupReady + $remittanceActions + $riderActions + $cancellationActions,
                                 'kitchen' => $kitchenPending + $kitchenPreparing,
                                 'messages' => $messages,
                                 'payouts' => $payouts,
@@ -134,10 +138,15 @@ class ViewServiceProvider extends ServiceProvider
                                 'rider_actions' => $riderActions,
                                 'kitchen_pending' => $kitchenPending,
                                 'kitchen_preparing' => $kitchenPreparing,
+                                'cancellation_actions' => $cancellationActions,
                             ];
                             $unreadMessages = $messages;
                         }
                     } catch (\Throwable $e) {}
+                }
+
+                if (($user['role'] ?? null) === 'customer') {
+                    $customerActionSummary = app(OrderActionService::class)->customerSummary((string) $user['id']);
                 }
 
                 if (!isset($user['profile_photo'])) {
@@ -150,7 +159,7 @@ class ViewServiceProvider extends ServiceProvider
                 }
             }
 
-            $view->with(compact('settings','bgCss','unreadMessages','sellerSidebarCounts'));
+            $view->with(compact('settings','bgCss','unreadMessages','sellerSidebarCounts','customerActionSummary'));
         });
     }
 }

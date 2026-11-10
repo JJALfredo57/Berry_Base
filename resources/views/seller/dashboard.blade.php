@@ -31,6 +31,17 @@
   </div>
 @endif
 
+@if(($sellerActionSummary['total'] ?? 0) > 0)
+<section class="d-flex align-items-start gap-3 p-3 mb-4 rounded-3 cs-fade-up" style="background:#fff7ed;border:1.5px solid #fdba74" aria-labelledby="sellerActionTitle">
+  <div style="width:42px;height:42px;border-radius:12px;background:#ea580c;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-exclamation-triangle-fill"></i></div>
+  <div class="flex-grow-1" style="min-width:200px">
+    <strong id="sellerActionTitle" style="font-size:.9rem;color:#9a3412">{{ $sellerActionSummary['total'] }} cancellation/refund request{{ $sellerActionSummary['total'] === 1 ? '' : 's' }} need action</strong>
+    <div class="small mt-1" style="color:#9a3412">Review the customer’s refund details, send the refund when appropriate, then upload the receipt.</div>
+  </div>
+  <a href="{{ route('seller.orders', ['status' => 'Cancel Requests']) }}" class="btn btn-sm flex-shrink-0" style="background:#ea580c;color:#fff;border:none;font-weight:700"><i class="bi bi-arrow-right-circle me-1"></i>Review requests</a>
+</section>
+@endif
+
 @if($shop->tier !== 'verified')
 <div class="p-4 mb-4 rounded-3 cs-fade-up" style="background:linear-gradient(135deg,#fff7ed 0%,#fff 62%);border:1.5px solid #fed7aa">
   <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center gap-3">
