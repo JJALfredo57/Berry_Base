@@ -1349,7 +1349,7 @@
   @endphp
   <section class="card mb-3" id="delivery-driver-card" aria-labelledby="deliveryDriverTitle" style="border:1px solid #edf0f3;border-radius:14px;background:var(--bs-body-bg,#fff);box-shadow:0 2px 10px rgba(15,23,42,.05)">
     <div class="card-body p-3">
-      <div class="d-flex align-items-center gap-3">
+      <div class="d-flex align-items-center gap-3" style="flex-wrap:nowrap!important">
         <div class="rounded-circle text-white fw-bold flex-shrink-0" aria-hidden="true" style="width:46px;height:46px;background:var(--primary);display:grid;place-items:center">{{ strtoupper(mb_substr($deliveryDriver->name, 0, 1)) }}</div>
         <div class="flex-grow-1" style="min-width:0">
           <div class="fw-semibold" id="deliveryDriverTitle" style="font-size:.95rem">Delivery Driver</div>
