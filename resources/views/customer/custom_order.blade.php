@@ -16,6 +16,10 @@
 .bb-estimate-grid>div+div{border-left:1px solid color-mix(in srgb,var(--primary) 18%,#e5e7eb)}
 .bb-estimate-grid b{display:block;font-size:.88rem;line-height:1.25;color:var(--primary)}
 .bb-estimate-grid small{display:block;font-size:.58rem;letter-spacing:.04em;text-transform:uppercase;color:#4b5563}
+.bb-price-summary .bb-price-row{gap:.75rem;flex-wrap:nowrap!important}
+.bb-price-summary .bb-price-row>:first-child{min-width:0}
+.bb-price-summary .bb-price-amount{flex:0 0 auto;white-space:nowrap;overflow-wrap:normal;word-break:normal;text-align:right}
+.bb-price-summary .bb-price-total-copy{min-width:0;flex:1 1 auto}
 </style>
 @endpush
 <div class="container-fluid py-4">
@@ -414,44 +418,44 @@
 
         {{-- RIGHT: Price Summary --}}
         <div class="col-lg-4 bb-sticky-order-column">
-          <div class="card">
+          <div class="card bb-price-summary">
             <div class="card-body p-4">
               <h6 class="fw-bold mb-3">🎂 Price Summary</h6>
-              <div class="d-flex justify-content-between small mb-2">
+              <div class="d-flex justify-content-between small mb-2 bb-price-row">
                 <span class="text-muted">Base (Customized)</span>
-                <span class="fw-semibold">₱1,200.00</span>
+                <span class="fw-semibold bb-price-amount">₱1,200.00</span>
               </div>
-              <div class="d-flex justify-content-between small mb-2" id="sizeSurchargeRow" style="display:none!important">
+              <div class="d-flex justify-content-between small mb-2 bb-price-row" id="sizeSurchargeRow" style="display:none!important">
                 <span class="text-muted">Size Surcharge</span>
-                <span id="sizeSurchargeDisplay" class="fw-semibold" style="color:var(--primary)">+₱0.00</span>
+                <span id="sizeSurchargeDisplay" class="fw-semibold bb-price-amount" style="color:var(--primary)">+₱0.00</span>
               </div>
 
-              <div class="d-flex justify-content-between small mb-2" id="layerSurchargeRow" style="display:none!important">
+              <div class="d-flex justify-content-between small mb-2 bb-price-row" id="layerSurchargeRow" style="display:none!important">
                 <span class="text-muted">Layer Surcharge</span>
-                <span id="layerSurchargeDisplay" class="fw-semibold" style="color:var(--primary)">+&#8369;0.00</span>
+                <span id="layerSurchargeDisplay" class="fw-semibold bb-price-amount" style="color:var(--primary)">+&#8369;0.00</span>
               </div>
 
               <div id="addonSummary"></div>
 
-              <div class="d-flex justify-content-between small mb-1" id="feeRow" style="display:none!important">
+              <div class="d-flex justify-content-between small mb-1 bb-price-row" id="feeRow" style="display:none!important">
                 <span class="text-muted">Delivery Fee</span>
-                <span id="feeDisplay">₱0.00</span>
+                <span id="feeDisplay" class="bb-price-amount">₱0.00</span>
               </div>
-              <div class="d-flex justify-content-between small mb-1" id="serviceRow" style="display:none!important">
+              <div class="d-flex justify-content-between small mb-1 bb-price-row" id="serviceRow" style="display:none!important">
                 <span class="text-muted">Service/Gasoline</span>
-                <span id="serviceDisplay">₱0.00</span>
+                <span id="serviceDisplay" class="bb-price-amount">₱0.00</span>
               </div>
               <div class="d-flex justify-content-between small mb-1 text-muted" id="qtyRow" style="display:none">
                 <span>× <span id="qtyDisplay">1</span> cake(s)</span>
                 <span></span>
               </div>
               <hr class="my-2">
-              <div class="d-flex justify-content-between fw-bold align-items-start">
-                <div>
+              <div class="d-flex justify-content-between fw-bold align-items-start bb-price-row">
+                <div class="bb-price-total-copy">
                   <span>Total</span>
                   <div class="text-muted fw-normal mt-1" style="font-size:.82rem">(Pricing is subject to change. We will notify you immediately of any updates.)</div>
                 </div>
-                <span id="totalDisplay" style="color:var(--primary);font-size:1.1rem">₱1,200.00</span>
+                <span id="totalDisplay" class="bb-price-amount" style="color:var(--primary);font-size:1.1rem">₱1,200.00</span>
               </div>
               <div class="mt-3 pt-3 border-top">
                 <div class="text-muted small fw-semibold mb-2">Your Info</div>
@@ -843,9 +847,9 @@ function updatePriceSummary() {
   const addonSummary = document.getElementById('addonSummary');
   if (addonSummary) {
     addonSummary.innerHTML = addonDetails.map(d =>
-      '<div class="d-flex justify-content-between small mb-1 text-muted">'
+      '<div class="d-flex justify-content-between small mb-1 text-muted bb-price-row">'
       + '<span><i class="bi bi-check2 me-1" style="color:var(--primary)"></i>' + d.name + '</span>'
-      + '<span>' + (d.price > 0 ? '+₱'+d.price.toFixed(2) : 'FREE') + '</span></div>'
+      + '<span class="bb-price-amount">' + (d.price > 0 ? '+₱'+d.price.toFixed(2) : 'FREE') + '</span></div>'
     ).join('');
   }
 
