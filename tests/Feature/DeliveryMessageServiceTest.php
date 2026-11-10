@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Services\DeliveryMessageService;
 use App\Services\MobileNotificationService;
+use App\Http\Controllers\DeliveryMessageController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Http\Request;
 use Mockery;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
@@ -95,5 +97,18 @@ class DeliveryMessageServiceTest extends TestCase
 
         $this->assertSame('D1', $order->id);
         $this->assertSame('D1', $service->riderConversation('D1', (object) ['id' => 5])->id);
+    }
+
+    public function test_customer_can_send_an_image_only_message_without_a_missing_message_key_error(): void
+    {
+        session(['user' => ['id' => 10, 'role' => 'customer']]);
+        $order = (object) ['id' => 'D1'];
+        $messages = Mockery::mock(DeliveryMessageService::class);
+        $messages->shouldReceive('customerConversation')->once()->andReturn($order);
+        $messages->shouldReceive('send')->once()->with($order, 'customer', '10', '', null)->andReturn((object) ['id' => 1]);
+
+        $response = app(DeliveryMessageController::class)->customerSend(Request::create('/customer/orders/D1/delivery-messages', 'POST'), 'D1', $messages);
+
+        $this->assertSame(201, $response->getStatusCode());
     }
 }
