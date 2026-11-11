@@ -81,7 +81,7 @@
                 <span class="fw-semibold text-muted">{{ $ara->name }}</span>
                 <span class="text-muted small ms-1">— {{ $ara->category_name }}</span>
                 @if($ara->price > 0)
-                  <span class="badge ms-1 archived-price" style="background:#f3f4f6;color:#6b7280;font-size:.68rem">+₱{{ number_format($ara->price,2) }}</span>
+                  <span class="badge ms-1 archived-price" style="background:#f3f4f6;color:#6b7280;font-size:.68rem">+₱{{ rtrim(rtrim(number_format($ara->price, 2), '0'), '.') }}</span>
                 @endif
               </div>
             </div>
@@ -153,7 +153,7 @@
             <td class="text-muted">{{ $a->description ?? '—' }}</td>
             <td>
               @if($a->price > 0)
-                <span class="fw-bold" style="color:var(--primary)">+₱{{ number_format($a->price,2) }}</span>
+                <span class="fw-bold" style="color:var(--primary)">+₱{{ rtrim(rtrim(number_format($a->price, 2), '0'), '.') }}</span>
               @else
                 <span class="badge bg-success" style="font-size:.7rem">FREE</span>
               @endif
@@ -366,7 +366,17 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!archivedModal) return;
   if (archivedModal.parentElement !== document.body) document.body.append(archivedModal);
   const params = new URLSearchParams(window.location.search);
-  if (params.has('archived_categories_page') || params.has('archived_addons_page')) bootstrap.Modal.getOrCreateInstance(archivedModal).show();
+  if (params.get('archived_modal') === '1') bootstrap.Modal.getOrCreateInstance(archivedModal).show();
+  archivedModal.addEventListener('shown.bs.modal', () => archivedModal.querySelectorAll('a[href*="archived_"]').forEach(link => {
+    const url = new URL(link.href); url.searchParams.set('archived_modal', '1'); link.href = url.toString();
+  }));
+  document.querySelectorAll('#addCategoryModal form, #addAddonModal form').forEach(form => {
+    form.addEventListener('input', () => form.querySelectorAll('input[required], select[required]').forEach(field => {
+      const valid = field.checkValidity() && (field.name !== 'price' || /^\d+(\.\d{1,2})?$/.test(field.value));
+      field.classList.toggle('is-invalid', !valid); field.classList.toggle('is-valid', valid);
+    }));
+    form.addEventListener('submit', event => { if (!form.checkValidity()) { event.preventDefault(); form.querySelector(':invalid')?.focus(); } });
+  });
 });
 </script>
 @endpush

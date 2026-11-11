@@ -67,6 +67,7 @@ class AddonController extends Controller
     public function storeCategory(Request $request)
     {
         $shop = $this->getShop();
+        $request->validate(['name' => ['required','string','max:80'], 'icon' => ['nullable','string','max:80']]);
         $name = trim($request->input('name', ''));
         $icon = trim($request->input('icon', 'bi-stars'));
         if (!$name) return back()->with('err', 'Category name is required.');
@@ -133,6 +134,7 @@ class AddonController extends Controller
     public function store(Request $request)
     {
         $shop  = $this->getShop();
+        $request->validate(['category_id' => ['required'], 'name' => ['required','string','max:120'], 'description' => ['nullable','string','max:500'], 'price' => ['required','numeric','min:0','regex:/^\d+(\.\d{1,2})?$/']]);
         $catId = $request->input('category_id');
         $name  = trim($request->input('name', ''));
         $price = (float)$request->input('price', 0);
