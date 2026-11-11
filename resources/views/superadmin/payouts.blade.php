@@ -235,8 +235,8 @@
 @endif
 
 <div class="card mt-4">
-  @php $payoutActionCount = $payouts->where('status', '!=', 'paid')->count(); @endphp
-  <div class="card-header payout-section-head"><span><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Payouts</span>@if($payoutActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $payoutActionCount }} needs action</span>@endif</div>
+  @php $payoutActionCount = $payoutRequests->count(); @endphp
+  <div class="card-header payout-section-head"><span><i class="bi bi-cash-coin me-2" style="color:var(--primary)"></i>Payout Requests</span>@if($payoutActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $payoutActionCount }} needs action</span>@endif</div>
   <div class="table-responsive payout-table-scroll">
     <table class="table align-middle mb-0 payout-history-admin-table">
       <thead>
@@ -251,8 +251,11 @@
         </tr>
       </thead>
       <tbody>
-        @forelse($payouts as $p)
-          <tr class="payout-detail-trigger {{ $p->status !== 'paid' ? 'is-action-required' : '' }}" tabindex="0" role="button" aria-label="Open payout #{{ $p->id }} details">
+        @forelse($payoutRequests as $p)
+          <tr class="payout-detail-trigger is-action-required" tabindex="0" role="button" aria-label="Open payout #{{ $p->id }} details"
+              data-payout-method="{{ $p->payout_method ?? 'GCash' }}"
+              data-payout-account-name="{{ $p->payout_account_name ?? '' }}"
+              data-payout-account-number="{{ $p->payout_account_number ?? '' }}">
             <td>#{{ $p->id }}</td>
             <td><div class="fw-semibold">{{ $p->shop_name }}</div><div class="small text-muted">{{ $p->seller_name }}</div></td>
             <td>{{ ucfirst($p->mode) }}</td>
@@ -287,7 +290,52 @@
             </td>
           </tr>
         @empty
-          <tr><td colspan="7" class="text-center text-muted py-4">No payouts yet.</td></tr>
+          <tr><td colspan="7" class="text-center text-muted py-4">No payout requests need action.</td></tr>
+        @endforelse
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header payout-section-head"><span><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Recent Payouts</span></div>
+  <div class="table-responsive payout-table-scroll">
+    <table class="table align-middle mb-0 payout-history-admin-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Seller</th>
+          <th>Mode</th>
+          <th>Paid</th>
+          <th class="text-end">Net</th>
+          <th>Receipt Proof</th>
+          <th>Reference</th>
+        </tr>
+      </thead>
+      <tbody>
+        @forelse($recentPayouts as $p)
+          <tr class="payout-detail-trigger" tabindex="0" role="button" aria-label="Open paid payout #{{ $p->id }} details"
+              data-payout-method="{{ $p->payout_method ?? 'GCash' }}"
+              data-payout-account-name="{{ $p->payout_account_name ?? '' }}"
+              data-payout-account-number="{{ $p->payout_account_number ?? '' }}">
+            <td>#{{ $p->id }}</td>
+            <td><div class="fw-semibold">{{ $p->shop_name }}</div><div class="small text-muted">{{ $p->seller_name }}</div></td>
+            <td>{{ ucfirst($p->mode) }}</td>
+            <td class="small">{{ $p->paid_at ? \Carbon\Carbon::parse($p->paid_at)->format('M d, Y h:i A') : 'Paid' }}</td>
+            <td class="text-end fw-semibold">â‚±{{ number_format($p->net_amount, 2) }}</td>
+            <td class="small">
+              @if(!empty($p->payout_receipt_path ?? null))
+                <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-download-url="{{ route('superadmin.payouts.receipt_download', $p->id) }}" data-receipt-title="Payout Receipt #{{ $p->id }}">
+                  <i class="bi bi-image me-1"></i>View Receipt
+                </button>
+              @else
+                <span class="text-muted">No receipt</span>
+              @endif
+            </td>
+            <td class="small text-muted">{{ $p->reference_number ?: '—' }}</td>
+          </tr>
+        @empty
+          <tr><td colspan="7" class="text-center text-muted py-4">No paid payouts yet.</td></tr>
         @endforelse
       </tbody>
     </table>
@@ -341,8 +389,12 @@
   .payout-detail-dialog { width:min(560px,100%); max-height:calc(100dvh - 24px); display:flex; flex-direction:column; overflow:hidden; border-radius:18px; background:#fff; box-shadow:0 24px 70px rgba(15,23,42,.3); }
   .payout-detail-header,.payout-detail-footer { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.9rem 1rem; border-bottom:1px solid var(--gray-100); }
   .payout-detail-footer { border-top:1px solid var(--gray-100); border-bottom:0; justify-content:flex-end; }
-  .payout-detail-body { overflow:auto; padding:1rem; -webkit-overflow-scrolling:touch; }
-  .payout-detail-grid { display:grid; gap:.65rem; }.payout-detail-field { padding:.7rem; border-radius:10px; background:var(--gray-50); }.payout-detail-field small { display:block; margin-bottom:.22rem; color:var(--gray-500); font-weight:700; text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; }.payout-detail-field .form-control { margin-top:.45rem; }
+  .payout-detail-body { overflow-y:auto; overflow-x:hidden; min-width:0; padding:1rem; -webkit-overflow-scrolling:touch; }
+  .payout-detail-grid { display:grid; gap:.65rem; min-width:0; }.payout-detail-field { min-width:0; padding:.7rem; border-radius:10px; background:var(--gray-50); overflow-wrap:anywhere; }.payout-detail-field small { display:block; margin-bottom:.22rem; color:var(--gray-500); font-weight:700; text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; }.payout-detail-field .form-control { margin-top:.45rem; min-width:0; }
+  .payout-detail-body .payout-mark-paid-form { display:grid!important; grid-template-columns:minmax(0,1fr); min-width:0; width:100%; }
+  .payout-detail-body .payout-receipt-scan { min-width:0; width:100%; }
+  .payout-detail-body .payout-mark-paid-form .form-control { min-width:0; width:100%; }
+  .payout-detail-body .payout-mark-paid-form .btn { width:100%; min-height:42px; white-space:normal; }
   .payout-mobile-card.is-action-required { background:#fffaf0; box-shadow:inset 3px 0 #f97316; }
   .payout-mobile-card.is-action-required .payout-mobile-card-title::before { content:''; display:inline-block; width:.55rem; height:.55rem; margin-right:.45rem; border-radius:50%; background:#f97316; vertical-align:middle; }
   @media (hover:none) { .payout-mobile-card:hover { transform:none; box-shadow:none; } }
@@ -441,7 +493,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const closeMobileDetail = () => { mobileDetailModal.classList.remove('is-open'); document.body.style.overflow = ''; };
   mobileDetailModal.addEventListener('click', event => { if (event.target === mobileDetailModal || event.target.closest('.btn-close,.payout-detail-footer button')) closeMobileDetail(); });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && mobileDetailModal.classList.contains('is-open')) closeMobileDetail(); });
-  const openPayoutDetails = (cells, headers, values) => {
+  const openPayoutDetails = (cells, headers, values, payoutDestination = {}) => {
     const grid = mobileDetailModal.querySelector('.payout-detail-grid');
     grid.replaceChildren();
     cells.forEach((cell, index) => {
@@ -449,6 +501,23 @@ document.addEventListener('DOMContentLoaded', function() {
       const label = document.createElement('small'); label.textContent = headers[index] || 'Details';
       const content = document.createElement('div'); content.innerHTML = cell.innerHTML;
       field.append(label, content); grid.appendChild(field);
+      if (index === 1 && Object.prototype.hasOwnProperty.call(payoutDestination, 'payoutMethod')) {
+        const destination = document.createElement('div'); destination.className = 'payout-detail-field';
+        const destinationLabel = document.createElement('small'); destinationLabel.textContent = 'Send payout to';
+        const destinationContent = document.createElement('div');
+        const method = payoutDestination.payoutMethod || 'GCash';
+        const accountName = payoutDestination.payoutAccountName || '';
+        const accountNumber = payoutDestination.payoutAccountNumber || '';
+        if (accountName || accountNumber) {
+          const methodLine = document.createElement('div'); methodLine.className = 'fw-semibold'; methodLine.textContent = method;
+          const nameLine = document.createElement('div'); nameLine.textContent = accountName || 'Account name not provided';
+          const numberLine = document.createElement('div'); numberLine.className = 'small text-muted'; numberLine.textContent = accountNumber || 'Account number not provided';
+          destinationContent.append(methodLine, nameLine, numberLine);
+        } else {
+          destinationContent.className = 'text-muted'; destinationContent.textContent = 'Payout destination details were not saved for this record.';
+        }
+        destination.append(destinationLabel, destinationContent); grid.appendChild(destination);
+      }
     });
     mobileDetailModal.querySelector('.payout-detail-title').textContent = values[0] || 'Payout details';
     mobileDetailModal.classList.add('is-open'); document.body.style.overflow = 'hidden';
@@ -488,13 +557,13 @@ document.addEventListener('DOMContentLoaded', function() {
       secondMeta.textContent = isSellerBalances ? (values[3] ? 'Available ' + values[3] : '') : (values[2] || '');
       cardMeta.append(firstMeta, secondMeta);
       card.append(cardHead, cardMeta);
-      card.addEventListener('click', () => openPayoutDetails(cells, headers, values));
+      card.addEventListener('click', () => openPayoutDetails(cells, headers, values, row.dataset));
       cards.push({ card, needsAction });
       if (row.classList.contains('payout-detail-trigger')) {
         const openRow = event => {
           if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
           if (event.target.closest('button,input,label,select,textarea,a,form')) return;
-          event.preventDefault(); openPayoutDetails(cells, headers, values);
+          event.preventDefault(); openPayoutDetails(cells, headers, values, row.dataset);
         };
         row.addEventListener('click', openRow);
         row.addEventListener('keydown', openRow);

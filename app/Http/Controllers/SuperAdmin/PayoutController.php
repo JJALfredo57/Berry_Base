@@ -82,10 +82,19 @@ class PayoutController extends Controller
                 return $shop;
             });
 
-        $payouts = DB::table('seller_payouts as p')
+        $payoutQuery = fn () => DB::table('seller_payouts as p')
             ->join('shops as s', 's.id', '=', 'p.shop_id')
             ->leftJoin('users as u', 'u.id', '=', 'p.seller_id')
-            ->select('p.*', 's.shop_name', 'u.fullname as seller_name')
+            ->select('p.*', 's.shop_name', 'u.fullname as seller_name');
+
+        $payoutRequests = $payoutQuery()
+            ->where('p.status', '!=', 'paid')
+            ->orderByDesc('p.created_at')
+            ->limit(50)
+            ->get();
+        $recentPayouts = $payoutQuery()
+            ->where('p.status', 'paid')
+            ->orderByDesc('p.paid_at')
             ->orderByDesc('p.created_at')
             ->limit(50)
             ->get();
@@ -98,7 +107,7 @@ class PayoutController extends Controller
                 ->get()
             : collect();
 
-        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'shops', 'payouts', 'refunds'));
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds'));
     }
 
     public function saveSettings(Request $request)
