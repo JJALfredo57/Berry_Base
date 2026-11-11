@@ -153,7 +153,7 @@
             <td class="text-muted">{{ $a->description ?? '—' }}</td>
             <td>
               @if($a->price > 0)
-                <span class="fw-bold" style="color:var(--primary)">+₱{{ rtrim(rtrim(number_format($a->price, 2), '0'), '.') }}</span>
+                <span class="fw-bold addon-price" style="color:var(--primary)">+₱{{ rtrim(rtrim(number_format($a->price, 2), '0'), '.') }}</span>
               @else
                 <span class="badge bg-success" style="font-size:.7rem">FREE</span>
               @endif
@@ -344,7 +344,7 @@
 @endsection
 @push('scripts')
 <style>
-.archived-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.75rem;align-items:center;padding:.85rem 1.5rem}.archived-row>div:first-child{min-width:0}.archived-row .text-muted.small{white-space:nowrap}.archived-price{white-space:nowrap;display:inline-block}.archived-actions{display:flex;align-items:center;gap:.5rem;white-space:nowrap}.archived-actions form,.archived-actions .btn{flex:0 0 auto}.archived-actions .btn{min-width:78px;white-space:nowrap}@media(max-width:575.98px){.archived-row{padding:.7rem .85rem;gap:.55rem;grid-template-columns:minmax(0,1fr) auto}.archived-row .d-flex.gap-2{gap:.45rem!important}.archived-row .fw-semibold{font-size:.82rem}.archived-row .text-muted.small{font-size:.68rem!important}.archived-actions{align-self:center}.archived-actions>span{display:none}.archived-actions .btn{min-width:68px;padding:.35rem .45rem;font-size:.72rem}.archived-price{margin-top:.25rem!important}}
+.archived-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.75rem;align-items:center;padding:.85rem 1.5rem}.archived-row>div:first-child{min-width:0}.archived-row .text-muted.small{white-space:nowrap}.archived-price,.addon-price{white-space:nowrap;display:inline-block;overflow-wrap:normal}.archived-actions{display:flex;align-items:center;gap:.5rem;white-space:nowrap}.archived-actions form,.archived-actions .btn{flex:0 0 auto}.archived-actions .btn{min-width:78px;white-space:nowrap}@media(max-width:575.98px){.archived-row{padding:.7rem .85rem;gap:.55rem;grid-template-columns:minmax(0,1fr) auto}.archived-row .d-flex.gap-2{gap:.45rem!important}.archived-row .fw-semibold{font-size:.82rem}.archived-row .text-muted.small{font-size:.68rem!important}.archived-actions{align-self:center}.archived-actions>span{display:none}.archived-actions .btn{min-width:68px;padding:.35rem .45rem;font-size:.72rem}.archived-price{margin-top:.25rem!important}}
 </style>
 <script>
 function filterAddons() {
@@ -376,6 +376,13 @@ document.addEventListener('DOMContentLoaded', () => {
       field.classList.toggle('is-invalid', !valid); field.classList.toggle('is-valid', valid);
     }));
     form.addEventListener('submit', event => { if (!form.checkValidity()) { event.preventDefault(); form.querySelector(':invalid')?.focus(); } });
+  });
+  document.querySelectorAll('#sellerMain .modal').forEach(modal => { if (modal.parentElement !== document.body) document.body.append(modal); });
+  const iconChoices = [['bi-stars','⭐ Stars'],['bi-gift','🎁 Gift'],['bi-cake2','🎂 Cake'],['bi-heart-fill','❤️ Heart'],['bi-flower1','🌸 Flower'],['bi-balloon-fill','🎈 Balloon'],['bi-basket2-fill','🧺 Basket']];
+  document.querySelectorAll('input[name="icon"]').forEach(input => {
+    const select = document.createElement('select'); select.name = 'icon'; select.className = 'form-select';
+    iconChoices.forEach(([value, label]) => { const option = new Option(label, value, false, value === input.value); select.add(option); });
+    input.replaceWith(select);
   });
 });
 </script>

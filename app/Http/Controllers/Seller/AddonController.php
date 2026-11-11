@@ -67,7 +67,7 @@ class AddonController extends Controller
     public function storeCategory(Request $request)
     {
         $shop = $this->getShop();
-        $request->validate(['name' => ['required','string','max:80'], 'icon' => ['nullable','string','max:80']]);
+        $request->validate(['name' => ['required','string','max:80'], 'icon' => ['nullable','in:bi-stars,bi-gift,bi-cake2,bi-heart-fill,bi-flower1,bi-balloon-fill,bi-basket2-fill']]);
         $name = trim($request->input('name', ''));
         $icon = trim($request->input('icon', 'bi-stars'));
         if (!$name) return back()->with('err', 'Category name is required.');
@@ -90,6 +90,7 @@ class AddonController extends Controller
     public function updateCategory(Request $request, string $id)
     {
         $shop = $this->getShop();
+        $request->validate(['name' => ['required','string','max:80'], 'icon' => ['nullable','in:bi-stars,bi-gift,bi-cake2,bi-heart-fill,bi-flower1,bi-balloon-fill,bi-basket2-fill']]);
         $cat  = DB::table('cake_addon_categories')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$cat) return back()->with('err', 'Not found.');
         DB::table('cake_addon_categories')->where('id', $id)->update([
