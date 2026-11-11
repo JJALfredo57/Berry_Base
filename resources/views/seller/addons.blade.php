@@ -25,13 +25,13 @@
   @if(session('err'))<div class="alert alert-danger border-0"><i class="bi bi-exclamation-circle me-2"></i>{{ session('err') }}</div>@endif
 
   {{-- ── Archived Section ───────────────────────────────── --}}
-  @if($archivedCategories->isNotEmpty() || $archivedAddons->isNotEmpty())
+  @if($archivedCategories->total() > 0 || $archivedAddons->total() > 0)
   <div class="mb-4">
     <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2 mb-3"
             type="button" data-bs-toggle="collapse" data-bs-target="#archivedAddons">
       <i class="bi bi-archive"></i>
       Archived
-      <span class="badge bg-secondary">{{ $archivedCategories->count() + $archivedAddons->count() }}</span>
+      <span class="badge bg-secondary">{{ $archivedCategories->total() + $archivedAddons->total() }}</span>
       <i class="bi bi-chevron-down" style="font-size:.75rem"></i>
     </button>
     <div class="collapse" id="archivedAddons">
@@ -59,6 +59,11 @@
             </div>
           </div>
           @endforeach
+          @if($archivedCategories->hasPages())
+          <div class="p-3 border-bottom">
+            {{ $archivedCategories->links('vendor.pagination.custom') }}
+          </div>
+          @endif
 
           {{-- Archived Add-ons --}}
           @foreach($archivedAddons as $ara)
@@ -84,6 +89,11 @@
             </div>
           </div>
           @endforeach
+          @if($archivedAddons->hasPages())
+          <div class="p-3">
+            {{ $archivedAddons->links('vendor.pagination.custom') }}
+          </div>
+          @endif
 
         </div>
       </div>

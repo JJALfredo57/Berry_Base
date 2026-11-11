@@ -48,14 +48,18 @@ class AddonController extends Controller
         $archivedCategories = DB::table('cake_addon_categories')
             ->where('shop_id', $shop->id)
             ->whereNotNull('archived_at')
-            ->orderByDesc('archived_at')->get();
+            ->orderByDesc('archived_at')
+            ->paginate(10, ['*'], 'archived_categories_page')
+            ->withQueryString();
 
         $archivedAddons = DB::table('cake_addons as a')
             ->join('cake_addon_categories as c', 'c.id', '=', 'a.category_id')
             ->where('a.shop_id', $shop->id)
             ->whereNotNull('a.archived_at')
             ->select('a.*', 'c.name as category_name')
-            ->orderByDesc('a.archived_at')->get();
+            ->orderByDesc('a.archived_at')
+            ->paginate(10, ['*'], 'archived_addons_page')
+            ->withQueryString();
 
         return view('seller.addons', compact('categories', 'addons', 'archivedCategories', 'archivedAddons'));
     }
