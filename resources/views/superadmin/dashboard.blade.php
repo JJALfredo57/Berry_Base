@@ -72,8 +72,6 @@
   </div>
   <div class="cs-page-actions">
     <a href="{{ route('superadmin.commissions') }}" class="btn btn-outline-success btn-sm"><i class="bi bi-graph-up-arrow me-1"></i>Commission Graph</a>
-    <a href="{{ route('superadmin.sellers') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-shop me-1"></i>Sellers</a>
-    <a href="{{ route('superadmin.settings') }}" class="btn btn-primary btn-sm"><i class="bi bi-sliders me-1"></i>Settings</a>
   </div>
 </div>
 
