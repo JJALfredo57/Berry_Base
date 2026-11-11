@@ -197,8 +197,9 @@ class OrderRequestService
 
     public function customerDecline(object $row, ?string $note = null): array
     {
-        if (!in_array(($row->status ?? ''), ['accepted', 'customer_accepted'], true)) return ['ok' => false, 'message' => 'This offer can no longer be declined.'];
-        DB::table('order_requests')->where('id', $row->id)->whereIn('status', ['accepted', 'customer_accepted'])->update([
+        $declinableStatuses = ['accepted', 'customer_accepted', 'schedule_suggested', 'alternative_offered'];
+        if (!in_array(($row->status ?? ''), $declinableStatuses, true)) return ['ok' => false, 'message' => 'This offer can no longer be declined.'];
+        DB::table('order_requests')->where('id', $row->id)->whereIn('status', $declinableStatuses)->update([
             'status' => 'customer_declined',
             'customer_decision_note' => trim((string) $note) ?: null,
             'customer_decision_at' => now(),
