@@ -249,12 +249,17 @@ class SellerController extends Controller
             return back()->with('err', 'No pending upgrade request for this shop.');
         }
 
+        $platform = DB::table('platform_settings')->first();
+        $verifiedCommissionRate = (float) ($platform->commission_rate_verified ?? 0.00);
+
         try {
             DB::table('shops')->where('id', $shopId)->update([
                 'tier'                   => 'verified',
+                'commission_rate'        => $verifiedCommissionRate,
                 'upgrade_request_status' => 'approved',
                 'upgrade_request_note'   => null,
                 'verified_at'            => now(),
+                'updated_at'             => now(),
             ]);
         } catch (\Throwable $e) {
             return back()->with('err', 'Failed to approve upgrade. Please try again.');
