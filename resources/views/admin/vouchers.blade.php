@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('content')
-<style>.voucher-field-error{display:none;color:#b42318;font-size:.75rem;margin-top:.3rem}.is-invalid+.voucher-field-error{display:block}.voucher-help{border:0;background:var(--primary);color:#fff;border-radius:50%;width:18px;height:18px;font-size:.7rem;line-height:18px;padding:0;margin-left:.3rem}.voucher-help-text{display:none;background:#fff7fb;border:1px solid #fbcfe8;border-radius:8px;padding:.45rem .6rem;font-size:.75rem;margin-top:.35rem}.voucher-help-text.show{display:block}#customer-wrap{position:relative}#voucher-customer-results{position:absolute;z-index:1080;left:0;right:0;top:100%;max-height:220px;overflow:auto;box-shadow:0 10px 24px rgba(15,23,42,.16);border-radius:0 0 10px 10px;background:#fff}.voucher-modal.fade .modal-dialog{transform:translateY(16px) scale(.98);transition:transform .2s ease}.voucher-modal.show .modal-dialog{transform:none}@media(min-width:992px){#voucher-list-column{width:100%}.row:has(#voucher-list-column)>.col-lg-4{display:none}}@media(max-width:768px){.voucher-modal .modal-dialog{margin:.5rem}}</style>
+<style>.voucher-field-error{display:none;color:#b42318;font-size:.75rem;margin-top:.3rem}.is-invalid+.voucher-field-error{display:block}.voucher-help{border:0;background:var(--primary);color:#fff;border-radius:50%;width:18px;height:18px;font-size:.7rem;line-height:18px;padding:0;margin-left:.3rem}.voucher-help-text{display:none;background:#fff7fb;border:1px solid #fbcfe8;border-radius:8px;padding:.45rem .6rem;font-size:.75rem;margin-top:.35rem}.voucher-help-text.show{display:block}#customer-wrap{position:relative}#voucher-customer-results{position:absolute;z-index:1080;left:0;right:0;top:100%;max-height:220px;overflow:auto;box-shadow:0 10px 24px rgba(15,23,42,.16);border-radius:0 0 10px 10px;background:#fff}.voucher-modal.fade .modal-dialog{transform:translateY(16px) scale(.98);transition:transform .2s ease}.voucher-modal.show .modal-dialog{transform:none}.voucher-list{display:grid;gap:.7rem}.voucher-list-item{display:flex;align-items:center;justify-content:space-between;gap:1rem;width:100%;padding:.9rem;border:1px solid var(--gray-100);border-radius:12px;background:#fff;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}.voucher-list-item:hover,.voucher-list-item:focus-visible{border-color:var(--primary);box-shadow:0 6px 18px color-mix(in srgb,var(--primary) 14%,transparent);outline:0;transform:translateY(-1px)}.voucher-list-main{min-width:0}.voucher-list-code{font-weight:800;letter-spacing:.02em}.voucher-list-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--gray-600);font-size:.8rem}.voucher-list-meta{display:flex;align-items:center;justify-content:flex-end;gap:.5rem;flex-wrap:wrap;text-align:right}.voucher-detail-modal .modal-content{max-height:calc(100dvh - 2rem)}.voucher-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}.voucher-detail-item{padding:.7rem;border-radius:10px;background:var(--gray-50)}.voucher-detail-item dt{margin:0 0 .2rem;color:var(--gray-600);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.voucher-detail-item dd{margin:0;font-size:.88rem;font-weight:600;overflow-wrap:anywhere}@media(min-width:992px){#voucher-list-column{width:100%}.row:has(#voucher-list-column)>.col-lg-4{display:none}}@media(max-width:768px){.voucher-modal .modal-dialog,.voucher-detail-modal .modal-dialog{margin:.5rem}.voucher-list-item{align-items:flex-start}.voucher-list-meta{justify-content:flex-start;text-align:left;flex-direction:column;align-items:flex-end}.voucher-detail-grid{grid-template-columns:1fr}}</style>
 <div class="container-fluid py-4">
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
@@ -49,31 +49,50 @@
       <div class="card">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center gap-2 mb-3"><h6 class="fw-bold mb-0">Voucher List</h6><button class="btn btn-primary btn-sm" type="button" id="open-voucher-modal"><i class="bi bi-plus-lg me-1"></i>Create Voucher</button></div>
-          <div class="table-responsive">
-            <table class="table align-middle">
-              <thead><tr><th>Code</th><th>Discount</th><th>Audience</th><th>Limits</th><th>Status</th><th></th></tr></thead>
-              <tbody>
-                @forelse($vouchers as $voucher)
-                  <tr>
-                    <td><div class="fw-bold">{{ $voucher->code }}</div><div class="small text-muted">{{ $voucher->name }}</div></td>
-                    <td>{{ $voucher->discount_type === 'percent' ? rtrim(rtrim(number_format($voucher->discount_value,2),'0'),'.').'%' : 'PHP '.number_format($voucher->discount_value,2) }}</td>
-                    @php $audience = $voucher->audience ?? 'public'; @endphp
-                    <td><span class="badge {{ $audience === 'assigned' ? 'text-bg-success' : 'text-bg-light' }}">{{ $audience === 'assigned' ? 'Assigned' : 'Public' }}</span><div class="small text-muted">{{ (int)($assignmentCounts[$voucher->id] ?? 0) }} assigned</div></td>
-                    <td><div class="small">Min PHP {{ number_format($voucher->minimum_order_amount,2) }}</div><div class="small text-muted">Per customer: {{ $voucher->per_customer_limit ?: 'No limit' }}</div></td>
-                    <td><span class="badge {{ $voucher->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $voucher->is_active ? 'Active' : 'Paused' }}</span></td>
-                    <td class="text-end">
-                      <form method="POST" action="{{ route($ctx['route_prefix'].'.vouchers.toggle', $voucher->id) }}">@csrf<button class="btn btn-outline-secondary btn-sm" style="white-space:nowrap;overflow-wrap:normal;min-width:68px">{{ $voucher->is_active ? 'Pause' : 'Activate' }}</button></form>
-                    </td>
-                  </tr>
-                @empty
-                  <tr><td colspan="6" class="text-center text-muted py-4">No vouchers yet.</td></tr>
-                @endforelse
-              </tbody>
-            </table>
+          <div class="voucher-list" aria-label="Voucher list">
+            @forelse($vouchers as $voucher)
+              @php
+                $audience = $voucher->audience ?? 'public';
+                $discount = $voucher->discount_type === 'percent' ? rtrim(rtrim(number_format($voucher->discount_value, 2), '0'), '.') . '%' : 'PHP ' . number_format($voucher->discount_value, 2);
+                $detail = [
+                  'code' => $voucher->code, 'name' => $voucher->name, 'description' => $voucher->description,
+                  'discount' => $discount, 'maxDiscount' => $voucher->max_discount !== null ? 'PHP ' . number_format($voucher->max_discount, 2) : 'Not applicable',
+                  'audience' => $audience === 'assigned' ? 'Assigned customer only' : 'Public', 'assigned' => (int) ($assignmentCounts[$voucher->id] ?? 0),
+                  'minimum' => 'PHP ' . number_format($voucher->minimum_order_amount, 2), 'usageLimit' => $voucher->usage_limit ?: 'No limit',
+                  'perCustomerLimit' => $voucher->per_customer_limit ?: 'No limit', 'startsAt' => $voucher->starts_at ? \Carbon\Carbon::parse($voucher->starts_at)->format('M d, Y g:i A') : 'Immediately',
+                  'endsAt' => $voucher->ends_at ? \Carbon\Carbon::parse($voucher->ends_at)->format('M d, Y g:i A') : 'No expiry',
+                  'verifiedOnly' => $voucher->requires_verified_customer ? 'Yes' : 'No', 'firstOrderOnly' => $voucher->first_order_only ? 'Yes' : 'No',
+                  'stackable' => $voucher->stack_with_product_discount ? 'Allowed' : 'Not allowed',
+                ];
+              @endphp
+              <div class="voucher-list-item" role="button" tabindex="0" aria-label="View details for voucher {{ $voucher->code }}" data-voucher-details="{{ e(json_encode($detail)) }}">
+                <div class="voucher-list-main">
+                  <div class="voucher-list-code">{{ $voucher->code }}</div>
+                  <div class="voucher-list-name">{{ $voucher->name }}</div>
+                </div>
+                <div class="voucher-list-meta">
+                  <strong>{{ $discount }}</strong>
+                  <span class="badge {{ $voucher->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $voucher->is_active ? 'Active' : 'Paused' }}</span>
+                  <button type="button" class="btn btn-outline-primary btn-sm voucher-details-trigger">View details</button>
+                  <form method="POST" action="{{ route($ctx['route_prefix'].'.vouchers.toggle', $voucher->id) }}" onclick="event.stopPropagation()">@csrf<button class="btn btn-outline-secondary btn-sm" style="white-space:nowrap;overflow-wrap:normal;min-width:68px">{{ $voucher->is_active ? 'Pause' : 'Activate' }}</button></form>
+                </div>
+              </div>
+            @empty
+              <div class="text-center text-muted py-4">No vouchers yet.</div>
+            @endforelse
           </div>
           {{ $vouchers->links() }}
         </div>
       </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade voucher-detail-modal" id="voucherDetailModal" tabindex="-1" aria-labelledby="voucherDetailTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0"><div><h5 class="modal-title fw-bold" id="voucherDetailTitle">Voucher details</h5><div class="small text-muted" id="voucherDetailSubtitle"></div></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close voucher details"></button></div>
+      <div class="modal-body pt-3"><p class="text-muted small mb-3" id="voucherDetailDescription"></p><dl class="voucher-detail-grid mb-0" id="voucherDetailGrid"></dl></div>
+      <div class="modal-footer border-0 pt-0"><button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">Close</button></div>
     </div>
   </div>
 </div>
@@ -87,5 +106,49 @@
 <script>(()=>{const form=document.getElementById('voucher-form'),btn=document.getElementById('open-voucher-modal');if(!form||!btn)return;const card=form.closest('.card');const modal=document.createElement('div');modal.className='modal fade voucher-modal';modal.tabIndex=-1;modal.innerHTML='<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Create Voucher</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"></div></div></div>';modal.querySelector('.modal-body').appendChild(card);document.body.appendChild(modal);btn.onclick=()=>bootstrap.Modal.getOrCreateInstance(modal).show();})();</script>
 <script>
 (()=>{const input=document.getElementById('voucher-customer'),id=document.getElementById('voucher-customer-id'),box=document.getElementById('voucher-customer-results');if(!input)return;let timer;input.addEventListener('input',()=>{id.value='';clearTimeout(timer);const q=input.value.trim();if(q.length<2){box.innerHTML='';return}timer=setTimeout(async()=>{box.innerHTML='<div class="small text-muted p-2">Searching…</div>';try{const r=await fetch('/seller/vouchers/customers/search?q='+encodeURIComponent(q));const rows=await r.json();box.innerHTML=rows.length?rows.map(x=>`<button type="button" class="list-group-item list-group-item-action" data-id="${x.id}"><strong>${x.fullname}</strong><br><small>${x.email||x.phone||''}</small></button>`).join(''):'<div class="small text-muted p-2">No matching customer found.</div>';box.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{id.value=b.dataset.id;input.value=b.innerText.replace(/\n.*/, '');box.innerHTML='<div class="small text-success p-2">Customer selected.</div>'})}catch{box.innerHTML='<div class="small text-danger p-2">Search failed. Please try again.</div>'}},300)})})();
+</script>
+<script>
+(() => {
+  const modalElement = document.getElementById('voucherDetailModal');
+  if (!modalElement || !window.bootstrap) return;
+  document.body.appendChild(modalElement);
+  const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+  const title = document.getElementById('voucherDetailTitle');
+  const subtitle = document.getElementById('voucherDetailSubtitle');
+  const description = document.getElementById('voucherDetailDescription');
+  const grid = document.getElementById('voucherDetailGrid');
+  const fields = [
+    ['Discount', 'discount'], ['Maximum discount', 'maxDiscount'], ['Audience', 'audience'], ['Assigned customers', 'assigned'],
+    ['Minimum order', 'minimum'], ['Total usage limit', 'usageLimit'], ['Per-customer limit', 'perCustomerLimit'], ['Starts', 'startsAt'],
+    ['Ends', 'endsAt'], ['Verified customers only', 'verifiedOnly'], ['First order only', 'firstOrderOnly'], ['Stacks with product discounts', 'stackable'],
+  ];
+  const openDetails = item => {
+    const voucher = JSON.parse(item.dataset.voucherDetails || '{}');
+    title.textContent = voucher.code || 'Voucher details';
+    subtitle.textContent = voucher.name || '';
+    description.textContent = voucher.description || 'No description provided.';
+    grid.replaceChildren(...fields.map(([label, key]) => {
+      const detail = document.createElement('div');
+      detail.className = 'voucher-detail-item';
+      const dt = document.createElement('dt'); dt.textContent = label;
+      const dd = document.createElement('dd'); dd.textContent = voucher[key] ?? '—';
+      detail.append(dt, dd);
+      return detail;
+    }));
+    modal.show();
+  };
+  document.querySelectorAll('[data-voucher-details]').forEach(item => {
+    item.addEventListener('click', event => {
+      if (event.target.closest('form')) return;
+      openDetails(item);
+    });
+    item.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openDetails(item);
+      }
+    });
+  });
+})();
 </script>
 @endsection
