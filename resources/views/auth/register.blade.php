@@ -1,5 +1,13 @@
 @extends('layouts.app')
 @section('content')
+<style>
+  .registration-field .form-control.is-valid { border-color:var(--success); padding-right:2.4rem; background-image:none; }
+  .registration-field .form-control.is-invalid { background-image:none; }
+  .registration-feedback { display:block; min-height:1.25rem; margin-top:.35rem; font-size:.78rem; font-weight:600; }
+  .registration-feedback.error { color:var(--danger); }
+  .registration-feedback.success { color:var(--success); }
+  .registration-submit[disabled] { cursor:not-allowed; opacity:.68; transform:none!important; }
+</style>
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--primary-bg) 0%,var(--primary-light) 100%);padding:2rem 1rem">
 
   <div style="width:100%;max-width:480px">
@@ -63,21 +71,18 @@
         @csrf
         <div class="row g-3">
 
-          <div class="col-12">
+          <div class="col-12 registration-field">
             <label class="form-label" for="fullname">Full Name <span style="color:var(--danger)">*</span></label>
             <input type="text" class="form-control @error('fullname') is-invalid @enderror"
                    id="fullname" name="fullname"
                    value="{{ old('fullname') }}"
                    placeholder="e.g. Juan dela Cruz"
-                   required autofocus
-                   oninvalid="this.setCustomValidity('Full name is required')"
-                   oninput="this.setCustomValidity('')">
-            @error('fullname')
-              <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
+                   required minlength="3" maxlength="100" autocomplete="name" autofocus
+                   aria-describedby="fullnameFeedback">
+            <div id="fullnameFeedback" class="registration-feedback error" role="alert">@error('fullname'){{ $message }}@enderror</div>
           </div>
 
-          <div class="col-12">
+          <div class="col-12 registration-field">
             <label class="form-label" for="username">Username <span style="color:var(--danger)">*</span></label>
             <input type="text" class="form-control @error('username') is-invalid @enderror"
                    id="username" name="username"
@@ -85,16 +90,13 @@
                    placeholder="e.g. juandc123"
                    required
                    pattern="[a-zA-Z0-9_]+"
-                   minlength="3"
-                   oninvalid="this.setCustomValidity('Username must be at least 3 characters (letters, numbers, underscore only)')"
-                   oninput="this.setCustomValidity('')">
-            <div class="form-text">Letters, numbers, and underscores only. Min 3 characters.</div>
-            @error('username')
-              <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
+                   minlength="3" maxlength="60" autocomplete="username"
+                   aria-describedby="usernameHelp usernameFeedback">
+            <div id="usernameHelp" class="form-text">Letters, numbers, and underscores only. Min 3 characters.</div>
+            <div id="usernameFeedback" class="registration-feedback error" role="alert">@error('username'){{ $message }}@enderror</div>
           </div>
 
-          <div class="col-12">
+          <div class="col-12 registration-field">
             <label class="form-label" for="email">Email Address <span style="color:var(--danger)">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-envelope" style="color:var(--primary)"></i></span>
@@ -102,34 +104,26 @@
                      id="email" name="email"
                      value="{{ old('email') }}"
                      placeholder="juan@email.com"
-                     required
-                     oninvalid="this.setCustomValidity('Please enter a valid email address')"
-                     oninput="this.setCustomValidity('')">
-              @error('email')
-                <div class="invalid-feedback">{{ $message }}</div>
-              @enderror
+                     required maxlength="150" autocomplete="email"
+                     aria-describedby="emailFeedback">
             </div>
+            <div id="emailFeedback" class="registration-feedback error" role="alert">@error('email'){{ $message }}@enderror</div>
           </div>
 
-          <div class="col-12">
+          <div class="col-12 registration-field">
             <label class="form-label" for="phone">Phone Number <span style="color:var(--danger)">*</span></label>
             <div class="input-group">
-              <span class="input-group-text" style="font-weight:600;color:var(--gray-700)">+63</span>
+              <span class="input-group-text"><i class="bi bi-phone" style="color:var(--primary)"></i></span>
               <input type="text" class="form-control @error('phone') is-invalid @enderror"
                      id="phone" name="phone"
                      value="{{ old('phone') }}"
-                     placeholder="9XXXXXXXXX"
+                     placeholder="+639171234567"
                      required
-                     maxlength="10"
-                     pattern="9[0-9]{9}"
-                     oninput="this.value=this.value.replace(/\D/g,'').substring(0,10)"
-                     oninvalid="this.setCustomValidity('Enter a valid PH number starting with 9')"
-                     onchange="this.setCustomValidity('')">
-              @error('phone')
-                <div class="invalid-feedback">{{ $message }}</div>
-              @enderror
+                     inputmode="tel" maxlength="15" autocomplete="tel"
+                     aria-describedby="phoneHelp phoneFeedback">
             </div>
-            <div class="form-text">10 digits starting with 9. e.g. 9171234567</div>
+            <div id="phoneHelp" class="form-text">Use +639XXXXXXXXX, 09XXXXXXXXX, or 9XXXXXXXXX. It will be saved as +63.</div>
+            <div id="phoneFeedback" class="registration-feedback error" role="alert">@error('phone'){{ $message }}@enderror</div>
           </div>
 
           {{-- OTP Channel --}}
@@ -157,7 +151,7 @@
 
         </div>
 
-        <button type="submit" class="btn btn-primary w-100 mt-4" style="padding:.75rem;font-size:.95rem;font-weight:600">
+        <button type="submit" class="btn btn-primary w-100 mt-4 registration-submit" id="regSubmit" style="padding:.75rem;font-size:.95rem;font-weight:600" disabled>
           Send OTP &amp; Continue
         </button>
       </form>
@@ -324,6 +318,147 @@ function checkPwdMatch() {
     confirm.setCustomValidity('Passwords do not match');
   }
 }
+
+(() => {
+  const form = document.getElementById('regForm1');
+  if (!form) return;
+
+  const submit = document.getElementById('regSubmit');
+  const endpoint = @json(route('register.validate_field'));
+  const fields = ['fullname', 'username', 'email', 'phone'];
+  const availabilityFields = new Set(['username', 'email', 'phone']);
+  const states = Object.fromEntries(fields.map(field => [field, { local: false, remote: false, pending: false, touched: false, timer: null, version: 0 }]));
+  let submitting = false;
+
+  const input = field => document.getElementById(field);
+  const feedback = field => document.getElementById(field + 'Feedback');
+  const trimmed = field => input(field).value.trim();
+  const phoneNormalized = value => {
+    let digits = String(value || '').replace(/\D/g, '');
+    if (digits.startsWith('63')) digits = digits.slice(2);
+    if (digits.startsWith('0')) digits = digits.slice(1);
+    return /^9\d{9}$/.test(digits) ? '+63' + digits : null;
+  };
+  const messageFor = field => {
+    const value = trimmed(field);
+    if (field === 'fullname') return value.length >= 3 && /[A-Za-zÀ-ÿ]/.test(value) ? '' : 'Please enter your full name.';
+    if (field === 'username') return /^[A-Za-z0-9_]{3,60}$/.test(value) ? '' : 'Use at least 3 letters, numbers, or underscores only.';
+    if (field === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) ? '' : 'Enter a valid email address, such as name@example.com.';
+    return phoneNormalized(value) ? '' : 'Use a valid PH mobile number: 9XXXXXXXXX, 09XXXXXXXXX, or +639XXXXXXXXX.';
+  };
+  const setFieldState = (field, type, message = '') => {
+    const control = input(field);
+    const notice = feedback(field);
+    control.classList.remove('is-valid', 'is-invalid');
+    notice.classList.remove('error', 'success');
+    if (type === 'error') {
+      control.classList.add('is-invalid');
+      notice.classList.add('error');
+      control.setAttribute('aria-invalid', 'true');
+    } else if (type === 'success') {
+      control.classList.add('is-valid');
+      notice.classList.add('success');
+      control.setAttribute('aria-invalid', 'false');
+    } else {
+      control.removeAttribute('aria-invalid');
+    }
+    notice.textContent = message;
+  };
+  const updateSubmit = () => {
+    const ready = fields.every(field => states[field].local && (!availabilityFields.has(field) || states[field].remote) && !states[field].pending);
+    submit.disabled = !ready || submitting;
+  };
+  const validateLocal = field => {
+    const message = messageFor(field);
+    states[field].local = !message;
+    states[field].remote = !availabilityFields.has(field);
+    if (message) setFieldState(field, states[field].touched ? 'error' : 'idle', states[field].touched ? message : '');
+    else setFieldState(field, 'idle');
+    updateSubmit();
+    return !message;
+  };
+  const checkAvailability = async field => {
+    if (!availabilityFields.has(field) || !validateLocal(field)) return false;
+    const value = trimmed(field);
+    const version = ++states[field].version;
+    states[field].pending = true;
+    states[field].remote = false;
+    if (states[field].touched) setFieldState(field, 'idle', 'Checking availability...');
+    updateSubmit();
+    try {
+      const url = new URL(endpoint, window.location.origin);
+      url.searchParams.set('field', field);
+      url.searchParams.set('value', value);
+      const response = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+      const result = await response.json();
+      if (version !== states[field].version) return false;
+      if (!response.ok || !result.valid) {
+        states[field].remote = false;
+        setFieldState(field, 'error', result.message || 'Unable to validate this field. Please try again.');
+        return false;
+      }
+      if (field === 'phone' && result.normalized) input(field).value = result.normalized;
+      states[field].remote = true;
+      setFieldState(field, 'success', field === 'phone' ? 'Valid mobile number. Saved as ' + input(field).value : 'Available to use.');
+      return true;
+    } catch (error) {
+      if (version !== states[field].version) return false;
+      states[field].remote = false;
+      setFieldState(field, 'error', 'Unable to validate this field. Check your connection and try again.');
+      return false;
+    } finally {
+      if (version === states[field].version) {
+        states[field].pending = false;
+        updateSubmit();
+      }
+    }
+  };
+  const scheduleAvailability = field => {
+    clearTimeout(states[field].timer);
+    if (!validateLocal(field)) return;
+    states[field].timer = window.setTimeout(() => checkAvailability(field), 400);
+  };
+
+  fields.forEach(field => {
+    input(field).addEventListener('input', () => {
+      states[field].touched = true;
+      states[field].version++;
+      if (availabilityFields.has(field)) scheduleAvailability(field);
+      else validateLocal(field);
+    });
+    input(field).addEventListener('blur', () => {
+      states[field].touched = true;
+      if (availabilityFields.has(field)) checkAvailability(field);
+      else validateLocal(field);
+    });
+  });
+
+  form.addEventListener('submit', async event => {
+    if (submitting) return;
+    event.preventDefault();
+    fields.forEach(field => { states[field].touched = true; });
+    const locallyValid = fields.every(validateLocal);
+    if (!locallyValid) {
+      const firstInvalid = fields.find(field => !states[field].local);
+      input(firstInvalid)?.focus();
+      return;
+    }
+    await Promise.all([...availabilityFields].map(checkAvailability));
+    if (!fields.every(field => states[field].local && (!availabilityFields.has(field) || states[field].remote))) return;
+    submitting = true;
+    submit.disabled = true;
+    submit.textContent = 'Sending OTP...';
+    form.submit();
+  });
+
+  fields.forEach(field => {
+    if (trimmed(field)) {
+      states[field].touched = true;
+      availabilityFields.has(field) ? scheduleAvailability(field) : validateLocal(field);
+    }
+  });
+  updateSubmit();
+})();
 
 document.getElementById('regForm2')?.addEventListener('submit', function(e) {
   checkPwdMatch();

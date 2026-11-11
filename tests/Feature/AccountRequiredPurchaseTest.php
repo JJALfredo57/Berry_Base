@@ -278,4 +278,31 @@ class AccountRequiredPurchaseTest extends TestCase
         $this->postJson('/customer/checkout/place', ['selected_size' => ['bad'], 'payment_method' => 'invalid'])->assertUnprocessable();
         $this->assertDatabaseCount('orders', 0);
     }
+
+    public function test_registration_requires_valid_identity_fields_before_sending_an_otp(): void
+    {
+        $this->postJson('/register', [
+            'fullname' => 'New Customer',
+            'username' => 'bad username!',
+            'email' => 'not-an-email',
+            'phone' => '12345',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['username', 'email']);
+    }
+
+    public function test_registration_field_validation_normalizes_phone_and_rejects_duplicates(): void
+    {
+        $this->getJson('/register/validate-field?field=phone&value=09171234567')
+            ->assertOk()
+            ->assertJsonPath('valid', false);
+
+        $this->getJson('/register/validate-field?field=phone&value=09181234567')
+            ->assertOk()
+            ->assertJsonPath('valid', true)
+            ->assertJsonPath('normalized', '+639181234567');
+
+        $this->getJson('/register/validate-field?field=username&value=testcustomer')
+            ->assertOk()
+            ->assertJsonPath('valid', false);
+    }
 }

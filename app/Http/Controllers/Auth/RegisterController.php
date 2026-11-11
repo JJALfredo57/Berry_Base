@@ -22,10 +22,10 @@ class RegisterController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'fullname' => 'required|string|max:100',
-            'email' => 'required|string|max:150',
+            'fullname' => ['required', 'string', 'max:100', 'regex:/.*\\S.*/'],
+            'email' => 'required|string|email:rfc|max:150',
             'phone' => 'required|string|max:30',
-            'username' => 'required|string|max:60',
+            'username' => ['required', 'string', 'min:3', 'max:60', 'regex:/^[A-Za-z0-9_]+$/'],
             'otp_channel' => 'nullable|in:email,sms',
         ]);
         $fullname = trim($request->input('fullname', ''));
@@ -37,10 +37,6 @@ class RegisterController extends Controller
         if (!$fullname || !$email || !$phone || !$username) {
             return back()->with('error', 'Please complete all fields.')->withInput();
         }
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return back()->with('error', 'Invalid email address.')->withInput();
-        }
-
         $phone = $this->identity->normalizePhone($phone);
         if (!$phone) {
             return back()->with('error', 'Please enter a valid Philippine mobile number.')->withInput();
@@ -82,6 +78,51 @@ class RegisterController extends Controller
         }
 
         return redirect()->route('register')->with('msg', $msg);
+    }
+
+    public function validateField(Request $request)
+    {
+        $request->validate([
+            'field' => 'required|in:username,email,phone',
+            'value' => 'nullable|string|max:150',
+        ]);
+
+        $field = (string) $request->input('field');
+        $value = trim((string) $request->input('value', ''));
+
+        if ($field === 'username') {
+            if (!preg_match('/^[A-Za-z0-9_]{3,60}$/', $value)) {
+                return response()->json(['valid' => false, 'message' => 'Use at least 3 letters, numbers, or underscores only.']);
+            }
+            $conflict = $this->identity->userConflict($value, null, null);
+        } elseif ($field === 'email') {
+            $value = strtolower($value);
+            if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                return response()->json(['valid' => false, 'message' => 'Enter a valid email address, such as name@example.com.']);
+            }
+            $conflict = $this->identity->userConflict(null, $value, null);
+        } else {
+            $phone = $this->identity->normalizePhone($value);
+            if (!$phone) {
+                return response()->json(['valid' => false, 'message' => 'Use a valid PH mobile number: 9XXXXXXXXX, 09XXXXXXXXX, or +639XXXXXXXXX.']);
+            }
+            $conflict = $this->identity->userConflict(null, null, $phone);
+            $value = $phone;
+        }
+
+        if ($conflict) {
+            return response()->json([
+                'valid' => false,
+                'message' => $this->identity->conflictMessage(
+                    $conflict,
+                    $field === 'username' ? $value : null,
+                    $field === 'email' ? $value : null,
+                    $field === 'phone' ? $value : null,
+                ),
+            ]);
+        }
+
+        return response()->json(['valid' => true, 'normalized' => $field === 'phone' ? $value : null]);
     }
 
     public function showVerify(Request $request)
