@@ -219,7 +219,8 @@ class CustomOrderController extends Controller
             );
         }
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Approve Custom Order', "CO #{$id} — ₱{$price}");
-        return back()->with('msg', 'Custom order approved with price ₱'.number_format($price,2).'.');
+        return redirect()->route('seller.custom_orders', ['tab' => 'approved'])
+            ->with('msg', 'Custom order approved with price ₱'.number_format($price,2).'.');
     }
 
     public function reject(Request $request, string $id)
@@ -261,7 +262,8 @@ class CustomOrderController extends Controller
             );
         }
         CakeshopHelper::logActivity(session('user')['id'], 'seller', 'Reject Custom Order', "CO #{$id}");
-        return back()->with('msg', 'Custom order rejected.');
+        return redirect()->route('seller.custom_orders', ['tab' => 'rejected'])
+            ->with('msg', 'Custom order rejected.');
     }
 
     public function sendProgress(Request $request, string $id)
