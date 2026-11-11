@@ -505,6 +505,11 @@ function refreshCustomHoldTimers() {
   });
 }
 document.addEventListener('DOMContentLoaded', function () {
+  const selectionBar = document.querySelector('.cart-selection-bar');
+  if (selectionBar && selectionBar.parentElement !== document.body) {
+    document.body.appendChild(selectionBar);
+  }
+
   refreshCustomHoldTimers();
   setInterval(refreshCustomHoldTimers, 1000);
 
