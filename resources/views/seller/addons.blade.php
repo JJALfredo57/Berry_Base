@@ -47,8 +47,8 @@
 
           {{-- Archived Categories --}}
           @foreach($archivedCategories as $arc)
-          <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom" style="background:#f8f9fa">
-            <div class="d-flex align-items-center gap-2">
+          <div class="archived-row archived-category-row border-bottom" style="background:#f8f9fa">
+            <div class="archived-actions">
               <i class="bi bi-folder2 text-muted"></i>
               <div>
                 <span class="fw-semibold text-muted">{{ $arc->name }}</span>
@@ -74,18 +74,18 @@
 
           {{-- Archived Add-ons --}}
           @foreach($archivedAddons as $ara)
-          <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom" style="background:#fff">
+          <div class="archived-row border-bottom" style="background:#fff">
             <div class="d-flex align-items-center gap-2">
               <i class="bi bi-gift text-muted"></i>
               <div>
                 <span class="fw-semibold text-muted">{{ $ara->name }}</span>
                 <span class="text-muted small ms-1">— {{ $ara->category_name }}</span>
                 @if($ara->price > 0)
-                  <span class="badge ms-1" style="background:#f3f4f6;color:#6b7280;font-size:.68rem">+₱{{ number_format($ara->price,2) }}</span>
+                  <span class="badge ms-1 archived-price" style="background:#f3f4f6;color:#6b7280;font-size:.68rem">+₱{{ number_format($ara->price,2) }}</span>
                 @endif
               </div>
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="archived-actions">
               <span class="text-muted" style="font-size:.72rem">Archived {{ \Carbon\Carbon::parse($ara->archived_at)->diffForHumans() }}</span>
               <form action="{{ route('seller.addons.restore', $ara->id) }}" method="POST" class="d-inline">
                 @csrf
@@ -343,6 +343,9 @@
 </div>
 @endsection
 @push('scripts')
+<style>
+.archived-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.75rem;align-items:center;padding:.85rem 1.5rem}.archived-row>div:first-child{min-width:0}.archived-row .text-muted.small{white-space:nowrap}.archived-price{white-space:nowrap;display:inline-block}.archived-actions{display:flex;align-items:center;gap:.5rem;white-space:nowrap}.archived-actions form,.archived-actions .btn{flex:0 0 auto}.archived-actions .btn{min-width:78px;white-space:nowrap}@media(max-width:575.98px){.archived-row{padding:.7rem .85rem;gap:.55rem;grid-template-columns:minmax(0,1fr) auto}.archived-row .d-flex.gap-2{gap:.45rem!important}.archived-row .fw-semibold{font-size:.82rem}.archived-row .text-muted.small{font-size:.68rem!important}.archived-actions{align-self:center}.archived-actions>span{display:none}.archived-actions .btn{min-width:68px;padding:.35rem .45rem;font-size:.72rem}.archived-price{margin-top:.25rem!important}}
+</style>
 <script>
 function filterAddons() {
   const q = (document.getElementById('addonSearch')?.value || '').toLowerCase();
@@ -360,7 +363,10 @@ function filterAddons() {
 
 document.addEventListener('DOMContentLoaded', () => {
   const archivedModal = document.getElementById('archivedAddonsModal');
-  if (archivedModal && archivedModal.parentElement !== document.body) document.body.append(archivedModal);
+  if (!archivedModal) return;
+  if (archivedModal.parentElement !== document.body) document.body.append(archivedModal);
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('archived_categories_page') || params.has('archived_addons_page')) bootstrap.Modal.getOrCreateInstance(archivedModal).show();
 });
 </script>
 @endpush
