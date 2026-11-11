@@ -32,21 +32,29 @@ class ApplicationController extends Controller
     /** Step 1: Save basic info + send OTP */
     public function sendOtp(Request $request)
     {
+        foreach (['shop_name', 'full_name', 'username', 'email', 'city', 'address', 'description'] as $field) {
+            if ($request->has($field) && is_string($request->input($field))) {
+                $request->merge([$field => trim($request->input($field))]);
+            }
+        }
+
         $validated = $request->validate([
-            'shop_name'      => 'required|string|min:3|max:100',
-            'full_name'      => 'required|string|min:2|max:100',
+            'shop_name'      => ['required', 'string', 'min:3', 'max:100', 'not_regex:/^\\s*$/'],
+            'full_name'      => ['required', 'string', 'min:2', 'max:100', 'not_regex:/^\\s*$/'],
             'username'       => 'required|string|min:3|max:60|regex:/^[a-zA-Z0-9_]+$/',
             'email'          => 'required|email|max:150',
             'phone'          => 'required|regex:/^9[0-9]{9}$/|max:10',
-            'city'           => 'required|string|max:80',
-            'address'        => 'required|string|max:255',
+            'city'           => ['required', 'string', 'max:80', 'not_regex:/^\\s*$/'],
+            'address'        => ['required', 'string', 'max:255', 'not_regex:/^\\s*$/'],
             'gcash_number'   => 'required|regex:/^9[0-9]{9}$/|max:10',
             'description'    => 'nullable|string|max:500',
             'tier'           => 'required|in:basic,verified',
         ], [
             'shop_name.required'    => 'Shop name is required.',
             'shop_name.min'         => 'Shop name must be at least 3 characters.',
+            'shop_name.not_regex'   => 'Shop name cannot contain only spaces.',
             'full_name.required'    => 'Full name is required.',
+            'full_name.not_regex'   => 'Full name cannot contain only spaces.',
             'username.required'     => 'Username is required.',
             'username.min'          => 'Username must be at least 3 characters.',
             'username.max'          => 'Username must not exceed 60 characters.',
@@ -56,7 +64,9 @@ class ApplicationController extends Controller
             'phone.required'        => 'Phone number is required.',
             'phone.regex'           => 'Phone number must be 10 digits starting with 9.',
             'city.required'         => 'City is required.',
+            'city.not_regex'        => 'City cannot contain only spaces.',
             'address.required'      => 'Business address is required.',
+            'address.not_regex'     => 'Business address cannot contain only spaces.',
             'gcash_number.required' => 'GCash number is required.',
             'gcash_number.regex'    => 'GCash number must be 10 digits starting with 9.',
             'tier.required'         => 'Please select a seller tier.',

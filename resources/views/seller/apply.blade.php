@@ -262,7 +262,7 @@
       </div>
     </div>
 
-    <button type="submit" class="btn btn-primary w-100" style="padding:.875rem;font-size:1rem;font-weight:600;border-radius:var(--radius-md)">
+    <button type="submit" class="btn btn-primary w-100" id="continueBtn" style="padding:.875rem;font-size:1rem;font-weight:600;border-radius:var(--radius-md)">
       Continue — Send OTP
     </button>
 
@@ -312,21 +312,148 @@ function selectTier(tier) {
 const checked = document.querySelector('input[name="tier"]:checked');
 if (checked) selectTier(checked.value);
 
-// Form validation
-document.getElementById('applyForm').addEventListener('submit', function(e) {
-  const tier = document.querySelector('input[name="tier"]:checked');
-  if (!tier) {
+const applyForm = document.getElementById('applyForm');
+const continueBtn = document.getElementById('continueBtn');
+
+const validators = {
+  shop_name: value => {
+    const length = value.trim().length;
+    return !length ? 'Enter your shop name.' : length < 3 ? 'Shop name must have at least 3 characters.' : length > 100 ? 'Shop name must not exceed 100 characters.' : '';
+  },
+  full_name: value => {
+    const length = value.trim().length;
+    return !length ? 'Enter the owner’s full name.' : length < 2 ? 'Full name must have at least 2 characters.' : length > 100 ? 'Full name must not exceed 100 characters.' : '';
+  },
+  username: value => {
+    const trimmed = value.trim();
+    return !trimmed ? 'Enter a username.' : trimmed.length < 3 ? 'Username must have at least 3 characters.' : trimmed.length > 60 ? 'Username must not exceed 60 characters.' : !/^[A-Za-z0-9_]+$/.test(trimmed) ? 'Use only letters, numbers, and underscores—no spaces.' : '';
+  },
+  email: value => {
+    const trimmed = value.trim();
+    return !trimmed ? 'Enter your email address.' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? 'Enter a valid email address, such as name@example.com.' : trimmed.length > 150 ? 'Email address must not exceed 150 characters.' : '';
+  },
+  phone: value => !value ? 'Enter your 10-digit mobile number.' : !/^9\d{9}$/.test(value) ? 'Enter 10 digits starting with 9 (example: 9123456789).' : '',
+  gcash_number: value => !value ? 'Enter your 10-digit GCash number.' : !/^9\d{9}$/.test(value) ? 'Enter a valid 10-digit GCash number starting with 9.' : '',
+  city: value => !value.trim() ? 'Enter your city or municipality.' : value.trim().length > 80 ? 'City or municipality must not exceed 80 characters.' : '',
+  address: value => !value.trim() ? 'Enter your complete business address.' : value.trim().length > 255 ? 'Business address must not exceed 255 characters.' : '',
+  description: value => value.length > 500 ? 'Description must not exceed 500 characters.' : '',
+};
+
+function fieldErrorSlot(input) {
+  const wrapper = input.closest('.col-12, .col-md-6');
+  let slot = wrapper.querySelector(`[data-client-error-for="${input.name}"]`);
+  if (!slot) {
+    slot = document.createElement('div');
+    slot.className = 'invalid-feedback d-none';
+    slot.dataset.clientErrorFor = input.name;
+    slot.id = `${input.id}-client-error`;
+    const group = input.closest('.input-group');
+    (group || input).insertAdjacentElement('afterend', slot);
+    input.setAttribute('aria-describedby', slot.id);
+  }
+  return slot;
+}
+
+function setFieldError(input, message) {
+  const slot = fieldErrorSlot(input);
+  input.classList.add('is-invalid');
+  input.setAttribute('aria-invalid', 'true');
+  slot.textContent = message;
+  slot.classList.remove('d-none');
+  slot.classList.add('d-block');
+  input.closest('.col-12, .col-md-6').querySelectorAll('.invalid-feedback:not([data-client-error-for])').forEach(error => error.classList.add('d-none'));
+}
+
+function clearFieldError(input) {
+  const slot = fieldErrorSlot(input);
+  input.classList.remove('is-invalid');
+  input.removeAttribute('aria-invalid');
+  slot.textContent = '';
+  slot.classList.remove('d-block');
+  slot.classList.add('d-none');
+  input.closest('.col-12, .col-md-6').querySelectorAll('.invalid-feedback:not([data-client-error-for])').forEach(error => error.classList.add('d-none'));
+}
+
+function validateField(input) {
+  const validator = validators[input.name];
+  if (!validator) return '';
+  const message = validator(input.value);
+  if (message) setFieldError(input, message);
+  else clearFieldError(input);
+  return message;
+}
+
+function validateTier() {
+  const selected = applyForm.querySelector('input[name="tier"]:checked');
+  const options = document.getElementById('tierBasic').closest('.row');
+  let slot = document.getElementById('tierClientError');
+  if (!slot) {
+    slot = document.createElement('div');
+    slot.id = 'tierClientError';
+    slot.className = 'invalid-feedback d-none';
+    slot.setAttribute('role', 'alert');
+    options.insertAdjacentElement('afterend', slot);
+  }
+  if (!selected) {
+    slot.textContent = 'Choose either Basic Seller or Verified Seller to continue.';
+    slot.classList.remove('d-none');
+    slot.classList.add('d-block');
+    options.style.outline = '2px solid var(--danger)';
+    options.style.outlineOffset = '6px';
+    return 'Choose a seller tier.';
+  }
+  slot.classList.remove('d-block');
+  slot.classList.add('d-none');
+  options.style.outline = '';
+  options.style.outlineOffset = '';
+  return '';
+}
+
+function scrollToField(input) {
+  input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  window.setTimeout(() => input.focus({ preventScroll: true }), 350);
+}
+
+Object.keys(validators).forEach(name => {
+  const input = applyForm.elements[name];
+  if (!input) return;
+  input.addEventListener('blur', () => {
+    input.dataset.touched = 'true';
+    validateField(input);
+  });
+  input.addEventListener('input', () => {
+    if (input.dataset.touched === 'true' || input.classList.contains('is-invalid')) validateField(input);
+  });
+});
+
+applyForm.querySelectorAll('input[name="tier"]').forEach(input => input.addEventListener('change', validateTier));
+
+applyForm.addEventListener('submit', function(e) {
+  const invalid = [];
+
+  Object.keys(validators).forEach(name => {
+    const input = this.elements[name];
+    if (!input) return;
+    if (['shop_name', 'full_name', 'username', 'email', 'city', 'address', 'description'].includes(name)) input.value = input.value.trim();
+    const message = validateField(input);
+    if (message) invalid.push({ input, message });
+  });
+
+  const tierMessage = validateTier();
+  if (tierMessage) invalid.push({ input: document.getElementById('tierBasic'), message: tierMessage });
+
+  if (invalid.length) {
     e.preventDefault();
-    alert('Please select a seller tier.');
+    scrollToField(invalid[0].input);
     return;
   }
-  if (!this.checkValidity()) {
-    e.preventDefault();
-    e.stopPropagation();
-    // Scroll to first invalid
-    const first = this.querySelector(':invalid');
-    if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
+
+  continueBtn.disabled = true;
+  continueBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Sending OTP...';
 });
+
+// Server-side errors remain authoritative; guide the applicant to the first one on return.
+const firstServerInvalid = applyForm.querySelector('.is-invalid');
+if (firstServerInvalid) scrollToField(firstServerInvalid);
 </script>
 @endsection
