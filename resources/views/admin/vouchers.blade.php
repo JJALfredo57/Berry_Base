@@ -65,7 +65,7 @@
                   'stackable' => $voucher->stack_with_product_discount ? 'Allowed' : 'Not allowed',
                 ];
               @endphp
-              <div class="voucher-list-item" data-voucher-details="{{ e(json_encode($detail)) }}">
+              <div class="voucher-list-item" data-voucher-details="{{ json_encode($detail) }}">
                 <button type="button" class="voucher-list-open" aria-label="View details for voucher {{ $voucher->code }}">
                   <span class="voucher-list-main"><span class="voucher-list-code d-block">{{ $voucher->code }}</span><span class="voucher-list-name d-block">{{ $voucher->name }}</span></span>
                   <span class="voucher-list-meta"><strong>{{ $discount }}</strong><span class="badge {{ $voucher->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $voucher->is_active ? 'Active' : 'Paused' }}</span><span class="voucher-list-open-hint">View details</span></span>
@@ -104,6 +104,7 @@
 </script>
 <script>
 (() => {
+  const initialise = () => {
   const modalElement = document.getElementById('voucherDetailModal');
   if (!modalElement || !window.bootstrap) return;
   document.body.appendChild(modalElement);
@@ -144,6 +145,8 @@
       }
     });
   });
+  };
+  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', initialise) : initialise();
 })();
 </script>
 @endsection
