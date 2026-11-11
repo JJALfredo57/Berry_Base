@@ -27,7 +27,7 @@
   </div>
 </div>
 
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-4 payout-summary-grid">
   @foreach([
     ['Clearing', $summary['clearing'], 'bi-hourglass-split', '#92400e', '#fffbeb'],
     ['Available', $summary['available'], 'bi-cash-stack', '#166534', '#ecfdf5'],
@@ -347,6 +347,9 @@
 </div>
 
 <style>
+  .payout-summary-grid > [class*="col-"] { min-width:0; }
+  .payout-summary-grid .cs-stat-card { min-width:0; }
+  .payout-summary-grid .cs-stat-num { white-space:nowrap; overflow-wrap:normal; font-variant-numeric:tabular-nums; }
   .payout-table-scroll { display:none !important; }
   .payout-section-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
   .payout-attention { display:inline-flex; align-items:center; gap:.42rem; border-radius:999px; padding:.28rem .58rem; background:#fff7ed; color:#9a3412; font-size:.72rem; font-weight:800; }
@@ -401,6 +404,13 @@
   .payout-detail-body .payout-mark-paid-form .btn { width:100%; min-height:42px; white-space:normal; }
   .payout-mobile-card.is-action-required { background:#fffaf0; box-shadow:inset 3px 0 #f97316; }
   .payout-mobile-card.is-action-required .payout-mobile-card-title::before { content:''; display:inline-block; width:.55rem; height:.55rem; margin-right:.45rem; border-radius:50%; background:#f97316; vertical-align:middle; }
+  @media(max-width:575px) {
+    .payout-summary-grid { --bs-gutter-x:.75rem; --bs-gutter-y:.75rem; }
+    .payout-summary-grid .cs-stat-card { gap:.45rem; padding:.65rem!important; }
+    .payout-summary-grid .cs-stat-icon { width:36px; height:36px; border-radius:9px; font-size:.95rem; }
+    .payout-summary-grid .cs-stat-num { font-size:clamp(.82rem,4.15vw,1.1rem); letter-spacing:-.045em; }
+    .payout-summary-grid .cs-stat-label { margin-top:.18rem; font-size:.6rem; letter-spacing:.025em; line-height:1.1; }
+  }
   @media (hover:none) { .payout-mobile-card:hover { transform:none; box-shadow:none; } }
   /* The admin sidebar narrows the usable content area before the viewport reaches phone width. */
   @media(max-width:575px) {
