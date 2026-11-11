@@ -1887,14 +1887,6 @@
     @endif
     @if($role !== 'customer')
     <div class="csb-divider"></div>
-    <div class="csb-section-label">Track</div>
-    <a href="#" class="csb-link" onclick="closeCustSidebar(); csTrackPrompt(); return false;">
-      <i class="bi bi-search"></i> Track My Order
-    </a>
-    @endif
-
-    @if($role !== 'customer')
-    <div class="csb-divider"></div>
     <div class="csb-section-label">For Riders</div>
     <div style="padding:2px 8px 10px">
       <div style="background:linear-gradient(135deg,#fef3c7,#fef9c3);border:1.5px solid #fde68a;border-radius:14px;padding:14px">
