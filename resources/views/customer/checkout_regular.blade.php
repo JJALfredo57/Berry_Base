@@ -511,7 +511,7 @@ document.body.style.paddingRight = '';
             </div>
             <div class="alert alert-warning py-2 px-3 small mt-2 mb-0 d-none" id="pointsVerificationWarning" role="alert">
               <i class="bi bi-shield-exclamation me-1"></i>Verify your account first to redeem rewards points.
-              <a href="{{ route('customer.verification') }}" class="alert-link ms-1">Verify account</a>
+              <div class="mt-1"><a href="{{ route('customer.verification') }}" class="alert-link">Verify account</a></div>
             </div>
             <div class="form-text">
               @if($verificationStatus === 'approved')
