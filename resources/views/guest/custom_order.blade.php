@@ -1104,7 +1104,7 @@ function updateFee() {
 
   var feeRow = document.getElementById('feeRow');
   if (isDelivery && deliveryFee > 0) {
-    if (feeRow) { feeRow.style.display='flex'; document.getElementById('feeDisplay').textContent = zoneType==='ooc' ? '₱250+' : '₱'+deliveryFee.toFixed(2); }
+    if (feeRow) { feeRow.style.setProperty('display', 'flex', 'important'); document.getElementById('feeDisplay').textContent = zoneType==='ooc' ? '₱250+' : '₱'+deliveryFee.toFixed(2); }
   } else { if (feeRow) feeRow.style.display='none'; }
   if (document.getElementById('deliveryFeeInput')) document.getElementById('deliveryFeeInput').value = isDelivery ? deliveryFee : 0;
   updatePriceSummary();

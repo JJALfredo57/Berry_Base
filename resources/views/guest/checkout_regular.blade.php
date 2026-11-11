@@ -1336,7 +1336,7 @@ function updateFee() {
   const feeRow     = document.getElementById('feeRow');
   const serviceRow = document.getElementById('serviceRow');
   if (isDelivery && deliveryFee > 0) {
-    if (feeRow) { feeRow.style.display = 'flex'; document.getElementById('feeDisplay').textContent = zoneType === 'ooc' ? '₱250+' : '₱' + deliveryFee.toFixed(2); }
+    if (feeRow) { feeRow.style.setProperty('display', 'flex', 'important'); document.getElementById('feeDisplay').textContent = zoneType === 'ooc' ? '₱250+' : '₱' + deliveryFee.toFixed(2); }
   } else {
     if (feeRow) feeRow.style.setProperty('display', 'none', 'important');
   }

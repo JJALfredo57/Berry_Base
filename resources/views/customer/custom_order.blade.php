@@ -799,7 +799,7 @@ function onPinSet(lat, lng) {
     // Summary fee row
     const feeRow = document.getElementById('feeRow');
     if (feeRow) {
-      feeRow.style.display = fee > 0 ? 'flex' : 'none';
+      feeRow.style.setProperty('display', fee > 0 ? 'flex' : 'none', 'important');
       const fd = document.getElementById('feeDisplay');
       if (fd) fd.textContent = '₱' + fee.toFixed(2);
     }

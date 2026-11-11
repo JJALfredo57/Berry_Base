@@ -1011,7 +1011,7 @@ function onPinSet(lat, lng) {
     // Update summary panel fee row
     const feeRow = document.getElementById('feeRow');
     if (feeRow) {
-      if (isDelivery && fee > 0) feeRow.style.display = 'flex';
+      if (isDelivery && fee > 0) feeRow.style.setProperty('display', 'flex', 'important');
       else feeRow.style.setProperty('display', 'none', 'important');
       const feeDisp = document.getElementById('feeDisplay');
       if (feeDisp) feeDisp.textContent = '₱' + fee.toFixed(2);

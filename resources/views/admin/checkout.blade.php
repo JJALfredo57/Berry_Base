@@ -320,7 +320,7 @@ function updateFee() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   const feeRow = document.getElementById('feeRow');
   if (isDelivery && deliveryFee > 0) {
-    feeRow.style.display = 'flex';
+    feeRow.style.setProperty('display', 'flex', 'important');
     document.getElementById('feeDisplay').textContent = '₱' + deliveryFee.toFixed(2);
   } else {
     feeRow.style.display = 'none';
