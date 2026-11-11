@@ -903,7 +903,18 @@ function toggleDelivery() {
   if (isDelivery && !map) initMap();
   if (isDelivery && usingSavedAddress()) setAddressMode(true);
   if (isDelivery && map) setTimeout(() => map.invalidateSize(), 50);
-  if (!isDelivery) { deliveryFee = 0; }
+  if (isDelivery) {
+    const lat = parseFloat(document.getElementById('lat')?.value || '');
+    const lng = parseFloat(document.getElementById('lng')?.value || '');
+    if (Number.isFinite(lat) && Number.isFinite(lng)) onPinSet(lat, lng);
+  } else {
+    const feeInput = document.getElementById('deliveryFeeInput');
+    if (feeInput) feeInput.value = 0;
+    const feeRow = document.getElementById('feeRow');
+    if (feeRow) feeRow.style.setProperty('display', 'none', 'important');
+    const calcBox = document.getElementById('deliveryCalcBox');
+    if (calcBox) calcBox.style.display = 'none';
+  }
   updatePaymentMethodLabel();
   toggleSurpriseDelivery();
   updatePriceSummary();

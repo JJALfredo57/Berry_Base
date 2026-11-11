@@ -525,9 +525,8 @@ function toggleDelivery() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
   if (isDelivery && !map) initMap();
-  if (!isDelivery) clearDetectedDeliveryZone();
   updateCashPaymentCopy();
-  if (isDelivery) updateFee();
+  updateFee();
 }
 
 function clearDetectedDeliveryZone(message = '') {
@@ -813,7 +812,7 @@ function updateFee() {
   }
 
   if (document.getElementById('deliveryFeeInput'))
-    document.getElementById('deliveryFeeInput').value = deliveryFee;
+    document.getElementById('deliveryFeeInput').value = isDelivery ? deliveryFee : 0;
   updateTotal(getCurrentAddonTotal());
 }
 

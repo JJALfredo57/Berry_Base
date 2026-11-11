@@ -638,6 +638,11 @@ function toggleDelivery() {
   const isDelivery = document.querySelector('[name=fulfillment_type]:checked').value === 'Delivery';
   document.getElementById('deliverySection').style.display = isDelivery ? 'block' : 'none';
   if (isDelivery && !map) initMap();
+  if (isDelivery) {
+    const lat = parseFloat(document.getElementById('lat')?.value || '');
+    const lng = parseFloat(document.getElementById('lng')?.value || '');
+    if (Number.isFinite(lat) && Number.isFinite(lng)) onPinSet(lat, lng);
+  }
   if (!isDelivery) {
     deliveryFee = 0;
     const feeInput = document.getElementById('deliveryFeeInput');

@@ -325,7 +325,7 @@ function updateFee() {
   } else {
     feeRow.style.display = 'none';
   }
-  document.getElementById('deliveryFeeInput').value = deliveryFee;
+  document.getElementById('deliveryFeeInput').value = isDelivery ? deliveryFee : 0;
   updateTotal(getCurrentAddonTotal());
 }
 
