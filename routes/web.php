@@ -476,6 +476,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::get('/vouchers', [\App\Http\Controllers\Admin\VoucherController::class, 'index'])->name('vouchers.index');
     Route::post('/vouchers', [\App\Http\Controllers\Admin\VoucherController::class, 'store'])->name('vouchers.store');
+    Route::get('/vouchers/code-availability', [\App\Http\Controllers\Admin\VoucherController::class, 'codeAvailability'])->name('vouchers.code_availability');
     Route::post('/vouchers/{id}/toggle', [\App\Http\Controllers\Admin\VoucherController::class, 'toggle'])->name('vouchers.toggle');
     Route::get('/vouchers/customers/search', [\App\Http\Controllers\Admin\VoucherController::class, 'searchCustomers'])->name('vouchers.customers.search');
     Route::get('/payouts',   [\App\Http\Controllers\Seller\PayoutController::class, 'index'])->name('payouts');
@@ -654,6 +655,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/platform-settings/restore',    [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'restore'])->name('settings.restore');
     Route::get('/vouchers', [\App\Http\Controllers\Admin\VoucherController::class, 'index'])->name('vouchers.index');
     Route::post('/vouchers', [\App\Http\Controllers\Admin\VoucherController::class, 'store'])->name('vouchers.store');
+    Route::get('/vouchers/code-availability', [\App\Http\Controllers\Admin\VoucherController::class, 'codeAvailability'])->name('vouchers.code_availability');
     Route::post('/vouchers/{id}/toggle', [\App\Http\Controllers\Admin\VoucherController::class, 'toggle'])->name('vouchers.toggle');
     Route::get('/customer-verifications', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'index'])->name('customer_verifications.index');
     Route::post('/customer-verifications/{id}/approve', [\App\Http\Controllers\Admin\CustomerVerificationController::class, 'approve'])->name('customer_verifications.approve');

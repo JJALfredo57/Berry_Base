@@ -144,6 +144,18 @@ class VoucherController extends Controller
         return back()->with('msg', 'Voucher created.');
     }
 
+    public function codeAvailability(Request $request)
+    {
+        $this->context();
+        $code = strtoupper(preg_replace('/\s+/', '', trim((string) $request->query('code', ''))));
+
+        if ($code === '') return response()->json(['available' => false]);
+
+        return response()->json([
+            'available' => !DB::table('vouchers')->whereRaw('UPPER(code) = ?', [$code])->exists(),
+        ]);
+    }
+
     public function toggle(string $id)
     {
         $ctx = $this->context();
