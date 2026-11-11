@@ -493,7 +493,7 @@ document.body.style.paddingRight = '';
         </div>
 
         {{-- Rewards Points (popup, opened from Order Summary) --}}
-        <div class="modal fade" id="pointsModal" tabindex="-1" aria-labelledby="pointsModalTitle" aria-hidden="true">
+        <div class="modal fade" id="pointsModal" tabindex="-1" aria-labelledby="pointsModalTitle" aria-hidden="true" data-rewards-verified="{{ $verificationStatus === 'approved' ? 'true' : 'false' }}">
           <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content" style="border-radius:1rem">
               <div class="modal-header py-2">
@@ -508,6 +508,10 @@ document.body.style.paddingRight = '';
             <div class="input-group">
               <input type="number" form="checkoutForm" class="form-control" name="points_to_redeem" id="pointsToRedeem" data-error-target="points" min="0" max="{{ (int)($loyaltyQuote['max'] ?? 0) }}" value="{{ old('points_to_redeem', 0) }}" {{ $verificationStatus === 'approved' ? '' : 'disabled' }}>
               <span class="input-group-text">points</span>
+            </div>
+            <div class="alert alert-warning py-2 px-3 small mt-2 mb-0 d-none" id="pointsVerificationWarning" role="alert">
+              <i class="bi bi-shield-exclamation me-1"></i>Verify your account first to redeem rewards points.
+              <a href="{{ route('customer.verification') }}" class="alert-link ms-1">Verify account</a>
             </div>
             <div class="form-text">
               @if($verificationStatus === 'approved')
@@ -524,7 +528,7 @@ document.body.style.paddingRight = '';
             @endif
               </div>
               <div class="modal-footer py-2">
-                <button type="button" class="btn btn-primary w-100" data-bs-dismiss="modal">Apply</button>
+                <button type="button" class="btn btn-primary w-100" id="pointsApplyBtn">Apply</button>
               </div>
             </div>
           </div>
@@ -1646,5 +1650,14 @@ document.getElementById('voucherApplyBtn')?.addEventListener('click', async func
   try { const r = await fetch(@json(route('customer.checkout.voucher.validate')), {method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':@json(csrf_token())},body:JSON.stringify({voucher_code:code,subtotal:BASE_PRICE + getCurrentAddonTotal()})}); const d = await r.json(); if (!d.ok) { input.value=''; voucherPreviewDiscount=0; updateTotal(getCurrentAddonTotal()); error.textContent=d.message || 'Invalid voucher code.'; return; } voucherPreviewDiscount=Number(d.discount||0); updateTotal(getCurrentAddonTotal()); bootstrap.Modal.getInstance(document.getElementById('promoModal'))?.hide(); } catch(e) { error.textContent='Unable to validate voucher. Try again.'; } finally { this.disabled=false; }
 });
 document.getElementById('pointsToRedeem')?.addEventListener('input', () => updateTotal(getCurrentAddonTotal()));
+document.getElementById('pointsApplyBtn')?.addEventListener('click', function () {
+  const pointsModal = document.getElementById('pointsModal');
+  const warning = document.getElementById('pointsVerificationWarning');
+  if (pointsModal?.dataset.rewardsVerified !== 'true') {
+    warning?.classList.remove('d-none');
+    return;
+  }
+  bootstrap.Modal.getInstance(pointsModal)?.hide();
+});
 </script>
 @endpush
