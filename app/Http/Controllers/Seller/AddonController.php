@@ -49,7 +49,7 @@ class AddonController extends Controller
             ->where('shop_id', $shop->id)
             ->whereNotNull('archived_at')
             ->orderByDesc('archived_at')
-            ->paginate(10, ['*'], 'archived_categories_page')
+            ->paginate(5, ['*'], 'archived_categories_page')
             ->withQueryString();
 
         $archivedAddons = DB::table('cake_addons as a')
@@ -58,7 +58,7 @@ class AddonController extends Controller
             ->whereNotNull('a.archived_at')
             ->select('a.*', 'c.name as category_name')
             ->orderByDesc('a.archived_at')
-            ->paginate(10, ['*'], 'archived_addons_page')
+            ->paginate(5, ['*'], 'archived_addons_page')
             ->withQueryString();
 
         return view('seller.addons', compact('categories', 'addons', 'archivedCategories', 'archivedAddons'));

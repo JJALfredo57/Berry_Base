@@ -28,15 +28,22 @@
   @if($archivedCategories->total() > 0 || $archivedAddons->total() > 0)
   <div class="mb-4">
     <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2 mb-3"
-            type="button" data-bs-toggle="collapse" data-bs-target="#archivedAddons">
+            type="button" data-bs-toggle="modal" data-bs-target="#archivedAddonsModal">
       <i class="bi bi-archive"></i>
       Archived
       <span class="badge bg-secondary">{{ $archivedCategories->total() + $archivedAddons->total() }}</span>
-      <i class="bi bi-chevron-down" style="font-size:.75rem"></i>
     </button>
-    <div class="collapse" id="archivedAddons">
-      <div class="card border-dashed" style="border:1.5px dashed #dee2e6;border-radius:14px;overflow:hidden">
-        <div class="card-body p-0">
+    <div class="modal fade" id="archivedAddonsModal" tabindex="-1" aria-labelledby="archivedAddonsModalTitle" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <div class="modal-content border-0" style="border-radius:1.2rem;overflow:hidden">
+          <div class="modal-header border-0 pb-0 px-4 pt-4">
+            <div>
+              <h5 class="modal-title fw-bold" id="archivedAddonsModalTitle"><i class="bi bi-archive me-2" style="color:var(--primary)"></i>Archived Add-ons</h5>
+              <div class="small text-muted">{{ $archivedCategories->total() + $archivedAddons->total() }} archived record(s)</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body p-0 mt-3">
 
           {{-- Archived Categories --}}
           @foreach($archivedCategories as $arc)
@@ -95,6 +102,7 @@
           </div>
           @endif
 
+          </div>
         </div>
       </div>
     </div>
@@ -349,5 +357,10 @@ function filterAddons() {
     if (empty) empty.style.display = visible.length === 0 ? '' : 'none';
   });
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const archivedModal = document.getElementById('archivedAddonsModal');
+  if (archivedModal && archivedModal.parentElement !== document.body) document.body.append(archivedModal);
+});
 </script>
 @endpush
