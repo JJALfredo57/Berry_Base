@@ -60,8 +60,14 @@ class KitchenController extends Controller
 
     public function update(Request $request, string $id)
     {
+        $shop   = $this->getShop();
         $user   = session('user');
-        $ticket = DB::table('kitchen_tickets')->where('id', $id)->first();
+        $ticket = DB::table('kitchen_tickets as kt')
+            ->join('orders as o', 'o.id', '=', 'kt.order_id')
+            ->where('kt.id', $id)
+            ->where('o.shop_id', $shop->id)
+            ->select('kt.*')
+            ->first();
         if (!$ticket) return back()->with('err', 'Ticket not found.');
 
         $current = $ticket->status;
