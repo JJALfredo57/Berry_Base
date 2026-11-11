@@ -603,11 +603,6 @@
             <div class="small" style="color:var(--primary);font-weight:700">
               <i class="bi bi-link-45deg me-1"></i>{{ $orderItems->count() }} cakes checked out together
             </div>
-            <div class="small text-muted mt-1">
-              @foreach($orderItems as $item)
-                <div>{{ $item->product_name }} x{{ $item->quantity }}@if($item->selected_size) ({{ $item->selected_size }})@endif</div>
-              @endforeach
-            </div>
           @endif
           <div class="text-muted small">Qty: {{ $order->quantity }}
             @if($order->selected_size) &bull; {{ $order->selected_size }} @endif
@@ -625,6 +620,36 @@
           @endif
         </div>
       </div>
+
+      @if(($orderItems ?? collect())->count() > 1)
+        <section class="mt-3 pt-3 border-top" aria-labelledby="grouped-cakes-heading">
+          <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+            <div>
+              <div class="fw-bold small" id="grouped-cakes-heading"><i class="bi bi-box-seam me-1" style="color:var(--primary)"></i>Cakes in this order</div>
+              <div class="text-muted" style="font-size:.76rem">All {{ $orderItems->count() }} cakes are included in this tracking update.</div>
+            </div>
+            <span class="badge rounded-pill" style="background:color-mix(in srgb, var(--primary) 12%, white);color:var(--primary)">{{ $orderItems->sum('quantity') }} total</span>
+          </div>
+          <div class="row g-2">
+            @foreach($orderItems as $item)
+              @php $itemImage = $item->image_path ?: '/images/default-cake.svg'; @endphp
+              <div class="col-12 col-sm-6">
+                <article class="border rounded-3 p-2 h-100 d-flex align-items-center gap-2" style="background:#fffafc">
+                  <img src="{{ $itemImage }}" alt="{{ $item->product_name }}" loading="lazy"
+                       style="width:48px;height:48px;flex:0 0 48px;object-fit:cover;border-radius:.6rem"
+                       onerror="this.src='https://placehold.co/48x48/fce4ec/e91e63?text=Cake'">
+                  <div class="min-w-0 flex-grow-1">
+                    <div class="fw-semibold text-truncate" title="{{ $item->product_name }}" style="font-size:.84rem">{{ $item->product_name }}</div>
+                    <div class="text-muted" style="font-size:.75rem">
+                      Qty: {{ $item->quantity }}@if($item->selected_size) &bull; {{ $item->selected_size }}@endif
+                    </div>
+                  </div>
+                </article>
+              </div>
+            @endforeach
+          </div>
+        </section>
+      @endif
 
       {{-- Add-ons --}}
       @if(count($addons) > 0)
