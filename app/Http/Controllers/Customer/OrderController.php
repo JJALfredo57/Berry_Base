@@ -59,6 +59,7 @@ class OrderController extends Controller
                 ->orWhere('co_name.cake_name', 'like', "%$search%")
             ))
             ->when($status && $status !== 'All', fn($q) => $q->where('o.status', $status))
+            ->orderByDesc('o.created_at')
             ->orderByDesc('o.id')
             ->paginate(10)
             ->withQueryString();
