@@ -80,9 +80,8 @@ class OrderRequestController extends Controller
         }
 
         $requests = $query
-            ->orderByRaw("CASE WHEN r.status IN ('accepted','customer_accepted') THEN 0 WHEN r.status = 'pending' THEN 1 WHEN r.status IN ('schedule_suggested','alternative_offered','needs_more_details') THEN 2 ELSE 3 END")
-            ->orderByRaw('CASE WHEN r.preferred_datetime IS NULL THEN 1 ELSE 0 END')
-            ->orderBy('r.preferred_datetime')
+            // Keep the request with the most recent seller or customer action at the top in every tab.
+            ->orderByDesc('r.updated_at')
             ->orderByDesc('r.created_at')
             ->paginate(10)
             ->withQueryString();
