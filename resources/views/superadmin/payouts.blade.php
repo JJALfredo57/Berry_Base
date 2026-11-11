@@ -253,6 +253,8 @@
       <tbody>
         @forelse($payoutRequests as $p)
           <tr class="payout-detail-trigger is-action-required" tabindex="0" role="button" aria-label="Open payout #{{ $p->id }} details"
+              data-shop-name="{{ $p->shop_name }}"
+              data-seller-name="{{ $p->seller_name ?? 'Seller' }}"
               data-payout-method="{{ $p->payout_method ?? 'GCash' }}"
               data-payout-account-name="{{ $p->payout_account_name ?? '' }}"
               data-payout-account-number="{{ $p->payout_account_number ?? '' }}">
@@ -315,6 +317,8 @@
       <tbody>
         @forelse($recentPayouts as $p)
           <tr class="payout-detail-trigger" tabindex="0" role="button" aria-label="Open paid payout #{{ $p->id }} details"
+              data-shop-name="{{ $p->shop_name }}"
+              data-seller-name="{{ $p->seller_name ?? 'Seller' }}"
               data-payout-method="{{ $p->payout_method ?? 'GCash' }}"
               data-payout-account-name="{{ $p->payout_account_name ?? '' }}"
               data-payout-account-number="{{ $p->payout_account_number ?? '' }}">
@@ -526,6 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const table = wrapper.querySelector('table');
     const headers = [...table.querySelectorAll('thead th')].map(header => header.textContent.trim() || 'Details');
     const isSellerBalances = headers.includes('Payout Details');
+    const isPayoutList = headers.includes('Mode') && headers.includes('Net');
     const list = document.createElement('div');
     list.className = 'payout-mobile-list';
     const cards = [];
@@ -543,18 +548,25 @@ document.addEventListener('DOMContentLoaded', function() {
       cardHead.className = 'payout-mobile-card-head';
       const cardTitle = document.createElement('span');
       cardTitle.className = 'payout-mobile-card-title';
-      cardTitle.textContent = values[0] || 'Payout record';
+      cardTitle.textContent = isPayoutList ? (row.dataset.shopName || 'Cake shop') : (values[0] || 'Payout record');
       const cardIcon = document.createElement('i');
       cardIcon.className = 'bi bi-chevron-right';
       cardHead.append(cardTitle, cardIcon);
       const cardMeta = document.createElement('div');
       cardMeta.className = 'payout-mobile-card-meta';
       const firstMeta = document.createElement('span');
-      firstMeta.textContent = isSellerBalances
+      firstMeta.textContent = isPayoutList
+        ? (row.dataset.sellerName || 'Seller')
+        : (isSellerBalances
         ? (String(values[1] || '').includes('No payout details') ? 'Payout details needed' : 'Payout details verified')
-        : (values[1] || '');
+        : (values[1] || ''));
       const secondMeta = document.createElement('span');
-      secondMeta.textContent = isSellerBalances ? (values[3] ? 'Available ' + values[3] : '') : (values[2] || '');
+      const statusIndex = headers.indexOf('Status');
+      const paidIndex = headers.indexOf('Paid');
+      const netIndex = headers.indexOf('Net');
+      secondMeta.textContent = isPayoutList
+        ? [values[statusIndex >= 0 ? statusIndex : paidIndex] || 'Paid', values[netIndex] || ''].filter(Boolean).join(' · ')
+        : (isSellerBalances ? (values[3] ? 'Available ' + values[3] : '') : (values[2] || ''));
       cardMeta.append(firstMeta, secondMeta);
       card.append(cardHead, cardMeta);
       card.addEventListener('click', () => openPayoutDetails(cells, headers, values, row.dataset));
