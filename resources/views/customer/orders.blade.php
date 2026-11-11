@@ -1764,7 +1764,6 @@ function maybeOpenCustomerReviewPrompt() {
 }
 
 function bootCustomerOrdersEnhancements() {
-  maybeOpenCustomerReviewPrompt();
   initCustomerStatusFilter();
   refreshCustomerStatusCounts();
   scheduleCustomerStatusCountPoll();
