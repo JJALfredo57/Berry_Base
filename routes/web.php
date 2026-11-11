@@ -623,6 +623,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/sellers/{id}/approve-upgrade',      [\App\Http\Controllers\SuperAdmin\SellerController::class, 'approveUpgrade'])->name('sellers.approve_upgrade');
     Route::post('/sellers/{id}/reject-upgrade',       [\App\Http\Controllers\SuperAdmin\SellerController::class, 'rejectUpgrade'])->name('sellers.reject_upgrade');
     Route::get('/platform-dashboard',          [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/platform-dashboard/stats',    [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'stats'])->name('dashboard.stats');
     Route::get('/commission-analytics',        [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'commissions'])->name('commissions');
     Route::get('/payouts',                     [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'index'])->name('payouts');
     Route::post('/payouts/settings',           [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'saveSettings'])->name('payouts.settings');

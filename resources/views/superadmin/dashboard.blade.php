@@ -68,6 +68,7 @@
 <div class="cs-page-header">
   <div>
     <h4 class="cs-page-title"><i class="bi bi-speedometer2 me-2" style="color:var(--primary)"></i>Platform Dashboard</h4>
+    <small id="dashboard-stats-status" class="text-muted" aria-live="polite">Live updates every 10 seconds</small>
     <p class="cs-page-sub">{{ $platform->platform_name ?? 'Cake Shop Platform' }} — Super Admin Overview</p>
   </div>
   <div class="cs-page-actions">
@@ -84,14 +85,14 @@
 {{-- Stat Cards --}}
 <div class="row g-3 mb-4 cs-stagger sa-dashboard-stats">
   @foreach([
-    ['bi-shop',         'Approved Shops',        $stats['total_shops'],                     'var(--primary)',   'var(--primary-bg)', null],
-    ['bi-hourglass',    'Pending Applications',   $stats['pending_apps'],                    '#E65100',          '#fff3e0', null],
-    ['bi-bag-check',    'Total Orders',           number_format($stats['total_orders']),     '#1565C0',          '#e3f2fd', null],
-    ['bi-people',       'Customers',              number_format($stats['total_customers']),  '#2E7D32',          '#e8f5e9', null],
-    ['bi-chat-square-heart','Open Feedback',       number_format($stats['open_feedback'] ?? 0), '#d97706',          '#fff7ed', route('superadmin.feedback')],
-    ['bi-cash-stack',   'Total Commission',       '&#8369;'.number_format($stats['total_commission'],2), '#6A1B9A',      '#f3e5f5', route('superadmin.commissions')],
-    ['bi-calendar2-check','This Month Commission','&#8369;'.number_format($commissionMonth,2),      '#00695C',         '#e0f2f1', route('superadmin.commissions')],
-  ] as [$icon, $label, $val, $color, $bg, $href])
+    ['bi-shop',         'Approved Shops',        $stats['total_shops'],                     'var(--primary)',   'var(--primary-bg)', null, 'total_shops'],
+    ['bi-hourglass',    'Pending Applications',   $stats['pending_apps'],                    '#E65100',          '#fff3e0', null, 'pending_apps'],
+    ['bi-bag-check',    'Total Orders',           number_format($stats['total_orders']),     '#1565C0',          '#e3f2fd', null, 'total_orders'],
+    ['bi-people',       'Customers',              number_format($stats['total_customers']),  '#2E7D32',          '#e8f5e9', null, 'total_customers'],
+    ['bi-chat-square-heart','Open Feedback',       number_format($stats['open_feedback'] ?? 0), '#d97706',          '#fff7ed', route('superadmin.feedback'), 'open_feedback'],
+    ['bi-cash-stack',   'Total Commission',       '&#8369;'.number_format($stats['total_commission'],2), '#6A1B9A',      '#f3e5f5', route('superadmin.commissions'), 'total_commission'],
+    ['bi-calendar2-check','This Month Commission','&#8369;'.number_format($commissionMonth,2),      '#00695C',         '#e0f2f1', route('superadmin.commissions'), 'commission_month'],
+  ] as [$icon, $label, $val, $color, $bg, $href, $statKey])
   <div class="col-6 col-md-4 col-xl-2">
     @if($href)
     <a href="{{ $href }}" class="cs-stat-card h-100 text-decoration-none" style="cursor:pointer">
@@ -102,7 +103,7 @@
         <i class="bi {{ $icon }}" style="color:{{ $color }}"></i>
       </div>
       <div class="cs-stat-body">
-        <div class="cs-stat-num" style="color:{{ $color }}">{!! $val !!}</div>
+        <div class="cs-stat-num" data-dashboard-stat="{{ $statKey }}" style="color:{{ $color }}">{!! $val !!}</div>
         <div class="cs-stat-label">{{ $label }}</div>
       </div>
     @if($href)
@@ -212,3 +213,50 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(() => {
+  const endpoint = @json(route('superadmin.dashboard.stats'));
+  const status = document.getElementById('dashboard-stats-status');
+  const currencyStats = new Set(['total_commission', 'commission_month']);
+  let loading = false;
+
+  const formatValue = (key, value) => currencyStats.has(key)
+    ? new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value || 0))
+    : new Intl.NumberFormat('en-PH').format(Number(value || 0));
+
+  async function refreshStats() {
+    if (loading || document.hidden) return;
+    loading = true;
+
+    try {
+      const response = await fetch(endpoint, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+      if (!response.ok) throw new Error('Dashboard stats request failed');
+
+      const { stats } = await response.json();
+      if (!stats || typeof stats !== 'object') throw new Error('Invalid dashboard stats response');
+
+      document.querySelectorAll('[data-dashboard-stat]').forEach((node) => {
+        const key = node.dataset.dashboardStat;
+        if (Object.prototype.hasOwnProperty.call(stats, key)) node.textContent = formatValue(key, stats[key]);
+      });
+      if (status) status.textContent = 'Updated just now';
+    } catch (_) {
+      if (status) status.textContent = 'Live update temporarily unavailable';
+    } finally {
+      loading = false;
+    }
+  }
+
+  window.setInterval(refreshStats, 10000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshStats();
+  });
+})();
+</script>
+@endpush

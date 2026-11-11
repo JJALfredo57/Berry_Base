@@ -8,25 +8,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        try {
-            $openFeedback = DB::table('customer_feedback')->where('status', 'open')->count();
-        } catch (\Throwable $e) {
-            $openFeedback = 0;
-        }
-
-        // Platform stats
-        $stats = [
-            'total_shops'    => DB::table('shops')->where('status','approved')->count(),
-            'pending_apps'   => DB::table('shops')->where('status','pending')->count(),
-            'total_products' => DB::table('products')->count(),
-            'total_orders'   => DB::table('orders')->whereNotIn('status',['Cancelled'])->count(),
-            'open_feedback'  => $openFeedback,
-            'total_commission' => (float) $this->commissionQuery()->sum('l.commission_amount'),
-            'total_customers'=> (
-                DB::table('orders')->whereNotIn('status',['Cancelled'])->whereNotNull('user_id')->distinct()->count('user_id') +
-                DB::table('orders')->whereNotIn('status',['Cancelled'])->whereNull('user_id')->count()
-            ),
-        ];
+        $stats = $this->dashboardStats();
 
         // Pending seller applications
         $pendingApps = DB::table('shops as s')
@@ -46,17 +28,20 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        // Commission this month
-        $commissionMonth = $this->commissionQuery()
-            ->whereYear('o.paid_at', now()->year)
-            ->whereMonth('o.paid_at', now()->month)
-            ->sum('l.commission_amount');
+        $commissionMonth = $stats['commission_month'];
 
         $platform = DB::table('platform_settings')->first();
 
         return view('superadmin.dashboard', compact(
             'stats','pendingApps','recentShops','commissionMonth','platform'
         ));
+    }
+
+    public function stats()
+    {
+        return response()
+            ->json(['stats' => $this->dashboardStats()])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
     public function commissions()
@@ -167,5 +152,33 @@ class DashboardController extends Controller
             ->join('shops', 'shops.id', '=', 'l.shop_id')
             ->whereNotNull('o.paid_at')
             ->where('l.commission_amount', '>', 0);
+    }
+
+    private function dashboardStats(): array
+    {
+        try {
+            $openFeedback = DB::table('customer_feedback')->where('status', 'open')->count();
+        } catch (\Throwable $e) {
+            $openFeedback = 0;
+        }
+
+        $commissionMonth = (float) $this->commissionQuery()
+            ->whereYear('o.paid_at', now()->year)
+            ->whereMonth('o.paid_at', now()->month)
+            ->sum('l.commission_amount');
+
+        return [
+            'total_shops' => DB::table('shops')->where('status', 'approved')->count(),
+            'pending_apps' => DB::table('shops')->where('status', 'pending')->count(),
+            'total_products' => DB::table('products')->count(),
+            'total_orders' => DB::table('orders')->whereNotIn('status', ['Cancelled'])->count(),
+            'open_feedback' => $openFeedback,
+            'total_commission' => (float) $this->commissionQuery()->sum('l.commission_amount'),
+            'total_customers' => (
+                DB::table('orders')->whereNotIn('status', ['Cancelled'])->whereNotNull('user_id')->distinct()->count('user_id') +
+                DB::table('orders')->whereNotIn('status', ['Cancelled'])->whereNull('user_id')->count()
+            ),
+            'commission_month' => $commissionMonth,
+        ];
     }
 }
