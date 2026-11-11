@@ -20,7 +20,7 @@
           <h6 class="fw-bold mb-3">Create Voucher</h6>
           <form method="POST" action="{{ route($ctx['route_prefix'].'.vouchers.store') }}" id="voucher-form" data-code-availability-url="{{ route($ctx['route_prefix'].'.vouchers.code_availability') }}" novalidate>
             @csrf
-            <div class="mb-2"><label class="form-label small fw-semibold">Code <span class="text-danger">*</span></label><div class="input-group"><input name="code" id="voucher-code" class="form-control text-uppercase" maxlength="40" required placeholder="BERRY100"><button class="btn btn-outline-secondary" type="button" id="voucher-generate">Generate</button></div><div class="voucher-field-error"></div></div>
+            <div class="mb-2"><label class="form-label small fw-semibold d-block">Voucher Code <span class="text-danger">*</span></label><div class="d-flex flex-wrap gap-3 mb-2"><label class="form-check mb-0"><input class="form-check-input" type="radio" name="code_mode" value="manual" id="voucher-code-manual" checked><span class="form-check-label small">Enter code manually</span></label><label class="form-check mb-0"><input class="form-check-input" type="radio" name="code_mode" value="generated" id="voucher-code-generated"><span class="form-check-label small">Generate code automatically</span></label></div><div class="input-group"><input name="code" id="voucher-code" class="form-control text-uppercase" maxlength="40" required placeholder="e.g. BERRY100"><button class="btn btn-outline-secondary d-none" type="button" id="voucher-generate">Generate another</button></div><div class="form-text" id="voucher-code-help">Create a custom code that customers can enter at checkout.</div><div class="voucher-field-error"></div></div>
             <div class="mb-2"><label class="form-label small fw-semibold">Name</label><input name="name" class="form-control" required placeholder="e.g. Birthday Treat 2026"></div>
             <div class="mb-2"><label class="form-label small fw-semibold">Description</label><textarea name="description" class="form-control" rows="2"></textarea></div>
             <div class="row g-2">
@@ -93,6 +93,30 @@
 </div>
 <script>
 (() => { const f=document.getElementById('voucher-form'); if(!f)return; const type=f.querySelector('#voucher-type'),aud=f.querySelector('#voucher-audience'),max=document.getElementById('max-discount-wrap'),cust=document.getElementById('customer-wrap'),code=document.getElementById('voucher-code'),gen=document.getElementById('voucher-generate'),preview=document.getElementById('voucher-preview'),submit=document.getElementById('voucher-submit'),dates=[...f.querySelectorAll('.voucher-date')]; const now=new Date(),limit=new Date(now);limit.setFullYear(limit.getFullYear()+1); const fmt=d=>d.toISOString().slice(0,16); dates.forEach(x=>{x.min=fmt(now);x.max=fmt(limit)}); const sync=()=>{const percent=type.value==='percent', assigned=aud.value==='assigned',value=f.discount_value.value||'0',min=f.minimum_order_amount.value||'0';max.classList.toggle('d-none',!percent); max.querySelector('input').required=percent; cust.classList.toggle('d-none',!assigned); f.customer_identifier.required=assigned; preview.textContent=`${percent?value+'% off':'₱'+value+' off'} · minimum order ₱${min} · ${assigned?'assigned customer':'public'}`}; gen.onclick=()=>{code.value='SHOP'+Math.random().toString(36).slice(2,8).toUpperCase();code.dispatchEvent(new Event('input'))}; f.addEventListener('input',sync); f.addEventListener('change',sync); f.addEventListener('submit',()=>{submit.disabled=true;submit.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Creating…'}); sync(); })();
+</script>
+<script>
+(() => {
+  const manual = document.getElementById('voucher-code-manual');
+  const generated = document.getElementById('voucher-code-generated');
+  const code = document.getElementById('voucher-code');
+  const generate = document.getElementById('voucher-generate');
+  const help = document.getElementById('voucher-code-help');
+  if (!manual || !generated || !code || !generate || !help) return;
+  const syncCodeMode = () => {
+    const automatic = generated.checked;
+    code.readOnly = automatic;
+    code.placeholder = automatic ? 'Code will be generated automatically' : 'e.g. BERRY100';
+    generate.classList.toggle('d-none', !automatic);
+    help.textContent = automatic
+      ? 'A unique code is generated for you. Select “Generate another” if needed.'
+      : 'Create a custom code that customers can enter at checkout.';
+    if (automatic && !code.value) generate.click();
+    if (!automatic) code.focus();
+  };
+  manual.addEventListener('change', syncCodeMode);
+  generated.addEventListener('change', syncCodeMode);
+  syncCodeMode();
+})();
 </script>
 <script>
 (() => {

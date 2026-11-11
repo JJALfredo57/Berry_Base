@@ -21,6 +21,7 @@ class CatalogDataService
             ->where('products.classification', '!=', 'Custom')
             ->whereNull('products.archived_at')
             ->select('products.*', 'shops.shop_name', 'shops.shop_slug', 'shops.shop_logo')
+            ->orderByRaw("CASE WHEN LOWER(shops.shop_name) = 'simple cake shop' THEN 0 ELSE 1 END")
             ->orderBy('products.classification')
             ->orderBy('products.name')
             ->get();
