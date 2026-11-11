@@ -381,7 +381,6 @@
           <h5 class="modal-title fw-bold" id="payoutHistoryTitle"><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Payout Transaction History</h5>
           <div class="small text-muted">Latest {{ $payouts->count() }} of {{ (int)($payoutHistoryCount ?? 0) }} payout request{{ (int)($payoutHistoryCount ?? 0) === 1 ? '' : 's' }}.</div>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close payout history"></button>
       </div>
       <div class="modal-body pt-3">
         @if($payouts->isEmpty())
