@@ -395,7 +395,7 @@
   .payout-detail-footer { border-top:1px solid var(--gray-100); border-bottom:0; justify-content:flex-end; }
   .payout-detail-body { overflow-y:auto; overflow-x:hidden; min-width:0; padding:1rem; -webkit-overflow-scrolling:touch; }
   .payout-detail-grid { display:grid; gap:.65rem; min-width:0; }.payout-detail-field { min-width:0; padding:.7rem; border-radius:10px; background:var(--gray-50); overflow-wrap:anywhere; }.payout-detail-field small { display:block; margin-bottom:.22rem; color:var(--gray-500); font-weight:700; text-transform:uppercase; font-size:.65rem; letter-spacing:.06em; }.payout-detail-field .form-control { margin-top:.45rem; min-width:0; }
-  .payout-detail-body .payout-mark-paid-form { display:grid!important; grid-template-columns:minmax(0,1fr); min-width:0; width:100%; }
+  .payout-detail-body .payout-mark-paid-form--modal { display:grid!important; grid-template-columns:minmax(0,1fr); gap:.65rem!important; min-width:0!important; width:100%; justify-content:stretch!important; }
   .payout-detail-body .payout-receipt-scan { min-width:0; width:100%; }
   .payout-detail-body .payout-mark-paid-form .form-control { min-width:0; width:100%; }
   .payout-detail-body .payout-mark-paid-form .btn { width:100%; min-height:42px; white-space:normal; }
@@ -504,6 +504,10 @@ document.addEventListener('DOMContentLoaded', function() {
       const field = document.createElement('div'); field.className = 'payout-detail-field';
       const label = document.createElement('small'); label.textContent = headers[index] || 'Details';
       const content = document.createElement('div'); content.innerHTML = cell.innerHTML;
+      content.querySelectorAll('.payout-mark-paid-form').forEach(form => {
+        form.classList.remove('d-flex', 'gap-2', 'justify-content-end');
+        form.classList.add('payout-mark-paid-form--modal');
+      });
       field.append(label, content); grid.appendChild(field);
       if (index === 1 && Object.prototype.hasOwnProperty.call(payoutDestination, 'payoutMethod')) {
         const destination = document.createElement('div'); destination.className = 'payout-detail-field';

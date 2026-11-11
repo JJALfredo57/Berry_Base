@@ -21,7 +21,7 @@
           <form method="POST" action="{{ route($ctx['route_prefix'].'.vouchers.store') }}" id="voucher-form" data-code-availability-url="{{ route($ctx['route_prefix'].'.vouchers.code_availability') }}" novalidate>
             @csrf
             <div class="mb-2"><label class="form-label small fw-semibold">Code <span class="text-danger">*</span></label><div class="input-group"><input name="code" id="voucher-code" class="form-control text-uppercase" maxlength="40" required placeholder="BERRY100"><button class="btn btn-outline-secondary" type="button" id="voucher-generate">Generate</button></div><div class="voucher-field-error"></div></div>
-            <div class="mb-2"><label class="form-label small fw-semibold">Name</label><input name="name" class="form-control" required placeholder="PHP 100 off"></div>
+            <div class="mb-2"><label class="form-label small fw-semibold">Name</label><input name="name" class="form-control" required placeholder="e.g. Birthday Treat 2026"></div>
             <div class="mb-2"><label class="form-label small fw-semibold">Description</label><textarea name="description" class="form-control" rows="2"></textarea></div>
             <div class="row g-2">
               <div class="col-6"><label class="form-label small fw-semibold">Type</label><select name="discount_type" id="voucher-type" class="form-select"><option value="fixed">Fixed</option><option value="percent">Percent</option></select></div>
