@@ -35,7 +35,7 @@
     ['Paid Out', $summary['paid'], 'bi-check2-circle', '#6d28d9', '#f5f3ff'],
     ['Refund Deductions', $summary['refund_deductions'] ?? 0, 'bi-arrow-counterclockwise', '#b91c1c', '#fef2f2'],
   ] as [$label, $value, $icon, $color, $bg])
-  <div class="col-6 col-lg">
+  <div class="col-6 col-xl-4 col-xxl-3">
     <div class="cs-stat-card h-100">
       <div class="cs-stat-icon" style="background:{{ $bg }}"><i class="bi {{ $icon }}" style="color:{{ $color }}"></i></div>
       <div class="cs-stat-body">
@@ -347,9 +347,9 @@
 </div>
 
 <style>
-  .payout-summary-grid > [class*="col-"] { min-width:0; }
-  .payout-summary-grid .cs-stat-card { min-width:0; }
-  .payout-summary-grid .cs-stat-num { white-space:nowrap; overflow-wrap:normal; font-variant-numeric:tabular-nums; }
+  .payout-summary-grid > [class*="col-"] { display:flex; min-width:0; }
+  .payout-summary-grid .cs-stat-card { width:100%; min-width:0; }
+  .payout-summary-grid .cs-stat-num { white-space:nowrap; overflow-wrap:normal; font-variant-numeric:tabular-nums; font-size:clamp(1.05rem,1.55vw,1.45rem); }
   .payout-table-scroll { display:none !important; }
   .payout-section-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
   .payout-attention { display:inline-flex; align-items:center; gap:.42rem; border-radius:999px; padding:.28rem .58rem; background:#fff7ed; color:#9a3412; font-size:.72rem; font-weight:800; }
