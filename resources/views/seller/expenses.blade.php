@@ -60,4 +60,7 @@ document.addEventListener('DOMContentLoaded', function () {
 @push('scripts')
 <script>document.addEventListener('DOMContentLoaded',function(){const s=document.createElement('style');s.textContent='.expense-list-scroll .border-top{cursor:pointer;border-radius:10px;transition:background .16s ease,transform .16s ease}.expense-list-scroll .border-top:hover{background:#fff1f6;transform:translateX(3px)}.expense-list-scroll .border-top:after{content:"Click to edit  ›";display:block;color:var(--primary);font-size:.72rem;font-weight:700;margin-top:.2rem}.expense-list-scroll .border-top:focus-visible{outline:3px solid rgba(235,45,93,.25)}';document.head.appendChild(s);document.querySelectorAll('.expense-list-scroll .border-top').forEach(r=>{r.tabIndex=0;r.setAttribute('role','button');r.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();r.click()}})})});</script>
 @endpush
+@push('scripts')
+<script>document.addEventListener('DOMContentLoaded',function(){const s=document.createElement('style');s.textContent='.expense-list-scroll .border-top:after{content:"›";position:absolute;right:.55rem;top:50%;transform:translateY(-50%);font-size:1.4rem;margin:0}.expense-list-scroll .border-top{position:relative;padding-right:2rem!important}';document.head.appendChild(s)});</script>
+@endpush
 @endsection
