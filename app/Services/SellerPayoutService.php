@@ -120,8 +120,10 @@ class SellerPayoutService
             $platformFundedDiscount = max(0, round((float) ($discountBreakdown['platform'] ?? 0), 2));
             $adjustedGross = max(0, round($gross + $platformFundedDiscount, 2));
 
-            $commissionBase = max(0, $adjustedGross - (float) ($order->delivery_fee ?? 0) - (float) ($order->service_charge ?? 0));
-            $rate = !empty($order->commission_enabled) ? (float) ($order->commission_rate ?? 0) : 0;
+            $deliveryFund = min($adjustedGross, max(0, round((float) ($order->delivery_fee ?? 0), 2)));
+            $commissionBase = max(0, $adjustedGross - $deliveryFund - (float) ($order->service_charge ?? 0));
+            // Approved platform rule: commission is always 2% of cake/product value only.
+            $rate = !empty($order->commission_enabled) ? 2.0 : 0.0;
             $commission = round($commissionBase * $rate / 100, 2);
             $net = max(0, round($adjustedGross - $commission, 2));
 
@@ -137,6 +139,8 @@ class SellerPayoutService
                 'shop_id' => $order->shop_id,
                 'seller_id' => $order->seller_id,
                 'gross_amount' => $adjustedGross,
+                'cake_amount' => $commissionBase,
+                'delivery_fund_amount' => $deliveryFund,
                 'commission_base' => $commissionBase,
                 'commission_rate' => $rate,
                 'commission_amount' => $commission,
@@ -147,6 +151,8 @@ class SellerPayoutService
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
+            if (!Schema::hasColumn('seller_payout_ledgers', 'cake_amount')) unset($insertPayload['cake_amount']);
+            if (!Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount')) unset($insertPayload['delivery_fund_amount']);
             if ($hasPlatformFundedColumn) {
                 $insertPayload['platform_funded_discount'] = $platformFundedDiscount;
             }
@@ -259,12 +265,15 @@ class SellerPayoutService
             $platformFundedDiscount = max(0, round((float) ($discountBreakdown['platform'] ?? 0), 2));
             $adjustedGross = max(0, round($gross + $platformFundedDiscount, 2));
 
-            $commissionBase = max(0, $adjustedGross - (float) ($ledger->delivery_fee ?? 0) - (float) ($ledger->service_charge ?? 0));
-            $rate = !empty($ledger->commission_enabled) ? (float) ($ledger->commission_rate ?? 0) : 0;
+            $deliveryFund = min($adjustedGross, max(0, round((float) ($ledger->delivery_fee ?? 0), 2)));
+            $commissionBase = max(0, $adjustedGross - $deliveryFund - (float) ($ledger->service_charge ?? 0));
+            $rate = !empty($ledger->commission_enabled) ? 2.0 : 0.0;
             $commission = round($commissionBase * $rate / 100, 2);
 
             $updatePayload = [
                 'gross_amount' => $adjustedGross,
+                'cake_amount' => $commissionBase,
+                'delivery_fund_amount' => $deliveryFund,
                 'commission_base' => $commissionBase,
                 'commission_rate' => $rate,
                 'commission_amount' => $commission,
@@ -272,6 +281,8 @@ class SellerPayoutService
                 'notes' => 'Adjusted to online customer deposit only. Direct COD cash was handed to seller.',
                 'updated_at' => now(),
             ];
+            if (!Schema::hasColumn('seller_payout_ledgers', 'cake_amount')) unset($updatePayload['cake_amount']);
+            if (!Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount')) unset($updatePayload['delivery_fund_amount']);
             if ($hasPlatformFundedColumn) {
                 $updatePayload['platform_funded_discount'] = $platformFundedDiscount;
             }
