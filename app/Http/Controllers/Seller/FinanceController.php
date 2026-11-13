@@ -79,7 +79,13 @@ class FinanceController extends Controller
             'reference' => ['nullable', 'string', 'max:120'],
         ]);
         $data['amount'] = round($data['amount'] * $data['quantity'], 2);
-        DB::table('seller_expenses')->insert($data + ['shop_id' => $shop->id, 'seller_id' => session('user')['id'], 'created_at' => now(), 'updated_at' => now()]);
+        if (!Schema::hasColumn('seller_expenses', 'quantity')) unset($data['quantity']);
+        try {
+            DB::table('seller_expenses')->insert($data + ['shop_id' => $shop->id, 'seller_id' => session('user')['id'], 'created_at' => now(), 'updated_at' => now()]);
+        } catch (\Throwable $e) {
+            report($e);
+            return back()->withInput()->with('err', 'Unable to save this expense right now. Please check the values and try again.');
+        }
         return back()->with('msg', 'Business expense saved. Profit figures are updated.');
     }
 
@@ -112,8 +118,9 @@ class FinanceController extends Controller
     {
         $shop = $this->shop(); if (!$shop || !Schema::hasTable('seller_expenses')) abort(404);
         $data = $request->validate(['category'=>['required','in:ingredients,labor,packaging,delivery,utilities,marketing,other'],'description'=>['required','string','min:2','max:300'],'quantity'=>['required','integer','min:1','max:100000'],'amount'=>['required','numeric','gt:0','max:999999.99']]);
-        $data['amount'] = round($data['amount'] * $data['quantity'], 2); $data['updated_at']=now();
-        DB::table('seller_expenses')->where('id',$expenseId)->where('shop_id',$shop->id)->update($data);
+        $data['amount'] = round($data['amount'] * $data['quantity'], 2); if (!Schema::hasColumn('seller_expenses', 'quantity')) unset($data['quantity']); $data['updated_at']=now();
+        try { DB::table('seller_expenses')->where('id',$expenseId)->where('shop_id',$shop->id)->update($data); }
+        catch (\Throwable $e) { report($e); return back()->with('err','Unable to update this expense right now.'); }
         return back()->with('msg','Expense updated.');
     }
 }
