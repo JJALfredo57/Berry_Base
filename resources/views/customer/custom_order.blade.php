@@ -20,11 +20,18 @@
 .bb-price-summary .bb-price-row>:first-child{min-width:0}
 .bb-price-summary .bb-price-amount{flex:0 0 auto;white-space:nowrap;overflow-wrap:normal;word-break:normal;text-align:right}
 .bb-price-summary .bb-price-total-copy{min-width:0;flex:1 1 auto}
+.custom-order-shell{padding-inline:clamp(.75rem,2vw,2rem)!important}
+.custom-order-page{width:100%;max-width:1600px;margin:0 auto;font-size:clamp(.875rem,.9vw,1rem)}
+.custom-order-grid{display:grid;grid-template-columns:minmax(0,1fr) clamp(260px,22vw,340px);gap:clamp(1rem,2vw,2rem);align-items:start}
+.custom-order-form-column,.custom-order-summary-column{min-width:0}
+.custom-order-page .form-label{font-size:clamp(.76rem,.78vw,.9rem)}
+.custom-order-page .form-control,.custom-order-page .form-select{min-height:42px}
+@media(max-width:991px){.custom-order-grid{grid-template-columns:1fr;gap:1rem}.bb-sticky-order-column{position:static!important;top:auto!important}.custom-order-summary-column{order:2}.custom-order-page .card-body{padding:clamp(.85rem,2.5vw,1.35rem)!important}}
+@media(max-width:575px){.custom-order-shell{padding-inline:.65rem!important}.custom-order-page{font-size:.9rem}.custom-order-page .form-control,.custom-order-page .form-select{min-height:40px;font-size:.9rem}.custom-order-actions button{min-height:48px}.bb-price-summary .card-body{padding:1rem!important}.bb-price-summary .bb-price-row{font-size:.8rem}.custom-order-page .d-flex.align-items-center.gap-3.mb-4{gap:.65rem!important;margin-bottom:1rem!important}}
 </style>
 @endpush
-<div class="container-fluid py-4">
-  <div class="row justify-content-center">
-    <div class="col-lg-10">
+<div class="container-fluid py-4 custom-order-shell">
+  <div class="custom-order-page">
 
       <div class="d-flex align-items-center gap-3 mb-4">
         <a href="{{ route('customer.catalog') }}" class="btn btn-outline-secondary btn-sm">
@@ -44,8 +51,8 @@
 
 
 
-      <div class="row g-4">
-        <div class="col-lg-8">
+      <div class="custom-order-grid">
+        <div class="custom-order-form-column">
           <form action="{{ route('customer.custom_order.store') }}" method="POST" id="customOrderForm" enctype="multipart/form-data" data-prevent-double-submit>
             @csrf
             <input type="hidden" name="shop_slug" value="{{ $targetShop->shop_slug ?? '' }}">
@@ -427,7 +434,7 @@
         </div>
 
         {{-- RIGHT: Price Summary --}}
-        <div class="col-lg-4 bb-sticky-order-column">
+        <div class="custom-order-summary-column bb-sticky-order-column">
           <div class="card bb-price-summary">
             <div class="card-body p-4">
               <h6 class="fw-bold mb-3">🎂 Price Summary</h6>
@@ -479,7 +486,6 @@
           </div>
         </div>
       </div>
-    </div>
   </div>
 </div>
 <div class="modal fade" id="customCapacityModal" tabindex="-1" aria-labelledby="customCapacityModalTitle" aria-hidden="true">
