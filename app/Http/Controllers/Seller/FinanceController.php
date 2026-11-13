@@ -69,6 +69,7 @@ class FinanceController extends Controller
     {
         $shop = $this->shop();
         if (!$shop) abort(404);
+        if (!Schema::hasTable('seller_expenses')) return back()->with('err', 'Expense records are not ready yet. Please try again after the database migration finishes.');
         $data = $request->validate([
             'expense_date' => ['required', 'date', 'before_or_equal:today'],
             'category' => ['required', 'in:ingredients,labor,packaging,delivery,utilities,marketing,other'],
@@ -84,6 +85,9 @@ class FinanceController extends Controller
     {
         $shop = $this->shop();
         if (!$shop) return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
+        if (!Schema::hasTable('seller_expenses')) {
+            return redirect()->route('seller.finance')->with('err', 'Expense records are not ready yet. The database migration must finish before expenses can be added.');
+        }
         $selected = Carbon::parse((string) $request->input('date', now()->toDateString()))->toDateString();
         $month = Carbon::parse((string) $request->input('month', $selected))->startOfMonth();
         $start = $month->copy()->startOfWeek(Carbon::SUNDAY);
@@ -97,6 +101,7 @@ class FinanceController extends Controller
     {
         $shop = $this->shop();
         if (!$shop) abort(404);
+        if (!Schema::hasTable('seller_expenses')) return back()->with('err', 'Expense records are not ready yet. Please try again after the database migration finishes.');
         DB::table('seller_expenses')->where('id', $expenseId)->where('shop_id', $shop->id)->delete();
         return back()->with('msg', 'Business expense removed.');
     }
