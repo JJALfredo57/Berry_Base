@@ -67,6 +67,22 @@ class CustomOrderController extends Controller
         return $shop && ($shop->tier ?? 'basic') === 'verified' ? $shop : null;
     }
 
+    private function sourceProductForShop(?string $productId, object $shop): ?object
+    {
+        $productId = trim((string) $productId);
+        if ($productId === '') return null;
+
+        $query = DB::table('products')
+            ->where('id', $productId)
+            ->where('shop_id', $shop->id)
+            ->where('is_available', true);
+        if (\Illuminate\Support\Facades\Schema::hasColumn('products', 'archived_at')) {
+            $query->whereNull('archived_at');
+        }
+
+        return $query->first();
+    }
+
     private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
         $R    = 6371000;
@@ -115,6 +131,16 @@ class CustomOrderController extends Controller
         }
         $shopId = $targetShop->id;
 
+        $sourceProduct = null;
+        $sourceProductId = trim((string) $request->query('source_product', ''));
+        if ($sourceProductId !== '') {
+            $sourceProduct = $this->sourceProductForShop($sourceProductId, $targetShop);
+            if (!$sourceProduct) {
+                return redirect()->route('customer.catalog')
+                    ->with('error', 'That cake is no longer available as a customization reference. Please choose another cake.');
+            }
+        }
+
         if ($targetShop && BecCastilloAddons::isBecCastilloShop($targetShop)) {
             BecCastilloAddons::ensureForShop($targetShop->id);
         }
@@ -155,7 +181,7 @@ class CustomOrderController extends Controller
 
         return view('customer.custom_order', array_merge($options, compact(
             'addonCategories', 'addonsByCategory', 'customer', 'defaultAddr',
-            'deliveryZones', 'targetShop', 'shopSettings', 'deliveryCoverage'
+            'deliveryZones', 'targetShop', 'shopSettings', 'deliveryCoverage', 'sourceProduct'
         )));
     }
 
@@ -235,8 +261,6 @@ class CustomOrderController extends Controller
             'payment_method' => 'nullable|in:COD,COP,GCash',
             'quantity' => 'required|integer|min:1|max:10',
             'schedule_date' => 'required|date',
-            'reference_images' => 'required|array|min:1|max:5',
-            'reference_images.*' => 'required|image|mimes:jpg,jpeg,png,webp,gif|max:5120',
         ]);
         $shop = $this->resolveVerifiedShop($request->input('shop_slug'));
         if (!$shop) {
@@ -246,8 +270,31 @@ class CustomOrderController extends Controller
         $shopId = $shop->id;
         $options = $this->loadOptions($shopId);
 
-        $cakeName   = trim($request->input('cake_name', 'Customized Cake'));
-        $flavor     = trim($request->input('flavor', ''));
+        $sourceProductId = trim((string) $request->input('source_product_id', ''));
+        $sourceProduct = $sourceProductId !== '' ? $this->sourceProductForShop($sourceProductId, $shop) : null;
+        if ($sourceProductId !== '' && !$sourceProduct) {
+            return back()->with('error', 'The linked cake is no longer available as a customization reference. Please choose another cake.')->withInput();
+        }
+        if ($sourceProduct && DB::table('custom_orders as co')
+            ->join('orders as o', 'o.id', '=', 'co.order_id')
+            ->where('co.user_id', $uid)
+            ->where('co.shop_id', $shopId)
+            ->where('co.source_product_id', $sourceProduct->id)
+            ->where('co.review_status', 'pending')
+            ->whereNotIn('o.status', ['Cancelled'])
+            ->exists()) {
+            return redirect()->route('customer.orders')
+                ->with('error', 'You already have a pending custom version of this cake. Please wait for the seller review.');
+        }
+        $request->validate([
+            'reference_images' => $sourceProduct ? 'nullable|array|max:5' : 'required|array|min:1|max:5',
+            'reference_images.*' => 'required|image|mimes:jpg,jpeg,png,webp,gif|max:5120',
+        ], [
+            'reference_images.required' => 'Upload at least one reference image, or start from a linked cake.',
+        ]);
+
+        $cakeName   = trim($request->input('cake_name', $sourceProduct->name ?? 'Customized Cake')) ?: ($sourceProduct->name ?? 'Customized Cake');
+        $flavor     = trim($request->input('flavor', $sourceProduct->flavor ?? ''));
         $sizeLabel  = trim($request->input('size', ''));
         $layerLabel = trim($request->input('layers', ''));
         $compLabel  = trim($request->input('design_complexity', ''));
@@ -260,8 +307,6 @@ class CustomOrderController extends Controller
         $customNote = trim($request->input('custom_note', ''));
         $addonInstructions = trim($request->input('addon_instructions', ''));
 
-        $refImages = $this->storeReferenceImages($request);
-
         $basePrice           = 1200.00;
         $sizeSurcharge       = 0.00;
         $layerSurcharge      = 0.00;
@@ -269,27 +314,45 @@ class CustomOrderController extends Controller
 
         if ($sizeLabel) {
             $sizeOpt = $options['sizes']->firstWhere('label', $sizeLabel);
-            if ($sizeOpt) $sizeSurcharge = (float)$sizeOpt->price;
+            if (!$sizeOpt) return back()->with('error', 'Please choose a valid custom cake size for this shop.')->withInput();
+            $sizeSurcharge = (float)$sizeOpt->price;
         }
         if ($layerLabel) {
             $layerOpt = $options['layers']->firstWhere('label', $layerLabel);
-            if ($layerOpt) $layerSurcharge = (float)$layerOpt->price;
+            if (!$layerOpt) return back()->with('error', 'Please choose a valid layer option for this shop.')->withInput();
+            $layerSurcharge = (float)$layerOpt->price;
         }
         if ($compLabel) {
             $compOpt = $options['complexities']->firstWhere('label', $compLabel);
-            if ($compOpt) $complexitySurcharge = (float)$compOpt->price;
+            if (!$compOpt) return back()->with('error', 'Please choose a valid design complexity for this shop.')->withInput();
+            $complexitySurcharge = (float)$compOpt->price;
+        }
+        if ($flavor && $options['flavors']->isNotEmpty() && !$options['flavors']->firstWhere('label', $flavor)) {
+            return back()->with('error', 'Please choose a valid flavor for this shop.')->withInput();
         }
 
         $selectedAddonIds = array_filter(array_map('intval', $request->input('addons', [])));
         $addonTotal  = 0;
         $validAddons = [];
         if (!empty($selectedAddonIds)) {
-            $addons = DB::table('cake_addons')->whereIn('id', $selectedAddonIds)->where('is_active', true)->get();
+            $addons = DB::table('cake_addons as a')
+                ->join('cake_addon_categories as c', 'c.id', '=', 'a.category_id')
+                ->whereIn('a.id', $selectedAddonIds)
+                ->where('a.is_active', true)
+                ->where('c.is_active', true)
+                ->where('c.shop_id', $shopId)
+                ->select('a.*')
+                ->get();
+            if ($addons->count() !== count(array_unique($selectedAddonIds))) {
+                return back()->with('error', 'One or more selected add-ons are unavailable for this shop. Please update your selection.')->withInput();
+            }
             foreach ($addons as $addon) {
                 $addonTotal += (float)$addon->price;
                 $validAddons[] = $addon;
             }
         }
+
+        $refImages = $this->storeReferenceImages($request);
 
         $fulfillment = $request->input('fulfillment_type', 'Pickup') ?: 'Pickup';
         $zone        = $request->input('delivery_zone', '');
@@ -531,6 +594,11 @@ class CustomOrderController extends Controller
             'payment_method'    => $payment,
             'payment_status'    => 'Unpaid',
             'track_code'        => $trackCode,
+            'source_product_id' => $sourceProduct->id ?? null,
+            'source_product_name_snapshot' => $sourceProduct->name ?? null,
+            'source_product_image_snapshot' => $sourceProduct->image_path ?? null,
+            'source_product_price_snapshot' => $sourceProduct->price ?? null,
+            'source_type'       => $sourceProduct ? 'catalog_customization' : null,
             'is_rush'           => $rush['is_rush'] ?? false,
             'rush_reason'       => $rush['rush_reason'] ?? null,
             'seller_prep_days_at_request' => $rush['seller_prep_days_at_request'] ?? null,

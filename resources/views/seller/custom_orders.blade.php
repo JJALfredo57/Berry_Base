@@ -203,6 +203,7 @@
             <div class="fw-semibold small mb-2" style="color:var(--primary)"><i class="bi bi-cake2 me-1"></i>Cake Details</div>
             <div style="overflow-x:auto"><table class="table table-sm table-borderless mb-0" style="font-size:.85rem">
               <tr><td class="text-muted" style="width:40%">Cake Name</td><td class="fw-semibold">{{ $co->cake_name ?? '' }}</td></tr>
+              @if($co->source_product_id ?? null)<tr><td class="text-muted">Based On</td><td><span class="badge" style="background:#eff6ff;color:#1d4ed8"><i class="bi bi-link-45deg me-1"></i>{{ $co->source_product_name_snapshot ?? 'Catalog cake' }}</span></td></tr>@endif
               @if($co->flavor ?? null)<tr><td class="text-muted">Flavor</td><td>{{ $co->flavor }}</td></tr>@endif
               @if($co->size ?? null)<tr><td class="text-muted">Size</td><td>{{ $co->size }}</td></tr>@endif
               @if($co->layers ?? null)<tr><td class="text-muted">Layers</td><td>{{ $co->layers }}</td></tr>@endif

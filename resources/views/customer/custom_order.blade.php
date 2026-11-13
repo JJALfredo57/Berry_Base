@@ -49,7 +49,15 @@
           <form action="{{ route('customer.custom_order.store') }}" method="POST" id="customOrderForm" enctype="multipart/form-data" data-prevent-double-submit>
             @csrf
             <input type="hidden" name="shop_slug" value="{{ $targetShop->shop_slug ?? '' }}">
+            <input type="hidden" name="source_product_id" value="{{ $sourceProduct->id ?? '' }}">
             <input type="hidden" name="submit_action" id="customSubmitAction" value="place_order">
+
+            @if($sourceProduct)
+            <div class="alert border-0 mb-3 d-flex gap-3 align-items-center" style="background:#fff7ed;color:#9a3412">
+              @if($sourceProduct->image_path)<img src="{{ $sourceProduct->image_path }}" alt="{{ $sourceProduct->name }}" style="width:54px;height:54px;border-radius:10px;object-fit:cover">@endif
+              <div><div class="fw-bold"><i class="bi bi-link-45deg me-1"></i>Custom version of {{ $sourceProduct->name }}</div><div class="small">Use this cake as your base, then choose your custom details and add-ons. Its published price is reference only; the seller will confirm the final price.</div></div>
+            </div>
+            @endif
 
             {{-- 1. Cake Details --}}
             <div class="card mb-3">
@@ -60,7 +68,7 @@
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">Cake / Occasion Name <span class="text-danger">*</span></label>
                   <input type="text" class="form-control" name="cake_name"
-                         value="{{ old('cake_name') }}"
+                         value="{{ old('cake_name', $sourceProduct->name ?? '') }}"
                          placeholder="e.g. Birthday Cake for Maria, Wedding Cake"
                          required maxlength="120">
                 </div>
@@ -68,19 +76,19 @@
                 {{-- Reference Images --}}
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">
-                    📎 Reference / Inspiration Images <span class="text-danger">*</span>
-                    <span class="text-muted fw-normal">(at least 1, up to 5)</span>
+                    📎 Reference / Inspiration Images @if(!$sourceProduct)<span class="text-danger">*</span>@endif
+                    <span class="text-muted fw-normal">({{ $sourceProduct ? 'optional, up to 5' : 'at least 1, up to 5' }})</span>
                   </label>
                   <div class="border rounded-3 p-3" style="border-style:dashed!important;border-color:var(--primary)!important;background:#fff9fb">
                     <div id="refImgPreviewStrip" class="d-flex flex-wrap gap-2 mb-2" style="min-height:0"></div>
                     <label for="refImgInput" class="btn btn-outline-primary btn-sm" id="refImgBtn" tabindex="0">
                       <i class="bi bi-image me-1"></i>Choose Images
                       <input type="file" id="refImgInput" name="reference_images[]"
-                             accept="image/*" multiple hidden required data-cs-hide-optimization="true" onchange="addRefImages(this)">
+                             accept="image/*" multiple hidden @if(!$sourceProduct) required @endif data-source-product="{{ $sourceProduct ? '1' : '0' }}" data-cs-hide-optimization="true" onchange="addRefImages(this)">
                     </label>
                     <span class="small text-muted ms-2" id="refImgCount">0 / 5 selected</span>
                     <div class="text-muted mt-1" style="font-size:.75rem">
-                      <i class="bi bi-info-circle me-1"></i>Upload at least one photo of the cake design you want so the seller can match it.
+                      <i class="bi bi-info-circle me-1"></i>{{ $sourceProduct ? 'The linked cake image is included as the base reference. Add photos only for changes you want.' : 'Upload at least one photo of the cake design you want so the seller can match it.' }}
                     </div>
                     <div id="refImgError" class="small text-danger fw-semibold mt-2" role="alert" aria-live="polite"></div>
                     @error('reference_images')
@@ -97,7 +105,7 @@
                     <select class="form-select" name="flavor" required>
                       <option value="">-- Select Flavor --</option>
                       @foreach($flavors as $f)
-                        <option value="{{ $f->label }}" {{ old('flavor')==$f->label ? 'selected':'' }}>
+                        <option value="{{ $f->label }}" {{ old('flavor', $sourceProduct->flavor ?? '')==$f->label ? 'selected':'' }}>
                           {{ $f->label }}{{ $f->description ? ' — '.$f->description : '' }}
                         </option>
                       @endforeach
@@ -405,9 +413,11 @@
             </div>
 
             <div class="custom-order-actions d-grid gap-2">
+              @if(!$sourceProduct)
               <button type="button" class="btn btn-outline-primary w-100 py-3 fw-semibold fs-6" id="customAddToCartBtn" onclick="return submitCustomCakeToCart(this)">
                 <i class="bi bi-cart-plus me-2"></i>Add Custom Cake to Cart
               </button>
+              @endif
               <div class="small text-muted rounded-3 px-3 py-2" id="surpriseDirectOrderNote" style="display:none;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa"><i class="bi bi-info-circle me-1"></i>Surprise delivery must be placed directly so recipient details stay with this order.</div>
               <button type="button" class="btn btn-primary w-100 py-3 fw-semibold fs-5" onclick="return confirmCustomOrder(this)">
                 <i class="bi bi-palette me-2"></i>Place Custom Order
@@ -1275,7 +1285,8 @@ function addRefImages(input) {
 function validateReferenceImages(showError = false) {
   const error = document.getElementById('refImgError');
   const button = document.getElementById('refImgBtn');
-  const valid = refFiles.length > 0;
+  const sourceLinked = document.getElementById('refImgInput')?.dataset?.sourceProduct === '1';
+  const valid = sourceLinked || refFiles.length > 0;
   if (error) error.innerHTML = !valid && showError ? '<i class="bi bi-exclamation-circle-fill me-1"></i>Please upload at least one cake reference image.' : '';
   if (button) {
     button.classList.toggle('btn-outline-danger', !valid && showError);

@@ -771,6 +771,14 @@
                     </div>
                   </div>
                   <div class="col-12"><button type="submit" class="btn btn-primary w-100 fw-semibold" data-request-bake-submit><i class="bi bi-send me-1"></i>Send Kitchen Request</button><div class="small text-muted mt-2">No payment yet. This becomes an order only after seller confirmation.</div></div>
+                  @if(($p->shop_tier ?? 'basic') === 'verified')
+                  <div class="col-12">
+                    <a href="{{ route('customer.custom_order', ['shop' => $p->shop_slug, 'source_product' => $p->id]) }}" class="btn btn-outline-primary w-100 fw-semibold">
+                      <i class="bi bi-palette me-1"></i>Create Custom Version Instead
+                    </a>
+                    <div class="small text-muted mt-2">Use this out-of-stock cake as a base, then add your preferred design and add-ons. The seller will review the final price.</div>
+                  </div>
+                  @endif
                 </form>
               </div>
               @else
