@@ -512,7 +512,7 @@
        <div class="seller-size-entry" data-size-entry>
          <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem;border:1px solid var(--gray-200);border-radius:12px;background:#fafafa">
            <div><div style="font-weight:800;color:var(--gray-900)">{{ $sz->label }}</div><div style="font-size:.76rem;color:var(--gray-500)">PHP {{ number_format($sz->price,2) }}</div></div>
-           <form action="{{ route('seller.products.sizes.stock', $sz->id) }}" method="POST" data-size-stock-form style="display:flex;align-items:end;gap:.45rem">@csrf<div><label class="form-label" style="font-size:.7rem;margin-bottom:.2rem">Stock</label><input class="form-control" type="number" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" style="width:94px"><small class="seller-field-error" data-field-feedback="available_quantity"></small></div><button class="btn btn-primary btn-sm" type="submit">Save</button></form>
+           <form action="{{ route('seller.products.sizes.update', $sz->id) }}" method="POST" data-size-stock-form style="display:flex;align-items:end;gap:.45rem;flex-wrap:wrap">@csrf<div><label class="form-label" style="font-size:.7rem;margin-bottom:.2rem">Price</label><input class="form-control" type="number" name="price" value="{{ $sz->price }}" min="1" max="99999999.99" step="0.01" inputmode="decimal" style="width:108px"><small class="seller-field-error" data-field-feedback="price"></small></div><div><label class="form-label" style="font-size:.7rem;margin-bottom:.2rem">Stock</label><input class="form-control" type="number" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" style="width:94px"><small class="seller-field-error" data-field-feedback="available_quantity"></small></div><button class="btn btn-primary btn-sm" type="submit">Save</button></form>
          </div>
          <form action="{{ route('seller.products.sizes.archive', $sz->id) }}" method="POST" data-cs-confirm="Archive size &quot;{{ addslashes($sz->label) }}&quot;? It can be restored later." data-cs-title="Archive Size" style="margin-top:.6rem;text-align:right">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-archive me-1"></i>Archive size</button></form>
        </div>
@@ -849,14 +849,18 @@ function validateSizeDraft(editor, showEmpty = false) {
 
 function bindSizeStockValidation(form) {
   const input = form.querySelector('[name="available_quantity"]');
+  const priceInput = form.querySelector('[name="price"]');
   const button = form.querySelector('button[type="submit"]');
   const validate = () => {
-    const message = sellerNumberError(input?.value ?? '', { min: 0, max: 9999, required: true, label: 'Stock', integer: true });
-    setSellerFieldFeedback(input, message);
-    if (button) button.disabled = Boolean(message);
-    return !message;
+    const stockMessage = sellerNumberError(input?.value ?? '', { min: 0, max: 9999, required: true, label: 'Stock', integer: true });
+    const priceMessage = priceInput ? sellerNumberError(priceInput.value ?? '', { min: 1, max: 99999999.99, required: true, label: 'Price' }) : '';
+    setSellerFieldFeedback(input, stockMessage);
+    if (priceInput) setSellerFieldFeedback(priceInput, priceMessage);
+    if (button) button.disabled = Boolean(stockMessage || priceMessage);
+    return !stockMessage && !priceMessage;
   };
   ['input', 'change', 'blur'].forEach(type => input?.addEventListener(type, validate));
+  ['input', 'change', 'blur'].forEach(type => priceInput?.addEventListener(type, validate));
   form.addEventListener('submit', event => {
     if (!validate()) { event.preventDefault(); input?.focus(); return; }
     if (button) { button.disabled = true; button.textContent = 'Saving...'; }

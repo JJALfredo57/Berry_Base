@@ -497,6 +497,35 @@ class ProductController extends Controller
 
         return back()->with('msg', "Stock for size \"{$size->label}\" updated.");
     }
+
+    public function updateSize(Request $request, string $sizeId)
+    {
+        $shop = $this->getShop();
+        $size = DB::table('product_sizes as ps')
+            ->join('products as p', 'p.id', '=', 'ps.product_id')
+            ->where('ps.id', $sizeId)
+            ->where('p.shop_id', $shop->id)
+            ->select('ps.*')
+            ->first();
+        if (!$size) return back()->with('err', 'Size not found.');
+
+        $validated = $request->validate([
+            'price' => 'required|numeric|min:1|max:99999999.99',
+            'available_quantity' => 'required|integer|min:0|max:9999',
+        ], [
+            'price.required' => 'Size price is required.',
+            'price.min' => 'Size price must be at least PHP 1.',
+            'available_quantity.required' => 'Size stock is required.',
+        ]);
+
+        DB::table('product_sizes')->where('id', $sizeId)->update([
+            'price' => $validated['price'],
+            'available_quantity' => (int) $validated['available_quantity'],
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('msg', "Price and stock for size \"{$size->label}\" updated.");
+    }
     public function archiveSize(string $sizeId)
     {
         $shop = $this->getShop();

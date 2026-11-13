@@ -496,6 +496,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/products/realtime-status',  [\App\Http\Controllers\Seller\ProductController::class, 'realtimeStatus'])->name('products.realtime_status');
     Route::post('/products/{id}/sizes',      [\App\Http\Controllers\Seller\ProductController::class, 'storeSize'])->name('products.sizes.store');
     Route::post('/products/sizes/{id}/stock', [\App\Http\Controllers\Seller\ProductController::class, 'updateSizeStock'])->name('products.sizes.stock');
+    Route::post('/products/sizes/{id}/update', [\App\Http\Controllers\Seller\ProductController::class, 'updateSize'])->name('products.sizes.update');
     Route::post('/products/sizes/{id}/archive', [\App\Http\Controllers\Seller\ProductController::class, 'archiveSize'])->name('products.sizes.archive');
     Route::post('/products/sizes/{id}/restore', [\App\Http\Controllers\Seller\ProductController::class, 'restoreSize'])->name('products.sizes.restore');
 
