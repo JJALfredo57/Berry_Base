@@ -1462,6 +1462,9 @@
       <i class="bi bi-wallet2"></i><span class="sb-link-text">Payouts</span>
       <span class="sb-badge info" data-seller-badge="payouts" title="Unread payout notifications" style="{{ $sbCount('payouts') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('payouts')) }}</span>
     </a>
+    <a href="{{ route('seller.finance') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.finance') ? 'active' : '' }}">
+      <i class="bi bi-graph-up-arrow"></i><span class="sb-link-text">Finance</span>
+    </a>
     <a href="{{ route('seller.messages') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.messages') ? 'active' : '' }}">
       <i class="bi bi-chat-dots"></i><span class="sb-link-text">Messages</span>
       <span class="sb-badge" data-seller-badge="messages" title="Unread customer messages" style="{{ $sbCount('messages') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('messages')) }}</span>
@@ -4704,6 +4707,15 @@ window.BERRY_PUSH_CONTEXT = {
 })();
 </script>
 @stack('scripts')
+<script>
+  // Modals must be direct body children so they remain fixed to the viewport,
+  // sit above sidebar/content stacking contexts, and lock scrolling correctly.
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.modal').forEach(function (modal) {
+      if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    });
+  });
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const now = new Date();

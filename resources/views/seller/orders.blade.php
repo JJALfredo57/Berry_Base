@@ -597,7 +597,7 @@
             <div style="min-width:190px">
               <div style="font-size:.82rem;font-weight:700;color:#111827">{{ $receiptLabel }}</div>
               <div style="font-size:.74rem;color:#64748b">
-                {{ $receipt->method ?? 'Payment' }}{{ $receipt->provider_reference ? ' / Ref: '.$receipt->provider_reference : '' }}
+                {{ $receipt->method ?? 'Payment' }}{{ $receipt->provider_reference ? ' / Ref: ••••'.substr((string) $receipt->provider_reference, -4) : '' }}
                 @if($receiptDate) &bull; {{ \Carbon\Carbon::parse($receiptDate)->format('M d, Y g:i A') }} @endif
               </div>
             </div>
@@ -644,7 +644,7 @@
             @if($remittance->remittance_method)<div><strong>Method:</strong> {{ $remittance->remittance_method === 'gcash_paymongo' ? 'GCash QR via PayMongo' : ($remittance->remittance_method === 'gcash' ? 'GCash transfer' : 'Cash handover') }}</div>@endif
             @if(!empty($remittance->batch_id))<div><strong>Batch:</strong> Bulk remittance #{{ $remittance->batch_id }}</div>@endif
             @if($remittance->reference_number)<div><strong>Reference:</strong> {{ $remittance->reference_number }}</div>@endif
-            @if(!empty($remittance->paymongo_payment_intent_id))<div><strong>PayMongo ID:</strong> {{ $remittance->paymongo_payment_intent_id }}</div>@endif
+            @if(!empty($remittance->paymongo_payment_intent_id))<div><strong>Payment reference:</strong> ••••{{ substr((string) $remittance->paymongo_payment_intent_id, -4) }}</div>@endif
             @if(!empty($remittance->paymongo_paid_at))<div><strong>Verified at:</strong> {{ \Carbon\Carbon::parse($remittance->paymongo_paid_at)->format('M d, Y g:i A') }}</div>@endif
             @if($remittance->rider_note)<div><strong>Rider note:</strong> {{ $remittance->rider_note }}</div>@endif
             @if($remittance->seller_note)<div><strong>Seller note:</strong> {{ $remittance->seller_note }}</div>@endif

@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Helpers\CakeshopHelper;
+use App\Helpers\PaymentTransactionHelper;
 use App\Services\MobileNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -326,8 +327,9 @@ class PaymentController extends Controller
             $paymentStatus = $apiRes['data']['attributes']['payment_intent']['attributes']['status'] ?? '';
         }
 
-        $paymentConfirmed = ($sessionStatus === 'completed' || $paymentStatus === 'succeeded')
-            || ($urlStatus === 'success' && $order->deposit_required && $order->deposit_paymongo_id);
+        // A browser return URL is not proof of payment. Only a verified PayMongo
+        // session/payment intent can release an order for fulfilment.
+        $paymentConfirmed = $sessionStatus === 'completed' || $paymentStatus === 'succeeded';
 
         if (!$paymentConfirmed) {
             return redirect()->route('customer.orders')
@@ -337,12 +339,22 @@ class PaymentController extends Controller
         $isFullPayment = abs((float) $order->deposit_amount - (float) $order->total_price) < 0.01;
 
         $nextStatus = $order->status === 'Awaiting Deposit' ? 'Pending' : $order->status;
-        DB::table('orders')->where('id', $orderId)->update([
-            'deposit_status' => 'paid',
-            'status'         => $nextStatus,
-            'payment_status' => $isFullPayment ? 'Paid' : 'Partial Payment',
-            'paid_at'        => $isFullPayment ? now() : null,
-        ]);
+        DB::transaction(function () use ($orderId, $nextStatus, $isFullPayment, $order) {
+            DB::table('orders')->where('id', $orderId)->update([
+                'deposit_status' => 'paid',
+                'deposit_paid_at' => now(),
+                'status'         => $nextStatus,
+                'payment_status' => $isFullPayment ? 'Paid' : 'Partial Payment',
+                'paid_at'        => $isFullPayment ? now() : null,
+                'updated_at'     => now(),
+            ]);
+            PaymentTransactionHelper::record(
+                $order,
+                $isFullPayment ? 'full_gcash' : 'downpayment_gcash',
+                'GCash',
+                (float) $order->deposit_amount
+            );
+        });
 
         DB::table('order_tracking')->insert([
             'order_id'   => $orderId,
@@ -453,10 +465,26 @@ class PaymentController extends Controller
 
         // Mark as paid if session is completed or payment succeeded
         if ($sessionStatus === 'completed' || $paymentStatus === 'succeeded') {
-            DB::table('orders')->where('id', $orderId)->update([
-                'payment_status' => 'Paid',
-                'paid_at'        => now(),
-            ]);
+            // This endpoint is the full-payment flow. Keep every order state,
+            // receipt and seller-facing status in sync with the money received.
+            $order = DB::table('orders')->where('id', $orderId)->first();
+            DB::transaction(function () use ($orderId, $order) {
+                DB::table('orders')->where('id', $orderId)->update([
+                    'deposit_status' => 'paid',
+                    'deposit_paid_at' => now(),
+                    'payment_status' => 'Paid',
+                    'paid_at'        => now(),
+                    'status'         => ($order->status ?? '') === 'Awaiting Deposit' ? 'Pending' : $order->status,
+                    'updated_at'     => now(),
+                ]);
+                PaymentTransactionHelper::record($order, 'full_gcash', 'GCash', (float) $order->total_price);
+                DB::table('order_tracking')->insert([
+                    'order_id' => $orderId,
+                    'status' => 'Pending',
+                    'notes' => 'Full GCash payment verified through PayMongo. Waiting for seller confirmation.',
+                    'created_at' => now(),
+                ]);
+            });
 
             // Notify admin
             $custName = session('user')['fullname'] ?? 'Customer';

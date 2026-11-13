@@ -429,6 +429,10 @@ class RiderController extends Controller
             DB::table('orders')->where('id',$orderId)->update($upd);
             $freshOrder = DB::table('orders')->where('id', $orderId)->first() ?? $order;
             PaymentTransactionHelper::recordFinalCashIfNeeded($freshOrder, 'Delivered');
+            // Keep seller finance and admin payout balances current as soon as
+            // delivery/payment settlement is recorded, rather than waiting for
+            // the hourly safety sync.
+            app(\App\Services\SellerPayoutService::class)->syncDeliveredPaidOrders();
             app(LoyaltyService::class)->awardForCompletedOrder($freshOrder);
             $remittance = $this->createCashRemittanceIfNeeded($order);
 
