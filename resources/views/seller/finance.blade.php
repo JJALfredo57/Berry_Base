@@ -15,7 +15,6 @@
   <form method="GET" class="finance-filter">
     <div class="form-group"><label class="form-label small fw-semibold">From</label><input class="form-control" type="date" name="from" value="{{ $from }}"></div>
     <div class="form-group"><label class="form-label small fw-semibold">To</label><input class="form-control" type="date" name="to" value="{{ $to }}"></div>
-    <button class="btn btn-primary" type="submit"><i class="bi bi-funnel me-1"></i>Apply</button>
     <a class="btn btn-outline-secondary" href="{{ route('seller.finance') }}">Last 30 days</a>
   </form>
 </div>
@@ -47,7 +46,7 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () { const ctx=document.getElementById('financeChart'); if(!ctx||!window.Chart)return; new Chart(ctx,{type:'line',data:{labels:@json($chartData['labels']),datasets:[{label:'Gross sales',data:@json($chartData['gross']),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:.35},{label:'Net earnings',data:@json($chartData['net']),borderColor:'#16a34a',tension:.35},{label:'Expenses',data:@json($chartData['expenses']),borderColor:'#dc2626',tension:.35}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'₱'+Number(v).toLocaleString()}}}}}); setTimeout(()=>location.reload(),60000); });
+document.addEventListener('DOMContentLoaded', function () { const form=document.querySelector('.finance-filter'); const dates=form?.querySelectorAll('input[type="date"]'); dates?.forEach(input=>input.addEventListener('change',()=>{ if(dates[0].value&&dates[1].value) form.requestSubmit(); })); const ctx=document.getElementById('financeChart'); if(!ctx||!window.Chart)return; new Chart(ctx,{type:'line',data:{labels:@json($chartData['labels']),datasets:[{label:'Gross sales',data:@json($chartData['gross']),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:.35},{label:'Net earnings',data:@json($chartData['net']),borderColor:'#16a34a',tension:.35},{label:'Expenses',data:@json($chartData['expenses']),borderColor:'#dc2626',tension:.35}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'₱'+Number(v).toLocaleString()}}}}}); setTimeout(()=>location.reload(),60000); });
 </script>
 @endpush
 @endsection
