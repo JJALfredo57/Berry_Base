@@ -25,4 +25,15 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const style = document.createElement('style');
+  style.textContent = '.expense-shell{max-width:1180px;margin-inline:auto}.expense-panel{padding:clamp(.8rem,2vw,1.3rem)}.expense-day{transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;cursor:pointer}.expense-day:hover{transform:translateY(-2px);border-color:var(--primary);box-shadow:0 8px 16px rgba(235,45,93,.12)}.expense-day:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 25%,transparent);outline-offset:2px}.expense-day.today:not(.selected){border-style:dashed;border-color:#f59e0b;background:#fffbeb}.expense-day.today strong:after{content:"Today";display:block;color:#b45309;font-size:.58rem;line-height:1.1}.expense-day.selected{box-shadow:0 6px 14px rgba(235,45,93,.18)}@media(max-width:480px){.expense-calendar{gap:.22rem}.expense-day{min-height:47px;padding:.28rem;font-size:.78rem}.expense-total{font-size:.56rem}.expense-day.today strong:after{font-size:.5rem}.expense-panel{border-radius:13px}.expense-dialog{padding:1rem;border-radius:14px}}';
+  document.head.appendChild(style);
+  const today = new Date().toISOString().slice(0,10);
+  document.querySelectorAll('.expense-day').forEach(function(day) { const date = new URL(day.href).searchParams.get('date'); if (date === today) day.classList.add('today'); });
+});
+</script>
+@endpush
 @endsection
