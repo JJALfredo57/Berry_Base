@@ -39,7 +39,9 @@
     .seller-product-summary>div:nth-child(2){flex-basis:calc(100% - 64px)}
   }
 </style>
-<div id="sellerProductsRoot" data-product-identities='@json($productIdentities ?? [])'>
+<div id="sellerProductsRoot"
+     data-product-identities='@json($productIdentities ?? [])'
+     data-realtime-url="{{ route('seller.products.realtime_status') }}">
 
 {{-- Header --}}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:2rem">
@@ -183,11 +185,20 @@
   $sweetDealBadge = ($discount && property_exists($discount, 'deal_badge_label')) ? trim((string) ($discount->deal_badge_label ?? '')) : '';
   $sweetDealNote = ($discount && property_exists($discount, 'deal_note')) ? trim((string) ($discount->deal_note ?? '')) : '';
   $sweetDealQty = ($discount && property_exists($discount, 'deal_quantity_limit')) ? (int) ($discount->deal_quantity_limit ?? 0) : 0;
-  $stockTracked = property_exists($p, 'available_quantity');
-  $stockQty = $stockTracked ? max(0, (int) $p->available_quantity) : 0;
+  $hasActiveSizes = $sizes->isNotEmpty();
+  $stockTracked = $hasActiveSizes || property_exists($p, 'available_quantity');
+  $stockQty = $hasActiveSizes
+    ? max(0, (int) $sizes->sum(fn ($size) => (int) ($size->available_quantity ?? 0)))
+    : max(0, (int) ($p->available_quantity ?? 0));
+  $stockLabel = $stockQty <= 0
+    ? 'Out of stock'
+    : ($hasActiveSizes ? $stockQty . ' available across sizes' : $stockQty . ' available');
+  $realtimeVersion = collect($productRealtimeStates ?? [])->firstWhere('id', (string) $p->id)['version'] ?? '';
 @endphp
 <div class="seller-product-item"
      id="sellerProduct-{{ $p->id }}"
+     data-product-id="{{ $p->id }}"
+     data-realtime-version="{{ $realtimeVersion }}"
      data-search="{{ strtolower(trim($p->name . ' ' . ($p->description ?? '') . ' ' . ($p->flavor ?? '') . ' ' . ($p->classification ?? ''))) }}"
      data-classification="{{ strtolower($p->classification ?? '') }}"
      data-status="{{ $p->is_available ? 'visible' : 'hidden' }}"
@@ -218,7 +229,7 @@
         <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:600;padding:.15rem .5rem;border-radius:99px">{{ $p->classification }}</span>
         @if($stockTracked)
           <span style="background:{{ $stockQty <= 0 ? '#fef2f2' : ($stockQty <= 3 ? '#fffbeb' : '#ecfdf5') }};color:{{ $stockQty <= 0 ? '#b91c1c' : ($stockQty <= 3 ? '#92400e' : '#047857') }};border:1px solid {{ $stockQty <= 0 ? '#fecaca' : ($stockQty <= 3 ? '#fde68a' : '#a7f3d0') }};font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;display:inline-flex;align-items:center;gap:.25rem">
-            <i class="bi {{ $stockQty <= 0 ? 'bi-exclamation-circle' : 'bi-box-seam' }}"></i> {{ $stockQty <= 0 ? 'Out of stock' : $stockQty.' available' }}
+            <i class="bi {{ $stockQty <= 0 ? 'bi-exclamation-circle' : 'bi-box-seam' }}"></i> {{ $stockLabel }}
           </span>
         @else
           <span style="background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px"><i class="bi bi-exclamation-circle"></i> Out of stock</span>
@@ -937,5 +948,54 @@ function filterSellerProducts() {
   const empty = document.getElementById('sellerProductsEmpty');
   if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
 }
+
+(function startSellerProductRealtime() {
+  const root = document.getElementById('sellerProductsRoot');
+  const statusUrl = root?.dataset.realtimeUrl;
+  if (!root || !statusUrl) return;
+
+  let reloading = false;
+  let requestInFlight = false;
+  const checkForUpdates = async () => {
+    if (document.hidden || reloading || requestInFlight) return;
+    const cards = Array.from(root.querySelectorAll('.seller-product-item[data-product-id]'));
+    const ids = cards.map(card => card.dataset.productId).filter(Boolean);
+    if (!ids.length) return;
+
+    requestInFlight = true;
+    try {
+      const url = new URL(statusUrl, window.location.origin);
+      url.searchParams.set('ids', ids.join(','));
+      const response = await fetch(url.toString(), {
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+      if (!response.ok) return;
+      const payload = await response.json();
+      if (!payload?.ok) return;
+      const versions = new Map((payload.items || []).map(item => [String(item.id), String(item.version || '')]));
+      const changed = cards.some(card => {
+        const next = versions.get(String(card.dataset.productId));
+        return next && next !== String(card.dataset.realtimeVersion || '');
+      });
+      if (changed) {
+        reloading = true;
+        window.location.reload();
+      }
+    } catch (error) {
+      // A future poll will retry; do not disrupt the seller's current work.
+    } finally {
+      requestInFlight = false;
+    }
+  };
+
+  checkForUpdates();
+  const timer = window.setInterval(checkForUpdates, 8000);
+  window.addEventListener('beforeunload', () => window.clearInterval(timer));
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkForUpdates();
+  });
+})();
 </script>
 @endsection

@@ -493,6 +493,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/products/{id}/restore',    [\App\Http\Controllers\Seller\ProductController::class, 'restore'])->name('products.restore');
     Route::post('/products/{id}/toggle',     [\App\Http\Controllers\Seller\ProductController::class, 'toggleAvailable'])->name('products.toggle');
     Route::post('/products/{id}/discount',   [\App\Http\Controllers\Seller\ProductController::class, 'saveDiscount'])->name('products.discount');
+    Route::get('/products/realtime-status',  [\App\Http\Controllers\Seller\ProductController::class, 'realtimeStatus'])->name('products.realtime_status');
     Route::post('/products/{id}/sizes',      [\App\Http\Controllers\Seller\ProductController::class, 'storeSize'])->name('products.sizes.store');
     Route::post('/products/sizes/{id}/stock', [\App\Http\Controllers\Seller\ProductController::class, 'updateSizeStock'])->name('products.sizes.stock');
     Route::post('/products/sizes/{id}/archive', [\App\Http\Controllers\Seller\ProductController::class, 'archiveSize'])->name('products.sizes.archive');

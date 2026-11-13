@@ -84,12 +84,79 @@ class ProductController extends Controller
         } catch (\Exception $e) {}
 
         $discounts = CakeshopHelper::getDiscountConfigMap($pids);
+        $productRealtimeStates = $this->productRealtimeStates((string) $shop->id, $pids);
 
         $productIdentities = DB::table('products')->where('shop_id', $shop->id)
             ->select('id', 'name', 'classification')->get()
             ->map(fn($product) => ['id' => $product->id, 'name' => $this->normalizedKey($product->name), 'classification' => $this->normalizedKey((string) $product->classification)]);
 
-        return view('seller.products', compact('shop','products','productSizes','archivedSizes','discounts','maxProd','search','tab','archivedCount','hasArchivedCol','productIdentities'));
+        return view('seller.products', compact('shop','products','productSizes','archivedSizes','discounts','maxProd','search','tab','archivedCount','hasArchivedCol','productIdentities','productRealtimeStates'));
+    }
+
+    /** Lightweight page-state fingerprints for seller product cards. */
+    public function realtimeStatus(Request $request)
+    {
+        $shop = $this->getShop();
+        $ids = collect(explode(',', (string) $request->query('ids', '')))
+            ->map(fn ($id) => trim($id))
+            ->filter(fn ($id) => preg_match('/^[A-Za-z0-9_-]{1,64}$/', $id))
+            ->unique()
+            ->take(10)
+            ->values()
+            ->all();
+
+        return response()->json([
+            'ok' => true,
+            'items' => $this->productRealtimeStates((string) $shop->id, $ids),
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    private function productRealtimeStates(string $shopId, array $productIds): array
+    {
+        if (!$productIds) return [];
+
+        $products = DB::table('products')
+            ->where('shop_id', $shopId)
+            ->whereIn('id', $productIds)
+            ->select('id', 'available_quantity', 'is_available', 'updated_at')
+            ->get()
+            ->keyBy('id');
+
+        $sizes = DB::table('product_sizes')
+            ->whereIn('product_id', $productIds)
+            ->where('is_active', true)
+            ->when(Schema::hasColumn('product_sizes', 'archived_at'), fn ($query) => $query->whereNull('archived_at'))
+            ->selectRaw('product_id, COUNT(*) as size_count, COALESCE(SUM(available_quantity), 0) as size_stock, MAX(updated_at) as updated_at')
+            ->groupBy('product_id')
+            ->get()
+            ->keyBy('product_id');
+
+        $discounts = Schema::hasTable('product_discounts')
+            ? DB::table('product_discounts')
+                ->whereIn('product_id', $productIds)
+                ->selectRaw('product_id, MAX(updated_at) as updated_at')
+                ->groupBy('product_id')
+                ->get()
+                ->keyBy('product_id')
+            : collect();
+
+        return collect($productIds)->map(function ($id) use ($products, $sizes, $discounts) {
+            $product = $products->get($id);
+            if (!$product) return null;
+            $size = $sizes->get($id);
+            $discount = $discounts->get($id);
+            $version = implode('|', [
+                (string) ($product->updated_at ?? ''),
+                (string) ($product->available_quantity ?? ''),
+                (string) ($product->is_available ?? ''),
+                (string) ($size->size_count ?? 0),
+                (string) ($size->size_stock ?? 0),
+                (string) ($size->updated_at ?? ''),
+                (string) ($discount->updated_at ?? ''),
+            ]);
+
+            return ['id' => (string) $id, 'version' => hash('sha256', $version)];
+        })->filter()->values()->all();
     }
 
     public function store(Request $request)
