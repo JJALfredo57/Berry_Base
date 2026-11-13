@@ -228,7 +228,7 @@
         @endif
         <span style="background:var(--primary-bg);color:var(--primary);font-size:.68rem;font-weight:600;padding:.15rem .5rem;border-radius:99px">{{ $p->classification }}</span>
         @if($stockTracked)
-          <span style="background:{{ $stockQty <= 0 ? '#fef2f2' : ($stockQty <= 3 ? '#fffbeb' : '#ecfdf5') }};color:{{ $stockQty <= 0 ? '#b91c1c' : ($stockQty <= 3 ? '#92400e' : '#047857') }};border:1px solid {{ $stockQty <= 0 ? '#fecaca' : ($stockQty <= 3 ? '#fde68a' : '#a7f3d0') }};font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;display:inline-flex;align-items:center;gap:.25rem">
+          <span data-product-stock-badge style="background:{{ $stockQty <= 0 ? '#fef2f2' : ($stockQty <= 3 ? '#fffbeb' : '#ecfdf5') }};color:{{ $stockQty <= 0 ? '#b91c1c' : ($stockQty <= 3 ? '#92400e' : '#047857') }};border:1px solid {{ $stockQty <= 0 ? '#fecaca' : ($stockQty <= 3 ? '#fde68a' : '#a7f3d0') }};font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;display:inline-flex;align-items:center;gap:.25rem">
             <i class="bi {{ $stockQty <= 0 ? 'bi-exclamation-circle' : 'bi-box-seam' }}"></i> {{ $stockLabel }}
           </span>
         @else
@@ -511,8 +511,8 @@
      @forelse($sizes as $sz)
        <div class="seller-size-entry" data-size-entry>
          <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.75rem;border:1px solid var(--gray-200);border-radius:12px;background:#fafafa">
-           <div><div style="font-weight:800;color:var(--gray-900)">{{ $sz->label }}</div><div style="font-size:.76rem;color:var(--gray-500)">PHP {{ number_format($sz->price,2) }}</div></div>
-           <form action="{{ route('seller.products.sizes.update', $sz->id) }}" method="POST" data-size-stock-form style="display:flex;align-items:end;gap:.45rem;flex-wrap:wrap">@csrf<div><label class="form-label" style="font-size:.7rem;margin-bottom:.2rem">Price</label><input class="form-control" type="number" name="price" value="{{ $sz->price }}" min="1" max="99999999.99" step="0.01" inputmode="decimal" style="width:108px"><small class="seller-field-error" data-field-feedback="price"></small></div><div><label class="form-label" style="font-size:.7rem;margin-bottom:.2rem">Stock</label><input class="form-control" type="number" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" style="width:94px"><small class="seller-field-error" data-field-feedback="available_quantity"></small></div><button class="btn btn-primary btn-sm" type="submit">Save</button></form>
+           <div><div style="font-weight:800;color:var(--gray-900)">{{ $sz->label }}</div><div data-size-price-display="{{ $sz->id }}" style="font-size:.76rem;color:var(--gray-500)">PHP {{ number_format($sz->price,2) }}</div></div>
+           <form action="{{ route('seller.products.sizes.update', $sz->id) }}" method="POST" data-size-stock-form data-size-autosave data-size-id="{{ $sz->id }}" style="display:flex;align-items:end;gap:.45rem;flex-wrap:wrap">@csrf<div><label class="form-label" style="font-size:.7rem;margin-bottom:.2rem">Price</label><input class="form-control" type="number" name="price" value="{{ $sz->price }}" min="1" max="99999999.99" step="0.01" inputmode="decimal" style="width:108px"><small class="seller-field-error" data-field-feedback="price"></small></div><div><label class="form-label" style="font-size:.7rem;margin-bottom:.2rem">Stock</label><input class="form-control" type="number" name="available_quantity" value="{{ $sz->available_quantity }}" min="0" max="9999" step="1" style="width:94px"><small class="seller-field-error" data-field-feedback="available_quantity"></small></div><span data-autosave-status class="small text-muted align-self-center" role="status" aria-live="polite"></span></form>
          </div>
          <form action="{{ route('seller.products.sizes.archive', $sz->id) }}" method="POST" data-cs-confirm="Archive size &quot;{{ addslashes($sz->label) }}&quot;? It can be restored later." data-cs-title="Archive Size" style="margin-top:.6rem;text-align:right">@csrf<button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-archive me-1"></i>Archive size</button></form>
        </div>
@@ -851,6 +851,8 @@ function bindSizeStockValidation(form) {
   const input = form.querySelector('[name="available_quantity"]');
   const priceInput = form.querySelector('[name="price"]');
   const button = form.querySelector('button[type="submit"]');
+  const isAutosave = form.dataset.sizeAutosave !== undefined;
+  const status = form.querySelector('[data-autosave-status]');
   const validate = () => {
     const stockMessage = sellerNumberError(input?.value ?? '', { min: 0, max: 9999, required: true, label: 'Stock', integer: true });
     const priceMessage = priceInput ? sellerNumberError(priceInput.value ?? '', { min: 1, max: 99999999.99, required: true, label: 'Price' }) : '';
@@ -861,6 +863,82 @@ function bindSizeStockValidation(form) {
   };
   ['input', 'change', 'blur'].forEach(type => input?.addEventListener(type, validate));
   ['input', 'change', 'blur'].forEach(type => priceInput?.addEventListener(type, validate));
+
+  if (isAutosave) {
+    let timer = null;
+    let changeVersion = 0;
+    let saving = false;
+    const setStatus = (message, tone = 'muted') => {
+      if (!status) return;
+      status.textContent = message;
+      status.className = `small text-${tone} align-self-center`;
+    };
+    const renderProductStock = state => {
+      const card = document.querySelector(`.seller-product-item[data-product-id="${state?.id || ''}"]`);
+      if (!card || !state) return;
+      card.dataset.realtimeVersion = String(state.version || card.dataset.realtimeVersion || '');
+      const quantity = Math.max(0, Number(state.stock_quantity || 0));
+      const badge = card.querySelector('[data-product-stock-badge]');
+      if (!badge) return;
+      const label = quantity <= 0 ? 'Out of stock' : (state.has_active_sizes ? `${quantity} available across sizes` : `${quantity} available`);
+      const tone = quantity <= 0
+        ? { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', icon: 'bi-exclamation-circle' }
+        : quantity <= 3
+          ? { bg: '#fffbeb', color: '#92400e', border: '#fde68a', icon: 'bi-box-seam' }
+          : { bg: '#ecfdf5', color: '#047857', border: '#a7f3d0', icon: 'bi-box-seam' };
+      badge.style.background = tone.bg;
+      badge.style.color = tone.color;
+      badge.style.borderColor = tone.border;
+      badge.innerHTML = `<i class="bi ${tone.icon}"></i> ${label}`;
+    };
+    const save = async () => {
+      if (!validate() || saving) return;
+      const versionAtStart = changeVersion;
+      saving = true;
+      setStatus('Saving…', 'primary');
+      try {
+        const response = await fetch(form.action, {
+          method: 'POST',
+          headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: new FormData(form),
+          credentials: 'same-origin',
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.ok) {
+          const errors = payload.errors || {};
+          setSellerFieldFeedback(priceInput, errors.price?.[0] || '');
+          setSellerFieldFeedback(input, errors.available_quantity?.[0] || '');
+          throw new Error(payload.message || 'Could not save changes.');
+        }
+        if (payload.size) {
+          priceInput.value = payload.size.price;
+          input.value = payload.size.available_quantity;
+          document.querySelectorAll(`[data-size-price-display="${payload.size.id}"]`).forEach(el => {
+            el.textContent = `PHP ${Number(payload.size.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          });
+        }
+        renderProductStock(payload.product);
+        setStatus('Saved', 'success');
+      } catch (error) {
+        setStatus(error.message || 'Save failed', 'danger');
+      } finally {
+        saving = false;
+        if (changeVersion !== versionAtStart) scheduleSave();
+      }
+    };
+    const scheduleSave = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(save, 650);
+    };
+    [input, priceInput].filter(Boolean).forEach(field => {
+      field.addEventListener('input', () => { changeVersion += 1; if (validate()) scheduleSave(); });
+      field.addEventListener('blur', () => { changeVersion += 1; window.clearTimeout(timer); save(); });
+    });
+    form.addEventListener('submit', event => { event.preventDefault(); save(); });
+    validate();
+    return;
+  }
+
   form.addEventListener('submit', event => {
     if (!validate()) { event.preventDefault(); input?.focus(); return; }
     if (button) { button.disabled = true; button.textContent = 'Saving...'; }

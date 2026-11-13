@@ -155,7 +155,17 @@ class ProductController extends Controller
                 (string) ($discount->updated_at ?? ''),
             ]);
 
-            return ['id' => (string) $id, 'version' => hash('sha256', $version)];
+            $hasActiveSizes = (int) ($size->size_count ?? 0) > 0;
+            $stockQuantity = $hasActiveSizes
+                ? max(0, (int) ($size->size_stock ?? 0))
+                : max(0, (int) ($product->available_quantity ?? 0));
+
+            return [
+                'id' => (string) $id,
+                'version' => hash('sha256', $version),
+                'has_active_sizes' => $hasActiveSizes,
+                'stock_quantity' => $stockQuantity,
+            ];
         })->filter()->values()->all();
     }
 
@@ -523,6 +533,20 @@ class ProductController extends Controller
             'available_quantity' => (int) $validated['available_quantity'],
             'updated_at' => now(),
         ]);
+
+        if ($request->expectsJson()) {
+            $state = $this->productRealtimeStates((string) $shop->id, [(string) $size->product_id])[0] ?? null;
+            return response()->json([
+                'ok' => true,
+                'message' => "Price and stock for size \"{$size->label}\" updated.",
+                'size' => [
+                    'id' => (string) $size->id,
+                    'price' => (float) $validated['price'],
+                    'available_quantity' => (int) $validated['available_quantity'],
+                ],
+                'product' => $state,
+            ]);
+        }
 
         return back()->with('msg', "Price and stock for size \"{$size->label}\" updated.");
     }
