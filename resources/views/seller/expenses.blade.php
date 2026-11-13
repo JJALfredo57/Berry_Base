@@ -63,4 +63,7 @@ document.addEventListener('DOMContentLoaded', function () {
 @push('scripts')
 <script>document.addEventListener('DOMContentLoaded',function(){const s=document.createElement('style');s.textContent='.expense-list-scroll .border-top:after{content:"›";position:absolute;right:.55rem;top:50%;transform:translateY(-50%);font-size:1.4rem;margin:0}.expense-list-scroll .border-top{position:relative;padding-right:2rem!important}';document.head.appendChild(s)});</script>
 @endpush
+@push('scripts')
+<script>document.addEventListener('DOMContentLoaded',function(){const s=document.createElement('style');s.textContent='@media(min-width:1100px){.expense-shell{max-width:none!important;width:100%!important;grid-template-columns:minmax(0,1.45fr) minmax(420px,.9fr)!important}.expense-panel{min-width:0}}';document.head.appendChild(s)});</script>
+@endpush
 @endsection
