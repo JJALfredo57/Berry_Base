@@ -36,4 +36,15 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const reference = document.querySelector('#expenseAdd input[name="reference"]');
+  if (reference) reference.closest('.mb-3, .mb-2')?.remove();
+  const style = document.createElement('style');
+  style.textContent = '.expense-panel .border-top .small.text-muted{display:none}';
+  document.head.appendChild(style);
+});
+</script>
+@endpush
 @endsection
