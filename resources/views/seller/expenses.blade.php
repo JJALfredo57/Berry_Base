@@ -7,4 +7,22 @@
 <div class="expense-modal" id="expenseAdd" role="dialog" aria-modal="true"><form class="expense-dialog" method="POST" action="{{ route('seller.finance.expenses.store') }}" data-prevent-double-submit>@csrf<div class="d-flex justify-content-between"><h5>Add business expense</h5><button type="button" class="btn-close" data-close></button></div><div class="mb-2"><label class="form-label">Date</label><input class="form-control" type="date" name="expense_date" value="{{ $selected }}" max="{{ now()->toDateString() }}" required></div><div class="mb-2"><label class="form-label">Category</label><select class="form-select" name="category" required><option value="ingredients">Ingredients</option><option value="labor">Labor</option><option value="packaging">Packaging</option><option value="delivery">Delivery</option><option value="utilities">Utilities</option><option value="marketing">Marketing</option><option value="other">Other</option></select></div><div class="mb-2"><label class="form-label">Description</label><input class="form-control" name="description" minlength="2" maxlength="300" required></div><div class="mb-2"><label class="form-label">Amount</label><input class="form-control" name="amount" type="number" min="0.01" step="0.01" required></div><div class="mb-3"><label class="form-label">Reference <span class="text-muted">optional</span></label><input class="form-control" name="reference" maxlength="120"></div><button class="btn btn-primary w-100" type="submit">Save expense</button></form></div>
 <div class="expense-modal" id="expenseDelete" role="dialog" aria-modal="true"><form class="expense-dialog" method="POST" id="deleteForm">@csrf<div class="d-flex justify-content-between"><h5>Remove expense?</h5><button type="button" class="btn-close" data-close></button></div><p id="deleteText"></p><div class="d-flex gap-2 justify-content-end"><button class="btn btn-light" type="button" data-close>Cancel</button><button class="btn btn-danger" type="submit">Remove expense</button></div></form></div>
 @push('scripts')<script>document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.expense-modal').forEach(m=>document.body.appendChild(m));const close=()=>document.querySelectorAll('.expense-modal').forEach(m=>m.classList.remove('open'));document.querySelector('[data-expense-add]').onclick=()=>document.querySelector('#expenseAdd').classList.add('open');document.querySelectorAll('[data-close]').forEach(b=>b.onclick=close);document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});document.querySelectorAll('[data-expense-delete]').forEach(b=>b.onclick=()=>{document.querySelector('#deleteText').textContent=`Remove ${b.dataset.name} (₱${b.dataset.amount})? This cannot be undone.`;document.querySelector('#deleteForm').action=`{{ url('/seller/finance/expenses') }}/${b.dataset.id}/delete`;document.querySelector('#expenseDelete').classList.add('open')})});</script>@endpush
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const input = document.querySelector('#expenseAdd input[name="expense_date"]');
+  if (!input) return;
+  const wrapper = input.parentElement;
+  const label = wrapper.querySelector('label');
+  const selected = new Date(input.value + 'T00:00:00').toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+  input.type = 'hidden';
+  if (label) label.textContent = 'Expense date';
+  const display = document.createElement('div');
+  display.className = 'form-control bg-light';
+  display.setAttribute('aria-readonly', 'true');
+  display.textContent = selected;
+  wrapper.appendChild(display);
+});
+</script>
+@endpush
 @endsection
