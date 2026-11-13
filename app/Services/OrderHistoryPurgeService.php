@@ -17,6 +17,7 @@ class OrderHistoryPurgeService
         'custom_orders',
         'kitchen_tickets',
         'messages',
+        'delivery_messages',
         'notifications',
         'mobile_notifications',
         'payment_transactions',
@@ -25,6 +26,7 @@ class OrderHistoryPurgeService
         'loyalty_transactions',
         'order_items',
         'voucher_redemptions',
+        'unclaimed_cake_listings',
     ];
 
     private const FINANCIAL_COUNT_KEYS = [
