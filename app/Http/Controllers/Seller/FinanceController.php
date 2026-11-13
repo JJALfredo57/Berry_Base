@@ -80,6 +80,19 @@ class FinanceController extends Controller
         return back()->with('msg', 'Business expense saved. Profit figures are updated.');
     }
 
+    public function expenses(Request $request)
+    {
+        $shop = $this->shop();
+        if (!$shop) return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
+        $selected = Carbon::parse((string) $request->input('date', now()->toDateString()))->toDateString();
+        $month = Carbon::parse((string) $request->input('month', $selected))->startOfMonth();
+        $start = $month->copy()->startOfWeek(Carbon::SUNDAY);
+        $end = $month->copy()->endOfMonth()->endOfWeek(Carbon::SATURDAY);
+        $totals = DB::table('seller_expenses')->where('shop_id', $shop->id)->whereBetween('expense_date', [$start->toDateString(), $end->toDateString()])->selectRaw('expense_date, SUM(amount) total, COUNT(*) count')->groupBy('expense_date')->get()->keyBy('expense_date');
+        $expenses = DB::table('seller_expenses')->where('shop_id', $shop->id)->where('expense_date', $selected)->orderByDesc('id')->get();
+        return view('seller.expenses', compact('shop', 'selected', 'month', 'start', 'end', 'totals', 'expenses'));
+    }
+
     public function destroyExpense(int $expenseId)
     {
         $shop = $this->shop();

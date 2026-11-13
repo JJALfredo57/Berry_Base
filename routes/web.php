@@ -485,6 +485,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/payouts/request', [\App\Http\Controllers\Seller\PayoutController::class, 'requestManual'])->name('payouts.request');
     Route::get('/payouts/{id}/receipt-download', [\App\Http\Controllers\Seller\PayoutController::class, 'downloadReceipt'])->name('payouts.receipt_download');
     Route::get('/finance', [\App\Http\Controllers\Seller\FinanceController::class, 'index'])->name('finance');
+    Route::get('/finance/expenses', [\App\Http\Controllers\Seller\FinanceController::class, 'expenses'])->name('finance.expenses');
     Route::post('/finance/expenses', [\App\Http\Controllers\Seller\FinanceController::class, 'storeExpense'])->name('finance.expenses.store');
     Route::post('/finance/expenses/{id}/delete', [\App\Http\Controllers\Seller\FinanceController::class, 'destroyExpense'])->name('finance.expenses.delete');
 
