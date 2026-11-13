@@ -74,9 +74,11 @@ class FinanceController extends Controller
             'expense_date' => ['required', 'date', 'before_or_equal:today'],
             'category' => ['required', 'in:ingredients,labor,packaging,delivery,utilities,marketing,other'],
             'description' => ['required', 'string', 'min:2', 'max:300'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:100000'],
             'amount' => ['required', 'numeric', 'gt:0', 'max:999999.99'],
             'reference' => ['nullable', 'string', 'max:120'],
         ]);
+        $data['amount'] = round($data['amount'] * $data['quantity'], 2);
         DB::table('seller_expenses')->insert($data + ['shop_id' => $shop->id, 'seller_id' => session('user')['id'], 'created_at' => now(), 'updated_at' => now()]);
         return back()->with('msg', 'Business expense saved. Profit figures are updated.');
     }
@@ -104,5 +106,14 @@ class FinanceController extends Controller
         if (!Schema::hasTable('seller_expenses')) return back()->with('err', 'Expense records are not ready yet. Please try again after the database migration finishes.');
         DB::table('seller_expenses')->where('id', $expenseId)->where('shop_id', $shop->id)->delete();
         return back()->with('msg', 'Business expense removed.');
+    }
+
+    public function updateExpense(Request $request, int $expenseId)
+    {
+        $shop = $this->shop(); if (!$shop || !Schema::hasTable('seller_expenses')) abort(404);
+        $data = $request->validate(['category'=>['required','in:ingredients,labor,packaging,delivery,utilities,marketing,other'],'description'=>['required','string','min:2','max:300'],'quantity'=>['required','integer','min:1','max:100000'],'amount'=>['required','numeric','gt:0','max:999999.99']]);
+        $data['amount'] = round($data['amount'] * $data['quantity'], 2); $data['updated_at']=now();
+        DB::table('seller_expenses')->where('id',$expenseId)->where('shop_id',$shop->id)->update($data);
+        return back()->with('msg','Expense updated.');
     }
 }

@@ -488,6 +488,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/finance/expenses', [\App\Http\Controllers\Seller\FinanceController::class, 'expenses'])->name('finance.expenses');
     Route::post('/finance/expenses', [\App\Http\Controllers\Seller\FinanceController::class, 'storeExpense'])->name('finance.expenses.store');
     Route::post('/finance/expenses/{id}/delete', [\App\Http\Controllers\Seller\FinanceController::class, 'destroyExpense'])->name('finance.expenses.delete');
+    Route::post('/finance/expenses/{id}/update', [\App\Http\Controllers\Seller\FinanceController::class, 'updateExpense'])->name('finance.expenses.update');
 
     // Products
     Route::get('/products',                  [\App\Http\Controllers\Seller\ProductController::class, 'index'])->name('products');
