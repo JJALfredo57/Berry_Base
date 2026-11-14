@@ -30,6 +30,7 @@
 <div class="cs-page-header">
   <div>
     <h4 class="cs-page-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary)"></i>Payouts</h4>
+    <p class="small text-muted mb-0">Clearing means paid completed orders still in the hold period. Available is the full eligible balance you may request. Super Admin transfers through GCash and uploads proof before a payout is marked paid.</p>
     <p class="cs-page-sub">Track your earnings and keep your payout details accurate.</p>
   </div>
 </div>
