@@ -262,7 +262,7 @@ class OrderRefundService
                 'cancel_admin_note' => 'Your cancellation request has been approved. Berry Base is processing your refund, which may take 3–5 working days. We’ll notify you as soon as your refund has been sent.',
                 'updated_at' => now(),
             ]);
-            DB::table('order_tracking')->insert(['order_id' => $order->id, 'status' => 'Cancelled', 'notes' => 'Cancellation approved. Refund processing by Super Admin has started.', 'created_at' => now()]);
+            DB::table('order_tracking')->insert(['order_id' => $order->id, 'status' => 'Cancelled', 'notes' => 'Cancellation approved. Berry Base refund processing has started.', 'created_at' => now()]);
         });
         $fresh = DB::table('orders')->where('id', $order->id)->first() ?: $order;
         app(ProductStockService::class)->releaseForOrder($fresh);
@@ -288,7 +288,7 @@ class OrderRefundService
                 'refund_receipt_hash' => $hash, 'receipt_scan_status' => 'verified',
                 'receipt_scan_data' => json_encode($scan), 'receipt_scanned_at' => now(), 'updated_at' => now(),
             ]);
-            DB::table('order_tracking')->insert(['order_id' => $order->id, 'status' => 'Refunded', 'notes' => 'Refund completed by Super Admin. Reference: ' . $reference, 'created_at' => now()]);
+            DB::table('order_tracking')->insert(['order_id' => $order->id, 'status' => 'Refunded', 'notes' => 'Refund completed by Berry Base. Reference: ' . $reference, 'created_at' => now()]);
         });
         $this->createRefundLedger($order, $refund);
         $fresh = DB::table('orders')->where('id', $order->id)->first() ?: $order;
