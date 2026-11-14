@@ -259,7 +259,7 @@ class OrderRefundService
             ]);
             DB::table('orders')->where('id', $order->id)->update([
                 'status' => 'Cancelled', 'cancel_status' => 'accepted', 'cancel_requested' => 1,
-                'cancel_admin_note' => 'Approved by seller. Refund is being processed by Super Admin (3–5 working days).',
+                'cancel_admin_note' => 'Your cancellation request has been approved. Berry Base is processing your refund, which may take 3–5 working days. We’ll notify you as soon as your refund has been sent.',
                 'updated_at' => now(),
             ]);
             DB::table('order_tracking')->insert(['order_id' => $order->id, 'status' => 'Cancelled', 'notes' => 'Cancellation approved. Refund processing by Super Admin has started.', 'created_at' => now()]);
@@ -269,7 +269,7 @@ class OrderRefundService
         app(VoucherService::class)->rollbackRedemptionForOrder((string) $order->id);
         app(LoyaltyService::class)->rollbackRedeemForOrder((string) $order->id);
         app(LoyaltyService::class)->rollbackEarnForOrder((string) $order->id);
-        $this->notifications->notifyOrderCustomer($fresh, 'Refund Processing', 'Your order has been cancelled. Refund processing has started; estimated time is 3–5 working days.', ['event' => 'refund_processing', 'refund_id' => (string) $refund->id]);
+        $this->notifications->notifyOrderCustomer($fresh, 'Refund Processing', 'Your cancellation request has been approved. Berry Base is processing your refund, which may take 3–5 working days. We’ll notify you as soon as your refund has been sent.', ['event' => 'refund_processing', 'refund_id' => (string) $refund->id]);
         $this->notifyStaff($fresh, 'Super Admin Refund Action Required', 'A seller-approved refund is ready for Super Admin processing.', ['event' => 'admin_refund_required', 'refund_id' => (string) $refund->id]);
     }
 
