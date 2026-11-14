@@ -177,9 +177,12 @@ class OrderController extends Controller
         }
 
         $customerRiskMap = [];
+        $financialTimelines = [];
+        $timelineService = app(\App\Services\OrderFinancialTimelineService::class);
         $riskService = app(CustomerRiskService::class);
         foreach ($orders->items() as $order) {
             $customerRiskMap[$order->id] = $riskService->badge($order->order_customer_phone ?? null, $shop->id);
+            $financialTimelines[$order->id] = $timelineService->forOrder((string) $order->id, 'seller');
         }
         $pendingCancelCount = (int) DB::table('orders')
             ->where('shop_id', $shop->id)
@@ -188,7 +191,7 @@ class OrderController extends Controller
 
         try {
             return response(
-                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'orderItems', 'checkoutGroupOrders', 'customData', 'orderRefunds', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'pendingCancelCount', 'search', 'status', 'riders'))->render()
+                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'orderItems', 'checkoutGroupOrders', 'customData', 'orderRefunds', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'financialTimelines', 'pendingCancelCount', 'search', 'status', 'riders'))->render()
             );
         } catch (\Throwable $e) {
             Log::error('Seller orders VIEW render failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);

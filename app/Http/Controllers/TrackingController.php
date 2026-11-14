@@ -272,9 +272,10 @@ class TrackingController extends Controller
             'can_message' => (bool) ($deliveryDriver?->can_message ?? false),
             'guest' => !is_array($customer),
         ];
+        $financialTimeline = app(\App\Services\OrderFinancialTimelineService::class)->forOrder((string) $order->id, 'customer');
 
         return view('guest.track_order', compact(
-            'order','tracking','addons','orderItems','customOrder','checkoutGroupOrders','statusSteps','currentStep','recentReceipts','receiptCount','refund','deliveryMessageUi','deliveryDriver'
+            'order','tracking','addons','orderItems','customOrder','checkoutGroupOrders','statusSteps','currentStep','recentReceipts','receiptCount','refund','deliveryMessageUi','deliveryDriver','financialTimeline'
         ));
     }
 

@@ -3278,4 +3278,7 @@ setRating(5);
 @endpush
 
 
+@push('scripts')
+<script>document.addEventListener('DOMContentLoaded',function(){const events=@json($financialTimeline ?? []);if(!events.length)return;const card=document.createElement('section');card.className='card mt-3';card.innerHTML='<div class="card-body"><h6 class="fw-bold mb-3">Payment & Refund History</h6></div>';const body=card.querySelector('.card-body');events.forEach(e=>{const row=document.createElement('div');row.className='border-top py-2 small';row.innerHTML=`<strong>${e.title}</strong><span class="float-end">${e.amount!==null?'₱'+Number(e.amount).toFixed(2):''}</span><div class="text-muted">${e.detail||''}${e.at?' · '+new Date(e.at).toLocaleString():''}</div>`;body.appendChild(row)});document.querySelector('main')?.appendChild(card)});</script>
+@endpush
 @endsection
