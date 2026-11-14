@@ -516,50 +516,17 @@ async function compressImage(file) {
   });
 }
 
-function fmtSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024*1024) return (bytes/1024).toFixed(0) + ' KB';
-  return (bytes/1024/1024).toFixed(1) + ' MB';
-}
-
 // ── Image picker state ────────────────────────────────────────────────────
 let pickedImages = []; // [{id, file, preview, origSize, newSize, origW, origH, newW, newH}]
 let pickId = 0;
 
 function renderThreadUploadTotalSummary() {
   const target = document.getElementById('threadUploadSummary');
-  const picker = document.getElementById('imgFilePicker');
-  if (!target || !picker) return;
+  if (!target) return;
 
-  if (!pickedImages.length) {
-    if (typeof window.csClearFileUploadPreview === 'function') window.csClearFileUploadPreview(picker);
-    else target.innerHTML = '';
-    return;
-  }
-
-  const ready = pickedImages.filter(x => !x.compressing && x.file);
-  const pending = pickedImages.length - ready.length;
-  const original = ready.reduce((sum, item) => sum + (item.origSize || item.file?.size || 0), 0);
-  const optimized = ready.reduce((sum, item) => sum + (item.newSize || item.file?.size || 0), 0);
-  const label = pickedImages.length + (pickedImages.length === 1 ? ' image' : ' images');
-  const previewId = picker.dataset.sizePreviewId || ('img-size-preview-' + Math.random().toString(36).slice(2));
-  picker.dataset.sizePreviewId = previewId;
-  target.querySelectorAll('[id^="img-size-preview-"]').forEach(node => { if (node.id !== previewId) node.remove(); });
-
-  let preview = document.getElementById(previewId);
-  if (!preview) {
-    preview = document.createElement('div');
-    preview.id = previewId;
-    target.appendChild(preview);
-  }
-
-  preview.style.display = 'block';
-  preview.innerHTML = '<div class="cs-upload-summary">' +
-    '<span class="cs-upload-pill is-muted"><i class="bi bi-images"></i><span>' + label + ': <strong>' + fmtSize(original) + '</strong></span></span>' +
-    '<span class="cs-upload-arrow">-&gt;</span>' +
-    '<span class="cs-upload-pill is-muted"><i class="bi bi-lightning-charge-fill"></i><span>Optimized: <strong>~' + fmtSize(optimized) + '</strong></span></span>' +
-    (pending ? '<span class="cs-upload-pill is-warning"><i class="bi bi-hourglass-split"></i><span>' + pending + ' optimizing</span></span>' : '') +
-    '</div>';
+  // Image compression remains active; only its file-size status is hidden.
+  target.innerHTML = '';
+  target.hidden = true;
 }
 
 async function onFilePick(input) {
@@ -591,7 +558,6 @@ async function onFilePick(input) {
 
     // Compress
     const result = await compressImage(file);
-    const pct    = Math.round((1 - result.newSize / result.origSize) * 100);
     const previewUrl = URL.createObjectURL(result.file);
 
     // Update state
@@ -602,15 +568,10 @@ async function onFilePick(input) {
       origW: result.origW, origH: result.origH, newW: result.newW, newH: result.newH });
     renderThreadUploadTotalSummary();
 
-    // Update card
-    const sizeInfo = result.origSize !== result.newSize
-      ? `${fmtSize(result.origSize)} → <span class="img-card-size">${fmtSize(result.newSize)}</span> <span style="color:#16a34a">(${pct}% smaller)</span>`
-      : `<span class="img-card-size">${fmtSize(result.newSize)}</span>`;
-
+    // Keep the thumbnail and remove action, but hide optimization statistics.
     card.className = 'img-card';
     card.innerHTML = `
-      <img src="${previewUrl}" onclick="openImgPreview('${previewUrl}')" title="${result.origW}×${result.origH} → ${result.newW}×${result.newH}">
-      <div class="img-card-info">${sizeInfo}</div>
+      <img src="${previewUrl}" onclick="openImgPreview('${previewUrl}')" title="View image">
       <button class="img-card-rm" onclick="removeImage(${id})" title="Remove">✕</button>`;
   }
 }

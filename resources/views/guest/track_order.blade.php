@@ -2613,49 +2613,16 @@ async function compressImage(file) {
   });
 }
 
-function fmtGSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
-  return (bytes / 1048576).toFixed(1) + ' MB';
-}
-
 let gPicked = [];
 let gPickId = 0;
 
 function renderGuestUploadTotalSummary() {
   const target = document.getElementById('guestUploadSummary');
-  const picker = document.getElementById('gImgFilePicker');
-  if (!target || !picker) return;
+  if (!target) return;
 
-  if (!gPicked.length) {
-    if (typeof window.csClearFileUploadPreview === 'function') window.csClearFileUploadPreview(picker);
-    else target.innerHTML = '';
-    return;
-  }
-
-  const ready = gPicked.filter(x => !x.compressing && x.file);
-  const pending = gPicked.length - ready.length;
-  const original = ready.reduce((sum, item) => sum + (item.origSize || item.file?.size || 0), 0);
-  const optimized = ready.reduce((sum, item) => sum + (item.newSize || item.file?.size || 0), 0);
-  const label = gPicked.length + (gPicked.length === 1 ? ' image' : ' images');
-  const previewId = picker.dataset.sizePreviewId || ('img-size-preview-' + Math.random().toString(36).slice(2));
-  picker.dataset.sizePreviewId = previewId;
-  target.querySelectorAll('[id^="img-size-preview-"]').forEach(node => { if (node.id !== previewId) node.remove(); });
-
-  let preview = document.getElementById(previewId);
-  if (!preview) {
-    preview = document.createElement('div');
-    preview.id = previewId;
-    target.appendChild(preview);
-  }
-
-  preview.style.display = 'block';
-  preview.innerHTML = '<div class="cs-upload-summary">' +
-    '<span class="cs-upload-pill is-muted"><i class="bi bi-images"></i><span>' + label + ': <strong>' + fmtGSize(original) + '</strong></span></span>' +
-    '<span class="cs-upload-arrow">-&gt;</span>' +
-    '<span class="cs-upload-pill is-muted"><i class="bi bi-lightning-charge-fill"></i><span>Optimized: <strong>~' + fmtGSize(optimized) + '</strong></span></span>' +
-    (pending ? '<span class="cs-upload-pill is-warning"><i class="bi bi-hourglass-split"></i><span>' + pending + ' optimizing</span></span>' : '') +
-    '</div>';
+  // Image compression remains active; only its file-size status is hidden.
+  target.innerHTML = '';
+  target.hidden = true;
 }
 
 async function onGuestFilePick(input) {
@@ -2678,7 +2645,6 @@ async function onGuestFilePick(input) {
     renderGuestUploadTotalSummary();
 
     const result     = await compressImage(file);
-    const pct        = Math.round((1 - result.newSize / result.origSize) * 100);
     const previewUrl = URL.createObjectURL(result.file);
     const entry      = gPicked.find(x => x.id === id);
     if (!entry) { URL.revokeObjectURL(previewUrl); continue; }
@@ -2687,11 +2653,8 @@ async function onGuestFilePick(input) {
       origW: result.origW, origH: result.origH, newW: result.newW, newH: result.newH });
     renderGuestUploadTotalSummary();
 
-    const sizeInfo = result.origSize !== result.newSize
-      ? `${fmtGSize(result.origSize)}  <span class="g-img-card-size">${fmtGSize(result.newSize)}</span> <span style="color:#16a34a">(${pct}% smaller)</span>`
-      : `<span class="g-img-card-size">${fmtGSize(result.newSize)}</span>`;
     card.className = 'g-img-card';
-    card.innerHTML = `<img src="${previewUrl}" onclick="openGuestImgPv('${previewUrl}')" title="${result.origW}${result.origH}  ${result.newW}${result.newH}"><div class="g-img-card-info">${sizeInfo}</div><button class="g-img-card-rm" onclick="removeGImg(${id})" title="Remove"></button>`;
+    card.innerHTML = `<img src="${previewUrl}" onclick="openGuestImgPv('${previewUrl}')" title="View image"><button class="g-img-card-rm" onclick="removeGImg(${id})" title="Remove"></button>`;
   }
 }
 

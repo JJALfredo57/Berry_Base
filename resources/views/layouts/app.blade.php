@@ -5654,9 +5654,12 @@ function pgFilter(param, val) {
       el = document.createElement('div');
       el.id = id;
       el.style.cssText = 'font-size:.75rem;margin-top:.3rem;color:#6b7280;display:none';
-      if (input.dataset.csHideOptimization === 'true') el.hidden = true;
+      // Optimization runs silently so upload-size details do not clutter the UI.
+      el.hidden = true;
       var target = input.dataset.sizePreviewTarget ? document.getElementById(input.dataset.sizePreviewTarget) : null;
       if (target) {
+        target.innerHTML = '';
+        target.hidden = true;
         target.querySelectorAll('[id^="img-size-preview-"]').forEach(function(node) {
           if (node.id !== id) node.remove();
         });
@@ -5767,23 +5770,10 @@ function pgFilter(param, val) {
   }
 
   function renderSummary(preview, results) {
-    if (!results || !results.length) {
-      preview.style.display = 'none';
-      return;
-    }
-    var original = results.reduce(function(sum, item) { return sum + item.originalSize; }, 0);
-    var savedAs = results.reduce(function(sum, item) { return sum + item.compressedSize; }, 0);
-    var saved = original > savedAs ? Math.round((1 - savedAs / original) * 100) : 0;
-    var tone = saved >= 20 ? 'is-success' : 'is-muted';
-    var badgeColor = saved >= 50 ? '#059669' : saved >= 20 ? '#d97706' : '#64748b';
-    var label = results.length > 1 ? results.length + ' images' : '1 image';
-    preview.innerHTML = uploadSummaryHtml([
-      pillHtml('bi-images', label, fmtSize(original), 'is-muted'),
-      '<span class="cs-upload-arrow">-&gt;</span>',
-      pillHtml('bi-lightning-charge-fill', 'Optimized', '~' + fmtSize(savedAs), tone),
-      saved > 0 ? '<span class="cs-upload-save-badge" style="background:' + badgeColor + '">-' + saved + '%</span>' : ''
-    ]);
-    preview.style.display = 'block';
+    // Keep compression active but do not expose file-size statistics to users.
+    preview.innerHTML = '';
+    preview.hidden = true;
+    preview.style.display = 'none';
   }
 
   async function compressInputFiles(input, event) {
@@ -5796,10 +5786,9 @@ function pgFilter(param, val) {
     input.dataset.csCompressing = '1';
 
     var preview = getOrCreatePreview(input);
-    preview.innerHTML = uploadSummaryHtml([
-      '<span class="cs-upload-pill is-muted"><span class="spinner-border spinner-border-sm" style="width:.72rem;height:.72rem"></span><span>Optimizing image' + (input.files.length > 1 ? 's' : '') + '...</span></span>'
-    ]);
-    preview.style.display = 'block';
+    preview.innerHTML = '';
+    preview.hidden = true;
+    preview.style.display = 'none';
 
     try {
       var originalFiles = Array.from(input.files);
@@ -5819,9 +5808,9 @@ function pgFilter(param, val) {
       input.files = dt.files;
       renderSummary(preview, results);
     } catch (err) {
-      preview.innerHTML = uploadSummaryHtml([
-        pillHtml('bi-exclamation-triangle', 'Optimization skipped', 'Original file will be used', 'is-warning')
-      ]);
+      preview.innerHTML = '';
+      preview.hidden = true;
+      preview.style.display = 'none';
     } finally {
       input.dataset.csCompressing = '0';
       input.dataset.csCompressedChange = '1';
