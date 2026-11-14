@@ -12,6 +12,11 @@
 </div>
 
 <div class="finance-panel mb-3">
+  <div class="d-flex gap-2 flex-wrap mb-3">
+    @foreach(['today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year'] as $key=>$label)
+      <a class="btn btn-sm {{ ($period ?? '')===$key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('seller.finance',['period'=>$key]) }}">{{ $label }}</a>
+    @endforeach
+  </div>
   <form method="GET" class="finance-filter">
     <div class="form-group"><label class="form-label small fw-semibold">From</label><input class="form-control" type="date" name="from" value="{{ $from }}"></div>
     <div class="form-group"><label class="form-label small fw-semibold">To</label><input class="form-control" type="date" name="to" value="{{ $to }}"></div>
@@ -21,6 +26,7 @@
 
 <div class="finance-grid">
   <article class="finance-card"><div class="finance-label">Collected sales</div><div class="finance-value">₱{{ number_format($gross,2) }}</div><div class="finance-help">Money collected for delivered eligible orders</div></article>
+  <article class="finance-card"><div class="finance-label">Delivery fund</div><div class="finance-value">₱{{ number_format($deliveryFund ?? 0,2) }}</div><div class="finance-help">Separate seller-managed delivery amount</div></article>
   <article class="finance-card"><div class="finance-label">Platform commission</div><div class="finance-value finance-negative">−₱{{ number_format($commission,2) }}</div><div class="finance-help">Your shop's commission only</div></article>
   <article class="finance-card"><div class="finance-label">Net marketplace earnings</div><div class="finance-value finance-positive">₱{{ number_format($netEarnings,2) }}</div><div class="finance-help">After commission and refund deductions</div></article>
   <article class="finance-card"><div class="finance-label">Estimated profit</div><div class="finance-value {{ $netEarnings-$expenseTotal >= 0 ? 'finance-positive' : 'finance-negative' }}">₱{{ number_format($netEarnings-$expenseTotal,2) }}</div><div class="finance-help">Net earnings − your recorded expenses</div></article>

@@ -28,6 +28,12 @@ class FinanceController extends Controller
         catch (\Throwable $e) { $from = now()->subDays(29)->toDateString(); }
         try { $to = Carbon::parse((string) $request->input('to', now()->toDateString()))->toDateString(); }
         catch (\Throwable $e) { $to = now()->toDateString(); }
+        $period = (string) $request->input('period', '');
+        if ($period === 'today') [$from, $to] = [now()->toDateString(), now()->toDateString()];
+        elseif ($period === 'week') [$from, $to] = [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()];
+        elseif ($period === 'month') [$from, $to] = [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()];
+        elseif ($period === 'last_month') [$from, $to] = [now()->subMonthNoOverflow()->startOfMonth()->toDateString(), now()->subMonthNoOverflow()->endOfMonth()->toDateString()];
+        elseif ($period === 'year') [$from, $to] = [now()->startOfYear()->toDateString(), now()->endOfYear()->toDateString()];
         if ($from > $to) [$from, $to] = [$to, $from];
 
         $ledgerRows = DB::table('seller_payout_ledgers')
@@ -39,6 +45,7 @@ class FinanceController extends Controller
         $payoutRows = DB::table('seller_payouts')->where('shop_id', $shop->id)->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])->orderByDesc('created_at')->get();
 
         $gross = (float) $ledgerRows->where('gross_amount', '>', 0)->sum('gross_amount');
+        $deliveryFund = Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount') ? (float) $ledgerRows->sum('delivery_fund_amount') : 0.0;
         $commission = (float) $ledgerRows->sum('commission_amount');
         $refunds = abs((float) $ledgerRows->where('seller_net_amount', '<', 0)->sum('seller_net_amount'));
         $netEarnings = (float) $ledgerRows->sum('seller_net_amount');
@@ -62,7 +69,7 @@ class FinanceController extends Controller
             ->sortByDesc('date')->values();
 
         $summary = $this->payouts->summaryForShop((string) $shop->id);
-        return view('seller.finance', compact('shop', 'from', 'to', 'gross', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary'));
+        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'gross', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary'));
     }
 
     public function storeExpense(Request $request)
