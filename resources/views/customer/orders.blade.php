@@ -626,6 +626,13 @@
         <i class="bi bi-hourglass-split text-warning"></i>
         <span class="small fw-semibold text-warning">Cancellation request sent to the seller. Waiting for seller review.</span>
       </div>
+      @elseif(($refund->status ?? '') === 'refunded')
+      <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#d1fae5">
+        <i class="bi bi-check-circle text-success"></i>
+        <span class="small fw-semibold text-success">Refund completed.
+          <span class="fw-normal">₱{{ number_format((float) ($refund->refund_amount ?? 0), 2) }} refunded.@if($refund->reference_number) Reference: {{ $refund->reference_number }}.@endif</span>
+        </span>
+      </div>
       @elseif($wasAccepted)
       <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#d1fae5">
         <i class="bi bi-check-circle text-success"></i>
