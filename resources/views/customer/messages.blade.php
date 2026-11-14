@@ -7,8 +7,13 @@
   <a href="{{ route('customer.messages.thread', $t->order_id) }}" class="text-decoration-none">
     <div class="card mb-2 {{ $t->unread_count > 0 ? 'border-start border-3' : '' }}" style="{{ $t->unread_count > 0 ? 'border-left-color:var(--primary)!important' : '' }}">
       <div class="card-body d-flex align-items-center gap-3 p-3">
-        <div style="width:44px;height:44px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <i class="bi bi-shop text-white"></i>
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+          @if(!empty($t->shop_logo))
+            <img src="{{ $t->shop_logo }}" alt="{{ $t->shop_name ?? 'Shop' }} logo" style="width:100%;height:100%;object-fit:cover" onerror="this.remove();this.parentNode.querySelector('i').style.display='block'">
+            <i class="bi bi-shop text-white" style="display:none"></i>
+          @else
+            <i class="bi bi-shop text-white"></i>
+          @endif
         </div>
         <div class="flex-grow-1 overflow-hidden">
           <div class="d-flex justify-content-between align-items-center">

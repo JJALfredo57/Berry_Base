@@ -17,12 +17,14 @@ class MessageController extends Controller
         $uid = session('user')['id'];
         $threads = DB::select("
             SELECT o.id order_id, o.status, COALESCE(p.name, co.cake_name, 'Custom Cake') product_name,
+                s.shop_name, s.shop_logo,
                 (SELECT message FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_message,
                 (SELECT created_at FROM messages m WHERE m.order_id=o.id ORDER BY m.created_at DESC LIMIT 1) last_time,
                 (SELECT COUNT(*) FROM messages m WHERE m.order_id=o.id AND m.sender_role IN ('admin','seller') AND m.is_read=false) unread_count
             FROM orders o
             LEFT JOIN products p ON p.id=o.product_id
             LEFT JOIN custom_orders co ON co.order_id=o.id
+            LEFT JOIN shops s ON s.id=o.shop_id
             WHERE o.user_id=?
             AND EXISTS (SELECT 1 FROM messages m WHERE m.order_id=o.id)
             ORDER BY last_time DESC
