@@ -481,6 +481,17 @@
   <div class="alert border-0 mb-4" style="background:#fff3cd;color:#854d0e">
     <i class="bi bi-hourglass-split me-2"></i>Cancellation request sent to the seller. Waiting for seller review.
   </div>
+  @elseif(($refund ?? null) && ($refund->status ?? '') === 'refunded')
+  <div class="alert border-0 mb-4" style="background:#dcfce7;color:#166534">
+    <i class="bi bi-check-circle me-2"></i><strong>Refund completed.</strong>
+    Amount: ₱{{ number_format((float) $refund->refund_amount, 2) }}.
+    @if($refund->reference_number) Reference: ••••{{ substr((string) $refund->reference_number, -4) }}. @endif
+    Your refund receipt is available below.
+  </div>
+  @elseif(($refund ?? null) && in_array(($refund->status ?? ''), ['approved_for_admin_refund', 'processing']))
+  <div class="alert border-0 mb-4" style="background:#fff3cd;color:#854d0e">
+    <i class="bi bi-hourglass-split me-2"></i><strong>Refund processing.</strong> Your refund is being processed by Berry Base. Estimated time: 3–5 working days.
+  </div>
   @elseif($cancelApproved)
   <div class="alert border-0 mb-4" style="background:#dcfce7;color:#166534">
     <i class="bi bi-check-circle me-2"></i>Cancellation request approved.
