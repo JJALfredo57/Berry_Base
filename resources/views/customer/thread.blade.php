@@ -284,9 +284,13 @@ document.addEventListener('DOMContentLoaded', function () {
   const anchor = form?.closest('.card');
   const composer = form?.closest('.border-top');
   if (!form || !chat || !anchor || !composer) return;
+  const preview = document.getElementById('threadImgPreview');
+  const uploadSummary = document.getElementById('threadUploadSummary');
   const portal = document.createElement('div'); portal.id = 'threadComposerPortal'; document.body.appendChild(portal); portal.appendChild(composer);
+  if (preview) composer.prepend(preview);
+  if (uploadSummary) uploadSummary.style.display = 'none';
   const sync = () => { const r = anchor.getBoundingClientRect(); portal.style.left = Math.max(8, r.left) + 'px'; portal.style.width = Math.min(window.innerWidth - 16, r.width) + 'px'; chat.style.paddingBottom = (portal.offsetHeight + 20) + 'px'; };
-  const style = document.createElement('style'); style.textContent = '#threadComposerPortal{position:fixed;bottom:10px;z-index:1050;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 10px 30px rgba(15,23,42,.16)}#threadComposerPortal .border-top{border-top:0!important}#threadComposerPortal .d-flex.gap-2{align-items:center}#threadComposerPortal #threadImgBtn,#threadComposerPortal button[type=submit]{width:42px;height:42px;min-width:42px;max-height:42px;display:inline-flex;align-items:center;justify-content:center;align-self:center}#threadComposerPortal #threadMsgInput{min-height:42px;max-height:120px;overflow-y:auto}@media(max-width:768px){#threadComposerPortal{bottom:6px!important;left:8px!important;width:calc(100% - 16px)!important;border-radius:12px}#threadComposerPortal .border-top{padding:.65rem!important}}'; document.head.appendChild(style);
+  const style = document.createElement('style'); style.textContent = '#threadComposerPortal{position:fixed;bottom:10px;z-index:1050;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 10px 30px rgba(15,23,42,.16)}#threadComposerPortal .border-top{border-top:0!important}#threadComposerPortal .d-flex.gap-2{align-items:center}#threadComposerPortal #threadImgPreview{border-top:0!important;padding:.6rem 1rem .25rem!important}#threadComposerPortal #threadImgBtn,#threadComposerPortal button[type=submit]{width:42px;height:42px;min-width:42px;max-height:42px;display:inline-flex;align-items:center;justify-content:center;align-self:center}#threadComposerPortal #threadMsgInput{min-height:42px;max-height:120px;overflow-y:auto}@media(max-width:768px){#threadComposerPortal{bottom:6px!important;left:8px!important;width:calc(100% - 16px)!important;border-radius:12px}#threadComposerPortal .border-top{padding:.65rem!important}}'; document.head.appendChild(style);
   form.querySelector('#threadMsgInput')?.addEventListener('input', function(){this.style.height='42px';this.style.height=Math.min(this.scrollHeight,120)+'px';sync()});
   new ResizeObserver(sync).observe(portal); window.addEventListener('resize', sync); sync();
 });
