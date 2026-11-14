@@ -20,7 +20,7 @@ class PayoutReceiptScanService
         $amountMatch = in_array($expected, $amounts, true);
         $account = preg_replace('/\D/', '', (string) ($payout->payout_account_number ?? ''));
         $accountMatch = $account !== '' && (str_contains(preg_replace('/\D/', '', $compact), $account) || str_contains($compact, strtoupper((string) ($payout->payout_account_name ?? ''))));
-        $receiptHint = str_contains($compact, 'GCASH') || str_contains($compact, 'REFERENCE') || str_contains($compact, 'SUCCESSFUL');
+        $receiptHint = $this->receiptHint($compact);
         if (!$receiptHint && !$reference) {
             return ['ok' => false, 'reference_number' => null, 'errors' => ['We could not clearly read the GCash receipt. Upload the original screenshot (not a photo of a screen), with the recipient, amount, and Ref No. visible.'], 'text_length' => mb_strlen($text), 'amount_match' => $amountMatch, 'account_match' => $accountMatch];
         }
@@ -44,13 +44,13 @@ class PayoutReceiptScanService
         $name = strtoupper(trim((string) ($refund->refund_gcash_name ?? '')));
         $recipientMatch = ($number !== '' && str_contains(preg_replace('/\D/', '', $compact), ltrim($number, '63')))
             || ($name !== '' && str_contains($compact, $name));
-        $receiptHint = str_contains($compact, 'GCASH') || str_contains($compact, 'REFERENCE') || str_contains($compact, 'SUCCESSFUL');
+        $receiptHint = $this->receiptHint($compact);
         if (!$receiptHint && !$reference) {
             return ['ok' => false, 'reference_number' => null, 'errors' => ['We could not clearly read the GCash receipt. Upload the original screenshot (not a photo of a screen), with the recipient, amount, and Ref No. visible.'], 'text_length' => mb_strlen($text), 'amount_match' => in_array($expected, $amounts, true), 'recipient_match' => $recipientMatch];
         }
         $errors = [];
         if (mb_strlen(trim($text)) < 12) $errors[] = 'The receipt image is not readable. Upload a clearer, uncropped screenshot.';
-        if (!(str_contains($compact, 'GCASH') || str_contains($compact, 'REFERENCE') || str_contains($compact, 'SUCCESSFUL'))) $errors[] = 'This image does not look like a supported GCash payment receipt.';
+        if (!$receiptHint) $errors[] = 'This image does not contain recognizable transfer, payment, or receipt evidence.';
         if (!$reference) $errors[] = 'No transaction reference number was found in the receipt.';
         if (!in_array($expected, $amounts, true)) $errors[] = 'The receipt amount does not match this refund.';
         if (!$recipientMatch) $errors[] = 'The receipt recipient does not match the locked customer refund details.';
@@ -95,8 +95,13 @@ class PayoutReceiptScanService
 
     private function hasReceiptSignals(string $text): bool
     {
-        $text = strtoupper($text);
-        return str_contains($text, 'GCASH') || str_contains($text, 'REF') || str_contains($text, 'TOTAL AMOUNT');
+        return $this->receiptHint(strtoupper($text));
+    }
+
+    private function receiptHint(string $text): bool
+    {
+        foreach (['GCASH','MAYA','BANK','INSTAPAY','PESONET','TRANSFER','SENT VIA','AMOUNT SENT','TOTAL AMOUNT','PAYMENT','SUCCESS','SUCCESSFUL','COMPLETED','CONFIRMED','REFERENCE','REF NO','TRANSACTION ID','TRACE NO','RRN'] as $signal) if (str_contains($text, $signal)) return true;
+        return false;
     }
 
     private function runLocalOcr(string $path, string $pageSegmentationMode): string
@@ -126,7 +131,7 @@ class PayoutReceiptScanService
     }
     private function reference(string $text): ?string
     {
-        if (preg_match('/(?:REFERENCE|REF(?:ERENCE)?\s*(?:NO|NUMBER)?|TRANSACTION\s*(?:ID|NO)?)[\s.:#-]*([A-Z0-9]{6,}|[0-9][0-9\s-]{5,})/', $text, $m)) {
+        if (preg_match('/(?:REFERENCE|REF(?:ERENCE)?\s*(?:NO|NUMBER)?|TRANSACTION\s*(?:ID|NO|NUMBER)?|TRANSFER\s*(?:ID|NO)?|TRACE\s*(?:NO|NUMBER)?|CONFIRMATION\s*(?:NO|CODE)?|RRN)[\s.:#-]*([A-Z0-9]{6,}|[0-9][0-9\s-]{5,})/', $text, $m)) {
             $reference = preg_replace('/[^A-Z0-9]/', '', $m[1]);
             return strlen($reference) >= 6 ? $reference : null;
         }
@@ -134,7 +139,7 @@ class PayoutReceiptScanService
     }
     private function amounts(string $text): array
     {
-        preg_match_all('/(?:PHP|P|₱)\s*([0-9,]+(?:\.\d{2})?)/u', $text, $m);
+        preg_match_all('/(?:PHP|P|₱|AMOUNT(?:\s+SENT)?|TOTAL(?:\s+AMOUNT)?|PAYMENT\s+AMOUNT|TRANSFER\s+AMOUNT)[^0-9]{0,16}([0-9,]+(?:\.\d{2})?)/u', $text, $m);
         return array_values(array_unique(array_map(fn ($value) => number_format((float) str_replace(',', '', $value), 2, '.', ''), $m[1] ?? [])));
     }
 }
