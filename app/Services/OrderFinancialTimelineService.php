@@ -24,7 +24,11 @@ class OrderFinancialTimelineService
             }
         }
         if (Schema::hasTable('order_tracking')) {
-            foreach (DB::table('order_tracking')->where('order_id', $orderId)->whereIn('status', ['Cancelled','Refunded'])->orderBy('created_at')->get() as $track) $events[] = ['at'=>$track->created_at,'type'=>'status','title'=>$track->status,'amount'=>null,'detail'=>$track->notes];
+            $hasCompletedRefund = collect($events)->contains(fn ($event) => ($event['type'] ?? '') === 'refunded');
+            foreach (DB::table('order_tracking')->where('order_id', $orderId)->whereIn('status', ['Cancelled','Refunded'])->orderBy('created_at')->get() as $track) {
+                if ($hasCompletedRefund && $track->status === 'Refunded') continue;
+                $events[] = ['at'=>$track->created_at,'type'=>'status','title'=>$track->status,'amount'=>null,'detail'=>$track->notes];
+            }
         }
         usort($events, fn ($a,$b) => strcmp((string)$a['at'], (string)$b['at']));
         return $events;
