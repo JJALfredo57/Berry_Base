@@ -384,6 +384,9 @@
 
 @push('scripts')
 <script>
+document.addEventListener('DOMContentLoaded',function(){const chat=document.getElementById('chatBox'),wrap=document.querySelector('.compose-wrap'),card=document.querySelector('.thread-card'),preview=document.getElementById('imgPreviewBar');if(!chat||!wrap||!card)return;const portal=document.createElement('div');portal.id='sellerThreadComposerPortal';document.body.appendChild(portal);if(preview)portal.appendChild(preview);portal.appendChild(wrap);const sync=()=>{const r=card.getBoundingClientRect();portal.style.left=Math.max(8,r.left)+'px';portal.style.width=Math.min(innerWidth-16,r.width)+'px';chat.style.paddingBottom=(portal.offsetHeight+20)+'px'};const style=document.createElement('style');style.textContent='#sellerThreadComposerPortal{position:fixed;bottom:10px;z-index:1050;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 10px 30px rgba(15,23,42,.16)}#sellerThreadComposerPortal .compose-wrap{border-top:0}#sellerThreadComposerPortal .compose-row{align-items:center}#sellerThreadComposerPortal .attach-btn,#sellerThreadComposerPortal .send-btn{width:42px;height:42px;min-width:42px;align-self:center}#sellerThreadComposerPortal .compose-box{max-height:120px;overflow:auto}@media(max-width:768px){#sellerThreadComposerPortal{left:8px!important;width:calc(100% - 16px)!important;bottom:6px}.chat-box{overflow:visible!important;height:auto!important;max-height:none!important}}';document.head.appendChild(style);chat.style.height='auto';chat.style.maxHeight='none';chat.style.overflow='visible';new ResizeObserver(sync).observe(portal);addEventListener('resize',sync);sync();setTimeout(()=>chat.lastElementChild?.scrollIntoView({block:'end'}),120)});
+</script>
+<script>
 const cb      = document.getElementById('chatBox');
 const csrf    = '{{ csrf_token() }}';
 const sendUrl = '{{ route("seller.messages.send", $orderId) }}';
