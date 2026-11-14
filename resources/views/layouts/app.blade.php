@@ -4708,6 +4708,20 @@ window.BERRY_PUSH_CONTEXT = {
 </script>
 @stack('scripts')
 <script>
+document.addEventListener('submit', function (event) {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement) || !form.matches('[data-prevent-double-submit]')) return;
+  if (!form.checkValidity()) {
+    event.preventDefault();
+    const first = form.querySelector(':invalid');
+    first?.focus();
+    return;
+  }
+  const button = form.querySelector('button[type="submit"]');
+  if (button && !button.disabled) { button.disabled = true; button.dataset.originalText = button.innerHTML; button.innerHTML = button.dataset.loadingText || 'Processing…'; }
+}, true);
+</script>
+<script>
   // Modals must be direct body children so they remain fixed to the viewport,
   // sit above sidebar/content stacking contexts, and lock scrolling correctly.
   document.addEventListener('DOMContentLoaded', function () {
