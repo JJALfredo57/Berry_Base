@@ -4720,6 +4720,19 @@ document.addEventListener('submit', function (event) {
   const button = form.querySelector('button[type="submit"]');
   if (button && !button.disabled) { button.disabled = true; button.dataset.originalText = button.innerHTML; button.innerHTML = button.dataset.loadingText || 'Processing…'; }
 }, true);
+document.addEventListener('invalid', function (event) {
+  const input = event.target;
+  if (!(input instanceof HTMLElement)) return;
+  input.classList.add('is-invalid');
+  let message = input.parentElement?.querySelector('.client-validation-message');
+  if (!message) { message = document.createElement('div'); message.className = 'client-validation-message text-danger small mt-1'; input.insertAdjacentElement('afterend', message); }
+  message.textContent = input.validationMessage || 'Please correct this field.';
+}, true);
+document.addEventListener('input', function (event) {
+  const input = event.target;
+  if (!(input instanceof HTMLElement) || !input.classList.contains('is-invalid') || !input.checkValidity()) return;
+  input.classList.remove('is-invalid'); input.parentElement?.querySelector('.client-validation-message')?.remove();
+});
 </script>
 <script>
   // Modals must be direct body children so they remain fixed to the viewport,
