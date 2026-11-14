@@ -13,7 +13,7 @@
 @include('partials.message_interactions')
 <div class="container-fluid py-4">
   <div class="row justify-content-center">
-    <div class="col-lg-7">
+    <div class="col-lg-10 col-xl-11">
       <div class="d-flex align-items-center gap-3 mb-3">
         <a href="{{ route('customer.messages') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
         <div>
