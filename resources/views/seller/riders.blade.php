@@ -26,6 +26,7 @@
       <h4 class="fw-bold mb-0"><i class="bi bi-bicycle me-2" style="color:var(--primary)"></i>Riders</h4>
       <p class="text-muted small mb-0">Manage delivery riders</p>
     </div>
+    <div class="alert alert-info mt-3 mb-0 small"><strong>Delivery policy:</strong> riders are seller-managed and compensated per completed delivery. Delivery fees are tracked separately from cake sales and are not included in platform commission.</div>
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRiderModal">
       <i class="bi bi-plus-lg me-1"></i>Add Rider
     </button>
