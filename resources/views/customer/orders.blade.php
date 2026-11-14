@@ -717,7 +717,7 @@
       @php
         $co = $customOrderData[$o->id];
         $coStatusMap = [
-          'pending'  => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split','label'=>'Awaiting Admin Review'],
+          'pending'  => ['bg'=>'#fff3cd','color'=>'#856404','icon'=>'bi-hourglass-split','label'=>'Awaiting Berry Base Review'],
           'approved' => ['bg'=>'#d1fae5','color'=>'#065f46','icon'=>'bi-check-circle','label'=>'Approved'],
           'rejected' => ['bg'=>'#fee2e2','color'=>'#991b1b','icon'=>'bi-x-circle','label'=>'Not Approved'],
         ];
@@ -979,7 +979,7 @@
         <div class="d-flex gap-2 flex-wrap mt-2">
           <button class="btn btn-sm btn-outline-primary"
                   onclick="sendFollowUp(@js((string) $o->id), @js((string) $co->cake_name), @js((string) $co->id))">
-            <i class="bi bi-chat-dots me-1"></i>Follow Up with Admin
+            <i class="bi bi-chat-dots me-1"></i>Contact Berry Base Support
           </button>
           <button class="btn btn-sm btn-outline-secondary"
                   onclick="copyFollowUp(@js((string) $o->id), @js((string) $co->cake_name), @js((string) $co->id))">
@@ -1521,7 +1521,7 @@
               </div>
             </div>
             <input type="hidden" name="refund_details_confirmed" value="0">
-            <div class="small text-muted mb-3">Your recipient details will be locked after confirmation. Once seller-approved, Super Admin processes the refund within 3–5 working days.</div>
+            <div class="small text-muted mb-3">Your recipient details will be locked after confirmation. Once seller-approved, Berry Base processes the refund within 3–5 working days.</div>
             @endif
             <div class="d-flex gap-2 justify-content-end">
               <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Never mind</button>
@@ -1791,7 +1791,7 @@ async function sendFollowUp(orderId, cakeName, coId) {
     fd.append('order_id', orderId);
     fd.append('_token', '{{ csrf_token() }}');
     await fetch('{{ route("customer.messages.popup_send") }}', { method: 'POST', body: fd });
-    cakeToast(' Follow-up sent to admin!', 'success');
+    cakeToast(' Follow-up sent to Berry Base Support!', 'success');
   } catch(e) {
     cakeToast('Failed to send. Please try again.', 'error');
   }

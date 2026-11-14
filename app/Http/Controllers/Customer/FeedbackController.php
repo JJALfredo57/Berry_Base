@@ -72,7 +72,7 @@ class FeedbackController extends Controller
             'updated_at'    => now(),
         ]);
 
-        return back()->with('msg', 'Thank you. Your feedback was sent to the super admin.');
+        return back()->with('msg', 'Thank you. Your feedback has been sent to the Berry Base Support Team.');
     }
 
     private function storeFeedbackAttachments(Request $request): array

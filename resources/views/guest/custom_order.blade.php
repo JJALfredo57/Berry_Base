@@ -324,7 +324,7 @@
                     <div id="oocNotice" style="display:none" class="alert border-0 mt-2 py-2 mb-0">
                       <i class="bi bi-info-circle me-1" style="color:#e11d48"></i>
                       <span class="small" style="color:#9f1239">
-                        <strong>Out of Coverage</strong> — Delivery fee starts at ₱250. Admin will confirm after reviewing your location.
+                        <strong>Out of Coverage</strong> — Delivery fee starts at ₱250. Berry Base will confirm after reviewing your location.
                       </span>
                     </div>
                   </div>

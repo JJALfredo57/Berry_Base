@@ -821,7 +821,7 @@
           <div class="p-2 rounded-2 text-center" style="background:#f0fdf4;border:1px solid #bbf7d0">
             <i class="bi bi-check-circle-fill me-1" style="color:#16a34a"></i>
             <span style="color:#166534;font-size:.83rem;font-weight:600">
-              Fully Paid via GCash - {{ $isPickup ? 'Ready for pickup!' : 'Admin can now mark as Delivered.' }}
+              Fully Paid via GCash - {{ $isPickup ? 'Ready for pickup!' : 'Your delivery can now be completed.' }}
             </span>
           </div>
         </div>

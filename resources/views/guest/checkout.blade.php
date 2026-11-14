@@ -252,7 +252,7 @@ document.body.style.paddingRight = '';
                       <i class="bi bi-info-circle me-1" style="color:#e11d48"></i>
                       <span class="small" style="color:#9f1239">
                         <strong>Out of Coverage</strong> — Delivery fee starts at ₱250.
-                        Admin will confirm the exact amount after reviewing your location.
+                        Berry Base will confirm the exact amount after reviewing your location.
                       </span>
                     </div>
                   </div>

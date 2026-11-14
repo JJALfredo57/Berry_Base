@@ -74,7 +74,7 @@
 
     @if($receipt->deposit_message)
     <div class="receipt-row">
-      <span class="lbl">Admin Note</span>
+      <span class="lbl">Order Note</span>
       <span class="val" style="font-weight:400;color:#374151">{{ $receipt->deposit_message }}</span>
     </div>
     @endif
@@ -113,7 +113,7 @@
     <div class="mt-4 p-3 rounded-3 text-center" style="background:#f0fdf4;border:1px solid #bbf7d0">
       <i class="bi bi-hourglass-split me-1" style="color:#16a34a"></i>
       <span style="font-size:.82rem;color:#166534">
-        Your deposit is received. The admin will now review and confirm your order.
+        Your deposit is received. Berry Base will now review and confirm your order.
         You'll receive an SMS once confirmed.
       </span>
     </div>
