@@ -4708,6 +4708,25 @@ window.BERRY_PUSH_CONTEXT = {
 </script>
 @stack('scripts')
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+  const chat = document.getElementById('chatBox');
+  if (!chat) return;
+  chat.style.height = 'auto'; chat.style.maxHeight = 'none'; chat.style.overflow = 'visible';
+  const style = document.createElement('style');
+  style.textContent = '.cs-message-collapsed{max-height:8.4em;overflow:hidden;position:relative}.cs-message-toggle{border:0;background:transparent;color:var(--primary,#e91e63);font-size:.78rem;font-weight:700;padding:.25rem 0;cursor:pointer}.msg-interaction-bubble{max-width:min(82%,760px)}';
+  document.head.appendChild(style);
+  chat.querySelectorAll('.msg-interaction-bubble > div[style*="white-space"]').forEach(function (text) {
+    if ((text.textContent || '').trim().length < 360) return;
+    text.classList.add('cs-message-collapsed');
+    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'cs-message-toggle'; toggle.textContent = 'See more';
+    toggle.addEventListener('click', function () { const open = text.classList.toggle('cs-message-collapsed'); toggle.textContent = open ? 'See more' : 'See less'; });
+    text.insertAdjacentElement('afterend', toggle);
+  });
+  const latest = chat.lastElementChild;
+  if (latest) setTimeout(() => latest.scrollIntoView({block:'end', behavior:'auto'}), 120);
+});
+</script>
+<script>
 document.addEventListener('submit', function (event) {
   const form = event.target;
   if (!(form instanceof HTMLFormElement) || !form.matches('[data-prevent-double-submit]')) return;
