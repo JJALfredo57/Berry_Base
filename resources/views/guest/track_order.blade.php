@@ -485,7 +485,7 @@
   <div class="alert border-0 mb-4" style="background:#dcfce7;color:#166534">
     <i class="bi bi-check-circle me-2"></i><strong>Refund completed.</strong>
     Amount: ₱{{ number_format((float) $refund->refund_amount, 2) }}.
-    @if($refund->reference_number) Reference: ••••{{ substr((string) $refund->reference_number, -4) }}. @endif
+    @if($refund->reference_number) Reference: {{ $refund->reference_number }}. @endif
     Your refund receipt is available below.
   </div>
   @elseif(($refund ?? null) && in_array(($refund->status ?? ''), ['approved_for_admin_refund', 'processing']))

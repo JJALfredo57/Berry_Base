@@ -37,6 +37,6 @@ class OrderFinancialTimelineService
     private function reference(?string $reference, string $audience): string
     {
         if (!$reference) return 'Receipt recorded';
-        return $audience === 'superadmin' ? 'Reference: '.$reference : 'Reference: ••••'.substr($reference, -4);
+        return in_array($audience, ['superadmin', 'customer'], true) ? 'Reference: '.$reference : 'Reference: ••••'.substr($reference, -4);
     }
 }
