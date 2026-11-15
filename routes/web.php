@@ -313,7 +313,7 @@ Route::post('/rider/login', [\App\Http\Controllers\RiderController::class, 'logi
 Route::get('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetup'])->name('rider.password.setup');
 Route::post('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetupUpdate'])->name('rider.password.setup.update');
 Route::get('/rider/dashboard', [\App\Http\Controllers\RiderController::class, 'dashboard'])->name('rider.dashboard');
-Route::get('/rider/dashboard/feed', [RiderController::class, 'dashboardFeed'])->name('rider.dashboard.feed');
+Route::get('/rider/dashboard/feed', [\App\Http\Controllers\RiderController::class, 'dashboardFeed'])->name('rider.dashboard.feed');
 Route::get('/rider/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'riderIndex'])->name('rider.delivery_messages.index');
 Route::post('/rider/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'riderSend'])->name('rider.delivery_messages.send');
 Route::post('/rider/orders/{orderId}/delivery-messages/read', [\App\Http\Controllers\DeliveryMessageController::class, 'riderRead'])->name('rider.delivery_messages.read');
