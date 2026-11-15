@@ -51,12 +51,15 @@ class DashboardController extends Controller
                     });
             }
 
-            $pendingRemittance = Schema::hasTable('rider_remittances')
-                ? (float) DB::table('rider_remittances')
+            $pendingRemittance = 0.0;
+            if (Schema::hasTable('rider_remittances')) {
+                $pendingRemittanceQuery = DB::table('rider_remittances')
                     ->where('shop_id', $shopId)
-                    ->whereIn('status', ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired'])
-                    ->sum('amount')
-                : 0;
+                    ->whereIn('status', ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired']);
+                $pendingRemittance = Schema::hasColumn('rider_remittances', 'cake_remittance_amount')
+                    ? (float) $pendingRemittanceQuery->sum(DB::raw('COALESCE(cake_remittance_amount, amount)'))
+                    : (float) $pendingRemittanceQuery->sum('amount');
+            }
 
             $stats = [
                 'pending'    => DB::table('orders')->where('shop_id',$shopId)->where('status','Pending')->count(),
@@ -88,9 +91,9 @@ class DashboardController extends Controller
                     DB::raw("COALESCE(co.cake_name, p.name, 'Custom Cake') as product_name"),
                     DB::raw("CASE WHEN o.user_id IS NOT NULL THEN u.fullname ELSE COALESCE(o.guest_name, o.fullname, 'Guest') END as customer_display_name"),
                     'u.profile_photo as customer_profile_photo')
-                ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 ELSE 1 END")
+                ->orderByRaw("CASE WHEN o.status IN ('Pending','Pending Review') THEN 0 WHEN o.status = 'Preparing' THEN 1 WHEN o.status = 'Confirmed' THEN 2 WHEN o.status = 'Pickup' THEN 3 ELSE 4 END")
                 ->orderByDesc('o.id')
-                ->limit(8)
+                ->limit(5)
                 ->get();
         } catch (\Exception $e) { $recentOrders = collect(); }
 

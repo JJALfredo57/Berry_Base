@@ -1,7 +1,25 @@
 @extends('layouts.app')
 @section('page_title','Dashboard')
 @section('content')
-
+@php
+  $actionItems = [
+    ['count' => $stats['pending'] ?? 0, 'label' => 'new order', 'icon' => 'bi-bag-plus', 'link' => route('seller.orders'), 'money' => false],
+    ['count' => $pendingCustom, 'label' => 'custom order to review', 'icon' => 'bi-palette', 'link' => route('seller.custom_orders'), 'money' => false],
+    ['count' => $sellerActionSummary['total'] ?? 0, 'label' => 'refund or cancellation request', 'icon' => 'bi-arrow-counterclockwise', 'link' => route('seller.orders', ['status' => 'Cancel Requests']), 'money' => false],
+    ['count' => $stats['pending_remittance'] ?? 0, 'label' => 'COD cake amount to review', 'icon' => 'bi-cash-stack', 'link' => route('seller.orders'), 'money' => true],
+  ];
+  $actionItems = array_values(array_filter($actionItems, fn ($item) => (float) $item['count'] > 0));
+@endphp
+@if(false && $actionItems)
+<section class="dashboard-action-center mb-4 cs-fade-up" aria-labelledby="sellerActionTitle">
+  <div class="dashboard-action-heading"><div><h5 id="sellerActionTitle"><i class="bi bi-exclamation-triangle-fill me-2"></i>Needs your attention</h5><p>Complete these first to keep orders and payments moving.</p></div></div>
+  <div class="dashboard-action-list">
+    @foreach($actionItems as $item)
+      <a href="{{ $item['link'] }}" class="dashboard-action-item"><i class="bi {{ $item['icon'] }}"></i><span><strong>{{ !empty($item['money']) ? '₱'.number_format($item['count'], 2) : $item['count'] }}</strong> {{ $item['label'] }}{{ !empty($item['money']) || (int) $item['count'] === 1 ? '' : 's' }}</span><i class="bi bi-chevron-right ms-auto"></i></a>
+    @endforeach
+  </div>
+</section>
+@endif
 {{-- Page Header --}}
 <div class="cs-page-header">
   <div>
@@ -31,7 +49,18 @@
   </div>
 @endif
 
-@if(($sellerActionSummary['total'] ?? 0) > 0)
+@if($actionItems)
+<section class="dashboard-action-center mb-4 cs-fade-up" aria-labelledby="sellerActionTitle">
+  <div class="dashboard-action-heading"><div><h5 id="sellerActionTitle"><i class="bi bi-exclamation-triangle-fill me-2"></i>Needs your attention</h5><p>Complete these first to keep orders and payments moving.</p></div></div>
+  <div class="dashboard-action-list">
+    @foreach($actionItems as $item)
+      <a href="{{ $item['link'] }}" class="dashboard-action-item"><i class="bi {{ $item['icon'] }}"></i><span><strong>{{ !empty($item['money']) ? '₱'.number_format($item['count'], 2) : $item['count'] }}</strong> {{ $item['label'] }}{{ !empty($item['money']) || (int) $item['count'] === 1 ? '' : 's' }}</span><i class="bi bi-chevron-right ms-auto"></i></a>
+    @endforeach
+  </div>
+</section>
+@endif
+
+@if(false && ($sellerActionSummary['total'] ?? 0) > 0)
 <section class="d-flex align-items-start gap-3 p-3 mb-4 rounded-3 cs-fade-up" style="background:#fff7ed;border:1.5px solid #fdba74" aria-labelledby="sellerActionTitle">
   <div style="width:42px;height:42px;border-radius:12px;background:#ea580c;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-exclamation-triangle-fill"></i></div>
   <div class="flex-grow-1" style="min-width:200px">
@@ -72,17 +101,9 @@
 </div>
 @endif
 
-@if($pendingCustom > 0)
-<div class="d-flex align-items-center gap-3 p-3 mb-4 rounded-3 cs-fade-up" style="background:#fff3e0;border:1.5px solid #ffcc80">
-  <div style="width:40px;height:40px;border-radius:10px;background:#E65100;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-    <i class="bi bi-palette-fill text-white"></i>
-  </div>
-  <div class="flex-grow-1 small"><strong>{{ $pendingCustom }} custom order{{ $pendingCustom > 1 ? 's' : '' }}</strong> awaiting your review and pricing.</div>
-  <a href="{{ route('seller.custom_orders') }}" class="btn btn-sm flex-shrink-0" style="background:#E65100;color:#fff;border:none">Review</a>
-</div>
-@endif
 
 {{-- Stat Cards --}}
+<div class="dashboard-section-heading"><h5>Today's order queue</h5><a href="{{ route('seller.orders') }}">Open orders <i class="bi bi-arrow-right"></i></a></div>
 <div class="seller-stats-grid mb-4 cs-stagger">
   @foreach([
     ['bi-clock',      'Pending',       $stats['pending'],                  '#E65100', '#fff3e0', route('seller.orders')],
@@ -120,6 +141,19 @@
   @endforeach
 </div>
 
+<section class="mb-4">
+  <div class="dashboard-section-heading"><div><h5>Money snapshot</h5><p>Open Finance for the reconciled earnings breakdown.</p></div><a href="{{ route('seller.finance') }}">Open Finance <i class="bi bi-arrow-right"></i></a></div>
+  <div class="seller-stats-grid cs-stagger">
+    @foreach([
+      ['bi-graph-up-arrow', 'Paid Sales', '₱'.number_format($stats['revenue'], 2), '#15803d', '#ecfdf5', route('seller.finance'), 'Paid, non-cancelled orders. Full deductions are in Finance.'],
+      ['bi-cash-stack', 'COD to Review', '₱'.number_format($stats['pending_remittance'] ?? 0, 2), '#B45309', '#fffbeb', route('seller.orders'), 'Cake amount only; rider delivery funds are excluded.'],
+      ['bi-bank', 'Available Payout', '₱'.number_format($payoutSummary['available'] ?? 0, 2), '#166534', '#ecfdf5', route('seller.payouts'), 'Amount currently eligible for payout request.'],
+    ] as [$icon, $label, $val, $color, $bg, $link, $help])
+      <div class="seller-stat-item"><a href="{{ $link }}" style="text-decoration:none;display:block;height:100%"><div class="cs-stat-card h-100"><div class="cs-stat-icon" style="background:{{ $bg }}"><i class="bi {{ $icon }}" style="color:{{ $color }}"></i></div><div class="cs-stat-body"><div class="cs-stat-num" style="color:{{ $color }}">{{ $val }}</div><div class="cs-stat-label">{{ $label }}</div><div class="cs-stat-help">{{ $help }}</div></div></div></a></div>
+    @endforeach
+  </div>
+</section>
+
 @if(($payoutSummary['clearing'] ?? 0) > 0 || ($payoutSummary['processing'] ?? 0) > 0)
 <div class="alert alert-info d-flex align-items-start gap-2 mb-4 cs-fade-up" style="border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af">
   <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
@@ -138,7 +172,7 @@
   <div class="col-lg-12">
     <div class="card h-100">
       <div class="card-header d-flex align-items-center justify-content-between">
-        <span><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Orders</span>
+        <span><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Priority Orders</span>
         <a href="{{ route('seller.orders') }}" class="btn btn-outline-primary btn-sm">View All</a>
       </div>
       @forelse($recentOrders as $o)
@@ -189,6 +223,8 @@
     gap: .75rem;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
+  .seller-stats-grid.mb-4 .seller-stat-item:nth-child(n+4){display:none}
+  .dashboard-section-heading{display:flex;align-items:end;justify-content:space-between;gap:.75rem;margin-bottom:.7rem}.dashboard-section-heading h5{margin:0;font-size:.95rem;font-weight:800;color:var(--gray-900)}.dashboard-section-heading p{margin:.15rem 0 0;font-size:.76rem;color:var(--gray-500)}.dashboard-section-heading>a{font-size:.8rem;font-weight:700;color:var(--primary);text-decoration:none;white-space:nowrap}.dashboard-action-center{border:1px solid #fed7aa;border-radius:14px;background:#fffaf5;padding:1rem}.dashboard-action-heading h5{margin:0;color:#9a3412;font-size:.95rem;font-weight:800}.dashboard-action-heading p{margin:.25rem 0 .75rem;color:#9a3412;font-size:.78rem}.dashboard-action-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.55rem}.dashboard-action-item{display:flex;align-items:center;gap:.55rem;padding:.65rem .7rem;border-radius:10px;background:#fff;border:1px solid #fed7aa;color:#7c2d12;text-decoration:none;font-size:.78rem;line-height:1.25}.dashboard-action-item>i:first-child{color:#ea580c;font-size:1rem}.dashboard-action-item:hover{background:#fff3e0;color:#7c2d12}
   .cs-stat-help { margin-top:.2rem; font-size:.66rem; line-height:1.25; color:var(--gray-500); }
 
   .seller-stat-item {
