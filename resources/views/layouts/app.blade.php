@@ -1554,8 +1554,6 @@
   <div style="margin-left:auto;display:flex;align-items:center;gap:.75rem">
     @if($userPhoto)
       <img src="{{ $userPhoto }}" class="nav-avatar" onerror="this.style.display='none'">
-    @else
-      <span class="nav-avatar-fallback">{{ strtoupper(substr($fullname??'S',0,1)) }}</span>
     @endif
   </div>
 </div>
