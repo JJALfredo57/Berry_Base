@@ -3,7 +3,7 @@
 
 @section('content')
 <style>
-  .finance-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}.finance-card,.finance-panel{background:var(--surface,#fff);border:1px solid var(--gray-100,#e5e7eb);border-radius:16px;padding:1.05rem;box-shadow:0 1px 2px rgba(15,23,42,.04)}.finance-label{font-size:.75rem;color:var(--gray-500,#64748b);font-weight:700;text-transform:uppercase;letter-spacing:.04em}.finance-value{font-size:1.35rem;font-weight:800;color:var(--gray-900,#111827);margin-top:.35rem}.finance-help{font-size:.78rem;color:var(--gray-500,#64748b);margin-top:.3rem}.finance-layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,.8fr);gap:1rem;margin-top:1rem}.finance-chart{height:290px;position:relative}.finance-table{width:100%;min-width:760px}.finance-table th{font-size:.72rem;text-transform:uppercase;color:var(--gray-500,#64748b);letter-spacing:.03em}.finance-table td{font-size:.84rem;vertical-align:middle}.finance-positive{color:#15803d}.finance-negative{color:#b91c1c}.finance-filter{display:flex;gap:.7rem;align-items:end;flex-wrap:wrap}.finance-filter .form-group{min-width:145px}.finance-expense-form{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}.finance-expense-form .wide{grid-column:1/-1}@media(max-width:1100px){.finance-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-layout{grid-template-columns:1fr}}@media(max-width:560px){.finance-grid{grid-template-columns:1fr}.finance-expense-form{grid-template-columns:1fr}.finance-table{min-width:650px}.finance-value{font-size:1.2rem}}
+  .finance-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}.finance-card,.finance-panel{background:var(--surface,#fff);border:1px solid var(--gray-100,#e5e7eb);border-radius:16px;padding:1.05rem;box-shadow:0 1px 2px rgba(15,23,42,.04)}.finance-card:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 40%,transparent);outline-offset:2px}.finance-label{font-size:.75rem;color:var(--gray-500,#64748b);font-weight:700;text-transform:uppercase;letter-spacing:.04em}.finance-value{font-size:1.35rem;font-weight:800;color:var(--gray-900,#111827);margin-top:.35rem;white-space:nowrap;font-variant-numeric:tabular-nums}.finance-help{font-size:.78rem;color:var(--gray-500,#64748b);margin-top:.3rem}.finance-layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,.8fr);gap:1rem;margin-top:1rem}.finance-chart{height:290px;position:relative}.finance-table{width:100%;min-width:760px}.finance-table th{font-size:.72rem;text-transform:uppercase;color:var(--gray-500,#64748b);letter-spacing:.03em}.finance-table td{font-size:.84rem;vertical-align:middle}.finance-positive{color:#15803d}.finance-negative{color:#b91c1c}.finance-filter{display:flex;gap:.7rem;align-items:end;flex-wrap:wrap}.finance-filter .form-group{min-width:145px}.finance-periods{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.85rem}.finance-expense-form{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}.finance-expense-form .wide{grid-column:1/-1}@media(max-width:1100px){.finance-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-layout{grid-template-columns:1fr}}@media(max-width:560px){.finance-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.finance-card{padding:.78rem;min-height:112px}.finance-label{font-size:.63rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.finance-value{font-size:clamp(.78rem,4.5vw,1.08rem);letter-spacing:-.03em;overflow:visible}.finance-help{font-size:.67rem;line-height:1.35;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.finance-card:hover .finance-help,.finance-card:focus .finance-help{-webkit-line-clamp:unset;overflow:visible}.finance-expense-form{grid-template-columns:1fr}.finance-table{min-width:650px}.finance-periods{margin-top:.7rem}.finance-periods .btn{font-size:.72rem;padding:.3rem .52rem}}
 </style>
 
 <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
@@ -12,24 +12,24 @@
 </div>
 
 <div class="finance-panel mb-3">
-  <div class="d-flex gap-2 flex-wrap mb-3">
-    @foreach(['today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year'] as $key=>$label)
-      <a class="btn btn-sm {{ ($period ?? '')===$key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('seller.finance',['period'=>$key]) }}">{{ $label }}</a>
-    @endforeach
-  </div>
   <form method="GET" class="finance-filter">
     <div class="form-group"><label class="form-label small fw-semibold">From</label><input class="form-control" type="date" name="from" value="{{ $from }}"></div>
     <div class="form-group"><label class="form-label small fw-semibold">To</label><input class="form-control" type="date" name="to" value="{{ $to }}"></div>
-    <a class="btn btn-outline-secondary" href="{{ route('seller.finance') }}">Last 30 days</a>
   </form>
+  <div class="finance-periods" aria-label="Quick date filters">
+    @foreach(['today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year'] as $key=>$label)
+      <a class="btn btn-sm {{ ($period ?? '')===$key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('seller.finance',['period'=>$key]) }}">{{ $label }}</a>
+    @endforeach
+    <a class="btn btn-sm btn-outline-secondary" href="{{ route('seller.finance') }}">Last 30 days</a>
+  </div>
 </div>
 
 <div class="finance-grid">
-  <article class="finance-card"><div class="finance-label">Collected sales</div><div class="finance-value">₱{{ number_format($gross,2) }}</div><div class="finance-help">Money collected for delivered eligible orders</div></article>
-  <article class="finance-card"><div class="finance-label">Delivery fund</div><div class="finance-value">₱{{ number_format($deliveryFund ?? 0,2) }}</div><div class="finance-help">Separate seller-managed delivery amount</div></article>
-  <article class="finance-card"><div class="finance-label">Platform commission</div><div class="finance-value finance-negative">−₱{{ number_format($commission,2) }}</div><div class="finance-help">Your shop's commission only</div></article>
-  <article class="finance-card"><div class="finance-label">Net marketplace earnings</div><div class="finance-value finance-positive">₱{{ number_format($netEarnings,2) }}</div><div class="finance-help">After commission and refund deductions</div></article>
-  <article class="finance-card"><div class="finance-label">Estimated profit</div><div class="finance-value {{ $netEarnings-$expenseTotal >= 0 ? 'finance-positive' : 'finance-negative' }}">₱{{ number_format($netEarnings-$expenseTotal,2) }}</div><div class="finance-help">Net earnings − your recorded expenses</div></article>
+  <article class="finance-card" tabindex="0"><div class="finance-label">Collected sales</div><div class="finance-value">₱{{ number_format($gross,2) }}</div><div class="finance-help">Money collected for delivered eligible orders</div></article>
+  <article class="finance-card" tabindex="0"><div class="finance-label">Delivery fund</div><div class="finance-value">₱{{ number_format($deliveryFund ?? 0,2) }}</div><div class="finance-help">Separate seller-managed delivery amount</div></article>
+  <article class="finance-card" tabindex="0"><div class="finance-label">Platform commission</div><div class="finance-value finance-negative">−₱{{ number_format($commission,2) }}</div><div class="finance-help">Your shop's commission only</div></article>
+  <article class="finance-card" tabindex="0"><div class="finance-label">Net marketplace earnings</div><div class="finance-value finance-positive">₱{{ number_format($netEarnings,2) }}</div><div class="finance-help">After commission and refund deductions</div></article>
+  <article class="finance-card" tabindex="0"><div class="finance-label">Estimated profit</div><div class="finance-value {{ $netEarnings-$expenseTotal >= 0 ? 'finance-positive' : 'finance-negative' }}">₱{{ number_format($netEarnings-$expenseTotal,2) }}</div><div class="finance-help">Net earnings − your recorded expenses</div></article>
 </div>
 
 <div class="finance-layout">

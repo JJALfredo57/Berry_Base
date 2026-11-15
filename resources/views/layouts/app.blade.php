@@ -800,6 +800,11 @@
     #adminSidebar.collapsed .sb-user-info { opacity:0; }
     .sb-user-name { font-size:.79rem;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis; }
     .sb-user-role { font-size:.63rem;color:rgba(255,255,255,.35); }
+    .sb-seller-meta { display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:4px; }
+    .sb-seller-verified,.sb-commission-chip { display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:3px 6px;font-size:.58rem;font-weight:800;line-height:1;white-space:nowrap; }
+    .sb-seller-verified { color:#bbf7d0;background:rgba(22,163,74,.18);border:1px solid rgba(134,239,172,.24); }
+    .sb-commission-chip { border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);color:#e2e8f0;cursor:pointer;font-family:inherit; }
+    .sb-commission-chip:hover,.sb-commission-chip:focus-visible { background:rgba(255,255,255,.16);color:#fff;outline:none; }
 
     #adminMain { margin-left:var(--sidebar-w);transition:margin-left .25s cubic-bezier(.4,0,.2,1);min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1; }
     #adminMain.expanded { margin-left:var(--sidebar-coll); }
@@ -1429,6 +1434,8 @@
   ], $sellerSidebarCounts ?? []);
   $sbCount = fn($key) => (int) ($sellerSidebarCounts[$key] ?? 0);
   $sbCountLabel = fn($count) => $count > 99 ? '99+' : (string) $count;
+  $sellerIsVerified = ($sellerShop?->tier ?? 'basic') === 'verified';
+  $sellerCommissionRate = !empty($sellerShop?->commission_enabled) ? 2 : 0;
 @endphp
 <div id="sellerSidebar">
   <div class="sb-brand">
@@ -1539,6 +1546,16 @@
     <div class="sb-user-info">
       <div class="sb-user-name">{{ Str::limit($fullname ?? $username, 16) }}</div>
       <div class="sb-user-role">Seller</div>
+      <div class="sb-seller-meta">
+        @if($sellerIsVerified)
+          <span class="sb-seller-verified"><i class="bi bi-patch-check-fill"></i>Verified Seller</span>
+        @endif
+        @if($sellerCommissionRate > 0)
+          <button type="button" class="sb-commission-chip" onclick="sellerCommissionInfo({{ $sellerCommissionRate }})" title="Click to see how your commission works" aria-label="View {{ $sellerCommissionRate }} percent platform commission details">
+            <i class="bi bi-info-circle-fill"></i>{{ number_format($sellerCommissionRate, 0) }}% platform fee
+          </button>
+        @endif
+      </div>
     </div>
   </div>
 </div>
@@ -2639,6 +2656,18 @@ function csPrompt(label,val) {
     prompt:true,readOnly:true,defaultVal:val||'',okLabel:'Done',showCancel:false});
 }
 // csTrackPrompt — order tracking input
+function sellerCommissionInfo(rate) {
+  var displayRate = Number(rate || 0).toFixed(2).replace(/\.00$/, '');
+  _csDlgBuild({
+    title: 'How your platform fee works',
+    message: 'Your platform fee is ' + displayRate + '%.\n\nFor each eligible completed order, Berry Base deducts this percentage from the cake or product amount only. Delivery fees and payment service charges are tracked separately and are not included in the platform fee.\n\nExample: a ₱1,000 cake order has a ₱20 platform fee. Your marketplace earnings before your own ingredients, labor, and business expenses are ₱980.',
+    icon: 'bi-percent',
+    iconBg: '#eff6ff',
+    iconColor: '#2563eb',
+    okLabel: 'Got it',
+    showCancel: false
+  });
+}
 function csTrackPrompt() {
   _csDlgBuild({title:'Track Your Order',message:'Enter your order tracking code:',
     icon:'bi-search',iconBg:'#fff0f6',iconColor:'var(--primary)',
