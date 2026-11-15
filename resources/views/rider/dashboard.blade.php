@@ -51,6 +51,7 @@
     .title h1 { font-size:clamp(20px,5vw,26px); margin:2px 0 0; line-height:1.15; }
     .title .sub { margin:4px 0 0; opacity:.8; font-size:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .live { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.16); border-radius:999px; padding:3px 9px; font-weight:700; }
+    .live[hidden] { display:none !important; }
     .live::before { content:""; width:8px; height:8px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 0 rgba(74,222,128,.7); animation:pulse 2s infinite; }
     .live.off::before { background:#fbbf24; animation:none; }
     @keyframes pulse { 70% { box-shadow:0 0 0 7px rgba(74,222,128,0); } 100% { box-shadow:0 0 0 0 rgba(74,222,128,0); } }
