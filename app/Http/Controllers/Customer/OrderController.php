@@ -503,7 +503,8 @@ class OrderController extends Controller
 
         $totalPrice = (float) $discounts['payable_total'];
         $isFullGcash = ($order->payment_method ?? '') === 'GCash';
-        $depositAmount = $isFullGcash ? round($totalPrice, 2) : round($totalPrice * 0.5, 2);
+        $cakeAmount = max(0, $totalPrice - (float) ($order->delivery_fee ?? 0) - (float) ($order->service_charge ?? 0));
+        $depositAmount = $isFullGcash ? round($totalPrice, 2) : round($cakeAmount * 0.5, 2);
         if ($depositAmount < 100) {
             return back()->with('err', $isFullGcash
                 ? 'The minimum GCash payment is PHP 100.00.'
@@ -582,7 +583,8 @@ class OrderController extends Controller
 
         $totalPrice = (float) $order->total_price;
         $isFullPayment = ($order->payment_method ?? '') === 'GCash';
-        $depositAmount = $isFullPayment ? round($totalPrice, 2) : round($totalPrice * 0.5, 2);
+        $cakeAmount = max(0, $totalPrice - (float) ($order->delivery_fee ?? 0) - (float) ($order->service_charge ?? 0));
+        $depositAmount = $isFullPayment ? round($totalPrice, 2) : round($cakeAmount * 0.5, 2);
         if ($depositAmount < 100) {
             return back()->with('err', $isFullPayment
                 ? 'The minimum GCash payment is PHP 100.00.'

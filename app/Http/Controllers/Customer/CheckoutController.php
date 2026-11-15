@@ -674,7 +674,8 @@ class CheckoutController extends Controller
         $pointsRedeemed = (int) ($loyaltyQuote['points'] ?? 0);
         $loyaltyDiscount = (float) ($loyaltyQuote['discount'] ?? 0);
         $total     = max(0, $baseTotal + $addonTotal - $voucherDiscount - $loyaltyDiscount) + ($fulfillment === 'Delivery' ? $deliveryFee : 0);
-        $depositAmount = $payment === 'GCash' ? round($total, 2) : round($total * 0.5, 2);
+        $cakeAmount = max(0, $total - ($fulfillment === 'Delivery' ? $deliveryFee : 0));
+        $depositAmount = $payment === 'GCash' ? round($total, 2) : round($cakeAmount * 0.5, 2);
         if ($depositAmount < 100) {
             return back()->with('error', $payment === 'GCash'
                 ? 'The minimum GCash payment is PHP 100.00.'

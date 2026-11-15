@@ -125,7 +125,7 @@ class SellerPayoutService
             // Approved platform rule: commission is always 2% of cake/product value only.
             $rate = !empty($order->commission_enabled) ? 2.0 : 0.0;
             $commission = round($commissionBase * $rate / 100, 2);
-            $net = max(0, round($adjustedGross - $commission, 2));
+            $net = max(0, round($commissionBase - $commission, 2));
 
             $deliveredAt = ($hasDeliveredAt ? ($order->delivered_at ?? null) : null)
                 ?? ($hasSettledAt ? ($order->settled_at ?? null) : null)
@@ -277,7 +277,7 @@ class SellerPayoutService
                 'commission_base' => $commissionBase,
                 'commission_rate' => $rate,
                 'commission_amount' => $commission,
-                'seller_net_amount' => max(0, round($adjustedGross - $commission, 2)),
+                'seller_net_amount' => max(0, round($commissionBase - $commission, 2)),
                 'notes' => 'Adjusted to online customer deposit only. Direct COD cash was handed to seller.',
                 'updated_at' => now(),
             ];

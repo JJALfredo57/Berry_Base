@@ -1477,9 +1477,12 @@ class RiderController extends Controller
         }
 
         $total = (float) ($order->total_price ?? 0);
+        $deliveryFee = max(0, (float) ($order->delivery_fee ?? 0));
+        $cakeAmount = max(0, $total - $deliveryFee);
         $depositPaid = ($order->deposit_status ?? '') === 'paid';
         $deposit = $depositPaid ? (float) ($order->deposit_amount ?? 0) : 0;
-        $amount = round(max(0, $total - $deposit), 2);
+        $customerCollected = round(max(0, $total - $deposit), 2);
+        $amount = round(max(0, $cakeAmount - $deposit), 2);
         if ($amount <= 0) {
             return null;
         }
@@ -1490,6 +1493,9 @@ class RiderController extends Controller
                 'shop_id' => $order->shop_id,
                 'rider_id' => $order->rider_id,
                 'amount' => $amount,
+                'customer_collected_amount' => $customerCollected,
+                'cake_remittance_amount' => $amount,
+                'delivery_fee_retained' => min($deliveryFee, $customerCollected),
                 'collection_method' => 'Cash',
                 'status' => 'pending',
                 'collected_at' => now(),

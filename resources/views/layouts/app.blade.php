@@ -805,6 +805,14 @@
     .sb-seller-verified { color:#bbf7d0;background:rgba(22,163,74,.18);border:1px solid rgba(134,239,172,.24); }
     .sb-commission-chip { border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);color:#e2e8f0;cursor:pointer;font-family:inherit; }
     .sb-commission-chip:hover,.sb-commission-chip:focus-visible { background:rgba(255,255,255,.16);color:#fff;outline:none; }
+    .sb-brand-logo-wrap { position:relative;flex-shrink:0; }
+    .sb-verification-badge { position:absolute;right:-8px;bottom:-7px;z-index:2;display:inline-flex;align-items:center;gap:0;width:18px;height:18px;padding:0;border:1.5px solid var(--sidebar-bg,#111827);border-radius:999px;overflow:hidden;color:#fff;cursor:pointer;transition:width .22s ease,gap .22s ease,padding .22s ease,box-shadow .22s ease;white-space:nowrap;font-family:inherit;font-size:.58rem;font-weight:800;line-height:1; }
+    .sb-verification-badge.is-verified { background:#16a34a; }
+    .sb-verification-badge.is-basic { background:#d97706; }
+    .sb-verification-badge i { width:15px;min-width:15px;font-size:.66rem;display:inline-flex;align-items:center;justify-content:center; }
+    .sb-verification-badge span { max-width:0;opacity:0;overflow:hidden;transition:max-width .22s ease,opacity .15s ease; }
+    .sb-verification-badge:hover,.sb-verification-badge:focus-visible,.sb-verification-badge.is-expanded { width:auto;gap:4px;padding:0 7px 0 2px;box-shadow:0 4px 12px rgba(0,0,0,.28);outline:none; }
+    .sb-verification-badge:hover span,.sb-verification-badge:focus-visible span,.sb-verification-badge.is-expanded span { max-width:92px;opacity:1; }
 
     #adminMain { margin-left:var(--sidebar-w);transition:margin-left .25s cubic-bezier(.4,0,.2,1);min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1; }
     #adminMain.expanded { margin-left:var(--sidebar-coll); }
@@ -1439,12 +1447,17 @@
 @endphp
 <div id="sellerSidebar">
   <div class="sb-brand">
-    <div class="sb-brand-icon" style="background:var(--primary)">
-      @if($sellerShop?->shop_logo)
-        <img src="{{ $sellerShop->shop_logo }}" style="width:26px;height:26px;border-radius:6px;object-fit:cover">
-      @else
-        <i class="bi bi-shop text-white" style="font-size:.95rem"></i>
-      @endif
+    <div class="sb-brand-logo-wrap">
+      <div class="sb-brand-icon" style="background:var(--primary)">
+        @if($sellerShop?->shop_logo)
+          <img src="{{ $sellerShop->shop_logo }}" style="width:26px;height:26px;border-radius:6px;object-fit:cover">
+        @else
+          <i class="bi bi-shop text-white" style="font-size:.95rem"></i>
+        @endif
+      </div>
+      <button type="button" class="sb-verification-badge {{ $sellerIsVerified ? 'is-verified' : 'is-basic' }}" onclick="toggleSellerVerificationBadge(this)" title="{{ $sellerIsVerified ? 'Verified Seller — click to show label' : 'Not Verified — click to show label' }}" aria-label="{{ $sellerIsVerified ? 'Verified Seller' : 'Not Verified' }}">
+        <i class="bi {{ $sellerIsVerified ? 'bi-patch-check-fill' : 'bi-shield-exclamation' }}"></i><span>{{ $sellerIsVerified ? 'Verified Seller' : 'Not Verified' }}</span>
+      </button>
     </div>
     <div>
       <div class="sb-brand-text">{{ Str::limit($sellerShop?->shop_name ?? 'My Shop', 18) }}</div>
@@ -1547,9 +1560,6 @@
       <div class="sb-user-name">{{ Str::limit($fullname ?? $username, 16) }}</div>
       <div class="sb-user-role">Seller</div>
       <div class="sb-seller-meta">
-        @if($sellerIsVerified)
-          <span class="sb-seller-verified"><i class="bi bi-patch-check-fill"></i>Verified Seller</span>
-        @endif
         @if($sellerCommissionRate > 0)
           <button type="button" class="sb-commission-chip" onclick="sellerCommissionInfo({{ $sellerCommissionRate }})" title="Click to see how your commission works" aria-label="View {{ $sellerCommissionRate }} percent platform commission details">
             <i class="bi bi-info-circle-fill"></i>{{ number_format($sellerCommissionRate, 0) }}% platform fee
@@ -2667,6 +2677,10 @@ function sellerCommissionInfo(rate) {
     okLabel: 'Got it',
     showCancel: false
   });
+}
+function toggleSellerVerificationBadge(button) {
+  if (!button) return;
+  button.classList.toggle('is-expanded');
 }
 function csTrackPrompt() {
   _csDlgBuild({title:'Track Your Order',message:'Enter your order tracking code:',

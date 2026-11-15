@@ -639,7 +639,9 @@
         <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap">
           <div>
             <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#334155;margin-bottom:.25rem">Rider COD Remittance</div>
-            <div><strong>Amount collected:</strong> PHP {{ number_format((float)$remittance->amount, 2) }}</div>
+            <div><strong>Customer paid rider:</strong> PHP {{ number_format((float)($remittance->customer_collected_amount ?? $remittance->amount), 2) }}</div>
+            <div><strong>Cake amount to remit:</strong> PHP {{ number_format((float)($remittance->cake_remittance_amount ?? $remittance->amount), 2) }}</div>
+            @if((float)($remittance->delivery_fee_retained ?? 0) > 0)<div><strong>Rider keeps for delivery:</strong> PHP {{ number_format((float)$remittance->delivery_fee_retained, 2) }}</div>@endif
             <div><strong>Status:</strong> {{ ucfirst(str_replace('_', ' ', $remitStatus)) }}</div>
             @if($remittance->remittance_method)<div><strong>Method:</strong> {{ $remittance->remittance_method === 'gcash_paymongo' ? 'GCash QR via PayMongo' : ($remittance->remittance_method === 'gcash' ? 'GCash transfer' : 'Cash handover') }}</div>@endif
             @if(!empty($remittance->batch_id))<div><strong>Batch:</strong> Bulk remittance #{{ $remittance->batch_id }}</div>@endif
@@ -722,11 +724,11 @@
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">COD REMITTANCE REVIEW</div>
           <div style="font-size:.82rem;color:#1e40af;line-height:1.5;font-weight:600">
             @if(($remittance->status ?? '') === 'submitted')
-              Rider submitted PHP {{ number_format((float)$remittance->amount, 2) }}. Confirm only after you received the GCash transfer or cash handover.
+              Rider submitted PHP {{ number_format((float)($remittance->cake_remittance_amount ?? $remittance->amount), 2) }}. Confirm only after you received the GCash transfer or cash handover.
             @elseif(($remittance->status ?? '') === 'rejected')
               This remittance was rejected. You can confirm if the rider has already corrected it, or reject again with a clearer note.
             @else
-              Rider collected PHP {{ number_format((float)$remittance->amount, 2) }} COD. Confirm if the cash was already handed over to you, or reject to require rider submission/correction.
+              Rider collected COD cash. Confirm the cake remittance of PHP {{ number_format((float)($remittance->cake_remittance_amount ?? $remittance->amount), 2) }} after the rider hands it over; the delivery fee stays with the rider.
             @endif
           </div>
         </div>

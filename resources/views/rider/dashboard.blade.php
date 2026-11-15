@@ -276,8 +276,8 @@
               <div class="remit-orders">
                 @foreach($bulkRemittance['orders']->take(6) as $remitOrder)
                   <div class="remit-order">
-                    <div><strong>Order #{{ $remitOrder->order_id }}</strong> <span>{{ $remitOrder->product_name }}</span></div>
-                    <strong>PHP {{ number_format((float) $remitOrder->amount, 2) }}</strong>
+                    <div><strong>Order #{{ $remitOrder->order_id }}</strong> <span>{{ $remitOrder->product_name }}</span>@if((float)($remitOrder->delivery_fee_retained ?? 0) > 0)<small class="d-block text-muted">You keep PHP {{ number_format((float)$remitOrder->delivery_fee_retained, 2) }} delivery fee</small>@endif</div>
+                    <div class="text-end"><strong>PHP {{ number_format((float)($remitOrder->cake_remittance_amount ?? $remitOrder->amount), 2) }}</strong><small class="d-block text-muted">Remit to seller</small></div>
                   </div>
                 @endforeach
                 @if($bulkRemittance['orders']->count() > 6)
