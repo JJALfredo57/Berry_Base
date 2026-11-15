@@ -142,7 +142,7 @@
 </div>
 
 <section class="mb-4">
-  <div class="dashboard-section-heading"><div><h5>Money snapshot</h5><p>Open Finance for the reconciled earnings breakdown.</p></div><a href="{{ route('seller.finance') }}">Open Finance <i class="bi bi-arrow-right"></i></a></div>
+  <div class="dashboard-section-heading"><div><h5>Financial Overview</h5><p>Open Finance for the reconciled earnings breakdown.</p></div><a href="{{ route('seller.finance') }}">Open Finance <i class="bi bi-arrow-right"></i></a></div>
   <div class="seller-stats-grid cs-stagger">
     @foreach([
       ['bi-graph-up-arrow', 'Paid Sales', '₱'.number_format($stats['revenue'], 2), '#15803d', '#ecfdf5', route('seller.finance'), 'Paid, non-cancelled orders. Full deductions are in Finance.'],
