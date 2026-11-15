@@ -97,6 +97,51 @@ class PurchaseJourneyRenderingTest extends TestCase
         $this->assertDatabaseHas('order_refunds', ['order_id' => $order->id, 'status' => 'pending_seller_approval']);
     }
 
+    public function test_seller_cannot_directly_reject_a_paid_custom_order(): void
+    {
+        $this->prepareFixture();
+        $order = $this->createRegularOrder('GCash');
+        DB::table('orders')->where('id', $order->id)->update([
+            'order_type' => 'custom',
+            'status' => 'Confirmed',
+            'deposit_amount' => 300,
+            'deposit_status' => 'paid',
+            'payment_status' => 'Partial Payment',
+        ]);
+        DB::table('payment_transactions')->insert([
+            'order_id' => $order->id,
+            'track_code' => $order->track_code,
+            'type' => 'downpayment_gcash',
+            'method' => 'GCash',
+            'amount' => 250,
+            'order_total' => 500,
+            'remaining_balance' => 250,
+            'payment_status' => 'paid',
+            'provider' => 'PayMongo',
+            'paid_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('custom_orders')->insert([
+            'id' => 'PAIDCUSTOM',
+            'order_id' => $order->id,
+            'shop_id' => 'TESTSHOP',
+            'user_id' => 'TESTBUYER',
+            'cake_name' => 'Paid Custom Cake',
+            'review_status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $seller = ['user' => ['id' => 'TESTSELLER', 'role' => 'seller', 'fullname' => 'Test Seller']];
+        $this->withSession($seller)->post('/seller/custom-orders/PAIDCUSTOM/reject', [
+            'reason' => 'Unavailable date',
+        ])->assertRedirect()->assertSessionHas('err');
+
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'Confirmed']);
+        $this->assertDatabaseHas('custom_orders', ['id' => 'PAIDCUSTOM', 'review_status' => 'pending']);
+    }
+
     public function test_customer_deposit_qr_opens_in_a_responsive_modal(): void
     {
         $this->prepareFixture();

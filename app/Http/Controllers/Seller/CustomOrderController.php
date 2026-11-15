@@ -6,6 +6,7 @@ use App\Helpers\CakeshopHelper;
 use App\Helpers\SmsHelper;
 use App\Services\CustomerRiskService;
 use App\Services\MobileNotificationService;
+use App\Services\OrderRefundService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -223,15 +224,18 @@ class CustomOrderController extends Controller
             ->with('msg', 'Custom order approved with price ₱'.number_format($price,2).'.');
     }
 
-    public function reject(Request $request, string $id)
+    public function reject(Request $request, string $id, OrderRefundService $refunds)
     {
         $shop   = $this->getShop();
         $reason = trim($request->input('reason', ''));
         $co     = DB::table('custom_orders as co')->join('orders as o', 'o.id', '=', 'co.order_id')
-            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.id as id', 'o.user_id', 'o.guest_phone', 'o.guest_name', 'o.track_code', 'o.status as order_status')->first();
+            ->where('co.id', $id)->where('o.shop_id', $shop->id)->select('co.*', 'o.id as id', 'o.user_id', 'o.guest_phone', 'o.guest_name', 'o.track_code', 'o.status as order_status', 'o.payment_status', 'o.deposit_status', 'o.deposit_amount', 'o.total_price')->first();
         if (!$co) return back()->with('err', 'Not found.');
         if (($co->order_status ?? '') === 'Cancelled') return back()->with('err', 'This custom order was already cancelled by the customer.');
         if (!$reason) return back()->with('err', 'Please provide a reason.');
+        if ($refunds->hasPaidAmount($co)) {
+            return back()->with('err', 'This customer has already paid. Use Request Customer Cancellation in Orders so the customer can provide refund details and Super Admin can process the refund.');
+        }
         DB::table('custom_orders')->where('id', $id)->update(['review_status' => 'rejected', 'admin_comment' => $reason]);
         DB::table('orders')->where('id', $co->order_id)->update(['status' => 'Cancelled']);
         app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder((string) $co->order_id);

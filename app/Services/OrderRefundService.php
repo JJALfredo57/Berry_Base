@@ -18,6 +18,19 @@ class OrderRefundService
 
     public function paidAmount(object $order): float
     {
+        // Payment transactions are the financial source of truth whenever
+        // available. This prevents an unpaid COD balance from being refunded.
+        if (Schema::hasTable('payment_transactions')) {
+            $recordedAmount = (float) DB::table('payment_transactions')
+                ->where('order_id', $order->id)
+                ->where('payment_status', 'paid')
+                ->sum('amount');
+
+            if ($recordedAmount > 0) {
+                return round($recordedAmount, 2);
+            }
+        }
+
         if (($order->payment_status ?? '') === 'Paid') {
             return round((float) ($order->total_price ?? 0), 2);
         }
@@ -72,19 +85,36 @@ class OrderRefundService
 
     public function requestPaidRefund(object $order, array $data): object
     {
-        $paidAmount = $this->paidAmount($order);
-        $sellerId = !empty($order->shop_id)
-            ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id')
-            : null;
+        return DB::transaction(function () use ($order, $data) {
+            $freshOrder = DB::table('orders')->where('id', $order->id)->lockForUpdate()->first();
+            if (!$freshOrder) {
+                throw new \DomainException('Order not found while creating the refund request.');
+            }
 
-        return DB::transaction(function () use ($order, $data, $paidAmount, $sellerId) {
+            $activeRefundExists = DB::table('order_refunds')
+                ->where('order_id', $freshOrder->id)
+                ->whereIn('status', ['pending', 'pending_seller_approval', 'approved_for_admin_refund', 'processing'])
+                ->lockForUpdate()
+                ->exists();
+            if ($activeRefundExists) {
+                throw new \DomainException('A refund is already being processed for this order.');
+            }
+
+            $paidAmount = $this->paidAmount($freshOrder);
+            if ($paidAmount <= 0) {
+                throw new \DomainException('No confirmed payment is available to refund for this order.');
+            }
+
+            $sellerId = !empty($freshOrder->shop_id)
+                ? DB::table('shops')->where('id', $freshOrder->shop_id)->value('seller_id')
+                : null;
             $refundId = DB::table('order_refunds')->insertGetId([
-                'order_id' => $order->id,
-                'shop_id' => $order->shop_id ?? null,
+                'order_id' => $freshOrder->id,
+                'shop_id' => $freshOrder->shop_id ?? null,
                 'seller_user_id' => $sellerId,
-                'track_code' => $order->track_code ?? null,
-                'customer_name' => $order->guest_name ?? $data['customer_name'] ?? null,
-                'customer_phone' => $order->guest_phone ?? null,
+                'track_code' => $freshOrder->track_code ?? null,
+                'customer_name' => $freshOrder->guest_name ?? $data['customer_name'] ?? null,
+                'customer_phone' => $freshOrder->guest_phone ?? null,
                 'refund_gcash_name' => $data['refund_gcash_name'],
                 'refund_gcash_number' => $data['refund_gcash_number'],
                 'cancel_reason' => $data['cancel_reason'],
@@ -96,7 +126,7 @@ class OrderRefundService
                 'updated_at' => now(),
             ]);
 
-            DB::table('orders')->where('id', $order->id)->update([
+            DB::table('orders')->where('id', $freshOrder->id)->update([
                 'cancel_requested' => 1,
                 'cancel_reason' => $data['cancel_reason'],
                 'cancel_status' => 'pending',
@@ -106,8 +136,8 @@ class OrderRefundService
             ]);
 
             DB::table('order_tracking')->insert([
-                'order_id' => $order->id,
-                'status' => $order->status,
+                'order_id' => $freshOrder->id,
+                'status' => $freshOrder->status,
                 'notes' => 'Cancellation and refund request submitted. Customer refund recipient details are locked while seller approval is pending.',
                 'created_at' => now(),
             ]);
@@ -415,12 +445,26 @@ class OrderRefundService
         if (!Schema::hasTable('seller_payout_ledgers') || empty($order->shop_id)) return;
         if (!empty($refund->payout_ledger_id)) return;
 
+        // A pre-completion refund comes from held customer payment, not from a
+        // seller who has not received earnings. Only reverse seller funds that
+        // were already paid out for this specific order.
+        $releasedSellerEarnings = (float) DB::table('seller_payout_ledgers')
+            ->where('order_id', $order->id)
+            ->where('shop_id', $order->shop_id)
+            ->where('status', 'paid')
+            ->sum('seller_net_amount');
+
+        $amount = round(min(
+            max(0, $releasedSellerEarnings),
+            max(0, (float) ($refund->refund_amount ?? 0))
+        ), 2);
+        if ($amount <= 0) return;
+
         $ledgerKey = substr((string) $order->id . '-RF' . $refund->id, 0, 40);
         if (DB::table('seller_payout_ledgers')->where('order_id', $ledgerKey)->exists()) return;
 
         $shop = DB::table('shops')->where('id', $order->shop_id)->first();
-        $amount = round((float) ($refund->refund_amount ?? 0), 2);
-        if (!$shop || $amount <= 0) return;
+        if (!$shop) return;
 
         $ledgerId = DB::table('seller_payout_ledgers')->insertGetId([
             'order_id' => $ledgerKey,

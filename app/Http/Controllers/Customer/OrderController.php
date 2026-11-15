@@ -415,7 +415,7 @@ class OrderController extends Controller
             if ($refund) $refunds->notifyPaidRequest($order, $refund);
 
             CakeshopHelper::logActivity($uid, 'customer', 'Paid Order Cancellation Request', "Order #{$id}");
-            return back()->with('msg', 'Cancellation and refund request submitted. The seller must review it and record the refund receipt.');
+            return back()->with('msg', 'Cancellation and refund request submitted. The seller will review it, then Super Admin will process the refund and provide the receipt.');
         }
 
         DB::table('orders')->where('id', $id)->update([
