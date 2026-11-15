@@ -376,6 +376,9 @@
           @if($needsPickupAction)
             <span class="seller-action-pill"><i class="bi bi-exclamation-circle-fill"></i>Action needed</span>
           @endif
+          @if(($o->cancel_status ?? '') === 'pending_seller_approval')
+            <span class="seller-action-pill" style="background:#fff7ed;color:#9a3412;border-color:#fed7aa"><i class="bi bi-arrow-counterclockwise"></i>Refund request</span>
+          @endif
           @if($remittance)
             @php
               $remitLabel = match($remittance->status ?? 'pending') {
