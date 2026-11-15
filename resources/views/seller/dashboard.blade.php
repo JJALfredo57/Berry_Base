@@ -107,7 +107,7 @@
 <div class="seller-stats-grid mb-4 cs-stagger">
   @foreach([
     ['bi-clock',      'Pending',       $stats['pending'],                  '#E65100', '#fff3e0', route('seller.orders')],
-    ['bi-check2-circle','Confirmed',   $stats['confirmed'],                '#1565C0', '#e3f2fd', route('seller.orders')],
+    ['bi-check2-circle','Ready for Kitchen', $stats['confirmed'],           '#1565C0', '#e3f2fd', route('seller.orders')],
     ['bi-fire',       'Preparing',     $stats['preparing'],                '#6A1B9A', '#f3e5f5', route('seller.kitchen')],
     ['bi-bag-check',  'Total Orders',  number_format($stats['total']),     '#424242', '#f5f5f5', route('seller.orders')],
     ['bi-cash-stack', 'Revenue',       '₱'.number_format($stats['revenue'],2), '#2E7D32','#e8f5e9','#'],
@@ -118,7 +118,7 @@
   @php
     $statHelp = match($label) {
       'Pending' => 'New orders awaiting action',
-      'Confirmed' => 'Approved and ready to prepare',
+       'Ready for Kitchen' => 'Accepted orders waiting to be prepared',
       'Preparing' => 'Cake currently being made',
       'Total Orders' => 'All orders in your shop',
       default => null,
@@ -146,10 +146,12 @@
   <div class="seller-stats-grid cs-stagger">
     @foreach([
       ['bi-graph-up-arrow', 'Paid Sales', '₱'.number_format($stats['revenue'], 2), '#15803d', '#ecfdf5', route('seller.finance'), 'Paid, non-cancelled orders. Full deductions are in Finance.'],
-      ['bi-cash-stack', 'COD to Review', '₱'.number_format($stats['pending_remittance'] ?? 0, 2), '#B45309', '#fffbeb', route('seller.orders'), 'Cake amount only; rider delivery funds are excluded.'],
+      ['bi-cash-stack', 'COD Cash to Confirm', '₱'.number_format($stats['pending_remittance'] ?? 0, 2), '#B45309', '#fffbeb', route('seller.orders'), 'Confirm after you receive the cake payment from the rider.'],
       ['bi-bank', 'Available Payout', '₱'.number_format($payoutSummary['available'] ?? 0, 2), '#166534', '#ecfdf5', route('seller.payouts'), 'Amount currently eligible for payout request.'],
     ] as [$icon, $label, $val, $color, $bg, $link, $help])
-      <div class="seller-stat-item"><a href="{{ $link }}" style="text-decoration:none;display:block;height:100%"><div class="cs-stat-card h-100"><div class="cs-stat-icon" style="background:{{ $bg }}"><i class="bi {{ $icon }}" style="color:{{ $color }}"></i></div><div class="cs-stat-body"><div class="cs-stat-num" style="color:{{ $color }}">{{ $val }}</div><div class="cs-stat-label">{{ $label }}</div><div class="cs-stat-help">{{ $help }}</div></div></div></a></div>
+      @if($label !== 'COD Cash to Confirm' || (float)($stats['pending_remittance'] ?? 0) > 0)
+        <div class="seller-stat-item"><a href="{{ $link }}" style="text-decoration:none;display:block;height:100%"><div class="cs-stat-card h-100"><div class="cs-stat-icon" style="background:{{ $bg }}"><i class="bi {{ $icon }}" style="color:{{ $color }}"></i></div><div class="cs-stat-body"><div class="cs-stat-num" style="color:{{ $color }}">{{ $val }}</div><div class="cs-stat-label">{{ $label }}</div><div class="cs-stat-help">{{ $help }}</div></div></div></a></div>
+      @endif
     @endforeach
   </div>
 </section>
