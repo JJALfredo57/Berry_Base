@@ -136,31 +136,20 @@
                 <button class="btn-or-primary w-100" type="submit"><i class="bi bi-check-lg me-1"></i>Accept &amp; send to customer</button>
               </form>
             </details>
-            <details>
-              <summary><i class="bi bi-calendar-event me-1"></i>Suggest another schedule</summary>
-              <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2 suggest-schedule-form" data-validation-url="{{ route('seller.order_requests.schedule_validation', $req->id) }}" data-earliest-date="{{ $suggestionRules['earliest_date'] }}" data-prep-days="{{ $suggestionRules['prep_days'] }}" data-open-time="{{ $suggestionRules['open_time'] }}" data-close-time="{{ $suggestionRules['close_time'] }}" data-required-minutes="{{ $suggestionRules['required_minutes'] }}" data-customer-date="{{ $req->preferred_date }}" data-customer-time="{{ substr((string)$req->preferred_time,0,5) }}">
-                @csrf
-                <input type="hidden" name="action" value="suggest_schedule">
-                <div class="row g-2 mb-2"><div class="col-7"><input type="date" name="suggested_date" min="{{ max($suggestionRules['earliest_date'], $req->preferred_date) }}" class="form-control form-control-sm" required></div><div class="col-5"><input type="time" name="suggested_time" min="{{ $suggestionRules['open_time'] }}" max="{{ $suggestionRules['close_time'] }}" class="form-control form-control-sm" required></div></div>
-                <div class="small rounded-3 px-2 py-2 mb-2 schedule-validation-message" role="status" aria-live="polite" style="background:#f8fafc;min-height:38px"></div>
-                <textarea name="seller_response" class="form-control form-control-sm mb-2" minlength="5" maxlength="500" placeholder="Explain why this schedule is better" required></textarea>
-                <div class="small mb-2 schedule-reason-message" role="status" aria-live="polite"></div>
-                <button class="btn-or-soft w-100" type="submit" disabled>Send schedule</button>
-              </form>
-            </details>
             @if((bool) $req->allow_similar_cake)
             <details>
               <summary><i class="bi bi-shuffle me-1"></i>Offer alternative cake</summary>
               <form action="{{ route('seller.order_requests.update', $req->id) }}" method="POST" class="mt-2">
                 @csrf
                 <input type="hidden" name="action" value="offer_alternative">
-                <select name="alternative_product_id" class="form-select form-select-sm mb-2">
+                <div class="small rounded-3 p-2 mb-2" style="background:#f8fafc;color:#475569"><i class="bi bi-calendar-check me-1"></i>The customer’s requested date and time stay unchanged.</div>
+                <select name="alternative_product_id" class="form-select form-select-sm mb-2" required>
                   <option value="">Choose a catalog cake</option>
                   @foreach($alternativeProducts as $alt)
-                    <option value="{{ $alt->id }}">{{ $alt->name }}</option>
+                    @if((string) $alt->id !== (string) $req->product_id)<option value="{{ $alt->id }}">{{ $alt->name }}</option>@endif
                   @endforeach
                 </select>
-                <textarea name="seller_response" class="form-control form-control-sm mb-2" placeholder="Describe the alternative"></textarea>
+                <textarea name="seller_response" class="form-control form-control-sm mb-2" minlength="5" maxlength="500" placeholder="Describe the similar cake" required></textarea>
                 <button class="btn-or-soft w-100" type="submit">Offer fixed-price alternative</button>
               </form>
             </details>
@@ -209,100 +198,6 @@
   function tick(){ document.querySelectorAll('[data-countdown]').forEach(render); }
   tick();
   setInterval(tick, 1000);
-})();
-</script>
-<script>
-(() => {
-  const setMessage = (form, message, state) => {
-    const el = form.querySelector('.schedule-validation-message');
-    if (!el) return;
-    el.className = 'small mb-2 schedule-validation-message ' + (state === 'ok' ? 'text-success fw-semibold' : state === 'checking' ? 'text-muted' : 'text-danger fw-semibold');
-    el.style.background = state === 'ok' ? '#ecfdf5' : state === 'error' ? '#fef2f2' : '#f8fafc';
-    el.style.border = '1px solid ' + (state === 'ok' ? '#bbf7d0' : state === 'error' ? '#fecaca' : '#e2e8f0');
-    el.textContent = message;
-  };
-  const setReasonMessage = (form, message) => {
-    const el = form.querySelector('.schedule-reason-message');
-    if (!el) return;
-    el.className = 'small mb-2 schedule-reason-message ' + (message ? 'text-danger fw-semibold' : '');
-    el.textContent = message || '';
-  };
-  const check = form => {
-    const date = form.querySelector('[name="suggested_date"]')?.value || '';
-    const time = form.querySelector('[name="suggested_time"]')?.value || '';
-    const reason = (form.querySelector('[name="seller_response"]')?.value || '').trim();
-    const button = form.querySelector('button[type="submit"]');
-    const dateInput = form.querySelector('[name="suggested_date"]');
-    const timeInput = form.querySelector('[name="suggested_time"]');
-    const earliestDate = form.dataset.earliestDate || '';
-    const openMinutes = Number((form.dataset.openTime || '00:00').slice(0, 2)) * 60 + Number((form.dataset.openTime || '00:00').slice(3, 5));
-    const closeMinutes = Number((form.dataset.closeTime || '23:59').slice(0, 2)) * 60 + Number((form.dataset.closeTime || '23:59').slice(3, 5));
-    const timeMinutes = /^\d{2}:\d{2}$/.test(time) ? Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5)) : null;
-    const earliestTime = openMinutes + Number(form.dataset.requiredMinutes || 0);
-    const customerTimeMinutes = /^\d{2}:\d{2}$/.test(form.dataset.customerTime || '')
-      ? Number(form.dataset.customerTime.slice(0, 2)) * 60 + Number(form.dataset.customerTime.slice(3, 5))
-      : null;
-    const requiredTime = date === form.dataset.customerDate && customerTimeMinutes !== null
-      ? Math.max(earliestTime, customerTimeMinutes + 1)
-      : earliestTime;
-    timeInput.min = String(Math.floor(requiredTime / 60)).padStart(2, '0') + ':' + String(requiredTime % 60).padStart(2, '0');
-    dateInput?.setCustomValidity('');
-    timeInput?.setCustomValidity('');
-    if (!date) {
-      if (button) button.disabled = true;
-      setMessage(form, 'Choose a suggested date. This custom cake needs at least ' + (form.dataset.prepDays || 0) + ' preparation days.', 'checking');
-      return;
-    }
-    if (!time) {
-      if (button) button.disabled = true;
-      setMessage(form, 'Choose a time within current shop hours.', 'checking');
-      return;
-    }
-    let localError = '';
-    const customerSchedule = (form.dataset.customerDate || '') + 'T' + (form.dataset.customerTime || '');
-    const suggestedSchedule = date + 'T' + time;
-    if (customerSchedule.length === 16 && suggestedSchedule < customerSchedule) localError = 'Suggested schedule cannot be earlier than the customer’s requested date and time.';
-    else if (customerSchedule.length === 16 && suggestedSchedule === customerSchedule) localError = 'Choose a schedule different from the customer’s original request.';
-    else if (earliestDate && date < earliestDate) localError = 'This date is too soon. Earliest custom-cake date is ' + earliestDate + '.';
-    else if (timeMinutes === null || timeMinutes < openMinutes || timeMinutes > closeMinutes) localError = 'Choose a time within shop hours: ' + form.dataset.openTime + ' to ' + form.dataset.closeTime + '.';
-    else if (timeMinutes < requiredTime) localError = date === form.dataset.customerDate
-      ? 'For the same date, choose a time later than the customer’s requested time.'
-      : 'That time is too soon for preparation. Earliest available time is ' + String(Math.floor(requiredTime / 60)).padStart(2, '0') + ':' + String(requiredTime % 60).padStart(2, '0') + '.';
-    if (localError) {
-      if (date < earliestDate) dateInput?.setCustomValidity(localError); else timeInput?.setCustomValidity(localError);
-      if (button) button.disabled = true;
-      setMessage(form, localError, 'error');
-      return;
-    }
-    const reasonValid = reason.length >= 5;
-    setReasonMessage(form, reasonValid ? '' : 'Add at least 5 characters explaining why this schedule change is needed.');
-    const key = date + '|' + time;
-    form.dataset.validationKey = key;
-    if (button) button.disabled = true;
-    setMessage(form, 'Checking current preparation, shop hours, and kitchen capacity...', 'checking');
-    fetch(form.dataset.validationUrl + '?suggested_date=' + encodeURIComponent(date) + '&suggested_time=' + encodeURIComponent(time), { headers: { Accept: 'application/json' }, cache: 'no-store' })
-      .then(async response => ({ response, data: await response.json() }))
-      .then(({ response, data }) => {
-        if (form.dataset.validationKey !== key) return;
-        const valid = response.ok && data.ok;
-        if (button) button.disabled = !valid || !reasonValid;
-        setMessage(form, data.message || (valid ? 'Schedule is available.' : 'Schedule is unavailable.'), valid ? 'ok' : 'error');
-      })
-      .catch(() => {
-        if (form.dataset.validationKey !== key) return;
-        if (button) button.disabled = true;
-        setMessage(form, 'Could not verify the latest shop settings. Please try again.', 'error');
-      });
-  };
-  document.querySelectorAll('.suggest-schedule-form').forEach(form => {
-    ['input', 'change'].forEach(eventName => form.addEventListener(eventName, () => check(form)));
-    form.addEventListener('submit', event => {
-      if (!form.querySelector('button[type="submit"]')?.disabled) return;
-      event.preventDefault();
-      check(form);
-    });
-    check(form);
-  });
 })();
 </script>
 <script>

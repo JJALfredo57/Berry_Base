@@ -83,17 +83,7 @@ class OrderRequestController extends Controller
             ->select('id', 'name')
             ->get();
 
-        $scheduleSettings = app(FulfillmentScheduleService::class)->settings($shop->id);
-        $prepSettings = app(\App\Services\PreparationWindowService::class)->settings($shop->id);
-        $suggestionRules = [
-            'earliest_date' => app(\App\Services\PreparationWindowService::class)->earliestDate($shop->id, 'custom')->toDateString(),
-            'prep_days' => (int) $prepSettings->custom_cake_prep_days,
-            'open_time' => substr((string) $scheduleSettings->shop_open_time, 0, 5),
-            'close_time' => substr((string) $scheduleSettings->shop_close_time, 0, 5),
-            'required_minutes' => app(FulfillmentScheduleService::class)->requiredLeadMinutes($shop->id, 'custom', 'Pickup'),
-        ];
-
-        return view('seller.order_requests', compact('shop', 'requests', 'counts', 'tab', 'search', 'alternativeProducts', 'suggestionRules'));
+        return view('seller.order_requests', compact('shop', 'requests', 'counts', 'tab', 'search', 'alternativeProducts'));
     }
 
     public function update(Request $request, string $id, OrderRequestService $service)
@@ -137,29 +127,28 @@ class OrderRequestController extends Controller
             if ($response === '') return back()->with('err', 'Please provide a reason for declining.')->withInput();
             $data['status'] = 'declined';
             $message = 'Request declined.';
-        } elseif ($action === 'suggest_schedule') {
-            if (!$request->input('suggested_date') || !$request->input('suggested_time')) {
-                return back()->with('err', 'Please provide suggested date and time.')->withInput();
-            }
-            if (mb_strlen($response) < 5) {
-                return back()->with('err', 'Explain why this alternative schedule is needed.')->withInput();
-            }
-            $data['status'] = 'schedule_suggested';
-            $data['suggested_date'] = $request->input('suggested_date');
-            $data['suggested_time'] = substr((string) $request->input('suggested_time'), 0, 5);
-            $scheduleCheck = $this->checkSuggestedSchedule($shop, $orderRequest, $data['suggested_date'], $data['suggested_time']);
-            if (!$scheduleCheck['ok']) return back()->with('err', $scheduleCheck['message'])->withInput();
-            $data['action_expires_at'] = $service->actionDeadline();
-            $message = 'Suggested schedule sent.';
         } elseif ($action === 'offer_alternative') {
             if (!$orderRequest->allow_similar_cake) {
                 return back()->with('err', 'The customer did not allow a similar cake for this request.')->withInput();
             }
-            if (!$request->input('alternative_product_id')) {
+            $alternativeProductId = trim((string) $request->input('alternative_product_id'));
+            if ($alternativeProductId === '') {
                 return back()->with('err', 'Please choose an available alternative cake from your catalog.')->withInput();
             }
+            if ($alternativeProductId === (string) $orderRequest->product_id) {
+                return back()->with('err', 'Choose a different cake as the alternative.')->withInput();
+            }
+            $alternativeProduct = DB::table('products')
+                ->where('id', $alternativeProductId)
+                ->where('shop_id', $shop->id)
+                ->where('is_available', true)
+                ->whereNull('archived_at')
+                ->first();
+            if (!$alternativeProduct) {
+                return back()->with('err', 'Choose an active, available cake from your own catalog.')->withInput();
+            }
             $data['status'] = 'alternative_offered';
-            $data['alternative_product_id'] = $request->input('alternative_product_id') ?: null;
+            $data['alternative_product_id'] = $alternativeProduct->id;
             $data['action_expires_at'] = $service->actionDeadline();
             $message = 'Alternative offer sent.';
         } elseif ($action === 'needs_more_details') {

@@ -107,6 +107,7 @@ class OrderRequestService
         $product = DB::table('products')
             ->where('id', $productId)
             ->where('shop_id', $row->shop_id ?? null)
+            ->where('is_available', true)
             ->whereNull('archived_at')
             ->first();
 
