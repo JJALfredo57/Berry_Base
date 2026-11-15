@@ -27,7 +27,6 @@
 <div class="finance-grid">
   <article class="finance-card" tabindex="0"><div class="finance-label">Collected sales</div><div class="finance-value">₱{{ number_format($gross,2) }}</div><div class="finance-help">Money collected for delivered eligible orders</div></article>
   <article class="finance-card" tabindex="0"><div class="finance-label">Delivery fund</div><div class="finance-value">₱{{ number_format($deliveryFund ?? 0,2) }}</div><div class="finance-help">Separate seller-managed delivery amount</div></article>
-  <article class="finance-card" tabindex="0"><div class="finance-label">Platform commission</div><div class="finance-value finance-negative">−₱{{ number_format($commission,2) }}</div><div class="finance-help">Your shop's commission only</div></article>
   <article class="finance-card" tabindex="0"><div class="finance-label">Net marketplace earnings</div><div class="finance-value finance-positive">₱{{ number_format($netEarnings,2) }}</div><div class="finance-help">After commission and refund deductions</div></article>
   <article class="finance-card" tabindex="0"><div class="finance-label">Estimated profit</div><div class="finance-value {{ $netEarnings-$expenseTotal >= 0 ? 'finance-positive' : 'finance-negative' }}">₱{{ number_format($netEarnings-$expenseTotal,2) }}</div><div class="finance-help">Net earnings − your recorded expenses</div></article>
 </div>
