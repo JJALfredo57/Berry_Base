@@ -40,9 +40,10 @@ class PayoutReceiptScanService
         $reference = $this->reference($compact);
         $amounts = $this->amounts($compact);
         $expected = number_format((float) $refund->refund_amount, 2, '.', '');
-        $number = preg_replace('/\D/', '', (string) ($refund->refund_gcash_number ?? ''));
+        $number = $this->normalizedPhilippineMobile((string) ($refund->refund_gcash_number ?? ''));
         $name = strtoupper(trim((string) ($refund->refund_gcash_name ?? '')));
-        $recipientMatch = ($number !== '' && str_contains(preg_replace('/\D/', '', $compact), ltrim($number, '63')))
+        $receiptDigits = preg_replace('/\D/', '', $compact);
+        $recipientMatch = ($number !== '' && str_contains($receiptDigits, $number))
             || ($name !== '' && str_contains($compact, $name));
         $receiptHint = $this->receiptHint($compact);
         if (!$receiptHint && !$reference) {
@@ -136,6 +137,14 @@ class PayoutReceiptScanService
             return strlen($reference) >= 6 ? $reference : null;
         }
         return null;
+    }
+
+    private function normalizedPhilippineMobile(string $value): string
+    {
+        $digits = preg_replace('/\D/', '', $value);
+        if (str_starts_with($digits, '63')) $digits = substr($digits, 2);
+        if (str_starts_with($digits, '0')) $digits = substr($digits, 1);
+        return preg_match('/^9\d{9}$/', $digits) ? $digits : '';
     }
     private function amounts(string $text): array
     {
