@@ -166,7 +166,7 @@
       <p class="hello">{{ $greeting }},</p>
       <h1>{{ $firstName }}</h1>
       <p class="sub">
-        <span class="live" id="liveState">Live</span>
+        <span class="live" id="liveState" hidden>Live</span>
         @if($rider->phone)<span>{{ $rider->phone }}</span>@endif
       </p>
     </div>
