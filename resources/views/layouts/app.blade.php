@@ -806,13 +806,15 @@
     .sb-commission-chip { border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);color:#e2e8f0;cursor:pointer;font-family:inherit; }
     .sb-commission-chip:hover,.sb-commission-chip:focus-visible { background:rgba(255,255,255,.16);color:#fff;outline:none; }
     .sb-brand-logo-wrap { position:relative;flex-shrink:0; }
-    .sb-verification-badge { position:absolute;right:-8px;bottom:-7px;z-index:2;width:18px;height:18px;padding:0;border:1.5px solid var(--sidebar-bg,#111827);border-radius:50%;color:#ecfdf3;cursor:pointer;white-space:nowrap;font-family:inherit;font-size:.58rem;font-weight:800;line-height:1; }
-    .sb-verification-badge.is-verified { background:#4f8f6b; }
-    .sb-verification-badge.is-basic { background:#a8793e;color:#fff8eb; }
+    .sb-verification-badge { position:absolute;right:-8px;bottom:-7px;z-index:2;width:18px;height:18px;padding:0;border:0;border-radius:0;background:transparent;color:#ecfdf3;cursor:pointer;white-space:nowrap;font-family:inherit;font-size:.58rem;font-weight:800;line-height:1; }
+    .sb-verification-badge.is-verified { color:#78b992; }
+    .sb-verification-badge.is-basic { color:#c69a60; }
     .sb-verification-badge i { position:absolute;inset:0;font-size:.66rem;display:flex;align-items:center;justify-content:center; }
     .sb-verification-badge span { position:absolute;left:calc(100% + 5px);top:50%;transform:translate(-5px,-50%);max-width:0;padding:4px 0;border-radius:999px;overflow:hidden;opacity:0;pointer-events:none;background:rgba(15,23,42,.92);color:#fff;box-shadow:0 5px 14px rgba(0,0,0,.24);transition:max-width .24s ease,opacity .16s ease,transform .24s ease,padding .24s ease; }
     .sb-verification-badge:hover,.sb-verification-badge:focus-visible { outline:2px solid rgba(255,255,255,.65);outline-offset:2px; }
     .sb-verification-badge:hover span,.sb-verification-badge:focus-visible span,.sb-verification-badge.is-expanded span { max-width:100px;padding:4px 8px;opacity:1;transform:translate(0,-50%); }
+    .sb-user-name { display:flex;align-items:baseline;gap:5px; }
+    .sb-user-inline-role { color:rgba(255,255,255,.48);font-size:.63rem;font-weight:500; }
 
     #adminMain { margin-left:var(--sidebar-w);transition:margin-left .25s cubic-bezier(.4,0,.2,1);min-height:100vh;display:flex;flex-direction:column;position:relative;z-index:1; }
     #adminMain.expanded { margin-left:var(--sidebar-coll); }
@@ -1557,8 +1559,7 @@
       <span class="nav-avatar-fallback">{{ strtoupper(substr($fullname??'S',0,1)) }}</span>
     @endif
     <div class="sb-user-info">
-      <div class="sb-user-name">{{ Str::limit($fullname ?? $username, 16) }}</div>
-      <div class="sb-user-role">Seller</div>
+      <div class="sb-user-name">{{ Str::limit($fullname ?? $username, 16) }}<span class="sb-user-inline-role">Seller</span></div>
       <div class="sb-seller-meta">
         @if($sellerCommissionRate > 0)
           <button type="button" class="sb-commission-chip" onclick="sellerCommissionInfo({{ $sellerCommissionRate }})" title="Click to see how your commission works" aria-label="View {{ $sellerCommissionRate }} percent platform commission details">
