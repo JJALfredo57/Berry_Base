@@ -49,6 +49,9 @@ return Application::configure(basePath: dirname(__DIR__))
                     'errors' => $e->errors(),
                 ], 422);
             }
+            return redirect()->back()
+                ->withErrors($e->validator)
+                ->withInput($request->except(['photos', 'video']));
         });
 
         // Model not found -> 404
