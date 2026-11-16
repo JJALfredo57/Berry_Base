@@ -394,6 +394,7 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::post('/orders/{id}/cancel-request',     [CustomerOrder::class, 'requestCancel'])->name('orders.cancel_request');
     Route::get('/orders/{id}/return-request', [\App\Http\Controllers\Customer\PostDeliveryReturnController::class, 'create'])->name('returns.create');
     Route::post('/orders/{id}/return-request', [\App\Http\Controllers\Customer\PostDeliveryReturnController::class, 'store'])->middleware('throttle:5,10')->name('returns.store');
+    Route::post('/orders/{id}/accept-pickup', [\App\Http\Controllers\Customer\PostDeliveryReturnController::class, 'acceptPickup'])->name('orders.accept_pickup');
     Route::post('/orders/{id}/seller-cancel-response', [CustomerOrder::class, 'respondToSellerCancellation'])->name('orders.seller_cancel_response');
     Route::post('/orders/{id}/review',             [CustomerReview::class, 'store'])->name('orders.review');
 

@@ -13,6 +13,7 @@ class PostDeliveryReturnService
 
     public function eligibility(object $order): array
     {
+        if (($order->fulfillment_type ?? '') === 'Pickup' && ($order->status ?? '') === 'Pickup') return [true, null];
         if (!in_array((string) ($order->status ?? ''), ['Delivered', 'Picked Up'], true)) return [false, 'Only delivered or picked-up orders can be reported.'];
         $deliveredAt = $order->delivered_at ?? $order->updated_at ?? null;
         if (!$deliveredAt || Carbon::parse($deliveredAt)->addHours(2)->isPast()) return [false, 'The two-hour post-delivery reporting window has expired.'];

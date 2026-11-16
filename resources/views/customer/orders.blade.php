@@ -1417,6 +1417,10 @@
         @endif
 
         {{-- CANCEL REQUEST BUTTON --}}
+        @if(($o->fulfillment_type ?? '') === 'Pickup' && $o->status === 'Pickup' && empty($o->pickup_inspected_at))
+          <form method="POST" action="{{ route('customer.orders.accept_pickup', $o->id) }}" class="d-inline" data-prevent-double-submit>@csrf<button class="btn btn-success btn-sm" type="submit"><i class="bi bi-check2-circle me-1"></i>Inspect & Accept Cake</button></form>
+          <a class="btn btn-outline-danger btn-sm" href="{{ route('customer.returns.create', $o->id) }}"><i class="bi bi-exclamation-triangle me-1"></i>Report pickup issue</a>
+        @endif
         @if(in_array($o->status, ['Delivered','Picked Up']))
           <a class="btn btn-outline-danger btn-sm" href="{{ route('customer.returns.create', $o->id) }}"><i class="bi bi-exclamation-triangle me-1"></i>Report an issue</a>
         @endif

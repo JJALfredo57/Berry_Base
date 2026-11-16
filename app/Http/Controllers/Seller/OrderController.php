@@ -347,6 +347,10 @@ class OrderController extends Controller
             return back()->with('err', 'Cannot mark as Picked Up ‚‚ customer still has an unpaid balance. Payment must be completed first.');
         }
 
+        if ($newStatus === 'Picked Up' && empty($order->pickup_inspected_at)) {
+            return back()->with('err', 'Customer must inspect and accept the cake at the pickup counter before you can mark it as Picked Up.');
+        }
+
         $upd = [
             'status'        => $newStatus,
             'cancel_reason' => $newStatus === 'Cancelled' ? $request->input('cancel_reason') : $order->cancel_reason,

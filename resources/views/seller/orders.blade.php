@@ -839,7 +839,7 @@
             && in_array(strtoupper((string)($o->payment_method ?? '')), ['COP', 'COD']);
         $canConfirmPickup = $o->payment_status === 'Paid' || $isCashPickup;
       @endphp
-      @if($canConfirmPickup)
+      @if($canConfirmPickup && !empty($o->pickup_inspected_at))
       <div style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#f0fdf4 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
         <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
           <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -872,6 +872,8 @@
           </button>
         </form>
       </div>
+      @elseif($canConfirmPickup)
+        <div style="margin-left:auto;font-size:.8rem;color:#92400e;font-weight:700"><i class="bi bi-hourglass-split me-1"></i>Waiting for customer inspection and acceptance at the counter.</div>
       @else
       <div data-pickup-payment-wait="{{ $o->id }}" style="border-top:1px solid var(--gray-100);padding:.9rem 1.25rem;background:linear-gradient(135deg,#fffbeb 0%,#f8fafc 100%);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
         <div style="display:flex;align-items:flex-start;gap:.75rem;flex:1;min-width:260px">
