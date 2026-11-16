@@ -90,13 +90,28 @@ class PostDeliveryReturnService
             if (!$case || $case->status !== 'approved') throw new \DomainException('This case is not approved for refund.');
             if (DB::table('post_delivery_return_cases')->where('id', '<>', $caseId)->where('refund_reference', $reference)->exists()) throw new \DomainException('This refund reference is already used.');
             $ledger = $case->held_ledger_id ? DB::table('seller_payout_ledgers')->where('id', $case->held_ledger_id)->lockForUpdate()->first() : null;
-            if ($ledger && in_array($ledger->status, ['requested', 'processing'], true)) throw new \DomainException('Seller payout is already in processing. Resolve the payout settlement before sending this refund.');
-            $sellerRecovery = 0.0;
-            if ($ledger && $ledger->status === 'paid') {
-                $sellerRecovery = min((float) $ledger->seller_net_amount, (float) $case->approved_amount);
-                if ($sellerRecovery > 0) DB::table('seller_payout_ledgers')->insert(['order_id' => substr($case->order_id . '-RT' . $caseId, 0, 40), 'shop_id' => $case->shop_id, 'seller_id' => $case->seller_user_id, 'gross_amount' => 0, 'commission_base' => 0, 'commission_rate' => 0, 'commission_amount' => 0, 'seller_net_amount' => -$sellerRecovery, 'status' => 'available', 'notes' => 'Post-delivery refund recovery for ' . $case->case_number, 'created_at' => now(), 'updated_at' => now()]);
-            } elseif ($ledger) {
-                DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update(['status' => 'refunded', 'notes' => 'Customer refunded through ' . $case->case_number, 'updated_at' => now()]);
+            // The platform pays the customer first. Seller-fault recoveries are a
+            // separate negative clearing entry, so a refund never waits for the
+            // seller's current payout balance and historical paid payouts remain immutable.
+            $sellerRecovery = $case->liability === 'seller' ? round((float) $case->approved_amount, 2) : 0.0;
+            if ($ledger && $case->payout_hold_status === 'held') {
+                DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update([
+                    'status' => $case->ledger_status_before_hold ?: 'available',
+                    'notes' => 'Original earnings restored; refund recovery is recorded separately.',
+                    'updated_at' => now(),
+                ]);
+            }
+            if ($sellerRecovery > 0) {
+                $recoveryKey = substr($case->order_id . '-RT' . $caseId, 0, 40);
+                if (!DB::table('seller_payout_ledgers')->where('order_id', $recoveryKey)->exists()) {
+                    DB::table('seller_payout_ledgers')->insert([
+                        'order_id' => $recoveryKey, 'shop_id' => $case->shop_id, 'seller_id' => $case->seller_user_id,
+                        'gross_amount' => 0, 'commission_base' => 0, 'commission_rate' => 0, 'commission_amount' => 0,
+                        'seller_net_amount' => -$sellerRecovery, 'status' => 'clearing', 'release_at' => now()->addDays(3),
+                        'notes' => 'Platform-funded customer refund recovery for ' . $case->case_number,
+                        'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                }
             }
             DB::table('post_delivery_return_cases')->where('id', $caseId)->update(['status' => 'refunded', 'seller_recovery_amount' => $sellerRecovery, 'platform_cost_amount' => max(0, round((float) $case->approved_amount - $sellerRecovery, 2)), 'refund_reference' => $reference, 'refund_receipt_path' => $receiptPath, 'refund_receipt_hash' => $receiptHash, 'refunded_at' => now(), 'refunded_by_user_id' => $adminId, 'updated_at' => now()]);
         });
