@@ -196,6 +196,8 @@
         </div>
       </section>
 
+      <section class="section" aria-label="Delivery earnings"><div class="section-head"><h2><i class="bi bi-cash-coin" style="color:#16a34a"></i>Delivery earnings</h2></div><div class="remit-hub"><div class="remit-head"><div><div class="remit-kicker">Available delivery fees</div><div class="remit-total">PHP {{ number_format($deliveryEarningSummary['available'],2) }}</div><div class="remit-copy">Online-paid delivery fees and approved return trips are available for payout.</div></div><div class="remit-actions"><button class="btn btn-pay" type="button" onclick="openPayoutModal()" {{ $deliveryEarningSummary['available'] > 0 ? '' : 'disabled' }}>Request payout</button><div class="order-note">Pending: PHP {{ number_format($deliveryEarningSummary['requested'],2) }}</div></div></div></div></section>
+
       <section class="section" aria-label="Needs your response">
         <div class="section-head">
           <h2><i class="bi bi-bell-fill" style="color:#ea580c"></i>Needs your response @if($pendingOrders->count())<span class="count-pill">{{ $pendingOrders->count() }}</span>@endif</h2>
@@ -298,6 +300,7 @@
         @endif
       </section>
     </div>
+    <div class="modal" id="payoutModal" role="dialog" aria-modal="true" aria-labelledby="payoutTitle"><form class="sheet" method="POST" action="{{ route('rider.payouts.request') }}" data-once>@csrf<h3 id="payoutTitle">Request delivery-fee payout</h3><p>Available amount: <strong>PHP {{ number_format($deliveryEarningSummary['available'],2) }}</strong></p><label>GCash account name</label><input class="note-input" name="gcash_name" required minlength="2" maxlength="160" value="{{ old('gcash_name',$rider->gcash_name ?? $rider->name) }}"><label class="mt-2"><input type="radio" name="number_source" value="linked" checked> Use linked number</label><label><input type="radio" name="number_source" value="other"> Use another number</label><input class="note-input" name="gcash_number" required inputmode="tel" value="{{ old('gcash_number',$rider->gcash_number ?? $rider->phone) }}" placeholder="09XXXXXXXXX"><div class="small text-muted mt-1">Accepts 09, 9, +639, or 639 formats; saved as +63.</div><label class="mt-2"><input type="checkbox" name="confirmation" value="1" required> I confirm these GCash details are correct.</label><div class="row"><button class="btn btn-outline" type="button" onclick="closePayoutModal()">Cancel</button><button class="btn btn-pay" type="submit">Request payout</button></div></form></div>
   </main>
 
   <div class="modal" id="declineModal" role="dialog" aria-modal="true" aria-labelledby="declineTitle">
@@ -456,5 +459,6 @@
     window.addEventListener('online', function () { poll(true); });
     tickCountdowns();
   </script>
+<script>function openPayoutModal(){document.getElementById('payoutModal')?.classList.add('open');document.body.style.overflow='hidden'}function closePayoutModal(){document.getElementById('payoutModal')?.classList.remove('open');document.body.style.overflow=''}document.addEventListener('keydown',e=>{if(e.key==='Escape')closePayoutModal()});</script>
 </body>
 </html>

@@ -123,9 +123,21 @@ class RiderController extends Controller
         $deliveryMessageOrders = app(\App\Services\DeliveryMessageService::class)->riderSummaries((int) $rider->id, $orders);
         $unremitted = $this->riderUnremittedSummary((int) $rider->id);
         $bulkRemittance = $this->riderBulkRemittanceSummary((int) $rider->id);
+        $deliveryEarnings = Schema::hasTable('rider_delivery_earnings') ? DB::table('rider_delivery_earnings')->where('rider_id',$rider->id)->get() : collect();
+        $deliveryPayouts = Schema::hasTable('rider_payout_requests') ? DB::table('rider_payout_requests')->where('rider_id',$rider->id)->orderByDesc('id')->limit(5)->get() : collect();
+        $deliveryEarningSummary = ['available'=>(float)$deliveryEarnings->where('status','available')->sum('amount'),'requested'=>(float)$deliveryEarnings->where('status','requested')->sum('amount'),'paid'=>(float)$deliveryEarnings->where('status','paid')->sum('amount')];
         $settings = CakeshopHelper::getSettings();
 
-        return view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'settings', 'lat', 'lng'));
+        return view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'deliveryEarnings','deliveryPayouts','deliveryEarningSummary','settings', 'lat', 'lng'));
+    }
+
+    public function requestDeliveryPayout(Request $request)
+    {
+        $rider=$this->sessionRider(); if(!$rider) return redirect()->route('login');
+        $data=$request->validate(['gcash_name'=>['required','string','min:2','max:160'],'gcash_number'=>['required','string','max:30'],'confirmation'=>['accepted']]);
+        $digits=preg_replace('/\D/','',$data['gcash_number']); if(str_starts_with($digits,'0'))$digits='63'.substr($digits,1); elseif(str_starts_with($digits,'9'))$digits='63'.$digits; if(!preg_match('/^639\d{9}$/',$digits))return back()->withInput()->with('err','Enter a valid Philippine GCash number.');
+        try { DB::transaction(function()use($rider,$data,$digits){$earnings=DB::table('rider_delivery_earnings')->where('rider_id',$rider->id)->where('status','available')->lockForUpdate()->get();$amount=round((float)$earnings->sum('amount'),2);if($amount<=0)throw new \DomainException('No delivery earnings are available for payout.');$id=DB::table('rider_payout_requests')->insertGetId(['rider_id'=>$rider->id,'amount'=>$amount,'gcash_name'=>trim($data['gcash_name']),'gcash_number'=>'+'.$digits,'status'=>'requested','created_at'=>now(),'updated_at'=>now()]);DB::table('rider_delivery_earnings')->whereIn('id',$earnings->pluck('id'))->update(['status'=>'requested','updated_at'=>now()]);DB::table('riders')->where('id',$rider->id)->update(['gcash_name'=>trim($data['gcash_name']),'gcash_number'=>'+'.$digits,'updated_at'=>now()]);if(Schema::hasTable('notifications'))DB::table('notifications')->insert(['receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'Rider payout request','message'=>"Rider {$rider->name} requested delivery-fee payout of PHP ".number_format($amount,2).'.','is_read'=>false,'created_at'=>now()]);}); } catch(\DomainException $e){return back()->with('err',$e->getMessage());}
+        return back()->with('msg','Delivery-fee payout request submitted.');
     }
 
     /** Lightweight poll target so the dashboard can refresh itself when assignments change. */
@@ -456,6 +468,7 @@ class RiderController extends Controller
             // delivery/payment settlement is recorded, rather than waiting for
             // the hourly safety sync.
             app(\App\Services\SellerPayoutService::class)->syncDeliveredPaidOrders();
+            $this->recordOnlineDeliveryEarning($freshOrder, null, 'online_payment');
             app(LoyaltyService::class)->awardForCompletedOrder($freshOrder);
             $remittance = $this->createCashRemittanceIfNeeded($order);
 
@@ -1485,6 +1498,15 @@ class RiderController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Rider remittance seller notification failed: ' . $e->getMessage());
         }
+    }
+
+    private function recordOnlineDeliveryEarning(object $order, ?int $returnCaseId, string $source): void
+    {
+        if (!Schema::hasTable('rider_delivery_earnings') || empty($order->rider_id) || (float)($order->delivery_fee ?? 0) <= 0) return;
+        $online=(float)DB::table('payment_transactions')->where('order_id',$order->id)->where('payment_status','paid')->where('method','GCash')->sum('amount');
+        if($online <= 0) return;
+        $key=$order->id.'-'.$source.'-'.($returnCaseId ?? 0);
+        DB::table('rider_delivery_earnings')->updateOrInsert(['event_key'=>$key],['rider_id'=>$order->rider_id,'order_id'=>$order->id,'return_case_id'=>$returnCaseId,'amount'=>min((float)$order->delivery_fee,$online),'source'=>$source,'status'=>'available','updated_at'=>now(),'created_at'=>now()]);
     }
 
     private function createCashRemittanceIfNeeded(object $order): ?object

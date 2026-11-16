@@ -161,7 +161,8 @@ class PayoutController extends Controller
             ->select('l.*', 's.shop_name', 'payments.online_paid', 'payments.cash_paid')
             ->orderByDesc('l.created_at')->limit(50)->get();
 
-        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows'));
+        $riderPayoutRequests=Schema::hasTable('rider_payout_requests')?DB::table('rider_payout_requests as rp')->join('riders as r','r.id','=','rp.rider_id')->select('rp.*','r.name as rider_name')->orderByRaw("CASE WHEN rp.status='requested' THEN 0 ELSE 1 END")->orderByDesc('rp.id')->limit(30)->get():collect();
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows','riderPayoutRequests'));
     }
 
     public function saveSettings(Request $request)
@@ -381,6 +382,8 @@ class PayoutController extends Controller
         return back()->with('msg', "Refund #{$refundId} marked as completed.");
     }
 
+    public function scanRiderPayoutReceipt(Request $request,int $id){$request->validate(['receipt'=>'required|image|mimes:jpg,jpeg,png,webp|max:5120']);$p=DB::table('rider_payout_requests')->where('id',$id)->where('status','requested')->first();if(!$p)return response()->json(['ok'=>false,'errors'=>['Request unavailable.']],422);$scan=$this->receiptScanner->scanRefund($request->file('receipt'),(object)['id'=>0,'refund_amount'=>$p->amount,'refund_gcash_name'=>$p->gcash_name,'refund_gcash_number'=>$p->gcash_number]);return response()->json($scan,$scan['ok']?200:422);}
+    public function markRiderPayoutPaid(Request $request,int $id){$request->validate(['receipt'=>'required|image|mimes:jpg,jpeg,png,webp|max:5120','reference_number'=>'required|string|min:6|max:120']);$p=DB::table('rider_payout_requests')->where('id',$id)->where('status','requested')->first();if(!$p)return back()->with('err','Rider payout request unavailable.');$scan=$this->receiptScanner->scanRefund($request->file('receipt'),(object)['id'=>0,'refund_amount'=>$p->amount,'refund_gcash_name'=>$p->gcash_name,'refund_gcash_number'=>$p->gcash_number]);if(!$scan['ok']||!hash_equals((string)$scan['reference_number'],trim($request->reference_number)))return back()->with('err',implode(' ',$scan['errors']??['Receipt verification failed.']));$path=$this->uploadFile($request->file('receipt'),'uploads/rider_payout_receipts');DB::transaction(function()use($p,$path,$scan){DB::table('rider_payout_requests')->where('id',$p->id)->update(['status'=>'paid','reference_number'=>$scan['reference_number'],'receipt_path'=>$path,'paid_at'=>now(),'paid_by_user_id'=>session('user')['id']??null,'updated_at'=>now()]);DB::table('rider_delivery_earnings')->where('rider_id',$p->rider_id)->where('status','requested')->update(['status'=>'paid','updated_at'=>now()]);});return back()->with('msg','Rider delivery-fee payout marked paid.');}
     public function runAutomatic()
     {
         return back()->with('err', 'Automatic payouts are not available yet. Manual payouts remain active while business verification and payout provider access are being prepared.');

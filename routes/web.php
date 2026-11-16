@@ -314,6 +314,7 @@ Route::get('/rider/password/setup', [\App\Http\Controllers\RiderController::clas
 Route::post('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetupUpdate'])->name('rider.password.setup.update');
 Route::get('/rider/dashboard', [\App\Http\Controllers\RiderController::class, 'dashboard'])->name('rider.dashboard');
 Route::get('/rider/dashboard/feed', [\App\Http\Controllers\RiderController::class, 'dashboardFeed'])->name('rider.dashboard.feed');
+Route::post('/rider/payout-requests', [\App\Http\Controllers\RiderController::class, 'requestDeliveryPayout'])->name('rider.payouts.request');
 Route::get('/rider/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'riderIndex'])->name('rider.delivery_messages.index');
 Route::post('/rider/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'riderSend'])->name('rider.delivery_messages.send');
 Route::post('/rider/orders/{orderId}/delivery-messages/read', [\App\Http\Controllers\DeliveryMessageController::class, 'riderRead'])->name('rider.delivery_messages.read');
@@ -648,6 +649,8 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/payouts/seller/{id}/create', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'createManual'])->name('payouts.create_manual');
     Route::post('/payouts/{id}/paid',          [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markPaid'])->name('payouts.mark_paid');
     Route::post('/payouts/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanReceipt'])->name('payouts.scan_receipt');
+    Route::post('/rider-payouts/{id}/scan-receipt', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRiderPayoutReceipt'])->name('rider_payouts.scan_receipt');
+    Route::post('/rider-payouts/{id}/paid', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRiderPayoutPaid'])->name('rider_payouts.mark_paid');
     Route::post('/refunds/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRefundReceipt'])->name('refunds.scan_receipt');
     Route::post('/refunds/{id}/mark-sent',     [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRefundSent'])->name('refunds.mark_sent');
     Route::get('/return-cases', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'index'])->name('return_cases');

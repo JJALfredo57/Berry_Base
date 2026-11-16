@@ -259,6 +259,7 @@
 </div>
 
 @if(($refunds ?? collect())->count() > 0)
+@if(($riderPayoutRequests ?? collect())->count())<div class="card mt-4"><div class="card-header payout-section-head"><span><i class="bi bi-bicycle me-2"></i>Rider Delivery-Fee Payouts</span></div><div class="card-body">@foreach($riderPayoutRequests as $rp)<div class="border-bottom py-3"><strong>{{ $rp->rider_name }}</strong> · ₱{{ number_format($rp->amount,2) }}<div class="small text-muted">{{ $rp->gcash_name }} · {{ $rp->gcash_number }} · {{ ucfirst($rp->status) }}</div>@if($rp->status==='requested')<form method="POST" enctype="multipart/form-data" action="{{ route('superadmin.rider_payouts.mark_paid',$rp->id) }}" class="mt-2" data-prevent-double-submit>@csrf<input name="receipt" type="file" accept="image/jpeg,image/png,image/webp" required><input name="reference_number" required placeholder="Scanned reference"><button class="btn btn-success btn-sm" type="submit">Mark paid</button></form>@endif</div>@endforeach</div></div>@endif
 <div class="card mt-4">
   @php $refundActionCount = $refunds->whereIn('status', ['approved_for_admin_refund', 'processing'])->count(); @endphp
   <div class="card-header payout-section-head"><span><i class="bi bi-arrow-counterclockwise me-2" style="color:#b91c1c"></i>Refund Queue</span>@if($refundActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $refundActionCount }} needs action</span>@endif</div>
