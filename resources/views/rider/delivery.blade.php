@@ -432,9 +432,20 @@
 {{-- Buttons --}}
 @if(empty($remittanceOnly))
 <div class="actions" id="actionSection">
+  @if(empty($order->rider_arrived_at))
+  <form method="POST" action="{{ route('rider.arrived',[$order->id,$order->rider_token]) }}">@csrf<button class="btn-deliver" type="submit"><i class="bi bi-geo-alt-fill"></i> Arrived at Customer</button></form>
+  @elseif(($returnCase->status ?? null)==='submitted')
+  <div class="pay-banner pay-cod"><div class="pay-body"><div class="pay-label">Return request submitted</div><div class="pay-note">Contact the seller and wait for their approve or reject decision.</div></div></div>
+  @elseif(($returnCase->status ?? null)==='seller_approved')
+  <form method="POST" enctype="multipart/form-data" action="{{ route('rider.return.collect',[$order->id,$order->rider_token,$returnCase->id]) }}">@csrf<input class="form-control mb-2" name="proof" type="file" accept="image/jpeg,image/png,image/webp" required><button class="btn-deliver" type="submit">Collect Cake Return</button></form>
+  @elseif(($returnCase->status ?? null)==='rider_collected_return')
+  <form method="POST" action="{{ route('rider.return.returned',[$order->id,$order->rider_token,$returnCase->id]) }}">@csrf<button class="btn-deliver" type="submit">Mark Cake Returned to Seller</button></form>
+  @endif
+  @if(!empty($order->rider_arrived_at) && empty($returnCase))
   <button class="btn-deliver" onclick="confirmDeliver()">
     <i class="bi bi-check-circle-fill" style="font-size:20px"></i> Mark as Delivered ✓
   </button>
+  @endif
   <button class="btn-issue" onclick="showIssueForm()">
     <i class="bi bi-exclamation-triangle" style="font-size:17px"></i> Report an Issue
   </button>

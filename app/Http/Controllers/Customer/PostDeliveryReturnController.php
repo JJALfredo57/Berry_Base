@@ -21,9 +21,9 @@ class PostDeliveryReturnController extends Controller
         $order = DB::table('orders')->where('id', $orderId)->where('user_id', session('user')['id'])->first();
         if (!$order) abort(404);
         $isPickupInspection = ($order->fulfillment_type ?? '') === 'Pickup' && ($order->status ?? '') === 'Pickup';
-        [$eligible, $message] = $isPickupInspection ? [true, null] : $this->returns->eligibility($order);
+        [$eligible, $message] = $this->returns->eligible($order);
         if (!$eligible) return redirect()->route('customer.orders')->with('error', $message);
-        $case = DB::table('post_delivery_return_cases')->where('order_id', $orderId)->whereIn('status', ['submitted', 'seller_responded', 'approved'])->first();
+        $case = DB::table('post_delivery_return_cases')->where('order_id', $orderId)->whereNotIn('status', ['seller_rejected', 'refunded'])->first();
         if ($case) return redirect()->route('customer.orders')->with('error', 'A return/refund case is already open for this order.');
         $allowedReasons = $this->allowedReasons($order);
         return view('customer.return_request', compact('order', 'isPickupInspection', 'allowedReasons'));
@@ -34,6 +34,8 @@ class PostDeliveryReturnController extends Controller
         $order = DB::table('orders')->where('id', $orderId)->where('user_id', session('user')['id'])->first();
         if (!$order) abort(404);
         $isPickupInspection = ($order->fulfillment_type ?? '') === 'Pickup' && ($order->status ?? '') === 'Pickup';
+        [$eligible, $message] = $this->returns->eligible($order);
+        if (!$eligible) return back()->with('error', $message);
         $allowedReasons = $this->allowedReasons($order);
         $rules = [
             'reason' => ['required', 'in:' . implode(',', $allowedReasons)],
@@ -41,9 +43,9 @@ class PostDeliveryReturnController extends Controller
             'description' => ['required', 'string', 'min:20', 'max:1500'],
             'refund_gcash_name' => ['required', 'string', 'max:160'],
             'refund_gcash_number' => ['required', 'string', 'max:80'],
-            'photos' => [$isPickupInspection ? 'nullable' : 'required', 'array', 'min:2', 'max:6'],
+            'photos' => ['required', 'array', 'min:2', 'max:6'],
             'photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'video' => [$isPickupInspection ? 'nullable' : 'required', 'file', 'mimes:mp4,mov,webm', 'max:30720'],
+            'video' => ['required', 'file', 'mimes:mp4,mov,webm', 'max:30720'],
             'refund_confirmation' => ['accepted'],
         ]; $data = $request->validate($rules);
         if (!$this->refunds->validateGcashAccountName($data['refund_gcash_name']) || !$this->refunds->validateGcashNumber($data['refund_gcash_number'])) return back()->withInput()->with('error', 'Enter the exact GCash account name and a valid Philippine mobile number.');
@@ -58,7 +60,7 @@ class PostDeliveryReturnController extends Controller
             $description = trim($data['description']) . ($data['reason'] === 'other' ? "\nOther verified issue: " . trim($data['other_reason']) : '');
             $this->returns->submit($order, (string) session('user')['id'], ['reason' => $data['reason'], 'description' => $description, 'refund_gcash_name' => trim($data['refund_gcash_name']), 'refund_gcash_number' => $this->refunds->normalizeGcashNumber($data['refund_gcash_number'])], $evidence);
         } catch (\DomainException $e) { return back()->withInput()->with('error', $e->getMessage()); }
-        return redirect()->route('customer.orders')->with('msg', 'Your delivery issue was submitted. The affected seller payout is on hold while the case is reviewed.');
+        return redirect()->route('customer.orders')->with('msg', 'Your return request was submitted. The rider is waiting for the seller decision.');
     }
 
     public function acceptPickup(string $orderId)

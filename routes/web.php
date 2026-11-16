@@ -333,6 +333,9 @@ Route::get('/rider/{orderId}/{token}/payment-status', [\App\Http\Controllers\Rid
 Route::post('/rider/{orderId}/{token}/accept', [\App\Http\Controllers\RiderController::class, 'acceptAssignment'])->name('rider.assignment.accept');
 Route::post('/rider/{orderId}/{token}/decline', [\App\Http\Controllers\RiderController::class, 'declineAssignment'])->name('rider.assignment.decline');
 Route::post('/rider/{orderId}/{token}/delivered', [\App\Http\Controllers\RiderController::class, 'markDelivered'])->name('rider.delivered');
+Route::post('/rider/{orderId}/{token}/arrived', [\App\Http\Controllers\RiderController::class, 'markArrived'])->name('rider.arrived');
+Route::post('/rider/{orderId}/{token}/returns/{caseId}/collect', [\App\Http\Controllers\RiderController::class, 'collectReturn'])->name('rider.return.collect');
+Route::post('/rider/{orderId}/{token}/returns/{caseId}/returned', [\App\Http\Controllers\RiderController::class, 'returnToSeller'])->name('rider.return.returned');
 Route::post('/rider/{orderId}/{token}/remittance/paymongo-qr', [\App\Http\Controllers\RiderController::class, 'generateRemittanceQr'])->name('rider.remittance.qr');
 Route::post('/rider/{orderId}/{token}/remittance/check-paymongo', [\App\Http\Controllers\RiderController::class, 'checkRemittanceQr'])->name('rider.remittance.check');
 Route::post('/rider/{orderId}/{token}/remittance', [\App\Http\Controllers\RiderController::class, 'submitRemittance'])->name('rider.remittance');
@@ -512,7 +515,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/sidebar-counts',            [\App\Http\Controllers\Seller\DashboardController::class, 'sidebarCounts'])->name('sidebar_counts');
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
     Route::get('/return-cases', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'index'])->name('return_cases');
-    Route::post('/return-cases/{id}/respond', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'respond'])->middleware('throttle:12,10')->name('return_cases.respond');
+    Route::post('/return-cases/{id}/decision', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'decide'])->middleware('throttle:12,10')->name('return_cases.decide');
+    Route::post('/return-cases/{id}/received', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'receive'])->middleware('throttle:12,10')->name('return_cases.receive');
     Route::get('/order-requests',            [\App\Http\Controllers\Seller\OrderRequestController::class, 'index'])->name('order_requests');
     Route::post('/order-requests/{id}/update', [\App\Http\Controllers\Seller\OrderRequestController::class, 'update'])->name('order_requests.update');
     Route::get('/orders/status-counts',         [\App\Http\Controllers\Seller\OrderController::class, 'statusCounts'])->name('orders.status_counts');
@@ -647,7 +651,6 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/refunds/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRefundReceipt'])->name('refunds.scan_receipt');
     Route::post('/refunds/{id}/mark-sent',     [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRefundSent'])->name('refunds.mark_sent');
     Route::get('/return-cases', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'index'])->name('return_cases');
-    Route::post('/return-cases/{id}/decision', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'decide'])->middleware('throttle:20,10')->name('return_cases.decide');
     Route::post('/return-cases/{id}/refund', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'refund'])->middleware('throttle:10,10')->name('return_cases.refund');
     Route::get('/payouts/{id}/receipt-download', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'downloadReceipt'])->name('payouts.receipt_download');
     Route::get('/feedback',                    [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'index'])->name('feedback');

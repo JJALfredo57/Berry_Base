@@ -308,7 +308,28 @@ class RiderController extends Controller
             return $this->closedDeliveryAttemptRedirect($order);
         }
 
-        return view('rider.delivery', compact('order','addons','settings','remittance','shopPayout'));
+        $returnCase = DB::table('post_delivery_return_cases')->where('order_id', $orderId)->whereIn('status', ['submitted','seller_approved','rider_collected_return'])->latest('id')->first();
+        return view('rider.delivery', compact('order','addons','settings','remittance','shopPayout','returnCase'));
+    }
+
+    public function markArrived(string $orderId, string $token)
+    {
+        $order=DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first();
+        if(!$order||$order->status!=='Out for Delivery') return back()->with('err','This delivery is no longer active.');
+        DB::table('orders')->where('id',$orderId)->update(['rider_arrived_at'=>now(),'updated_at'=>now()]);
+        DB::table('order_tracking')->insert(['order_id'=>$orderId,'status'=>'Rider Arrived','notes'=>'Rider arrived at customer for inspection.','created_at'=>now()]);
+        return back()->with('msg','Customer may now inspect the cake or submit a return request.');
+    }
+
+    public function collectReturn(Request $request,string $orderId,string $token,int $caseId, \App\Services\PostDeliveryReturnService $returns)
+    {
+        $request->validate(['proof'=>['required','image','mimes:jpg,jpeg,png,webp','max:5120']]); $order=DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first(); if(!$order) abort(404);
+        $path=$this->uploadFile($request->file('proof'),'uploads/post_delivery_returns'); if(!$path)return back()->with('err','Return proof upload failed.');
+        try{$returns->riderCollect($caseId,$orderId,$path);}catch(\DomainException $e){return back()->with('err',$e->getMessage());} return back()->with('msg','Cake collected. Return it to the seller.');
+    }
+    public function returnToSeller(string $orderId,string $token,int $caseId, \App\Services\PostDeliveryReturnService $returns)
+    {
+        $order=DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first(); if(!$order) abort(404); try{$returns->riderReturned($caseId,$orderId);}catch(\DomainException $e){return back()->with('err',$e->getMessage());} return back()->with('msg','Cake marked returned to seller. Await seller confirmation.');
     }
 
     public function paymentStatus(string $orderId, string $token)
@@ -381,6 +402,8 @@ class RiderController extends Controller
         $order = DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first();
         if (!$order || $order->status !== 'Out for Delivery')
             return response()->json(['ok'=>false,'error'=>'Invalid or already updated.']);
+        if (empty($order->rider_arrived_at)) return response()->json(['ok'=>false,'error'=>'Mark arrival at the customer before completing delivery.'],422);
+        if (DB::table('post_delivery_return_cases')->where('order_id',$orderId)->whereIn('status',['submitted','seller_approved','rider_collected_return','returned_to_seller','seller_received_return'])->exists()) return response()->json(['ok'=>false,'error'=>'A return request is active for this order.'],422);
         if (($order->rider_assignment_status ?? '') === 'pending') {
             return response()->json(['ok' => false, 'error' => 'Please accept this delivery before marking it delivered.'], 422);
         }
