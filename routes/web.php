@@ -651,11 +651,11 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/payouts/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanReceipt'])->name('payouts.scan_receipt');
     Route::post('/rider-payouts/{id}/scan-receipt', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRiderPayoutReceipt'])->name('rider_payouts.scan_receipt');
     Route::post('/rider-payouts/{id}/paid', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRiderPayoutPaid'])->name('rider_payouts.mark_paid');
-    Route::post('/refunds/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRefundReceipt'])->name('refunds.scan_receipt');
-    Route::post('/refunds/{id}/mark-sent',     [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRefundSent'])->name('refunds.mark_sent');
     Route::get('/return-cases', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'index'])->name('return_cases');
     Route::post('/return-cases/{id}/scan-receipt', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'scanReceipt'])->middleware('throttle:10,10')->name('return_cases.scan_receipt');
     Route::post('/return-cases/{id}/refund', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'refund'])->middleware('throttle:10,10')->name('return_cases.refund');
+    Route::post('/return-cases/order-refunds/{id}/scan-receipt', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'scanOrderRefundReceipt'])->middleware('throttle:10,10')->name('return_cases.scan_order_refund');
+    Route::post('/return-cases/order-refunds/{id}/complete', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'completeOrderRefund'])->middleware('throttle:10,10')->name('return_cases.complete_order_refund');
     Route::get('/payouts/{id}/receipt-download', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'downloadReceipt'])->name('payouts.receipt_download');
     Route::get('/feedback',                    [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'index'])->name('feedback');
     Route::post('/feedback/{id}',              [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'update'])->name('feedback.update');

@@ -3,6 +3,8 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -44,26 +46,31 @@ class DashboardController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
-    public function commissions()
+    public function commissions(Request $request)
     {
+        try { $from = Carbon::parse((string) $request->input('from', now()->subDays(29)->toDateString()))->toDateString(); } catch (\Throwable $e) { $from = now()->subDays(29)->toDateString(); }
+        try { $to = Carbon::parse((string) $request->input('to', now()->toDateString()))->toDateString(); } catch (\Throwable $e) { $to = now()->toDateString(); }
+        $period = (string) $request->input('period', 'last30');
+        if ($period === 'today') [$from, $to] = [now()->toDateString(), now()->toDateString()];
+        elseif ($period === 'week') [$from, $to] = [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()];
+        elseif ($period === 'month') [$from, $to] = [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()];
+        elseif ($period === 'last_month') [$from, $to] = [now()->subMonthNoOverflow()->startOfMonth()->toDateString(), now()->subMonthNoOverflow()->endOfMonth()->toDateString()];
+        elseif ($period === 'year') [$from, $to] = [now()->startOfYear()->toDateString(), now()->endOfYear()->toDateString()];
+        elseif ($period === 'last30') [$from, $to] = [now()->subDays(29)->toDateString(), now()->toDateString()];
+        if ($from > $to) [$from, $to] = [$to, $from];
+        $commissionPeriodQuery = fn () => $this->commissionQuery()->whereBetween(DB::raw('DATE(o.paid_at)'), [$from, $to]);
         $platform = DB::table('platform_settings')->first();
 
-        $totalCommission = $this->commissionQuery()
+        $totalCommission = $commissionPeriodQuery()
             ->sum('l.commission_amount');
 
-        $commissionMonth = $this->commissionQuery()
-            ->whereYear('o.paid_at', now()->year)
-            ->whereMonth('o.paid_at', now()->month)
+        $commissionMonth = $commissionPeriodQuery()
             ->sum('l.commission_amount');
 
-        $paidOrdersMonth = $this->commissionQuery()
-            ->whereYear('o.paid_at', now()->year)
-            ->whereMonth('o.paid_at', now()->month)
+        $paidOrdersMonth = $commissionPeriodQuery()
             ->count();
 
-        $grossSalesMonth = $this->commissionQuery()
-            ->whereYear('o.paid_at', now()->year)
-            ->whereMonth('o.paid_at', now()->month)
+        $grossSalesMonth = $commissionPeriodQuery()
             ->sum('l.gross_amount');
 
         $monthlyLabels = [];
@@ -72,25 +79,26 @@ class DashboardController extends Controller
         $monthlyOrderCounts = [];
         $monthlyBuckets = [];
 
-        for ($i = 5; $i >= 0; $i--) {
-            $month = now()->startOfMonth()->subMonths($i);
-            $key = $month->format('Y-m');
+        $start = Carbon::parse($from); $end = Carbon::parse($to); $daily = $start->diffInDays($end) <= 62;
+        $cursor = $daily ? $start->copy() : $start->copy()->startOfMonth();
+        $last = $daily ? $end->copy() : $end->copy()->startOfMonth();
+        while ($cursor <= $last) {
+            $key = $daily ? $cursor->format('Y-m-d') : $cursor->format('Y-m');
 
             $monthlyBuckets[$key] = [
                 'commission' => 0,
                 'gross_sales' => 0,
                 'paid_orders' => 0,
             ];
+            $daily ? $cursor->addDay() : $cursor->addMonth();
         }
 
-        $monthlyStart = now()->startOfMonth()->subMonths(5);
-        $this->commissionQuery()
-            ->where('o.paid_at', '>=', $monthlyStart)
+        $commissionPeriodQuery()
             ->select('o.paid_at', 'l.gross_amount', 'l.commission_amount')
             ->orderBy('o.paid_at')
             ->get()
-            ->each(function ($order) use (&$monthlyBuckets) {
-                $key = substr((string) $order->paid_at, 0, 7);
+            ->each(function ($order) use (&$monthlyBuckets, $daily) {
+                $key = $daily ? substr((string) $order->paid_at, 0, 10) : substr((string) $order->paid_at, 0, 7);
 
                 if (!isset($monthlyBuckets[$key])) {
                     return;
@@ -102,18 +110,16 @@ class DashboardController extends Controller
                 $monthlyBuckets[$key]['paid_orders']++;
             });
 
-        for ($i = 5; $i >= 0; $i--) {
-            $month = now()->startOfMonth()->subMonths($i);
-            $key = $month->format('Y-m');
-            $row = $monthlyBuckets[$key];
+        foreach ($monthlyBuckets as $key => $row) {
+            $bucketDate = Carbon::parse($daily ? $key : $key.'-01');
 
-            $monthlyLabels[] = $month->format('M Y');
+            $monthlyLabels[] = $daily ? $bucketDate->format('M j') : $bucketDate->format('M Y');
             $monthlyCommission[] = round((float) $row['commission'], 2);
             $monthlyGrossSales[] = round((float) $row['gross_sales'], 2);
             $monthlyOrderCounts[] = (int) $row['paid_orders'];
         }
 
-        $topShops = $this->commissionQuery()
+        $topShops = $commissionPeriodQuery()
             ->select(
                 'shops.shop_name',
                 'shops.tier',
@@ -141,7 +147,7 @@ class DashboardController extends Controller
             'paidOrdersMonth',
             'grossSalesMonth',
             'topShops',
-            'chartData'
+            'chartData', 'from', 'to', 'period'
         ));
     }
 
@@ -171,13 +177,8 @@ class DashboardController extends Controller
             'total_shops' => DB::table('shops')->where('status', 'approved')->count(),
             'pending_apps' => DB::table('shops')->where('status', 'pending')->count(),
             'total_products' => DB::table('products')->count(),
-            'total_orders' => DB::table('orders')->whereNotIn('status', ['Cancelled'])->count(),
             'open_feedback' => $openFeedback,
             'total_commission' => (float) $this->commissionQuery()->sum('l.commission_amount'),
-            'total_customers' => (
-                DB::table('orders')->whereNotIn('status', ['Cancelled'])->whereNotNull('user_id')->distinct()->count('user_id') +
-                DB::table('orders')->whereNotIn('status', ['Cancelled'])->whereNull('user_id')->count()
-            ),
             'commission_month' => $commissionMonth,
         ];
     }

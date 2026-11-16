@@ -87,8 +87,6 @@
   @foreach([
     ['bi-shop',         'Approved Shops',        $stats['total_shops'],                     'var(--primary)',   'var(--primary-bg)', null, 'total_shops'],
     ['bi-hourglass',    'Pending Applications',   $stats['pending_apps'],                    '#E65100',          '#fff3e0', null, 'pending_apps'],
-    ['bi-bag-check',    'Total Orders',           number_format($stats['total_orders']),     '#1565C0',          '#e3f2fd', null, 'total_orders'],
-    ['bi-people',       'Customers',              number_format($stats['total_customers']),  '#2E7D32',          '#e8f5e9', null, 'total_customers'],
     ['bi-chat-square-heart','Open Feedback',       number_format($stats['open_feedback'] ?? 0), '#d97706',          '#fff7ed', route('superadmin.feedback'), 'open_feedback'],
     ['bi-cash-stack',   'Total Commission',       '&#8369;'.number_format($stats['total_commission'],2), '#6A1B9A',      '#f3e5f5', route('superadmin.commissions'), 'total_commission'],
     ['bi-calendar2-check','This Month Commission','&#8369;'.number_format($commissionMonth,2),      '#00695C',         '#e0f2f1', route('superadmin.commissions'), 'commission_month'],

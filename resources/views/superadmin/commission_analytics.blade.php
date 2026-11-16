@@ -146,6 +146,7 @@
     border-radius:999px;
     background:linear-gradient(90deg,#16a34a,#2563eb);
   }
+  .commission-date-filter{display:flex;align-items:end;gap:1rem;flex-wrap:wrap;padding:1rem;margin-bottom:1rem;border:1px solid rgba(15,23,42,.08);border-radius:8px;background:#fff}.commission-date-filter>div:first-child{display:grid;gap:.15rem;margin-right:auto}.commission-date-filter small{color:#64748b;font-size:.78rem}.commission-date-form{display:flex;gap:.7rem;flex-wrap:wrap}.commission-date-form label{display:grid;gap:.25rem;font-size:.76rem;font-weight:700;color:#475569}.commission-date-form input{min-width:148px;min-height:42px}.commission-periods{display:flex;gap:.45rem;flex-wrap:wrap;width:100%}@media(max-width:575.98px){.commission-date-filter{align-items:stretch}.commission-date-filter>div:first-child{margin-right:0}.commission-date-form{width:100%}.commission-date-form label{flex:1 1 140px}.commission-date-form input{width:100%;min-width:0}.commission-periods{flex-wrap:nowrap;overflow:auto;padding-bottom:2px}.commission-periods .btn{flex:0 0 auto}}
   @media (max-width: 991.98px) {
     .commission-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .commission-chart-wrap { height:340px; }
@@ -199,16 +200,22 @@
   </div>
 </div>
 
+<section class="commission-date-filter" aria-label="Commission reporting period">
+  <div><strong>Reporting period</strong><small>All commission totals, chart values, and shop rankings use this period.</small></div>
+  <form method="GET" class="commission-date-form"><input type="hidden" name="period" value=""><label>From<input class="form-control" type="date" name="from" value="{{ $from }}" onchange="this.form.submit()"></label><label>To<input class="form-control" type="date" name="to" value="{{ $to }}" onchange="this.form.submit()"></label></form>
+  <div class="commission-periods">@foreach(['today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year','last30'=>'Last 30 days'] as $key=>$label)<a class="btn btn-sm {{ $period === $key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('superadmin.commissions',['period'=>$key]) }}">{{ $label }}</a>@endforeach</div>
+</section>
+
 <div class="commission-kpis">
   <div class="commission-kpi">
     <div class="commission-kpi-icon" style="background:#f3e5f5"><i class="bi bi-cash-stack" style="color:#6A1B9A"></i></div>
     <div class="commission-kpi-value">&#8369;{{ number_format($totalCommission, 2) }}</div>
-    <div class="commission-kpi-label">Total Commission</div>
+    <div class="commission-kpi-label">Commission in period</div>
   </div>
   <div class="commission-kpi">
     <div class="commission-kpi-icon" style="background:#e0f2f1"><i class="bi bi-calendar2-check" style="color:#00695C"></i></div>
     <div class="commission-kpi-value">&#8369;{{ number_format($commissionMonth, 2) }}</div>
-    <div class="commission-kpi-label">This Month</div>
+    <div class="commission-kpi-label">Verified commission</div>
   </div>
   <div class="commission-kpi">
     <div class="commission-kpi-icon" style="background:#e3f2fd"><i class="bi bi-receipt" style="color:#1565C0"></i></div>
@@ -228,7 +235,7 @@
       <div class="commission-panel-head">
         <div>
           <div class="fw-bold"><i class="bi bi-activity me-2" style="color:#2563eb"></i>Monthly Commission Trend</div>
-          <div class="text-muted" style="font-size:.8rem">Last 6 months from paid orders with active seller commission</div>
+          <div class="text-muted" style="font-size:.8rem">Paid orders with active seller commission in the selected period</div>
         </div>
         <span class="badge" style="background:#dcfce7;color:#166534">Live Data</span>
       </div>

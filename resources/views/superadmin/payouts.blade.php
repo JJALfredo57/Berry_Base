@@ -21,6 +21,22 @@
   <div class="alert alert-danger">{{ $e }}</div>
 @endforeach
 
+<section class="finance-date-filter" aria-label="Finance reporting period">
+  <div><strong>Reporting period</strong><small>Filters historical activity only. Current payable balances stay live.</small></div>
+  <form method="GET" class="finance-date-form">
+    <input type="hidden" name="period" value="">
+    <label>From<input class="form-control" type="date" name="from" value="{{ $from }}" onchange="this.form.submit()"></label>
+    <label>To<input class="form-control" type="date" name="to" value="{{ $to }}" onchange="this.form.submit()"></label>
+  </form>
+  <div class="finance-periods" aria-label="Quick date filters">
+    @foreach(['today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year','last30'=>'Last 30 days'] as $key=>$label)
+      <a class="btn btn-sm {{ $period === $key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('superadmin.payouts', ['period'=>$key]) }}">{{ $label }}</a>
+    @endforeach
+  </div>
+</section>
+
+<style>.finance-date-filter{display:flex;align-items:end;gap:1rem;flex-wrap:wrap;padding:1rem;margin-bottom:1rem;border:1px solid var(--gray-100);border-radius:16px;background:#fff}.finance-date-filter>div:first-child{display:grid;gap:.15rem;margin-right:auto}.finance-date-filter small{color:var(--gray-500);font-size:.78rem}.finance-date-form{display:flex;gap:.7rem;flex-wrap:wrap}.finance-date-form label{display:grid;gap:.25rem;font-size:.76rem;font-weight:700;color:var(--gray-600)}.finance-date-form input{min-width:148px;min-height:42px}.finance-periods{display:flex;gap:.45rem;flex-wrap:wrap;width:100%}.finance-periods .btn{min-height:38px;white-space:nowrap}@media(max-width:575px){.finance-date-filter{align-items:stretch}.finance-date-filter>div:first-child{margin-right:0}.finance-date-form{width:100%}.finance-date-form label{flex:1 1 140px}.finance-date-form input{width:100%;min-width:0}.finance-periods{flex-wrap:nowrap;overflow:auto;padding-bottom:2px}.finance-periods .btn{flex:0 0 auto}}</style>
+
 <div class="alert alert-info d-flex gap-3 align-items-start">
   <i class="bi bi-info-circle-fill fs-5"></i>
   <div>

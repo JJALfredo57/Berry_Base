@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Carbon\Carbon;
 
 class PayoutController extends Controller
 {
@@ -21,7 +22,7 @@ class PayoutController extends Controller
     {
     }
 
-    public function index()
+    public function index(Request $request)
     {
         // Payout synchronization runs from the scheduled command so page loads stay fast.
 
@@ -46,15 +47,30 @@ class PayoutController extends Controller
             'pending_refunds' => Schema::hasTable('order_refunds') ? (int) DB::table('order_refunds')->whereIn('status', ['pending', 'pending_seller_approval', 'approved_for_admin_refund', 'processing'])->count() : 0,
         ];
 
-        $financeReconciliation = $this->financeReconciliation->build();
+        try { $from = Carbon::parse((string) $request->input('from', now()->subDays(29)->toDateString()))->toDateString(); }
+        catch (\Throwable $e) { $from = now()->subDays(29)->toDateString(); }
+        try { $to = Carbon::parse((string) $request->input('to', now()->toDateString()))->toDateString(); }
+        catch (\Throwable $e) { $to = now()->toDateString(); }
+        $period = (string) $request->input('period', 'last30');
+        if ($period === 'today') [$from, $to] = [now()->toDateString(), now()->toDateString()];
+        elseif ($period === 'week') [$from, $to] = [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()];
+        elseif ($period === 'month') [$from, $to] = [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()];
+        elseif ($period === 'last_month') [$from, $to] = [now()->subMonthNoOverflow()->startOfMonth()->toDateString(), now()->subMonthNoOverflow()->endOfMonth()->toDateString()];
+        elseif ($period === 'year') [$from, $to] = [now()->startOfYear()->toDateString(), now()->endOfYear()->toDateString()];
+        elseif ($period === 'last30') [$from, $to] = [now()->subDays(29)->toDateString(), now()->toDateString()];
+        if ($from > $to) [$from, $to] = [$to, $from];
+
+        $currentFinanceReconciliation = $this->financeReconciliation->build();
+        $financeReconciliation = $this->financeReconciliation->build($from, $to);
         $paymentSummary = $financeReconciliation['summary'];
         $paymentSummary['cash_completed'] = Schema::hasTable('payment_transactions')
-            ? (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'Cash')->sum('amount')
+            ? (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'Cash')->whereBetween(DB::raw('DATE(COALESCE(paid_at, created_at))'), [$from, $to])->sum('amount')
             : 0.0;
         $heldCustomerFunds = $paymentSummary['held_customer_funds'];
         $riderFunds = Schema::hasTable('rider_remittances')
             ? DB::table('rider_remittances as rr')->leftJoin('orders as o', 'o.id', '=', 'rr.order_id')
                 ->leftJoin('shops as s', 's.id', '=', 'o.shop_id')
+                ->whereBetween(DB::raw('DATE(rr.created_at)'), [$from, $to])
                 ->select('rr.*', 'o.status as order_status', 'o.delivery_fee', 's.shop_name')
                 ->orderByDesc('rr.created_at')->limit(50)->get()
             : collect();
@@ -112,29 +128,20 @@ class PayoutController extends Controller
 
         $payoutRequests = $payoutQuery()
             ->where('p.status', '!=', 'paid')
-            ->orderByDesc('p.created_at')
+            ->whereBetween(DB::raw('DATE(p.created_at)'), [$from, $to])->orderByDesc('p.created_at')
             ->limit(50)
             ->get();
         $recentPayouts = $payoutQuery()
             ->where('p.status', 'paid')
-            ->orderByDesc('p.paid_at')
+            ->whereBetween(DB::raw('DATE(COALESCE(p.paid_at, p.created_at))'), [$from, $to])->orderByDesc('p.paid_at')
             ->orderByDesc('p.created_at')
             ->limit(50)
             ->get();
-        $refunds = Schema::hasTable('order_refunds')
-            ? DB::table('order_refunds as r')
-                ->leftJoin('shops as s', 's.id', '=', 'r.shop_id')
-                ->select('r.*', 's.shop_name')
-                ->orderByDesc('r.created_at')
-                ->limit(30)
-                ->get()
-            : collect();
-
         $onlinePayments = Schema::hasTable('payment_transactions')
             ? DB::table('payment_transactions as pt')
                 ->leftJoin('orders as o', 'o.id', '=', 'pt.order_id')
                 ->leftJoin('shops as s', 's.id', '=', 'o.shop_id')
-                ->where('pt.payment_status', 'paid')->where('pt.method', 'GCash')
+                ->where('pt.payment_status', 'paid')->where('pt.method', 'GCash')->whereBetween(DB::raw('DATE(COALESCE(pt.paid_at, pt.created_at))'), [$from, $to])
                 ->select('pt.*', 'o.status as order_status', 's.shop_name')
                 ->orderByDesc('pt.paid_at')->orderByDesc('pt.id')->limit(50)->get()
             : collect();
@@ -149,12 +156,14 @@ class PayoutController extends Controller
         $commissionRows = DB::table('seller_payout_ledgers as l')
             ->leftJoin('shops as s', 's.id', '=', 'l.shop_id')
             ->leftJoinSub($paymentBreakdown, 'payments', fn ($join) => $join->on('payments.order_id', '=', 'l.order_id'))
-            ->where('l.commission_amount', '>', 0)
+            ->where('l.commission_amount', '>', 0)->whereBetween(DB::raw('DATE(l.created_at)'), [$from, $to])
             ->select('l.*', 's.shop_name', 'payments.online_paid', 'payments.cash_paid')
             ->orderByDesc('l.created_at')->limit(50)->get();
 
-        $riderPayoutRequests=Schema::hasTable('rider_payout_requests')?DB::table('rider_payout_requests as rp')->join('riders as r','r.id','=','rp.rider_id')->select('rp.*','r.name as rider_name')->orderByRaw("CASE WHEN rp.status='requested' THEN 0 ELSE 1 END")->orderByDesc('rp.id')->limit(30)->get():collect();
-        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows', 'riderPayoutRequests', 'financeReconciliation'));
+        $riderPayoutRequests=Schema::hasTable('rider_payout_requests')?DB::table('rider_payout_requests as rp')->join('riders as r','r.id','=','rp.rider_id')->whereBetween(DB::raw('DATE(rp.created_at)'), [$from, $to])->select('rp.*','r.name as rider_name')->orderByRaw("CASE WHEN rp.status='requested' THEN 0 ELSE 1 END")->orderByDesc('rp.id')->limit(30)->get():collect();
+        // Refund completion belongs to Return & Refund Cases; retain an empty collection only for legacy view compatibility.
+        $refunds = collect();
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows', 'riderPayoutRequests', 'financeReconciliation', 'currentFinanceReconciliation', 'from', 'to', 'period'));
     }
 
     public function saveSettings(Request $request)

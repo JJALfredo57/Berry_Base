@@ -16,16 +16,20 @@ class FinanceReconciliationService
 {
     private const TERMINAL_ORDER_STATUSES = ['Delivered', 'Picked Up', 'Cancelled', 'No Show'];
 
-    public function build(): array
+    public function build(?string $from = null, ?string $to = null): array
     {
         if (!Schema::hasTable('payment_transactions')) {
             return ['summary' => $this->emptySummary(), 'rows' => collect()];
         }
 
         $hasCustomerPaidAmount = Schema::hasColumn('payment_transactions', 'customer_paid_amount');
-        $payments = DB::table('payment_transactions')
+        $paymentsQuery = DB::table('payment_transactions')
             ->where('payment_status', 'paid')
-            ->where('method', 'GCash')
+            ->where('method', 'GCash');
+        if ($from && $to) {
+            $paymentsQuery->whereBetween(DB::raw('DATE(COALESCE(paid_at, created_at))'), [$from, $to]);
+        }
+        $payments = $paymentsQuery
             ->select('order_id')
             ->selectRaw('COUNT(*) AS payment_count')
             ->selectRaw('SUM(amount) AS online_settled')
@@ -43,8 +47,10 @@ class FinanceReconciliationService
         $sellerLedgers = $this->sellerLedgers();
         $riderEarnings = $this->riderEarnings();
 
-        foreach ([$normalRefunds, $returnRefunds, $sellerLedgers, $riderEarnings] as $records) {
-            $orderIds = $orderIds->merge($records->keys());
+        if (!$from || !$to) {
+            foreach ([$normalRefunds, $returnRefunds, $sellerLedgers, $riderEarnings] as $records) {
+                $orderIds = $orderIds->merge($records->keys());
+            }
         }
 
         $orderIds = $orderIds->filter()->unique()->values();
