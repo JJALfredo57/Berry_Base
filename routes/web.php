@@ -651,6 +651,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/refunds/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRefundReceipt'])->name('refunds.scan_receipt');
     Route::post('/refunds/{id}/mark-sent',     [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRefundSent'])->name('refunds.mark_sent');
     Route::get('/return-cases', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'index'])->name('return_cases');
+    Route::post('/return-cases/{id}/scan-receipt', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'scanReceipt'])->middleware('throttle:10,10')->name('return_cases.scan_receipt');
     Route::post('/return-cases/{id}/refund', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'refund'])->middleware('throttle:10,10')->name('return_cases.refund');
     Route::get('/payouts/{id}/receipt-download', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'downloadReceipt'])->name('payouts.receipt_download');
     Route::get('/feedback',                    [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'index'])->name('feedback');
