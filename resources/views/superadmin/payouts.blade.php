@@ -28,7 +28,7 @@
 
 <div class="row g-3 mb-4 payout-summary-grid">
   @foreach([
-    ['Online Payments Recorded', $paymentSummary['online_amount'], 'bi-credit-card-2-front', '#0369a1', '#f0f9ff'],
+    ['All Online Payments', $paymentSummary['online_amount'], 'bi-credit-card-2-front', '#0369a1', '#f0f9ff'],
     ['Platform Commission Recorded', $commissionSummary['recorded'], 'bi-percent', '#7c3aed', '#f5f3ff'],
     ['Seller Earnings on Hold', $summary['clearing'], 'bi-hourglass-split', '#92400e', '#fffbeb'],
     ['Ready for Seller Payout', $summary['available'], 'bi-cash-stack', '#166534', '#ecfdf5'],
@@ -47,6 +47,20 @@
     </div>
   </div>
   @endforeach
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><i class="bi bi-calculator me-2" style="color:var(--primary)"></i>Payment Reconciliation Guide</div>
+  <div class="card-body">
+    <p class="small text-muted mb-3">Do not compare <strong>All Online Payments</strong> directly with one seller payout. The online total includes payments from cancelled/refunded orders and deposits for cash-completion orders.</p>
+    <div class="row g-3">
+      <div class="col-6 col-lg-3"><div class="p-3 rounded-3 h-100" style="background:#f0f9ff"><div class="small text-muted">All GCash payments</div><div class="fw-bold fs-5">₱{{ number_format($paymentSummary['online_amount'], 2) }}</div></div></div>
+      <div class="col-6 col-lg-3"><div class="p-3 rounded-3 h-100" style="background:#fff7ed"><div class="small text-muted">Less: refunds sent</div><div class="fw-bold fs-5">−₱{{ number_format($paymentSummary['refunds_sent'], 2) }}</div></div></div>
+      <div class="col-6 col-lg-3"><div class="p-3 rounded-3 h-100" style="background:#ecfdf5"><div class="small text-muted">Net online after refunds</div><div class="fw-bold fs-5">₱{{ number_format($paymentSummary['net_online_after_refunds'], 2) }}</div></div></div>
+      <div class="col-6 col-lg-3"><div class="p-3 rounded-3 h-100" style="background:#f5f3ff"><div class="small text-muted">Cash paid at completion</div><div class="fw-bold fs-5">₱{{ number_format($paymentSummary['cash_completed'], 2) }}</div></div></div>
+    </div>
+    <div class="alert alert-light border mt-3 mb-0 small"><strong>Example:</strong> a ₱950 pickup can have ₱475 GCash deposit + ₱475 cash at pickup. Its seller earnings are ₱950 − ₱19 commission = ₱931. Open the commission ledger below to see the exact payment split per completed order.</div>
+  </div>
 </div>
 
 <div class="card mb-4">
@@ -77,19 +91,21 @@
   <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-percent me-2" style="color:var(--primary)"></i>Platform Commission Ledger</span><span class="small text-muted">2% of cake/product value only · direct-cash commission due: ₱{{ number_format($commissionSummary['cash_due'], 2) }}</span></div>
   <div class="table-responsive">
     <table class="table align-middle mb-0">
-      <thead><tr><th>Order</th><th>Seller</th><th>Settlement State</th><th class="text-end">Cake Amount</th><th class="text-end">2% Commission</th><th class="text-end">Seller Earnings</th></tr></thead>
+      <thead><tr><th>Order</th><th>Seller</th><th>Settlement State</th><th class="text-end">GCash Paid</th><th class="text-end">Cash Paid</th><th class="text-end">Cake Amount</th><th class="text-end">2% Commission</th><th class="text-end">Seller Earnings</th></tr></thead>
       <tbody>
         @forelse($commissionRows as $ledger)
           <tr>
             <td class="fw-semibold">#{{ $ledger->order_id }}</td>
             <td>{{ $ledger->shop_name ?? 'Shop unavailable' }}</td>
             <td><span class="badge text-bg-{{ $ledger->status === 'paid' ? 'success' : ($ledger->status === 'cash_settled' ? 'warning' : 'light') }}">{{ $ledger->status === 'cash_settled' ? 'Seller cash; commission due' : ucfirst(str_replace('_', ' ', $ledger->status)) }}</span></td>
+            <td class="text-end">₱{{ number_format((float) ($ledger->online_paid ?? 0), 2) }}</td>
+            <td class="text-end">₱{{ number_format((float) ($ledger->cash_paid ?? 0), 2) }}</td>
             <td class="text-end">₱{{ number_format((float) ($ledger->cake_amount ?? $ledger->commission_base), 2) }}</td>
             <td class="text-end fw-semibold">₱{{ number_format((float) $ledger->commission_amount, 2) }}</td>
             <td class="text-end">₱{{ number_format((float) $ledger->seller_net_amount, 2) }}</td>
           </tr>
         @empty
-          <tr><td colspan="6" class="text-center text-muted py-4">Commission is recorded when a paid order is completed.</td></tr>
+          <tr><td colspan="8" class="text-center text-muted py-4">Commission is recorded when a paid order is completed.</td></tr>
         @endforelse
       </tbody>
     </table>

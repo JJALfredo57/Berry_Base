@@ -50,9 +50,11 @@ class PayoutController extends Controller
                 'online_amount' => (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'GCash')->sum('amount'),
                 'service_fees' => (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'GCash')->sum('payment_service_fee'),
                 'count' => (int) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'GCash')->count(),
+                'cash_completed' => (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'Cash')->sum('amount'),
                 'refunds_sent' => Schema::hasTable('order_refunds') ? (float) DB::table('order_refunds')->where('status', 'refunded')->sum('refund_amount') : 0,
             ]
-            : ['online_amount' => 0, 'service_fees' => 0, 'count' => 0, 'refunds_sent' => 0];
+            : ['online_amount' => 0, 'service_fees' => 0, 'count' => 0, 'cash_completed' => 0, 'refunds_sent' => 0];
+        $paymentSummary['net_online_after_refunds'] = round($paymentSummary['online_amount'] - $paymentSummary['refunds_sent'], 2);
 
         $commissionSummary = [
             'recorded' => (float) DB::table('seller_payout_ledgers')->where('commission_amount', '>', 0)->sum('commission_amount'),
@@ -130,10 +132,18 @@ class PayoutController extends Controller
                 ->orderByDesc('pt.paid_at')->orderByDesc('pt.id')->limit(50)->get()
             : collect();
 
+        $paymentBreakdown = DB::table('payment_transactions')
+            ->where('payment_status', 'paid')
+            ->select('order_id')
+            ->selectRaw("SUM(CASE WHEN method = 'GCash' THEN amount ELSE 0 END) as online_paid")
+            ->selectRaw("SUM(CASE WHEN method = 'Cash' THEN amount ELSE 0 END) as cash_paid")
+            ->groupBy('order_id');
+
         $commissionRows = DB::table('seller_payout_ledgers as l')
             ->leftJoin('shops as s', 's.id', '=', 'l.shop_id')
+            ->leftJoinSub($paymentBreakdown, 'payments', fn ($join) => $join->on('payments.order_id', '=', 'l.order_id'))
             ->where('l.commission_amount', '>', 0)
-            ->select('l.*', 's.shop_name')
+            ->select('l.*', 's.shop_name', 'payments.online_paid', 'payments.cash_paid')
             ->orderByDesc('l.created_at')->limit(50)->get();
 
         return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows'));
