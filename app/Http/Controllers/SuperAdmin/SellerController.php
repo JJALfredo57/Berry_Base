@@ -48,6 +48,7 @@ class SellerController extends Controller
     {
         $applications = DB::table('shops as s')
             ->join('users as u','u.id','=','s.seller_id')
+            ->whereNull('s.archived_at')
             ->select('s.*','u.fullname','u.email','u.phone')
             ->orderByRaw("CASE WHEN s.status='pending' THEN 0 ELSE 1 END")
             ->orderByDesc('s.created_at')
@@ -180,6 +181,22 @@ class SellerController extends Controller
         $action = $newStatus === 'suspended' ? 'Suspend Seller' : 'Reactivate Seller';
         CakeshopHelper::logActivity(session('user')['id'],'superadmin',$action,"Shop: {$shop->shop_name}");
         return back()->with('msg',"Shop {$newStatus}.");
+    }
+
+    public function archive(string $shopId)
+    {
+        $shop = DB::table('shops')->where('id', $shopId)->whereNull('archived_at')->first();
+        if (!$shop) return back()->with('err', 'Shop not found or already archived.');
+        if ($shop->status !== 'suspended') return back()->with('err', 'Suspend the shop before archiving it.');
+
+        DB::table('shops')->where('id', $shopId)->update([
+            'archived_at' => now(),
+            'archived_by_user_id' => (string) (session('user')['id'] ?? ''),
+            'updated_at' => now(),
+        ]);
+
+        CakeshopHelper::logActivity(session('user')['id'], 'superadmin', 'Archive Seller', "Shop: {$shop->shop_name}");
+        return back()->with('msg', "Shop '{$shop->shop_name}' was archived. Historical orders and finance records were kept.");
     }
 
     public function toggleCommission(string $shopId)

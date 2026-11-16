@@ -215,6 +215,15 @@
             <i class="bi bi-play-circle"></i> Reactivate
           </button>
         </form>
+        <form action="{{ route('superadmin.sellers.archive',$app->id) }}" method="POST" class="d-inline">
+          @csrf
+          <button type="submit"
+                  style="background:#fff7ed;color:#9a3412;border:1.5px solid #fed7aa;border-radius:var(--radius-md);padding:.45rem 1.1rem;font-size:.83rem;font-weight:600;cursor:pointer"
+                  data-cs-confirm="Archive {{ addslashes($app->shop_name) }}? It will be removed from this list but its historical orders and finance records will be retained."
+                  data-cs-title="Archive Seller" data-cs-icon="bi-archive" data-cs-icon-bg="#fff7ed" data-cs-icon-color="#9a3412" data-cs-ok="Archive" data-cs-ok-color="#9a3412">
+            <i class="bi bi-archive"></i> Archive
+          </button>
+        </form>
       @endif
 
       {{-- Commission status --}}

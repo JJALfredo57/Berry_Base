@@ -632,6 +632,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/sellers/{id}/approve',              [\App\Http\Controllers\SuperAdmin\SellerController::class, 'approve'])->name('sellers.approve');
     Route::post('/sellers/{id}/reject',               [\App\Http\Controllers\SuperAdmin\SellerController::class, 'reject'])->name('sellers.reject');
     Route::post('/sellers/{id}/suspend',              [\App\Http\Controllers\SuperAdmin\SellerController::class, 'suspend'])->name('sellers.suspend');
+    Route::post('/sellers/{id}/archive',              [\App\Http\Controllers\SuperAdmin\SellerController::class, 'archive'])->name('sellers.archive');
     Route::post('/sellers/{id}/toggle-commission',    [\App\Http\Controllers\SuperAdmin\SellerController::class, 'toggleCommission'])->name('sellers.toggle_commission');
     Route::post('/sellers/commission-bulk',           [\App\Http\Controllers\SuperAdmin\SellerController::class, 'bulkCommission'])->name('sellers.commission_bulk');
     Route::post('/sellers/{id}/commission-rate',      [\App\Http\Controllers\SuperAdmin\SellerController::class, 'updateCommissionRate'])->name('sellers.commission_rate');
