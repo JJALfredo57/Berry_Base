@@ -123,6 +123,7 @@ class OrderController extends Controller
         $orderItems = [];
         $customData  = [];
         $orderRefunds = [];
+        $returnCases = [];
         $paymentReceipts = [];
         $riderRemittances = [];
         $checkoutGroupOrders = [];
@@ -140,6 +141,11 @@ class OrderController extends Controller
                     $refundRows = DB::table('order_refunds')->whereIn('order_id', $orderIds)->orderByDesc('id')->get();
                     foreach ($refundRows as $r) {
                         if (!isset($orderRefunds[$r->order_id])) $orderRefunds[$r->order_id] = $r;
+                    }
+                }
+                if (Schema::hasTable('post_delivery_return_cases')) {
+                    foreach (DB::table('post_delivery_return_cases')->whereIn('order_id', $orderIds)->orderByDesc('id')->get() as $case) {
+                        if (!isset($returnCases[$case->order_id])) $returnCases[$case->order_id] = $case;
                     }
                 }
                 if (Schema::hasColumn('orders', 'checkout_group_id')) {
@@ -191,7 +197,7 @@ class OrderController extends Controller
 
         try {
             return response(
-                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'orderItems', 'checkoutGroupOrders', 'customData', 'orderRefunds', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'financialTimelines', 'pendingCancelCount', 'search', 'status', 'riders'))->render()
+                view('seller.orders', compact('shop', 'orders', 'orderAddons', 'orderItems', 'checkoutGroupOrders', 'customData', 'orderRefunds', 'returnCases', 'paymentReceipts', 'riderRemittances', 'customerRiskMap', 'financialTimelines', 'pendingCancelCount', 'search', 'status', 'riders'))->render()
             );
         } catch (\Throwable $e) {
             Log::error('Seller orders VIEW render failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
@@ -259,6 +265,8 @@ class OrderController extends Controller
         $isPickupOrder = ($order->fulfillment_type ?? 'Pickup') === 'Pickup';
         $allowed   = ['Confirmed','Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','Cancelled'];
         if (!in_array($newStatus, $allowed)) return back()->with('err', 'Invalid status.');
+        $returnCase = Schema::hasTable('post_delivery_return_cases') ? DB::table('post_delivery_return_cases')->where('order_id', $id)->latest('id')->first() : null;
+        if ($newStatus === 'Picked Up' && $returnCase && ($returnCase->status ?? '') !== 'seller_rejected') return back()->with('err', 'Resolve the customer return request before completing this pickup.');
 
         if ($newStatus !== 'Cancelled' && (($order->cancel_status ?? '') === 'pending' || ($order->seller_cancel_state ?? '') === 'awaiting_customer')) {
             return back()->with('err', 'This order cannot move forward while a cancellation request is awaiting a response or refund review.');
@@ -894,6 +902,7 @@ class OrderController extends Controller
         if (($order->fulfillment_type ?? '') !== 'Pickup' || ($order->status ?? '') !== 'Pickup') {
             return back()->with('err', 'Only an order waiting for customer pickup can be marked as a no-show.');
         }
+        if (Schema::hasTable('post_delivery_return_cases') && DB::table('post_delivery_return_cases')->where('order_id',$id)->exists()) return back()->with('err', 'An unclaimed pickup cannot be recorded because this order has a customer return request.');
         if (!$refunds->hasPaidAmount($order)) {
             return back()->with('err', 'A paid GCash deposit must be recorded before a pickup no-show can be finalized.');
         }
@@ -922,6 +931,7 @@ class OrderController extends Controller
         $shop = $this->getShop();
         $order = DB::table('orders')->where('id', $id)->where('shop_id', $shop->id)->first();
         if (!$order) return back()->with('err', 'Order not found.');
+        if (Schema::hasTable('post_delivery_return_cases') && DB::table('post_delivery_return_cases')->where('order_id',$id)->exists()) return back()->with('err', 'An unclaimed window cannot be started because this order has a customer return request.');
         $validated = $request->validate([
             'contact_note' => 'required|string|min:10|max:500',
             'resale_price' => 'required|numeric|min:1|max:999999',

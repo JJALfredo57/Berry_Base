@@ -300,6 +300,9 @@
     $items = $orderItems[$o->id] ?? [];
     $groupOrders = !empty($o->checkout_group_id) ? collect($checkoutGroupOrders[$o->checkout_group_id] ?? [])->where('id', '!=', $o->id)->values() : collect();
     $refund = $orderRefunds[$o->id] ?? null;
+    $returnCase = $returnCases[$o->id] ?? null;
+    $hasReturnCase = !is_null($returnCase);
+    $returnRejected = ($returnCase->status ?? null) === 'seller_rejected';
     $receipts = $paymentReceipts[$o->id] ?? [];
     $remittance = $riderRemittances[$o->id] ?? null;
     $hasPaidAmount = ($o->payment_status ?? '') === 'Paid'
@@ -831,8 +834,17 @@
     </div>
     @endif
 
+    {{-- Pickup return case overrides normal pickup and unclaimed workflows. --}}
+    @if($o->status === 'Pickup' && $hasReturnCase)
+    <div style="border-top:1px solid #bfdbfe;padding:.9rem 1.25rem;background:#eff6ff;display:flex;align-items:flex-start;gap:.75rem;flex-wrap:wrap">
+      <div style="width:2.4rem;height:2.4rem;border-radius:14px;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-arrow-repeat"></i></div>
+      <div style="flex:1;min-width:260px"><div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">CUSTOMER RETURN REQUEST</div><div style="font-size:.82rem;color:#1d4ed8;line-height:1.5;font-weight:600">@if(($returnCase->status ?? '')==='submitted')Customer submitted a pickup return request. Review is required before this order can continue.@elseif($returnRejected)Request rejected.@if($returnCase->seller_decision_note) Reason: {{ $returnCase->seller_decision_note }}.@endif Customer may now inspect and accept the cake.@elseif(($returnCase->status ?? '')==='seller_approved')Pickup return approved. The cake remains at the counter and the fixed refund is awaiting processing.@elseif(($returnCase->status ?? '')==='refunded')Refund completed.@else Return status: {{ ucfirst(str_replace('_',' ',$returnCase->status)) }}.@endif</div></div>
+      @if(($returnCase->status ?? '')==='submitted')<a href="{{ route('seller.return_cases') }}" class="btn btn-primary btn-sm">Review Return Case</a>@endif
+    </div>
+    @endif
+
     {{-- Pickup Ready: Picked Up button or payment warning --}}
-    @if($o->status === 'Pickup' && !$cancellationHold)
+    @if($o->status === 'Pickup' && !$cancellationHold && (!$hasReturnCase || $returnRejected))
       @php
         // COP orders store payment_method='COP'; legacy orders may have 'COD' for pickup.
         $isCashPickup = ($o->fulfillment_type ?? 'Pickup') === 'Pickup'
@@ -894,7 +906,7 @@
         </span>
       </div>
       @endif
-      <div style="border-top:1px solid #fed7aa;padding:.85rem 1.25rem;background:#fff7ed">
+      @if(!$hasReturnCase)<div style="border-top:1px solid #fed7aa;padding:.85rem 1.25rem;background:#fff7ed">
         @if($isRequestBakeOrder)
         @if(!empty($o->unclaimed_grace_expires_at))
           <div class="small fw-semibold" style="color:#9a3412"><i class="bi bi-hourglass-split me-1"></i>Three-day unclaimed window ends {{ \Carbon\Carbon::parse($o->unclaimed_grace_expires_at)->format('M d, Y g:i A') }}. Customer has been notified.</div>
@@ -933,6 +945,7 @@
         </form>
         @endif
       </div>
+      @endif
     @endif
 
     @if($o->status === 'Returned to Shop' && !$isCustomOrder)
