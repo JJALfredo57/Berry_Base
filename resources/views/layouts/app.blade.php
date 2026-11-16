@@ -1300,6 +1300,9 @@
       @endphp
       @if($payoutAttention > 0)<span class="sb-badge warn">{{ $payoutAttention > 9 ? '9+' : $payoutAttention }}</span>@endif
     </a>
+    <a href="{{ route('superadmin.return_cases') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.return_cases') ? 'active' : '' }}">
+      <i class="bi bi-arrow-return-left"></i><span class="sb-link-text">Delivery Refund Cases</span>
+    </a>
 
     <div class="sb-label">Customers</div>
     <a href="{{ route('superadmin.feedback') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.feedback') ? 'active' : '' }}">
@@ -1485,6 +1488,9 @@
     <a href="{{ route('seller.payouts') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.payouts') ? 'active' : '' }}">
       <i class="bi bi-wallet2"></i><span class="sb-link-text">Payouts</span>
       <span class="sb-badge info" data-seller-badge="payouts" title="Unread payout notifications" style="{{ $sbCount('payouts') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('payouts')) }}</span>
+    </a>
+    <a href="{{ route('seller.return_cases') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.return_cases') ? 'active' : '' }}">
+      <i class="bi bi-exclamation-triangle"></i><span class="sb-link-text">Delivery Issues</span>
     </a>
     <a href="{{ route('seller.finance') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.finance') ? 'active' : '' }}">
       <i class="bi bi-graph-up-arrow"></i><span class="sb-link-text">Finance</span>

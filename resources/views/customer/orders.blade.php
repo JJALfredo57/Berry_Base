@@ -1417,6 +1417,9 @@
         @endif
 
         {{-- CANCEL REQUEST BUTTON --}}
+        @if(in_array($o->status, ['Delivered','Picked Up']))
+          <a class="btn btn-outline-danger btn-sm" href="{{ route('customer.returns.create', $o->id) }}"><i class="bi bi-exclamation-triangle me-1"></i>Report an issue</a>
+        @endif
         @if($canCancel && !$hasPending && !$wasAccepted && !($isCustom && $co && ($co->review_status ?? '') === 'approved' && ($co->price_confirmed ?? '') === 'pending'))
           <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelModal{{ $o->id }}">
             <i class="bi bi-x-circle me-1"></i>{{ $isCustom && !$hasDepositLock ? 'Cancel Order' : ($hasDepositLock ? 'Request Cancellation & Refund' : 'Request Cancel') }}

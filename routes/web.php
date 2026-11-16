@@ -392,6 +392,8 @@ Route::prefix('customer')->name('customer.')->middleware('auth.customer')->group
     Route::get('/orders/status-counts',            [CustomerOrder::class, 'statusCounts'])->name('orders.status_counts');
     Route::get('/orders/{id}/status',              [CustomerOrder::class, 'status'])->name('orders.status');
     Route::post('/orders/{id}/cancel-request',     [CustomerOrder::class, 'requestCancel'])->name('orders.cancel_request');
+    Route::get('/orders/{id}/return-request', [\App\Http\Controllers\Customer\PostDeliveryReturnController::class, 'create'])->name('returns.create');
+    Route::post('/orders/{id}/return-request', [\App\Http\Controllers\Customer\PostDeliveryReturnController::class, 'store'])->middleware('throttle:5,10')->name('returns.store');
     Route::post('/orders/{id}/seller-cancel-response', [CustomerOrder::class, 'respondToSellerCancellation'])->name('orders.seller_cancel_response');
     Route::post('/orders/{id}/review',             [CustomerReview::class, 'store'])->name('orders.review');
 
@@ -508,6 +510,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     // Orders
     Route::get('/sidebar-counts',            [\App\Http\Controllers\Seller\DashboardController::class, 'sidebarCounts'])->name('sidebar_counts');
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
+    Route::get('/return-cases', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'index'])->name('return_cases');
+    Route::post('/return-cases/{id}/respond', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'respond'])->middleware('throttle:12,10')->name('return_cases.respond');
     Route::get('/order-requests',            [\App\Http\Controllers\Seller\OrderRequestController::class, 'index'])->name('order_requests');
     Route::post('/order-requests/{id}/update', [\App\Http\Controllers\Seller\OrderRequestController::class, 'update'])->name('order_requests.update');
     Route::get('/orders/status-counts',         [\App\Http\Controllers\Seller\OrderController::class, 'statusCounts'])->name('orders.status_counts');
@@ -641,6 +645,9 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/payouts/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanReceipt'])->name('payouts.scan_receipt');
     Route::post('/refunds/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRefundReceipt'])->name('refunds.scan_receipt');
     Route::post('/refunds/{id}/mark-sent',     [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRefundSent'])->name('refunds.mark_sent');
+    Route::get('/return-cases', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'index'])->name('return_cases');
+    Route::post('/return-cases/{id}/decision', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'decide'])->middleware('throttle:20,10')->name('return_cases.decide');
+    Route::post('/return-cases/{id}/refund', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'refund'])->middleware('throttle:10,10')->name('return_cases.refund');
     Route::get('/payouts/{id}/receipt-download', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'downloadReceipt'])->name('payouts.receipt_download');
     Route::get('/feedback',                    [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'index'])->name('feedback');
     Route::post('/feedback/{id}',              [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'update'])->name('feedback.update');
