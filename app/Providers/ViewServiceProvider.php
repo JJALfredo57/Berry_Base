@@ -29,6 +29,7 @@ class ViewServiceProvider extends ServiceProvider
                 'kitchen_pending' => 0,
                 'kitchen_preparing' => 0,
                 'cancellation_actions' => 0,
+                'return_cases' => 0,
             ];
             $customerActionSummary = ['seller_cancellations' => 0, 'price_confirmations' => 0, 'total' => 0];
 
@@ -124,6 +125,9 @@ class ViewServiceProvider extends ServiceProvider
                                 : 0;
 
                             $cancellationActions = app(OrderActionService::class)->sellerSummary((string) $shop->id)['total'];
+                            $returnCases = Schema::hasTable('post_delivery_return_cases')
+                                ? (int) DB::table('post_delivery_return_cases')->where('shop_id', $shop->id)->where('status', 'submitted')->count()
+                                : 0;
                             $sellerSidebarCounts = [
                                 'orders' => $pendingOrders + $pickupReady + $remittanceActions + $riderActions + $cancellationActions,
                                 'kitchen' => $kitchenPending + $kitchenPreparing,
@@ -139,6 +143,7 @@ class ViewServiceProvider extends ServiceProvider
                                 'kitchen_pending' => $kitchenPending,
                                 'kitchen_preparing' => $kitchenPreparing,
                                 'cancellation_actions' => $cancellationActions,
+                                'return_cases' => $returnCases,
                             ];
                             $unreadMessages = $messages;
                         }

@@ -58,7 +58,8 @@ class PostDeliveryReturnController extends Controller
         if ($video = $request->file('video')) { $videoPath = $this->uploadFile($video, 'uploads/post_delivery_returns'); if (!$videoPath) return back()->withInput()->with('error', 'The video could not be stored. Please try again.'); $evidence[] = ['kind' => 'video', 'path' => $videoPath, 'sha256' => hash_file('sha256', $video->getRealPath()), 'mime_type' => $video->getMimeType(), 'size_bytes' => $video->getSize()]; }
         try {
             $description = trim($data['description']) . ($data['reason'] === 'other' ? "\nOther verified issue: " . trim($data['other_reason']) : '');
-            $this->returns->submit($order, (string) session('user')['id'], ['reason' => $data['reason'], 'description' => $description, 'refund_gcash_name' => trim($data['refund_gcash_name']), 'refund_gcash_number' => $this->refunds->normalizeGcashNumber($data['refund_gcash_number'])], $evidence);
+            $case = $this->returns->submit($order, (string) session('user')['id'], ['reason' => $data['reason'], 'description' => $description, 'refund_gcash_name' => trim($data['refund_gcash_name']), 'refund_gcash_number' => $this->refunds->normalizeGcashNumber($data['refund_gcash_number'])], $evidence);
+            $this->notifySeller($order, $case);
         } catch (\DomainException $e) { return back()->withInput()->with('error', $e->getMessage()); }
         $message = $isPickupInspection
             ? 'Your pickup return request was submitted. Please wait while the seller reviews it at the pickup counter.'
@@ -71,4 +72,16 @@ class PostDeliveryReturnController extends Controller
 
     private function allowedReasons(object $order): array
     { $reasons=['wrong_item','damaged','quality_safety','other']; $isCustom=DB::table('custom_orders')->where('order_id',$order->id)->exists(); if($isCustom)$reasons[]='not_as_approved'; if(($order->fulfillment_type??'')==='Delivery')$reasons[]='delivery_damage'; if(DB::table('order_addons')->where('order_id',$order->id)->exists() || (Schema::hasTable('order_items') && DB::table('order_items')->where('order_id',$order->id)->count()>1))$reasons[]='missing_item'; return $reasons; }
+
+    private function notifySeller(object $order, object $case): void
+    {
+        $sellerId = (string) ($case->seller_user_id ?? '');
+        if ($sellerId === '') return;
+        $title = 'Return Request Needs Review';
+        $message = ($order->fulfillment_type ?? '') === 'Pickup'
+            ? "Customer submitted a pickup return request for Order #{$order->id}."
+            : "Customer submitted a delivery return request for Order #{$order->id}. The rider is waiting for your decision.";
+        if (Schema::hasTable('notifications')) DB::table('notifications')->insert(['receiver_role'=>'seller','receiver_user_id'=>$sellerId,'title'=>$title,'message'=>$message,'is_read'=>false,'created_at'=>now()]);
+        try { app(\App\Services\MobileNotificationService::class)->notifyOrderSeller($order, $title, $message, ['event'=>'return_request_submitted','return_case_id'=>(string)$case->id]); } catch (\Throwable) {}
+    }
 }
