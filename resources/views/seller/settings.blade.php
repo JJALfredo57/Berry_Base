@@ -114,7 +114,7 @@
     <div>
       <div style="font-size:.9rem;font-weight:700;color:var(--gray-900)">Verified Seller</div>
       <div style="font-size:.78rem;color:var(--gray-600)">
-        @if($commissionEnabled) Commission: {{ number_format($commissionRate, 2) }}% on paid orders
+        @if($commissionEnabled) Commission: {{ number_format($commissionRate, 2) }}% after delivered or picked-up orders
         @else Commission: OFF for your shop right now @endif
       </div>
     </div>
@@ -150,7 +150,7 @@
       <div>
         <div style="font-size:.9rem;font-weight:700;color:var(--gray-900)">Basic Seller</div>
         <div style="font-size:.78rem;color:var(--gray-600)">
-          @if($commissionEnabled) Commission: {{ number_format($commissionRate, 2) }}% on paid orders
+          @if($commissionEnabled) Commission: {{ number_format($commissionRate, 2) }}% after delivered or picked-up orders
           @else Commission: OFF for your shop right now @endif
         </div>
       </div>
