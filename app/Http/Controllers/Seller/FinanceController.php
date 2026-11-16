@@ -44,8 +44,20 @@ class FinanceController extends Controller
             ? DB::table('seller_expenses')->where('shop_id', $shop->id)->whereBetween('expense_date', [$from, $to])->orderByDesc('expense_date')->orderByDesc('id')->get()
             : collect();
         $payoutRows = DB::table('seller_payouts')->where('shop_id', $shop->id)->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])->orderByDesc('created_at')->get();
+        // Payment receipts are real-time platform-held funds. They must be visible
+        // before delivery/pickup, but never treated as seller earnings until the
+        // completion ledger exists.
+        $paymentRows = Schema::hasTable('payment_transactions')
+            ? DB::table('payment_transactions as pt')
+                ->join('orders as o', 'o.id', '=', 'pt.order_id')
+                ->where('o.shop_id', $shop->id)
+                ->where('pt.payment_status', 'paid')
+                ->whereBetween(DB::raw('DATE(COALESCE(pt.paid_at, pt.created_at))'), [$from, $to])
+                ->select('pt.*', 'o.status as order_status', 'o.fulfillment_type')
+                ->orderByDesc('pt.paid_at')->orderByDesc('pt.id')->get()
+            : collect();
 
-        $gross = (float) $ledgerRows->where('gross_amount', '>', 0)->sum('gross_amount');
+        $gross = (float) $paymentRows->sum('amount');
         $deliveryFund = Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount') ? (float) $ledgerRows->sum('delivery_fund_amount') : 0.0;
         $commission = (float) $ledgerRows->sum('commission_amount');
         $refunds = abs((float) $ledgerRows->where('seller_net_amount', '<', 0)->sum('seller_net_amount'));
@@ -84,6 +96,20 @@ class FinanceController extends Controller
         $hasCakeAmount = Schema::hasColumn('seller_payout_ledgers', 'cake_amount');
         $hasDeliveryFund = Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount');
         $transactions = collect()
+            ->merge($paymentRows->map(function ($payment) {
+                $completed = in_array((string) $payment->order_status, ['Delivered', 'Picked Up'], true);
+                return (object) [
+                    'date' => $payment->paid_at ?? $payment->created_at,
+                    'type' => 'Customer payment received',
+                    'reference' => 'Order #'.$payment->order_id.' · '.PaymentTransactionHelper::typeLabel($payment->type ?? null),
+                    'gross' => (float) $payment->amount,
+                    'commission' => 0,
+                    'net' => 0,
+                    'status' => $completed ? 'settlement pending' : 'held - awaiting completion',
+                    'expense_id' => null,
+                    'payment_events' => collect(),
+                ];
+            }))
             ->merge($ledgerRows->map(function ($row) use ($paymentEventsByOrder, $hasCakeAmount, $hasDeliveryFund) {
                 return (object) [
                     'date' => $row->created_at,
