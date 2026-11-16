@@ -757,7 +757,6 @@
     #adminSidebar.collapsed .sb-brand-text,
     #adminSidebar.collapsed .sb-brand-sub,
     #adminSidebar.collapsed .sb-user-info { opacity:0;pointer-events:none; }
-    #adminSidebar.collapsed .sb-brand { justify-content:center;padding-inline:0; }
 
     .sb-brand { display:flex;align-items:center;gap:12px;padding:0 16px;height:var(--topbar-h);border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;overflow:hidden;white-space:nowrap; }
     .sb-brand-icon { width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center; }
