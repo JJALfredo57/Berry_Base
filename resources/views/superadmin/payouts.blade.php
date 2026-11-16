@@ -29,6 +29,7 @@
 <div class="row g-3 mb-4 payout-summary-grid">
   @foreach([
     ['All Online Payments', $paymentSummary['online_amount'], 'bi-credit-card-2-front', '#0369a1', '#f0f9ff'],
+    ['Held Customer Funds', $heldCustomerFunds ?? 0, 'bi-shield-lock', '#92400e', '#fffbeb'],
     ['Platform Commission Recorded', $commissionSummary['recorded'], 'bi-percent', '#7c3aed', '#f5f3ff'],
     ['Seller Earnings on Hold', $summary['clearing'], 'bi-hourglass-split', '#92400e', '#fffbeb'],
     ['Ready for Seller Payout', $summary['available'], 'bi-cash-stack', '#166534', '#ecfdf5'],
@@ -36,6 +37,7 @@
     ['Paid to Sellers', $summary['paid'], 'bi-check2-circle', '#6d28d9', '#f5f3ff'],
     ['Customer Refunds Sent', $paymentSummary['refunds_sent'], 'bi-arrow-return-left', '#b45309', '#fff7ed'],
     ['Seller Recovery Pending', $summary['seller_recovery_pending'] ?? 0, 'bi-arrow-counterclockwise', '#b91c1c', '#fef2f2'],
+    ['Rider Funds Pending', $riderFundSummary['pending'] ?? 0, 'bi-bicycle', '#9a3412', '#fff7ed'],
   ] as [$label, $value, $icon, $color, $bg])
   <div class="col-6 col-xl-4 col-xxl-3">
     <div class="cs-stat-card h-100">
@@ -47,6 +49,11 @@
     </div>
   </div>
   @endforeach
+</div>
+
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-bicycle me-2" style="color:var(--primary)"></i>Rider Delivery Funds & Remittance</span><span class="small text-muted">Confirmed: ₱{{ number_format($riderFundSummary['confirmed'] ?? 0,2) }} · pending: ₱{{ number_format($riderFundSummary['pending'] ?? 0,2) }}</span></div>
+  <div class="card-body p-0"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Order</th><th>Shop</th><th>Order state</th><th>Remittance state</th><th class="text-end">Amount</th></tr></thead><tbody>@forelse($riderFunds as $fund)<tr><td class="fw-semibold">#{{ $fund->order_id }}</td><td>{{ $fund->shop_name ?? '—' }}</td><td><span class="badge text-bg-light">{{ $fund->order_status ?? '—' }}</span></td><td><span class="badge text-bg-light">{{ ucfirst(str_replace('_',' ',$fund->status ?? 'pending')) }}</span></td><td class="text-end fw-semibold">₱{{ number_format((float)($fund->amount ?? 0),2) }}</td></tr>@empty<tr><td colspan="5" class="text-center text-muted py-4">No rider remittance activity yet.</td></tr>@endforelse</tbody></table></div></div>
 </div>
 
 <div class="card mb-4">

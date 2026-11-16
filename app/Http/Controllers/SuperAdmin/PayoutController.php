@@ -55,6 +55,21 @@ class PayoutController extends Controller
             ]
             : ['online_amount' => 0, 'service_fees' => 0, 'count' => 0, 'cash_completed' => 0, 'refunds_sent' => 0];
         $paymentSummary['net_online_after_refunds'] = round($paymentSummary['online_amount'] - $paymentSummary['refunds_sent'], 2);
+        $heldCustomerFunds = Schema::hasTable('payment_transactions')
+            ? (float) DB::table('payment_transactions as pt')->join('orders as o', 'o.id', '=', 'pt.order_id')
+                ->where('pt.payment_status', 'paid')->whereNotIn('o.status', ['Delivered', 'Picked Up', 'Cancelled', 'No Show'])
+                ->sum('pt.amount')
+            : 0.0;
+        $riderFunds = Schema::hasTable('rider_remittances')
+            ? DB::table('rider_remittances as rr')->leftJoin('orders as o', 'o.id', '=', 'rr.order_id')
+                ->leftJoin('shops as s', 's.id', '=', 'o.shop_id')
+                ->select('rr.*', 'o.status as order_status', 'o.delivery_fee', 's.shop_name')
+                ->orderByDesc('rr.created_at')->limit(50)->get()
+            : collect();
+        $riderFundSummary = [
+            'pending' => (float) $riderFunds->whereIn('status', ['pending', 'submitted', 'awaiting_payment', 'qr_expired', 'rejected'])->sum('amount'),
+            'confirmed' => (float) $riderFunds->where('status', 'confirmed')->sum('amount'),
+        ];
 
         $commissionSummary = [
             'recorded' => (float) DB::table('seller_payout_ledgers')->where('commission_amount', '>', 0)->sum('commission_amount'),
@@ -146,7 +161,7 @@ class PayoutController extends Controller
             ->select('l.*', 's.shop_name', 'payments.online_paid', 'payments.cash_paid')
             ->orderByDesc('l.created_at')->limit(50)->get();
 
-        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows'));
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows'));
     }
 
     public function saveSettings(Request $request)
