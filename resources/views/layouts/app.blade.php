@@ -1490,7 +1490,7 @@
       <span class="sb-badge info" data-seller-badge="payouts" title="Unread payout notifications" style="{{ $sbCount('payouts') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('payouts')) }}</span>
     </a>
     <a href="{{ route('seller.return_cases') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.return_cases') ? 'active' : '' }}">
-      <i class="bi bi-exclamation-triangle"></i><span class="sb-link-text">Delivery Issues</span>
+      <i class="bi bi-arrow-return-left"></i><span class="sb-link-text">Return Requests</span>
       <span class="sb-badge warn" data-seller-badge="return_cases" title="{{ $sbCount('return_cases') }} return request{{ $sbCount('return_cases') === 1 ? '' : 's' }} need action" style="{{ $sbCount('return_cases') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('return_cases')) }}</span>
     </a>
     <a href="{{ route('seller.finance') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.finance') ? 'active' : '' }}">
