@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\PaymentTransactionHelper;
 use App\Services\SellerPayoutService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -62,8 +63,46 @@ class FinanceController extends Controller
             'net' => $labels->map(fn ($date) => $chart[$date]['net'] ?? 0)->values(),
             'expenses' => $labels->map(fn ($date) => $expenseByDay[$date] ?? 0)->values(),
         ];
+        // Payment receipts stay nested under their order earning.  Creating a second
+        // ledger row for a 50% deposit or remaining payment would double-count the
+        // seller's earnings and payout balance.
+        $paymentEventsByOrder = collect();
+        if (Schema::hasTable('payment_transactions') && $ledgerRows->isNotEmpty()) {
+            $paymentEventsByOrder = DB::table('payment_transactions')
+                ->whereIn('order_id', $ledgerRows->pluck('order_id')->filter()->unique()->values())
+                ->where('payment_status', 'paid')
+                ->orderBy('paid_at')
+                ->orderBy('id')
+                ->get()
+                ->map(function ($payment) {
+                    $payment->label = PaymentTransactionHelper::typeLabel($payment->type ?? null);
+                    return $payment;
+                })
+                ->groupBy('order_id');
+        }
+
+        $hasCakeAmount = Schema::hasColumn('seller_payout_ledgers', 'cake_amount');
+        $hasDeliveryFund = Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount');
         $transactions = collect()
-            ->merge($ledgerRows->map(fn ($row) => (object) ['date' => $row->created_at, 'type' => $row->seller_net_amount < 0 ? 'Refund deduction' : 'Order earnings', 'reference' => 'Order #'.$row->order_id, 'gross' => (float) $row->gross_amount, 'commission' => (float) $row->commission_amount, 'net' => (float) $row->seller_net_amount, 'status' => $row->status, 'expense_id' => null]))
+            ->merge($ledgerRows->map(function ($row) use ($paymentEventsByOrder, $hasCakeAmount, $hasDeliveryFund) {
+                return (object) [
+                    'date' => $row->created_at,
+                    'type' => $row->seller_net_amount < 0 ? 'Refund deduction' : 'Order earnings',
+                    'reference' => 'Order #'.$row->order_id,
+                    'gross' => (float) $row->gross_amount,
+                    'commission' => (float) $row->commission_amount,
+                    'net' => (float) $row->seller_net_amount,
+                    'status' => $row->status,
+                    'expense_id' => null,
+                    'order_id' => $row->order_id,
+                    'payment_events' => $paymentEventsByOrder->get($row->order_id, collect()),
+                    'cake_amount' => $hasCakeAmount ? (float) $row->cake_amount : (float) $row->commission_base,
+                    'delivery_fund' => $hasDeliveryFund ? (float) $row->delivery_fund_amount : 0.0,
+                    'commission_rate' => (float) $row->commission_rate,
+                    'release_at' => $row->release_at,
+                    'notes' => $row->notes,
+                ];
+            }))
             ->merge($expenses->map(fn ($row) => (object) ['date' => $row->expense_date, 'type' => 'Business expense', 'reference' => $row->description, 'gross' => 0, 'commission' => 0, 'net' => -(float) $row->amount, 'status' => $row->category, 'expense_id' => $row->id]))
             ->merge($payoutRows->map(fn ($row) => (object) ['date' => $row->paid_at ?? $row->created_at, 'type' => 'Seller payout', 'reference' => 'Payout #'.$row->id, 'gross' => 0, 'commission' => 0, 'net' => -(float) $row->net_amount, 'status' => $row->status, 'expense_id' => null]))
             ->sortByDesc('date')->values();
