@@ -236,7 +236,11 @@
           <span style="background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;font-size:.68rem;font-weight:700;padding:.15rem .5rem;border-radius:99px"><i class="bi bi-exclamation-circle"></i> Out of stock</span>
         @endif
       </div>
-      <div style="font-size:.875rem;font-weight:700;color:var(--primary);margin:.2rem 0">₱{{ number_format($p->price,2) }} base</div>
+       @if($hasActiveSizes)
+         <div style="font-size:.875rem;font-weight:700;color:var(--primary);margin:.2rem 0">From ₱{{ number_format((float) $sizes->min('price'),2) }}</div>
+       @else
+         <div style="font-size:.78rem;font-weight:700;color:#b91c1c;margin:.2rem 0">Add a size to set price</div>
+       @endif
       @if($discountBadge)
         <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.2rem">
           @if($sweetDealBadge)
