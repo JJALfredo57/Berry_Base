@@ -8,6 +8,7 @@ use App\Services\PostDeliveryReturnService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class PostDeliveryReturnController extends Controller
 {
@@ -24,7 +25,8 @@ class PostDeliveryReturnController extends Controller
         if (!$eligible) return redirect()->route('customer.orders')->with('error', $message);
         $case = DB::table('post_delivery_return_cases')->where('order_id', $orderId)->whereIn('status', ['submitted', 'seller_responded', 'approved'])->first();
         if ($case) return redirect()->route('customer.orders')->with('error', 'A return/refund case is already open for this order.');
-        return view('customer.return_request', compact('order', 'isPickupInspection'));
+        $allowedReasons = $this->allowedReasons($order);
+        return view('customer.return_request', compact('order', 'isPickupInspection', 'allowedReasons'));
     }
 
     public function store(Request $request, string $orderId)
@@ -32,8 +34,10 @@ class PostDeliveryReturnController extends Controller
         $order = DB::table('orders')->where('id', $orderId)->where('user_id', session('user')['id'])->first();
         if (!$order) abort(404);
         $isPickupInspection = ($order->fulfillment_type ?? '') === 'Pickup' && ($order->status ?? '') === 'Pickup';
+        $allowedReasons = $this->allowedReasons($order);
         $rules = [
-            'reason' => ['required', 'in:' . implode(',', PostDeliveryReturnService::REASONS)],
+            'reason' => ['required', 'in:' . implode(',', $allowedReasons)],
+            'other_reason' => ['nullable', 'string', 'min:10', 'max:500', 'required_if:reason,other'],
             'description' => ['required', 'string', 'min:20', 'max:1500'],
             'refund_gcash_name' => ['required', 'string', 'max:160'],
             'refund_gcash_number' => ['required', 'string', 'max:80'],
@@ -51,11 +55,15 @@ class PostDeliveryReturnController extends Controller
         }
         if ($video = $request->file('video')) { $videoPath = $this->uploadFile($video, 'uploads/post_delivery_returns'); if (!$videoPath) return back()->withInput()->with('error', 'The video could not be stored. Please try again.'); $evidence[] = ['kind' => 'video', 'path' => $videoPath, 'sha256' => hash_file('sha256', $video->getRealPath()), 'mime_type' => $video->getMimeType(), 'size_bytes' => $video->getSize()]; }
         try {
-            $this->returns->submit($order, (string) session('user')['id'], ['reason' => $data['reason'], 'description' => trim($data['description']), 'refund_gcash_name' => trim($data['refund_gcash_name']), 'refund_gcash_number' => $this->refunds->normalizeGcashNumber($data['refund_gcash_number'])], $evidence);
+            $description = trim($data['description']) . ($data['reason'] === 'other' ? "\nOther verified issue: " . trim($data['other_reason']) : '');
+            $this->returns->submit($order, (string) session('user')['id'], ['reason' => $data['reason'], 'description' => $description, 'refund_gcash_name' => trim($data['refund_gcash_name']), 'refund_gcash_number' => $this->refunds->normalizeGcashNumber($data['refund_gcash_number'])], $evidence);
         } catch (\DomainException $e) { return back()->withInput()->with('error', $e->getMessage()); }
         return redirect()->route('customer.orders')->with('msg', 'Your delivery issue was submitted. The affected seller payout is on hold while the case is reviewed.');
     }
 
     public function acceptPickup(string $orderId)
     { $order=DB::table('orders')->where('id',$orderId)->where('user_id',session('user')['id'])->first(); if(!$order||($order->fulfillment_type??'')!=='Pickup'||($order->status??'')!=='Pickup')return back()->with('error','This pickup is not ready for inspection.'); DB::table('orders')->where('id',$orderId)->whereNull('pickup_inspected_at')->update(['pickup_inspected_at'=>now(),'pickup_inspected_by_user_id'=>(string)session('user')['id'],'updated_at'=>now()]); DB::table('order_tracking')->insert(['order_id'=>$orderId,'status'=>'Pickup','notes'=>'Customer inspected and accepted cake at pickup counter.','created_at'=>now()]); return back()->with('msg','Cake inspection accepted. The seller may now complete your pickup.'); }
+
+    private function allowedReasons(object $order): array
+    { $reasons=['wrong_item','damaged','quality_safety','other']; $isCustom=DB::table('custom_orders')->where('order_id',$order->id)->exists(); if($isCustom)$reasons[]='not_as_approved'; if(($order->fulfillment_type??'')==='Delivery')$reasons[]='delivery_damage'; if(DB::table('order_addons')->where('order_id',$order->id)->exists() || (Schema::hasTable('order_items') && DB::table('order_items')->where('order_id',$order->id)->count()>1))$reasons[]='missing_item'; return $reasons; }
 }
