@@ -18,6 +18,7 @@
   }
   $availableBalance = (float)($summary['available'] ?? 0);
   $payoutProgress = $minimumPayout > 0 ? min(100, round(($availableBalance / $minimumPayout) * 100)) : 100;
+  $activePeriod = $period ?: 'last30';
   $payoutState = empty($shop->payout_account_name) || empty($shop->payout_account_number) ? 'details' : (empty($shop->payout_details_verified) ? 'verification' : ($availableBalance < $minimumPayout ? 'minimum' : ($requestBlockReason ? 'clearing' : 'ready')));
   $payoutStateCopy = [
     'details' => ['Set up your GCash details', 'Add the exact registered account name and mobile number to begin.', 'bi-bank'],
@@ -29,11 +30,25 @@
 @endphp
 <div class="cs-page-header">
   <div>
-    <h4 class="cs-page-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary)"></i>Payouts</h4>
+    <h4 class="cs-page-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary)"></i>My Payouts</h4>
     <p class="small text-muted mb-0">Clearing means paid completed orders still in the hold period. Available is the full eligible balance you may request. Super Admin transfers through GCash and uploads proof before a payout is marked paid.</p>
     <p class="cs-page-sub">Track your earnings and keep your payout details accurate.</p>
   </div>
 </div>
+
+<section class="payout-activity-filter" aria-label="Payout activity date filter">
+  <div class="payout-filter-copy"><strong>Activity period</strong><small>Filters history only. Your current payout balance is not affected.</small></div>
+  <form method="GET" class="payout-date-form">
+    <input type="hidden" name="period" value="">
+    <label><span>From</span><input class="form-control" type="date" name="from" value="{{ $from }}" onchange="this.form.submit()"></label>
+    <label><span>To</span><input class="form-control" type="date" name="to" value="{{ $to }}" onchange="this.form.submit()"></label>
+  </form>
+  <div class="payout-periods" aria-label="Quick activity periods">
+    @foreach(['today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year','last30'=>'Last 30 days'] as $key=>$label)
+      <a class="btn btn-sm {{ $activePeriod === $key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('seller.payouts', ['period'=>$key]) }}">{{ $label }}</a>
+    @endforeach
+  </div>
+</section>
 
 @if(session('msg'))
   <div class="alert alert-success"><i class="bi bi-check-circle me-1"></i>{{ session('msg') }}</div>
@@ -277,11 +292,12 @@
 </div>
 
 <style>
+  .payout-activity-filter{display:flex;align-items:end;gap:1rem;flex-wrap:wrap;padding:1rem;margin-bottom:1rem;border:1px solid var(--gray-100);border-radius:16px;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,.04)}.payout-filter-copy{margin-right:auto;display:grid;gap:.15rem}.payout-filter-copy small{color:var(--gray-500);font-size:.78rem}.payout-date-form{display:flex;gap:.7rem;flex-wrap:wrap}.payout-date-form label{display:grid;gap:.25rem;font-size:.76rem;font-weight:700;color:var(--gray-600)}.payout-date-form input{min-height:42px;min-width:148px}.payout-periods{display:flex;gap:.45rem;flex-wrap:wrap;width:100%}.payout-periods .btn{min-height:38px;white-space:nowrap}
   .payout-readiness-card{display:flex;justify-content:space-between;gap:1.5rem;padding:clamp(1rem,3vw,1.6rem);margin:0 0 1rem;border:1px solid color-mix(in srgb,var(--primary) 22%,#fff);border-radius:18px;background:linear-gradient(135deg,var(--primary-bg),#fff 66%);box-shadow:0 12px 30px rgba(15,23,42,.06);animation:payout-enter .38s ease both}
   .payout-readiness-main{min-width:0}.payout-live-label{display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--primary)}.payout-live-label span{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.55);animation:payout-pulse 1.9s infinite}.payout-readiness-title-row{display:flex;align-items:flex-start;gap:.75rem;margin:.55rem 0}.payout-readiness-icon{display:grid;place-items:center;width:42px;height:42px;flex:0 0 auto;border-radius:13px;background:var(--primary);color:#fff;font-size:1.25rem}.payout-readiness-title-row h2{font-size:clamp(1.05rem,2vw,1.3rem);margin:0;color:var(--gray-900)}.payout-readiness-title-row p{margin:.18rem 0 0;color:var(--gray-600);max-width:620px}.payout-live-time{font-size:.8rem;color:var(--gray-600)}
   .payout-readiness-action{min-width:min(100%,260px);display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:.35rem}.payout-readiness-action small{color:var(--gray-600);font-size:.75rem}.payout-available-value{font-weight:800;font-size:1.45rem;color:#166534}.payout-progress-track{height:9px;overflow:hidden;background:#d1fae5;border-radius:99px}.payout-progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#16a34a,#22c55e);transition:width .5s ease}.payout-hero-btn{margin-top:.45rem;white-space:nowrap;overflow-wrap:normal}.payout-rule-note{font-size:.86rem}.payout-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem}.payout-step{display:flex;gap:.55rem;align-items:flex-start;padding:.7rem;border:1px solid var(--gray-100);border-radius:12px;background:#fff}.payout-step>span{display:grid;place-items:center;width:25px;height:25px;flex:0 0 auto;border-radius:50%;background:var(--primary-bg);color:var(--primary);font-size:.75rem;font-weight:800}.payout-step strong,.payout-step small{display:block}.payout-step small{font-size:.72rem;color:var(--gray-500);margin-top:.12rem}
   .payout-data-table .table{min-width:760px}.payout-data-table .btn{white-space:nowrap;overflow-wrap:normal}@keyframes payout-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes payout-pulse{70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}}
-  @media(max-width:767px){.payout-readiness-card{flex-direction:column;gap:1rem}.payout-readiness-action{width:100%;min-width:0}.payout-hero-btn{width:100%;min-height:44px}.payout-summary-grid .payout-secondary-stat{display:none}.payout-steps{grid-template-columns:1fr 1fr}.payout-step{min-height:66px}.payout-rule-note{align-items:flex-start!important}}
+  @media(max-width:767px){.payout-activity-filter{align-items:stretch}.payout-filter-copy{margin-right:0}.payout-date-form{width:100%}.payout-date-form label{flex:1 1 140px}.payout-date-form input{width:100%;min-width:0}.payout-periods{flex-wrap:nowrap;overflow:auto;padding-bottom:2px}.payout-periods .btn{flex:0 0 auto}.payout-readiness-card{flex-direction:column;gap:1rem}.payout-readiness-action{width:100%;min-width:0}.payout-hero-btn{width:100%;min-height:44px}.payout-summary-grid .payout-secondary-stat{display:none}.payout-steps{grid-template-columns:1fr 1fr}.payout-step{min-height:66px}.payout-rule-note{align-items:flex-start!important}}
   @media(max-width:399px){.payout-steps{grid-template-columns:1fr}.payout-readiness-card{padding:.9rem}.payout-readiness-title-row{gap:.55rem}}
   @media(prefers-reduced-motion:reduce){.payout-readiness-card,.payout-live-label span{animation:none}.payout-progress-track span{transition:none}}
   #payoutHistoryModal.payout-history-modal .modal-dialog {

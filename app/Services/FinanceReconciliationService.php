@@ -64,7 +64,11 @@ class FinanceReconciliationService
             $held = $isHeld ? $onlineSettled : 0.0;
             $refunds = round($normalRefund + $returnRefund, 2);
             $sellerAmount = $isHeld ? 0.0 : round((float) ($seller->amount ?? 0), 2);
+            $sellerPayable = $isHeld ? 0.0 : round((float) ($seller->payable ?? 0), 2);
+            $sellerPaid = $isHeld ? 0.0 : round((float) ($seller->paid ?? 0), 2);
             $riderAmount = $isHeld ? 0.0 : round((float) ($rider->amount ?? 0), 2);
+            $riderPayable = $isHeld ? 0.0 : round((float) ($rider->payable ?? 0), 2);
+            $riderPaid = $isHeld ? 0.0 : round((float) ($rider->paid ?? 0), 2);
             $commission = $isHeld ? 0.0 : round((float) ($seller->commission ?? 0), 2);
             $difference = round($onlineSettled - $held - $refunds - $sellerAmount - $riderAmount - $commission, 2);
 
@@ -79,7 +83,11 @@ class FinanceReconciliationService
                 'return_refund' => $returnRefund,
                 'refunds' => $refunds,
                 'seller_amount' => $sellerAmount,
+                'seller_payable' => $sellerPayable,
+                'seller_paid' => $sellerPaid,
                 'rider_amount' => $riderAmount,
+                'rider_payable' => $riderPayable,
+                'rider_paid' => $riderPaid,
                 'rider_review_amount' => round((float) ($rider->review_amount ?? 0), 2),
                 'commission' => $commission,
                 'held' => $held,
@@ -124,6 +132,8 @@ class FinanceReconciliationService
             ->where('status', '<>', 'cash_settled')
             ->select('order_id')
             ->selectRaw('SUM(seller_net_amount) AS amount')
+            ->selectRaw("SUM(CASE WHEN status IN ('pending', 'clearing', 'available', 'requested', 'processing') THEN seller_net_amount ELSE 0 END) AS payable")
+            ->selectRaw("SUM(CASE WHEN status = 'paid' THEN seller_net_amount ELSE 0 END) AS paid")
             ->selectRaw('SUM(COALESCE(commission_amount, 0)) AS commission')
             ->groupBy('order_id')
             ->get()
@@ -137,6 +147,8 @@ class FinanceReconciliationService
         return DB::table('rider_delivery_earnings')
             ->select('order_id')
             ->selectRaw("SUM(CASE WHEN status IN ('available', 'requested', 'paid') THEN amount ELSE 0 END) AS amount")
+            ->selectRaw("SUM(CASE WHEN status IN ('available', 'requested') THEN amount ELSE 0 END) AS payable")
+            ->selectRaw("SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS paid")
             ->selectRaw("SUM(CASE WHEN status = 'finance_review' THEN amount ELSE 0 END) AS review_amount")
             ->groupBy('order_id')
             ->get()
@@ -167,7 +179,11 @@ class FinanceReconciliationService
             'return_refunds_sent' => $sum('return_refund'),
             'held_customer_funds' => $sum('held'),
             'seller_amount' => $sum('seller_amount'),
+            'seller_payable' => $sum('seller_payable'),
+            'seller_paid' => $sum('seller_paid'),
             'rider_amount' => $sum('rider_amount'),
+            'rider_payable' => $sum('rider_payable'),
+            'rider_paid' => $sum('rider_paid'),
             'commission_recorded' => $sum('commission'),
             'verified_platform_commission' => round((float) $rows->where('state', 'reconciled')->sum('commission'), 2),
             'unreconciled_positive' => round((float) $reviewRows->where('difference', '>', 0)->sum('difference'), 2),
@@ -185,7 +201,8 @@ class FinanceReconciliationService
             'online_amount' => 0.0, 'customer_charged' => 0.0, 'service_fees' => 0.0,
             'count' => 0, 'refunds_sent' => 0.0, 'normal_refunds_sent' => 0.0,
             'return_refunds_sent' => 0.0, 'held_customer_funds' => 0.0,
-            'seller_amount' => 0.0, 'rider_amount' => 0.0, 'commission_recorded' => 0.0,
+            'seller_amount' => 0.0, 'seller_payable' => 0.0, 'seller_paid' => 0.0,
+            'rider_amount' => 0.0, 'rider_payable' => 0.0, 'rider_paid' => 0.0, 'commission_recorded' => 0.0,
             'verified_platform_commission' => 0.0, 'unreconciled_positive' => 0.0,
             'unreconciled_negative' => 0.0, 'review_count' => 0,
             'net_online_after_refunds' => 0.0, 'platform_available_balance' => 0.0,

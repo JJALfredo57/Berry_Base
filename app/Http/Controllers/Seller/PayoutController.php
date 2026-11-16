@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Services\SellerPayoutService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -19,7 +20,7 @@ class PayoutController extends Controller
         return DB::table('shops')->where('seller_id', session('user')['id'])->first();
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $shop = $this->shop();
         if (!$shop) return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
@@ -35,21 +36,36 @@ class PayoutController extends Controller
 
         $payoutSettings = $this->payouts->settings();
         $summary = $this->payouts->summaryForShop($shop->id);
+        try { $from = Carbon::parse((string) $request->input('from', now()->subDays(29)->toDateString()))->toDateString(); }
+        catch (\Throwable $e) { $from = now()->subDays(29)->toDateString(); }
+        try { $to = Carbon::parse((string) $request->input('to', now()->toDateString()))->toDateString(); }
+        catch (\Throwable $e) { $to = now()->toDateString(); }
+        $period = (string) $request->input('period', '');
+        if ($period === 'today') [$from, $to] = [now()->toDateString(), now()->toDateString()];
+        elseif ($period === 'week') [$from, $to] = [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()];
+        elseif ($period === 'month') [$from, $to] = [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()];
+        elseif ($period === 'last_month') [$from, $to] = [now()->subMonthNoOverflow()->startOfMonth()->toDateString(), now()->subMonthNoOverflow()->endOfMonth()->toDateString()];
+        elseif ($period === 'year') [$from, $to] = [now()->startOfYear()->toDateString(), now()->endOfYear()->toDateString()];
+        elseif ($period === 'last30') [$from, $to] = [now()->subDays(29)->toDateString(), now()->toDateString()];
+        if ($from > $to) [$from, $to] = [$to, $from];
         $ledgers = DB::table('seller_payout_ledgers')
             ->where('shop_id', $shop->id)
+            ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
             ->orderByDesc('created_at')
             ->limit(30)
             ->get();
         $payouts = DB::table('seller_payouts')
             ->where('shop_id', $shop->id)
+            ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
             ->orderByDesc('created_at')
             ->limit(20)
             ->get();
         $payoutHistoryCount = DB::table('seller_payouts')
             ->where('shop_id', $shop->id)
+            ->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
             ->count();
         $refunds = Schema::hasTable('order_refunds')
-            ? DB::table('order_refunds')->where('shop_id', $shop->id)->orderByDesc('created_at')->limit(12)->get()
+            ? DB::table('order_refunds')->where('shop_id', $shop->id)->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])->orderByDesc('created_at')->limit(12)->get()
             : collect();
         $nextClearingLedger = DB::table('seller_payout_ledgers')
             ->where('shop_id', $shop->id)
@@ -58,7 +74,7 @@ class PayoutController extends Controller
             ->orderBy('release_at')
             ->first();
 
-        return view('seller.payouts', compact('shop', 'payoutSettings', 'summary', 'ledgers', 'payouts', 'payoutHistoryCount', 'refunds', 'nextClearingLedger'));
+        return view('seller.payouts', compact('shop', 'payoutSettings', 'summary', 'ledgers', 'payouts', 'payoutHistoryCount', 'refunds', 'nextClearingLedger', 'from', 'to', 'period'));
     }
 
     public function saveDetails(Request $request)

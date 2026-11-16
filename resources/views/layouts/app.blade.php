@@ -1281,7 +1281,7 @@
 
     <div class="sb-label">Finance</div>
     <a href="{{ route('superadmin.payouts') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.payouts') ? 'active' : '' }}">
-      <i class="bi bi-wallet2"></i><span class="sb-link-text">Seller Payouts</span>
+      <i class="bi bi-wallet2"></i><span class="sb-link-text">Finance &amp; Payouts</span>
       @php
         try {
           $payoutAttention = (int)\Illuminate\Support\Facades\DB::table('shops')
@@ -1301,7 +1301,7 @@
       @if($payoutAttention > 0)<span class="sb-badge warn">{{ $payoutAttention > 9 ? '9+' : $payoutAttention }}</span>@endif
     </a>
     <a href="{{ route('superadmin.return_cases') }}" class="sb-link {{ str_starts_with($currentRoute,'superadmin.return_cases') ? 'active' : '' }}">
-      <i class="bi bi-arrow-return-left"></i><span class="sb-link-text">Delivery Refund Cases</span>
+      <i class="bi bi-arrow-return-left"></i><span class="sb-link-text">Return &amp; Refund Cases</span>
     </a>
 
     <div class="sb-label">Customers</div>
@@ -1486,7 +1486,7 @@
       <span class="sb-badge info" data-seller-badge="kitchen" title="{{ $sbCount('kitchen_pending') }} pending, {{ $sbCount('kitchen_preparing') }} preparing" style="{{ $sbCount('kitchen') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('kitchen')) }}</span>
     </a>
     <a href="{{ route('seller.payouts') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.payouts') ? 'active' : '' }}">
-      <i class="bi bi-wallet2"></i><span class="sb-link-text">Payouts</span>
+      <i class="bi bi-wallet2"></i><span class="sb-link-text">My Payouts</span>
       <span class="sb-badge info" data-seller-badge="payouts" title="Unread payout notifications" style="{{ $sbCount('payouts') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('payouts')) }}</span>
     </a>
     <a href="{{ route('seller.return_cases') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.return_cases') ? 'active' : '' }}">
