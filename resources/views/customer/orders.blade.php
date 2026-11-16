@@ -2279,6 +2279,7 @@ document.querySelectorAll('[data-cancel-request-form]').forEach(function (form) 
   const name = form.elements.refund_gcash_name;
   const number = form.elements.refund_gcash_number;
   const submit = form.querySelector('button[type="submit"]');
+  let submitting = false;
   const phoneOk = value => /^(09\d{9}|9\d{9}|639\d{9}|\+639\d{9})$/.test(String(value || '').replace(/[\s()\-]/g, ''));
   const nameOk = value => {
     const cleaned = String(value || '').trim().replace(/\s+/g, ' ');
@@ -2300,6 +2301,10 @@ document.querySelectorAll('[data-cancel-request-form]').forEach(function (form) 
   };
   [reason, name, number].filter(Boolean).forEach(field => field.addEventListener('input', validate));
   form.addEventListener('submit', function (event) {
+    if (submitting) {
+      event.preventDefault();
+      return;
+    }
     if (!validate()) {
       event.preventDefault();
       form.querySelector('.is-invalid')?.focus();
@@ -2310,8 +2315,14 @@ document.querySelectorAll('[data-cancel-request-form]').forEach(function (form) 
       const normalized = String(number.value).replace(/[\s()\-]/g, '').replace(/^09/, '+639').replace(/^9/, '+639').replace(/^639/, '+639');
       if (!window.confirm('Confirm cancellation request\n\nReason: ' + reason.value.trim() + '\n\nRefund recipient:\n' + name.value.trim() + '\n' + normalized + '\n\nThese details cannot be changed after you send the request.')) return;
       form.elements.refund_details_confirmed.value = '1';
+      form.requestSubmit();
+      return;
     }
-    if (submit) submit.disabled = true;
+    submitting = true;
+    if (submit) {
+      submit.disabled = true;
+      submit.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Sending cancellation request...';
+    }
   });
 });
 document.querySelectorAll('[data-seller-cancel-countdown]').forEach(function (card) {
