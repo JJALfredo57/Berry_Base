@@ -6,6 +6,7 @@ use App\Services\MobileNotificationService;
 use App\Services\SellerPayoutService;
 use App\Services\PayoutReceiptScanService;
 use App\Services\OrderRefundService;
+use App\Services\FinanceReconciliationService;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ class PayoutController extends Controller
 {
     use UploadsFiles;
 
-    public function __construct(private SellerPayoutService $payouts, private MobileNotificationService $notifications, private PayoutReceiptScanService $receiptScanner)
+    public function __construct(private SellerPayoutService $payouts, private MobileNotificationService $notifications, private PayoutReceiptScanService $receiptScanner, private FinanceReconciliationService $financeReconciliation)
     {
     }
 
@@ -45,26 +46,12 @@ class PayoutController extends Controller
             'pending_refunds' => Schema::hasTable('order_refunds') ? (int) DB::table('order_refunds')->whereIn('status', ['pending', 'pending_seller_approval', 'approved_for_admin_refund', 'processing'])->count() : 0,
         ];
 
-        $paymentSummary = Schema::hasTable('payment_transactions')
-            ? [
-                'online_amount' => (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'GCash')->sum('amount'),
-                'service_fees' => (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'GCash')->sum('payment_service_fee'),
-                'count' => (int) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'GCash')->count(),
-                'cash_completed' => (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'Cash')->sum('amount'),
-                'refunds_sent' => Schema::hasTable('order_refunds') ? (float) DB::table('order_refunds')->where('status', 'refunded')->sum('refund_amount') : 0,
-            ]
-            : ['online_amount' => 0, 'service_fees' => 0, 'count' => 0, 'cash_completed' => 0, 'refunds_sent' => 0];
-        $paymentSummary['net_online_after_refunds'] = round($paymentSummary['online_amount'] - $paymentSummary['refunds_sent'], 2);
-        $sellerPaidOnline = (float) DB::table('seller_payouts')->where('status','paid')->sum('net_amount');
-        $riderPaidOnline = Schema::hasTable('rider_payout_requests') ? (float) DB::table('rider_payout_requests')->where('status','paid')->sum('amount') : 0;
-        $paymentSummary['seller_payouts_paid'] = $sellerPaidOnline;
-        $paymentSummary['rider_payouts_paid'] = $riderPaidOnline;
-        $paymentSummary['platform_available_balance'] = max(0, round($paymentSummary['online_amount'] - $paymentSummary['refunds_sent'] - $sellerPaidOnline - $riderPaidOnline - $paymentSummary['service_fees'], 2));
-        $heldCustomerFunds = Schema::hasTable('payment_transactions')
-            ? (float) DB::table('payment_transactions as pt')->join('orders as o', 'o.id', '=', 'pt.order_id')
-                ->where('pt.payment_status', 'paid')->whereNotIn('o.status', ['Delivered', 'Picked Up', 'Cancelled', 'No Show'])
-                ->sum('pt.amount')
+        $financeReconciliation = $this->financeReconciliation->build();
+        $paymentSummary = $financeReconciliation['summary'];
+        $paymentSummary['cash_completed'] = Schema::hasTable('payment_transactions')
+            ? (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'Cash')->sum('amount')
             : 0.0;
+        $heldCustomerFunds = $paymentSummary['held_customer_funds'];
         $riderFunds = Schema::hasTable('rider_remittances')
             ? DB::table('rider_remittances as rr')->leftJoin('orders as o', 'o.id', '=', 'rr.order_id')
                 ->leftJoin('shops as s', 's.id', '=', 'o.shop_id')
@@ -167,7 +154,7 @@ class PayoutController extends Controller
             ->orderByDesc('l.created_at')->limit(50)->get();
 
         $riderPayoutRequests=Schema::hasTable('rider_payout_requests')?DB::table('rider_payout_requests as rp')->join('riders as r','r.id','=','rp.rider_id')->select('rp.*','r.name as rider_name')->orderByRaw("CASE WHEN rp.status='requested' THEN 0 ELSE 1 END")->orderByDesc('rp.id')->limit(30)->get():collect();
-        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows','riderPayoutRequests'));
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows', 'riderPayoutRequests', 'financeReconciliation'));
     }
 
     public function saveSettings(Request $request)

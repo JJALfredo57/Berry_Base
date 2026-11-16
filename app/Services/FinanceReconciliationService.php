@@ -1,0 +1,194 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Read-only, order-level view of money that has entered the platform.
+ *
+ * This intentionally does not create, change, or release any financial
+ * record.  A non-zero difference is a finance-review blocker, never profit.
+ */
+class FinanceReconciliationService
+{
+    private const TERMINAL_ORDER_STATUSES = ['Delivered', 'Picked Up', 'Cancelled', 'No Show'];
+
+    public function build(): array
+    {
+        if (!Schema::hasTable('payment_transactions')) {
+            return ['summary' => $this->emptySummary(), 'rows' => collect()];
+        }
+
+        $hasCustomerPaidAmount = Schema::hasColumn('payment_transactions', 'customer_paid_amount');
+        $payments = DB::table('payment_transactions')
+            ->where('payment_status', 'paid')
+            ->where('method', 'GCash')
+            ->select('order_id')
+            ->selectRaw('COUNT(*) AS payment_count')
+            ->selectRaw('SUM(amount) AS online_settled')
+            ->selectRaw('SUM(COALESCE(payment_service_fee, 0)) AS service_fee')
+            ->selectRaw($hasCustomerPaidAmount
+                ? 'SUM(COALESCE(customer_paid_amount, amount + COALESCE(payment_service_fee, 0))) AS customer_charged'
+                : 'SUM(amount + COALESCE(payment_service_fee, 0)) AS customer_charged')
+            ->groupBy('order_id')
+            ->get()
+            ->keyBy('order_id');
+
+        $orderIds = collect($payments->keys())->filter();
+        $normalRefunds = $this->normalRefunds();
+        $returnRefunds = $this->returnRefunds();
+        $sellerLedgers = $this->sellerLedgers();
+        $riderEarnings = $this->riderEarnings();
+
+        foreach ([$normalRefunds, $returnRefunds, $sellerLedgers, $riderEarnings] as $records) {
+            $orderIds = $orderIds->merge($records->keys());
+        }
+
+        $orderIds = $orderIds->filter()->unique()->values();
+        $orders = $orderIds->isEmpty()
+            ? collect()
+            : DB::table('orders')->whereIn('id', $orderIds)->get()->keyBy('id');
+
+        $rows = $orderIds->map(function ($orderId) use ($payments, $normalRefunds, $returnRefunds, $sellerLedgers, $riderEarnings, $orders) {
+            $payment = $payments->get($orderId);
+            $order = $orders->get($orderId);
+            $normalRefund = (float) ($normalRefunds->get($orderId) ?? 0);
+            $returnRefund = (float) ($returnRefunds->get($orderId) ?? 0);
+            $seller = $sellerLedgers->get($orderId, (object) ['amount' => 0, 'commission' => 0]);
+            $rider = $riderEarnings->get($orderId, (object) ['amount' => 0, 'review_amount' => 0]);
+            $onlineSettled = round((float) ($payment->online_settled ?? 0), 2);
+            $isHeld = $order && !in_array((string) $order->status, self::TERMINAL_ORDER_STATUSES, true);
+            $held = $isHeld ? $onlineSettled : 0.0;
+            $refunds = round($normalRefund + $returnRefund, 2);
+            $sellerAmount = $isHeld ? 0.0 : round((float) ($seller->amount ?? 0), 2);
+            $riderAmount = $isHeld ? 0.0 : round((float) ($rider->amount ?? 0), 2);
+            $commission = $isHeld ? 0.0 : round((float) ($seller->commission ?? 0), 2);
+            $difference = round($onlineSettled - $held - $refunds - $sellerAmount - $riderAmount - $commission, 2);
+
+            return (object) [
+                'order_id' => (string) $orderId,
+                'order_status' => $order->status ?? 'Order record unavailable',
+                'online_settled' => $onlineSettled,
+                'payment_count' => (int) ($payment->payment_count ?? 0),
+                'customer_charged' => round((float) ($payment->customer_charged ?? 0), 2),
+                'service_fee' => round((float) ($payment->service_fee ?? 0), 2),
+                'normal_refund' => $normalRefund,
+                'return_refund' => $returnRefund,
+                'refunds' => $refunds,
+                'seller_amount' => $sellerAmount,
+                'rider_amount' => $riderAmount,
+                'rider_review_amount' => round((float) ($rider->review_amount ?? 0), 2),
+                'commission' => $commission,
+                'held' => $held,
+                'difference' => $difference,
+                'state' => $this->rowState($order, $difference, (float) ($rider->review_amount ?? 0)),
+            ];
+        })->sortByDesc(fn ($row) => $row->state !== 'reconciled')
+            ->sortByDesc('difference')
+            ->values();
+
+        return ['summary' => $this->summary($rows), 'rows' => $rows];
+    }
+
+    private function normalRefunds(): Collection
+    {
+        if (!Schema::hasTable('order_refunds')) return collect();
+
+        return DB::table('order_refunds')
+            ->where('status', 'refunded')
+            ->select('order_id', DB::raw('SUM(refund_amount) AS amount'))
+            ->groupBy('order_id')
+            ->pluck('amount', 'order_id');
+    }
+
+    private function returnRefunds(): Collection
+    {
+        if (!Schema::hasTable('post_delivery_return_cases')) return collect();
+
+        return DB::table('post_delivery_return_cases')
+            ->where('status', 'refunded')
+            ->select('order_id', DB::raw('SUM(COALESCE(approved_amount, requested_amount, 0)) AS amount'))
+            ->groupBy('order_id')
+            ->pluck('amount', 'order_id');
+    }
+
+    private function sellerLedgers(): Collection
+    {
+        if (!Schema::hasTable('seller_payout_ledgers')) return collect();
+
+        return DB::table('seller_payout_ledgers')
+            ->where('seller_net_amount', '>', 0)
+            ->where('status', '<>', 'cash_settled')
+            ->select('order_id')
+            ->selectRaw('SUM(seller_net_amount) AS amount')
+            ->selectRaw('SUM(COALESCE(commission_amount, 0)) AS commission')
+            ->groupBy('order_id')
+            ->get()
+            ->keyBy('order_id');
+    }
+
+    private function riderEarnings(): Collection
+    {
+        if (!Schema::hasTable('rider_delivery_earnings')) return collect();
+
+        return DB::table('rider_delivery_earnings')
+            ->select('order_id')
+            ->selectRaw("SUM(CASE WHEN status IN ('available', 'requested', 'paid') THEN amount ELSE 0 END) AS amount")
+            ->selectRaw("SUM(CASE WHEN status = 'finance_review' THEN amount ELSE 0 END) AS review_amount")
+            ->groupBy('order_id')
+            ->get()
+            ->keyBy('order_id');
+    }
+
+    private function rowState(?object $order, float $difference, float $riderReviewAmount): string
+    {
+        if ($riderReviewAmount > 0) return 'needs_review';
+        if (!$order) return 'needs_review';
+        if (!in_array((string) $order->status, self::TERMINAL_ORDER_STATUSES, true)) return 'held';
+        if (abs($difference) < 0.01) return 'reconciled';
+        return 'needs_review';
+    }
+
+    private function summary(Collection $rows): array
+    {
+        $sum = fn (string $field): float => round((float) $rows->sum($field), 2);
+        $reviewRows = $rows->where('state', 'needs_review');
+
+        return [
+            'online_amount' => $sum('online_settled'),
+            'customer_charged' => $sum('customer_charged'),
+            'service_fees' => $sum('service_fee'),
+            'count' => (int) $rows->sum('payment_count'),
+            'refunds_sent' => $sum('refunds'),
+            'normal_refunds_sent' => $sum('normal_refund'),
+            'return_refunds_sent' => $sum('return_refund'),
+            'held_customer_funds' => $sum('held'),
+            'seller_amount' => $sum('seller_amount'),
+            'rider_amount' => $sum('rider_amount'),
+            'commission_recorded' => $sum('commission'),
+            'verified_platform_commission' => round((float) $rows->where('state', 'reconciled')->sum('commission'), 2),
+            'unreconciled_positive' => round((float) $reviewRows->where('difference', '>', 0)->sum('difference'), 2),
+            'unreconciled_negative' => round(abs((float) $reviewRows->where('difference', '<', 0)->sum('difference')), 2),
+            'review_count' => $reviewRows->count(),
+            'net_online_after_refunds' => round($sum('online_settled') - $sum('refunds'), 2),
+            // Kept only for existing view compatibility. It is deliberately not an available balance.
+            'platform_available_balance' => 0.0,
+        ];
+    }
+
+    private function emptySummary(): array
+    {
+        return [
+            'online_amount' => 0.0, 'customer_charged' => 0.0, 'service_fees' => 0.0,
+            'count' => 0, 'refunds_sent' => 0.0, 'normal_refunds_sent' => 0.0,
+            'return_refunds_sent' => 0.0, 'held_customer_funds' => 0.0,
+            'seller_amount' => 0.0, 'rider_amount' => 0.0, 'commission_recorded' => 0.0,
+            'verified_platform_commission' => 0.0, 'unreconciled_positive' => 0.0,
+            'unreconciled_negative' => 0.0, 'review_count' => 0,
+            'net_online_after_refunds' => 0.0, 'platform_available_balance' => 0.0,
+        ];
+    }
+}
