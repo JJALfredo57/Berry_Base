@@ -2,6 +2,7 @@
 @section('page_title','Products')
 @section('content')
 <style>
+  [data-product-page="details"] .col-md-3:has(> [name="price"]), [data-product-page="details"] .col-md-3:has(> [name="available_quantity"]) { display:none !important; }
   .seller-product-item{box-shadow:0 3px 12px rgba(15,23,42,.04);transition:box-shadow .18s ease,transform .18s ease}
   .seller-product-item:hover{box-shadow:0 10px 26px rgba(15,23,42,.08);transform:translateY(-1px)}
   .seller-product-summary{cursor:pointer}

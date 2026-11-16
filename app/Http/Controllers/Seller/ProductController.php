@@ -185,11 +185,9 @@ class ProductController extends Controller
 
         $validated = $request->validate([
             'name'           => 'required|string|min:2|max:100',
-            'price'          => 'required|numeric|min:1|max:99999999.99',
             'classification' => 'required|string|max:50',
             'description'    => 'nullable|string|max:500',
             'flavor'         => 'nullable|string|max:100',
-            'available_quantity' => 'nullable|integer|min:0|max:9999',
             'image'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ],[
             'name.required'           => 'Product name is required.',
@@ -227,12 +225,12 @@ class ProductController extends Controller
             'name'           => $validated['name'],
             'name_key'       => $nameKey,
             'description'    => $validated['description'] ?? null,
-            'price'          => $validated['price'],
+            'price'          => 0,
             'image_path'     => $img,
             'classification' => $validated['classification'],
             'classification_key' => $classKey,
             'flavor'         => $validated['flavor'] ?? null,
-            'available_quantity' => array_key_exists('available_quantity', $validated) ? (int) $validated['available_quantity'] : 0,
+            'available_quantity' => 0,
             'is_available' => true,
             'created_at'     => now(),
             'updated_at'     => now(),
@@ -249,11 +247,9 @@ class ProductController extends Controller
 
         $validated = $request->validate([
             'name'           => 'required|string|min:2|max:100',
-            'price'          => 'required|numeric|min:1|max:99999999.99',
             'classification' => 'required|string|max:50',
             'description'    => 'nullable|string|max:500',
             'flavor'         => 'nullable|string|max:100',
-            'available_quantity' => 'nullable|integer|min:0|max:9999',
             'image'          => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ],[
             'name.required'  => 'Product name is required.',
@@ -281,11 +277,9 @@ class ProductController extends Controller
             'name'           => $validated['name'],
             'name_key'       => $nameKey,
             'description'    => $validated['description'] ?? null,
-            'price'          => $validated['price'],
             'classification' => $validated['classification'],
             'classification_key' => $classKey,
             'flavor'         => $validated['flavor'] ?? null,
-            'available_quantity' => array_key_exists('available_quantity', $validated) ? (int) $validated['available_quantity'] : 0,
             'updated_at'     => now(),
         ];
 
@@ -482,6 +476,7 @@ class ProductController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        $this->syncProductSizeSummary($productId);
         return back()->with('msg', 'Size added.');
     }
 
@@ -504,6 +499,7 @@ class ProductController extends Controller
             'available_quantity' => array_key_exists('available_quantity', $validated) ? (int) $validated['available_quantity'] : 0,
             'updated_at' => now(),
         ]);
+        $this->syncProductSizeSummary((string) $size->product_id);
 
         return back()->with('msg', "Stock for size \"{$size->label}\" updated.");
     }
@@ -533,6 +529,7 @@ class ProductController extends Controller
             'available_quantity' => (int) $validated['available_quantity'],
             'updated_at' => now(),
         ]);
+        $this->syncProductSizeSummary((string) $size->product_id);
 
         if ($request->expectsJson()) {
             $state = $this->productRealtimeStates((string) $shop->id, [(string) $size->product_id])[0] ?? null;
@@ -561,6 +558,7 @@ class ProductController extends Controller
             ->first();
         if (!$size) return back()->with('err', 'Size not found.');
         DB::table('product_sizes')->where('id', $sizeId)->update(['archived_at' => now()]);
+        $this->syncProductSizeSummary((string) $size->product_id);
         return back()->with('msg', "Size \"{$size->label}\" archived.");
     }
 
@@ -575,6 +573,13 @@ class ProductController extends Controller
             ->first();
         if (!$size) return back()->with('err', 'Size not found.');
         DB::table('product_sizes')->where('id', $sizeId)->update(['archived_at' => null]);
+        $this->syncProductSizeSummary((string) $size->product_id);
         return back()->with('msg', "Size \"{$size->label}\" restored.");
+    }
+
+    private function syncProductSizeSummary(string $productId): void
+    {
+        $summary = DB::table('product_sizes')->where('product_id', $productId)->where('is_active', true)->whereNull('archived_at')->selectRaw('MIN(price) min_price, COALESCE(SUM(available_quantity), 0) total_stock')->first();
+        DB::table('products')->where('id', $productId)->update(['price' => (float) ($summary->min_price ?? 0), 'available_quantity' => (int) ($summary->total_stock ?? 0), 'updated_at' => now()]);
     }
 }
