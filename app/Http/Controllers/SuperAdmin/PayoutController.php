@@ -55,6 +55,11 @@ class PayoutController extends Controller
             ]
             : ['online_amount' => 0, 'service_fees' => 0, 'count' => 0, 'cash_completed' => 0, 'refunds_sent' => 0];
         $paymentSummary['net_online_after_refunds'] = round($paymentSummary['online_amount'] - $paymentSummary['refunds_sent'], 2);
+        $sellerPaidOnline = (float) DB::table('seller_payouts')->where('status','paid')->sum('net_amount');
+        $riderPaidOnline = Schema::hasTable('rider_payout_requests') ? (float) DB::table('rider_payout_requests')->where('status','paid')->sum('amount') : 0;
+        $paymentSummary['seller_payouts_paid'] = $sellerPaidOnline;
+        $paymentSummary['rider_payouts_paid'] = $riderPaidOnline;
+        $paymentSummary['platform_available_balance'] = max(0, round($paymentSummary['online_amount'] - $paymentSummary['refunds_sent'] - $sellerPaidOnline - $riderPaidOnline - $paymentSummary['service_fees'], 2));
         $heldCustomerFunds = Schema::hasTable('payment_transactions')
             ? (float) DB::table('payment_transactions as pt')->join('orders as o', 'o.id', '=', 'pt.order_id')
                 ->where('pt.payment_status', 'paid')->whereNotIn('o.status', ['Delivered', 'Picked Up', 'Cancelled', 'No Show'])
