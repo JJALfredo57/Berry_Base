@@ -374,6 +374,9 @@ class OrderController extends Controller
         if ($newStatus === 'Picked Up') {
             $freshOrder = DB::table('orders')->where('id', $id)->first();
             PaymentTransactionHelper::recordFinalCashIfNeeded($freshOrder ?? $order, $newStatus);
+            // Pickup completion has the same settlement effect as rider delivery.
+            // Create the payout/commission ledger now rather than waiting for the hourly sync.
+            app(\App\Services\SellerPayoutService::class)->syncDeliveredPaidOrders();
             app(LoyaltyService::class)->awardForCompletedOrder($freshOrder ?? $order);
         }
 

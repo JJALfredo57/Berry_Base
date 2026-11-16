@@ -38,11 +38,25 @@ class PayoutController extends Controller
         }
         $summary = [
             'clearing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['pending', 'clearing'])->sum('seller_net_amount'),
-            'available' => (float) DB::table('seller_payout_ledgers')->where('status', 'available')->sum('seller_net_amount'),
-            'processing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['requested', 'processing'])->sum('seller_net_amount'),
-            'paid' => (float) DB::table('seller_payout_ledgers')->where('status', 'paid')->sum('seller_net_amount'),
-            'refund_deductions' => abs((float) DB::table('seller_payout_ledgers')->where('seller_net_amount', '<', 0)->sum('seller_net_amount')),
+            'available' => (float) DB::table('seller_payout_ledgers')->where('status', 'available')->where('seller_net_amount', '>', 0)->sum('seller_net_amount'),
+            'processing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['requested', 'processing'])->where('seller_net_amount', '>', 0)->sum('seller_net_amount'),
+            'paid' => (float) DB::table('seller_payout_ledgers')->where('status', 'paid')->where('seller_net_amount', '>', 0)->sum('seller_net_amount'),
+            'seller_recovery_pending' => abs((float) DB::table('seller_payout_ledgers')->where('seller_net_amount', '<', 0)->whereIn('status', ['pending', 'clearing', 'available', 'requested', 'processing'])->sum('seller_net_amount')),
             'pending_refunds' => Schema::hasTable('order_refunds') ? (int) DB::table('order_refunds')->whereIn('status', ['pending', 'pending_seller_approval', 'approved_for_admin_refund', 'processing'])->count() : 0,
+        ];
+
+        $paymentSummary = Schema::hasTable('payment_transactions')
+            ? [
+                'online_amount' => (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'GCash')->sum('amount'),
+                'service_fees' => (float) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'GCash')->sum('payment_service_fee'),
+                'count' => (int) DB::table('payment_transactions')->where('payment_status', 'paid')->where('method', 'GCash')->count(),
+                'refunds_sent' => Schema::hasTable('order_refunds') ? (float) DB::table('order_refunds')->where('status', 'refunded')->sum('refund_amount') : 0,
+            ]
+            : ['online_amount' => 0, 'service_fees' => 0, 'count' => 0, 'refunds_sent' => 0];
+
+        $commissionSummary = [
+            'recorded' => (float) DB::table('seller_payout_ledgers')->where('commission_amount', '>', 0)->sum('commission_amount'),
+            'cash_due' => (float) DB::table('seller_payout_ledgers')->where('status', 'cash_settled')->where('commission_amount', '>', 0)->sum('commission_amount'),
         ];
 
         $shops = DB::table('shops as s')
@@ -107,7 +121,22 @@ class PayoutController extends Controller
                 ->get()
             : collect();
 
-        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds'));
+        $onlinePayments = Schema::hasTable('payment_transactions')
+            ? DB::table('payment_transactions as pt')
+                ->leftJoin('orders as o', 'o.id', '=', 'pt.order_id')
+                ->leftJoin('shops as s', 's.id', '=', 'o.shop_id')
+                ->where('pt.payment_status', 'paid')->where('pt.method', 'GCash')
+                ->select('pt.*', 'o.status as order_status', 's.shop_name')
+                ->orderByDesc('pt.paid_at')->orderByDesc('pt.id')->limit(50)->get()
+            : collect();
+
+        $commissionRows = DB::table('seller_payout_ledgers as l')
+            ->leftJoin('shops as s', 's.id', '=', 'l.shop_id')
+            ->where('l.commission_amount', '>', 0)
+            ->select('l.*', 's.shop_name')
+            ->orderByDesc('l.created_at')->limit(50)->get();
+
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows'));
     }
 
     public function saveSettings(Request $request)

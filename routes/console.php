@@ -94,6 +94,23 @@ Artisan::command('payouts:sync', function (SellerPayoutService $payouts) {
     return 0;
 })->purpose('Synchronize delivered orders into seller payout ledgers');
 
+Artisan::command('payouts:backfill {--max-runs=100 : Maximum idempotent sync passes}', function (SellerPayoutService $payouts) {
+    $maxRuns = max(1, min(1000, (int) $this->option('max-runs')));
+    $total = 0;
+
+    for ($run = 1; $run <= $maxRuns; $run++) {
+        $created = $payouts->syncDeliveredPaidOrders();
+        $total += $created;
+        if ($created === 0) {
+            $this->info("Payout backfill completed after {$run} pass(es); created {$total} missing ledger record(s).");
+            return 0;
+        }
+    }
+
+    $this->warn("Payout backfill stopped after {$maxRuns} pass(es); created {$total} ledger record(s). Run again to continue.");
+    return 1;
+})->purpose('Backfill missing payout and commission ledgers for completed paid orders');
+
 Schedule::command('payouts:sync')->hourly();
 
 Artisan::command('orders:purge-history {--force : Delete order history after a reviewed dry run} {--confirm= : Snapshot token printed by the dry run}', function (OrderHistoryPurgeService $purge) {

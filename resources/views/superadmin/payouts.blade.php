@@ -1,11 +1,11 @@
 @extends('layouts.app')
-@section('page_title','Seller Payouts')
+@section('page_title','Payments, Commission & Payouts')
 
 @section('content')
 <div class="cs-page-header">
   <div>
-    <h4 class="cs-page-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary)"></i>Seller Payouts</h4>
-    <p class="cs-page-sub">Control how seller earnings are released after orders are delivered and cleared.</p>
+    <h4 class="cs-page-title"><i class="bi bi-cash-stack me-2" style="color:var(--primary)"></i>Payments, Commission & Seller Payouts</h4>
+    <p class="cs-page-sub">One finance view for customer online payments, platform commission, refunds, and seller transfers.</p>
   </div>
 </div>
 
@@ -22,18 +22,20 @@
 <div class="alert alert-info d-flex gap-3 align-items-start">
   <i class="bi bi-info-circle-fill fs-5"></i>
   <div>
-    <strong>Important payout rule:</strong> seller money is only payable after payment is collected, the order is delivered, and the hold period has passed.
-    Berry Base may process eligible customer refunds before seller payout is released. Payout release is currently handled in manual admin review mode.
+    <strong>How money moves:</strong> GCash payment is recorded first, then the paid order must be completed. The seller share enters <strong>Seller Earnings on Hold</strong>, becomes <strong>Ready for Seller Payout</strong> after the hold period, and becomes <strong>Paid to Sellers</strong> only after an admin uploads a verified transfer receipt. The 2% platform commission is recorded when the completed order gets its payout ledger.
   </div>
 </div>
 
 <div class="row g-3 mb-4 payout-summary-grid">
   @foreach([
-    ['Clearing', $summary['clearing'], 'bi-hourglass-split', '#92400e', '#fffbeb'],
-    ['Available', $summary['available'], 'bi-cash-stack', '#166534', '#ecfdf5'],
-    ['Processing', $summary['processing'], 'bi-arrow-repeat', '#1d4ed8', '#eff6ff'],
-    ['Paid Out', $summary['paid'], 'bi-check2-circle', '#6d28d9', '#f5f3ff'],
-    ['Refund Deductions', $summary['refund_deductions'] ?? 0, 'bi-arrow-counterclockwise', '#b91c1c', '#fef2f2'],
+    ['Online Payments Recorded', $paymentSummary['online_amount'], 'bi-credit-card-2-front', '#0369a1', '#f0f9ff'],
+    ['Platform Commission Recorded', $commissionSummary['recorded'], 'bi-percent', '#7c3aed', '#f5f3ff'],
+    ['Seller Earnings on Hold', $summary['clearing'], 'bi-hourglass-split', '#92400e', '#fffbeb'],
+    ['Ready for Seller Payout', $summary['available'], 'bi-cash-stack', '#166534', '#ecfdf5'],
+    ['Transfer Pending', $summary['processing'], 'bi-arrow-repeat', '#1d4ed8', '#eff6ff'],
+    ['Paid to Sellers', $summary['paid'], 'bi-check2-circle', '#6d28d9', '#f5f3ff'],
+    ['Customer Refunds Sent', $paymentSummary['refunds_sent'], 'bi-arrow-return-left', '#b45309', '#fff7ed'],
+    ['Seller Recovery Pending', $summary['seller_recovery_pending'] ?? 0, 'bi-arrow-counterclockwise', '#b91c1c', '#fef2f2'],
   ] as [$label, $value, $icon, $color, $bg])
   <div class="col-6 col-xl-4 col-xxl-3">
     <div class="cs-stat-card h-100">
@@ -45,6 +47,53 @@
     </div>
   </div>
   @endforeach
+</div>
+
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-receipt-cutoff me-2" style="color:var(--primary)"></i>Customer Online Payments</span><span class="small text-muted">{{ number_format($paymentSummary['count']) }} confirmed GCash payment{{ $paymentSummary['count'] === 1 ? '' : 's' }} · processor fee: ₱{{ number_format($paymentSummary['service_fees'], 2) }}</span></div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Paid</th><th>Order</th><th>Seller</th><th>Payment</th><th>Order Status</th><th class="text-end">Order Amount</th><th>PayMongo Reference</th></tr></thead>
+      <tbody>
+        @forelse($onlinePayments as $payment)
+          <tr>
+            <td class="small">{{ $payment->paid_at ? \Carbon\Carbon::parse($payment->paid_at)->format('M d, Y h:i A') : 'Recorded' }}</td>
+            <td class="fw-semibold">#{{ $payment->order_id }}</td>
+            <td>{{ $payment->shop_name ?? 'Shop unavailable' }}</td>
+            <td>{{ \App\Helpers\PaymentTransactionHelper::typeLabel($payment->type) }}</td>
+            <td><span class="badge text-bg-light">{{ $payment->order_status ?? 'Order unavailable' }}</span></td>
+            <td class="text-end fw-semibold">₱{{ number_format((float) $payment->amount, 2) }}</td>
+            <td class="small text-muted">{{ $payment->provider_reference ?: 'Reference unavailable' }}</td>
+          </tr>
+        @empty
+          <tr><td colspan="7" class="text-center text-muted py-4">No confirmed GCash payments are recorded yet.</td></tr>
+        @endforelse
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-percent me-2" style="color:var(--primary)"></i>Platform Commission Ledger</span><span class="small text-muted">2% of cake/product value only · direct-cash commission due: ₱{{ number_format($commissionSummary['cash_due'], 2) }}</span></div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Order</th><th>Seller</th><th>Settlement State</th><th class="text-end">Cake Amount</th><th class="text-end">2% Commission</th><th class="text-end">Seller Earnings</th></tr></thead>
+      <tbody>
+        @forelse($commissionRows as $ledger)
+          <tr>
+            <td class="fw-semibold">#{{ $ledger->order_id }}</td>
+            <td>{{ $ledger->shop_name ?? 'Shop unavailable' }}</td>
+            <td><span class="badge text-bg-{{ $ledger->status === 'paid' ? 'success' : ($ledger->status === 'cash_settled' ? 'warning' : 'light') }}">{{ $ledger->status === 'cash_settled' ? 'Seller cash; commission due' : ucfirst(str_replace('_', ' ', $ledger->status)) }}</span></td>
+            <td class="text-end">₱{{ number_format((float) ($ledger->cake_amount ?? $ledger->commission_base), 2) }}</td>
+            <td class="text-end fw-semibold">₱{{ number_format((float) $ledger->commission_amount, 2) }}</td>
+            <td class="text-end">₱{{ number_format((float) $ledger->seller_net_amount, 2) }}</td>
+          </tr>
+        @empty
+          <tr><td colspan="6" class="text-center text-muted py-4">Commission is recorded when a paid order is completed.</td></tr>
+        @endforelse
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <div class="row g-4">
