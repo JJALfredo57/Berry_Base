@@ -308,7 +308,7 @@ class RiderController extends Controller
             return $this->closedDeliveryAttemptRedirect($order);
         }
 
-        $returnCase = DB::table('post_delivery_return_cases')->where('order_id', $orderId)->whereIn('status', ['submitted','seller_approved','rider_collected_return'])->latest('id')->first();
+        $returnCase = DB::table('post_delivery_return_cases')->where('order_id', $orderId)->whereIn('status', ['submitted','seller_approved','rider_collected_return','returned_to_seller','seller_received_return'])->latest('id')->first();
         return view('rider.delivery', compact('order','addons','settings','remittance','shopPayout','returnCase'));
     }
 

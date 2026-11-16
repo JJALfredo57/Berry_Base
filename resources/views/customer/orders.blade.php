@@ -482,6 +482,9 @@
   @php
     $hasDepositLock = ($o->deposit_status ?? null) === 'paid' || in_array(($o->payment_status ?? ''), ['Partial Payment','Paid']);
     $refund = $orderRefunds[$o->id] ?? null;
+    $returnCase = $returnCases[$o->id] ?? null;
+    $hasReturnCase = !is_null($returnCase);
+    $returnRejected = ($returnCase->status ?? null) === 'seller_rejected';
     $canCancel   = in_array($o->status, ['Awaiting Deposit','Pending','Pending Review','Pending Price Confirmation','Confirmed']) && !$o->cancel_requested;
     $notAllowed  = in_array($o->status, ['Preparing','Pickup','Ready for Rider','Out for Delivery','Delivered','Picked Up','No Show','Cancelled']);
     $hasPending  = $o->cancel_requested && $o->cancel_status === 'pending';
@@ -617,6 +620,13 @@
       <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:#eff6ff">
         <i class="bi bi-cash-coin text-primary"></i>
         <span class="small fw-semibold text-primary">You accepted the cancellation. The seller is sending your refund and will upload the receipt here.</span>
+      </div>
+      @endif
+
+      @if($hasReturnCase)
+      <div class="px-3 py-2 d-flex align-items-center gap-2" style="background:{{ $returnRejected ? '#fee2e2' : (($returnCase->status ?? '') === 'refunded' ? '#d1fae5' : '#eff6ff') }}">
+        <i class="bi {{ $returnRejected ? 'bi-x-circle text-danger' : (($returnCase->status ?? '') === 'refunded' ? 'bi-check-circle text-success' : 'bi-arrow-repeat text-primary') }}"></i>
+        <span class="small fw-semibold">@if($returnRejected)Return request rejected.@if($returnCase->seller_decision_note) <span class="fw-normal">Reason: {{ $returnCase->seller_decision_note }}</span>@endif @elseif(($returnCase->status ?? '') === 'refunded')Refund completed: ₱{{ number_format((float)$returnCase->requested_amount,2) }}.@if($returnCase->refund_reference) <span class="fw-normal">Reference: {{ $returnCase->refund_reference }}</span>@endif @elseif(($returnCase->status ?? '') === 'submitted'){{ $isPickupFlow ? 'Pickup return request submitted. Please wait while the seller reviews it.' : 'Delivery return request submitted. The rider is waiting for the seller decision.' }} @elseif(($returnCase->status ?? '') === 'seller_approved'){{ $isPickupFlow ? 'Pickup return approved. Berry Base will process the fixed refund within 3–5 working days.' : 'Return approved. Please hand the cake back to the rider.' }} @elseif(($returnCase->status ?? '') === 'rider_collected_return')The rider collected the cake and is returning it to the seller. @elseif(($returnCase->status ?? '') === 'returned_to_seller')Waiting for the seller to confirm receipt of the returned cake. @elseif(($returnCase->status ?? '') === 'seller_received_return')The seller received the cake. Refund processing takes 3–5 working days. @else Return request status: {{ ucfirst(str_replace('_',' ',$returnCase->status)) }}.@endif</span>
       </div>
       @endif
 
@@ -1417,11 +1427,13 @@
         @endif
 
         {{-- CANCEL REQUEST BUTTON --}}
-        @if(($o->fulfillment_type ?? '') === 'Pickup' && $o->status === 'Pickup' && empty($o->pickup_inspected_at))
+        @if(($o->fulfillment_type ?? '') === 'Pickup' && $o->status === 'Pickup' && empty($o->pickup_inspected_at) && (!$hasReturnCase || $returnRejected))
           <form method="POST" action="{{ route('customer.orders.accept_pickup', $o->id) }}" class="d-inline" data-prevent-double-submit>@csrf<button class="btn btn-success btn-sm" type="submit"><i class="bi bi-check2-circle me-1"></i>Inspect & Accept Cake</button></form>
+          @if(!$hasReturnCase)
           <a class="btn btn-outline-danger btn-sm" href="{{ route('customer.returns.create', $o->id) }}"><i class="bi bi-exclamation-triangle me-1"></i>Report pickup issue</a>
+          @endif
         @endif
-        @if((($o->fulfillment_type ?? '') === 'Delivery' && $o->status === 'Out for Delivery' && !empty($o->rider_arrived_at)) || in_array($o->status, ['Delivered','Picked Up']))
+        @if(!$hasReturnCase && ((($o->fulfillment_type ?? '') === 'Delivery' && $o->status === 'Out for Delivery' && !empty($o->rider_arrived_at)) || in_array($o->status, ['Delivered','Picked Up'])))
           <a class="btn btn-outline-danger btn-sm" href="{{ route('customer.returns.create', $o->id) }}"><i class="bi bi-exclamation-triangle me-1"></i>Report an issue</a>
         @endif
         @if($canCancel && !$hasPending && !$wasAccepted && !($isCustom && $co && ($co->review_status ?? '') === 'approved' && ($co->price_confirmed ?? '') === 'pending'))

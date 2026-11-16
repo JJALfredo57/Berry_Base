@@ -23,7 +23,7 @@ class PostDeliveryReturnController extends Controller
         $isPickupInspection = ($order->fulfillment_type ?? '') === 'Pickup' && ($order->status ?? '') === 'Pickup';
         [$eligible, $message] = $this->returns->eligible($order);
         if (!$eligible) return redirect()->route('customer.orders')->with('error', $message);
-        $case = DB::table('post_delivery_return_cases')->where('order_id', $orderId)->whereNotIn('status', ['seller_rejected', 'refunded'])->first();
+        $case = DB::table('post_delivery_return_cases')->where('order_id', $orderId)->first();
         if ($case) return redirect()->route('customer.orders')->with('error', 'A return/refund case is already open for this order.');
         $allowedReasons = $this->allowedReasons($order);
         return view('customer.return_request', compact('order', 'isPickupInspection', 'allowedReasons'));
@@ -60,11 +60,14 @@ class PostDeliveryReturnController extends Controller
             $description = trim($data['description']) . ($data['reason'] === 'other' ? "\nOther verified issue: " . trim($data['other_reason']) : '');
             $this->returns->submit($order, (string) session('user')['id'], ['reason' => $data['reason'], 'description' => $description, 'refund_gcash_name' => trim($data['refund_gcash_name']), 'refund_gcash_number' => $this->refunds->normalizeGcashNumber($data['refund_gcash_number'])], $evidence);
         } catch (\DomainException $e) { return back()->withInput()->with('error', $e->getMessage()); }
-        return redirect()->route('customer.orders')->with('msg', 'Your return request was submitted. The rider is waiting for the seller decision.');
+        $message = $isPickupInspection
+            ? 'Your pickup return request was submitted. Please wait while the seller reviews it at the pickup counter.'
+            : 'Your delivery return request was submitted. The rider is waiting for the seller decision.';
+        return redirect()->route('customer.orders')->with('msg', $message);
     }
 
     public function acceptPickup(string $orderId)
-    { $order=DB::table('orders')->where('id',$orderId)->where('user_id',session('user')['id'])->first(); if(!$order||($order->fulfillment_type??'')!=='Pickup'||($order->status??'')!=='Pickup')return back()->with('error','This pickup is not ready for inspection.'); DB::table('orders')->where('id',$orderId)->whereNull('pickup_inspected_at')->update(['pickup_inspected_at'=>now(),'pickup_inspected_by_user_id'=>(string)session('user')['id'],'updated_at'=>now()]); DB::table('order_tracking')->insert(['order_id'=>$orderId,'status'=>'Pickup','notes'=>'Customer inspected and accepted cake at pickup counter.','created_at'=>now()]); return back()->with('msg','Cake inspection accepted. The seller may now complete your pickup.'); }
+    { $order=DB::table('orders')->where('id',$orderId)->where('user_id',session('user')['id'])->first(); if(!$order||($order->fulfillment_type??'')!=='Pickup'||($order->status??'')!=='Pickup')return back()->with('error','This pickup is not ready for inspection.'); $case=DB::table('post_delivery_return_cases')->where('order_id',$orderId)->first(); if($case&&$case->status!=='seller_rejected')return back()->with('error','You cannot accept this pickup while a return request is active.'); DB::table('orders')->where('id',$orderId)->whereNull('pickup_inspected_at')->update(['pickup_inspected_at'=>now(),'pickup_inspected_by_user_id'=>(string)session('user')['id'],'updated_at'=>now()]); DB::table('order_tracking')->insert(['order_id'=>$orderId,'status'=>'Pickup','notes'=>'Customer inspected and accepted cake at pickup counter.','created_at'=>now()]); return back()->with('msg','Cake inspection accepted. The seller may now complete your pickup.'); }
 
     private function allowedReasons(object $order): array
     { $reasons=['wrong_item','damaged','quality_safety','other']; $isCustom=DB::table('custom_orders')->where('order_id',$order->id)->exists(); if($isCustom)$reasons[]='not_as_approved'; if(($order->fulfillment_type??'')==='Delivery')$reasons[]='delivery_damage'; if(DB::table('order_addons')->where('order_id',$order->id)->exists() || (Schema::hasTable('order_items') && DB::table('order_items')->where('order_id',$order->id)->count()>1))$reasons[]='missing_item'; return $reasons; }

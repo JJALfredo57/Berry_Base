@@ -440,6 +440,8 @@
   <form method="POST" enctype="multipart/form-data" action="{{ route('rider.return.collect',[$order->id,$order->rider_token,$returnCase->id]) }}">@csrf<input class="form-control mb-2" name="proof" type="file" accept="image/jpeg,image/png,image/webp" required><button class="btn-deliver" type="submit">Collect Cake Return</button></form>
   @elseif(($returnCase->status ?? null)==='rider_collected_return')
   <form method="POST" action="{{ route('rider.return.returned',[$order->id,$order->rider_token,$returnCase->id]) }}">@csrf<button class="btn-deliver" type="submit">Mark Cake Returned to Seller</button></form>
+  @elseif(in_array(($returnCase->status ?? null),['returned_to_seller','seller_received_return']))
+  <div class="pay-banner pay-ok"><div class="pay-body"><div class="pay-label">Return handoff completed</div><div class="pay-note">The cake return is closed. Do not mark this order as delivered.</div></div></div>
   @endif
   @if(!empty($order->rider_arrived_at) && empty($returnCase))
   <button class="btn-deliver" onclick="confirmDeliver()">

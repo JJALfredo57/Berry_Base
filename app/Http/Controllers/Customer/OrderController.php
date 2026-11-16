@@ -70,6 +70,7 @@ class OrderController extends Controller
         $orderItems = [];
         $orderReviews = [];
         $orderRefunds = [];
+        $returnCases = [];
         $customOrderData = [];
         $customOrderVouchers = [];
         $customOrderLoyaltyQuotes = [];
@@ -102,6 +103,13 @@ class OrderController extends Controller
                 if (Schema::hasTable('order_refunds')) {
                     foreach (DB::table('order_refunds')->whereIn('order_id', $orderIds)->orderByDesc('id')->get() as $refund) {
                         if (!isset($orderRefunds[$refund->order_id])) $orderRefunds[$refund->order_id] = $refund;
+                    }
+                }
+            } catch (\Exception $e) {}
+            try {
+                if (Schema::hasTable('post_delivery_return_cases')) {
+                    foreach (DB::table('post_delivery_return_cases')->whereIn('order_id', $orderIds)->orderByDesc('id')->get() as $case) {
+                        if (!isset($returnCases[$case->order_id])) $returnCases[$case->order_id] = $case;
                     }
                 }
             } catch (\Exception $e) {}
@@ -180,7 +188,7 @@ class OrderController extends Controller
             $unreadCustomActionOrderIds = $unreadCustomActionOrderIds->merge($pendingPriceOrderIds)->unique()->values();
         }
 
-        return view('customer.orders', compact('orders','tracking','orderAddons','orderItems','orderReviews','orderRefunds','checkoutGroupOrders','customOrderData','customOrderVouchers','customOrderLoyaltyQuotes','loyaltySettings','customOrderVerified','unreadCustomActionOrderIds','search','status'));
+        return view('customer.orders', compact('orders','tracking','orderAddons','orderItems','orderReviews','orderRefunds','returnCases','checkoutGroupOrders','customOrderData','customOrderVouchers','customOrderLoyaltyQuotes','loyaltySettings','customOrderVerified','unreadCustomActionOrderIds','search','status'));
     }
 
     public function markCustomActionRead(string $id)
