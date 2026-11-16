@@ -3,8 +3,12 @@
 @section('content')
 <div class="container-fluid" style="max-width:960px"><h4 class="cs-page-title">Return cases</h4><p class="text-muted">Approve or reject customer requests. The refund amount is the confirmed customer payment and cannot be changed.</p>
 @forelse($cases as $case)<section class="card border-0 shadow-sm mb-3"><div class="card-body"><div class="d-flex justify-content-between gap-2 flex-wrap"><strong>{{ $case->case_number }} · Order #{{ $case->order_id }}</strong><span class="badge text-bg-light">{{ ucfirst(str_replace('_',' ',$case->status)) }}</span></div><p class="small mt-2 mb-1"><strong>{{ ucfirst(str_replace('_',' ',$case->reason)) }}:</strong> {{ $case->description }}</p><div class="small text-muted mb-3">Customer: {{ $case->customer_name ?: 'Customer' }} · Fixed refund: ₱{{ number_format($case->requested_amount,2) }}</div>
-@if($case->status==='submitted')<form method="POST" action="{{ route('seller.return_cases.decide',$case->id) }}" class="row g-2" data-prevent-double-submit>@csrf<div class="col-md-8"><textarea class="form-control" name="note" maxlength="1500" placeholder="Required for delivery decisions and all rejections."></textarea></div><div class="col-md-2"><button class="btn btn-success w-100" name="decision" value="approved">Approve</button></div><div class="col-md-2"><button class="btn btn-outline-danger w-100" name="decision" value="rejected">Reject</button></div></form>
-@elseif($case->status==='returned_to_seller')<form method="POST" action="{{ route('seller.return_cases.receive',$case->id) }}" data-prevent-double-submit>@csrf<button class="btn btn-primary">Confirm cake received back</button></form>
-@else@if($case->seller_decision_note)<div class="alert alert-light small mb-0"><strong>Decision note:</strong> {{ $case->seller_decision_note }}</div>@endif@endif
+@if($case->status === 'submitted')
+<form method="POST" action="{{ route('seller.return_cases.decide',$case->id) }}" class="row g-2" data-prevent-double-submit>@csrf<div class="col-md-8"><textarea class="form-control" name="note" maxlength="1500" placeholder="Required for delivery decisions and all rejections."></textarea></div><div class="col-md-2"><button class="btn btn-success w-100" name="decision" value="approved">Approve</button></div><div class="col-md-2"><button class="btn btn-outline-danger w-100" name="decision" value="rejected">Reject</button></div></form>
+@elseif($case->status === 'returned_to_seller')
+<form method="POST" action="{{ route('seller.return_cases.receive',$case->id) }}" data-prevent-double-submit>@csrf<button class="btn btn-primary">Confirm cake received back</button></form>
+@elseif($case->seller_decision_note)
+<div class="alert alert-light small mb-0"><strong>Decision note:</strong> {{ $case->seller_decision_note }}</div>
+@endif
 </div></section>@empty<div class="alert alert-light">No return cases yet.</div>@endforelse{{ $cases->links() }}</div>
 @endsection
