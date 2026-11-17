@@ -35,6 +35,40 @@ class SellerPayoutServiceTest extends TestCase
         $this->assertSame(1750.0, $amount);
     }
 
+    public function test_cash_on_delivery_uses_only_the_online_deposit_when_the_balance_is_cash(): void
+    {
+        $amount = $this->collectedAmount((object) [
+            'payment_method' => 'COD',
+            'fulfillment_type' => 'Delivery',
+            'payment_status' => 'Paid',
+            'deposit_status' => 'paid',
+            'deposit_amount' => 875,
+            'remittance_status' => 'confirmed',
+            'remittance_method' => 'cash',
+            'remittance_amount' => 875,
+            'total_price' => 1750,
+        ]);
+
+        $this->assertSame(875.0, $amount);
+    }
+
+    public function test_cash_on_delivery_includes_a_paymongo_remitted_balance(): void
+    {
+        $amount = $this->collectedAmount((object) [
+            'payment_method' => 'COD',
+            'fulfillment_type' => 'Delivery',
+            'payment_status' => 'Paid',
+            'deposit_status' => 'paid',
+            'deposit_amount' => 875,
+            'remittance_status' => 'confirmed',
+            'remittance_method' => 'gcash_paymongo',
+            'remittance_amount' => 875,
+            'total_price' => 1750,
+        ]);
+
+        $this->assertSame(1750.0, $amount);
+    }
+
     private function collectedAmount(object $order): float
     {
         $method = new \ReflectionMethod(SellerPayoutService::class, 'collectedAmount');
