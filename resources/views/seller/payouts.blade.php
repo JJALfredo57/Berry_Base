@@ -533,4 +533,5 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+<script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.card').forEach(function(card){const h=card.querySelector('.card-header');if(!h)return;const t=h.textContent.replace(/\s+/g,' ').trim();if(t==='Earnings Ledger'){card.remove()}else if(t.includes('Recent Payout Requests')&&!h.querySelector('[data-finance-link]')){const a=document.createElement('a');a.href='{{ route('seller.finance') }}';a.className='btn btn-sm btn-outline-primary ms-auto';a.dataset.financeLink='1';a.innerHTML='<i class="bi bi-graph-up-arrow me-1"></i>View detailed earnings';h.classList.add('d-flex','align-items-center','gap-2','flex-wrap');h.appendChild(a)}})})</script>
 @endsection

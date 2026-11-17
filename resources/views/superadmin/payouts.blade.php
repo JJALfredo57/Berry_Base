@@ -801,4 +801,5 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+<script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('form').forEach(function(form){const hold=form.querySelector('[name="payout_hold_days"]'),min=form.querySelector('[name="payout_minimum_amount"]');if(!hold||!min||form.querySelector('[data-payout-policy]'))return;const n=document.createElement('div');n.dataset.payoutPolicy='1';n.className='alert alert-light small mt-3 mb-0';n.innerHTML='<i class="bi bi-info-circle me-1"></i><strong>Seller eligibility:</strong> only released Available balance counts toward the minimum. Clearing earnings become eligible after the hold period.';form.appendChild(n)})})</script>
 @endsection
