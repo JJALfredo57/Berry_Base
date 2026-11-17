@@ -1658,19 +1658,10 @@ class RiderController extends Controller
             return response()->json(['ok'=>false,'error'=>'Invalid or already updated.'], 422);
 
         $validated = $request->validate([
-            'issue_type' => 'required|in:damaged,not_home,no_show,other',
-            'note' => 'required_if:issue_type,no_show|string|min:10|max:500',
-            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'issue_type' => 'required|in:damaged,failed_delivery_attempt,other',
+            'note' => 'required_if:issue_type,other|string|min:10|max:500',
+            'photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
-        if (($validated['issue_type'] ?? '') === 'no_show' && ($order->rider_assignment_status ?? '') !== 'accepted') {
-            return response()->json(['ok' => false, 'error' => 'The rider must accept this delivery before recording a no-show.'], 422);
-        }
-        if (($validated['issue_type'] ?? '') === 'no_show' && !$refunds->hasPaidAmount($order)) {
-            return response()->json(['ok' => false, 'error' => 'A paid GCash deposit must be recorded before a delivery no-show can be finalized.'], 422);
-        }
-        if (($validated['issue_type'] ?? '') === 'no_show' && $refunds->pendingForOrder((string) $order->id)) {
-            return response()->json(['ok' => false, 'error' => 'Resolve the existing cancellation or refund request before recording a no-show.'], 422);
-        }
 
         try {
             $issueType = $validated['issue_type'];
@@ -1681,27 +1672,10 @@ class RiderController extends Controller
                 $file  = $request->file('photo');
                 $photoPath = $this->uploadFile($file, 'uploads/delivery');
             }
-
-            if ($issueType === 'no_show') {
-                if (($order->order_type ?? 'regular') !== 'custom') {
-                    DB::table('orders')->where('id', $orderId)->update([
-                        'status' => 'Returned to Shop', 'issue_type' => 'no_show', 'issue_photo' => $photoPath,
-                        'issue_note' => $note, 'issue_status' => 'pending', 'updated_at' => now(),
-                    ]);
-                    DB::table('order_tracking')->insert(['order_id' => $orderId, 'status' => 'Returned to Shop', 'notes' => 'Rider reported customer unavailable. Seller must confirm return before the three-day claim window starts.', 'created_at' => now()]);
-                    app(MobileNotificationService::class)->notifyOrderCustomer($order, 'Delivery Return Required', "We could not complete delivery for Order #{$orderId}. The cake is returning to the shop.", ['event' => 'delivery_return']);
-                    return response()->json(['ok' => true, 'status' => 'Returned to Shop', 'redirect_url' => route('rider.dashboard')]);
-                }
-                $refunds->recordNoShow($order, $note, 'rider', $photoPath);
-                return response()->json([
-                    'ok' => true,
-                    'status' => 'No Show',
-                    'redirect_url' => route('rider.dashboard'),
-                ]);
-            }
+            if (!$photoPath) return response()->json(['ok' => false, 'error' => 'Issue photo upload failed. Please try again.'], 422);
 
             $newStatus = match($issueType) {
-                'not_home' => 'Attempted Delivery',
+                'failed_delivery_attempt' => 'Attempted Delivery',
                 default    => 'Issue Reported',
             };
 
@@ -1725,9 +1699,9 @@ class RiderController extends Controller
             $siteName  = config('app.name','Cake Shop');
             $riderName = DB::table('riders')->where('id',$order->rider_id)->value('name') ?? 'Rider';
             $issueLabel = match($issueType) {
-                'damaged'  => 'Damaged Cake',
-                'not_home' => 'Customer Not Home',
-                default    => 'Other Issue',
+                'damaged' => 'Damaged Cake',
+                'failed_delivery_attempt' => 'Failed Delivery Attempt',
+                default => 'Other Issue',
             };
 
             $customerSms = null;
@@ -1737,9 +1711,7 @@ class RiderController extends Controller
                 $header   = SmsHelper::header($siteName, $shopName);
                 $shopLine = $shopName ? "\nShop: {$shopName}" : '';
                 $custName = $order->guest_name ?? 'Customer';
-                $customerSms = $issueType === 'not_home'
-                    ? "{$header}\nHi {$custName}, we attempted to deliver your order but no one was available.\n\nOrder No.: #{$orderId}{$shopLine}\n\nOur team will contact you shortly to arrange a reschedule. We apologize for the inconvenience."
-                    : "{$header}\nHi {$custName}, we encountered an issue with your delivery.\n\nOrder No.: #{$orderId}{$shopLine}\n\nOur team will contact you shortly to resolve this. We sincerely apologize for the inconvenience.";
+                $customerSms = "{$header}\nHi {$custName}, we encountered an issue with your delivery.\n\nOrder No.: #{$orderId}{$shopLine}\n\nOur team will contact you shortly to resolve this. We sincerely apologize for the inconvenience.";
             }
 
             // No SMS to admin — visible in admin panel notifications

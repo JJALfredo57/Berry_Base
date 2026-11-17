@@ -296,6 +296,7 @@
               <strong class="text-danger small">
                 @if($o->issue_type==='damaged') Damaged Cake
                 @elseif($o->issue_type==='not_home') Customer Not Home
+                @elseif($o->issue_type==='failed_delivery_attempt') Failed Delivery Attempt
                 @else Other Issue @endif
               </strong>
               @if($o->issue_status === 'pending')

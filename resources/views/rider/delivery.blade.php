@@ -462,23 +462,20 @@
     <div class="issue-opt" onclick="selectIssue('damaged',this)">
       <span class="oi">🎂💔</span>Damaged
     </div>
-    <div class="issue-opt" onclick="selectIssue('not_home',this)">
-      <span class="oi">🏠❌</span>Not Home
-    </div>
-    <div class="issue-opt" onclick="selectIssue('no_show',this)">
-      <span class="oi">⏱️</span>Customer No-Show
+    <div class="issue-opt" onclick="selectIssue('failed_delivery_attempt',this)">
+      <span class="oi">🚚❌</span>Failed Delivery Attempt
     </div>
     <div class="issue-opt" onclick="selectIssue('other',this)">
       <span class="oi">⚠️</span>Other
     </div>
   </div>
-  <textarea class="note-input" id="issueNote" rows="3" placeholder="Describe what happened..."></textarea>
+  <div id="issueNoteWrap" style="display:none"><textarea class="note-input" id="issueNote" rows="3" placeholder="Describe what happened..."></textarea></div>
   <div class="photo-section" style="padding:10px 0 0">
     <label for="issuePhoto" class="photo-label">
       <i class="bi bi-camera" style="font-size:20px"></i>
-      <span id="issuePhotoLabel">Take issue photo (optional)</span>
+      <span id="issuePhotoLabel">Take issue photo</span>
     </label>
-    <input type="file" id="issuePhoto" accept="image/*" capture="environment" style="display:none"
+    <input type="file" id="issuePhoto" accept="image/*" capture="environment" required style="display:none"
            onchange="previewPhoto(this,'issuePhotoPreview','issuePhotoLabel')">
     <img id="issuePhotoPreview" class="photo-preview" src="">
   </div>
@@ -691,11 +688,13 @@ function selectIssue(type, el) {
   document.querySelectorAll('.issue-opt').forEach(o => o.classList.remove('sel'));
   el.classList.add('sel');
   const note = document.getElementById('issueNote');
+  const noteWrap = document.getElementById('issueNoteWrap');
   if (note) {
-    note.required = type === 'no_show';
-    note.placeholder = type === 'no_show'
-      ? 'Required: record arrival time and contact attempts (at least 10 characters)'
-      : 'Describe what happened...';
+    const showNote = type === 'other';
+    noteWrap.style.display = showNote ? 'block' : 'none';
+    note.required = showNote;
+    if (!showNote) note.value = '';
+    note.placeholder = 'Describe what happened...';
   }
 }
 function showIssueForm() {
@@ -746,8 +745,12 @@ function confirmDeliver() {
 }
 function submitIssue() {
   if (!selectedIssue) { alert('Please select what happened.'); return; }
-  if (selectedIssue === 'no_show' && document.getElementById('issueNote').value.trim().length < 10) {
-    alert('For a no-show, record the arrival time and contact attempts (at least 10 characters).');
+  if (selectedIssue === 'other' && document.getElementById('issueNote').value.trim().length < 10) {
+    alert('Please describe what happened in at least 10 characters.');
+    return;
+  }
+  if (!document.getElementById('issuePhoto').files[0]) {
+    alert('Take or upload an issue photo before submitting your report.');
     return;
   }
   doFetch('/rider/' + ORDER_ID + '/' + TOKEN + '/issue', {
