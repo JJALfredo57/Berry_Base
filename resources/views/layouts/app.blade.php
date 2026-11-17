@@ -757,6 +757,10 @@
     #adminSidebar.collapsed .sb-brand-text,
     #adminSidebar.collapsed .sb-brand-sub,
     #adminSidebar.collapsed .sb-user-info { opacity:0;pointer-events:none; }
+    #adminSidebarTooltip { position:fixed;z-index:1100;max-width:min(260px,calc(100vw - var(--sidebar-coll) - 24px));padding:.52rem .78rem;border:1px solid rgba(255,255,255,.13);border-radius:9px;background:#1f0d05;color:#fff;box-shadow:0 10px 26px rgba(15,23,42,.24);font-size:.78rem;font-weight:700;line-height:1.2;opacity:0;pointer-events:none;transform:translateX(-8px) scaleX(.88);transform-origin:left center;transition:opacity .16s ease,transform .22s cubic-bezier(.22,1,.36,1); }
+    #adminSidebarTooltip::before { content:'';position:absolute;left:-5px;top:50%;width:9px;height:9px;background:#1f0d05;border-left:1px solid rgba(255,255,255,.13);border-bottom:1px solid rgba(255,255,255,.13);transform:translateY(-50%) rotate(45deg); }
+    #adminSidebarTooltip.is-visible { opacity:1;transform:translateX(0) scaleX(1); }
+    @@media(prefers-reduced-motion:reduce){#adminSidebarTooltip{transition:none!important}}
 
     .sb-brand { display:flex;align-items:center;gap:12px;padding:0 16px;height:var(--topbar-h);border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;overflow:hidden;white-space:nowrap; }
     .sb-brand-icon { width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center; }
@@ -2541,6 +2545,40 @@ function closeSidebar() {
   }
   applyState();
   window.addEventListener('resize', applyState);
+})();
+@endif
+
+@if($isAdmin)
+(function() {
+  var sidebar = document.getElementById('adminSidebar');
+  if (!sidebar) return;
+  var tooltip = document.createElement('div');
+  tooltip.id = 'adminSidebarTooltip';
+  tooltip.setAttribute('role', 'tooltip');
+  document.body.appendChild(tooltip);
+  var isCollapsed = function() { return window.innerWidth >= 768 && sidebar.classList.contains('collapsed'); };
+  var hide = function() { tooltip.classList.remove('is-visible'); };
+  var show = function(link) {
+    if (!isCollapsed()) return hide();
+    var label = (link.querySelector('.sb-link-text')?.textContent || '').trim();
+    var icon = link.querySelector('i');
+    if (!label || !icon) return hide();
+    var iconRect = icon.getBoundingClientRect();
+    var sidebarRect = sidebar.getBoundingClientRect();
+    tooltip.textContent = label;
+    tooltip.style.left = (sidebarRect.right + 10) + 'px';
+    tooltip.style.top = Math.max(8, Math.min(window.innerHeight - 42, iconRect.top + (iconRect.height / 2) - 16)) + 'px';
+    requestAnimationFrame(function() { tooltip.classList.add('is-visible'); });
+  };
+  sidebar.querySelectorAll('.sb-link').forEach(function(link) {
+    link.addEventListener('mouseenter', function() { show(link); });
+    link.addEventListener('mouseleave', hide);
+    link.addEventListener('focus', function() { show(link); });
+    link.addEventListener('blur', hide);
+  });
+  new MutationObserver(hide).observe(sidebar, { attributes:true, attributeFilter:['class'] });
+  window.addEventListener('resize', hide);
+  window.addEventListener('scroll', hide, { passive:true });
 })();
 @endif
 
