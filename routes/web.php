@@ -314,6 +314,7 @@ Route::get('/rider/password/setup', [\App\Http\Controllers\RiderController::clas
 Route::post('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetupUpdate'])->name('rider.password.setup.update');
 Route::get('/rider/dashboard', [\App\Http\Controllers\RiderController::class, 'dashboard'])->name('rider.dashboard');
 Route::get('/rider/dashboard/feed', [\App\Http\Controllers\RiderController::class, 'dashboardFeed'])->name('rider.dashboard.feed');
+Route::get('/rider/payout-receipts', [\App\Http\Controllers\RiderController::class, 'payoutReceipts'])->name('rider.payouts.receipts');
 Route::post('/rider/payout-requests', [\App\Http\Controllers\RiderController::class, 'requestDeliveryPayout'])->name('rider.payouts.request');
 Route::get('/rider/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'riderIndex'])->name('rider.delivery_messages.index');
 Route::post('/rider/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'riderSend'])->name('rider.delivery_messages.send');

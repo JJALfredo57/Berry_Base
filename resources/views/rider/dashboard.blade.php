@@ -146,7 +146,35 @@
     .toast.good { background:#166534; }
     .toast.warn { background:#9a3412; }
 
+    .receipt-fab { position:fixed; right:max(16px,env(safe-area-inset-right)); bottom:max(16px,env(safe-area-inset-bottom)); z-index:45; min-height:54px; padding:10px 14px; border:0; border-radius:999px; background:var(--primary); color:#fff; box-shadow:0 12px 28px rgba(17,24,39,.24); display:flex; align-items:center; gap:9px; font:inherit; font-size:14px; font-weight:850; cursor:pointer; transition:transform .18s ease,box-shadow .18s ease,background .18s ease; }
+    .receipt-fab:focus-visible { outline:3px solid #93c5fd; outline-offset:3px; }
+    .receipt-fab:active { transform:scale(.96); }
+    .receipt-fab i { font-size:18px; }
+    .receipt-fab-count { min-width:22px; height:22px; padding:0 6px; border-radius:999px; background:#fff; color:var(--primary-dark); display:grid; place-items:center; font-size:12px; }
+    .receipt-modal[hidden] { display:none; }
+    .receipt-modal { position:fixed; inset:0; z-index:80; display:flex; align-items:flex-end; justify-content:center; padding:0; background:rgba(17,24,39,.58); opacity:0; transition:opacity .18s ease; }
+    .receipt-modal.open { opacity:1; }
+    .receipt-sheet { width:min(560px,100%); max-height:min(82dvh,720px); overflow:auto; background:#fff; border-radius:22px 22px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); transform:translateY(20px); transition:transform .2s ease; box-shadow:0 -12px 36px rgba(17,24,39,.18); }
+    .receipt-modal.open .receipt-sheet { transform:translateY(0); }
+    .receipt-sheet-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .receipt-sheet-head h2 { margin:0; font-size:18px; }
+    .receipt-sheet-head p { margin:4px 0 0; color:var(--muted); font-size:13px; line-height:1.4; }
+    .receipt-close { width:42px; height:42px; border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); font-size:20px; cursor:pointer; flex:0 0 auto; }
+    .receipt-list { display:grid; gap:10px; }
+    .receipt-card { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:13px; border:1px solid var(--line); border-radius:15px; background:#fff; }
+    .receipt-card strong,.receipt-card span { display:block; overflow-wrap:anywhere; }
+    .receipt-meta { display:grid; gap:3px; color:var(--muted); font-size:12px; line-height:1.35; }
+    .receipt-amount { color:#166534; font-size:16px; }
+    .receipt-view { min-height:42px; padding:9px 11px; border:1px solid var(--primary); border-radius:10px; background:var(--primary-bg); color:var(--primary-dark); font:inherit; font-size:13px; font-weight:800; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+    .receipt-empty,.receipt-load-error { padding:28px 16px; border:1px dashed var(--line); border-radius:15px; text-align:center; color:var(--muted); font-size:14px; }
+    .receipt-empty i,.receipt-load-error i { display:block; margin-bottom:7px; color:var(--primary); font-size:25px; }
+    .receipt-pagination { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; }
+    .receipt-pagination button { min-height:42px; border:1px solid var(--line); border-radius:10px; padding:8px 12px; background:#fff; color:var(--ink); font:inherit; font-weight:800; cursor:pointer; }
+    .receipt-pagination button:disabled { opacity:.45; cursor:not-allowed; }
+
     @media (min-width:640px) { .modal { align-items:center; } .sheet { border-radius:20px; } }
+    @media (min-width:640px) { .receipt-modal { align-items:center; padding:20px; } .receipt-sheet { border-radius:20px; max-height:min(82dvh,720px); } }
+    @media (hover:hover) { .receipt-fab:hover { background:var(--primary-dark); transform:translateY(-3px); box-shadow:0 17px 34px rgba(17,24,39,.3); } .receipt-card:hover { border-color:color-mix(in srgb,var(--primary) 35%,var(--line)); box-shadow:0 6px 16px rgba(17,24,39,.06); } .receipt-view:hover { background:var(--primary); color:#fff; } }
     @media (max-width:760px) {
       .order-body { grid-template-columns:1fr; }
       .remit-head { grid-template-columns:1fr; }
@@ -313,6 +341,17 @@
         <button type="button" data-reason="I am not available right now">Not available</button>
         <button type="button" data-reason="Vehicle problem">Vehicle problem</button>
       </div>
+
+    <button class="receipt-fab" id="receiptFab" type="button" aria-haspopup="dialog" aria-controls="riderReceiptModal">
+      <i class="bi bi-receipt-cutoff" aria-hidden="true"></i><span>Payout receipts</span>
+      @if($paidReceiptCount > 0)<span class="receipt-fab-count" aria-label="{{ $paidReceiptCount }} paid receipt{{ $paidReceiptCount === 1 ? '' : 's' }}">{{ $paidReceiptCount > 99 ? '99+' : $paidReceiptCount }}</span>@endif
+    </button>
+    <div class="receipt-modal" id="riderReceiptModal" role="dialog" aria-modal="true" aria-labelledby="riderReceiptTitle" aria-hidden="true" hidden>
+      <section class="receipt-sheet" role="document">
+        <div class="receipt-sheet-head"><div><h2 id="riderReceiptTitle"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>Payout receipts</h2><p>Proof of delivery-fee payouts completed by Super Admin.</p></div><button class="receipt-close" type="button" data-close-receipts aria-label="Close payout receipts"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+        <div id="receiptContent" aria-live="polite"></div>
+      </section>
+    </div>
       <textarea name="reason" id="declineReason" maxlength="300" required placeholder="Reason for declining"></textarea>
       <div class="row">
         <button class="btn btn-outline" type="button" id="declineCancel">Back</button>
@@ -460,5 +499,41 @@
     tickCountdowns();
   </script>
 <script>function openPayoutModal(){document.getElementById('payoutModal')?.classList.add('open');document.body.style.overflow='hidden'}function closePayoutModal(){document.getElementById('payoutModal')?.classList.remove('open');document.body.style.overflow=''}document.addEventListener('keydown',e=>{if(e.key==='Escape')closePayoutModal()});(()=>{const f=document.getElementById('riderPayoutForm'),n=document.getElementById('riderPayoutNumber'),h=document.getElementById('riderPayoutNumberHelp');if(!f||!n)return;const valid=()=>{let d=n.value.replace(/\D/g,'');if(d[0]==='0')d='63'+d.slice(1);else if(d[0]==='9')d='63'+d;const ok=/^639\d{9}$/.test(d);n.setCustomValidity(ok?'':'Enter a valid Philippine GCash number.');h.textContent=ok?'Valid number: +'+d:'Use 09, 9, +639, or 639 format.';h.style.color=ok?'#166534':'#b91c1c';return ok};n.addEventListener('input',valid);f.addEventListener('submit',e=>{if(!valid()){e.preventDefault();n.reportValidity()}})})();</script>
+  <script>
+    (() => {
+      const endpoint = @json(route('rider.payouts.receipts'));
+      const modal = document.getElementById('riderReceiptModal');
+      const trigger = document.getElementById('receiptFab');
+      const content = document.getElementById('receiptContent');
+      if (!modal || !trigger || !content) return;
+      document.body.appendChild(modal);
+      let previousFocus = null;
+      let loadedPage = 0;
+
+      const peso = value => 'PHP ' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const date = value => value ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Paid date not recorded';
+      const element = (tag, className, text) => { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; };
+      function showLoading() { content.replaceChildren(element('div', 'receipt-empty', 'Loading your payout receipts…')); }
+      function showError() { const box = element('div', 'receipt-load-error'); box.append(element('i', 'bi bi-wifi-off'), document.createTextNode('We could not load your receipts. Check your connection and try again.')); const retry = element('button', 'btn btn-outline mt-3', 'Try again'); retry.type = 'button'; retry.addEventListener('click', () => load(loadedPage || 1)); box.append(retry); content.replaceChildren(box); }
+      function render(data) {
+        const pager = data.pagination || {}; const rows = data.data || [];
+        if (!rows.length) { const empty = element('div', 'receipt-empty'); empty.append(element('i', 'bi bi-receipt'), document.createTextNode('No paid payout receipts yet. When Super Admin completes a delivery-fee payout, its proof will appear here.')); content.replaceChildren(empty); return; }
+        const list = element('div', 'receipt-list');
+        rows.forEach(row => {
+          const card = element('article', 'receipt-card'); const details = element('div'); details.append(element('strong', 'receipt-amount', peso(row.amount)));
+          const meta = element('div', 'receipt-meta'); meta.append(element('span', '', 'Paid ' + date(row.paid_at)), element('span', '', 'Reference: ' + (row.reference_number || 'Not recorded'))); details.append(meta);
+          const view = element('a', 'receipt-view', 'View receipt'); view.href = row.receipt_url; view.target = '_blank'; view.rel = 'noopener noreferrer'; view.setAttribute('aria-label', 'View receipt for payout ' + peso(row.amount)); view.prepend(element('i', 'bi bi-image'));
+          card.append(details, view); list.append(card);
+        });
+        const navigation = element('div', 'receipt-pagination'); const previous = element('button', '', 'Previous'); previous.type = 'button'; previous.disabled = pager.current_page <= 1; previous.addEventListener('click', () => load(pager.current_page - 1));
+        const status = element('span', '', 'Page ' + pager.current_page + ' of ' + pager.last_page + ' · ' + pager.total + ' receipt' + (pager.total === 1 ? '' : 's'));
+        const next = element('button', '', 'Next'); next.type = 'button'; next.disabled = pager.current_page >= pager.last_page; next.addEventListener('click', () => load(pager.current_page + 1)); navigation.append(previous, status, next); content.replaceChildren(list, navigation);
+      }
+      async function load(page) { loadedPage = page; showLoading(); try { const response = await fetch(endpoint + '?page=' + page, { credentials: 'same-origin', headers: { Accept: 'application/json' } }); if (response.status === 401) { window.location.reload(); return; } if (!response.ok) throw new Error('receipts'); render(await response.json()); } catch (_) { showError(); } }
+      function open() { previousFocus = document.activeElement; modal.hidden = false; requestAnimationFrame(() => modal.classList.add('open')); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; modal.querySelector('[data-close-receipts]').focus(); load(1); }
+      function close() { if (modal.hidden) return; modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; setTimeout(() => { modal.hidden = true; }, 190); previousFocus?.focus(); }
+      trigger.addEventListener('click', open); modal.addEventListener('click', event => { if (event.target === modal || event.target.closest('[data-close-receipts]')) close(); }); document.addEventListener('keydown', event => { if (event.key === 'Escape' && !modal.hidden) close(); });
+    })();
+  </script>
 </body>
 </html>

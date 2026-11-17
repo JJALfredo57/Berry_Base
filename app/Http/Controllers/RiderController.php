@@ -125,10 +125,50 @@ class RiderController extends Controller
         $bulkRemittance = $this->riderBulkRemittanceSummary((int) $rider->id);
         $deliveryEarnings = Schema::hasTable('rider_delivery_earnings') ? DB::table('rider_delivery_earnings')->where('rider_id',$rider->id)->get() : collect();
         $deliveryPayouts = Schema::hasTable('rider_payout_requests') ? DB::table('rider_payout_requests')->where('rider_id',$rider->id)->orderByDesc('id')->limit(5)->get() : collect();
+        $paidReceiptCount = Schema::hasTable('rider_payout_requests')
+            ? DB::table('rider_payout_requests')->where('rider_id', $rider->id)->where('status', 'paid')->whereNotNull('receipt_path')->count()
+            : 0;
         $deliveryEarningSummary = ['available'=>(float)$deliveryEarnings->where('status','available')->sum('amount'),'requested'=>(float)$deliveryEarnings->where('status','requested')->sum('amount'),'paid'=>(float)$deliveryEarnings->where('status','paid')->sum('amount')];
         $settings = CakeshopHelper::getSettings();
 
-        return view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'deliveryEarnings','deliveryPayouts','deliveryEarningSummary','settings', 'lat', 'lng'));
+        return view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'deliveryEarnings', 'deliveryPayouts', 'deliveryEarningSummary', 'paidReceiptCount', 'settings', 'lat', 'lng'));
+    }
+
+    /** Paginated, rider-owned proof of completed delivery-fee payouts. */
+    public function payoutReceipts(Request $request)
+    {
+        $rider = $this->sessionRider();
+        if (!$rider) {
+            return response()->json(['message' => 'Please log in again.'], 401);
+        }
+
+        if (!Schema::hasTable('rider_payout_requests')) {
+            return response()->json(['data' => [], 'pagination' => ['current_page' => 1, 'last_page' => 1, 'total' => 0]]);
+        }
+
+        $payouts = DB::table('rider_payout_requests')
+            ->where('rider_id', $rider->id)
+            ->where('status', 'paid')
+            ->whereNotNull('receipt_path')
+            ->select('id', 'amount', 'reference_number', 'receipt_path', 'paid_at')
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id')
+            ->paginate(6, ['*'], 'page', max(1, (int) $request->query('page', 1)));
+
+        return response()->json([
+            'data' => collect($payouts->items())->map(fn ($payout) => [
+                'id' => $payout->id,
+                'amount' => (float) $payout->amount,
+                'reference_number' => $payout->reference_number,
+                'receipt_url' => $payout->receipt_path,
+                'paid_at' => $payout->paid_at ? \Carbon\Carbon::parse($payout->paid_at)->toIso8601String() : null,
+            ])->values(),
+            'pagination' => [
+                'current_page' => $payouts->currentPage(),
+                'last_page' => $payouts->lastPage(),
+                'total' => $payouts->total(),
+            ],
+        ]);
     }
 
     public function requestDeliveryPayout(Request $request)
