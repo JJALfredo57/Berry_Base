@@ -224,4 +224,5 @@
   });
 })();
 </script>
+<script>document.addEventListener('DOMContentLoaded',()=>{const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;function animate(d,open){const s=d.querySelector(':scope>summary');if(!s||d.dataset.animating)return;const start=d.offsetHeight;d.dataset.animating='1';if(open)d.open=true;const end=open?d.offsetHeight:s.offsetHeight;const done=()=>{if(!open)d.open=false;d.style.height='';delete d.dataset.animating};if(reduced||start===end)return done();d.style.height=start+'px';const a=d.animate([{height:start+'px',opacity:open?.98:1},{height:end+'px',opacity:1}],{duration:220,easing:'cubic-bezier(.22,1,.36,1)'});a.onfinish=done;a.oncancel=done}document.addEventListener('click',e=>{const s=e.target.closest('.or-actions>details>summary');if(!s)return;e.preventDefault();const d=s.parentElement,open=!d.open;if(open)d.closest('.or-actions').querySelectorAll('details[open]').forEach(x=>{if(x!==d)animate(x,false)});animate(d,open)})})</script>
 @endsection
