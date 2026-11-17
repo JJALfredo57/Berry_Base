@@ -926,6 +926,7 @@
        GLOBAL RESPONSIVE FIXES
     ═══════════════════════════════════════ */
 
+    #sellerSidebarTooltip{position:fixed;z-index:1100;padding:.52rem .78rem;border:1px solid rgba(255,255,255,.15);border-radius:9px;background:var(--sidebar-bg);color:#fff;box-shadow:0 10px 26px rgba(15,23,42,.24);font-size:.78rem;font-weight:700;opacity:0;pointer-events:none;transform:translateX(-8px);transition:opacity .16s ease,transform .2s ease}#sellerSidebarTooltip.is-visible{opacity:1;transform:translateX(0)}
     /* Prevent horizontal scroll on all screens */
     html, body { width:100%; max-width:100%; overflow-x:hidden; }
     body { min-width:0; }
@@ -6266,5 +6267,6 @@ window.berryBaseGetCurrentPosition = async function (success, fail, options) {
   setTimeout(scheduleRefresh, 350);
 })();
 </script>
+@if($isSeller)<script>(function(){var s=document.getElementById('sellerSidebar');if(!s)return;var t=document.createElement('div');t.id='sellerSidebarTooltip';document.body.appendChild(t);function h(){t.classList.remove('is-visible')}function x(a){if(innerWidth<768||!s.classList.contains('collapsed'))return h();var l=a.querySelector('.sb-link-text')?.textContent.trim(),i=a.querySelector('i');if(!l||!i)return h();var r=i.getBoundingClientRect(),q=s.getBoundingClientRect();t.textContent=l;t.style.left=(q.right+10)+'px';t.style.top=(r.top+r.height/2-16)+'px';requestAnimationFrame(()=>t.classList.add('is-visible'))}s.querySelectorAll('.sb-link').forEach(a=>{a.onmouseenter=()=>x(a);a.onmouseleave=h;a.onfocus=()=>x(a);a.onblur=h})})();</script>@endif
 </body>
 </html>
