@@ -57,6 +57,18 @@ class FinanceController extends Controller
                 ->orderByDesc('pt.paid_at')->orderByDesc('pt.id')->get()
             : collect();
 
+        // A completed order has one finance-history event: its settlement. Its
+        // customer receipts remain attached to that settlement as proof instead
+        // of becoming a second, visually duplicate primary row.
+        $settledOrderIds = DB::table('seller_payout_ledgers')
+            ->where('shop_id', $shop->id)
+            ->whereNotNull('order_id')
+            ->pluck('order_id')
+            ->flip();
+        $unsettledPaymentRows = $paymentRows
+            ->filter(fn ($payment) => !$settledOrderIds->has((string) $payment->order_id))
+            ->values();
+
         $gross = (float) $paymentRows->sum('amount');
         $deliveryFund = Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount') ? (float) $ledgerRows->sum('delivery_fund_amount') : 0.0;
         $commission = (float) $ledgerRows->sum('commission_amount');
@@ -96,8 +108,7 @@ class FinanceController extends Controller
         $hasCakeAmount = Schema::hasColumn('seller_payout_ledgers', 'cake_amount');
         $hasDeliveryFund = Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount');
         $transactions = collect()
-            ->merge($paymentRows->map(function ($payment) {
-                $completed = in_array((string) $payment->order_status, ['Delivered', 'Picked Up'], true);
+            ->merge($unsettledPaymentRows->map(function ($payment) {
                 return (object) [
                     'date' => $payment->paid_at ?? $payment->created_at,
                     'type' => 'Customer payment received',
@@ -105,7 +116,7 @@ class FinanceController extends Controller
                     'gross' => (float) $payment->amount,
                     'commission' => 0,
                     'net' => 0,
-                    'status' => $completed ? 'settlement pending' : 'held - awaiting completion',
+                    'status' => 'held - awaiting completion',
                     'expense_id' => null,
                     'payment_events' => collect(),
                 ];
@@ -153,6 +164,17 @@ class FinanceController extends Controller
         $data['amount'] = round($data['amount'] * $data['quantity'], 2);
         if (!Schema::hasColumn('seller_expenses', 'quantity')) unset($data['quantity']);
         try {
+            $recentDuplicate = DB::table('seller_expenses')
+                ->where('shop_id', $shop->id)
+                ->whereDate('expense_date', $data['expense_date'])
+                ->where('category', $data['category'])
+                ->where('description', $data['description'])
+                ->where('amount', $data['amount'])
+                ->where('created_at', '>=', now()->subSeconds(10))
+                ->exists();
+            if ($recentDuplicate) {
+                return back()->withInput()->with('err', 'This identical expense was just saved. Check the list before adding it again.');
+            }
             DB::table('seller_expenses')->insert($data + ['shop_id' => $shop->id, 'seller_id' => session('user')['id'], 'created_at' => now(), 'updated_at' => now()]);
         } catch (\Throwable $e) {
             report($e);

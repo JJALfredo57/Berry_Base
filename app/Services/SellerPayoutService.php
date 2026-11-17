@@ -336,15 +336,21 @@ class SellerPayoutService
             return null;
         }
 
-        $ledgers = $this->availableLedgersForShop($shopId);
-        if ($ledgers->isEmpty()) return null;
-
         $settings = $this->settings();
-        $net = round((float) $ledgers->sum('seller_net_amount'), 2);
-        if ($net < (float) ($settings->payout_minimum_amount ?? 0)) return null;
-
         $payoutId = null;
-        DB::transaction(function () use ($shop, $ledgers, $mode, $net, $note, $source, $actorRole, $actorId, &$payoutId) {
+        DB::transaction(function () use ($shop, $settings, $mode, $note, $source, $actorRole, $actorId, &$payoutId) {
+            // Lock eligible entries before calculating the payout. This prevents
+            // two simultaneous requests from selecting the same available ledger.
+            $ledgers = DB::table('seller_payout_ledgers')
+                ->where('shop_id', $shop->id)
+                ->where('status', 'available')
+                ->orderBy('release_at')
+                ->lockForUpdate()
+                ->get();
+            if ($ledgers->isEmpty()) return;
+
+            $net = round((float) $ledgers->sum('seller_net_amount'), 2);
+            if ($net < (float) ($settings->payout_minimum_amount ?? 0)) return;
             $gross = round((float) $ledgers->sum('gross_amount'), 2);
             $commission = round((float) $ledgers->sum('commission_amount'), 2);
             $status = $mode === 'automatic' ? 'processing' : 'requested';
