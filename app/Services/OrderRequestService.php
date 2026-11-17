@@ -250,8 +250,31 @@ class OrderRequestService
             $size = trim((string) $request->input('alternative_size'));
             $quantity = max(1, (int) $request->input('alternative_quantity', 1));
             if ($size === '') return ['ok' => false, 'message' => 'Choose an available size for the offered cake.'];
-            $sizeRow = Schema::hasTable('product_sizes') ? DB::table('product_sizes')->where('product_id', $row->alternative_product_id)->where('label', $size)->first() : null;
-            if (!$sizeRow || (int) ($sizeRow->available_quantity ?? 0) < $quantity) return ['ok' => false, 'message' => 'That offered size is no longer available in the requested quantity. Please choose another size.'];
+            $alternative = DB::table('products')
+                ->where('id', $row->alternative_product_id)
+                ->where('shop_id', $row->shop_id)
+                ->where('is_available', true)
+                ->whereNull('archived_at')
+                ->first();
+            if (!$alternative) return ['ok' => false, 'message' => 'The alternative cake is no longer available. Please choose another cake.'];
+
+            $sizeQuery = Schema::hasTable('product_sizes')
+                ? DB::table('product_sizes')->where('product_id', $row->alternative_product_id)->where('label', $size)
+                : null;
+            if ($sizeQuery && Schema::hasColumn('product_sizes', 'is_active')) $sizeQuery->where('is_active', true);
+            if ($sizeQuery && Schema::hasColumn('product_sizes', 'archived_at')) $sizeQuery->whereNull('archived_at');
+            $sizeRow = $sizeQuery?->first();
+            if (!$sizeRow) return ['ok' => false, 'message' => 'That offered size is no longer available. Please choose another size.'];
+
+            $sizeStock = max(0, (int) ($sizeRow->available_quantity ?? 0));
+            if ($sizeStock > 0 && $quantity > $sizeStock) {
+                return ['ok' => false, 'message' => "Only {$sizeStock} {$alternative->name} ({$sizeRow->label}) available. Please reduce the quantity."];
+            }
+
+            // Zero stock means this replacement is made to order. Its limit is
+            // the seller's custom-cake capacity for the agreed request date.
+            $capacity = app(DailyCapacityService::class)->validate($row->shop_id, $row->preferred_date, $quantity);
+            if (!$capacity['allowed']) return ['ok' => false, 'message' => $capacity['message']];
             $price = max(0, round((float) ($sizeRow->price ?? 0), 2));
             if ($price <= 0) return ['ok' => false, 'message' => 'The alternative cake is no longer available. Please choose another cake.'];
 

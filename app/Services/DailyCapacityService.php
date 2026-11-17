@@ -104,7 +104,10 @@ class DailyCapacityService
 
         if (array_key_exists((string) $offset, $schedule)) {
             $value = (int) $schedule[(string) $offset];
-            return $value > 0 ? $value : 0;
+            // The settings UI documents 0 as "use the default capacity", not
+            // as a closed day. Keep this fallback consistent everywhere that
+            // request capacity is checked or reserved.
+            return $value > 0 ? $value : $dailyMax;
         }
 
         return $dailyMax;
@@ -158,7 +161,8 @@ class DailyCapacityService
                 ->where('status', 'active')
                 ->update(['status' => 'released', 'updated_at' => now()]);
 
-            $check = $this->validate($request->shop_id ?? null, $request->accepted_date ?? $request->preferred_date, max(1, (int) $request->quantity));
+            $quantity = $this->reservationQuantity($request);
+            $check = $this->validate($request->shop_id ?? null, $request->accepted_date ?? $request->preferred_date, $quantity);
             if (!$check['allowed']) return ['ok' => false, 'message' => $check['message']];
 
             DB::table('order_request_capacity_reservations')->updateOrInsert(
@@ -166,15 +170,26 @@ class DailyCapacityService
                 [
                     'shop_id' => $request->shop_id,
                     'reserved_date' => $request->accepted_date ?? $request->preferred_date,
-                    'quantity' => max(1, (int) $request->quantity),
+                    'quantity' => $quantity,
                     'status' => 'active',
                     'expires_at' => $expiresAt,
                     'updated_at' => now(),
                     'created_at' => now(),
                 ]
             );
-            return ['ok' => true, 'message' => ($check['remaining'] - max(1, (int) $request->quantity)) . ' kitchen slot(s) remain after this hold.'];
+            return ['ok' => true, 'message' => ($check['remaining'] - $quantity) . ' kitchen slot(s) remain after this hold.'];
         });
+    }
+
+    private function reservationQuantity(object $request): int
+    {
+        // Alternative offers can have a customer-selected quantity that is
+        // different from the original request. The hold must reflect it.
+        if (!empty($request->alternative_product_id) && !empty($request->alternative_selected_quantity)) {
+            return max(1, (int) $request->alternative_selected_quantity);
+        }
+
+        return max(1, (int) ($request->quantity ?? 1));
     }
 
     public function releaseRequest(string $requestId): void

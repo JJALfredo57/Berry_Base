@@ -97,8 +97,18 @@ class OrderRequestController extends Controller
             $item->preferred_label = $this->dateTimeLabel($item->preferred_datetime ?? null, $item->preferred_date ?? null, $item->preferred_time ?? null);
             $item->accepted_label = $this->dateTimeLabel($item->accepted_datetime ?? null, $item->accepted_date ?? null, $item->accepted_time ?? null);
             $item->alternative_sizes = !empty($item->alternative_product_id) && Schema::hasTable('product_sizes')
-                ? DB::table('product_sizes')->where('product_id', $item->alternative_product_id)->orderBy('id')->get(['label', 'price', 'available_quantity'])->map(fn ($size) => ['label'=>(string)$size->label, 'price'=>(float)($size->price ?? 0), 'quantity'=>(int)($size->available_quantity ?? 0)])->values()
+                ? DB::table('product_sizes')
+                    ->where('product_id', $item->alternative_product_id)
+                    ->when(Schema::hasColumn('product_sizes', 'is_active'), fn ($query) => $query->where('is_active', true))
+                    ->when(Schema::hasColumn('product_sizes', 'archived_at'), fn ($query) => $query->whereNull('archived_at'))
+                    ->orderBy('id')
+                    ->get(['label', 'price', 'available_quantity'])
+                    ->map(fn ($size) => ['label'=>(string)$size->label, 'price'=>(float)($size->price ?? 0), 'quantity'=>(int)($size->available_quantity ?? 0)])
+                    ->values()
                 : collect();
+            $item->alternative_capacity = !empty($item->alternative_product_id)
+                ? app(\App\Services\DailyCapacityService::class)->snapshot($item->shop_id ?? null, $item->preferred_date ?? null)
+                : null;
             return $item;
         });
 
