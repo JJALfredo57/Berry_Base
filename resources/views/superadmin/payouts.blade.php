@@ -55,15 +55,15 @@
 @endif
 
 <div class="card mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap"><span><i class="bi bi-clipboard2-data me-2" style="color:var(--primary)"></i>Order Reconciliation Audit</span><span class="small text-muted">Every net GCash settlement must be fully allocated before it is usable.</span></div>
-  <div class="table-responsive"><table class="table align-middle mb-0 finance-audit-table"><thead><tr><th>Order</th><th>Order state</th><th class="text-end">Net GCash</th><th class="text-end">Refund</th><th class="text-end">Seller</th><th class="text-end">Rider</th><th class="text-end">Commission</th><th class="text-end">Held</th><th class="text-end">Difference</th><th>Result</th></tr></thead><tbody>
+  <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="audit" aria-expanded="false" aria-controls="finance-panel-audit"><span><i class="bi bi-clipboard2-data me-2" style="color:var(--primary)"></i>Order Reconciliation Audit</span><span class="small text-muted">Every net GCash settlement must be fully allocated before it is usable.</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
+  <div class="finance-table-panel" id="finance-panel-audit" data-finance-content="audit" hidden><div class="table-responsive"><table class="table align-middle mb-0 finance-audit-table"><thead><tr><th>Order</th><th>Order state</th><th class="text-end">Net GCash</th><th class="text-end">Refund</th><th class="text-end">Seller</th><th class="text-end">Rider</th><th class="text-end">Commission</th><th class="text-end">Held</th><th class="text-end">Difference</th><th>Result</th></tr></thead><tbody>
   @forelse($financeReconciliation['rows']->take(100) as $audit)
     @php $needsReview = $audit->state === 'needs_review'; @endphp
     <tr class="{{ $needsReview ? 'table-warning' : '' }}"><td class="fw-semibold">#{{ $audit->order_id }}</td><td>{{ $audit->order_status }}</td><td class="text-end">₱{{ number_format($audit->online_settled,2) }}</td><td class="text-end">₱{{ number_format($audit->refunds,2) }}</td><td class="text-end">₱{{ number_format($audit->seller_amount,2) }}</td><td class="text-end">₱{{ number_format($audit->rider_amount,2) }}</td><td class="text-end">₱{{ number_format($audit->commission,2) }}</td><td class="text-end">₱{{ number_format($audit->held,2) }}</td><td class="text-end fw-semibold {{ abs($audit->difference) >= .01 ? 'text-danger' : 'text-success' }}">{{ $audit->difference > 0 ? '+' : '' }}₱{{ number_format($audit->difference,2) }}</td><td><span class="finance-state badge text-bg-{{ $audit->state === 'reconciled' ? 'success' : ($audit->state === 'held' ? 'secondary' : 'warning') }}">{{ $audit->state === 'reconciled' ? 'Matched' : ($audit->state === 'held' ? 'On hold' : 'Needs review') }}</span>@if($audit->rider_review_amount > 0)<div class="small text-danger mt-1">Rider ₱{{ number_format($audit->rider_review_amount,2) }} needs review</div>@endif</td></tr>
   @empty
     <tr><td colspan="10" class="text-center text-muted py-4">No online payment records need reconciliation yet.</td></tr>
   @endforelse
-  </tbody></table></div>
+  </tbody></table></div></div>
 </div>
 <div class="row g-3 mb-4 payout-summary-grid d-none">
   @foreach([
@@ -91,8 +91,8 @@
 </div>
 
 <div class="card mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-receipt-cutoff me-2" style="color:var(--primary)"></i>Customer Online Payments</span><span class="small text-muted">{{ number_format($paymentSummary['count']) }} confirmed GCash payment{{ $paymentSummary['count'] === 1 ? '' : 's' }} · processor fee: ₱{{ number_format($paymentSummary['service_fees'], 2) }}</span></div>
-  <div class="table-responsive">
+  <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="payments" aria-expanded="false" aria-controls="finance-panel-payments"><span><i class="bi bi-receipt-cutoff me-2" style="color:var(--primary)"></i>Customer Online Payments</span><span class="small text-muted">{{ number_format($paymentSummary['count']) }} confirmed GCash payment{{ $paymentSummary['count'] === 1 ? '' : 's' }} · processor fee: ₱{{ number_format($paymentSummary['service_fees'], 2) }}</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
+  <div class="finance-table-panel" id="finance-panel-payments" data-finance-content="payments" hidden><div class="table-responsive">
     <table class="table align-middle mb-0">
       <thead><tr><th>Paid</th><th>Order</th><th>Seller</th><th>Payment</th><th>Order Status</th><th class="text-end">Order Amount</th><th>PayMongo Reference</th></tr></thead>
       <tbody>
@@ -111,12 +111,12 @@
         @endforelse
       </tbody>
     </table>
-  </div>
+  </div></div>
 </div>
 
 <div class="card mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-percent me-2" style="color:var(--primary)"></i>Platform Commission Ledger</span><span class="small text-muted">2% of cake/product value only · direct-cash commission due: ₱{{ number_format($commissionSummary['cash_due'], 2) }}</span></div>
-  <div class="table-responsive">
+  <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="commission" aria-expanded="false" aria-controls="finance-panel-commission"><span><i class="bi bi-percent me-2" style="color:var(--primary)"></i>Platform Commission Ledger</span><span class="small text-muted">2% of cake/product value only · direct-cash commission due: ₱{{ number_format($commissionSummary['cash_due'], 2) }}</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
+  <div class="finance-table-panel" id="finance-panel-commission" data-finance-content="commission" hidden><div class="table-responsive">
     <table class="table align-middle mb-0">
       <thead><tr><th>Order</th><th>Seller</th><th>Settlement State</th><th class="text-end">GCash Paid</th><th class="text-end">Cash Paid</th><th class="text-end">Cake Amount</th><th class="text-end">2% Commission</th><th class="text-end">Seller Earnings</th></tr></thead>
       <tbody>
@@ -136,7 +136,7 @@
         @endforelse
       </tbody>
     </table>
-  </div>
+  </div></div>
 </div>
 
 <div class="row g-4">
@@ -330,8 +330,8 @@
 
 <div class="card mt-4">
   @php $payoutActionCount = $payoutRequests->count(); @endphp
-  <button class="card-header payout-section-head payout-toggle w-100 border-0 text-start" type="button" data-payout-panel="requests" aria-expanded="true"><span><i class="bi bi-cash-coin me-2" style="color:var(--primary)"></i>Payout Requests</span><span>@if($payoutActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $payoutActionCount }} needs action</span>@endif <i class="bi bi-chevron-up ms-2"></i></span></button>
-  <div class="table-responsive payout-table-scroll payout-panel" data-payout-content="requests">
+  <button class="card-header payout-section-head finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="requests" aria-expanded="true" aria-controls="finance-panel-requests"><span><i class="bi bi-cash-coin me-2" style="color:var(--primary)"></i>Payout Requests</span><span>@if($payoutActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $payoutActionCount }} needs action</span>@endif <i class="bi bi-chevron-up ms-2 finance-table-chevron" aria-hidden="true"></i></span></button>
+  <div class="table-responsive payout-table-scroll finance-table-panel" id="finance-panel-requests" data-finance-content="requests">
     @if(($riderPayoutRequests ?? collect())->count())<section class="payout-rider-requests"><div class="payout-subhead"><span><i class="bi bi-bicycle me-2"></i>Rider Delivery-Fee Requests</span><span class="payout-attention">{{ $riderPayoutRequests->count() }} awaiting payment</span></div><div class="payout-rider-grid">@foreach($riderPayoutRequests as $rp)<article class="payout-rider-card"><div><span class="payout-role-pill">Rider</span><strong>{{ $rp->rider_name }}</strong><div class="payout-rider-account">{{ $rp->gcash_name }} · {{ $rp->gcash_number }}</div></div><div class="payout-rider-amount">₱{{ number_format($rp->amount,2) }}</div><form method="POST" enctype="multipart/form-data" action="{{ route('superadmin.rider_payouts.mark_paid',$rp->id) }}" class="rider-payout-pay payout-rider-form" data-prevent-double-submit>@csrf<input class="rider-payout-receipt form-control form-control-sm" data-scan-url="{{ route('superadmin.rider_payouts.scan_receipt',$rp->id) }}" name="receipt" type="file" accept="image/jpeg,image/png,image/webp" required><div class="small rider-payout-scan-message">Upload receipt to scan the reference.</div><div class="d-flex gap-2"><input class="rider-payout-reference form-control form-control-sm" name="reference_number" required readonly placeholder="Scanned reference"><button class="btn btn-success btn-sm" type="submit" disabled>Mark paid</button></div></form></article>@endforeach</div></section>@endif
     <table class="table align-middle mb-0 payout-history-admin-table">
       <thead>
@@ -395,8 +395,8 @@
 </div>
 
 <div class="card mt-4">
-  <button class="card-header payout-section-head payout-toggle w-100 border-0 text-start" type="button" data-payout-panel="recent" aria-expanded="false"><span><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Recent Payouts</span><i class="bi bi-chevron-down"></i></button>
-  <div class="table-responsive payout-table-scroll payout-panel" data-payout-content="recent" hidden>
+  <button class="card-header payout-section-head finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="recent" aria-expanded="false" aria-controls="finance-panel-recent"><span><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Recent Payouts</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
+  <div class="table-responsive payout-table-scroll finance-table-panel" id="finance-panel-recent" data-finance-content="recent" hidden>
     <table class="table align-middle mb-0 payout-history-admin-table">
       <thead>
         <tr>
@@ -465,9 +465,7 @@
   .payout-summary-grid > [class*="col-"] { display:flex; min-width:0; }
   .payout-summary-grid .cs-stat-card { width:100%; min-width:0; }
   .payout-summary-grid .cs-stat-num { white-space:nowrap; overflow-wrap:normal; font-variant-numeric:tabular-nums; font-size:clamp(1.05rem,1.55vw,1.45rem); }
-  .payout-panel { display:block; }
-  .payout-panel[hidden] { display:none !important; }
-  .payout-toggle{background:transparent;cursor:pointer}.payout-toggle:focus-visible{outline:3px solid var(--primary);outline-offset:-3px}
+  .finance-table-toggle{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto) auto;align-items:center;gap:.75rem;background:transparent;cursor:pointer;transition:background-color .18s ease}.finance-table-toggle:hover{background:#fafafa}.finance-table-toggle:focus-visible{outline:3px solid var(--primary);outline-offset:-3px}.finance-table-chevron{transition:transform .22s ease}.finance-table-toggle[aria-expanded="true"] .finance-table-chevron{transform:rotate(180deg)}.finance-table-panel{overflow:hidden}.finance-table-panel[hidden]{display:none!important}@media(max-width:700px){.finance-table-toggle{grid-template-columns:minmax(0,1fr) auto}.finance-table-toggle .small{grid-column:1/-1;grid-row:2;font-size:.78rem}.finance-table-chevron{grid-column:2;grid-row:1}}
   .payout-rider-requests{padding:1rem 1.25rem;border-bottom:1px solid var(--gray-100)}.payout-subhead{display:flex;justify-content:space-between;gap:.75rem;align-items:center;flex-wrap:wrap;font-weight:800}.payout-rider-grid{display:grid;gap:.75rem;margin-top:.8rem}.payout-rider-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.75rem;padding:1rem;border:1px solid #bfdbfe;border-radius:14px;background:linear-gradient(135deg,#eff6ff,#fff)}.payout-role-pill{display:inline-block;margin-right:.45rem;padding:.16rem .45rem;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:.7rem;font-weight:800}.payout-rider-account{margin-top:.3rem;color:var(--gray-500);font-size:.82rem}.payout-rider-amount{font-size:1.12rem;font-weight:900;color:#166534}.payout-rider-form{grid-column:1/-1;display:grid;gap:.45rem}.payout-rider-form .rider-payout-reference{min-width:0}@media(max-width:575px){.payout-rider-card{grid-template-columns:1fr}.payout-rider-amount{order:2}.payout-rider-form .d-flex{flex-direction:column}.payout-rider-form .btn{width:100%;min-height:44px}}
   .payout-section-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
   .payout-attention { display:inline-flex; align-items:center; gap:.42rem; border-radius:999px; padding:.28rem .58rem; background:#fff7ed; color:#9a3412; font-size:.72rem; font-weight:800; }
@@ -825,5 +823,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('form').forEach(function(form){const hold=form.querySelector('[name="payout_hold_days"]'),min=form.querySelector('[name="payout_minimum_amount"]');if(!hold||!min||form.querySelector('[data-payout-policy]'))return;const n=document.createElement('div');n.dataset.payoutPolicy='1';n.className='alert alert-light small mt-3 mb-0';n.innerHTML='<i class="bi bi-info-circle me-1"></i><strong>Seller eligibility:</strong> only released Available balance counts toward the minimum. Clearing earnings become eligible after the hold period.';form.appendChild(n)})})</script>
-<script>document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.payout-toggle').forEach(button=>button.addEventListener('click',()=>{const key=button.dataset.payoutPanel;document.querySelectorAll('.payout-toggle').forEach(toggle=>{const active=toggle===button;toggle.setAttribute('aria-expanded',active?'true':'false');toggle.querySelector('.bi-chevron-up,.bi-chevron-down')?.classList.toggle('bi-chevron-up',active);toggle.querySelector('.bi-chevron-up,.bi-chevron-down')?.classList.toggle('bi-chevron-down',!active);document.querySelector('[data-payout-content="'+toggle.dataset.payoutPanel+'"]').hidden=!active;});}));});</script>
+<script>document.addEventListener('DOMContentLoaded',()=>{const buttons=[...document.querySelectorAll('.finance-table-toggle')],reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;let active=buttons.find(button=>button.getAttribute('aria-expanded')==='true')||null,token=0;const panel=button=>document.querySelector('[data-finance-content="'+button.dataset.financePanel+'"]');const setState=(button,expanded)=>{button.setAttribute('aria-expanded',expanded?'true':'false');const icon=button.querySelector('.finance-table-chevron');if(icon){icon.classList.toggle('bi-chevron-up',expanded);icon.classList.toggle('bi-chevron-down',!expanded);}};const stop=element=>element?.getAnimations().forEach(animation=>animation.cancel());const close=async button=>{const content=panel(button);if(!content||content.hidden)return;stop(content);setState(button,false);if(reduced){content.hidden=true;return;}const height=content.getBoundingClientRect().height;const animation=content.animate([{height:height+'px',opacity:1},{height:'0px',opacity:0}],{duration:180,easing:'cubic-bezier(.4,0,.2,1)'});try{await animation.finished}catch(_){}content.hidden=true;};const open=async button=>{const content=panel(button);if(!content)return;stop(content);content.hidden=false;setState(button,true);if(reduced)return;const height=content.scrollHeight;const animation=content.animate([{height:'0px',opacity:0},{height:height+'px',opacity:1}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});try{await animation.finished}catch(_){};};buttons.forEach(button=>{const content=panel(button);if(content)content.hidden=button!==active;button.addEventListener('click',async()=>{const current=++token;if(button===active){await close(button);if(current===token)active=null;return;}const previous=active;if(previous){await close(previous);if(current!==token)return;}await open(button);if(current===token)active=button;});});});</script>
 @endsection
