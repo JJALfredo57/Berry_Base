@@ -531,7 +531,7 @@
       }
       async function load(page) { loadedPage = page; showLoading(); try { const response = await fetch(endpoint + '?page=' + page, { credentials: 'same-origin', headers: { Accept: 'application/json' } }); if (response.status === 401) { window.location.reload(); return; } if (!response.ok) throw new Error('receipts'); render(await response.json()); } catch (_) { showError(); } }
       function open() { previousFocus = document.activeElement; modal.hidden = false; void modal.offsetWidth; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; modal.querySelector('[data-close-receipts]').focus(); load(1); }
-      function close() { if (modal.hidden) return; previousFocus?.focus(); modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; setTimeout(() => { modal.hidden = true; }, 190); }
+      function close() { if (modal.hidden) return; trigger.focus(); modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; setTimeout(() => { modal.hidden = true; }, 190); }
       trigger.addEventListener('click', open); modal.addEventListener('click', event => { if (event.target === modal || event.target.closest('[data-close-receipts]')) close(); }); document.addEventListener('keydown', event => { if (event.key === 'Escape' && !modal.hidden) close(); });
     })();
   </script>
