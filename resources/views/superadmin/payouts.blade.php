@@ -91,11 +91,6 @@
 </div>
 
 <div class="card mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-cash-coin me-2" style="color:var(--primary)"></i>COD Remittance Tracking</span><span class="small text-muted">Cash remitted: ₱{{ number_format($riderFundSummary['confirmed'] ?? 0,2) }} · awaiting/remittance issue: ₱{{ number_format($riderFundSummary['pending'] ?? 0,2) }}</span></div>
-  <div class="card-body p-0"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Order</th><th>Shop</th><th>Order state</th><th>Remittance state</th><th class="text-end">Amount</th></tr></thead><tbody>@forelse($riderFunds as $fund)<tr><td class="fw-semibold">#{{ $fund->order_id }}</td><td>{{ $fund->shop_name ?? '—' }}</td><td><span class="badge text-bg-light">{{ $fund->order_status ?? '—' }}</span></td><td><span class="badge text-bg-light">{{ ucfirst(str_replace('_',' ',$fund->status ?? 'pending')) }}</span></td><td class="text-end fw-semibold">₱{{ number_format((float)($fund->amount ?? 0),2) }}</td></tr>@empty<tr><td colspan="5" class="text-center text-muted py-4">No rider remittance activity yet.</td></tr>@endforelse</tbody></table></div></div>
-</div>
-
-<div class="card mb-4">
   <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-receipt-cutoff me-2" style="color:var(--primary)"></i>Customer Online Payments</span><span class="small text-muted">{{ number_format($paymentSummary['count']) }} confirmed GCash payment{{ $paymentSummary['count'] === 1 ? '' : 's' }} · processor fee: ₱{{ number_format($paymentSummary['service_fees'], 2) }}</span></div>
   <div class="table-responsive">
     <table class="table align-middle mb-0">
@@ -295,7 +290,7 @@
         <tr>
           <th>Order</th>
           <th>Seller</th>
-          <th>Status</th>
+          <th>Paid</th>
           <th>GCash</th>
           <th class="text-end">Amount</th>
           <th>Reference / Action</th>
@@ -342,8 +337,8 @@
       <thead>
         <tr>
           <th>ID</th>
-          <th>Seller</th>
-          <th>Mode</th>
+          <th>Recipient</th>
+          <th>Type</th>
           <th>Status</th>
           <th class="text-end">Net</th>
           <th>Receipt Proof</th>
@@ -415,7 +410,7 @@
         </tr>
       </thead>
       <tbody>
-        @forelse($recentPayouts as $p)
+        @foreach($recentPayouts as $p)
           <tr class="payout-detail-trigger" tabindex="0" role="button" aria-label="Open paid payout #{{ $p->id }} details"
               data-shop-name="{{ $p->shop_name }}"
               data-seller-name="{{ $p->seller_name ?? 'Seller' }}"
@@ -438,9 +433,29 @@
             </td>
             <td class="small text-muted">{{ $p->reference_number ?: '—' }}</td>
           </tr>
-        @empty
+        @endforeach
+        @foreach($recentRiderPayouts as $p)
+          <tr>
+            <td>#R{{ $p->id }}</td>
+            <td><div class="fw-semibold">{{ $p->rider_name }}</div><div class="small text-muted">{{ $p->gcash_name }} · {{ $p->gcash_number }}</div></td>
+            <td><span class="badge text-bg-info">Rider delivery fee</span></td>
+            <td class="small">{{ $p->paid_at ? \Carbon\Carbon::parse($p->paid_at)->format('M d, Y h:i A') : 'Paid' }}</td>
+            <td class="text-end fw-semibold">₱{{ number_format($p->amount, 2) }}</td>
+            <td class="small">
+              @if(!empty($p->receipt_path))
+                <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->receipt_path }}" data-receipt-download-url="{{ route('superadmin.rider_payouts.receipt_download', $p->id) }}" data-receipt-title="Rider Payout Receipt #{{ $p->id }}">
+                  <i class="bi bi-image me-1"></i>View Receipt
+                </button>
+              @else
+                <span class="text-danger">Receipt missing</span>
+              @endif
+            </td>
+            <td class="small text-muted">{{ $p->reference_number ?: '—' }}</td>
+          </tr>
+        @endforeach
+        @if($recentPayouts->isEmpty() && $recentRiderPayouts->isEmpty())
           <tr><td colspan="7" class="text-center text-muted py-4">No paid payouts yet.</td></tr>
-        @endforelse
+        @endif
       </tbody>
     </table>
   </div>

@@ -12,6 +12,7 @@ use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -160,7 +161,7 @@ class RiderController extends Controller
                 'id' => $payout->id,
                 'amount' => (float) $payout->amount,
                 'reference_number' => $payout->reference_number,
-                'receipt_url' => $payout->receipt_path,
+                'receipt_url' => route('rider.payouts.receipt', $payout->id),
                 'paid_at' => $payout->paid_at ? \Carbon\Carbon::parse($payout->paid_at)->toIso8601String() : null,
             ])->values(),
             'pagination' => [
@@ -168,6 +169,32 @@ class RiderController extends Controller
                 'last_page' => $payouts->lastPage(),
                 'total' => $payouts->total(),
             ],
+        ]);
+    }
+
+    /** Serve a paid payout receipt only to the rider who received it. */
+    public function payoutReceiptFile(int $id)
+    {
+        $rider = $this->sessionRider();
+        if (!$rider) {
+            return redirect()->route('login')->with('error', 'Please log in to view your payout receipt.');
+        }
+
+        $payout = DB::table('rider_payout_requests')
+            ->where('id', $id)
+            ->where('rider_id', $rider->id)
+            ->where('status', 'paid')
+            ->whereNotNull('receipt_path')
+            ->first();
+        if (!$payout) abort(404);
+
+        $response = Http::timeout(20)->get($payout->receipt_path);
+        if (!$response->successful()) abort(404);
+
+        return response($response->body(), 200, [
+            'Content-Type' => $response->header('Content-Type') ?: 'image/jpeg',
+            'Content-Disposition' => 'inline; filename="rider-payout-receipt-'.$payout->id.'.jpg"',
+            'Cache-Control' => 'private, max-age=60',
         ]);
     }
 

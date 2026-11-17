@@ -315,6 +315,7 @@ Route::post('/rider/password/setup', [\App\Http\Controllers\RiderController::cla
 Route::get('/rider/dashboard', [\App\Http\Controllers\RiderController::class, 'dashboard'])->name('rider.dashboard');
 Route::get('/rider/dashboard/feed', [\App\Http\Controllers\RiderController::class, 'dashboardFeed'])->name('rider.dashboard.feed');
 Route::get('/rider/payout-receipts', [\App\Http\Controllers\RiderController::class, 'payoutReceipts'])->name('rider.payouts.receipts');
+Route::get('/rider/payout-receipts/{id}', [\App\Http\Controllers\RiderController::class, 'payoutReceiptFile'])->name('rider.payouts.receipt');
 Route::post('/rider/payout-requests', [\App\Http\Controllers\RiderController::class, 'requestDeliveryPayout'])->name('rider.payouts.request');
 Route::get('/rider/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'riderIndex'])->name('rider.delivery_messages.index');
 Route::post('/rider/orders/{orderId}/delivery-messages', [\App\Http\Controllers\DeliveryMessageController::class, 'riderSend'])->name('rider.delivery_messages.send');
@@ -662,6 +663,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/return-cases/order-refunds/{id}/scan-receipt', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'scanOrderRefundReceipt'])->middleware('throttle:10,10')->name('return_cases.scan_order_refund');
     Route::post('/return-cases/order-refunds/{id}/complete', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'completeOrderRefund'])->middleware('throttle:10,10')->name('return_cases.complete_order_refund');
     Route::get('/payouts/{id}/receipt-download', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'downloadReceipt'])->name('payouts.receipt_download');
+    Route::get('/rider-payouts/{id}/receipt-download', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'downloadRiderPayoutReceipt'])->name('rider_payouts.receipt_download');
     Route::get('/feedback',                    [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'index'])->name('feedback');
     Route::post('/feedback/{id}',              [\App\Http\Controllers\SuperAdmin\FeedbackController::class, 'update'])->name('feedback.update');
     Route::get('/platform-settings',           [\App\Http\Controllers\SuperAdmin\PlatformSettingsController::class, 'index'])->name('settings');
