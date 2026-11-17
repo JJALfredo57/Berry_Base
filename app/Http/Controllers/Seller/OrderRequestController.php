@@ -80,7 +80,7 @@ class OrderRequestController extends Controller
             ->whereNull('archived_at')
             ->where('is_available', true)
             ->orderBy('name')
-            ->select('id', 'name')
+            ->select('id', 'name', 'image_path', 'flavor', 'classification', 'available_quantity')
             ->get();
 
         return view('seller.order_requests', compact('shop', 'requests', 'counts', 'tab', 'search', 'alternativeProducts'));
@@ -179,7 +179,13 @@ class OrderRequestController extends Controller
         $service->ensureCustomerToken($id);
         $this->notifyCustomer($id, $data['status']);
 
-        return back()->with('msg', $message);
+        $destination = match ($data['status']) {
+            'accepted' => 'accepted',
+            'alternative_offered', 'schedule_suggested', 'needs_more_details' => 'suggested',
+            'declined' => 'declined',
+            default => 'pending',
+        };
+        return redirect()->route('seller.order_requests', ['tab' => $destination, 'focus' => $id])->with('msg', $message);
     }
 
     public function validateSuggestedSchedule(Request $request, string $id, OrderRequestService $service)

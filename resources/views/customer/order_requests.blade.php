@@ -198,6 +198,7 @@
                     'acceptUrl' => route('customer.order_requests.respond', $requestItem->id),
                     'acceptAction' => $requestItem->status === 'schedule_suggested' ? 'accept_schedule' : 'accept_alternative',
                     'declineUrl' => route('customer.order_requests.decline', $requestItem->id),
+                    'alternative' => $requestItem->status === 'alternative_offered' ? ['name'=>$requestItem->alternative_product_name,'image'=>$requestItem->alternative_product_image,'flavor'=>$requestItem->alternative_product_flavor,'sizes'=>$requestItem->alternative_sizes,'originalSize'=>$requestItem->selected_size] : null,
                   ];
                 @endphp
                 <button type="button" class="btn btn-primary fw-semibold request-review-trigger" onclick='openRequestReview(@json($reviewPayload))'>
@@ -237,11 +238,12 @@
       <div class="request-review-meta" id="requestReviewSeller"></div>
       <div class="request-review-schedule"><span>Proposed schedule</span><strong id="requestReviewSchedule"></strong></div>
       <div class="request-review-note" id="requestReviewNote"></div>
+      <div id="requestReviewAlternative" class="request-review-note" hidden></div>
       <div class="request-review-deadline" id="requestReviewDeadline" role="status" aria-live="polite"></div>
       <div class="request-review-error" id="requestReviewError" role="alert"></div>
     </div>
     <footer>
-      <form id="requestReviewAcceptForm" method="POST" data-prevent-double-submit><input type="hidden" name="_token" value="{{ csrf_token() }}"><input type="hidden" name="action" id="requestReviewAction"><button class="btn btn-primary w-100 fw-semibold" type="submit">Accept update</button></form>
+      <form id="requestReviewAcceptForm" method="POST" data-prevent-double-submit><input type="hidden" name="_token" value="{{ csrf_token() }}"><input type="hidden" name="action" id="requestReviewAction"><input type="hidden" name="alternative_size" id="requestReviewSize"><input type="hidden" name="alternative_quantity" id="requestReviewQuantity" value="1"><button class="btn btn-primary w-100 fw-semibold" type="submit">Accept update</button></form>
       <button class="btn btn-outline-danger w-100 fw-semibold" type="button" onclick="document.getElementById('requestReviewDeclineBox').classList.toggle('show')">Decline / Cancel</button>
       <form id="requestReviewDeclineBox" class="request-review-decline" method="POST" data-prevent-double-submit><input type="hidden" name="_token" value="{{ csrf_token() }}"><textarea name="customer_decision_note" class="form-control mb-2" rows="2" maxlength="500" placeholder="Optional reason for declining"></textarea><button class="btn btn-danger w-100 fw-semibold" type="submit">Confirm decline</button></form>
     </footer>
@@ -263,6 +265,9 @@ function openRequestReview(data) {
   document.getElementById('requestReviewSeller').textContent = data.seller || '';
   document.getElementById('requestReviewSchedule').textContent = data.schedule || 'Schedule to confirm';
   document.getElementById('requestReviewNote').textContent = data.note || '';
+  const alternative=document.getElementById('requestReviewAlternative'), size=document.getElementById('requestReviewSize'), qty=document.getElementById('requestReviewQuantity');
+  alternative.hidden=!data.alternative; alternative.innerHTML=''; size.value=''; qty.value='1';
+  if(data.alternative){const sizes=(data.alternative.sizes||[]).filter(x=>Number(x.quantity)>0);alternative.innerHTML=(data.alternative.image?'<img src="'+data.alternative.image+'" style="width:100%;height:140px;object-fit:cover;border-radius:10px;margin-bottom:8px">':'')+'<strong>'+data.alternative.name+'</strong><div class="small text-muted">'+(data.alternative.flavor||'')+'</div><label class="form-label mt-2">Choose size</label><select class="form-select" required><option value="">Choose an available size</option>'+sizes.map(x=>'<option value="'+x.label+'">'+x.label+' · '+x.quantity+' available</option>').join('')+'</select><label class="form-label mt-2">Quantity</label><input class="form-control" type="number" min="1" value="1" required>';const select=alternative.querySelector('select'),input=alternative.querySelector('input');if(sizes.some(x=>x.label===data.alternative.originalSize))select.value=data.alternative.originalSize;size.value=select.value;qty.value=input.value;select.onchange=()=>size.value=select.value;input.oninput=()=>qty.value=input.value;}
   document.getElementById('requestReviewAcceptForm').action = data.acceptUrl || '';
   document.getElementById('requestReviewAction').value = data.acceptAction || '';
   document.getElementById('requestReviewDeclineBox').action = data.declineUrl || '';

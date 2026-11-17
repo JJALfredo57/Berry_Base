@@ -161,13 +161,13 @@ class OrderRequestService
         $checkoutProductId = $row->alternative_product_id ?: $row->product_id;
         $checkout = [
             'product_id' => $checkoutProductId,
-            'quantity' => max(1, (int) $row->quantity),
+            'quantity' => !empty($row->alternative_product_id) ? max(1, (int) ($row->alternative_selected_quantity ?? 1)) : max(1, (int) $row->quantity),
             'custom_note' => implode(' | ', $noteParts),
             // A replacement product must not inherit a size that belongs to
             // the original cake; checkout will use the replacement's catalog price.
             'selected_size' => (string) $checkoutProductId === (string) ($row->product_id ?? '')
                 ? trim((string) ($row->selected_size ?? ''))
-                : '',
+                : trim((string) ($row->alternative_selected_size ?? '')),
             'order_request_id' => $row->id,
             'request_offer_checkout' => true,
             'accepted_unit_price' => $price,
@@ -247,6 +247,11 @@ class OrderRequestService
             if (empty($row->allow_similar_cake) || empty($row->alternative_product_id)) {
                 return ['ok' => false, 'message' => 'This alternative is no longer available for this request.'];
             }
+            $size = trim((string) $request->input('alternative_size'));
+            $quantity = max(1, (int) $request->input('alternative_quantity', 1));
+            if ($size === '') return ['ok' => false, 'message' => 'Choose an available size for the offered cake.'];
+            $sizeRow = Schema::hasTable('product_sizes') ? DB::table('product_sizes')->where('product_id', $row->alternative_product_id)->where('label', $size)->first() : null;
+            if (!$sizeRow || (int) ($sizeRow->available_quantity ?? 0) < $quantity) return ['ok' => false, 'message' => 'That offered size is no longer available in the requested quantity. Please choose another size.'];
             $price = $this->fixedPriceForRequest($row, (string) $row->alternative_product_id);
             if ($price <= 0) return ['ok' => false, 'message' => 'The alternative cake is no longer available. Please choose another cake.'];
 
@@ -256,6 +261,8 @@ class OrderRequestService
                 'accepted_date' => $row->preferred_date,
                 'accepted_time' => substr((string) $row->preferred_time, 0, 5),
                 'accepted_datetime' => $row->preferred_datetime,
+                'alternative_selected_size' => $size,
+                'alternative_selected_quantity' => $quantity,
             ];
             $reservationRequest = (object) array_merge((array) $row, $updates);
             $reservation = app(DailyCapacityService::class)->reserveRequest($reservationRequest, $this->actionDeadline());

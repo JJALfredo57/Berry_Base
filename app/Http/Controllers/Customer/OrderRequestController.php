@@ -55,6 +55,9 @@ class OrderRequestController extends Controller
             's.shop_name',
             's.shop_slug',
             'ap.name as alternative_product_name',
+            'ap.image_path as alternative_product_image',
+            'ap.flavor as alternative_product_flavor',
+            'ap.classification as alternative_product_classification',
             DB::raw(($hasAcceptedDate ? 'r.accepted_date' : 'NULL') . ' as accepted_date'),
             DB::raw(($hasAcceptedTime ? 'r.accepted_time' : 'NULL') . ' as accepted_time'),
             DB::raw(($hasAcceptedDatetime ? 'r.accepted_datetime' : 'NULL') . ' as accepted_datetime'),
@@ -93,6 +96,9 @@ class OrderRequestController extends Controller
             $item->display_image = $item->image_path ?: null;
             $item->preferred_label = $this->dateTimeLabel($item->preferred_datetime ?? null, $item->preferred_date ?? null, $item->preferred_time ?? null);
             $item->accepted_label = $this->dateTimeLabel($item->accepted_datetime ?? null, $item->accepted_date ?? null, $item->accepted_time ?? null);
+            $item->alternative_sizes = !empty($item->alternative_product_id) && Schema::hasTable('product_sizes')
+                ? DB::table('product_sizes')->where('product_id', $item->alternative_product_id)->orderBy('id')->get(['label', 'available_quantity'])->map(fn ($size) => ['label'=>(string)$size->label, 'quantity'=>(int)($size->available_quantity ?? 0)])->values()
+                : collect();
             return $item;
         });
 
