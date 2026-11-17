@@ -159,6 +159,7 @@ class DashboardController extends Controller
             'rider_actions' => 0,
             'kitchen_preparing' => 0,
             'cancellation_actions' => 0,
+            'return_cases' => 0,
         ];
 
         try {
@@ -178,7 +179,8 @@ class DashboardController extends Controller
             }
             $counts['rider_actions'] = app(\App\Services\RiderAssignmentService::class)->countNeedingReassignment($shopId);
             $counts['cancellation_actions'] = app(OrderActionService::class)->sellerSummary($shopId)['total'];
-            $counts['orders'] = $counts['pending_orders'] + $counts['pickup_ready'] + $counts['remittance_actions'] + $counts['rider_actions'] + $counts['cancellation_actions'];
+            $counts['return_cases'] = $counts['cancellation_actions'] + (Schema::hasTable('post_delivery_return_cases') ? (int) DB::table('post_delivery_return_cases')->where('shop_id', $shopId)->where('status', 'submitted')->count() : 0);
+            $counts['orders'] = $counts['pending_orders'] + $counts['pickup_ready'] + $counts['remittance_actions'] + $counts['rider_actions'];
 
             $counts['messages'] = (int) DB::table('messages as m')
                 ->join('orders as o', 'o.id', '=', 'm.order_id')

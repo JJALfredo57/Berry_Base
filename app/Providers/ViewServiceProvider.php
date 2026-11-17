@@ -128,8 +128,9 @@ class ViewServiceProvider extends ServiceProvider
                             $returnCases = Schema::hasTable('post_delivery_return_cases')
                                 ? (int) DB::table('post_delivery_return_cases')->where('shop_id', $shop->id)->where('status', 'submitted')->count()
                                 : 0;
+                            $returnCases += $cancellationActions;
                             $sellerSidebarCounts = [
-                                'orders' => $pendingOrders + $pickupReady + $remittanceActions + $riderActions + $cancellationActions,
+                                'orders' => $pendingOrders + $pickupReady + $remittanceActions + $riderActions,
                                 'kitchen' => $kitchenPending + $kitchenPreparing,
                                 'messages' => $messages,
                                 'payouts' => $payouts,

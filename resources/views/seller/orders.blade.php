@@ -381,10 +381,7 @@
           @endif
           @if(($refund->status ?? '') === 'pending_seller_approval')
             <span class="seller-action-pill" style="background:#fff7ed;color:#9a3412;border-color:#fed7aa"><i class="bi bi-arrow-counterclockwise"></i>Refund request</span>
-            <form action="{{ route('seller.orders.accept_cancel', $o->id) }}" method="POST" class="d-inline" data-prevent-double-submit>
-              @csrf
-              <button type="submit" class="btn btn-sm fw-bold" style="background:#ea580c;color:#fff;border:0" data-loading-text="Approving refund..."><i class="bi bi-check2-circle me-1"></i>Approve refund</button>
-            </form>
+            <a href="{{ route('seller.return_cases') }}" class="btn btn-sm btn-outline-primary">Review in Return Requests</a>
           @endif
           @if($remittance)
             @php

@@ -1488,7 +1488,7 @@
     </a>
     <a href="{{ route('seller.orders') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.orders') ? 'active' : '' }}">
       <i class="bi bi-bag-check"></i><span class="sb-link-text">Orders</span>
-      <span class="sb-badge warn" data-seller-badge="orders" title="{{ $sbCount('cancellation_actions') }} cancellation/refund request{{ $sbCount('cancellation_actions') === 1 ? '' : 's' }} need action, {{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending" style="{{ $sbCount('orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('orders')) }}</span>
+      <span class="sb-badge warn" data-seller-badge="orders" title="{{ $sbCount('pickup_ready') }} ready for pickup, {{ $sbCount('pending_orders') }} pending" style="{{ $sbCount('orders') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('orders')) }}</span>
     </a>
     <a href="{{ route('seller.kitchen') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.kitchen') ? 'active' : '' }}">
       <i class="bi bi-fire"></i><span class="sb-link-text">Kitchen</span>
@@ -1500,7 +1500,7 @@
     </a>
     <a href="{{ route('seller.return_cases') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.return_cases') ? 'active' : '' }}">
       <i class="bi bi-arrow-return-left"></i><span class="sb-link-text">Return Requests</span>
-      <span class="sb-badge warn" data-seller-badge="return_cases" title="{{ $sbCount('return_cases') }} return request{{ $sbCount('return_cases') === 1 ? '' : 's' }} need action" style="{{ $sbCount('return_cases') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('return_cases')) }}</span>
+      <span class="sb-badge warn" data-seller-badge="return_cases" title="{{ $sbCount('return_cases') }} return or refund request{{ $sbCount('return_cases') === 1 ? '' : 's' }} need action" style="{{ $sbCount('return_cases') > 0 ? '' : 'display:none' }}">{{ $sbCountLabel($sbCount('return_cases')) }}</span>
     </a>
     <a href="{{ route('seller.finance') }}" class="sb-link {{ str_starts_with($currentRoute,'seller.finance') ? 'active' : '' }}">
       <i class="bi bi-graph-up-arrow"></i><span class="sb-link-text">Finance</span>
@@ -3579,7 +3579,8 @@ function setSellerSidebarBadge(key, count, title) {
 
 function applySellerSidebarCounts(counts) {
   if (!counts || MC_ROLE !== 'seller') return;
-  setSellerSidebarBadge('orders', counts.orders, (counts.cancellation_actions || 0) + ' cancellation/refund requests need action, ' + (counts.pickup_ready || 0) + ' ready for pickup, ' + (counts.pending_orders || 0) + ' pending');
+  setSellerSidebarBadge('orders', counts.orders, (counts.pickup_ready || 0) + ' ready for pickup, ' + (counts.pending_orders || 0) + ' pending');
+  setSellerSidebarBadge('return_cases', counts.return_cases, (counts.return_cases || 0) + ' return or refund requests need action');
   setSellerSidebarBadge('kitchen', counts.kitchen, (counts.kitchen_pending || 0) + ' pending, ' + (counts.kitchen_preparing || 0) + ' preparing');
   setSellerSidebarBadge('messages', counts.messages, 'Unread customer messages');
   setSellerSidebarBadge('custom_orders', counts.custom_orders, 'Custom orders awaiting review');

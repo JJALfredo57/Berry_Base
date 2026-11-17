@@ -518,6 +518,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/return-cases', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'index'])->name('return_cases');
     Route::post('/return-cases/{id}/decision', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'decide'])->middleware('throttle:12,10')->name('return_cases.decide');
     Route::post('/return-cases/{id}/received', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'receive'])->middleware('throttle:12,10')->name('return_cases.receive');
+    Route::post('/return-cases/refunds/{id}/approve', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'approveRefund'])->middleware('throttle:12,10')->name('return_cases.refunds.approve');
+    Route::post('/return-cases/refunds/{id}/reject', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'rejectRefund'])->middleware('throttle:12,10')->name('return_cases.refunds.reject');
     Route::get('/order-requests',            [\App\Http\Controllers\Seller\OrderRequestController::class, 'index'])->name('order_requests');
     Route::post('/order-requests/{id}/update', [\App\Http\Controllers\Seller\OrderRequestController::class, 'update'])->name('order_requests.update');
     Route::get('/orders/status-counts',         [\App\Http\Controllers\Seller\OrderController::class, 'statusCounts'])->name('orders.status_counts');
