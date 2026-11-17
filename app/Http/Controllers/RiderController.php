@@ -805,6 +805,16 @@ class RiderController extends Controller
         }
     }
 
+    public function markBulkCashHandover(Request $request)
+    {
+        $rider = $this->sessionRider();
+        if (!$rider) return redirect()->route('login');
+        $updated = DB::table('rider_remittances')->where('rider_id', $rider->id)->where('status', 'pending')->update($this->filterExistingColumns('rider_remittances', [
+            'status' => 'submitted', 'remittance_method' => 'cash_handover', 'submitted_at' => now(), 'updated_at' => now(),
+        ]));
+        return back()->with($updated ? 'msg' : 'err', $updated ? 'Cash handover sent to the seller for confirmation.' : 'No cash handover is ready yet.');
+    }
+
     public function checkBulkRemittanceQr(Request $request)
     {
         $rider = $this->sessionRider();

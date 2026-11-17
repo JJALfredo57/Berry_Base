@@ -757,16 +757,6 @@
             </button>
           </form>
         </div>
-        <div class="col-lg-6">
-          <form action="{{ route('seller.orders.remittance_reject', ['id' => $o->id, 'remittanceId' => $remittance->id]) }}" method="POST" data-prevent-double-submit>
-            @csrf
-            <label class="form-label small fw-bold">Correction reason <span class="text-danger">*</span></label>
-            <input name="seller_note" class="form-control form-control-sm mb-2" minlength="5" maxlength="500" required placeholder="e.g. amount/reference does not match">
-            <button class="btn btn-outline-danger btn-sm" type="submit">
-              <i class="bi bi-x-circle me-1"></i>Reject
-            </button>
-          </form>
-        </div>
       </div>
     </div>
     @endif

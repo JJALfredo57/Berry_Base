@@ -300,7 +300,7 @@
                     <button class="btn btn-soft" type="submit"><i class="bi bi-arrow-repeat"></i>Check Payment Status</button>
                   </form>
                 @elseif($bulkRemittance['ready_count'] > 0)
-                  <button class="btn btn-pay" type="button" disabled><i class="bi bi-cash-coin"></i>Hand cash to seller</button>
+                  <form method="POST" action="{{ route('rider.remittance.bulk.handover') }}">@csrf<button class="btn btn-pay" type="submit"><i class="bi bi-cash-coin"></i>Mark Cash Handed to Seller</button></form>
                 @else
                   <button class="btn btn-soft" type="button" disabled><i class="bi bi-check2-circle"></i>No COD to Remit</button>
                 @endif

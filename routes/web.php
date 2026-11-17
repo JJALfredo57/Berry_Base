@@ -323,6 +323,7 @@ Route::post('/rider/orders/{orderId}/delivery-messages/read', [\App\Http\Control
 Route::post('/rider/logout', [\App\Http\Controllers\RiderController::class, 'logout'])->name('rider.logout');
 Route::post('/rider/remittance/bulk/paymongo-qr', [\App\Http\Controllers\RiderController::class, 'generateBulkRemittanceQr'])->name('rider.remittance.bulk.qr');
 Route::post('/rider/remittance/bulk/check-paymongo', [\App\Http\Controllers\RiderController::class, 'checkBulkRemittanceQr'])->name('rider.remittance.bulk.check');
+Route::post('/rider/remittance/bulk/handover', [\App\Http\Controllers\RiderController::class, 'markBulkCashHandover'])->name('rider.remittance.bulk.handover');
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Rider PIN access from catalog sidebar Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 Route::post('/rider/pin',    [\App\Http\Controllers\RiderController::class, 'accessByPin'])->name('rider.pin');
