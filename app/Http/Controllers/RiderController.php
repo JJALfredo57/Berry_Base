@@ -537,7 +537,11 @@ class RiderController extends Controller
 
             DB::table('orders')->where('id',$orderId)->update($upd);
             $freshOrder = DB::table('orders')->where('id', $orderId)->first() ?? $order;
-            PaymentTransactionHelper::recordFinalCashIfNeeded($freshOrder, 'Delivered');
+            // COD cash is handed to the seller after delivery. Its transaction
+            // history is created only when that seller confirms receipt.
+            if (strtoupper((string) ($freshOrder->payment_method ?? '')) !== 'COD') {
+                PaymentTransactionHelper::recordFinalCashIfNeeded($freshOrder, 'Delivered');
+            }
             // Keep seller finance and admin payout balances current as soon as
             // delivery/payment settlement is recorded, rather than waiting for
             // the hourly safety sync.
@@ -609,6 +613,8 @@ class RiderController extends Controller
 
     public function generateBulkRemittanceQr(Request $request)
     {
+        return back()->with('err', 'COD cash is now handed directly to the seller. Wait for the seller to confirm receipt; no GCash remittance is needed.');
+
         $rider = $this->sessionRider();
         if (!$rider) {
             return redirect()->route('login')->with('error', 'Please log in to remit COD cash.');

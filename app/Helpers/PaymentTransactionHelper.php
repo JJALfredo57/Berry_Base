@@ -83,6 +83,12 @@ class PaymentTransactionHelper
         self::record($order, $typePrefix . ($isPickup ? '_pickup' : '_delivery'), 'Cash', $amount);
     }
 
+    /** Record only the cake cash handed to the seller after seller confirmation. */
+    public static function recordConfirmedCashHandover(object $order, float $amount): void
+    {
+        self::record($order, 'remaining_cash_delivery', 'Cash', max(0, $amount));
+    }
+
     public static function typeLabel(?string $type): string
     {
         return match ($type) {

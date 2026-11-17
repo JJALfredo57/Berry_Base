@@ -284,9 +284,9 @@
             <div class="remit-head">
               <div class="remit-copy">
                 @if($bulkRemittance['active_batch'])
-                  A GCash payment is already active for this total. Open it again or check after payment.
+                  Cash handover is waiting for seller confirmation. Do not make a GCash remittance.
                 @elseif($bulkRemittance['ready_count'] > 0)
-                  Pay once for all delivered COD cash instead of sending separate payments per order.
+                  Hand the listed cake cash to the seller. The seller will confirm each handover before it enters transaction history.
                 @else
                   Delivered COD orders that need remittance will appear here.
                 @endif
@@ -294,16 +294,13 @@
               <div class="remit-actions">
                 @if($bulkRemittance['active_batch'])
                   @if(!empty($bulkRemittance['active_batch']->paymongo_action_url))
-                    <a class="btn btn-pay" href="{{ $bulkRemittance['active_batch']->paymongo_action_url }}" target="_blank" rel="noopener"><i class="bi bi-phone"></i>Open GCash Payment</a>
+                    <button class="btn btn-soft" type="button" disabled><i class="bi bi-hourglass-split"></i>Waiting for seller confirmation</button>
                   @endif
                   <form method="POST" action="{{ route('rider.remittance.bulk.check') }}">@csrf
                     <button class="btn btn-soft" type="submit"><i class="bi bi-arrow-repeat"></i>Check Payment Status</button>
                   </form>
                 @elseif($bulkRemittance['ready_count'] > 0)
-                  <form method="POST" action="{{ route('rider.remittance.bulk.qr') }}">@csrf
-                    <input type="hidden" name="open_payment" value="1">
-                    <button class="btn btn-pay" type="submit"><i class="bi bi-qr-code"></i>Pay Total via GCash</button>
-                  </form>
+                  <button class="btn btn-pay" type="button" disabled><i class="bi bi-cash-coin"></i>Hand cash to seller</button>
                 @else
                   <button class="btn btn-soft" type="button" disabled><i class="bi bi-check2-circle"></i>No COD to Remit</button>
                 @endif
@@ -323,7 +320,7 @@
                 @foreach($bulkRemittance['orders']->take(6) as $remitOrder)
                   <div class="remit-order">
                     <div><strong>Order #{{ $remitOrder->order_id }}</strong> <span>{{ $remitOrder->product_name }}</span>@if((float)($remitOrder->delivery_fee_retained ?? 0) > 0)<small class="d-block text-muted">You keep PHP {{ number_format((float)$remitOrder->delivery_fee_retained, 2) }} delivery fee</small>@endif</div>
-                    <div class="text-end"><strong>PHP {{ number_format((float)($remitOrder->cake_remittance_amount ?? $remitOrder->amount), 2) }}</strong><small class="d-block text-muted">Remit to seller</small></div>
+                    <div class="text-end"><strong>PHP {{ number_format((float)($remitOrder->cake_remittance_amount ?? $remitOrder->amount), 2) }}</strong><small class="d-block text-muted">Hand to seller for confirmation</small></div>
                   </div>
                 @endforeach
                 @if($bulkRemittance['orders']->count() > 6)

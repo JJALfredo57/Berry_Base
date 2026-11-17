@@ -653,12 +653,19 @@ class OrderController extends Controller
                     DB::table('orders')->where('id', $id)->update($orderUpdates);
                 }
 
+                $order = DB::table('orders')->where('id', $id)->first();
+                if (!$order) throw new \RuntimeException('Order record not found for cash confirmation.');
+                \App\Helpers\PaymentTransactionHelper::recordConfirmedCashHandover(
+                    $order,
+                    (float) ($remittance->cake_remittance_amount ?? $remittance->amount ?? 0)
+                );
+
                 $this->addOrderTrackingSafe(
                     $id,
                     'Cash Remittance Confirmed',
                     ($remittance->status ?? '') === 'pending'
-                        ? 'Seller confirmed COD cash received directly.'
-                        : 'Seller confirmed rider cash remittance.',
+                        ? 'Seller confirmed COD cake cash received directly from rider. Transaction history created.'
+                        : 'Seller confirmed rider cash remittance. Transaction history created.',
                     'seller'
                 );
             });
