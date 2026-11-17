@@ -367,25 +367,26 @@
         <div id="receiptContent" aria-live="polite"></div>
       </section>
     </div>
-    <div class="transaction-modal" id="transactionHistoryModal" role="dialog" aria-modal="true" aria-labelledby="transactionHistoryTitle" aria-hidden="true" hidden>
-      <section class="transaction-sheet" role="document">
-        <div class="receipt-sheet-head"><div><h2 id="transactionHistoryTitle"><i class="bi bi-clock-history me-1"></i>Transaction History</h2><p>All COD remittances and delivery-fee payouts.</p></div><button class="receipt-close" type="button" data-close-transactions aria-label="Close transaction history"><i class="bi bi-x-lg"></i></button></div>
-        <div class="transaction-tabs" role="tablist"><button class="active" type="button" data-transaction-filter="all">All</button><button type="button" data-transaction-filter="remittance">COD Remittances</button><button type="button" data-transaction-filter="payout">Payouts</button></div>
-        <div class="transaction-list">
-          @forelse($transactionHistory as $entry)
-            <article class="transaction-row" data-transaction-kind="{{ $entry->kind }}"><div><strong>{{ $entry->kind === 'payout' ? 'Delivery-fee payout' : 'COD remittance' }}</strong><div class="transaction-meta">{{ $entry->detail }} · {{ $entry->date ? \Carbon\Carbon::parse($entry->date)->format('M d, Y h:i A') : 'Date unavailable' }}@if($entry->reference)<br>Reference: {{ $entry->reference }}@endif</div></div><div><div class="transaction-amount">PHP {{ number_format($entry->amount,2) }}</div><div class="transaction-status">{{ str_replace('_',' ',$entry->status) }}</div>@if($entry->kind === 'payout' && $entry->receipt)<a class="receipt-view mt-2" href="{{ route('rider.payouts.receipt',$entry->id) }}" target="_blank" rel="noopener">View receipt</a>@endif</div></article>
-          @empty
-            <div class="receipt-empty"><i class="bi bi-receipt"></i>No remittance or payout activity yet.</div>
-          @endforelse
-        </div>
-      </section>
-    </div>
       <textarea name="reason" id="declineReason" maxlength="300" required placeholder="Reason for declining"></textarea>
       <div class="row">
         <button class="btn btn-outline" type="button" id="declineCancel">Back</button>
         <button class="btn btn-danger" type="submit"><i class="bi bi-x-circle"></i>Decline</button>
       </div>
     </form>
+  </div>
+
+  <div class="transaction-modal" id="transactionHistoryModal" role="dialog" aria-modal="true" aria-labelledby="transactionHistoryTitle" aria-hidden="true" hidden>
+    <section class="transaction-sheet" role="document">
+      <div class="receipt-sheet-head"><div><h2 id="transactionHistoryTitle"><i class="bi bi-clock-history me-1"></i>Transaction History</h2><p>All COD remittances and delivery-fee payouts.</p></div><button class="receipt-close" type="button" data-close-transactions aria-label="Close transaction history"><i class="bi bi-x-lg"></i></button></div>
+      <div class="transaction-tabs" role="tablist"><button class="active" type="button" data-transaction-filter="all">All</button><button type="button" data-transaction-filter="remittance">COD Remittances</button><button type="button" data-transaction-filter="payout">Payouts</button></div>
+      <div class="transaction-list">
+        @forelse($transactionHistory as $entry)
+          <article class="transaction-row" data-transaction-kind="{{ $entry->kind }}"><div><strong>{{ $entry->kind === 'payout' ? 'Delivery-fee payout' : 'COD remittance' }}</strong><div class="transaction-meta">{{ $entry->detail }} · {{ $entry->date ? \Carbon\Carbon::parse($entry->date)->format('M d, Y h:i A') : 'Date unavailable' }}@if($entry->reference)<br>Reference: {{ $entry->reference }}@endif</div></div><div><div class="transaction-amount">PHP {{ number_format($entry->amount,2) }}</div><div class="transaction-status">{{ str_replace('_',' ',$entry->status) }}</div>@if($entry->kind === 'payout' && $entry->receipt)<a class="receipt-view mt-2" href="{{ route('rider.payouts.receipt',$entry->id) }}" target="_blank" rel="noopener">View receipt</a>@endif</div></article>
+        @empty
+          <div class="receipt-empty"><i class="bi bi-receipt"></i>No remittance or payout activity yet.</div>
+        @endforelse
+      </div>
+    </section>
   </div>
 
   <div class="toast-stack" id="toasts" aria-live="polite"></div>
