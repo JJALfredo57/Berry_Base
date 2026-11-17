@@ -450,7 +450,9 @@
   .payout-summary-grid > [class*="col-"] { display:flex; min-width:0; }
   .payout-summary-grid .cs-stat-card { width:100%; min-width:0; }
   .payout-summary-grid .cs-stat-num { white-space:nowrap; overflow-wrap:normal; font-variant-numeric:tabular-nums; font-size:clamp(1.05rem,1.55vw,1.45rem); }
-  .payout-panel{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .28s ease,opacity .22s ease}.payout-panel[hidden]{display:grid!important;grid-template-rows:0fr;opacity:0;visibility:hidden}.payout-panel>table{min-height:0}.payout-toggle{background:transparent;cursor:pointer}.payout-toggle:focus-visible{outline:3px solid var(--primary);outline-offset:-3px}
+  .payout-panel { display:block; }
+  .payout-panel[hidden] { display:none !important; }
+  .payout-toggle{background:transparent;cursor:pointer}.payout-toggle:focus-visible{outline:3px solid var(--primary);outline-offset:-3px}
   .payout-rider-requests{padding:1rem 1.25rem;border-bottom:1px solid var(--gray-100)}.payout-subhead{display:flex;justify-content:space-between;gap:.75rem;align-items:center;flex-wrap:wrap;font-weight:800}.payout-rider-grid{display:grid;gap:.75rem;margin-top:.8rem}.payout-rider-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.75rem;padding:1rem;border:1px solid #bfdbfe;border-radius:14px;background:linear-gradient(135deg,#eff6ff,#fff)}.payout-role-pill{display:inline-block;margin-right:.45rem;padding:.16rem .45rem;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:.7rem;font-weight:800}.payout-rider-account{margin-top:.3rem;color:var(--gray-500);font-size:.82rem}.payout-rider-amount{font-size:1.12rem;font-weight:900;color:#166534}.payout-rider-form{grid-column:1/-1;display:grid;gap:.45rem}.payout-rider-form .rider-payout-reference{min-width:0}@media(max-width:575px){.payout-rider-card{grid-template-columns:1fr}.payout-rider-amount{order:2}.payout-rider-form .d-flex{flex-direction:column}.payout-rider-form .btn{width:100%;min-height:44px}}
   .payout-section-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
   .payout-attention { display:inline-flex; align-items:center; gap:.42rem; border-radius:999px; padding:.28rem .58rem; background:#fff7ed; color:#9a3412; font-size:.72rem; font-weight:800; }
@@ -478,8 +480,7 @@
   .payout-mark-paid-form { flex-wrap:nowrap; min-width:440px; }
   .payout-mark-paid-form .form-control { min-width:150px; }
   .payout-mark-paid-form .btn { flex:0 0 auto; white-space:nowrap; }
-  .payout-mobile-list { display:grid; gap:.65rem; padding:.75rem; }
-  .payout-mobile-list { gap:0; padding:0; }
+  .payout-mobile-list { display:none; gap:0; padding:0; }
   .payout-mobile-card { width:100%; min-height:64px; border:0; border-bottom:1px solid var(--gray-100); border-radius:0; padding:.9rem 1rem; background:transparent; color:inherit; text-align:left; box-shadow:none; transition:background .16s ease, transform .16s ease; }
   .payout-mobile-card:last-child { border-bottom:0; }
   .payout-mobile-card:hover { background:color-mix(in srgb,var(--primary) 6%,#fff); transform:translateY(-2px); box-shadow:0 8px 18px rgba(15,23,42,.08); }
@@ -515,6 +516,10 @@
   @media (hover:none) { .payout-mobile-card:hover { transform:none; box-shadow:none; } }
   /* The admin sidebar narrows the usable content area before the viewport reaches phone width. */
   @media(max-width:575px) {
+    .payout-table-scroll > .payout-balances-table,
+    .payout-table-scroll > .payout-refunds-table,
+    .payout-table-scroll > .payout-history-admin-table { display:none; }
+    .payout-mobile-list { display:grid; }
     .payout-balances-table { min-width:900px !important; }
     .payout-history-admin-table { min-width:920px !important; }
     .payout-row-action { min-width:150px; }
@@ -697,7 +702,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
     cards.sort((a, b) => Number(b.needsAction) - Number(a.needsAction)).forEach(item => list.appendChild(item.card));
-    wrapper.after(list);
+    wrapper.appendChild(list);
   });
   document.addEventListener('change', async event => {
     const input = event.target.closest('input[name="payout_receipt"], input[name="refund_receipt"]');
