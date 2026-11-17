@@ -45,7 +45,7 @@
     :root { --primary: {{ $rawPrimary }}; --primary-dark: {{ $primaryDark }}; --primary-bg: {{ $primaryBg }}; --ink:#111827; --muted:#6b7280; --line:#e5e7eb; }
     * { box-sizing:border-box; }
     body { margin:0; min-height:100dvh; background:{{ $pbgColor }}; color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
-    .topbar { background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; padding:18px clamp(14px,4vw,28px) 22px; display:flex; gap:12px; align-items:center; justify-content:space-between; }
+    .topbar { position:sticky; top:0; z-index:40; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; padding:18px clamp(14px,4vw,28px) 22px; display:flex; gap:12px; align-items:center; justify-content:space-between; box-shadow:0 5px 16px rgba(17,24,39,.16); }
     .title { min-width:0; }
     .title .hello { font-size:13px; opacity:.85; margin:0; }
     .title h1 { font-size:clamp(20px,5vw,26px); margin:2px 0 0; line-height:1.15; }
