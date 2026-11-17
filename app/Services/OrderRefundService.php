@@ -438,6 +438,18 @@ class OrderRefundService
             'order_id' => (string) $order->id,
             'refund_id' => (string) $refund->id,
         ]);
+        try {
+            $sellerId = !empty($order->shop_id) ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id') : null;
+            if ($sellerId) {
+                $title = 'Cancellation Refund Needs Review';
+                $message = "Customer requested a cancellation refund for Order #{$order->id}. Review it in Return Requests.";
+                if (Schema::hasTable('notifications')) DB::table('notifications')->insert(['receiver_role'=>'seller','receiver_user_id'=>$sellerId,'title'=>$title,'message'=>$message,'is_read'=>false,'created_at'=>now()]);
+                $sellerOrder = DB::table('orders')->where('id', $order->id)->first() ?: $order;
+                $this->notifications->notifyOrderSeller($sellerOrder, $title, $message, ['event'=>'seller_refund_review','refund_id'=>(string)$refund->id]);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function createSellerRecovery(object $order, float $refundAmount, string $recoveryKey, string $note): ?int
