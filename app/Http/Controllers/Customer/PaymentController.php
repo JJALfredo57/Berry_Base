@@ -339,7 +339,8 @@ class PaymentController extends Controller
         $isFullPayment = abs((float) $order->deposit_amount - (float) $order->total_price) < 0.01;
 
         $nextStatus = $order->status === 'Awaiting Deposit' ? 'Pending' : $order->status;
-        DB::transaction(function () use ($orderId, $nextStatus, $isFullPayment, $order) {
+        $paymongoAmounts = PaymentTransactionHelper::paymongoAmountsFromCheckoutSession($apiRes ?? []);
+        DB::transaction(function () use ($orderId, $nextStatus, $isFullPayment, $order, $paymongoAmounts) {
             DB::table('orders')->where('id', $orderId)->update([
                 'deposit_status' => 'paid',
                 'deposit_paid_at' => now(),
@@ -352,7 +353,9 @@ class PaymentController extends Controller
                 $order,
                 $isFullPayment ? 'full_gcash' : 'downpayment_gcash',
                 'GCash',
-                (float) $order->deposit_amount
+                (float) $order->deposit_amount,
+                null,
+                $paymongoAmounts
             );
         });
 
@@ -468,7 +471,8 @@ class PaymentController extends Controller
             // This endpoint is the full-payment flow. Keep every order state,
             // receipt and seller-facing status in sync with the money received.
             $order = DB::table('orders')->where('id', $orderId)->first();
-            DB::transaction(function () use ($orderId, $order) {
+            $paymongoAmounts = PaymentTransactionHelper::paymongoAmountsFromCheckoutSession($res);
+            DB::transaction(function () use ($orderId, $order, $paymongoAmounts) {
                 DB::table('orders')->where('id', $orderId)->update([
                     'deposit_status' => 'paid',
                     'deposit_paid_at' => now(),
@@ -477,7 +481,14 @@ class PaymentController extends Controller
                     'status'         => ($order->status ?? '') === 'Awaiting Deposit' ? 'Pending' : $order->status,
                     'updated_at'     => now(),
                 ]);
-                PaymentTransactionHelper::record($order, 'full_gcash', 'GCash', (float) $order->total_price);
+                PaymentTransactionHelper::record(
+                    $order,
+                    'full_gcash',
+                    'GCash',
+                    (float) $order->total_price,
+                    null,
+                    $paymongoAmounts
+                );
                 DB::table('order_tracking')->insert([
                     'order_id' => $orderId,
                     'status' => 'Pending',

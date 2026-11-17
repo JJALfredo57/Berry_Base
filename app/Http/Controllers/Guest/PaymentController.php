@@ -383,7 +383,8 @@ class PaymentController extends Controller
             $isFullPayment ? 'full_gcash' : 'downpayment_gcash',
             'GCash',
             (float) $order->deposit_amount,
-            $pmReference
+            $pmReference,
+            PaymentTransactionHelper::paymongoAmountsFromCheckoutSession($res ?? [])
         );
         try {
             $pushOrder = DB::table('orders')->where('id', $order->id)->first();
@@ -700,7 +701,8 @@ class PaymentController extends Controller
                 $depositPaid ? 'remaining_gcash' : 'full_gcash',
                 'GCash',
                 $paidAmount,
-                $pmReference
+                $pmReference,
+                PaymentTransactionHelper::paymongoAmountsFromCheckoutSession($res)
             );
             try {
                 $pushOrder = DB::table('orders')->where('id', $order->id)->first();
@@ -1037,7 +1039,14 @@ class PaymentController extends Controller
                 'payment_status' => 'Paid',
                 'paid_at'        => now(),
             ]);
-            PaymentTransactionHelper::record($order, 'full_gcash', 'GCash', (float) $order->total_price, $pmReference);
+            PaymentTransactionHelper::record(
+                $order,
+                'full_gcash',
+                'GCash',
+                (float) $order->total_price,
+                $pmReference,
+                PaymentTransactionHelper::paymongoAmountsFromCheckoutSession($res)
+            );
             try {
                 $pushOrder = DB::table('orders')->where('id', $order->id)->first();
                 if ($pushOrder) {
@@ -1642,7 +1651,8 @@ class PaymentController extends Controller
                 $isFullPayment ? 'full_gcash' : 'downpayment_gcash',
                 'GCash',
                 (float) $order->deposit_amount,
-                $pmReference
+                $pmReference,
+                PaymentTransactionHelper::paymongoAmountsFromCheckoutSession($res)
             );
             try {
                 $pushOrder = DB::table('orders')->where('id', $order->id)->first();
