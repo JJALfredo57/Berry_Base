@@ -171,7 +171,7 @@ class OrderRequestService
             'order_request_id' => $row->id,
             'request_offer_checkout' => true,
             'accepted_unit_price' => $price,
-            'accepted_total_price' => $price * max(1, (int) $row->quantity),
+            'accepted_total_price' => $price * max(1, (int) (!empty($row->alternative_product_id) ? ($row->alternative_selected_quantity ?? 1) : $row->quantity)),
             'schedule_date' => $acceptedDate,
             'schedule_time' => $acceptedTime,
             'is_rush' => false,
@@ -252,7 +252,7 @@ class OrderRequestService
             if ($size === '') return ['ok' => false, 'message' => 'Choose an available size for the offered cake.'];
             $sizeRow = Schema::hasTable('product_sizes') ? DB::table('product_sizes')->where('product_id', $row->alternative_product_id)->where('label', $size)->first() : null;
             if (!$sizeRow || (int) ($sizeRow->available_quantity ?? 0) < $quantity) return ['ok' => false, 'message' => 'That offered size is no longer available in the requested quantity. Please choose another size.'];
-            $price = $this->fixedPriceForRequest($row, (string) $row->alternative_product_id);
+            $price = max(0, round((float) ($sizeRow->price ?? 0), 2));
             if ($price <= 0) return ['ok' => false, 'message' => 'The alternative cake is no longer available. Please choose another cake.'];
 
             $updates = [
