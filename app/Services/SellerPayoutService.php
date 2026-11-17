@@ -42,6 +42,7 @@ class SellerPayoutService
         $hasRiderRemittances = Schema::hasTable('rider_remittances');
         $this->recalculateClearingReleaseDates($holdDays, $hasDeliveredAt, $hasSettledAt);
         $this->excludeDirectCashHandoverLedgers();
+        $this->adjustCashPickupLedgers();
 
         $orders = DB::table('orders as o')
             ->join('shops as s', 's.id', '=', 'o.shop_id');
@@ -294,6 +295,53 @@ class SellerPayoutService
         }
     }
 
+    /**
+     * A Cash-on-Pickup order can be marked "Paid" after its counter balance
+     * is collected. That cash goes directly to the seller, while only the
+     * earlier GCash deposit belongs in the platform payout ledger.
+     */
+    private function adjustCashPickupLedgers(): void
+    {
+        if (!Schema::hasTable('seller_payout_ledgers')) {
+            return;
+        }
+
+        $ledgers = DB::table('seller_payout_ledgers as l')
+            ->join('orders as o', 'o.id', '=', 'l.order_id')
+            ->join('shops as s', 's.id', '=', 'l.shop_id')
+            ->whereIn('l.status', ['pending', 'clearing', 'available'])
+            ->whereNull('l.payout_id')
+            ->where('o.fulfillment_type', 'Pickup')
+            ->whereIn(DB::raw('UPPER(o.payment_method)'), ['COP', 'COD'])
+            ->where('o.deposit_status', 'paid')
+            ->select('l.id', 'o.deposit_amount', 'o.service_charge', 's.commission_enabled')
+            ->limit(500)
+            ->get();
+
+        foreach ($ledgers as $ledger) {
+            $gross = max(0, round((float) ($ledger->deposit_amount ?? 0), 2));
+            $commissionBase = max(0, round($gross - (float) ($ledger->service_charge ?? 0), 2));
+            $rate = !empty($ledger->commission_enabled) ? 2.0 : 0.0;
+            $commission = round($commissionBase * $rate / 100, 2);
+
+            $updates = [
+                'gross_amount' => $gross,
+                'cake_amount' => $commissionBase,
+                'delivery_fund_amount' => 0,
+                'commission_base' => $commissionBase,
+                'commission_rate' => $rate,
+                'commission_amount' => $commission,
+                'seller_net_amount' => max(0, round($commissionBase - $commission, 2)),
+                'notes' => 'Adjusted to the online deposit only. Cash-on-pickup balance was handed directly to the seller.',
+                'updated_at' => now(),
+            ];
+            if (!Schema::hasColumn('seller_payout_ledgers', 'cake_amount')) unset($updates['cake_amount']);
+            if (!Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount')) unset($updates['delivery_fund_amount']);
+
+            DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update($updates);
+        }
+    }
+
     public function summaryForShop(string $shopId): array
     {
         $this->syncDeliveredPaidOrders();
@@ -526,6 +574,8 @@ class SellerPayoutService
     {
         $isCodDelivery = strtoupper((string) ($order->payment_method ?? '')) === 'COD'
             && ($order->fulfillment_type ?? '') === 'Delivery';
+        $isCashPickup = ($order->fulfillment_type ?? '') === 'Pickup'
+            && in_array(strtoupper((string) ($order->payment_method ?? '')), ['COP', 'COD'], true);
 
         if ($isCodDelivery) {
             $amount = ($order->deposit_status ?? '') === 'paid'
@@ -539,6 +589,12 @@ class SellerPayoutService
 
             $total = round((float) ($order->total_price ?? 0), 2);
             return round(min(max(0, $amount), max(0, $total)), 2);
+        }
+
+        if ($isCashPickup) {
+            return ($order->deposit_status ?? '') === 'paid'
+                ? round((float) ($order->deposit_amount ?? 0), 2)
+                : 0.0;
         }
 
         if (($order->payment_status ?? '') === 'Paid') {
@@ -562,6 +618,11 @@ class SellerPayoutService
             }
 
             return 'Generated from online customer deposit only. Direct COD cash is excluded from payout.';
+        }
+
+        if (($order->fulfillment_type ?? '') === 'Pickup'
+            && in_array(strtoupper((string) ($order->payment_method ?? '')), ['COP', 'COD'], true)) {
+            return 'Generated from the online deposit only. Cash-on-pickup balance was handed directly to the seller.';
         }
 
         return 'Generated after paid delivered order. Delivery/service fees are excluded from commission base.';
