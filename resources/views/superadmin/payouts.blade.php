@@ -91,6 +91,17 @@
 </div>
 
 <div class="card mb-4">
+  <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="cash-history" aria-expanded="false" aria-controls="finance-panel-cash-history"><span><i class="bi bi-cash-coin me-2" style="color:#166534"></i>Cash Settlement History</span><span class="small text-muted">Cash on Pickup and Cash on Delivery; recorded for audit only and excluded from payout clearing.</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
+  <div class="finance-table-panel" id="finance-panel-cash-history" data-finance-content="cash-history" hidden><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Settled</th><th>Order</th><th>Seller</th><th>Cash transaction</th><th>Order Status</th><th class="text-end">Amount</th></tr></thead><tbody>
+    @forelse($cashPayments as $payment)
+      <tr><td class="small">{{ $payment->paid_at ? \Carbon\Carbon::parse($payment->paid_at)->format('M d, Y h:i A') : 'Recorded' }}</td><td class="fw-semibold">#{{ $payment->order_id }}</td><td>{{ $payment->shop_name ?? 'Shop unavailable' }}</td><td>{{ \App\Helpers\PaymentTransactionHelper::typeLabel($payment->type) }}</td><td><span class="badge text-bg-light">{{ $payment->order_status ?? 'Order unavailable' }}</span></td><td class="text-end fw-semibold">₱{{ number_format((float) $payment->amount, 2) }}</td></tr>
+    @empty
+      <tr><td colspan="6" class="text-center text-muted py-4">No completed cash pickup or delivery payments are recorded for this period.</td></tr>
+    @endforelse
+  </tbody></table></div></div>
+</div>
+
+<div class="card mb-4">
   <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="payments" aria-expanded="false" aria-controls="finance-panel-payments"><span><i class="bi bi-receipt-cutoff me-2" style="color:var(--primary)"></i>Customer Online Payments</span><span class="small text-muted">{{ number_format($paymentSummary['count']) }} confirmed GCash payment{{ $paymentSummary['count'] === 1 ? '' : 's' }} · processor fee: ₱{{ number_format($paymentSummary['service_fees'], 2) }}</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
   <div class="finance-table-panel" id="finance-panel-payments" data-finance-content="payments" hidden><div class="table-responsive">
     <table class="table align-middle mb-0">

@@ -145,6 +145,14 @@ class PayoutController extends Controller
                 ->select('pt.*', 'o.status as order_status', 's.shop_name')
                 ->orderByDesc('pt.paid_at')->orderByDesc('pt.id')->limit(50)->get()
             : collect();
+        $cashPayments = Schema::hasTable('payment_transactions')
+            ? DB::table('payment_transactions as pt')
+                ->leftJoin('orders as o', 'o.id', '=', 'pt.order_id')
+                ->leftJoin('shops as s', 's.id', '=', 'o.shop_id')
+                ->where('pt.payment_status', 'paid')->where('pt.method', 'Cash')->whereBetween(DB::raw('DATE(COALESCE(pt.paid_at, pt.created_at))'), [$from, $to])
+                ->select('pt.*', 'o.status as order_status', 's.shop_name')
+                ->orderByDesc('pt.paid_at')->orderByDesc('pt.id')->limit(50)->get()
+            : collect();
 
         $paymentBreakdown = DB::table('payment_transactions')
             ->where('payment_status', 'paid')
@@ -167,7 +175,7 @@ class PayoutController extends Controller
             : collect();
         // Refund completion belongs to Return & Refund Cases; retain an empty collection only for legacy view compatibility.
         $refunds = collect();
-        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'recentRiderPayouts', 'refunds', 'onlinePayments', 'commissionRows', 'riderPayoutRequests', 'orphanedRiderPayouts', 'financeReconciliation', 'currentFinanceReconciliation', 'from', 'to', 'period'));
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'recentRiderPayouts', 'refunds', 'onlinePayments', 'cashPayments', 'commissionRows', 'riderPayoutRequests', 'orphanedRiderPayouts', 'financeReconciliation', 'currentFinanceReconciliation', 'from', 'to', 'period'));
     }
 
     public function saveSettings(Request $request)

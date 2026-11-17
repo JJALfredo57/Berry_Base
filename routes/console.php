@@ -111,6 +111,33 @@ Artisan::command('payouts:backfill {--max-runs=100 : Maximum idempotent sync pas
     return 1;
 })->purpose('Backfill missing payout and commission ledgers for completed paid orders');
 
+Artisan::command('payouts:repair-direct-cash {--apply : Correct only unpaid, unrequested direct-cash ledgers}', function (SellerPayoutService $payouts) {
+    $rows = DB::table('seller_payout_ledgers as l')
+        ->join('orders as o', 'o.id', '=', 'l.order_id')
+        ->whereIn('l.status', ['pending', 'clearing', 'available'])
+        ->whereNull('l.payout_id')
+        ->where('o.deposit_status', 'paid')
+        ->where(function ($query) {
+            $query->where(function ($pickup) {
+                $pickup->where('o.fulfillment_type', 'Pickup')->whereIn(DB::raw('UPPER(o.payment_method)'), ['COP', 'COD']);
+            })->orWhere(function ($delivery) {
+                $delivery->where('o.fulfillment_type', 'Delivery')->whereRaw('UPPER(o.payment_method) = ?', ['COD']);
+            });
+        })
+        ->select('l.order_id', 'l.status', 'l.gross_amount', 'o.deposit_amount', 'o.fulfillment_type', 'o.payment_method')
+        ->orderBy('l.id')->get();
+
+    $candidates = $rows->filter(fn ($row) => abs((float) $row->gross_amount - (float) $row->deposit_amount) >= .01)->values();
+    $this->table(['Order', 'Type', 'Current ledger', 'Online deposit', 'State'], $candidates->map(fn ($row) => [$row->order_id, $row->fulfillment_type.' '.$row->payment_method, number_format($row->gross_amount, 2), number_format($row->deposit_amount, 2), $row->status])->all());
+    if (!$this->option('apply')) {
+        $this->warn('Dry run only. No financial records changed. Re-run with --apply after review.');
+        return 0;
+    }
+    $payouts->syncDeliveredPaidOrders();
+    $this->info('Applied the idempotent direct-cash ledger repair. Requested, processing, and paid payouts were excluded.');
+    return 0;
+})->purpose('Preview or safely repair payout ledgers that included direct cash');
+
 Schedule::command('payouts:sync')->hourly();
 
 Artisan::command('orders:purge-history {--force : Delete order history after a reviewed dry run} {--confirm= : Snapshot token printed by the dry run}', function (OrderHistoryPurgeService $purge) {
