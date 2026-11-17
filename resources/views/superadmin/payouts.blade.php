@@ -284,7 +284,7 @@
 </div>
 
 @if(($orphanedRiderPayouts ?? collect())->count())<div class="card mt-4 border-warning"><div class="card-header payout-section-head"><span><i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Unlinked Rider Payouts</span><span class="payout-attention">Needs recovery</span></div><div class="card-body">@foreach($orphanedRiderPayouts as $orphan)<div class="d-flex justify-content-between gap-3 flex-wrap border-bottom py-3"><div><strong>{{ $orphan->rider_name }}</strong> · ₱{{ number_format($orphan->amount,2) }}<div class="small text-muted">{{ $orphan->gcash_name ?: 'GCash name missing' }} · {{ $orphan->gcash_number ?: 'GCash number missing' }}</div><div class="small text-warning-emphasis">Requested earnings have no payout request record yet.</div></div><form method="POST" action="{{ route('superadmin.rider_payouts.recover',$orphan->rider_id) }}" data-prevent-double-submit>@csrf<button class="btn btn-warning btn-sm" type="submit" data-loading-text="Recovering…">Create payout request</button></form></div>@endforeach</div></div>@endif
-@if(($refunds ?? collect())->count() > 0)
+@if(($refunds ?? collect())->count() > 0 || ($riderPayoutRequests ?? collect())->count())
 @if(($riderPayoutRequests ?? collect())->count())<div class="card mt-4"><div class="card-header payout-section-head"><span><i class="bi bi-bicycle me-2"></i>Rider Delivery-Fee Payouts</span></div><div class="card-body">@foreach($riderPayoutRequests as $rp)<div class="border-bottom py-3"><strong>{{ $rp->rider_name }}</strong> · ₱{{ number_format($rp->amount,2) }}<div class="small text-muted">{{ $rp->gcash_name }} · {{ $rp->gcash_number }} · {{ ucfirst($rp->status) }}</div>@if($rp->status==='requested')<form method="POST" enctype="multipart/form-data" action="{{ route('superadmin.rider_payouts.mark_paid',$rp->id) }}" class="mt-2 rider-payout-pay" data-prevent-double-submit>@csrf<input class="rider-payout-receipt" data-scan-url="{{ route('superadmin.rider_payouts.scan_receipt',$rp->id) }}" name="receipt" type="file" accept="image/jpeg,image/png,image/webp" required><div class="small rider-payout-scan-message">Upload a receipt to scan the reference.</div><input class="rider-payout-reference" name="reference_number" required readonly placeholder="Scanned reference"><button class="btn btn-success btn-sm" type="submit" disabled>Mark paid</button></form>@endif</div>@endforeach</div></div>@endif
 <div class="card mt-4">
   @php $refundActionCount = $refunds->whereIn('status', ['approved_for_admin_refund', 'processing'])->count(); @endphp
@@ -335,8 +335,8 @@
 
 <div class="card mt-4">
   @php $payoutActionCount = $payoutRequests->count(); @endphp
-  <div class="card-header payout-section-head"><span><i class="bi bi-cash-coin me-2" style="color:var(--primary)"></i>Payout Requests</span>@if($payoutActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $payoutActionCount }} needs action</span>@endif</div>
-  <div class="table-responsive payout-table-scroll">
+  <button class="card-header payout-section-head payout-toggle w-100 border-0 text-start" type="button" data-payout-panel="requests" aria-expanded="true"><span><i class="bi bi-cash-coin me-2" style="color:var(--primary)"></i>Payout Requests</span><span>@if($payoutActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $payoutActionCount }} needs action</span>@endif <i class="bi bi-chevron-up ms-2"></i></span></button>
+  <div class="table-responsive payout-table-scroll payout-panel" data-payout-content="requests">
     <table class="table align-middle mb-0 payout-history-admin-table">
       <thead>
         <tr>
@@ -399,8 +399,8 @@
 </div>
 
 <div class="card mt-4">
-  <div class="card-header payout-section-head"><span><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Recent Payouts</span></div>
-  <div class="table-responsive payout-table-scroll">
+  <button class="card-header payout-section-head payout-toggle w-100 border-0 text-start" type="button" data-payout-panel="recent" aria-expanded="false"><span><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Recent Payouts</span><i class="bi bi-chevron-down"></i></button>
+  <div class="table-responsive payout-table-scroll payout-panel" data-payout-content="recent" hidden>
     <table class="table align-middle mb-0 payout-history-admin-table">
       <thead>
         <tr>
@@ -449,7 +449,7 @@
   .payout-summary-grid > [class*="col-"] { display:flex; min-width:0; }
   .payout-summary-grid .cs-stat-card { width:100%; min-width:0; }
   .payout-summary-grid .cs-stat-num { white-space:nowrap; overflow-wrap:normal; font-variant-numeric:tabular-nums; font-size:clamp(1.05rem,1.55vw,1.45rem); }
-  .payout-table-scroll { display:none !important; }
+  .payout-panel{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .28s ease,opacity .22s ease}.payout-panel[hidden]{display:grid!important;grid-template-rows:0fr;opacity:0;visibility:hidden}.payout-panel>table{min-height:0}.payout-toggle{background:transparent;cursor:pointer}.payout-toggle:focus-visible{outline:3px solid var(--primary);outline-offset:-3px}
   .payout-section-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
   .payout-attention { display:inline-flex; align-items:center; gap:.42rem; border-radius:999px; padding:.28rem .58rem; background:#fff7ed; color:#9a3412; font-size:.72rem; font-weight:800; }
   .payout-attention-dot { width:.55rem; height:.55rem; border-radius:50%; background:#f97316; box-shadow:0 0 0 0 rgba(249,115,22,.5); animation:payoutAttentionPulse 1.8s infinite; }
@@ -803,4 +803,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('form').forEach(function(form){const hold=form.querySelector('[name="payout_hold_days"]'),min=form.querySelector('[name="payout_minimum_amount"]');if(!hold||!min||form.querySelector('[data-payout-policy]'))return;const n=document.createElement('div');n.dataset.payoutPolicy='1';n.className='alert alert-light small mt-3 mb-0';n.innerHTML='<i class="bi bi-info-circle me-1"></i><strong>Seller eligibility:</strong> only released Available balance counts toward the minimum. Clearing earnings become eligible after the hold period.';form.appendChild(n)})})</script>
+<script>document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.payout-toggle').forEach(button=>button.addEventListener('click',()=>{const key=button.dataset.payoutPanel;document.querySelectorAll('.payout-toggle').forEach(toggle=>{const active=toggle===button;toggle.setAttribute('aria-expanded',active?'true':'false');toggle.querySelector('.bi-chevron-up,.bi-chevron-down')?.classList.toggle('bi-chevron-up',active);toggle.querySelector('.bi-chevron-up,.bi-chevron-down')?.classList.toggle('bi-chevron-down',!active);document.querySelector('[data-payout-content="'+toggle.dataset.payoutPanel+'"]').hidden=!active;});}));});</script>
 @endsection

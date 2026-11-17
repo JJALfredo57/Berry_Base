@@ -128,7 +128,7 @@ class PayoutController extends Controller
 
         $payoutRequests = $payoutQuery()
             ->where('p.status', '!=', 'paid')
-            ->whereBetween(DB::raw('DATE(p.created_at)'), [$from, $to])->orderByDesc('p.created_at')
+            ->orderByDesc('p.created_at')
             ->limit(50)
             ->get();
         $recentPayouts = $payoutQuery()
@@ -160,13 +160,14 @@ class PayoutController extends Controller
             ->select('l.*', 's.shop_name', 'payments.online_paid', 'payments.cash_paid')
             ->orderByDesc('l.created_at')->limit(50)->get();
 
-        $riderPayoutRequests=Schema::hasTable('rider_payout_requests')?DB::table('rider_payout_requests as rp')->join('riders as r','r.id','=','rp.rider_id')->whereBetween(DB::raw('DATE(rp.created_at)'), [$from, $to])->select('rp.*','r.name as rider_name')->orderByRaw("CASE WHEN rp.status='requested' THEN 0 ELSE 1 END")->orderByDesc('rp.id')->limit(30)->get():collect();
+        $riderPayoutRequests=Schema::hasTable('rider_payout_requests')?DB::table('rider_payout_requests as rp')->join('riders as r','r.id','=','rp.rider_id')->where('rp.status','requested')->select('rp.*','r.name as rider_name')->orderByDesc('rp.id')->limit(30)->get():collect();
+        $recentRiderPayouts=Schema::hasTable('rider_payout_requests')?DB::table('rider_payout_requests as rp')->join('riders as r','r.id','=','rp.rider_id')->where('rp.status','paid')->whereBetween(DB::raw('DATE(COALESCE(rp.paid_at,rp.created_at))'),[$from,$to])->select('rp.*','r.name as rider_name')->orderByDesc('rp.paid_at')->limit(30)->get():collect();
         $orphanedRiderPayouts = Schema::hasTable('rider_delivery_earnings') && Schema::hasTable('rider_payout_requests')
             ? DB::table('rider_delivery_earnings as e')->join('riders as r', 'r.id', '=', 'e.rider_id')->where('e.status', 'requested')->whereNotExists(function ($q) { $q->selectRaw('1')->from('rider_payout_requests as rp')->whereColumn('rp.rider_id', 'e.rider_id')->where('rp.status', 'requested'); })->select('e.rider_id', 'r.name as rider_name', 'r.gcash_name', 'r.gcash_number', DB::raw('SUM(e.amount) as amount'))->groupBy('e.rider_id', 'r.name', 'r.gcash_name', 'r.gcash_number')->get()
             : collect();
         // Refund completion belongs to Return & Refund Cases; retain an empty collection only for legacy view compatibility.
         $refunds = collect();
-        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'refunds', 'onlinePayments', 'commissionRows', 'riderPayoutRequests', 'orphanedRiderPayouts', 'financeReconciliation', 'currentFinanceReconciliation', 'from', 'to', 'period'));
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'recentRiderPayouts', 'refunds', 'onlinePayments', 'commissionRows', 'riderPayoutRequests', 'orphanedRiderPayouts', 'financeReconciliation', 'currentFinanceReconciliation', 'from', 'to', 'period'));
     }
 
     public function saveSettings(Request $request)
