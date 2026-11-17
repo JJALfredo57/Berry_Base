@@ -80,7 +80,8 @@
                          required maxlength="120">
                 </div>
 
-                {{-- Reference Images --}}
+                @if(!$sourceProduct)
+                {{-- Reference Images are required only when creating a custom cake without a linked catalog cake. --}}
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">
                     📎 Reference / Inspiration Images @if(!$sourceProduct)<span class="text-danger">*</span>@endif
@@ -106,6 +107,7 @@
                     @endif
                   </div>
                 </div>
+                @endif
                 <div class="row g-3">
                   <div class="col-sm-6">
                     <label class="form-label fw-semibold small">Flavor <span class="text-danger">*</span></label>
