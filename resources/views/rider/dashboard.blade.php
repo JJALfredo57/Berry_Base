@@ -56,7 +56,7 @@
     .live.off::before { background:#fbbf24; animation:none; }
     @keyframes pulse { 70% { box-shadow:0 0 0 7px rgba(74,222,128,0); } 100% { box-shadow:0 0 0 0 rgba(74,222,128,0); } }
     .logout { border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.15); color:#fff; border-radius:12px; width:44px; height:44px; display:grid; place-items:center; cursor:pointer; flex-shrink:0; }
-    .wrap { width:min(1120px,100%); margin:-12px auto 0; padding:0 clamp(12px,3vw,24px) 32px; position:relative; }
+    .wrap { width:min(1120px,100%); margin:0 auto; padding:18px clamp(12px,3vw,24px) 32px; position:relative; }
     .notice { border-radius:12px; padding:12px 14px; margin:0 0 12px; font-size:14px; font-weight:650; }
     .ok { background:#ecfdf5; color:#166534; border:1px solid #bbf7d0; }
     .err { background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; }
@@ -171,6 +171,21 @@
     .receipt-pagination { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; }
     .receipt-pagination button { min-height:42px; border:1px solid var(--line); border-radius:10px; padding:8px 12px; background:#fff; color:var(--ink); font:inherit; font-weight:800; cursor:pointer; }
     .receipt-pagination button:disabled { opacity:.45; cursor:not-allowed; }
+    .transaction-trigger { width:auto; min-height:42px; padding:9px 12px; font-size:13px; }
+    .transaction-modal[hidden] { display:none; }
+    .transaction-modal { position:fixed; inset:0; z-index:85; display:grid; place-items:center; padding:16px; background:rgba(17,24,39,.58); opacity:0; transition:opacity .2s ease; }
+    .transaction-modal.open { opacity:1; }
+    .transaction-sheet { width:min(720px,100%); max-height:min(82dvh,760px); overflow:auto; background:#fff; border-radius:20px; padding:18px; transform:translateY(18px) scale(.98); transition:transform .22s ease; box-shadow:0 24px 60px rgba(17,24,39,.28); }
+    .transaction-modal.open .transaction-sheet { transform:none; }
+    .transaction-tabs { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
+    .transaction-tabs button { border:1px solid var(--line); border-radius:999px; background:#fff; color:#374151; padding:7px 11px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; }
+    .transaction-tabs button.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .transaction-list { display:grid; gap:9px; }
+    .transaction-row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; border:1px solid var(--line); border-radius:14px; padding:12px; background:#fff; }
+    .transaction-row[hidden] { display:none; }
+    .transaction-row strong,.transaction-row span { display:block; overflow-wrap:anywhere; }
+    .transaction-meta { color:var(--muted); font-size:12px; line-height:1.45; margin-top:3px; }
+    .transaction-amount { font-size:16px; font-weight:900; text-align:right; }.transaction-status { margin-top:4px; font-size:11px; font-weight:800; color:#374151; text-transform:capitalize; }
 
     @media (min-width:640px) { .modal { align-items:center; } .sheet { border-radius:20px; } }
     @media (min-width:640px) { .receipt-modal { align-items:center; padding:20px; } .receipt-sheet { border-radius:20px; max-height:min(82dvh,720px); } }
@@ -224,7 +239,7 @@
         </div>
       </section>
 
-      <section class="section" aria-label="Delivery earnings"><div class="section-head"><h2><i class="bi bi-cash-coin" style="color:#16a34a"></i>Delivery earnings</h2></div><div class="remit-hub"><div class="remit-head"><div><div class="remit-kicker">Available delivery fees</div><div class="remit-total">PHP {{ number_format($deliveryEarningSummary['available'],2) }}</div><div class="remit-copy">Online-paid delivery fees and approved return trips are available for payout.</div></div><div class="remit-actions"><button class="btn btn-pay" type="button" onclick="openPayoutModal()" {{ $deliveryEarningSummary['available'] > 0 ? '' : 'disabled' }}>Request payout</button><div class="order-note">Pending: PHP {{ number_format($deliveryEarningSummary['requested'],2) }}</div></div></div></div></section>
+      <section class="section" aria-label="Delivery earnings"><div class="section-head"><h2><i class="bi bi-cash-coin" style="color:#16a34a"></i>Delivery earnings</h2><button class="btn btn-outline transaction-trigger" type="button" id="transactionHistoryButton"><i class="bi bi-clock-history"></i>Transaction History</button></div><div class="remit-hub"><div class="remit-head"><div><div class="remit-kicker">Available delivery fees</div><div class="remit-total">PHP {{ number_format($deliveryEarningSummary['available'],2) }}</div><div class="remit-copy">Online-paid delivery fees and approved return trips are available for payout.</div></div><div class="remit-actions"><button class="btn btn-pay" type="button" onclick="openPayoutModal()" {{ $deliveryEarningSummary['available'] > 0 ? '' : 'disabled' }}>Request payout</button><div class="order-note">Pending: PHP {{ number_format($deliveryEarningSummary['requested'],2) }}</div></div></div></div></section>
 
       <section class="section" aria-label="Needs your response">
         <div class="section-head">
@@ -350,6 +365,19 @@
       <section class="receipt-sheet" role="document">
         <div class="receipt-sheet-head"><div><h2 id="riderReceiptTitle"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>Payout receipts</h2><p>Proof of delivery-fee payouts completed by Super Admin.</p></div><button class="receipt-close" type="button" data-close-receipts aria-label="Close payout receipts"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
         <div id="receiptContent" aria-live="polite"></div>
+      </section>
+    </div>
+    <div class="transaction-modal" id="transactionHistoryModal" role="dialog" aria-modal="true" aria-labelledby="transactionHistoryTitle" aria-hidden="true" hidden>
+      <section class="transaction-sheet" role="document">
+        <div class="receipt-sheet-head"><div><h2 id="transactionHistoryTitle"><i class="bi bi-clock-history me-1"></i>Transaction History</h2><p>All COD remittances and delivery-fee payouts.</p></div><button class="receipt-close" type="button" data-close-transactions aria-label="Close transaction history"><i class="bi bi-x-lg"></i></button></div>
+        <div class="transaction-tabs" role="tablist"><button class="active" type="button" data-transaction-filter="all">All</button><button type="button" data-transaction-filter="remittance">COD Remittances</button><button type="button" data-transaction-filter="payout">Payouts</button></div>
+        <div class="transaction-list">
+          @forelse($transactionHistory as $entry)
+            <article class="transaction-row" data-transaction-kind="{{ $entry->kind }}"><div><strong>{{ $entry->kind === 'payout' ? 'Delivery-fee payout' : 'COD remittance' }}</strong><div class="transaction-meta">{{ $entry->detail }} · {{ $entry->date ? \Carbon\Carbon::parse($entry->date)->format('M d, Y h:i A') : 'Date unavailable' }}@if($entry->reference)<br>Reference: {{ $entry->reference }}@endif</div></div><div><div class="transaction-amount">PHP {{ number_format($entry->amount,2) }}</div><div class="transaction-status">{{ str_replace('_',' ',$entry->status) }}</div>@if($entry->kind === 'payout' && $entry->receipt)<a class="receipt-view mt-2" href="{{ route('rider.payouts.receipt',$entry->id) }}" target="_blank" rel="noopener">View receipt</a>@endif</div></article>
+          @empty
+            <div class="receipt-empty"><i class="bi bi-receipt"></i>No remittance or payout activity yet.</div>
+          @endforelse
+        </div>
       </section>
     </div>
       <textarea name="reason" id="declineReason" maxlength="300" required placeholder="Reason for declining"></textarea>
@@ -533,6 +561,20 @@
       function open() { previousFocus = document.activeElement; modal.hidden = false; modal.inert = false; void modal.offsetWidth; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; modal.querySelector('[data-close-receipts]').focus(); load(1); }
       function close() { if (modal.hidden) return; modal.inert = true; trigger.focus(); modal.classList.remove('open'); document.body.style.overflow = ''; setTimeout(() => { modal.hidden = true; }, 190); }
       trigger.addEventListener('click', open); modal.addEventListener('click', event => { if (event.target === modal || event.target.closest('[data-close-receipts]')) close(); }); document.addEventListener('keydown', event => { if (event.key === 'Escape' && !modal.hidden) close(); });
+    })();
+  </script>
+  <script>
+    (() => {
+      const modal = document.getElementById('transactionHistoryModal');
+      const trigger = document.getElementById('transactionHistoryButton');
+      if (!modal || !trigger) return;
+      let previousFocus = null;
+      const open = () => { previousFocus = document.activeElement; modal.hidden = false; requestAnimationFrame(() => modal.classList.add('open')); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; modal.querySelector('[data-close-transactions]')?.focus(); };
+      const close = () => { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; setTimeout(() => { modal.hidden = true; previousFocus?.focus(); }, 220); };
+      trigger.addEventListener('click', open);
+      modal.addEventListener('click', event => { if (event.target === modal || event.target.closest('[data-close-transactions]')) close(); });
+      document.addEventListener('keydown', event => { if (event.key === 'Escape' && !modal.hidden) close(); });
+      modal.querySelectorAll('[data-transaction-filter]').forEach(button => button.addEventListener('click', () => { const filter = button.dataset.transactionFilter; modal.querySelectorAll('[data-transaction-filter]').forEach(tab => tab.classList.toggle('active', tab === button)); modal.querySelectorAll('[data-transaction-kind]').forEach(row => { row.hidden = filter !== 'all' && row.dataset.transactionKind !== filter; }); }));
     })();
   </script>
 </body>

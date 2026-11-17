@@ -126,13 +126,14 @@ class RiderController extends Controller
         $bulkRemittance = $this->riderBulkRemittanceSummary((int) $rider->id);
         $deliveryEarnings = Schema::hasTable('rider_delivery_earnings') ? DB::table('rider_delivery_earnings')->where('rider_id',$rider->id)->get() : collect();
         $deliveryPayouts = Schema::hasTable('rider_payout_requests') ? DB::table('rider_payout_requests')->where('rider_id',$rider->id)->orderByDesc('id')->limit(5)->get() : collect();
+        $transactionHistory = $this->riderTransactionHistory((int) $rider->id);
         $paidReceiptCount = Schema::hasTable('rider_payout_requests')
             ? DB::table('rider_payout_requests')->where('rider_id', $rider->id)->where('status', 'paid')->whereNotNull('receipt_path')->count()
             : 0;
         $deliveryEarningSummary = ['available'=>(float)$deliveryEarnings->where('status','available')->sum('amount'),'requested'=>(float)$deliveryEarnings->where('status','requested')->sum('amount'),'paid'=>(float)$deliveryEarnings->where('status','paid')->sum('amount')];
         $settings = CakeshopHelper::getSettings();
 
-        return view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'deliveryEarnings', 'deliveryPayouts', 'deliveryEarningSummary', 'paidReceiptCount', 'settings', 'lat', 'lng'));
+        return view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'deliveryEarnings', 'deliveryPayouts', 'deliveryEarningSummary', 'paidReceiptCount', 'transactionHistory', 'settings', 'lat', 'lng'));
     }
 
     /** Paginated, rider-owned proof of completed delivery-fee payouts. */
@@ -1271,6 +1272,52 @@ class RiderController extends Controller
             $clean ?: null,
             strlen($clean) > 2 ? '0' . substr($clean, 2) : null,
         ])));
+    }
+
+    /** A rider-owned financial activity stream: payout requests plus COD remittance batches. */
+    private function riderTransactionHistory(int $riderId)
+    {
+        $items = collect();
+
+        if (Schema::hasTable('rider_payout_requests')) {
+            $items = $items->concat(DB::table('rider_payout_requests')
+                ->where('rider_id', $riderId)
+                ->select('id', 'amount', 'status', 'reference_number', 'receipt_path', 'paid_at', 'created_at')
+                ->get()
+                ->map(fn ($row) => (object) [
+                    'kind' => 'payout', 'id' => $row->id, 'amount' => (float) $row->amount,
+                    'status' => $row->status, 'reference' => $row->reference_number,
+                    'receipt' => $row->receipt_path, 'date' => $row->paid_at ?: $row->created_at,
+                    'detail' => 'Delivery-fee payout',
+                ]));
+        }
+
+        if (Schema::hasTable('rider_remittance_batches')) {
+            $items = $items->concat(DB::table('rider_remittance_batches')
+                ->where('rider_id', $riderId)
+                ->select('id', 'total_amount', 'order_count', 'status', 'reference_number', 'confirmed_at', 'paymongo_paid_at', 'submitted_at', 'created_at')
+                ->get()
+                ->map(fn ($row) => (object) [
+                    'kind' => 'remittance', 'id' => $row->id, 'amount' => (float) $row->total_amount,
+                    'status' => $row->status, 'reference' => $row->reference_number, 'receipt' => null,
+                    'date' => $row->confirmed_at ?: $row->paymongo_paid_at ?: $row->submitted_at ?: $row->created_at,
+                    'detail' => 'COD remittance · '.(int) $row->order_count.' order(s)',
+                ]));
+        }
+
+        if (Schema::hasTable('rider_remittances')) {
+            $query = DB::table('rider_remittances')->where('rider_id', $riderId);
+            if (Schema::hasColumn('rider_remittances', 'batch_id')) $query->whereNull('batch_id');
+            $items = $items->concat($query->select('id', 'order_id', 'amount', 'status', 'reference_number', 'confirmed_at', 'submitted_at', 'created_at')->get()
+                ->map(fn ($row) => (object) [
+                    'kind' => 'remittance', 'id' => $row->id, 'amount' => (float) $row->amount,
+                    'status' => $row->status, 'reference' => $row->reference_number, 'receipt' => null,
+                    'date' => $row->confirmed_at ?: $row->submitted_at ?: $row->created_at,
+                    'detail' => 'COD remittance · Order #'.$row->order_id,
+                ]));
+        }
+
+        return $items->sortByDesc('date')->values();
     }
 
     private function sessionRider(): ?object
