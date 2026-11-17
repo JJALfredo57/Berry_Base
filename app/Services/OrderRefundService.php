@@ -440,6 +440,19 @@ class OrderRefundService
         ]);
     }
 
+    public function createSellerRecovery(object $order, float $refundAmount, string $recoveryKey, string $note): ?int
+    {
+        if (!Schema::hasTable('seller_payout_ledgers') || empty($order->shop_id)) return null;
+        $paid = (float) DB::table('seller_payout_ledgers')->where('order_id', $order->id)->where('shop_id', $order->shop_id)->where('status', 'paid')->sum('seller_net_amount');
+        $amount = round(min(max(0, $paid), max(0, $refundAmount)), 2);
+        if ($amount <= 0) return null;
+        $ledgerKey = substr((string) $order->id . '-' . $recoveryKey, 0, 40);
+        if (DB::table('seller_payout_ledgers')->where('order_id', $ledgerKey)->exists()) return null;
+        $shop = DB::table('shops')->where('id', $order->shop_id)->first();
+        if (!$shop) return null;
+        return DB::table('seller_payout_ledgers')->insertGetId(['order_id'=>$ledgerKey,'shop_id'=>$order->shop_id,'seller_id'=>$shop->seller_id,'gross_amount'=>-$amount,'commission_base'=>0,'commission_rate'=>0,'commission_amount'=>0,'seller_net_amount'=>-$amount,'status'=>'available','release_at'=>now(),'notes'=>$note,'created_at'=>now(),'updated_at'=>now()]);
+    }
+
     private function createRefundLedger(object $order, object $refund): void
     {
         if (!Schema::hasTable('seller_payout_ledgers') || empty($order->shop_id)) return;
