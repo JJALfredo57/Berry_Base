@@ -316,7 +316,7 @@
       && \Carbon\Carbon::parse($o->seller_cancel_expires_at)->isFuture();
     $isNoShowRefund = $refund && str_starts_with((string) ($refund->cancel_reason ?? ''), 'No-show balance refund:');
     $isCancelledOrder = ($o->status ?? '') === 'Cancelled' || ($o->cancel_status ?? '') === 'accepted';
-    $needsRemittanceAction = $remittance && in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected'], true);
+    $needsRemittanceAction = $remittance && ($remittance->status ?? '') === 'submitted';
     $cancellationHold = $customerCancelAwaiting || $sellerCancelAwaiting || $hasPaidCancelRequest;
     $needsPickupAction = ($o->status ?? '') === 'Pickup' || $hasPaidCancelRequest || $needsRemittanceAction;
     $orderStatusLabel = ($o->status ?? '') === 'Pickup' ? 'Ready for Pickup' : (($o->status ?? '') === 'No Show' ? 'Unclaimed' : $o->status);
@@ -386,12 +386,9 @@
           @if($remittance)
             @php
               $remitLabel = match($remittance->status ?? 'pending') {
-                'submitted' => 'COD remittance for review',
+                'submitted' => 'Cash handover for confirmation',
                 'confirmed' => 'COD remitted',
-                'rejected' => 'COD remittance rejected',
-                'awaiting_payment' => 'GCash QR awaiting payment',
-                'qr_expired' => 'GCash QR expired',
-                default => 'COD remittance pending',
+                default => 'Waiting for rider cash handover',
               };
             @endphp
             <span class="seller-remit-pill"><i class="bi bi-cash-stack"></i>{{ $remitLabel }}</span>
@@ -628,17 +625,11 @@
         $remitBg = match($remitStatus) {
           'confirmed' => '#ecfdf5',
           'submitted' => '#eff6ff',
-          'awaiting_payment' => '#eff6ff',
-          'rejected' => '#fef2f2',
-          'qr_expired' => '#f8fafc',
           default => '#fffbeb',
         };
         $remitBorder = match($remitStatus) {
           'confirmed' => '#bbf7d0',
           'submitted' => '#bfdbfe',
-          'awaiting_payment' => '#bfdbfe',
-          'rejected' => '#fecaca',
-          'qr_expired' => '#e5e7eb',
           default => '#fde68a',
         };
       @endphp
@@ -650,11 +641,7 @@
             <div><strong>Cake amount to remit:</strong> PHP {{ number_format((float)($remittance->cake_remittance_amount ?? $remittance->amount), 2) }}</div>
             @if((float)($remittance->delivery_fee_retained ?? 0) > 0)<div><strong>Rider keeps for delivery:</strong> PHP {{ number_format((float)$remittance->delivery_fee_retained, 2) }}</div>@endif
             <div><strong>Status:</strong> {{ ucfirst(str_replace('_', ' ', $remitStatus)) }}</div>
-            @if($remittance->remittance_method)<div><strong>Method:</strong> {{ $remittance->remittance_method === 'gcash_paymongo' ? 'GCash QR via PayMongo' : ($remittance->remittance_method === 'gcash' ? 'GCash transfer' : 'Cash handover') }}</div>@endif
-            @if(!empty($remittance->batch_id))<div><strong>Batch:</strong> Bulk remittance #{{ $remittance->batch_id }}</div>@endif
-            @if($remittance->reference_number)<div><strong>Reference:</strong> {{ $remittance->reference_number }}</div>@endif
-            @if(!empty($remittance->paymongo_payment_intent_id))<div><strong>Payment reference:</strong> ••••{{ substr((string) $remittance->paymongo_payment_intent_id, -4) }}</div>@endif
-            @if(!empty($remittance->paymongo_paid_at))<div><strong>Verified at:</strong> {{ \Carbon\Carbon::parse($remittance->paymongo_paid_at)->format('M d, Y g:i A') }}</div>@endif
+            <div><strong>Method:</strong> Cash handover</div>
             @if($remittance->rider_note)<div><strong>Rider note:</strong> {{ $remittance->rider_note }}</div>@endif
             @if($remittance->seller_note)<div><strong>Seller note:</strong> {{ $remittance->seller_note }}</div>@endif
           </div>
@@ -730,13 +717,7 @@
         <div style="flex:1;min-width:260px">
           <div style="font-size:.78rem;font-weight:800;color:#111827;letter-spacing:.04em">COD REMITTANCE REVIEW</div>
           <div style="font-size:.82rem;color:#1e40af;line-height:1.5;font-weight:600">
-            @if(($remittance->status ?? '') === 'submitted')
-              Rider submitted PHP {{ number_format((float)($remittance->cake_remittance_amount ?? $remittance->amount), 2) }}. Confirm only after you received the GCash transfer or cash handover.
-            @elseif(($remittance->status ?? '') === 'rejected')
-              This remittance was rejected. You can confirm if the rider has already corrected it, or reject again with a clearer note.
-            @else
-              Rider collected COD cash. Confirm the cake remittance of PHP {{ number_format((float)($remittance->cake_remittance_amount ?? $remittance->amount), 2) }} after the rider hands it over; the delivery fee stays with the rider.
-            @endif
+            Rider marked PHP {{ number_format((float)($remittance->cake_remittance_amount ?? $remittance->amount), 2) }} as handed to the seller. Confirm only after you received the cash; the delivery fee stays with the rider.
           </div>
         </div>
       </div>

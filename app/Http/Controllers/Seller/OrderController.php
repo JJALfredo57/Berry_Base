@@ -621,7 +621,7 @@ class OrderController extends Controller
         $remittance = $this->sellerRemittance($shop->id, $id, $remittanceId);
         if (!$remittance) return back()->with('err', 'Remittance record not found.');
         if (($remittance->status ?? '') === 'confirmed') return back()->with('msg', 'This remittance is already confirmed.');
-        if (!in_array(($remittance->status ?? ''), ['pending', 'submitted', 'rejected'], true)) {
+        if (($remittance->status ?? '') !== 'submitted') {
             return back()->with('err', 'This remittance cannot be confirmed from its current status.');
         }
 
@@ -663,9 +663,7 @@ class OrderController extends Controller
                 $this->addOrderTrackingSafe(
                     $id,
                     'Cash Remittance Confirmed',
-                    ($remittance->status ?? '') === 'pending'
-                        ? 'Seller confirmed COD cake cash received directly from rider. Transaction history created.'
-                        : 'Seller confirmed rider cash remittance. Transaction history created.',
+                    'Seller confirmed rider cash remittance. Transaction history created.',
                     'seller'
                 );
             });
@@ -694,50 +692,7 @@ class OrderController extends Controller
 
         return redirect()
             ->route('seller.orders', ['search' => $id])
-            ->with('err', 'For safety, confirm or reject COD remittance using the buttons on the Orders page.');
-    }
-
-    public function rejectRemittance(Request $request, string $id, int $remittanceId)
-    {
-        $shop = $this->getShop();
-        $remittance = $this->sellerRemittance($shop->id, $id, $remittanceId);
-        if (!$remittance) return back()->with('err', 'Remittance record not found.');
-        if (($remittance->status ?? '') === 'confirmed') return back()->with('err', 'Confirmed remittance cannot be rejected.');
-
-        $validated = $request->validate([
-            'seller_note' => ['required', 'string', 'min:5', 'max:500'],
-        ], [
-            'seller_note.required' => 'Please explain what the rider needs to correct.',
-        ]);
-
-        try {
-            DB::transaction(function () use ($remittance, $id, $validated) {
-                $updates = $this->filterExistingColumns('rider_remittances', [
-                    'status' => 'rejected',
-                    'seller_note' => trim($validated['seller_note']),
-                    'rejected_at' => now(),
-                    'updated_at' => now(),
-                ]);
-                if (empty($updates)) {
-                    throw new \RuntimeException('No matching rider_remittances columns available for rejection.');
-                }
-
-                DB::table('rider_remittances')->where('id', $remittance->id)->update($updates);
-                $this->addOrderTrackingSafe($id, 'Cash Remittance Rejected', trim($validated['seller_note']), 'seller');
-            });
-        } catch (\Throwable $e) {
-            Log::error('Seller reject remittance failed', [
-                'order_id' => $id,
-                'remittance_id' => $remittanceId,
-                'shop_id' => $shop->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return back()->with('err', 'Unable to reject remittance right now. Please try again or contact admin.');
-        }
-
-        $this->logSellerActivitySafe('Reject Rider Remittance', "Order #{$id}");
-        return back()->with('msg', "Remittance for Order #{$id} rejected. Rider can resubmit corrected details.");
+            ->with('err', 'For safety, confirm COD remittance using the button on the Orders page.');
     }
 
     private function logSellerActivitySafe(string $action, string $description = ''): void

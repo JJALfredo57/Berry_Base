@@ -272,35 +272,30 @@
 
       <section class="section" aria-label="COD remittance">
         <div class="section-head"><h2><i class="bi bi-wallet2" style="color:var(--primary)"></i>COD remittance</h2></div>
-        <details class="remit-hub" {{ ($bulkRemittance['ready_count'] > 0 || $bulkRemittance['active_batch'] || $unremitted['rejected'] > 0) ? 'open' : '' }}>
+        <details class="remit-hub" {{ ($bulkRemittance['ready_count'] > 0 || $bulkRemittance['waiting_count'] > 0) ? 'open' : '' }}>
           <summary>
             <div>
               <div class="remit-kicker">Bulk COD remittance</div>
-              <div class="remit-total">PHP {{ number_format($bulkRemittance['active_batch']->total_amount ?? $bulkRemittance['ready_total'], 2) }}</div>
+              <div class="remit-total">PHP {{ number_format($bulkRemittance['ready_total'], 2) }}</div>
             </div>
             <i class="bi bi-chevron-down chev"></i>
           </summary>
           <div class="remit-inner">
             <div class="remit-head">
               <div class="remit-copy">
-                @if($bulkRemittance['active_batch'])
-                  Cash handover is waiting for seller confirmation. Do not make a GCash remittance.
-                @elseif($bulkRemittance['ready_count'] > 0)
+                @if($bulkRemittance['ready_count'] > 0)
                   Hand the listed cake cash to the seller. The seller will confirm each handover before it enters transaction history.
+                @elseif($bulkRemittance['waiting_count'] > 0)
+                  Your cash handover was sent. Wait for the seller to confirm receipt.
                 @else
                   Delivered COD orders that need remittance will appear here.
                 @endif
               </div>
               <div class="remit-actions">
-                @if($bulkRemittance['active_batch'])
-                  @if(!empty($bulkRemittance['active_batch']->paymongo_action_url))
-                    <button class="btn btn-soft" type="button" disabled><i class="bi bi-hourglass-split"></i>Waiting for seller confirmation</button>
-                  @endif
-                  <form method="POST" action="{{ route('rider.remittance.bulk.check') }}">@csrf
-                    <button class="btn btn-soft" type="submit"><i class="bi bi-arrow-repeat"></i>Check Payment Status</button>
-                  </form>
-                @elseif($bulkRemittance['ready_count'] > 0)
-                  <form method="POST" action="{{ route('rider.remittance.bulk.handover') }}">@csrf<button class="btn btn-pay" type="submit"><i class="bi bi-cash-coin"></i>Mark Cash Handed to Seller</button></form>
+                @if($bulkRemittance['ready_count'] > 0)
+                  <form method="POST" action="{{ route('rider.remittance.bulk.handover') }}" data-once>@csrf<button class="btn btn-pay" type="submit"><i class="bi bi-cash-coin"></i>Mark Cash Handed to Seller</button></form>
+                @elseif($bulkRemittance['waiting_count'] > 0)
+                  <button class="btn btn-soft" type="button" disabled><i class="bi bi-hourglass-split"></i>Waiting for Seller Confirmation</button>
                 @else
                   <button class="btn btn-soft" type="button" disabled><i class="bi bi-check2-circle"></i>No COD to Remit</button>
                 @endif
@@ -309,12 +304,9 @@
             <div class="remit-breakdown">
               <div class="remit-stat"><div class="label">Ready orders</div><div class="value">{{ $bulkRemittance['ready_count'] }}</div></div>
               <div class="remit-stat"><div class="label">Waiting amount</div><div class="value">PHP {{ number_format($bulkRemittance['waiting_total'], 2) }}</div></div>
-              <div class="remit-stat"><div class="label">Waiting for check</div><div class="value">{{ $unremitted['waiting_seller'] + $unremitted['waiting_paymongo'] }}</div></div>
+              <div class="remit-stat"><div class="label">Waiting for seller</div><div class="value">{{ $bulkRemittance['waiting_count'] }}</div></div>
               <div class="remit-stat"><div class="label">Confirmed this week</div><div class="value">PHP {{ number_format($bulkRemittance['confirmed_total'], 2) }}</div></div>
             </div>
-            @if($unremitted['rejected'] > 0)
-              <div class="remit-orders"><div class="order-note" style="color:#b91c1c;background:#fff1f2;border-color:#fecdd3">{{ $unremitted['rejected'] }} rejected remittance(s) are included again when you pay the bulk total.</div></div>
-            @endif
             @if($bulkRemittance['orders']->count())
               <div class="remit-orders">
                 @foreach($bulkRemittance['orders']->take(6) as $remitOrder)

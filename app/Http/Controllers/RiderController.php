@@ -809,9 +809,48 @@ class RiderController extends Controller
     {
         $rider = $this->sessionRider();
         if (!$rider) return redirect()->route('login');
-        $updated = DB::table('rider_remittances')->where('rider_id', $rider->id)->where('status', 'pending')->update($this->filterExistingColumns('rider_remittances', [
-            'status' => 'submitted', 'remittance_method' => 'cash_handover', 'submitted_at' => now(), 'updated_at' => now(),
-        ]));
+
+        $updated = DB::transaction(function () use ($rider) {
+            // Previous QR batches must not keep a rider stuck on the old payment flow.
+            $activeBatch = $this->activeRiderBatch((int) $rider->id);
+            if ($activeBatch) {
+                $this->convertUnpaidBatchToCashHandover($activeBatch);
+            }
+
+            $remittanceIds = DB::table('rider_remittances as rr')
+                ->join('orders as o', 'o.id', '=', 'rr.order_id')
+                ->where('rr.rider_id', $rider->id)
+                ->whereIn('rr.status', ['pending', 'rejected', 'qr_expired'])
+                ->where('o.fulfillment_type', 'Delivery')
+                ->whereRaw('UPPER(o.payment_method) = ?', ['COD'])
+                ->whereIn('o.status', ['Delivered', 'Picked Up'])
+                ->pluck('rr.id');
+
+            if ($remittanceIds->isEmpty()) return 0;
+
+            $updates = $this->filterExistingColumns('rider_remittances', [
+                'status' => 'submitted',
+                'remittance_method' => 'cash_handover',
+                'submitted_at' => now(),
+                'rejected_at' => null,
+                'updated_at' => now(),
+            ]);
+
+            $count = DB::table('rider_remittances')
+                ->whereIn('id', $remittanceIds->all())
+                ->whereIn('status', ['pending', 'rejected', 'qr_expired'])
+                ->update($updates);
+
+            if ($count > 0) {
+                foreach ($remittanceIds as $remittanceId) {
+                    $orderId = DB::table('rider_remittances')->where('id', $remittanceId)->value('order_id');
+                    if ($orderId) $this->addOrderTrackingSafe((string) $orderId, 'Cash Handed to Seller', 'Rider marked the COD cake cash as handed to the seller.', 'seller');
+                }
+            }
+
+            return $count;
+        });
+
         return back()->with($updated ? 'msg' : 'err', $updated ? 'Cash handover sent to the seller for confirmation.' : 'No cash handover is ready yet.');
     }
 
@@ -1404,7 +1443,7 @@ class RiderController extends Controller
 
         return DB::table('rider_remittances')
             ->where('order_id', $order->id)
-            ->whereIn('status', ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired'])
+            ->whereIn('status', ['pending', 'submitted'])
             ->exists();
     }
 
@@ -1460,10 +1499,10 @@ class RiderController extends Controller
         return [
             'total' => round((float) $rows->sum('amount'), 2),
             'count' => $rows->count(),
-            'needs_action' => $rows->whereIn('status', ['pending', 'qr_expired'])->count(),
+            'needs_action' => $rows->where('status', 'pending')->count(),
             'waiting_seller' => $rows->where('status', 'submitted')->count(),
-            'waiting_paymongo' => $rows->where('status', 'awaiting_payment')->count(),
-            'rejected' => $rows->where('status', 'rejected')->count(),
+            'waiting_paymongo' => 0,
+            'rejected' => 0,
         ];
     }
 
@@ -1517,7 +1556,7 @@ class RiderController extends Controller
             ->join('orders as o', 'o.id', '=', 'rr.order_id')
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('rr.rider_id', $riderId)
-            ->whereIn('rr.status', ['pending', 'rejected', 'qr_expired'])
+            ->whereIn('rr.status', ['pending', 'rejected', 'qr_expired', 'awaiting_payment'])
             ->whereNotIn('o.status', ['Cancelled', 'Issue Reported', 'Attempted Delivery'])
             ->select(
                 'rr.*',
@@ -1526,18 +1565,6 @@ class RiderController extends Controller
                 'o.schedule_date',
                 'o.schedule_time'
             );
-
-        if (Schema::hasColumn('rider_remittances', 'batch_id') && Schema::hasTable('rider_remittance_batches')) {
-            $query->where(function ($q) {
-                $q->whereNull('rr.batch_id')
-                    ->orWhereExists(function ($batchQuery) {
-                        $batchQuery->select(DB::raw(1))
-                            ->from('rider_remittance_batches as rb')
-                            ->whereColumn('rb.id', 'rr.batch_id')
-                            ->whereIn('rb.status', ['qr_expired', 'failed', 'rejected']);
-                    });
-            });
-        }
 
         return $query->orderBy('rr.collected_at')->orderBy('rr.id')->get();
     }

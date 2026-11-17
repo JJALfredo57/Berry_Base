@@ -109,7 +109,7 @@ class ViewServiceProvider extends ServiceProvider
                             $remittanceActions = Schema::hasTable('rider_remittances')
                                 ? (int) DB::table('rider_remittances')
                                     ->where('shop_id', $shop->id)
-                                    ->whereIn('status', ['pending', 'submitted', 'rejected'])
+                                    ->where('status', 'submitted')
                                     ->count()
                                 : 0;
 
