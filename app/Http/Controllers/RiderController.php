@@ -819,6 +819,10 @@ class RiderController extends Controller
 
         try {
             $result = $this->syncPaymongoBatchRemittance($batch);
+            if (!$result['ok'] && ($result['message'] ?? '') === 'Payment is not completed yet. Open GCash payment, then check again.') {
+                $this->convertUnpaidBatchToCashHandover($batch);
+                return back()->with('msg', 'Unpaid GCash QR was changed to cash handover. Give the cake cash to the seller; the seller can now confirm receipt from the order.');
+            }
             return back()->with($result['ok'] ? 'msg' : 'err', $result['message']);
         } catch (\Throwable $e) {
             Log::error('PayMongo bulk rider remittance status check failed', [
@@ -1037,6 +1041,33 @@ class RiderController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Rider bulk remittance return sync failed: ' . $e->getMessage());
         }
+    }
+
+    private function convertUnpaidBatchToCashHandover(object $batch): void
+    {
+        DB::transaction(function () use ($batch) {
+            DB::table('rider_remittance_batches')->where('id', $batch->id)->where('status', 'awaiting_payment')->update([
+                'status' => 'cancelled',
+                'updated_at' => now(),
+            ]);
+
+            DB::table('rider_remittances')->where('batch_id', $batch->id)->where('status', 'awaiting_payment')->update($this->filterExistingColumns('rider_remittances', [
+                'batch_id' => null,
+                'status' => 'pending',
+                'remittance_method' => 'cash_handover',
+                'reference_number' => null,
+                'paymongo_payment_intent_id' => null,
+                'paymongo_payment_method_id' => null,
+                'paymongo_checkout_session_id' => null,
+                'paymongo_client_key' => null,
+                'paymongo_qr_image' => null,
+                'paymongo_action_url' => null,
+                'paymongo_status' => 'cancelled_unpaid',
+                'paymongo_reference' => null,
+                'paymongo_expires_at' => null,
+                'updated_at' => now(),
+            ]));
+        });
     }
 
     private function expireRiderBatches(int $riderId): void
