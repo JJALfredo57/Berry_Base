@@ -193,6 +193,11 @@ class FinanceController extends Controller
         $shop = $this->shop();
         if (!$shop) abort(404);
         if (!Schema::hasTable('seller_expenses')) return back()->with('err', 'Expense records are not ready yet. Please try again after the database migration finishes.');
+        try { $expenseDate = Carbon::parse((string) $request->input('expense_date')); }
+        catch (\Throwable $e) { $expenseDate = null; }
+        if (!$expenseDate || $expenseDate->gt(now('Asia/Manila')->endOfDay())) {
+            return back()->withInput($request->except('expense_date'))->withErrors(['expense_date' => 'Expenses can only be recorded for today or an earlier date.']);
+        }
         $data = $request->validate([
             'expense_date' => ['required', 'date', 'before_or_equal:today'],
             'category' => ['required', 'in:ingredients,labor,packaging,delivery,utilities,marketing,other'],
@@ -230,8 +235,13 @@ class FinanceController extends Controller
         if (!Schema::hasTable('seller_expenses')) {
             return redirect()->route('seller.finance')->with('err', 'Expense records are not ready yet. The database migration must finish before expenses can be added.');
         }
-        $selected = Carbon::parse((string) $request->input('date', now()->toDateString()))->toDateString();
-        $month = Carbon::parse((string) $request->input('month', $selected))->startOfMonth();
+        $today = now('Asia/Manila')->startOfDay();
+        try { $selectedDate = Carbon::parse((string) $request->input('date', $today->toDateString())); }
+        catch (\Throwable $e) { $selectedDate = $today->copy(); }
+        $selected = $selectedDate->min($today)->toDateString();
+        try { $month = Carbon::parse((string) $request->input('month', $selected))->startOfMonth(); }
+        catch (\Throwable $e) { $month = Carbon::parse($selected)->startOfMonth(); }
+        if ($month->gt($today->copy()->startOfMonth())) $month = $today->copy()->startOfMonth();
         $start = $month->copy()->startOfWeek(Carbon::SUNDAY);
         $end = $month->copy()->endOfMonth()->endOfWeek(Carbon::SATURDAY);
         $totals = DB::table('seller_expenses')->where('shop_id', $shop->id)->whereBetween('expense_date', [$start->toDateString(), $end->toDateString()])->selectRaw('expense_date, SUM(amount) total, COUNT(*) count')->groupBy('expense_date')->get()->keyBy('expense_date');
