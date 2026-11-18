@@ -19,12 +19,8 @@ class FinanceController extends Controller
         return DB::table('shops')->where('seller_id', session('user')['id'] ?? null)->first();
     }
 
-    public function index(Request $request)
+    private function dateRange(Request $request): array
     {
-        $shop = $this->shop();
-        if (!$shop) return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
-
-        $this->payouts->syncDeliveredPaidOrders();
         try { $from = Carbon::parse((string) $request->input('from', now()->subDays(29)->toDateString()))->toDateString(); }
         catch (\Throwable $e) { $from = now()->subDays(29)->toDateString(); }
         try { $to = Carbon::parse((string) $request->input('to', now()->toDateString()))->toDateString(); }
@@ -36,6 +32,16 @@ class FinanceController extends Controller
         elseif ($period === 'last_month') [$from, $to] = [now()->subMonthNoOverflow()->startOfMonth()->toDateString(), now()->subMonthNoOverflow()->endOfMonth()->toDateString()];
         elseif ($period === 'year') [$from, $to] = [now()->startOfYear()->toDateString(), now()->endOfYear()->toDateString()];
         if ($from > $to) [$from, $to] = [$to, $from];
+        return [$from, $to, $period];
+    }
+
+    public function index(Request $request)
+    {
+        $shop = $this->shop();
+        if (!$shop) return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
+
+        $this->payouts->syncDeliveredPaidOrders();
+        [$from, $to, $period] = $this->dateRange($request);
         $fulfillment = strtolower((string) $request->input('fulfillment', ''));
         if (!in_array($fulfillment, ['delivery', 'pickup'], true)) $fulfillment = '';
 
@@ -183,9 +189,67 @@ class FinanceController extends Controller
         if ($fulfillment) {
             $transactions = $transactions->filter(fn ($transaction) => strtolower((string) ($transaction->fulfillment_type ?? '')) === $fulfillment)->values();
         }
+        $transactionTotals = [
+            'customer_payments' => (float) $transactions->sum('gross'),
+            'rider_delivery_fees' => (float) $transactions->sum('rider_delivery_fee'),
+            'commission' => (float) $transactions->sum('commission'),
+            'seller_settlement' => (float) $transactions->sum('net'),
+            'receipts' => (int) $transactions->sum(fn ($transaction) => isset($transaction->payment_events) && $transaction->payment_events->isNotEmpty() ? $transaction->payment_events->count() : ($transaction->type === 'Customer payment received' ? 1 : 0)),
+        ];
 
         $summary = $this->payouts->summaryForShop((string) $shop->id);
-        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'fulfillment', 'gross', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations'));
+        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'fulfillment', 'gross', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations', 'transactionTotals'));
+    }
+
+    public function customerPayments(Request $request)
+    {
+        $shop = $this->shop();
+        if (!$shop) return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
+        [$from, $to, $period] = $this->dateRange($request);
+        $method = strtolower((string) $request->input('method', ''));
+        $fulfillment = strtolower((string) $request->input('fulfillment', ''));
+        $paymentType = strtolower((string) $request->input('payment_type', ''));
+        if (!in_array($method, ['gcash', 'cash'], true)) $method = '';
+        if (!in_array($fulfillment, ['delivery', 'pickup'], true)) $fulfillment = '';
+        if (!in_array($paymentType, ['downpayment', 'full', 'remaining'], true)) $paymentType = '';
+
+        $payments = Schema::hasTable('payment_transactions')
+            ? DB::table('payment_transactions as pt')->join('orders as o', 'o.id', '=', 'pt.order_id')
+                ->where('o.shop_id', $shop->id)->whereRaw("LOWER(COALESCE(o.status, '')) <> ?", ['cancelled'])
+                ->where('pt.payment_status', 'paid')->whereBetween(DB::raw('DATE(COALESCE(pt.paid_at, pt.created_at))'), [$from, $to])
+                ->when($method, fn ($q) => $q->whereRaw('LOWER(pt.method) = ?', [$method]))
+                ->when($fulfillment, fn ($q) => $q->whereRaw('LOWER(o.fulfillment_type) = ?', [$fulfillment]))
+                ->when($paymentType === 'downpayment', fn ($q) => $q->where('pt.type', 'like', 'downpayment%'))
+                ->when($paymentType === 'full', fn ($q) => $q->where('pt.type', 'like', 'full%'))
+                ->when($paymentType === 'remaining', fn ($q) => $q->where('pt.type', 'like', 'remaining%'))
+                ->select('pt.*', 'o.fulfillment_type', 'o.status as order_status', 'o.track_code')->orderByDesc('pt.paid_at')->orderByDesc('pt.id')->get()
+            : collect();
+        $payments->each(fn ($payment) => $payment->label = PaymentTransactionHelper::typeLabel($payment->type ?? null));
+        $total = (float) $payments->sum('amount');
+        return view('seller.finance_customer_payments', compact('from', 'to', 'period', 'method', 'fulfillment', 'paymentType', 'payments', 'total'));
+    }
+
+    public function deliveryAllocations(Request $request)
+    {
+        $shop = $this->shop();
+        if (!$shop) return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
+        [$from, $to, $period] = $this->dateRange($request);
+        $status = strtolower((string) $request->input('status', ''));
+        $search = trim((string) $request->input('search', ''));
+        if (!in_array($status, ['clearing', 'available', 'paid'], true)) $status = '';
+        $allocations = Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount')
+            ? DB::table('seller_payout_ledgers as ledger')->join('orders as o', 'o.id', '=', 'ledger.order_id')
+                ->where('ledger.shop_id', $shop->id)->whereRaw("LOWER(COALESCE(o.status, '')) <> ?", ['cancelled'])
+                ->whereRaw("LOWER(COALESCE(o.fulfillment_type, '')) = ?", ['delivery'])
+                ->whereBetween(DB::raw('DATE(ledger.created_at)'), [$from, $to])->where('ledger.delivery_fund_amount', '>', 0)
+                ->when($status, fn ($q) => $q->whereRaw('LOWER(ledger.status) = ?', [$status]))
+                ->when($search, fn ($q) => $q->where(function ($match) use ($search) { $match->where('ledger.order_id', 'like', '%'.$search.'%')->orWhere('o.track_code', 'like', '%'.$search.'%'); if (Schema::hasTable('order_items')) $match->orWhereExists(function ($items) use ($search) { $items->selectRaw('1')->from('order_items')->whereColumn('order_items.order_id', 'ledger.order_id')->where('product_name', 'like', '%'.$search.'%'); }); }))
+                ->select('ledger.order_id', 'ledger.delivery_fund_amount', 'ledger.status', 'ledger.created_at', 'o.track_code')->orderByDesc('ledger.created_at')->get()
+            : collect();
+        $itemsByOrder = $allocations->isNotEmpty() && Schema::hasTable('order_items') ? DB::table('order_items')->whereIn('order_id', $allocations->pluck('order_id')->unique())->orderBy('id')->get(['order_id', 'product_name', 'quantity'])->groupBy('order_id') : collect();
+        $allocations->each(fn ($allocation) => $allocation->products = $itemsByOrder->get($allocation->order_id, collect()));
+        $total = (float) $allocations->sum('delivery_fund_amount');
+        return view('seller.finance_delivery_allocations', compact('from', 'to', 'period', 'status', 'search', 'allocations', 'total'));
     }
 
     public function storeExpense(Request $request)
