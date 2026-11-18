@@ -189,12 +189,18 @@ class FinanceController extends Controller
         if ($fulfillment) {
             $transactions = $transactions->filter(fn ($transaction) => strtolower((string) ($transaction->fulfillment_type ?? '')) === $fulfillment)->values();
         }
+        $filteredPaymentRows = $fulfillment
+            ? $paymentRows->filter(fn ($payment) => strtolower((string) ($payment->fulfillment_type ?? '')) === $fulfillment)
+            : $paymentRows;
         $transactionTotals = [
-            'customer_payments' => (float) $transactions->sum('gross'),
+            // Use the same paid-receipt source as the card and detail page.
+            // History rows stay grouped by settlement, but their total must not
+            // replace actual payments with a lower/higher ledger gross amount.
+            'customer_payments' => (float) $filteredPaymentRows->sum('amount'),
             'rider_delivery_fees' => (float) $transactions->sum('rider_delivery_fee'),
             'commission' => (float) $transactions->sum('commission'),
             'seller_settlement' => (float) $transactions->sum('net'),
-            'receipts' => (int) $transactions->sum(fn ($transaction) => isset($transaction->payment_events) && $transaction->payment_events->isNotEmpty() ? $transaction->payment_events->count() : ($transaction->type === 'Customer payment received' ? 1 : 0)),
+            'receipts' => (int) $filteredPaymentRows->count(),
         ];
 
         $summary = $this->payouts->summaryForShop((string) $shop->id);
