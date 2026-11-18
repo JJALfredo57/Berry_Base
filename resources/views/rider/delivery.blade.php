@@ -236,11 +236,6 @@
       @csrf
       <button class="btn-deliver" type="submit"><i class="bi bi-check2-circle"></i> Accept Delivery</button>
     </form>
-    <form action="{{ route('rider.assignment.decline', [$order->id, $order->rider_token]) }}" method="POST">
-      @csrf
-      <textarea name="reason" maxlength="300" required placeholder="Reason if you cannot accept this delivery"></textarea>
-      <button class="btn-issue" type="submit" style="margin-top:10px"><i class="bi bi-x-circle"></i> Decline Delivery</button>
-    </form>
   </div>
 </div>
 @elseif(!empty($assignmentExpired) || !empty($assignmentDeclined))

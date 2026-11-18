@@ -51,11 +51,6 @@
         <form action="{{ route('rider.assignment.accept', [$order->id, $order->rider_token]) }}" method="POST" data-once>@csrf
           <button class="btn btn-primary btn-lg" type="submit"><i class="bi bi-check2-circle"></i>Accept delivery</button>
         </form>
-        <button class="btn btn-danger" type="button" data-decline
-                data-action="{{ route('rider.assignment.decline', [$order->id, $order->rider_token]) }}"
-                data-label="Order #{{ $order->id }}">
-          <i class="bi bi-x-circle"></i>Decline
-        </button>
       @elseif(($order->status ?? '') === 'Out for Delivery')
         <a class="btn btn-primary btn-lg" href="{{ route('rider.show', [$order->id, $order->rider_token]) }}"><i class="bi bi-arrow-right-circle"></i>Open delivery</a>
         @if($deliveryLat && $deliveryLng)
