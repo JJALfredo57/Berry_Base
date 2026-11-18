@@ -516,16 +516,6 @@
           </div>
         </div>
       </div>
-      @elseif($o->deposit_required && ($o->deposit_status ?? '') === 'paid')
-      <div style="margin-bottom:1rem;background:#E8F5E9;border-radius:10px;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem">
-        <i class="bi bi-check-circle-fill" style="color:#2E7D32;font-size:1.1rem;flex-shrink:0"></i>
-        <div>
-          <div style="font-size:.78rem;font-weight:800;color:#2E7D32;letter-spacing:.04em">DEPOSIT RECEIVED</div>
-          <div style="font-size:.8rem;color:#2E7D32;margin-top:.1rem">
-            {{ number_format((float)($o->deposit_amount ?? 0), 2) }} {{ $isFullPayment ? 'paid in full' : 'deposit paid. Remaining ' . number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) . ' to be collected on ' . ($o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup') }}.
-          </div>
-        </div>
-      </div>
       @endif
 
       {{-- Info grid --}}
@@ -583,6 +573,18 @@
         </div>
         @endif
       </div>
+
+      @if($o->deposit_required && ($o->deposit_status ?? '') === 'paid')
+      <div style="margin:1rem 0;background:#E8F5E9;border-radius:10px;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem">
+        <i class="bi bi-check-circle-fill" style="color:#2E7D32;font-size:1.1rem;flex-shrink:0"></i>
+        <div>
+          <div style="font-size:.78rem;font-weight:800;color:#2E7D32;letter-spacing:.04em">DEPOSIT RECEIVED</div>
+          <div style="font-size:.8rem;color:#2E7D32;margin-top:.1rem">
+            {{ number_format((float)($o->deposit_amount ?? 0), 2) }} {{ $isFullPayment ? 'paid in full' : 'deposit paid. Remaining ' . number_format((float)($o->total_price ?? 0) - (float)($o->deposit_amount ?? 0), 2) . ' to be collected on ' . ($o->fulfillment_type === 'Delivery' ? 'delivery' : 'pickup') }}.
+          </div>
+        </div>
+      </div>
+      @endif
 
       {{-- Payment receipts --}}
       <div style="margin-top:.95rem;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:.75rem .9rem">
