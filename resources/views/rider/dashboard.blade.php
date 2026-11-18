@@ -335,17 +335,6 @@
     <div class="modal" id="payoutModal" role="dialog" aria-modal="true" aria-labelledby="payoutTitle"><form class="sheet" id="riderPayoutForm" method="POST" action="{{ route('rider.payouts.request') }}" data-once>@csrf<h3 id="payoutTitle">Request delivery-fee payout</h3><p>Available amount: <strong>PHP {{ number_format($deliveryEarningSummary['available'],2) }}</strong></p><label>GCash account name</label><input class="note-input" name="gcash_name" required minlength="2" maxlength="160" value="{{ old('gcash_name',$rider->gcash_name ?? $rider->name) }}"><label class="mt-2"><input type="radio" name="number_source" value="linked" checked> Use linked number</label><label><input type="radio" name="number_source" value="other"> Use another number</label><input class="note-input" id="riderPayoutNumber" name="gcash_number" required inputmode="tel" value="{{ old('gcash_number',$rider->gcash_number ?? $rider->phone) }}" placeholder="09XXXXXXXXX"><div class="small mt-1" id="riderPayoutNumberHelp">Accepts 09, 9, +639, or 639 formats; saved as +63.</div><label class="mt-2"><input type="checkbox" name="confirmation" value="1" required> I confirm these GCash details are correct.</label><div class="row"><button class="btn btn-outline" type="button" onclick="closePayoutModal()">Cancel</button><button class="btn btn-pay" type="submit">Request payout</button></div></form></div>
   </main>
 
-  <div class="modal" id="declineModal" role="dialog" aria-modal="true" aria-labelledby="declineTitle">
-    <form class="sheet" id="declineForm" method="POST" data-once>
-      @csrf
-      <h3 id="declineTitle">Decline delivery</h3>
-      <p id="declineLabel">Tell the seller why so they can assign another rider.</p>
-      <div class="quick">
-        <button type="button" data-reason="Too far from my location">Too far</button>
-        <button type="button" data-reason="I am not available right now">Not available</button>
-        <button type="button" data-reason="Vehicle problem">Vehicle problem</button>
-      </div>
-
     <button class="receipt-fab" id="receiptFab" type="button" aria-haspopup="dialog" aria-controls="riderReceiptModal">
       <i class="bi bi-receipt-cutoff" aria-hidden="true"></i><span>Payout receipts</span>
       @if($paidReceiptCount > 0)<span class="receipt-fab-count" aria-label="{{ $paidReceiptCount }} paid receipt{{ $paidReceiptCount === 1 ? '' : 's' }}">{{ $paidReceiptCount > 99 ? '99+' : $paidReceiptCount }}</span>@endif
@@ -356,14 +345,6 @@
         <div id="receiptContent" aria-live="polite"></div>
       </section>
     </div>
-      <textarea name="reason" id="declineReason" maxlength="300" required placeholder="Reason for declining"></textarea>
-      <div class="row">
-        <button class="btn btn-outline" type="button" id="declineCancel">Back</button>
-        <button class="btn btn-danger" type="submit"><i class="bi bi-x-circle"></i>Decline</button>
-      </div>
-    </form>
-  </div>
-
   <div class="transaction-modal" id="transactionHistoryModal" role="dialog" aria-modal="true" aria-labelledby="transactionHistoryTitle" aria-hidden="true" hidden>
     <section class="transaction-sheet" role="document">
       <div class="receipt-sheet-head"><div><h2 id="transactionHistoryTitle"><i class="bi bi-clock-history me-1"></i>Transaction History</h2><p>All COD remittances and delivery-fee payouts.</p></div><button class="receipt-close" type="button" data-close-transactions aria-label="Close transaction history"><i class="bi bi-x-lg"></i></button></div>
@@ -470,11 +451,6 @@
           if (fresh.length) { toast('New delivery request: Order #' + fresh.join(', #'), 'warn'); alertNewRequest(); }
           else if (gone.length) { toast('A delivery request was updated or removed.'); }
           lastPendingIds = data.pending_ids;
-          const modal = document.getElementById('declineModal');
-          if (modal.classList.contains('open') && !document.querySelector('[data-decline][data-action="' + document.getElementById('declineForm').getAttribute('action') + '"]')) {
-            closeDecline();
-            toast('That request is no longer active.');
-          }
         }
       } catch (e) {
         setLive(false);
@@ -482,25 +458,6 @@
         polling = false;
       }
     }
-
-    function openDecline(action, label) {
-      const form = document.getElementById('declineForm');
-      form.setAttribute('action', action);
-      document.getElementById('declineLabel').textContent = label + ' - tell the seller why so they can assign another rider.';
-      document.getElementById('declineReason').value = '';
-      document.getElementById('declineModal').classList.add('open');
-      document.getElementById('declineReason').focus();
-    }
-    function closeDecline() { document.getElementById('declineModal').classList.remove('open'); }
-
-    document.addEventListener('click', function (e) {
-      const declineBtn = e.target.closest('[data-decline]');
-      if (declineBtn) { openDecline(declineBtn.dataset.action, declineBtn.dataset.label); return; }
-      const quick = e.target.closest('[data-reason]');
-      if (quick) { document.getElementById('declineReason').value = quick.dataset.reason; return; }
-      if (e.target.id === 'declineCancel' || e.target.id === 'declineModal') closeDecline();
-    });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDecline(); });
 
     document.addEventListener('submit', function (e) {
       const form = e.target.closest('form[data-once]');

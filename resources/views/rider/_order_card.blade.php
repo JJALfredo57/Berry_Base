@@ -47,11 +47,7 @@
     </ul>
 
     <div class="actions">
-      @if($isPending)
-        <form action="{{ route('rider.assignment.accept', [$order->id, $order->rider_token]) }}" method="POST" data-once>@csrf
-          <button class="btn btn-primary btn-lg" type="submit"><i class="bi bi-check2-circle"></i>Accept delivery</button>
-        </form>
-      @elseif(($order->status ?? '') === 'Out for Delivery')
+      @if(($order->status ?? '') === 'Out for Delivery')
         <a class="btn btn-primary btn-lg" href="{{ route('rider.show', [$order->id, $order->rider_token]) }}"><i class="bi bi-arrow-right-circle"></i>Open delivery</a>
         @if($deliveryLat && $deliveryLng)
           <a class="btn btn-outline" href="https://www.google.com/maps/dir/?api=1&destination={{ $deliveryLat }},{{ $deliveryLng }}&travelmode=driving" target="_blank" rel="noopener"><i class="bi bi-map"></i>Directions</a>

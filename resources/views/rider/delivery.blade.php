@@ -218,27 +218,7 @@
 </div>
 @endif
 
-@if(!empty($assignmentPending))
-<div class="section">
-  <div class="section-title">Delivery Confirmation</div>
-  <div class="row">
-    <div class="row-icon" style="background:#fff7ed;color:#c2410c"><i class="bi bi-hourglass-split"></i></div>
-    <div class="row-body">
-      <div class="row-label">Seller assigned this order to you</div>
-      <div class="row-value">Accept before starting the delivery</div>
-      @if(!empty($order->rider_assignment_expires_at))
-        <div class="row-sub">Respond before {{ \Carbon\Carbon::parse($order->rider_assignment_expires_at)->format('M d, Y h:i A') }}.</div>
-      @endif
-    </div>
-  </div>
-  <div class="assignment-actions">
-    <form action="{{ route('rider.assignment.accept', [$order->id, $order->rider_token]) }}" method="POST">
-      @csrf
-      <button class="btn-deliver" type="submit"><i class="bi bi-check2-circle"></i> Accept Delivery</button>
-    </form>
-  </div>
-</div>
-@elseif(!empty($assignmentExpired) || !empty($assignmentDeclined))
+@if(!empty($assignmentExpired) || !empty($assignmentDeclined))
 <div class="result">
   <span class="result-icon"><i class="bi bi-info-circle"></i></span>
   <div class="result-title">Assignment Closed</div>

@@ -9,8 +9,6 @@ use Illuminate\Support\Facades\Schema;
 
 class RiderAssignmentService
 {
-    private const ACCEPTANCE_MINUTES = 10;
-
     public function __construct(private MobileNotificationService $notifications)
     {
     }
@@ -21,7 +19,6 @@ class RiderAssignmentService
         // A fresh token and PIN per assignment so a previous rider's link and PIN stop working.
         $token = bin2hex(random_bytes(16));
         $pin = SmsHelper::generateRiderPin();
-        $expiresAt = now()->addMinutes(self::ACCEPTANCE_MINUTES);
         $previousStatus = $this->previousStatus($order);
 
         $updates = $this->filterExistingColumns('orders', [
@@ -29,14 +26,16 @@ class RiderAssignmentService
             'rider_token' => $token,
             'rider_pin' => $pin,
             'rider_sms_sent' => false,
-            'rider_assignment_status' => 'pending',
+            'rider_assignment_status' => 'accepted',
             'rider_assignment_previous_status' => $previousStatus,
             'rider_assigned_at' => now(),
-            'rider_assignment_expires_at' => $expiresAt,
-            'rider_accepted_at' => null,
+            'rider_assignment_expires_at' => null,
+            'rider_accepted_at' => now(),
             'rider_declined_at' => null,
             'rider_decline_reason' => null,
-            'status' => 'Ready for Rider',
+            'delivery_rider_id' => $rider->id,
+            'delivery_rider_name' => $rider->name,
+            'status' => 'Out for Delivery',
             'updated_at' => now(),
         ]);
 
@@ -52,7 +51,8 @@ class RiderAssignmentService
             return ['ok' => false, 'message' => $this->alreadyAssignedMessage($orderId)];
         }
 
-        $this->track($orderId, 'Rider Assignment Pending', "Rider assigned: {$rider->name}. Waiting for rider confirmation.");
+        $this->track($orderId, 'Rider Assigned', "{$rider->name} was assigned to this delivery.");
+        $this->track($orderId, 'Out for Delivery', "{$rider->name} is assigned and on the way.");
 
         $freshOrder = DB::table('orders')->where('id', $orderId)->first() ?: $order;
         $url = route('rider.show', [$orderId, $token], false);
@@ -60,9 +60,9 @@ class RiderAssignmentService
         $notice = $this->notifications->notifyRider(
             (int) $rider->id,
             $rider->phone ?? null,
-            'Delivery Needs Confirmation',
-            "Order #{$orderId} is assigned to you. Please accept or decline within " . self::ACCEPTANCE_MINUTES . ' minutes.',
-            ['event' => 'rider_assignment_pending', 'order_id' => $orderId, 'url' => $url],
+            'New Delivery Assigned',
+            "Order #{$orderId} is now assigned to you and ready for delivery.",
+            ['event' => 'rider_assigned', 'order_id' => $orderId, 'url' => $url],
             $sms,
             $url
         );
@@ -72,7 +72,18 @@ class RiderAssignmentService
             'updated_at' => now(),
         ]));
 
-        return ['ok' => true, 'token' => $token, 'pin' => $pin, 'expires_at' => $expiresAt, 'notice' => $notice];
+        try {
+            $this->notifications->notifyOrderCustomer(
+                $freshOrder,
+                'Order Out for Delivery',
+                "Order #{$orderId} is now out for delivery.",
+                ['event' => 'order_status']
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Customer rider assignment notification failed: ' . $e->getMessage());
+        }
+
+        return ['ok' => true, 'token' => $token, 'pin' => $pin, 'expires_at' => null, 'notice' => $notice];
     }
 
     /** True when a rider is already assigned and waiting to respond, or has accepted. */

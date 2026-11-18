@@ -840,7 +840,7 @@ class OrderController extends Controller
             Log::warning('Seller rider assignment push failed: ' . $e->getMessage());
         }
 
-        return back()->with('msg', "Rider assigned. Waiting for rider confirmation.{$noticeNote}");
+        return back()->with('msg', "Rider assigned and order is now out for delivery.{$noticeNote}");
     }
 
     public function cancelRiderAssignment(string $id)
