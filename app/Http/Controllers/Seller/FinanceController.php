@@ -36,10 +36,15 @@ class FinanceController extends Controller
         elseif ($period === 'last_month') [$from, $to] = [now()->subMonthNoOverflow()->startOfMonth()->toDateString(), now()->subMonthNoOverflow()->endOfMonth()->toDateString()];
         elseif ($period === 'year') [$from, $to] = [now()->startOfYear()->toDateString(), now()->endOfYear()->toDateString()];
         if ($from > $to) [$from, $to] = [$to, $from];
+        $fulfillment = strtolower((string) $request->input('fulfillment', ''));
+        if (!in_array($fulfillment, ['delivery', 'pickup'], true)) $fulfillment = '';
 
-        $ledgerRows = DB::table('seller_payout_ledgers')
-            ->where('shop_id', $shop->id)->whereBetween(DB::raw('DATE(created_at)'), [$from, $to])
-            ->orderByDesc('created_at')->get();
+        $ledgerRows = DB::table('seller_payout_ledgers as ledger')
+            ->leftJoin('orders as o', 'o.id', '=', 'ledger.order_id')
+            ->where('ledger.shop_id', $shop->id)
+            ->whereBetween(DB::raw('DATE(ledger.created_at)'), [$from, $to])
+            ->select('ledger.*', 'o.fulfillment_type')
+            ->orderByDesc('ledger.created_at')->get();
         $expenses = Schema::hasTable('seller_expenses')
             ? DB::table('seller_expenses')->where('shop_id', $shop->id)->whereBetween('expense_date', [$from, $to])->orderByDesc('expense_date')->orderByDesc('id')->get()
             : collect();
@@ -147,6 +152,8 @@ class FinanceController extends Controller
                     'status' => 'held - awaiting completion',
                     'expense_id' => null,
                     'payment_events' => collect(),
+                    'fulfillment_type' => $payment->fulfillment_type ?? null,
+                    'rider_delivery_fee' => 0.0,
                 ];
             }))
             ->merge($ledgerRows->map(function ($row) use ($paymentEventsByOrder, $hasCakeAmount, $hasDeliveryFund) {
@@ -166,14 +173,19 @@ class FinanceController extends Controller
                     'commission_rate' => (float) $row->commission_rate,
                     'release_at' => $row->release_at,
                     'notes' => $row->notes,
+                    'fulfillment_type' => $row->fulfillment_type ?? null,
+                    'rider_delivery_fee' => $hasDeliveryFund ? (float) $row->delivery_fund_amount : 0.0,
                 ];
             }))
             ->merge($expenses->map(fn ($row) => (object) ['date' => $row->expense_date, 'type' => 'Business expense', 'reference' => $row->description, 'gross' => 0, 'commission' => 0, 'net' => -(float) $row->amount, 'status' => $row->category, 'expense_id' => $row->id]))
             ->merge($payoutRows->map(fn ($row) => (object) ['date' => $row->paid_at ?? $row->created_at, 'type' => 'Seller payout', 'reference' => 'Payout #'.$row->id, 'gross' => 0, 'commission' => 0, 'net' => -(float) $row->net_amount, 'status' => $row->status, 'expense_id' => null]))
             ->sortByDesc('date')->values();
+        if ($fulfillment) {
+            $transactions = $transactions->filter(fn ($transaction) => strtolower((string) ($transaction->fulfillment_type ?? '')) === $fulfillment)->values();
+        }
 
         $summary = $this->payouts->summaryForShop((string) $shop->id);
-        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'gross', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations'));
+        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'fulfillment', 'gross', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations'));
     }
 
     public function storeExpense(Request $request)
