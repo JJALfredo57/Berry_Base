@@ -51,11 +51,39 @@ class FinanceController extends Controller
             ? DB::table('payment_transactions as pt')
                 ->join('orders as o', 'o.id', '=', 'pt.order_id')
                 ->where('o.shop_id', $shop->id)
+                ->whereRaw("LOWER(COALESCE(o.status, '')) <> ?", ['cancelled'])
                 ->where('pt.payment_status', 'paid')
                 ->whereBetween(DB::raw('DATE(COALESCE(pt.paid_at, pt.created_at))'), [$from, $to])
-                ->select('pt.*', 'o.status as order_status', 'o.fulfillment_type')
+                ->select('pt.*', 'o.status as order_status', 'o.fulfillment_type', 'o.track_code')
                 ->orderByDesc('pt.paid_at')->orderByDesc('pt.id')->get()
             : collect();
+
+        $customerPaymentRows = $paymentRows->map(function ($payment) {
+            $payment->label = PaymentTransactionHelper::typeLabel($payment->type ?? null);
+            return $payment;
+        });
+
+        $deliveryAllocations = Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount')
+            ? DB::table('seller_payout_ledgers as ledger')
+                ->join('orders as o', 'o.id', '=', 'ledger.order_id')
+                ->where('ledger.shop_id', $shop->id)
+                ->whereRaw("LOWER(COALESCE(o.status, '')) <> ?", ['cancelled'])
+                ->whereBetween(DB::raw('DATE(ledger.created_at)'), [$from, $to])
+                ->where('ledger.delivery_fund_amount', '>', 0)
+                ->select('ledger.order_id', 'ledger.delivery_fund_amount', 'ledger.created_at', 'o.track_code', 'o.status as order_status')
+                ->orderByDesc('ledger.created_at')->get()
+            : collect();
+        if ($deliveryAllocations->isNotEmpty() && Schema::hasTable('order_items')) {
+            $itemsByOrder = DB::table('order_items')
+                ->whereIn('order_id', $deliveryAllocations->pluck('order_id')->unique()->values())
+                ->orderBy('id')->get(['order_id', 'product_name', 'quantity'])
+                ->groupBy('order_id');
+            $deliveryAllocations->each(function ($allocation) use ($itemsByOrder) {
+                $allocation->products = $itemsByOrder->get($allocation->order_id, collect());
+            });
+        } else {
+            $deliveryAllocations->each(fn ($allocation) => $allocation->products = collect());
+        }
 
         // A completed order has one finance-history event: its settlement. Its
         // customer receipts remain attached to that settlement as proof instead
@@ -70,7 +98,7 @@ class FinanceController extends Controller
             ->values();
 
         $gross = (float) $paymentRows->sum('amount');
-        $deliveryFund = Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount') ? (float) $ledgerRows->sum('delivery_fund_amount') : 0.0;
+        $deliveryFund = (float) $deliveryAllocations->sum('delivery_fund_amount');
         $commission = (float) $ledgerRows->sum('commission_amount');
         $refunds = abs((float) $ledgerRows->where('seller_net_amount', '<', 0)->sum('seller_net_amount'));
         $netEarnings = (float) $ledgerRows->sum('seller_net_amount');
@@ -145,7 +173,7 @@ class FinanceController extends Controller
             ->sortByDesc('date')->values();
 
         $summary = $this->payouts->summaryForShop((string) $shop->id);
-        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'gross', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary'));
+        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'gross', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations'));
     }
 
     public function storeExpense(Request $request)
