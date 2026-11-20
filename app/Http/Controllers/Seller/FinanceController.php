@@ -109,24 +109,30 @@ class FinanceController extends Controller
             ->values();
 
         $hasUnifiedSnapshot = Schema::hasColumn('seller_payout_ledgers', 'online_collected_amount');
+        $summaryLedgerRows = $fulfillment
+            ? $ledgerRows->filter(fn ($row) => strtolower((string) ($row->fulfillment_type ?? '')) === $fulfillment)->values()
+            : $ledgerRows;
+        $summaryPaymentRows = $fulfillment
+            ? $paymentRows->filter(fn ($payment) => strtolower((string) ($payment->fulfillment_type ?? '')) === $fulfillment)->values()
+            : $paymentRows;
         // Keep the established Finance card meaning: all real customer
         // receipts, including cash. The detail page already filters the
         // source without requiring a replacement dashboard UI.
-        $onlineCollections = (float) $paymentRows
+        $onlineCollections = (float) $summaryPaymentRows
             ->filter(fn ($payment) => strtoupper((string) ($payment->method ?? '')) === 'GCASH')
             ->sum('amount');
-        $cashCollections = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('cash_collected_amount') : 0.0;
-        $cashToSeller = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('cash_to_seller_amount') : 0.0;
-        $totalSellerSales = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('total_seller_earnings') : 0.0;
+        $cashCollections = $hasUnifiedSnapshot ? (float) $summaryLedgerRows->sum('cash_collected_amount') : 0.0;
+        $cashToSeller = $hasUnifiedSnapshot ? (float) $summaryLedgerRows->sum('cash_to_seller_amount') : 0.0;
+        $totalSellerSales = $hasUnifiedSnapshot ? (float) $summaryLedgerRows->sum('total_seller_earnings') : 0.0;
         $gross = $onlineCollections + $cashCollections;
-        $riderCashFees = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('rider_cash_fee_amount') : 0.0;
-        $riderOnlineFees = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('rider_online_fee_amount') : (float) $deliveryAllocations->sum('delivery_fund_amount');
+        $riderCashFees = $hasUnifiedSnapshot ? (float) $summaryLedgerRows->sum('rider_cash_fee_amount') : 0.0;
+        $riderOnlineFees = $hasUnifiedSnapshot ? (float) $summaryLedgerRows->sum('rider_online_fee_amount') : (float) $deliveryAllocations->sum('delivery_fund_amount');
         $deliveryFund = $riderCashFees + $riderOnlineFees;
-        $commission = (float) $ledgerRows->sum('commission_amount');
-        $refunds = abs((float) $ledgerRows->where('seller_net_amount', '<', 0)->sum('seller_net_amount'));
+        $commission = (float) $summaryLedgerRows->sum('commission_amount');
+        $refunds = abs((float) $summaryLedgerRows->where('seller_net_amount', '<', 0)->sum('seller_net_amount'));
         $netEarnings = $hasUnifiedSnapshot
-            ? (float) $ledgerRows->sum('total_seller_earnings')
-            : (float) $ledgerRows->sum('seller_net_amount');
+            ? (float) $summaryLedgerRows->sum('total_seller_earnings')
+            : (float) $summaryLedgerRows->sum('seller_net_amount');
         $expenseTotal = (float) $expenses->sum('amount');
         $chart = $ledgerRows->groupBy(fn ($row) => substr((string) $row->created_at, 0, 10))
             ->map(fn ($rows) => ['gross' => round((float) $rows->where('gross_amount', '>', 0)->sum('gross_amount'), 2), 'net' => round((float) ($hasUnifiedSnapshot ? $rows->sum('total_seller_earnings') : $rows->sum('seller_net_amount')), 2)])

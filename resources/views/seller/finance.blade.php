@@ -62,7 +62,7 @@
       <td class="fw-semibold">{{ $transaction->reference }}</td>
       <td>{{ strtoupper($transaction->payment_method ?? '—') }} · {{ ucfirst(strtolower($transaction->fulfillment_type ?? '—')) }}</td>
       <td class="text-end text-primary">₱{{ number_format((float)($transaction->online_collected ?? 0),2) }}</td>
-      <td class="text-end text-warning-emphasis">₱{{ number_format((float)($transaction->cash_to_seller ?? 0),2) }}</td>
+      <td class="text-end text-warning-emphasis">₱{{ number_format((float)($transaction->cash_to_seller ?? 0),2) }}@if(strtoupper((string)($transaction->payment_method ?? '')) === 'COD' && strtolower((string)($transaction->fulfillment_type ?? '')) === 'delivery')<span class="finance-receipt-total">{{ (float)($transaction->cash_to_seller ?? 0) > 0 ? 'Seller confirmed' : 'Waiting for seller confirmation' }}</span>@endif</td>
       <td class="text-end">{{ (float)($transaction->rider_delivery_fee ?? 0) > 0 ? '₱'.number_format((float)$transaction->rider_delivery_fee,2) : '—' }}</td>
       <td class="text-end finance-negative">−₱{{ number_format((float)($transaction->commission ?? 0),2) }}<span class="finance-receipt-total">{{ number_format((float)($transaction->commission_rate ?? 0),2) }}%</span></td>
       <td class="text-end finance-positive">₱{{ number_format((float)($transaction->net ?? 0),2) }}</td>
