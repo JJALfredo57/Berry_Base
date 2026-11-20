@@ -39,8 +39,32 @@ class CatalogController extends Controller
                 ->get()->groupBy('category_id');
         } catch (\Exception $e) {}
 
+        $shareMeta = null;
+        $sharedProductId = trim((string) ($request?->query('product_id') ?? ''));
+        if ($sharedProductId !== '') {
+            $product = DB::table('products as p')
+                ->leftJoin('shops as s', 's.id', '=', 'p.shop_id')
+                ->where('p.id', $sharedProductId)
+                ->whereNull('p.archived_at')
+                ->select('p.id', 'p.name', 'p.description', 'p.image_path', 's.shop_name')
+                ->first();
+
+            if ($product) {
+                $image = trim((string) ($product->image_path ?? ''));
+                $imageUrl = preg_match('~^https?://~i', $image)
+                    ? $image
+                    : ($image !== '' ? url('/' . ltrim($image, '/')) : null);
+                $shareMeta = [
+                    'title' => trim($product->name . ' | ' . ($product->shop_name ?: 'Berry Base')),
+                    'description' => \Illuminate\Support\Str::limit(trim(strip_tags((string) $product->description)) ?: 'View this cake on Berry Base.', 180),
+                    'image' => $imageUrl,
+                    'url' => url('/catalog?product_id=' . rawurlencode((string) $product->id)),
+                ];
+            }
+        }
+
         return view('guest.catalog', compact(
-            'products','bestSellers','sizesMap','reviewsMap','productReviews','addonCategories','addonsByCategory','capacityMap','barangayOptions'
+            'products','bestSellers','sizesMap','reviewsMap','productReviews','addonCategories','addonsByCategory','capacityMap','barangayOptions','shareMeta'
         ));
     }
 

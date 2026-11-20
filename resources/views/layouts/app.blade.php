@@ -170,7 +170,26 @@
       } catch (\Exception $e) {}
   }
 @endphp
-  <title>{{ $brandTitle }}</title>
+  @php
+    $shareMeta = $shareMeta ?? null;
+    $metaTitle = $shareMeta['title'] ?? $brandTitle;
+    $metaDescription = $shareMeta['description'] ?? 'Discover local cakes and cake shops on '.$brandTitle.'.';
+    $metaUrl = $shareMeta['url'] ?? url()->current();
+    $metaImage = $shareMeta['image'] ?? (!empty($brandLogo) ? (preg_match('/^https?:\/\//i', $brandLogo) ? $brandLogo : url('/'.ltrim($brandLogo, '/'))) : null);
+  @endphp
+  <title>{{ $metaTitle }}</title>
+  <meta name="description" content="{{ $metaDescription }}">
+  <link rel="canonical" href="{{ $metaUrl }}">
+  <meta property="og:type" content="product">
+  <meta property="og:site_name" content="{{ $brandTitle }}">
+  <meta property="og:title" content="{{ $metaTitle }}">
+  <meta property="og:description" content="{{ $metaDescription }}">
+  <meta property="og:url" content="{{ $metaUrl }}">
+  @if($metaImage)<meta property="og:image" content="{{ $metaImage }}"><meta property="og:image:secure_url" content="{{ $metaImage }}">@endif
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ $metaTitle }}">
+  <meta name="twitter:description" content="{{ $metaDescription }}">
+  @if($metaImage)<meta name="twitter:image" content="{{ $metaImage }}">@endif
 
   {{-- Favicon --}}
   @if(!empty($brandLogo))
