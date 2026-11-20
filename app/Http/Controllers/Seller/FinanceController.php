@@ -109,19 +109,22 @@ class FinanceController extends Controller
             ->values();
 
         $hasUnifiedSnapshot = Schema::hasColumn('seller_payout_ledgers', 'online_collected_amount');
-        $gross = $hasUnifiedSnapshot
-            ? (float) $ledgerRows->sum('online_collected_amount')
-            : (float) $paymentRows->sum('amount');
+        // Keep the established Finance card meaning: all real customer
+        // receipts, including cash. The detail page already filters the
+        // source without requiring a replacement dashboard UI.
+        $gross = (float) $paymentRows->sum('amount');
         $cashCollections = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('cash_collected_amount') : 0.0;
         $cashToSeller = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('cash_to_seller_amount') : 0.0;
         $totalSellerSales = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('total_seller_earnings') : 0.0;
         $deliveryFund = (float) $deliveryAllocations->sum('delivery_fund_amount');
         $commission = (float) $ledgerRows->sum('commission_amount');
         $refunds = abs((float) $ledgerRows->where('seller_net_amount', '<', 0)->sum('seller_net_amount'));
-        $netEarnings = (float) $ledgerRows->sum('seller_net_amount');
+        $netEarnings = $hasUnifiedSnapshot
+            ? (float) $ledgerRows->sum('total_seller_earnings')
+            : (float) $ledgerRows->sum('seller_net_amount');
         $expenseTotal = (float) $expenses->sum('amount');
         $chart = $ledgerRows->groupBy(fn ($row) => substr((string) $row->created_at, 0, 10))
-            ->map(fn ($rows) => ['gross' => round((float) $rows->where('gross_amount', '>', 0)->sum('gross_amount'), 2), 'net' => round((float) $rows->sum('seller_net_amount'), 2)])
+            ->map(fn ($rows) => ['gross' => round((float) $rows->where('gross_amount', '>', 0)->sum('gross_amount'), 2), 'net' => round((float) ($hasUnifiedSnapshot ? $rows->sum('total_seller_earnings') : $rows->sum('seller_net_amount')), 2)])
             ->sortKeys();
         $expenseByDay = $expenses->groupBy('expense_date')->map(fn ($rows) => round((float) $rows->sum('amount'), 2));
         $labels = collect(range(0, \Carbon\Carbon::parse($from)->diffInDays(\Carbon\Carbon::parse($to))))
@@ -217,15 +220,8 @@ class FinanceController extends Controller
             'total_seller_earnings' => $hasUnifiedSnapshot ? (float) $transactions->sum('total_seller_earnings') : (float) $transactions->sum('net'),
         ];
 
-        $breakdowns = [
-            'online' => $ledgerRows->map(fn ($row) => ['order' => $row->order_id, 'amount' => (float) ($hasUnifiedSnapshot ? $row->online_collected_amount : $row->gross_amount), 'meta' => 'Online customer payment']),
-            'cash' => $ledgerRows->filter(fn ($row) => $hasUnifiedSnapshot && (float) $row->cash_collected_amount > 0)->map(fn ($row) => ['order' => $row->order_id, 'amount' => (float) $row->cash_collected_amount, 'meta' => 'Cash collected · Seller received ₱'.number_format((float) $row->cash_to_seller_amount, 2)]),
-            'commission' => $ledgerRows->map(fn ($row) => ['order' => $row->order_id, 'amount' => (float) $row->commission_amount, 'meta' => 'Cake ₱'.number_format((float) ($row->cake_amount ?? $row->commission_base), 2).' × '.number_format((float) $row->commission_rate, 2).'%']),
-            'earnings' => $ledgerRows->map(fn ($row) => ['order' => $row->order_id, 'amount' => (float) ($hasUnifiedSnapshot ? $row->total_seller_earnings : $row->seller_net_amount), 'meta' => 'Cash + expected online seller payout']),
-        ];
-
         $summary = $this->payouts->summaryForShop((string) $shop->id);
-        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'fulfillment', 'gross', 'cashCollections', 'cashToSeller', 'totalSellerSales', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations', 'transactionTotals', 'breakdowns'));
+        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'fulfillment', 'gross', 'cashCollections', 'cashToSeller', 'totalSellerSales', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations', 'transactionTotals'));
     }
 
     public function customerPayments(Request $request)

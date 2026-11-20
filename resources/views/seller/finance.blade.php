@@ -25,15 +25,14 @@
   </div>
 </div>
 
-@if(false) {{-- legacy summary cards retained only for safe rollback --}}
 <div class="finance-grid">
   <a class="finance-card finance-card-clickable text-decoration-none" href="{{ route('seller.finance.customer_payments',['from'=>$from,'to'=>$to]) }}"><div class="finance-label">Customer payments received</div><div class="finance-value">₱{{ number_format($gross,2) }}</div><div class="finance-help">Open filtered payments and receipt totals</div></a>
   <a class="finance-card finance-card-clickable text-decoration-none" href="{{ route('seller.finance.delivery_allocations',['from'=>$from,'to'=>$to]) }}"><div class="finance-label">Delivery fee allocation</div><div class="finance-value">₱{{ number_format($deliveryFund ?? 0,2) }}</div><div class="finance-help">Open filtered delivery orders and fee totals</div></a>
   <article class="finance-card" tabindex="0"><div class="finance-label">Completed-order seller earnings</div><div class="finance-value finance-positive">₱{{ number_format($netEarnings,2) }}</div><div class="finance-help">Recorded after delivery/pickup, less commission and recoveries</div></article>
   <article class="finance-card" tabindex="0"><div class="finance-label">Estimated profit after expenses</div><div class="finance-value {{ $netEarnings-$expenseTotal >= 0 ? 'finance-positive' : 'finance-negative' }}">₱{{ number_format($netEarnings-$expenseTotal,2) }}</div><div class="finance-help">Completed-order seller earnings minus recorded expenses</div></article>
 </div>
-@endif
 
+@if(false) {{-- Removed replacement cards: retained only as a temporary source reference. --}}
 <div class="finance-grid">
   <button class="finance-card finance-card-clickable" type="button" data-finance-title="Online collections" data-finance-rows='@json($breakdowns['online'])'><div class="finance-label">Online collections</div><div class="finance-value">₱{{ number_format($gross,2) }}</div><div class="finance-help">Tap to view the payment breakdown</div></button>
   <button class="finance-card finance-card-clickable" type="button" data-finance-title="Cash collections" data-finance-rows='@json($breakdowns['cash'])'><div class="finance-label">Cash collections</div><div class="finance-value">₱{{ number_format($cashCollections ?? 0,2) }}</div><div class="finance-help">Tap to view counter and rider cash</div></button>
@@ -42,6 +41,7 @@
 </div>
 
 <div class="finance-detail-modal" id="financeDetailModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="financeDetailTitle"><div class="finance-detail-dialog"><div class="finance-detail-header d-flex justify-content-between align-items-start gap-3"><div><h5 class="mb-1" id="financeDetailTitle">Breakdown</h5><div class="small text-muted">Completed orders in the selected date range.</div></div><button class="btn btn-sm btn-outline-secondary" type="button" data-finance-close aria-label="Close breakdown"><i class="bi bi-x-lg"></i></button></div><div class="finance-detail-body" id="financeDetailBody"></div></div></div>
+@endif
 
 <div class="finance-layout">
   <section class="finance-panel"><div class="d-flex justify-content-between align-items-center mb-2"><div><h6 class="mb-0 fw-bold">Finance trend</h6><small class="text-muted">Completed-order settlement and recorded business expenses</small></div><span class="small text-muted">Auto-refreshes every 60 seconds</span></div><div class="finance-chart"><canvas id="financeChart"></canvas></div></section>
@@ -53,6 +53,7 @@
 <section class="finance-panel mt-3"><div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><div><h6 class="fw-bold mb-0">Transaction history totals</h6><small class="text-muted">Totals for the current date range and fulfillment filter.</small></div><span class="badge text-bg-light">{{ $transactionTotals['receipts'] }} receipt{{ $transactionTotals['receipts']===1?'':'s' }}</span></div><div class="row row-cols-2 row-cols-md-4 g-2 mt-1"><div class="col"><div class="small text-muted">Customer payments</div><strong>₱{{ number_format($transactionTotals['customer_payments'],2) }}</strong></div><div class="col"><div class="small text-muted">Rider delivery fees</div><strong>₱{{ number_format($transactionTotals['rider_delivery_fees'],2) }}</strong></div><div class="col"><div class="small text-muted">Commission</div><strong>−₱{{ number_format($transactionTotals['commission'],2) }}</strong></div><div class="col"><div class="small text-muted">Seller settlement</div><strong class="{{ $transactionTotals['seller_settlement'] >= 0 ? 'finance-positive' : 'finance-negative' }}">{{ $transactionTotals['seller_settlement'] >= 0 ? '+' : '−' }}₱{{ number_format(abs($transactionTotals['seller_settlement']),2) }}</strong></div></div></section>
 
 @push('scripts')
+@if(false) {{-- obsolete modal behavior intentionally disabled --}}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const modal=document.getElementById('financeDetailModal'), title=document.getElementById('financeDetailTitle'), body=document.getElementById('financeDetailBody');
@@ -67,6 +68,7 @@ document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});
 });
 </script>
+@endif
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () { const form=document.querySelector('.finance-filter'); const dates=form?.querySelectorAll('input[type="date"]'); dates?.forEach(input=>input.addEventListener('change',()=>{ if(dates[0].value&&dates[1].value) form.requestSubmit(); })); const ctx=document.getElementById('financeChart'); if(!ctx||!window.Chart)return; new Chart(ctx,{type:'line',data:{labels:@json($chartData['labels']),datasets:[{label:'Customer payments',data:@json($chartData['gross']),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:.35},{label:'Completed-order seller earnings',data:@json($chartData['net']),borderColor:'#16a34a',tension:.35},{label:'Business expenses',data:@json($chartData['expenses']),borderColor:'#dc2626',tension:.35}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'₱'+Number(v).toLocaleString()}}}}}); setTimeout(()=>location.reload(),60000); });
