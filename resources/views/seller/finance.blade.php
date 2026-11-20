@@ -62,7 +62,10 @@
       <td class="fw-semibold">{{ $transaction->reference }}</td>
       <td>{{ strtoupper($transaction->payment_method ?? '—') }} · {{ ucfirst(strtolower($transaction->fulfillment_type ?? '—')) }}</td>
       <td class="text-end text-primary">₱{{ number_format((float)($transaction->online_collected ?? 0),2) }}</td>
-      <td class="text-end text-warning-emphasis">@if(($transaction->rider_remittance_status ?? null) === 'awaiting_confirmation')<span>Expected: ₱{{ number_format((float)$transaction->expected_rider_remittance,2) }}</span><span class="finance-receipt-total">Waiting for seller confirmation</span>@else ₱{{ number_format((float)($transaction->cash_to_seller ?? 0),2) }}@if(($transaction->rider_remittance_status ?? null) === 'confirmed')<span class="finance-receipt-total">Seller confirmed</span>@endif@endif</td>
+      @php($isCodDelivery = strtoupper((string)($transaction->payment_method ?? '')) === 'COD' && strtolower((string)($transaction->fulfillment_type ?? '')) === 'delivery')
+      @php($confirmedCash = (float)($transaction->cash_to_seller ?? 0))
+      @php($expectedRemittance = max(0, (float)($transaction->cash_collected ?? 0) - (float)($transaction->rider_delivery_fee ?? 0)))
+      <td class="text-end text-warning-emphasis">@if($isCodDelivery && $confirmedCash <= 0)<span>Expected: ₱{{ number_format($expectedRemittance,2) }}</span><span class="finance-receipt-total">Waiting for seller confirmation</span>@else ₱{{ number_format($confirmedCash,2) }}@if($isCodDelivery)<span class="finance-receipt-total">Seller confirmed</span>@endif@endif</td>
       <td class="text-end">{{ (float)($transaction->rider_delivery_fee ?? 0) > 0 ? '₱'.number_format((float)$transaction->rider_delivery_fee,2) : '—' }}</td>
       <td class="text-end finance-negative">−₱{{ number_format((float)($transaction->commission ?? 0),2) }}<span class="finance-receipt-total">{{ number_format((float)($transaction->commission_rate ?? 0),2) }}%</span></td>
       <td class="text-end finance-positive">₱{{ number_format((float)($transaction->net ?? 0),2) }}</td>

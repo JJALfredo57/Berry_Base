@@ -183,13 +183,6 @@ class FinanceController extends Controller
                 ];
             }))
             ->merge($ledgerRows->map(function ($row) use ($paymentEventsByOrder, $hasCakeAmount, $hasDeliveryFund, $hasUnifiedSnapshot) {
-                $isCodDelivery = strtoupper((string) ($row->payment_method ?? '')) === 'COD'
-                    && strtolower((string) ($row->fulfillment_type ?? '')) === 'delivery';
-                $cashCollected = $hasUnifiedSnapshot ? (float) $row->cash_collected_amount : 0.0;
-                $cashToSeller = $hasUnifiedSnapshot ? (float) $row->cash_to_seller_amount : 0.0;
-                $riderFee = $hasUnifiedSnapshot
-                    ? (float) $row->rider_cash_fee_amount + (float) $row->rider_online_fee_amount
-                    : ($hasDeliveryFund ? (float) $row->delivery_fund_amount : 0.0);
                 return (object) [
                     'date' => $row->created_at,
                     'type' => $row->seller_net_amount < 0 ? 'Refund deduction' : 'Order earnings',
@@ -208,14 +201,12 @@ class FinanceController extends Controller
                     'notes' => $row->notes,
                     'fulfillment_type' => $row->fulfillment_type ?? null,
                     'payment_method' => $row->payment_method ?? null,
-                    'rider_delivery_fee' => $riderFee,
+                    'rider_delivery_fee' => $hasUnifiedSnapshot
+                        ? (float) $row->rider_cash_fee_amount + (float) $row->rider_online_fee_amount
+                        : ($hasDeliveryFund ? (float) $row->delivery_fund_amount : 0.0),
                     'online_collected' => $hasUnifiedSnapshot ? (float) $row->online_collected_amount : (float) $row->gross_amount,
-                    'cash_collected' => $cashCollected,
-                    'cash_to_seller' => $cashToSeller,
-                    'expected_rider_remittance' => $isCodDelivery ? max(0, $cashCollected - $riderFee) : 0.0,
-                    'rider_remittance_status' => $isCodDelivery
-                        ? ($cashToSeller > 0 ? 'confirmed' : 'awaiting_confirmation')
-                        : null,
+                    'cash_collected' => $hasUnifiedSnapshot ? (float) $row->cash_collected_amount : 0.0,
+                    'cash_to_seller' => $hasUnifiedSnapshot ? (float) $row->cash_to_seller_amount : 0.0,
                     'remaining_balance' => $hasUnifiedSnapshot ? (float) $row->remaining_balance : 0.0,
                     'total_seller_earnings' => $hasUnifiedSnapshot ? (float) $row->total_seller_earnings : (float) $row->seller_net_amount,
                 ];
