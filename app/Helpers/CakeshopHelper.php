@@ -66,23 +66,10 @@ class CakeshopHelper
      */
     public static function getPaymongoSecretKey(): string
     {
-        $settings = self::getSettings();
-        $mode = $settings['paymongo_mode'] ?? 'test';
-
+        [$mode, $settings] = self::getPlatformPaymongoSettings();
         $key = $mode === 'live'
-            ? ($settings['paymongo_live_secret'] ?? '')
-            : ($settings['paymongo_test_secret'] ?? '');
-
-        // Fallback to platform_settings (Super Admin), then .env
-        if (empty($key)) {
-            try {
-                $p    = DB::table('platform_settings')->first();
-                $pMode = $p->paymongo_mode ?? 'test';
-                $key  = $pMode === 'live'
-                    ? ($p->paymongo_live_secret ?? $p->paymongo_secret_key ?? '')
-                    : ($p->paymongo_test_secret ?? $p->paymongo_secret_key ?? '');
-            } catch (\Exception $e) {}
-        }
+            ? ($settings->paymongo_live_secret ?? $settings->paymongo_secret_key ?? '')
+            : ($settings->paymongo_test_secret ?? $settings->paymongo_secret_key ?? '');
         if (empty($key)) $key = config('paymongo.secret_key', '');
 
         return $key;
@@ -90,23 +77,10 @@ class CakeshopHelper
 
     public static function getPaymongoPublicKey(): string
     {
-        $settings = self::getSettings();
-        $mode = $settings['paymongo_mode'] ?? 'test';
-
+        [$mode, $settings] = self::getPlatformPaymongoSettings();
         $key = $mode === 'live'
-            ? ($settings['paymongo_live_public'] ?? '')
-            : ($settings['paymongo_test_public'] ?? '');
-
-        // Fallback to platform_settings (Super Admin), then .env
-        if (empty($key)) {
-            try {
-                $p    = DB::table('platform_settings')->first();
-                $pMode = $p->paymongo_mode ?? 'test';
-                $key  = $pMode === 'live'
-                    ? ($p->paymongo_live_public ?? $p->paymongo_public_key ?? '')
-                    : ($p->paymongo_test_public ?? $p->paymongo_public_key ?? '');
-            } catch (\Exception $e) {}
-        }
+            ? ($settings->paymongo_live_public ?? $settings->paymongo_public_key ?? '')
+            : ($settings->paymongo_test_public ?? $settings->paymongo_public_key ?? '');
         if (empty($key)) $key = config('paymongo.public_key', '');
 
         return $key;
@@ -117,8 +91,24 @@ class CakeshopHelper
      */
     public static function getPaymongoMode(): string
     {
-        $settings = self::getSettings();
-        return $settings['paymongo_mode'] ?? 'test';
+        [$mode] = self::getPlatformPaymongoSettings();
+        return $mode;
+    }
+
+    /** Platform settings are the single source of truth for marketplace payments. */
+    private static function getPlatformPaymongoSettings(): array
+    {
+        try {
+            $platform = DB::table('platform_settings')->first();
+            if ($platform) {
+                $mode = $platform->paymongo_mode ?? 'test';
+                return [in_array($mode, ['test', 'live'], true) ? $mode : 'test', $platform];
+            }
+        } catch (\Exception $e) {}
+
+        $site = (object) self::getSettings();
+        $mode = $site->paymongo_mode ?? 'test';
+        return [in_array($mode, ['test', 'live'], true) ? $mode : 'test', $site];
     }
 
     public static function displayPaymentMethod(?string $paymentMethod, ?string $fulfillmentType = null): string

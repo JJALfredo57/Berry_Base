@@ -331,7 +331,6 @@ class PaymentController extends Controller
         $sessionStatus = '';
         $paymentStatus = '';
         $pmReference   = null;
-        $apiVerified   = false;
 
         if ($order->deposit_paymongo_id && $secretKey) {
             try {
@@ -353,15 +352,12 @@ class PaymentController extends Controller
                 $paymentStatus = $res['data']['attributes']['payment_intent']['attributes']['status'] ?? '';
                 $pmReference   = $res['data']['attributes']['payments'][0]['attributes']['reference_number']
                                  ?? ($res['data']['attributes']['reference_number'] ?? null);
-                $apiVerified   = in_array($sessionStatus, ['completed', 'active'])
-                                 || $paymentStatus === 'succeeded';
             } catch (\Exception $e) {}
         }
 
-        // Trust PayMongo's success_url redirect if API check is inconclusive but deposit was initiated
-        $paymentConfirmed = ($sessionStatus === 'completed' || $paymentStatus === 'succeeded')
-            || ($apiVerified && $order->deposit_required)
-            || ($urlStatus === 'success' && $order->deposit_required && $order->deposit_paymongo_id);
+        // A browser redirect is never payment proof. Only PayMongo's API or
+        // the signed webhook may release an order for fulfilment.
+        $paymentConfirmed = $sessionStatus === 'completed' || $paymentStatus === 'succeeded';
 
         if (!$paymentConfirmed)
             return redirect()->route('track.order', $trackCode)->with('error', 'Payment could not be confirmed. Please contact the shop if payment was deducted.');

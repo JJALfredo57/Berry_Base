@@ -345,6 +345,7 @@ Route::post('/rider/{orderId}/{token}/remittance/check-paymongo', [\App\Http\Con
 Route::post('/rider/{orderId}/{token}/remittance', [\App\Http\Controllers\RiderController::class, 'submitRemittance'])->name('rider.remittance');
 Route::post('/rider/{orderId}/{token}/issue',     [\App\Http\Controllers\RiderController::class, 'reportIssue'])->name('rider.issue');
 Route::post('/webhooks/paymongo/remittance', [\App\Http\Controllers\RiderController::class, 'paymongoRemittanceWebhook'])->name('paymongo.remittance_webhook');
+Route::post('/webhooks/paymongo', [\App\Http\Controllers\PaymongoWebhookController::class, 'handle'])->name('paymongo.webhook');
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Customer Panel Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 use App\Http\Controllers\Customer\CatalogController as CustomerCatalog;
