@@ -49,7 +49,15 @@ class FinanceController extends Controller
             ->leftJoin('orders as o', 'o.id', '=', 'ledger.order_id')
             ->where('ledger.shop_id', $shop->id)
             ->whereBetween(DB::raw('DATE(ledger.created_at)'), [$from, $to])
-            ->select('ledger.*', 'o.fulfillment_type', 'o.payment_method')
+            ->select(
+                'ledger.*',
+                'o.fulfillment_type',
+                'o.payment_method',
+                'o.total_price',
+                'o.deposit_amount',
+                'o.deposit_status',
+                'o.delivery_fee'
+            )
             ->orderByDesc('ledger.created_at')->get();
         $expenses = Schema::hasTable('seller_expenses')
             ? DB::table('seller_expenses')->where('shop_id', $shop->id)->whereBetween('expense_date', [$from, $to])->orderByDesc('expense_date')->orderByDesc('id')->get()
@@ -183,6 +191,13 @@ class FinanceController extends Controller
                 ];
             }))
             ->merge($ledgerRows->map(function ($row) use ($paymentEventsByOrder, $hasCakeAmount, $hasDeliveryFund, $hasUnifiedSnapshot) {
+                $isCodDelivery = strtoupper((string) ($row->payment_method ?? '')) === 'COD'
+                    && strtolower((string) ($row->fulfillment_type ?? '')) === 'delivery';
+                $customerCashBalance = max(0, (float) ($row->total_price ?? 0)
+                    - (($row->deposit_status ?? '') === 'paid' ? (float) ($row->deposit_amount ?? 0) : 0));
+                $expectedRiderRemittance = $isCodDelivery
+                    ? max(0, $customerCashBalance - (float) ($row->delivery_fee ?? 0))
+                    : 0.0;
                 return (object) [
                     'date' => $row->created_at,
                     'type' => $row->seller_net_amount < 0 ? 'Refund deduction' : 'Order earnings',
@@ -207,6 +222,8 @@ class FinanceController extends Controller
                     'online_collected' => $hasUnifiedSnapshot ? (float) $row->online_collected_amount : (float) $row->gross_amount,
                     'cash_collected' => $hasUnifiedSnapshot ? (float) $row->cash_collected_amount : 0.0,
                     'cash_to_seller' => $hasUnifiedSnapshot ? (float) $row->cash_to_seller_amount : 0.0,
+                    'expected_rider_remittance' => $expectedRiderRemittance,
+                    'has_pending_rider_remittance' => $isCodDelivery && (float) ($row->cash_to_seller_amount ?? 0) <= 0,
                     'remaining_balance' => $hasUnifiedSnapshot ? (float) $row->remaining_balance : 0.0,
                     'total_seller_earnings' => $hasUnifiedSnapshot ? (float) $row->total_seller_earnings : (float) $row->seller_net_amount,
                 ];
