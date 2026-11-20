@@ -73,4 +73,13 @@ class DailyCapacityServiceTest extends TestCase
         $this->assertFalse($result['allowed']);
         $this->assertSame(3, $result['remaining']);
     }
+
+    public function test_custom_capacity_allows_the_exact_configured_quantity(): void
+    {
+        $result = app(DailyCapacityService::class)->validate('shop-capacity', '2026-11-21', 3);
+
+        $this->assertTrue($result['allowed']);
+        $this->assertSame(3, $result['max']);
+        $this->assertSame(3, $result['remaining']);
+    }
 }

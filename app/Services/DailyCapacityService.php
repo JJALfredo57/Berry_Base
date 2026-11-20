@@ -32,7 +32,9 @@ class DailyCapacityService
             ];
         }
 
-        $today = date('Y-m-d');
+        // Use Laravel's clock and the marketplace timezone. Native date()
+        // ignores Carbon's test clock and can select the wrong schedule slot.
+        $today = now('Asia/Manila')->toDateString();
         $leadDays = (int) floor((strtotime($date) - strtotime($today)) / 86400);
         $effectiveMax = $this->effectiveMaxForDate($settings, $dailyMax, $leadDays);
 
