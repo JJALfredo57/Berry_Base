@@ -678,6 +678,10 @@ class OrderController extends Controller
             return back()->with('err', 'Unable to confirm remittance right now. Please try again or contact admin.');
         }
 
+        // Refresh the unified snapshot immediately so Finance and payout cards
+        // show the rider-remitted cake cash without waiting for a scheduled sync.
+        app(\App\Services\SellerPayoutService::class)->syncDeliveredPaidOrders();
+
         $this->logSellerActivitySafe('Confirm Rider Remittance', "Order #{$id}");
         return back()->with('msg', "Cash remittance for Order #{$id} confirmed.");
     }

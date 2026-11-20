@@ -1697,10 +1697,13 @@ class RiderController extends Controller
     private function recordOnlineDeliveryEarning(object $order, ?int $returnCaseId, string $source): void
     {
         if (!Schema::hasTable('rider_delivery_earnings') || empty($order->rider_id) || (float)($order->delivery_fee ?? 0) <= 0) return;
-        $online=(float)DB::table('payment_transactions')->where('order_id',$order->id)->where('payment_status','paid')->where('method','GCash')->sum('amount');
-        if($online <= 0) return;
+        $shop = !empty($order->shop_id) ? DB::table('shops')->where('id', $order->shop_id)->first() : null;
+        if (!$shop) return;
+        $snapshot = app(\App\Services\OrderSettlementService::class)->snapshot($order, $shop);
+        $onlineFee = (float) ($snapshot['rider_online_fee_amount'] ?? 0);
+        if ($onlineFee <= 0) return;
         $key=$order->id.'-'.$source.'-'.($returnCaseId ?? 0);
-        DB::table('rider_delivery_earnings')->updateOrInsert(['event_key'=>$key],['rider_id'=>$order->rider_id,'order_id'=>$order->id,'return_case_id'=>$returnCaseId,'amount'=>min((float)$order->delivery_fee,$online),'source'=>$source,'status'=>'available','updated_at'=>now(),'created_at'=>now()]);
+        DB::table('rider_delivery_earnings')->updateOrInsert(['event_key'=>$key],['rider_id'=>$order->rider_id,'order_id'=>$order->id,'return_case_id'=>$returnCaseId,'amount'=>$onlineFee,'source'=>$source,'status'=>'available','updated_at'=>now(),'created_at'=>now()]);
     }
 
     private function createCashRemittanceIfNeeded(object $order): ?object

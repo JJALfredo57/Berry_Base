@@ -41,8 +41,9 @@ class SellerPayoutService
         $hasSettledAt = Schema::hasColumn('orders', 'settled_at');
         $hasRiderRemittances = Schema::hasTable('rider_remittances');
         $this->recalculateClearingReleaseDates($holdDays, $hasDeliveredAt, $hasSettledAt);
-        $this->excludeDirectCashHandoverLedgers();
-        $this->adjustCashPickupLedgers();
+        // A settlement is calculated from the full cake value, not from the
+        // deposit.  This prevents partial COD/COP payments from reducing the
+        // seller's configured commission rate or double-counting cash.
 
         $orders = DB::table('orders as o')
             ->join('shops as s', 's.id', '=', 'o.shop_id');
@@ -108,25 +109,10 @@ class SellerPayoutService
             ->limit(250)
             ->get();
 
-        $hasPlatformFundedColumn = Schema::hasColumn('seller_payout_ledgers', 'platform_funded_discount');
-        $hasSellerFundedColumn = Schema::hasColumn('seller_payout_ledgers', 'seller_funded_discount');
-        $discountFundingMap = $this->discountFundingByOrderIds($orders->pluck('id')->all());
-
         $created = 0;
         foreach ($orders as $order) {
-            $gross = $this->collectedAmount($order);
-            if ($gross <= 0) continue;
-
-            $discountBreakdown = $discountFundingMap[(string) $order->id] ?? ['platform' => 0.0, 'seller' => 0.0];
-            $platformFundedDiscount = max(0, round((float) ($discountBreakdown['platform'] ?? 0), 2));
-            $adjustedGross = max(0, round($gross + $platformFundedDiscount, 2));
-
-            $deliveryFund = min($adjustedGross, max(0, round((float) ($order->delivery_fee ?? 0), 2)));
-            $commissionBase = max(0, $adjustedGross - $deliveryFund - (float) ($order->service_charge ?? 0));
-            // Approved platform rule: commission is always 2% of cake/product value only.
-            $rate = !empty($order->commission_enabled) ? 2.0 : 0.0;
-            $commission = round($commissionBase * $rate / 100, 2);
-            $net = max(0, round($commissionBase - $commission, 2));
+            $snapshot = app(OrderSettlementService::class)->snapshot($order, $order);
+            if ($snapshot['online_collected_amount'] <= 0) continue;
 
             $deliveredAt = ($hasDeliveredAt ? ($order->delivered_at ?? null) : null)
                 ?? ($hasSettledAt ? ($order->settled_at ?? null) : null)
@@ -135,35 +121,23 @@ class SellerPayoutService
             $releaseAt = Carbon::parse($deliveredAt)->addDays($holdDays);
             $status = $releaseAt->isFuture() ? 'clearing' : 'available';
 
-            $insertPayload = [
+            $insertPayload = array_merge([
                 'order_id' => $order->id,
                 'shop_id' => $order->shop_id,
                 'seller_id' => $order->seller_id,
-                'gross_amount' => $adjustedGross,
-                'cake_amount' => $commissionBase,
-                'delivery_fund_amount' => $deliveryFund,
-                'commission_base' => $commissionBase,
-                'commission_rate' => $rate,
-                'commission_amount' => $commission,
-                'seller_net_amount' => $net,
                 'status' => $status,
                 'release_at' => $releaseAt,
                 'notes' => $this->ledgerNote($order),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ];
-            if (!Schema::hasColumn('seller_payout_ledgers', 'cake_amount')) unset($insertPayload['cake_amount']);
-            if (!Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount')) unset($insertPayload['delivery_fund_amount']);
-            if ($hasPlatformFundedColumn) {
-                $insertPayload['platform_funded_discount'] = $platformFundedDiscount;
-            }
-            if ($hasSellerFundedColumn) {
-                $insertPayload['seller_funded_discount'] = max(0, round((float) ($discountBreakdown['seller'] ?? 0), 2));
-            }
+            ], $snapshot);
+            $insertPayload = $this->onlyLedgerColumns($insertPayload);
 
             DB::table('seller_payout_ledgers')->insert($insertPayload);
             $created++;
         }
+
+        $this->refreshOpenLedgerSnapshots();
 
         DB::table('seller_payout_ledgers')
             ->where('status', 'clearing')
@@ -171,6 +145,31 @@ class SellerPayoutService
             ->update(['status' => 'available', 'updated_at' => now()]);
 
         return $created;
+    }
+
+    /** Refresh mutable cash/remittance facts until a seller payout is locked. */
+    private function refreshOpenLedgerSnapshots(): void
+    {
+        $ledgers = DB::table('seller_payout_ledgers as l')
+            ->join('orders as o', 'o.id', '=', 'l.order_id')
+            ->join('shops as s', 's.id', '=', 'o.shop_id')
+            ->whereNull('l.payout_id')
+            ->whereIn('l.status', ['pending', 'clearing', 'available'])
+            ->select('l.id as ledger_id', 'o.*', 's.commission_rate', 's.commission_enabled')
+            ->limit(500)->get();
+
+        foreach ($ledgers as $ledger) {
+            $snapshot = app(OrderSettlementService::class)->snapshot($ledger, $ledger);
+            DB::table('seller_payout_ledgers')->where('id', $ledger->ledger_id)->update(
+                $this->onlyLedgerColumns($snapshot + ['notes' => $this->ledgerNote($ledger), 'updated_at' => now()])
+            );
+        }
+    }
+
+    private function onlyLedgerColumns(array $payload): array
+    {
+        $columns = ['order_id','shop_id','seller_id','gross_amount','cake_amount','delivery_fund_amount','commission_base','commission_rate','commission_amount','seller_net_amount','online_collected_amount','cash_collected_amount','cash_to_seller_amount','rider_cash_fee_amount','rider_online_fee_amount','total_seller_earnings','remaining_balance','status','release_at','notes','created_at','updated_at'];
+        return array_filter($payload, fn ($value, $key) => in_array($key, $columns, true) && Schema::hasColumn('seller_payout_ledgers', $key), ARRAY_FILTER_USE_BOTH);
     }
 
     private function recalculateClearingReleaseDates(int $holdDays, bool $hasDeliveredAt, bool $hasSettledAt): void

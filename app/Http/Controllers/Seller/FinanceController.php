@@ -108,7 +108,13 @@ class FinanceController extends Controller
             ->filter(fn ($payment) => !$settledOrderIds->has((string) $payment->order_id))
             ->values();
 
-        $gross = (float) $paymentRows->sum('amount');
+        $hasUnifiedSnapshot = Schema::hasColumn('seller_payout_ledgers', 'online_collected_amount');
+        $gross = $hasUnifiedSnapshot
+            ? (float) $ledgerRows->sum('online_collected_amount')
+            : (float) $paymentRows->sum('amount');
+        $cashCollections = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('cash_collected_amount') : 0.0;
+        $cashToSeller = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('cash_to_seller_amount') : 0.0;
+        $totalSellerSales = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('total_seller_earnings') : 0.0;
         $deliveryFund = (float) $deliveryAllocations->sum('delivery_fund_amount');
         $commission = (float) $ledgerRows->sum('commission_amount');
         $refunds = abs((float) $ledgerRows->where('seller_net_amount', '<', 0)->sum('seller_net_amount'));
@@ -162,7 +168,7 @@ class FinanceController extends Controller
                     'rider_delivery_fee' => 0.0,
                 ];
             }))
-            ->merge($ledgerRows->map(function ($row) use ($paymentEventsByOrder, $hasCakeAmount, $hasDeliveryFund) {
+            ->merge($ledgerRows->map(function ($row) use ($paymentEventsByOrder, $hasCakeAmount, $hasDeliveryFund, $hasUnifiedSnapshot) {
                 return (object) [
                     'date' => $row->created_at,
                     'type' => $row->seller_net_amount < 0 ? 'Refund deduction' : 'Order earnings',
@@ -181,6 +187,11 @@ class FinanceController extends Controller
                     'notes' => $row->notes,
                     'fulfillment_type' => $row->fulfillment_type ?? null,
                     'rider_delivery_fee' => $hasDeliveryFund ? (float) $row->delivery_fund_amount : 0.0,
+                    'online_collected' => $hasUnifiedSnapshot ? (float) $row->online_collected_amount : (float) $row->gross_amount,
+                    'cash_collected' => $hasUnifiedSnapshot ? (float) $row->cash_collected_amount : 0.0,
+                    'cash_to_seller' => $hasUnifiedSnapshot ? (float) $row->cash_to_seller_amount : 0.0,
+                    'remaining_balance' => $hasUnifiedSnapshot ? (float) $row->remaining_balance : 0.0,
+                    'total_seller_earnings' => $hasUnifiedSnapshot ? (float) $row->total_seller_earnings : (float) $row->seller_net_amount,
                 ];
             }))
             ->merge($expenses->map(fn ($row) => (object) ['date' => $row->expense_date, 'type' => 'Business expense', 'reference' => $row->description, 'gross' => 0, 'commission' => 0, 'net' => -(float) $row->amount, 'status' => $row->category, 'expense_id' => $row->id]))
@@ -201,10 +212,20 @@ class FinanceController extends Controller
             'commission' => (float) $transactions->sum('commission'),
             'seller_settlement' => (float) $transactions->sum('net'),
             'receipts' => (int) $filteredPaymentRows->count(),
+            'cash_collections' => $hasUnifiedSnapshot ? (float) $transactions->sum('cash_collected') : 0.0,
+            'cash_to_seller' => $hasUnifiedSnapshot ? (float) $transactions->sum('cash_to_seller') : 0.0,
+            'total_seller_earnings' => $hasUnifiedSnapshot ? (float) $transactions->sum('total_seller_earnings') : (float) $transactions->sum('net'),
+        ];
+
+        $breakdowns = [
+            'online' => $ledgerRows->map(fn ($row) => ['order' => $row->order_id, 'amount' => (float) ($hasUnifiedSnapshot ? $row->online_collected_amount : $row->gross_amount), 'meta' => 'Online customer payment']),
+            'cash' => $ledgerRows->filter(fn ($row) => $hasUnifiedSnapshot && (float) $row->cash_collected_amount > 0)->map(fn ($row) => ['order' => $row->order_id, 'amount' => (float) $row->cash_collected_amount, 'meta' => 'Cash collected · Seller received ₱'.number_format((float) $row->cash_to_seller_amount, 2)]),
+            'commission' => $ledgerRows->map(fn ($row) => ['order' => $row->order_id, 'amount' => (float) $row->commission_amount, 'meta' => 'Cake ₱'.number_format((float) ($row->cake_amount ?? $row->commission_base), 2).' × '.number_format((float) $row->commission_rate, 2).'%']),
+            'earnings' => $ledgerRows->map(fn ($row) => ['order' => $row->order_id, 'amount' => (float) ($hasUnifiedSnapshot ? $row->total_seller_earnings : $row->seller_net_amount), 'meta' => 'Cash + expected online seller payout']),
         ];
 
         $summary = $this->payouts->summaryForShop((string) $shop->id);
-        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'fulfillment', 'gross', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations', 'transactionTotals'));
+        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'fulfillment', 'gross', 'cashCollections', 'cashToSeller', 'totalSellerSales', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations', 'transactionTotals', 'breakdowns'));
     }
 
     public function customerPayments(Request $request)

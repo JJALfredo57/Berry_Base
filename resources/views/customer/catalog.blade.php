@@ -705,6 +705,7 @@
 
                 {{-- ── Date Availability Check ─────────────────────────────── --}}
                 <div class="d-grid gap-2">
+                  <button type="button" class="btn btn-outline-secondary py-2 fw-semibold" onclick="shareCatalogProduct(@js($p->name), @js(url('/catalog?product_id='.$p->id)))"><i class="bi bi-share me-1"></i>Share this cake</button>
                   <button type="submit" class="btn btn-primary py-2 fw-semibold" onclick="this.form.dataset.cartSubmit=''">
                     <i class="bi bi-arrow-right-circle me-1"></i>Proceed to Checkout
                   </button>
@@ -1353,6 +1354,16 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 @push('scripts')
+<script>
+async function shareCatalogProduct(name, url) {
+  const text = `Check out ${name} on Berry Base`;
+  try {
+    if (navigator.share) { await navigator.share({title:name, text, url}); return; }
+    await navigator.clipboard.writeText(`${text}: ${url}`);
+    alert('Product link copied.');
+  } catch (error) { if (error?.name !== 'AbortError') alert('Unable to share this cake right now.'); }
+}
+</script>
 @endpush
 
 <script>
