@@ -185,10 +185,10 @@ class FinanceController extends Controller
             ->merge($ledgerRows->map(function ($row) use ($paymentEventsByOrder, $hasCakeAmount, $hasDeliveryFund, $hasUnifiedSnapshot) {
                 $isCodDelivery = strtoupper((string) ($row->payment_method ?? '')) === 'COD'
                     && strtolower((string) ($row->fulfillment_type ?? '')) === 'delivery';
-                $cashCollected = $hasUnifiedSnapshot ? (float) data_get($row, 'cash_collected_amount', 0) : 0.0;
-                $cashToSeller = $hasUnifiedSnapshot ? (float) data_get($row, 'cash_to_seller_amount', 0) : 0.0;
+                $cashCollected = $hasUnifiedSnapshot ? (float) $row->cash_collected_amount : 0.0;
+                $cashToSeller = $hasUnifiedSnapshot ? (float) $row->cash_to_seller_amount : 0.0;
                 $riderFee = $hasUnifiedSnapshot
-                    ? (float) data_get($row, 'rider_cash_fee_amount', 0) + (float) data_get($row, 'rider_online_fee_amount', 0)
+                    ? (float) $row->rider_cash_fee_amount + (float) $row->rider_online_fee_amount
                     : ($hasDeliveryFund ? (float) $row->delivery_fund_amount : 0.0);
                 return (object) [
                     'date' => $row->created_at,
