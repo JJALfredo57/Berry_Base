@@ -25,7 +25,7 @@
   </div>
 </div>
 
-<div class="finance-grid">
+<div class="finance-grid" id="finance-summary">
   <a class="finance-card finance-card-clickable text-decoration-none" href="{{ route('seller.finance.customer_payments',['from'=>$from,'to'=>$to]) }}"><div class="finance-label">Customer payments received</div><div class="finance-value">₱{{ number_format($gross,2) }}</div><div class="finance-help d-flex justify-content-between"><span>Online</span><strong class="text-primary">₱{{ number_format($onlineCollections,2) }}</strong></div><div class="finance-help d-flex justify-content-between"><span>Cash collected</span><strong class="text-warning-emphasis">₱{{ number_format($cashCollections,2) }}</strong></div></a>
   <a class="finance-card finance-card-clickable text-decoration-none" href="{{ route('seller.finance.delivery_allocations',['from'=>$from,'to'=>$to]) }}"><div class="finance-label">Delivery fee allocation</div><div class="finance-value">₱{{ number_format($deliveryFund ?? 0,2) }}</div><div class="finance-help d-flex justify-content-between"><span>Cash retained by rider</span><strong class="text-warning-emphasis">₱{{ number_format($riderCashFees,2) }}</strong></div><div class="finance-help d-flex justify-content-between"><span>Rider online payout</span><strong class="text-primary">₱{{ number_format($riderOnlineFees,2) }}</strong></div></a>
   <a class="finance-card finance-card-clickable text-decoration-none" href="#settlement-breakdown"><div class="finance-label">Completed-order seller earnings</div><div class="finance-value finance-positive">₱{{ number_format($totalSellerSales ?: $netEarnings,2) }}</div><div class="finance-help d-flex justify-content-between"><span>Cash held by seller</span><strong class="text-warning-emphasis">₱{{ number_format($cashToSeller,2) }}</strong></div><div class="finance-help d-flex justify-content-between"><span>Expected online payout</span><strong class="text-primary">₱{{ number_format($netEarnings,2) }}</strong></div></a>
@@ -44,7 +44,7 @@
 @endif
 
 <div class="finance-layout">
-  <section class="finance-panel"><div class="d-flex justify-content-between align-items-center mb-2"><div><h6 class="mb-0 fw-bold">Finance trend</h6><small class="text-muted">Completed-order settlement and recorded business expenses</small></div><span class="small text-muted">Auto-refreshes every 60 seconds</span></div><div class="finance-chart"><canvas id="financeChart"></canvas></div></section>
+  <section class="finance-panel"><div class="d-flex justify-content-between align-items-center mb-2"><div><h6 class="mb-0 fw-bold">Finance trend</h6><small class="text-muted">Completed-order settlement and recorded business expenses</small></div><span class="small text-muted">Summary and settlement refresh every 60 seconds</span></div><div class="finance-chart"><canvas id="financeChart"></canvas></div></section>
   <section class="finance-panel"><h6 class="fw-bold mb-1">Business expenses</h6><p class="small text-muted">Record expenses by date, review spending, and keep your profit estimate accurate.</p><a class="btn btn-primary w-100" href="{{ route('seller.finance.expenses') }}"><i class="bi bi-calendar3 me-1"></i>Record Business Expense</a><hr><div class="d-flex justify-content-between"><span class="small text-muted">Expenses in selected period</span><strong class="finance-negative">−₱{{ number_format($expenseTotal,2) }}</strong></div></section>
 </div>
 
@@ -90,7 +90,30 @@ document.addEventListener('DOMContentLoaded', function () {
 @endif
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () { const form=document.querySelector('.finance-filter'); const dates=form?.querySelectorAll('input[type="date"]'); dates?.forEach(input=>input.addEventListener('change',()=>{ if(dates[0].value&&dates[1].value) form.requestSubmit(); })); const ctx=document.getElementById('financeChart'); if(!ctx||!window.Chart)return; new Chart(ctx,{type:'line',data:{labels:@json($chartData['labels']),datasets:[{label:'Customer payments',data:@json($chartData['gross']),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:.35},{label:'Completed-order seller earnings',data:@json($chartData['net']),borderColor:'#16a34a',tension:.35},{label:'Business expenses',data:@json($chartData['expenses']),borderColor:'#dc2626',tension:.35}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'₱'+Number(v).toLocaleString()}}}}}); setTimeout(()=>location.reload(),60000); });
+document.addEventListener('DOMContentLoaded', function () {
+  const form=document.querySelector('.finance-filter');
+  const dates=form?.querySelectorAll('input[type="date"]');
+  dates?.forEach(input=>input.addEventListener('change',()=>{ if(dates[0].value&&dates[1].value) form.requestSubmit(); }));
+  const ctx=document.getElementById('financeChart');
+  if(ctx&&window.Chart) new Chart(ctx,{type:'line',data:{labels:@json($chartData['labels']),datasets:[{label:'Customer payments',data:@json($chartData['gross']),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:.35},{label:'Completed-order seller earnings',data:@json($chartData['net']),borderColor:'#16a34a',tension:.35},{label:'Business expenses',data:@json($chartData['expenses']),borderColor:'#dc2626',tension:.35}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'₱'+Number(v).toLocaleString()}}}}});
+
+  const refreshRegions=async()=>{
+    if(document.hidden)return;
+    try{
+      const response=await fetch(window.location.href,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+      if(!response.ok)return;
+      const nextDocument=new DOMParser().parseFromString(await response.text(),'text/html');
+      ['finance-summary','settlement-breakdown'].forEach(id=>{
+        const current=document.getElementById(id);
+        const next=nextDocument.getElementById(id);
+        if(current&&next)current.replaceWith(next);
+      });
+      const live=document.getElementById('finance-live');
+      if(live)live.innerHTML='<i class="bi bi-broadcast me-1 text-success"></i>Updated just now';
+    }catch(_){}
+  };
+  window.setInterval(refreshRegions,60000);
+});
 </script>
 @endpush
 @endsection
