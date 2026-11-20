@@ -49,7 +49,7 @@ class FinanceController extends Controller
             ->leftJoin('orders as o', 'o.id', '=', 'ledger.order_id')
             ->where('ledger.shop_id', $shop->id)
             ->whereBetween(DB::raw('DATE(ledger.created_at)'), [$from, $to])
-            ->select('ledger.*', 'o.fulfillment_type')
+            ->select('ledger.*', 'o.fulfillment_type', 'o.payment_method')
             ->orderByDesc('ledger.created_at')->get();
         $expenses = Schema::hasTable('seller_expenses')
             ? DB::table('seller_expenses')->where('shop_id', $shop->id)->whereBetween('expense_date', [$from, $to])->orderByDesc('expense_date')->orderByDesc('id')->get()
@@ -112,11 +112,16 @@ class FinanceController extends Controller
         // Keep the established Finance card meaning: all real customer
         // receipts, including cash. The detail page already filters the
         // source without requiring a replacement dashboard UI.
-        $gross = (float) $paymentRows->sum('amount');
+        $onlineCollections = (float) $paymentRows
+            ->filter(fn ($payment) => strtoupper((string) ($payment->method ?? '')) === 'GCASH')
+            ->sum('amount');
         $cashCollections = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('cash_collected_amount') : 0.0;
         $cashToSeller = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('cash_to_seller_amount') : 0.0;
         $totalSellerSales = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('total_seller_earnings') : 0.0;
-        $deliveryFund = (float) $deliveryAllocations->sum('delivery_fund_amount');
+        $gross = $onlineCollections + $cashCollections;
+        $riderCashFees = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('rider_cash_fee_amount') : 0.0;
+        $riderOnlineFees = $hasUnifiedSnapshot ? (float) $ledgerRows->sum('rider_online_fee_amount') : (float) $deliveryAllocations->sum('delivery_fund_amount');
+        $deliveryFund = $riderCashFees + $riderOnlineFees;
         $commission = (float) $ledgerRows->sum('commission_amount');
         $refunds = abs((float) $ledgerRows->where('seller_net_amount', '<', 0)->sum('seller_net_amount'));
         $netEarnings = $hasUnifiedSnapshot
@@ -189,7 +194,10 @@ class FinanceController extends Controller
                     'release_at' => $row->release_at,
                     'notes' => $row->notes,
                     'fulfillment_type' => $row->fulfillment_type ?? null,
-                    'rider_delivery_fee' => $hasDeliveryFund ? (float) $row->delivery_fund_amount : 0.0,
+                    'payment_method' => $row->payment_method ?? null,
+                    'rider_delivery_fee' => $hasUnifiedSnapshot
+                        ? (float) $row->rider_cash_fee_amount + (float) $row->rider_online_fee_amount
+                        : ($hasDeliveryFund ? (float) $row->delivery_fund_amount : 0.0),
                     'online_collected' => $hasUnifiedSnapshot ? (float) $row->online_collected_amount : (float) $row->gross_amount,
                     'cash_collected' => $hasUnifiedSnapshot ? (float) $row->cash_collected_amount : 0.0,
                     'cash_to_seller' => $hasUnifiedSnapshot ? (float) $row->cash_to_seller_amount : 0.0,
@@ -221,7 +229,7 @@ class FinanceController extends Controller
         ];
 
         $summary = $this->payouts->summaryForShop((string) $shop->id);
-        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'fulfillment', 'gross', 'cashCollections', 'cashToSeller', 'totalSellerSales', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations', 'transactionTotals'));
+        return view('seller.finance', compact('shop', 'from', 'to', 'period', 'fulfillment', 'gross', 'onlineCollections', 'cashCollections', 'cashToSeller', 'totalSellerSales', 'riderCashFees', 'riderOnlineFees', 'deliveryFund', 'commission', 'refunds', 'netEarnings', 'expenseTotal', 'chartData', 'transactions', 'expenses', 'summary', 'customerPaymentRows', 'deliveryAllocations', 'transactionTotals'));
     }
 
     public function customerPayments(Request $request)
