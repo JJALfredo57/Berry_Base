@@ -634,6 +634,21 @@ Route::prefix('superadmin')->name('superadmin.')->middleware('auth.superadmin')-
 });
 
 Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->group(function () {
+    Route::get('/order-history-cleanup', function (AppServicesOrderHistoryPurgeService $purge) {
+        return view('superadmin.order_history_cleanup', ['preview' => $purge->preview()]);
+    })->name('order_history_cleanup');
+    Route::post('/order-history-cleanup', function (IlluminateHttpRequest $request, AppServicesOrderHistoryPurgeService $purge) {
+        $request->validate([
+            'snapshot' => ['required', 'string'],
+            'confirmation' => ['required', 'in:DELETE ORDER HISTORY'],
+        ]);
+        try {
+            $counts = $purge->purge($request->string('snapshot')->toString());
+        } catch (Throwable $e) {
+            return back()->with('err', $e->getMessage());
+        }
+        return back()->with('msg', 'Order history deleted.')->with('deleted', $counts);
+    })->name('order_history_cleanup.delete');
     Route::get('/sellers',                     [\App\Http\Controllers\SuperAdmin\SellerController::class, 'index'])->name('sellers');
     Route::post('/sellers/{id}/approve',              [\App\Http\Controllers\SuperAdmin\SellerController::class, 'approve'])->name('sellers.approve');
     Route::post('/sellers/{id}/reject',               [\App\Http\Controllers\SuperAdmin\SellerController::class, 'reject'])->name('sellers.reject');
