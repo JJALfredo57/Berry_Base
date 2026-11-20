@@ -57,12 +57,12 @@
     <div><h6 class="fw-bold mb-0">Per-sale settlement breakdown</h6><small class="text-muted">Cash already received stays in the report but is excluded from payout requests. Commission uses this seller's assigned rate on the full cake amount.</small></div>
   </div>
   <div class="table-responsive mt-3"><table class="table finance-table align-middle mb-0">
-    <thead><tr><th>Order</th><th>Payment / fulfillment</th><th class="text-end">Online paid</th><th class="text-end">Rider remittance to seller</th><th class="text-end">Rider fee</th><th class="text-end">Commission</th><th class="text-end">Expected payout</th><th class="text-end">Seller earnings</th></tr></thead>
+    <thead><tr><th>Order</th><th>Payment / fulfillment</th><th class="text-end">Online paid</th><th class="text-end">Cash to seller</th><th class="text-end">Rider fee</th><th class="text-end">Commission</th><th class="text-end">Expected payout</th><th class="text-end">Seller earnings</th></tr></thead>
     <tbody>@forelse($transactions->where('type','Order earnings') as $transaction)<tr>
       <td class="fw-semibold">{{ $transaction->reference }}</td>
       <td>{{ strtoupper($transaction->payment_method ?? '—') }} · {{ ucfirst(strtolower($transaction->fulfillment_type ?? '—')) }}</td>
       <td class="text-end text-primary">₱{{ number_format((float)($transaction->online_collected ?? 0),2) }}</td>
-      <td class="text-end text-warning-emphasis">@if(!empty($transaction->has_pending_rider_remittance))Expected: ₱{{ number_format((float)($transaction->expected_rider_remittance ?? 0),2) }}<span class="finance-receipt-total">Waiting for seller confirmation</span>@else ₱{{ number_format((float)($transaction->cash_to_seller ?? 0),2) }}@if(strtoupper((string)($transaction->payment_method ?? '')) === 'COD' && strtolower((string)($transaction->fulfillment_type ?? '')) === 'delivery')<span class="finance-receipt-total">Seller confirmed</span>@endif@endif</td>
+      <td class="text-end text-warning-emphasis">₱{{ number_format((float)($transaction->cash_to_seller ?? 0),2) }}@if(strtoupper((string)($transaction->payment_method ?? '')) === 'COD' && strtolower((string)($transaction->fulfillment_type ?? '')) === 'delivery')<span class="finance-receipt-total">{{ (float)($transaction->cash_to_seller ?? 0) > 0 ? 'Seller confirmed' : 'Waiting for seller confirmation' }}</span>@endif</td>
       <td class="text-end">{{ (float)($transaction->rider_delivery_fee ?? 0) > 0 ? '₱'.number_format((float)$transaction->rider_delivery_fee,2) : '—' }}</td>
       <td class="text-end finance-negative">−₱{{ number_format((float)($transaction->commission ?? 0),2) }}<span class="finance-receipt-total">{{ number_format((float)($transaction->commission_rate ?? 0),2) }}%</span></td>
       <td class="text-end finance-positive">₱{{ number_format((float)($transaction->net ?? 0),2) }}</td>
