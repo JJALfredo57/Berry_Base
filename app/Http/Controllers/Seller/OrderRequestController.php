@@ -43,7 +43,7 @@ class OrderRequestController extends Controller
         } elseif ($tab === 'suggested') {
             $query->whereIn('r.status', ['alternative_offered', 'schedule_suggested', 'needs_more_details']);
         } elseif ($tab === 'declined') {
-            $query->whereIn('r.status', ['declined', 'expired']);
+            $query->whereIn('r.status', ['declined', 'customer_declined', 'expired']);
         }
 
         if ($search !== '') {
