@@ -187,6 +187,37 @@ class OrderRequestController extends Controller
         return redirect()->route('seller.order_requests', ['tab' => $destination, 'focus' => $id])->with('msg', $message);
     }
 
+    /** Permanently remove closed requests that never became customer orders. */
+    public function destroyClosed(Request $request)
+    {
+        $shop = $this->getShop();
+        $request->validate(['confirmation' => ['required', 'in:DELETE_CLOSED_REQUESTS']]);
+
+        $closed = DB::table('order_requests')
+            ->where('shop_id', $shop->id)
+            ->whereIn('status', ['declined', 'expired'])
+            ->get(['id']);
+        if ($closed->isEmpty()) return back()->with('msg', 'No closed requests found.');
+
+        $ids = $closed->pluck('id')->all();
+        $linkedOrders = Schema::hasColumn('orders', 'order_request_id')
+            ? DB::table('orders')->whereIn('order_request_id', $ids)->count()
+            : 0;
+        if ($linkedOrders > 0) {
+            return back()->with('err', 'Closed requests linked to actual orders were not deleted.');
+        }
+
+        DB::transaction(function () use ($ids, $shop) {
+            if (Schema::hasTable('order_request_capacity_reservations')) {
+                DB::table('order_request_capacity_reservations')->whereIn('order_request_id', $ids)->delete();
+            }
+            DB::table('order_requests')->where('shop_id', $shop->id)->whereIn('id', $ids)->delete();
+        });
+
+        return redirect()->route('seller.order_requests', ['tab' => 'declined'])
+            ->with('msg', count($ids) . ' closed request(s) permanently deleted.');
+    }
+
     public function validateSuggestedSchedule(Request $request, string $id, OrderRequestService $service)
     {
         $shop = $this->getShop();

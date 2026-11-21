@@ -528,6 +528,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::post('/return-cases/refunds/{id}/reject', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'rejectRefund'])->middleware('throttle:12,10')->name('return_cases.refunds.reject');
     Route::get('/order-requests',            [\App\Http\Controllers\Seller\OrderRequestController::class, 'index'])->name('order_requests');
     Route::post('/order-requests/{id}/update', [\App\Http\Controllers\Seller\OrderRequestController::class, 'update'])->name('order_requests.update');
+    Route::delete('/order-requests/closed', [\App\Http\Controllers\Seller\OrderRequestController::class, 'destroyClosed'])->name('order_requests.destroy_closed');
     Route::get('/orders/status-counts',         [\App\Http\Controllers\Seller\OrderController::class, 'statusCounts'])->name('orders.status_counts');
     Route::get('/orders/{id}/realtime-status', [\App\Http\Controllers\Seller\OrderController::class, 'realtimeStatus'])->name('orders.realtime_status');
     Route::get('/orders/{id}/receipt/{transactionId}', [\App\Http\Controllers\Seller\OrderController::class, 'receipt'])->name('orders.receipt');

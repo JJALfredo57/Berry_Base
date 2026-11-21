@@ -56,6 +56,13 @@
       <input type="search" name="search" value="{{ $search }}" class="form-control form-control-sm" placeholder="Search cake, customer, phone">
       <button class="btn-or-soft" type="submit"><i class="bi bi-search"></i></button>
     </form>
+    @if($tab === 'declined' && $requests->isNotEmpty())
+      <form method="POST" action="{{ route('seller.order_requests.destroy_closed') }}" onsubmit="return confirm('Permanently delete all closed requests? Customer request history will also be removed. Actual orders and payments are protected.');">
+        @csrf @method('DELETE')
+        <input type="hidden" name="confirmation" value="DELETE_CLOSED_REQUESTS">
+        <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash me-1"></i>Delete Closed</button>
+      </form>
+    @endif
   </div>
 
   @forelse($requests as $req)
