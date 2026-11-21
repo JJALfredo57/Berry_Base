@@ -195,7 +195,7 @@ class OrderRequestController extends Controller
 
         $closed = DB::table('order_requests')
             ->where('shop_id', $shop->id)
-            ->whereIn('status', ['declined', 'expired'])
+            ->whereIn('status', ['declined', 'customer_declined', 'expired'])
             ->get(['id']);
         if ($closed->isEmpty()) return back()->with('msg', 'No closed requests found.');
 
