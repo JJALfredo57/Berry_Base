@@ -18,6 +18,43 @@
 .rider-rating-value { display:flex; align-items:center; justify-content:center; gap:3px; color:#b45309; line-height:1.1; }
 .rider-rating-value i { font-size:.78rem; color:#f59e0b; }
 .rider-rating-count { color:#9ca3af; font-size:clamp(.58rem,1.2vw,.62rem); line-height:1.1; margin-top:2px; white-space:nowrap; }
+.rider-form-modal .modal-content { max-height:calc(100dvh - 1rem); }
+.rider-form-modal .modal-content > form {
+  display:flex;
+  flex:1 1 auto;
+  flex-direction:column;
+  min-height:0;
+  overflow:hidden;
+}
+.rider-form-modal .modal-body {
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.rider-form-modal .modal-footer {
+  position:sticky;
+  bottom:0;
+  z-index:2;
+  flex:0 0 auto;
+  margin:0;
+  background:#fff;
+  border-top:1px solid #f1f5f9 !important;
+  box-shadow:0 -8px 20px rgba(15,23,42,.06);
+  padding-bottom:max(1rem, env(safe-area-inset-bottom)) !important;
+}
+.rider-form-modal .modal-footer .btn { min-height:44px; }
+@media(max-width:575.98px) {
+  .rider-form-modal .modal-dialog {
+    height:calc(100% - 1rem);
+    min-height:0;
+    margin:.5rem;
+  }
+  .rider-form-modal .modal-content { max-height:100%; }
+  .rider-form-modal .modal-header { flex:0 0 auto; padding:1rem !important; }
+  .rider-form-modal .modal-body { padding-inline:1rem !important; }
+  .rider-form-modal .modal-footer { padding-inline:1rem !important; }
+}
 </style>
 
 <div>
