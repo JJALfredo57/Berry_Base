@@ -1,30 +1,32 @@
 <?php
+
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Services\MobileNotificationService;
-use App\Services\SellerPayoutService;
-use App\Services\PayoutReceiptScanService;
-use App\Services\OrderRefundService;
 use App\Services\FinanceReconciliationService;
+use App\Services\MobileNotificationService;
+use App\Services\OrderRefundService;
+use App\Services\PayoutReceiptScanService;
+use App\Services\RiderPayoutService;
+use App\Services\SelectedPayoutService;
+use App\Services\SellerBalanceService;
+use App\Services\SellerPayoutService;
 use App\Traits\UploadsFiles;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
-use Carbon\Carbon;
 
 class PayoutController extends Controller
 {
     use UploadsFiles;
 
-    public function __construct(private SellerPayoutService $payouts, private MobileNotificationService $notifications, private PayoutReceiptScanService $receiptScanner, private FinanceReconciliationService $financeReconciliation)
-    {
-    }
+    public function __construct(private SellerPayoutService $payouts, private MobileNotificationService $notifications, private PayoutReceiptScanService $receiptScanner, private FinanceReconciliationService $financeReconciliation) {}
 
     public function index(Request $request)
     {
-        // Payout synchronization runs from the scheduled command so page loads stay fast.
+        $this->payouts->syncDeliveredPaidOrders();
 
         $payoutSettings = $this->payouts->settings();
         if (session()->has('payout_settings_saved')) {
@@ -39,26 +41,49 @@ class PayoutController extends Controller
             $payoutSettings->payout_auto_paused = false;
         }
         $summary = [
-            'clearing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['pending', 'clearing'])->sum('seller_net_amount'),
-            'available' => (float) DB::table('seller_payout_ledgers')->where('status', 'available')->where('seller_net_amount', '>', 0)->sum('seller_net_amount'),
-            'processing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['requested', 'processing'])->where('seller_net_amount', '>', 0)->sum('seller_net_amount'),
-            'paid' => (float) DB::table('seller_payout_ledgers')->where('status', 'paid')->where('seller_net_amount', '>', 0)->sum('seller_net_amount'),
-            'seller_recovery_pending' => abs((float) DB::table('seller_payout_ledgers')->where('seller_net_amount', '<', 0)->whereIn('status', ['pending', 'clearing', 'available', 'requested', 'processing'])->sum('seller_net_amount')),
+            'awaiting' => (float) DB::table('seller_payout_ledgers')->where('status', 'awaiting_completion')->sum('seller_net_amount'),
+            'reserved' => (float) DB::table('seller_payout_ledgers')->where('status', 'refund_reserved')->sum('seller_net_amount'),
+            'available' => (float) DB::table('seller_payout_ledgers')->where('status', 'available')->selectRaw('shop_id, SUM(seller_net_amount) AS balance')->groupBy('shop_id')->get()->sum(fn ($row) => max(0, (float) $row->balance)),
+            'processing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['requested', 'processing'])->sum('seller_net_amount'),
+            'paid' => (float) DB::table('seller_payout_ledgers')->where('status', 'paid')->sum('seller_net_amount'),
+            'seller_recovery_pending' => abs((float) DB::table('seller_payout_ledgers')->where('seller_net_amount', '<', 0)->whereIn('status', ['available', 'requested', 'processing'])->sum('seller_net_amount')),
             'pending_refunds' => Schema::hasTable('order_refunds') ? (int) DB::table('order_refunds')->whereIn('status', ['pending', 'pending_seller_approval', 'approved_for_admin_refund', 'processing'])->count() : 0,
         ];
 
-        try { $from = Carbon::parse((string) $request->input('from', now()->subDays(29)->toDateString()))->toDateString(); }
-        catch (\Throwable $e) { $from = now()->subDays(29)->toDateString(); }
-        try { $to = Carbon::parse((string) $request->input('to', now()->toDateString()))->toDateString(); }
-        catch (\Throwable $e) { $to = now()->toDateString(); }
-        $period = (string) $request->input('period', 'last30');
-        if ($period === 'today') [$from, $to] = [now()->toDateString(), now()->toDateString()];
-        elseif ($period === 'week') [$from, $to] = [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()];
-        elseif ($period === 'month') [$from, $to] = [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()];
-        elseif ($period === 'last_month') [$from, $to] = [now()->subMonthNoOverflow()->startOfMonth()->toDateString(), now()->subMonthNoOverflow()->endOfMonth()->toDateString()];
-        elseif ($period === 'year') [$from, $to] = [now()->startOfYear()->toDateString(), now()->endOfYear()->toDateString()];
-        elseif ($period === 'last30') [$from, $to] = [now()->subDays(29)->toDateString(), now()->toDateString()];
-        if ($from > $to) [$from, $to] = [$to, $from];
+        try {
+            $from = Carbon::parse((string) $request->input('from', now()->subDays(29)->toDateString()))->toDateString();
+        } catch (\Throwable $e) {
+            $from = now()->subDays(29)->toDateString();
+        }
+        try {
+            $to = Carbon::parse((string) $request->input('to', now()->toDateString()))->toDateString();
+        } catch (\Throwable $e) {
+            $to = now()->toDateString();
+        }
+        $period = (string) $request->input('period', $request->filled('from') || $request->filled('to') ? '' : 'all');
+        if ($period === 'all') {
+            [$from, $to] = ['1970-01-01', now()->toDateString()];
+        }
+        if ($period === 'today') {
+            [$from, $to] = [now()->toDateString(), now()->toDateString()];
+        } elseif ($period === 'week') {
+            [$from, $to] = [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()];
+        } elseif ($period === 'month') {
+            [$from, $to] = [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()];
+        } elseif ($period === 'last_month') {
+            [$from, $to] = [now()->subMonthNoOverflow()->startOfMonth()->toDateString(), now()->subMonthNoOverflow()->endOfMonth()->toDateString()];
+        } elseif ($period === 'year') {
+            [$from, $to] = [now()->startOfYear()->toDateString(), now()->endOfYear()->toDateString()];
+        } elseif ($period === 'last30') {
+            [$from, $to] = [now()->subDays(29)->toDateString(), now()->toDateString()];
+        }
+        if ($from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+        $search = trim((string) $request->input('search', ''));
+        $payoutStatus = (string) $request->input('payout_status', '');
+        $shopFilter = (string) $request->input('shop', '');
+        $sort = $request->input('sort') === 'oldest' ? 'asc' : 'desc';
 
         $currentFinanceReconciliation = $this->financeReconciliation->build();
         $financeReconciliation = $this->financeReconciliation->build($from, $to);
@@ -87,10 +112,12 @@ class PayoutController extends Controller
         $shops = DB::table('shops as s')
             ->leftJoin('users as u', 'u.id', '=', 's.seller_id')
             ->where('s.status', 'approved')
+            ->when($shopFilter !== '', fn ($q) => $q->where('s.id', $shopFilter))
+            ->when($search !== '', fn ($q) => $q->where(fn ($q) => $q->where('s.shop_name', 'like', '%'.$search.'%')->orWhere('u.fullname', 'like', '%'.$search.'%')))
             ->select('s.*', 'u.fullname as seller_name')
             ->orderBy('s.shop_name')
-            ->get()
-            ->map(function ($shop) {
+            ->paginate(12, ['*'], 'shops_page')->withQueryString()
+            ->through(function ($shop) {
                 $shop->available_balance = (float) DB::table('seller_payout_ledgers')
                     ->where('shop_id', $shop->id)
                     ->where('status', 'available')
@@ -99,10 +126,7 @@ class PayoutController extends Controller
                     ->where('shop_id', $shop->id)
                     ->whereIn('status', ['requested', 'processing'])
                     ->sum('seller_net_amount');
-                $shop->clearing_balance = (float) DB::table('seller_payout_ledgers')
-                    ->where('shop_id', $shop->id)
-                    ->whereIn('status', ['pending', 'clearing'])
-                    ->sum('seller_net_amount');
+                $shop->awaiting_balance = (float) DB::table('seller_payout_ledgers')->where('shop_id', $shop->id)->where('status', 'awaiting_completion')->sum('seller_net_amount');
                 $shop->refund_deductions = abs((float) DB::table('seller_payout_ledgers')
                     ->where('shop_id', $shop->id)
                     ->where('seller_net_amount', '<', 0)
@@ -110,33 +134,35 @@ class PayoutController extends Controller
                 $shop->pending_refunds = Schema::hasTable('order_refunds')
                     ? (int) DB::table('order_refunds')->where('shop_id', $shop->id)->whereIn('status', ['pending', 'pending_seller_approval', 'approved_for_admin_refund', 'processing'])->count()
                     : 0;
-                $nextClearing = DB::table('seller_payout_ledgers')
-                    ->where('shop_id', $shop->id)
-                    ->whereIn('status', ['pending', 'clearing'])
-                    ->whereNotNull('release_at')
-                    ->orderBy('release_at')
-                    ->first();
-                $shop->next_release_at = $nextClearing->release_at ?? null;
-                $shop->next_release_amount = $nextClearing ? (float) $nextClearing->seller_net_amount : 0;
+
                 return $shop;
             });
 
         $payoutQuery = fn () => DB::table('seller_payouts as p')
             ->join('shops as s', 's.id', '=', 'p.shop_id')
             ->leftJoin('users as u', 'u.id', '=', 'p.seller_id')
+            ->when($shopFilter !== '', fn ($q) => $q->where('p.shop_id', $shopFilter))
+            ->when(in_array($payoutStatus, ['requested', 'processing', 'paid', 'cancelled', 'failed']), fn ($q) => $q->where('p.status', $payoutStatus))
+            ->when($search !== '', fn ($q) => $q->where(function ($q) use ($search) {
+                $q->where('s.shop_name', 'like', '%'.$search.'%')->orWhere('u.fullname', 'like', '%'.$search.'%')
+                    ->orWhere('p.reference_number', 'like', '%'.$search.'%')->when(ctype_digit($search), fn ($q) => $q->orWhere('p.id', (int) $search))
+                    ->orWhereExists(fn ($items) => $items->selectRaw('1')->from('seller_payout_items as pi')->whereColumn('pi.payout_id', 'p.id')->where('pi.order_id', 'like', '%'.$search.'%'));
+            }))
             ->select('p.*', 's.shop_name', 'u.fullname as seller_name');
 
         $payoutRequests = $payoutQuery()
-            ->where('p.status', '!=', 'paid')
-            ->orderByDesc('p.created_at')
-            ->limit(50)
-            ->get();
+            ->whereIn('p.status', ['requested', 'processing'])
+            ->whereBetween(DB::raw('DATE(p.created_at)'), [$from, $to])->orderBy('p.id', $sort)
+            ->paginate(12, ['*'], 'requests_page')->withQueryString();
         $recentPayouts = $payoutQuery()
-            ->where('p.status', 'paid')
-            ->whereBetween(DB::raw('DATE(COALESCE(p.paid_at, p.created_at))'), [$from, $to])->orderByDesc('p.paid_at')
-            ->orderByDesc('p.created_at')
-            ->limit(50)
-            ->get();
+            ->whereIn('p.status', ['paid', 'cancelled', 'failed'])
+            ->whereBetween(DB::raw('DATE(COALESCE(p.paid_at, p.created_at))'), [$from, $to])->orderBy('p.id', $sort)
+            ->paginate(12, ['*'], 'payouts_page')->withQueryString();
+        $requestItems = DB::table('seller_payout_items')->whereIn('payout_id', $payoutRequests->pluck('id')->merge($recentPayouts->pluck('id')))
+            ->get()->groupBy('payout_id');
+        foreach ($payoutRequests as $pending) {
+            $pending->blocked_reason = DB::table('seller_payout_ledgers')->where('payout_id', $pending->id)->whereNotNull('blocked_reason')->value('blocked_reason');
+        }
         $onlinePayments = Schema::hasTable('payment_transactions')
             ? DB::table('payment_transactions as pt')
                 ->leftJoin('orders as o', 'o.id', '=', 'pt.order_id')
@@ -168,21 +194,24 @@ class PayoutController extends Controller
             ->select('l.*', 's.shop_name', 'payments.online_paid', 'payments.cash_paid')
             ->orderByDesc('l.created_at')->limit(50)->get();
 
-        $riderPayoutRequests=Schema::hasTable('rider_payout_requests')?DB::table('rider_payout_requests as rp')->join('riders as r','r.id','=','rp.rider_id')->where('rp.status','requested')->select('rp.*','r.name as rider_name')->orderByDesc('rp.id')->limit(30)->get():collect();
-        $recentRiderPayouts=Schema::hasTable('rider_payout_requests')?DB::table('rider_payout_requests as rp')->join('riders as r','r.id','=','rp.rider_id')->where('rp.status','paid')->whereBetween(DB::raw('DATE(COALESCE(rp.paid_at,rp.created_at))'),[$from,$to])->select('rp.*','r.name as rider_name')->orderByDesc('rp.paid_at')->limit(30)->get():collect();
+        $riderPayoutRequests = Schema::hasTable('rider_payout_requests') ? DB::table('rider_payout_requests as rp')->join('riders as r', 'r.id', '=', 'rp.rider_id')->where('rp.status', 'requested')->select('rp.*', 'r.name as rider_name')->orderByDesc('rp.id')->limit(30)->get() : collect();
+        $recentRiderPayouts = Schema::hasTable('rider_payout_requests') ? DB::table('rider_payout_requests as rp')->join('riders as r', 'r.id', '=', 'rp.rider_id')->where('rp.status', 'paid')->whereBetween(DB::raw('DATE(COALESCE(rp.paid_at,rp.created_at))'), [$from, $to])->select('rp.*', 'r.name as rider_name')->orderByDesc('rp.paid_at')->limit(30)->get() : collect();
         $orphanedRiderPayouts = Schema::hasTable('rider_delivery_earnings') && Schema::hasTable('rider_payout_requests')
-            ? DB::table('rider_delivery_earnings as e')->join('riders as r', 'r.id', '=', 'e.rider_id')->where('e.status', 'requested')->whereNotExists(function ($q) { $q->selectRaw('1')->from('rider_payout_requests as rp')->whereColumn('rp.rider_id', 'e.rider_id')->where('rp.status', 'requested'); })->select('e.rider_id', 'r.name as rider_name', 'r.gcash_name', 'r.gcash_number', DB::raw('SUM(e.amount) as amount'))->groupBy('e.rider_id', 'r.name', 'r.gcash_name', 'r.gcash_number')->get()
+            ? DB::table('rider_delivery_earnings as e')->join('riders as r', 'r.id', '=', 'e.rider_id')->where('e.status', 'requested')->whereNotExists(function ($q) {
+                $q->selectRaw('1')->from('rider_payout_requests as rp')->whereColumn('rp.rider_id', 'e.rider_id')->where('rp.status', 'requested');
+            })->select('e.rider_id', 'r.name as rider_name', 'r.gcash_name', 'r.gcash_number', DB::raw('SUM(e.amount) as amount'))->groupBy('e.rider_id', 'r.name', 'r.gcash_name', 'r.gcash_number')->get()
             : collect();
         // Refund completion belongs to Return & Refund Cases; retain an empty collection only for legacy view compatibility.
         $refunds = collect();
-        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'recentRiderPayouts', 'refunds', 'onlinePayments', 'cashPayments', 'commissionRows', 'riderPayoutRequests', 'orphanedRiderPayouts', 'financeReconciliation', 'currentFinanceReconciliation', 'from', 'to', 'period'));
+        $shopOptions = DB::table('shops')->where('status', 'approved')->orderBy('shop_name')->get(['id', 'shop_name']);
+
+        return view('superadmin.payouts', compact('payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'recentRiderPayouts', 'refunds', 'onlinePayments', 'cashPayments', 'commissionRows', 'riderPayoutRequests', 'orphanedRiderPayouts', 'financeReconciliation', 'currentFinanceReconciliation', 'from', 'to', 'period', 'search', 'payoutStatus', 'shopFilter', 'shopOptions', 'sort', 'requestItems'));
     }
 
     public function saveSettings(Request $request)
     {
         $validated = $request->validate([
-            'payout_hold_days' => 'required|integer|min:0|max:30',
-            'payout_minimum_amount' => 'required|numeric|min:0|max:999999',
+
             'payout_schedule' => 'nullable|in:daily,weekly,twice_monthly,monthly',
             'payout_first_approval_required' => 'nullable|boolean',
             'payout_auto_paused' => 'nullable|boolean',
@@ -194,8 +223,8 @@ class PayoutController extends Controller
 
         $updates = [
             'payout_mode' => $forcedPayoutMode,
-            'payout_hold_days' => (int) $validated['payout_hold_days'],
-            'payout_minimum_amount' => round((float) $validated['payout_minimum_amount'], 2),
+            'payout_hold_days' => 0,
+            'payout_minimum_amount' => 0,
             'payout_schedule' => $validated['payout_schedule'] ?? 'weekly',
             'payout_first_approval_required' => $forcedPayoutMode === 'automatic'
                 ? $request->boolean('payout_first_approval_required')
@@ -217,6 +246,7 @@ class PayoutController extends Controller
         }
 
         $saved = (object) array_merge((array) $this->payouts->settings(), $updates);
+
         return redirect()->route('superadmin.payouts')
             ->with('payout_settings_saved', $updates)
             ->with('msg', 'Payout settings saved. Current mode: '.ucfirst($saved->payout_mode).'. Automatic is '.($saved->payout_auto_paused ? 'paused' : 'active').'.');
@@ -225,7 +255,9 @@ class PayoutController extends Controller
     public function verifySeller(Request $request, string $shopId)
     {
         $shop = DB::table('shops')->where('id', $shopId)->first();
-        if (!$shop) return back()->with('err', 'Seller shop not found.');
+        if (! $shop) {
+            return back()->with('err', 'Seller shop not found.');
+        }
 
         if (empty($shop->payout_method) || empty($shop->payout_account_name) || empty($shop->payout_account_number)) {
             return back()->with('err', 'Seller payout details are incomplete. Ask the seller to complete bank/e-wallet details first.');
@@ -247,9 +279,11 @@ class PayoutController extends Controller
     public function requestSellerDetails(Request $request, string $shopId)
     {
         $shop = DB::table('shops')->where('id', $shopId)->first();
-        if (!$shop) return back()->with('err', 'Seller shop not found.');
+        if (! $shop) {
+            return back()->with('err', 'Seller shop not found.');
+        }
 
-        if (!empty($shop->payout_method) && !empty($shop->payout_account_name) && !empty($shop->payout_account_number)) {
+        if (! empty($shop->payout_method) && ! empty($shop->payout_account_name) && ! empty($shop->payout_account_number)) {
             return back()->with('msg', "{$shop->shop_name} already submitted payout details.");
         }
 
@@ -268,9 +302,13 @@ class PayoutController extends Controller
 
     public function createManual(Request $request, string $shopId)
     {
-        $id = $this->payouts->createPayoutForShop($shopId, 'manual', trim((string) $request->input('admin_note', '')) ?: 'Created by Super Admin.', 'super_admin', 'super_admin', (string) (session('user')['id'] ?? ''));
-        if (!$id) {
-            return back()->with('err', 'No eligible payout was created. Check available balance, minimum amount, payout pause, or seller details.');
+        try {
+            $id = $this->payouts->createPayoutForShop($shopId, 'manual', trim((string) $request->input('admin_note', '')) ?: 'Created by Super Admin.', 'super_admin', 'super_admin', (string) (session('user')['id'] ?? ''));
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
+        if (! $id) {
+            return back()->with('err', 'No eligible payout was created. Check completed orders, issues, payout pause, and verified seller details.');
         }
 
         $payout = DB::table('seller_payouts')->where('id', $id)->first();
@@ -299,11 +337,20 @@ class PayoutController extends Controller
         ]);
 
         $payout = DB::table('seller_payouts')->where('id', $payoutId)->first();
-        if (!$payout) return back()->with('err', 'Payout not found.');
-        if ($payout->status === 'paid') return back()->with('msg', 'This payout was already marked as paid.');
+        if (! $payout) {
+            return back()->with('err', 'Payout not found.');
+        }
+        if ($payout->status === 'paid') {
+            return back()->with('msg', 'This payout was already marked as paid.');
+        }
 
+        try {
+            DB::transaction(fn () => app(SelectedPayoutService::class)->assertTransferEligible((int) $payout->id));
+        } catch (\DomainException $e) {
+            return $request->expectsJson() ? response()->json(['ok' => false, 'errors' => [$e->getMessage()]], 422) : back()->with('err', $e->getMessage());
+        }
         $scan = $this->receiptScanner->scan($request->file('payout_receipt'), $payout);
-        if (!$scan['ok'] || ($scan['reference_number'] ?? null) !== $validated['reference_number']) {
+        if (! $scan['ok'] || ($scan['reference_number'] ?? null) !== $validated['reference_number']) {
             return back()->with('err', implode(' ', $scan['errors'] ?? ['Receipt scan failed. Please scan the receipt again.']));
         }
         if (DB::table('seller_payouts')->where('id', '<>', $payoutId)->where('reference_number', $scan['reference_number'])->exists()) {
@@ -311,35 +358,41 @@ class PayoutController extends Controller
         }
 
         $receiptPath = $this->uploadFile($request->file('payout_receipt'), 'uploads/payout_receipts');
-        if (!$receiptPath) {
+        if (! $receiptPath) {
             return back()->with('err', 'Receipt upload failed. Please try again with a smaller JPG/PNG/WebP image.');
         }
 
-        DB::transaction(function () use ($payout, $validated, $receiptPath, $scan, $request) {
-            $updates = [
-                'status' => 'paid',
-                'reference_number' => $scan['reference_number'],
-                'admin_note' => $validated['admin_note'] ?? $payout->admin_note,
-                'processed_at' => $payout->processed_at ?? now(),
-                'paid_at' => now(),
-                'updated_at' => now(),
-            ];
-            if (Schema::hasColumn('seller_payouts', 'payout_receipt_path')) {
-                $updates['payout_receipt_path'] = $receiptPath;
-            }
-            if (Schema::hasColumn('seller_payouts', 'receipt_scan_status')) {
-                $updates['receipt_scan_status'] = 'verified';
-                $updates['receipt_scan_data'] = json_encode($scan);
-                $updates['receipt_scanned_at'] = now();
-                $updates['payout_receipt_hash'] = hash_file('sha256', $request->file('payout_receipt')->getRealPath());
-            }
+        try {
+            DB::transaction(function () use ($payout, $validated, $receiptPath, $scan, $request) {
+                app(SelectedPayoutService::class)->assertTransferEligible((int) $payout->id);
+                $updates = [
+                    'status' => 'paid',
+                    'reference_number' => $scan['reference_number'],
+                    'admin_note' => $validated['admin_note'] ?? $payout->admin_note,
+                    'processed_at' => $payout->processed_at ?? now(),
+                    'paid_at' => now(),
+                    'updated_at' => now(),
+                ];
+                if (Schema::hasColumn('seller_payouts', 'payout_receipt_path')) {
+                    $updates['payout_receipt_path'] = $receiptPath;
+                }
+                if (Schema::hasColumn('seller_payouts', 'receipt_scan_status')) {
+                    $updates['receipt_scan_status'] = 'verified';
+                    $updates['receipt_scan_data'] = json_encode($scan);
+                    $updates['receipt_scanned_at'] = now();
+                    $updates['payout_receipt_hash'] = hash_file('sha256', $request->file('payout_receipt')->getRealPath());
+                }
 
-            DB::table('seller_payouts')->where('id', $payout->id)->update($updates);
-            DB::table('seller_payout_ledgers')->where('payout_id', $payout->id)->update([
-                'status' => 'paid',
-                'updated_at' => now(),
-            ]);
-        });
+                DB::table('seller_payouts')->where('id', $payout->id)->update($updates);
+                DB::table('seller_payout_ledgers')->where('payout_id', $payout->id)->update([
+                    'status' => 'paid',
+                    'updated_at' => now(),
+                ]);
+                app(SellerBalanceService::class)->event($payout->shop_id, null, 'payout_paid', (float) $payout->net_amount, 'paid', 'Verified transfer. Reference: '.$scan['reference_number'], (int) $payout->id);
+            });
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
 
         $this->notifySellerPayout($payout, 'Payout Paid', 'Your payout #'.$payoutId.' for PHP '.number_format((float) $payout->net_amount, 2).' has been marked as paid.', [
             'event' => 'seller_payout_paid',
@@ -356,10 +409,20 @@ class PayoutController extends Controller
     {
         $request->validate(['payout_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120']);
         $payout = DB::table('seller_payouts')->where('id', $payoutId)->first();
-        if (!$payout || $payout->status === 'paid') return response()->json(['ok' => false, 'errors' => ['This payout is not available for payment.']], 422);
+        if (! $payout || ! in_array($payout->status, ['requested', 'processing'], true)) {
+            return response()->json(['ok' => false, 'errors' => ['This payout is not available for payment.']], 422);
+        }
+        try {
+            DB::transaction(fn () => app(SelectedPayoutService::class)->assertTransferEligible($payoutId));
+        } catch (\DomainException $e) {
+            return response()->json(['ok' => false, 'errors' => [$e->getMessage()]], 422);
+        }
         $scan = $this->receiptScanner->scan($request->file('payout_receipt'), $payout);
-        if (($scan['reference_number'] ?? null) && DB::table('seller_payouts')->where('id', '<>', $payoutId)->where('reference_number', $scan['reference_number'])->exists()) $scan['errors'][] = 'This receipt reference is already linked to another payout.';
+        if (($scan['reference_number'] ?? null) && DB::table('seller_payouts')->where('id', '<>', $payoutId)->where('reference_number', $scan['reference_number'])->exists()) {
+            $scan['errors'][] = 'This receipt reference is already linked to another payout.';
+        }
         $scan['ok'] = empty($scan['errors']);
+
         return response()->json($scan, $scan['ok'] ? 200 : 422);
     }
 
@@ -367,9 +430,24 @@ class PayoutController extends Controller
     {
         $request->validate(['refund_receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120']);
         $refund = DB::table('order_refunds')->where('id', $refundId)->first();
-        if (!$refund || !in_array($refund->status, ['approved_for_admin_refund', 'processing'], true)) return response()->json(['ok' => false, 'errors' => ['This refund is not awaiting Super Admin action.']], 422);
+        if (! $refund || ! in_array($refund->status, ['approved_for_admin_refund', 'processing'], true)) {
+            return response()->json(['ok' => false, 'errors' => ['This refund is not awaiting Super Admin action.']], 422);
+        }
         $scan = $this->receiptScanner->scanRefund($request->file('refund_receipt'), $refund);
+
         return response()->json($scan, $scan['ok'] ? 200 : 422);
+    }
+
+    public function cancelRequest(Request $request, int $payoutId)
+    {
+        $request->validate(['confirmed_untransferred' => 'required|accepted']);
+        try {
+            app(SelectedPayoutService::class)->cancel($payoutId);
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
+
+        return back()->with('msg', 'Untransferred payout cancelled and reconciled. Original items remain in transaction history.');
     }
 
     public function markRefundSent(Request $request, int $refundId, OrderRefundService $refunds)
@@ -380,24 +458,97 @@ class PayoutController extends Controller
             'admin_note' => 'nullable|string|max:500',
         ]);
         $refund = DB::table('order_refunds')->where('id', $refundId)->first();
-        if (!$refund || !in_array($refund->status, ['approved_for_admin_refund', 'processing'], true)) return back()->with('err', 'This refund is not awaiting Super Admin action.');
+        if (! $refund || ! in_array($refund->status, ['approved_for_admin_refund', 'processing'], true)) {
+            return back()->with('err', 'This refund is not awaiting Super Admin action.');
+        }
         $order = DB::table('orders')->where('id', $refund->order_id)->first();
-        if (!$order) return back()->with('err', 'The order for this refund no longer exists.');
+        if (! $order) {
+            return back()->with('err', 'The order for this refund no longer exists.');
+        }
         $scan = $this->receiptScanner->scanRefund($request->file('refund_receipt'), $refund);
-        if (!$scan['ok'] || !hash_equals((string) ($scan['reference_number'] ?? ''), trim($validated['reference_number']))) return back()->with('err', implode(' ', $scan['errors'] ?? ['Receipt scan validation failed.']));
+        if (! $scan['ok'] || ! hash_equals((string) ($scan['reference_number'] ?? ''), trim($validated['reference_number']))) {
+            return back()->with('err', implode(' ', $scan['errors'] ?? ['Receipt scan validation failed.']));
+        }
         $receiptPath = $this->uploadFile($request->file('refund_receipt'), 'uploads/refund_receipts');
-        if (!$receiptPath) return back()->with('err', 'Receipt upload failed. Please try again with a valid image.');
+        if (! $receiptPath) {
+            return back()->with('err', 'Receipt upload failed. Please try again with a valid image.');
+        }
         try {
             $refunds->completeAdminRefund($order, $refund, $receiptPath, $scan, trim((string) ($validated['admin_note'] ?? '')), (string) (session('user')['id'] ?? ''), hash_file('sha256', $request->file('refund_receipt')->getRealPath()));
         } catch (\DomainException $e) {
             return back()->with('err', $e->getMessage());
         }
+
         return back()->with('msg', "Refund #{$refundId} marked as completed.");
     }
 
-    public function scanRiderPayoutReceipt(Request $request,int $id){$request->validate(['receipt'=>'required|image|mimes:jpg,jpeg,png,webp|max:5120']);$p=DB::table('rider_payout_requests')->where('id',$id)->where('status','requested')->first();if(!$p)return response()->json(['ok'=>false,'errors'=>['Request unavailable.']],422);$scan=$this->receiptScanner->scanRefund($request->file('receipt'),(object)['id'=>0,'refund_amount'=>$p->amount,'refund_gcash_name'=>$p->gcash_name,'refund_gcash_number'=>$p->gcash_number]);return response()->json($scan,$scan['ok']?200:422);}
-    public function markRiderPayoutPaid(Request $request,int $id){$request->validate(['receipt'=>'required|image|mimes:jpg,jpeg,png,webp|max:5120','reference_number'=>'required|string|min:6|max:120']);$p=DB::table('rider_payout_requests')->where('id',$id)->where('status','requested')->first();if(!$p)return back()->with('err','Rider payout request unavailable.');$scan=$this->receiptScanner->scanRefund($request->file('receipt'),(object)['id'=>0,'refund_amount'=>$p->amount,'refund_gcash_name'=>$p->gcash_name,'refund_gcash_number'=>$p->gcash_number]);if(!$scan['ok']||!hash_equals((string)$scan['reference_number'],trim($request->reference_number)))return back()->with('err',implode(' ',$scan['errors']??['Receipt verification failed.']));$path=$this->uploadFile($request->file('receipt'),'uploads/rider_payout_receipts');DB::transaction(function()use($p,$path,$scan){DB::table('rider_payout_requests')->where('id',$p->id)->update(['status'=>'paid','reference_number'=>$scan['reference_number'],'receipt_path'=>$path,'paid_at'=>now(),'paid_by_user_id'=>session('user')['id']??null,'updated_at'=>now()]);DB::table('rider_delivery_earnings')->where('rider_id',$p->rider_id)->where('status','requested')->update(['status'=>'paid','updated_at'=>now()]);});$rider=DB::table('riders')->where('id',$p->rider_id)->first();$receiptUrl=route('rider.payouts.receipt',$p->id,false);$this->notifications->notifyRider((int)$p->rider_id,$rider->phone??null,'Payout paid',"Your delivery-fee payout of PHP ".number_format($p->amount,2)." is paid. View your receipt.",['event'=>'rider_payout_paid','url'=>$receiptUrl],'Your delivery-fee payout of PHP '.number_format($p->amount,2).' is paid. Receipt: '.$receiptUrl,$receiptUrl);return back()->with('msg','Rider delivery-fee payout marked paid.');}
-    public function recoverRiderPayout(Request $request, int $riderId){$rider=DB::table('riders')->where('id',$riderId)->first();if(!$rider)return back()->with('err','Rider not found.');try{DB::transaction(function()use($rider){if(DB::table('rider_payout_requests')->where('rider_id',$rider->id)->where('status','requested')->lockForUpdate()->exists())throw new \DomainException('A payout request already exists for this rider.');$amount=round((float)DB::table('rider_delivery_earnings')->where('rider_id',$rider->id)->where('status','requested')->lockForUpdate()->sum('amount'),2);if($amount<=0)throw new \DomainException('No unlinked requested rider earnings remain.');DB::table('rider_payout_requests')->insert(['rider_id'=>$rider->id,'amount'=>$amount,'gcash_name'=>$rider->gcash_name??$rider->name,'gcash_number'=>$rider->gcash_number??'','status'=>'requested','created_at'=>now(),'updated_at'=>now()]);});}catch(\DomainException $e){return back()->with('err',$e->getMessage());}return back()->with('msg','Rider payout request recovered and ready for payment.');}
+    public function scanRiderPayoutReceipt(Request $request, int $id)
+    {
+        $request->validate(['receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120']);
+        $p = DB::table('rider_payout_requests')->where('id', $id)->where('status', 'requested')->first();
+        if (! $p) {
+            return response()->json(['ok' => false, 'errors' => ['Request unavailable.']], 422);
+        }
+        try {
+            DB::transaction(fn () => app(RiderPayoutService::class)->allocations($p));
+        } catch (\DomainException $e) {
+            return response()->json(['ok' => false, 'errors' => [$e->getMessage()]], 422);
+        }
+        $scan = $this->receiptScanner->scanRefund($request->file('receipt'), (object) ['id' => 0, 'refund_amount' => $p->amount, 'refund_gcash_name' => $p->gcash_name, 'refund_gcash_number' => $p->gcash_number]);
+
+        return response()->json($scan, $scan['ok'] ? 200 : 422);
+    }
+
+    public function markRiderPayoutPaid(Request $request, int $id)
+    {
+        $request->validate(['receipt' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120', 'reference_number' => 'required|string|min:6|max:120']);
+        $p = DB::table('rider_payout_requests')->where('id', $id)->where('status', 'requested')->first();
+        if (! $p) {
+            return back()->with('err', 'Rider payout request unavailable.');
+        }$scan = $this->receiptScanner->scanRefund($request->file('receipt'), (object) ['id' => 0, 'refund_amount' => $p->amount, 'refund_gcash_name' => $p->gcash_name, 'refund_gcash_number' => $p->gcash_number]);
+        if (! $scan['ok'] || ! hash_equals((string) $scan['reference_number'], trim($request->reference_number))) {
+            return back()->with('err', implode(' ', $scan['errors'] ?? ['Receipt verification failed.']));
+        }
+        $path = $this->uploadFile($request->file('receipt'), 'uploads/rider_payout_receipts');
+        if (! $path) {
+            return back()->with('err', 'Receipt upload failed. No funds were marked paid.');
+        }
+        try {
+            DB::transaction(function () use ($p, $path, $scan) {
+                $allocations = app(RiderPayoutService::class)->allocations($p);
+                DB::table('rider_payout_requests')->where('id', $p->id)->update(['status' => 'paid', 'reference_number' => $scan['reference_number'], 'receipt_path' => $path, 'paid_at' => now(), 'paid_by_user_id' => session('user')['id'] ?? null, 'updated_at' => now()]);
+                DB::table('rider_delivery_earnings')->whereIn('id', $allocations->pluck('id'))->update(['status' => 'paid', 'payout_id' => $p->id, 'updated_at' => now()]);
+            });
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }$rider = DB::table('riders')->where('id', $p->rider_id)->first();
+        $receiptUrl = route('rider.payouts.receipt', $p->id, false);
+        $this->notifications->notifyRider((int) $p->rider_id, $rider->phone ?? null, 'Payout paid', 'Your delivery-fee payout of PHP '.number_format($p->amount, 2).' is paid. View your receipt.', ['event' => 'rider_payout_paid', 'url' => $receiptUrl], 'Your delivery-fee payout of PHP '.number_format($p->amount, 2).' is paid. Receipt: '.$receiptUrl, $receiptUrl);
+
+        return back()->with('msg', 'Rider delivery-fee payout marked paid.');
+    }
+
+    public function recoverRiderPayout(Request $request, int $riderId)
+    {
+        $rider = DB::table('riders')->where('id', $riderId)->first();
+        if (! $rider) {
+            return back()->with('err', 'Rider not found.');
+        }try {
+            DB::transaction(function () use ($rider) {
+                if (DB::table('rider_payout_requests')->where('rider_id', $rider->id)->where('status', 'requested')->lockForUpdate()->exists()) {
+                    throw new \DomainException('A payout request already exists for this rider.');
+                }$amount = round((float) DB::table('rider_delivery_earnings')->where('rider_id', $rider->id)->where('status', 'requested')->lockForUpdate()->sum('amount'), 2);
+                if ($amount <= 0) {
+                    throw new \DomainException('No unlinked requested rider earnings remain.');
+                }DB::table('rider_payout_requests')->insert(['rider_id' => $rider->id, 'amount' => $amount, 'gcash_name' => $rider->gcash_name ?? $rider->name, 'gcash_number' => $rider->gcash_number ?? '', 'status' => 'requested', 'created_at' => now(), 'updated_at' => now()]);
+            });
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
+
+        return back()->with('msg', 'Rider payout request recovered and ready for payment.');
+    }
+
     public function runAutomatic()
     {
         return back()->with('err', 'Automatic payouts are not available yet. Manual payouts remain active while business verification and payout provider access are being prepared.');
@@ -406,7 +557,7 @@ class PayoutController extends Controller
     public function downloadReceipt(int $payoutId)
     {
         $payout = DB::table('seller_payouts')->where('id', $payoutId)->first();
-        if (!$payout || empty($payout->payout_receipt_path)) {
+        if (! $payout || empty($payout->payout_receipt_path)) {
             abort(404);
         }
 
@@ -416,7 +567,9 @@ class PayoutController extends Controller
     public function downloadRiderPayoutReceipt(int $payoutId)
     {
         $payout = DB::table('rider_payout_requests')->where('id', $payoutId)->where('status', 'paid')->first();
-        if (!$payout || empty($payout->receipt_path)) abort(404);
+        if (! $payout || empty($payout->receipt_path)) {
+            abort(404);
+        }
 
         return $this->downloadReceiptResponse((string) $payout->receipt_path, 'rider-payout-receipt-'.$payout->id.'.jpg');
     }
@@ -424,7 +577,7 @@ class PayoutController extends Controller
     private function notifySellerPayout(object $source, string $title, string $message, array $data): array
     {
         $sellerId = $source->seller_id ?? null;
-        if (!$sellerId && !empty($source->shop_id)) {
+        if (! $sellerId && ! empty($source->shop_id)) {
             $sellerId = DB::table('shops')->where('id', $source->shop_id)->value('seller_id');
         }
 
@@ -446,7 +599,7 @@ class PayoutController extends Controller
     private function downloadReceiptResponse(string $url, string $filename)
     {
         $response = Http::timeout(20)->get($url);
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             abort(404);
         }
 

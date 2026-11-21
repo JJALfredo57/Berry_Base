@@ -1,539 +1,128 @@
 @extends('layouts.app')
-@section('page_title','Payouts')
-
+@section('page_title', 'My Payouts')
 @section('content')
 @php
-  $minimumPayout = (float)($payoutSettings->payout_minimum_amount ?? 0);
-  $requestBlockReason = null;
-  if (!empty($shop->payout_paused)) {
-    $requestBlockReason = 'Payouts are paused for your shop. Please contact admin.';
-  } elseif (empty($shop->payout_account_name) || empty($shop->payout_account_number)) {
-    $requestBlockReason = 'Complete your GCash payout details first before requesting a payout.';
-  } elseif (empty($shop->payout_details_verified)) {
-    $requestBlockReason = 'Your payout details need admin verification before payout request.';
-  } elseif (($summary['available'] ?? 0) <= 0) {
-    $requestBlockReason = 'No available balance yet. Earnings become available after paid orders are delivered and cleared.';
-  } elseif (($summary['available'] ?? 0) < $minimumPayout) {
-    $requestBlockReason = 'Your available balance is below the minimum payout amount of ₱'.number_format($minimumPayout, 2).'.';
-  }
-  $availableBalance = (float)($summary['available'] ?? 0);
-  $payoutProgress = $minimumPayout > 0 ? min(100, round(($availableBalance / $minimumPayout) * 100)) : 100;
-  $activePeriod = $period ?: 'last30';
-  $payoutState = empty($shop->payout_account_name) || empty($shop->payout_account_number) ? 'details' : (empty($shop->payout_details_verified) ? 'verification' : ($availableBalance < $minimumPayout ? 'minimum' : ($requestBlockReason ? 'clearing' : 'ready')));
-  $payoutStateCopy = [
-    'details' => ['Set up your GCash details', 'Add the exact registered account name and mobile number to begin.', 'bi-bank'],
-    'verification' => ['Waiting for admin verification', 'Your details are saved. An admin needs to verify them before payout requests.', 'bi-patch-check'],
-    'minimum' => ['Keep building your available balance', 'You are '.number_format($payoutProgress).'% of the way to the minimum payout.', 'bi-graph-up-arrow'],
-    'clearing' => ['Earnings are still clearing', 'Paid and delivered orders become available after the platform hold period.', 'bi-hourglass-split'],
-    'ready' => ['Your payout is ready to request', 'Your account is verified and your available balance meets the minimum.', 'bi-check2-circle'],
-  ][$payoutState];
+  $accountReady = !empty($shop->payout_method) && !empty($shop->payout_details_verified) && !empty($shop->payout_account_name) && !empty($shop->payout_account_number) && empty($shop->payout_paused);
+  $stateLabels = ['unrequested'=>'Net Online Balance','transfer_pending'=>'Requested / Processing','awaiting_completion'=>'Awaiting Delivery/Pickup','available'=>'Ready to Request','refund_reserved'=>'Refund Reserved','refunded'=>'Refunded','requested'=>'Requested','processing'=>'Processing','paid'=>'Paid Out','cancelled'=>'Cancelled','cash_settled'=>'Direct cash settled','finance_review'=>'Needs Finance Verification'];
 @endphp
-<div class="cs-page-header">
-  <div>
-    <h4 class="cs-page-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary)"></i>My Payouts</h4>
-    <p class="small text-muted mb-0">Clearing means paid completed orders still in the hold period. Available is the full eligible balance you may request. Super Admin transfers through GCash and uploads proof before a payout is marked paid.</p>
-    <p class="cs-page-sub">Track your earnings and keep your payout details accurate.</p>
-  </div>
-</div>
-
-<section class="payout-activity-filter" aria-label="Payout activity date filter">
-  <div class="payout-filter-copy"><strong>Activity period</strong><small>Filters history only. Your current payout balance is not affected.</small></div>
-  <form method="GET" class="payout-date-form">
-    <input type="hidden" name="period" value="">
-    <label><span>From</span><input class="form-control" type="date" name="from" value="{{ $from }}" onchange="this.form.submit()"></label>
-    <label><span>To</span><input class="form-control" type="date" name="to" value="{{ $to }}" onchange="this.form.submit()"></label>
-  </form>
-  <div class="payout-periods" aria-label="Quick activity periods">
-    @foreach(['today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year','last30'=>'Last 30 days'] as $key=>$label)
-      <a class="btn btn-sm {{ $activePeriod === $key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('seller.payouts', ['period'=>$key]) }}">{{ $label }}</a>
-    @endforeach
-  </div>
-</section>
-
-@if(session('msg'))
-  <div class="alert alert-success"><i class="bi bi-check-circle me-1"></i>{{ session('msg') }}</div>
-@endif
-@if(session('err'))
-  <div class="alert alert-danger"><i class="bi bi-exclamation-circle me-1"></i>{{ session('err') }}</div>
-@endif
-@foreach($errors->all() as $e)
-  <div class="alert alert-danger">{{ $e }}</div>
-@endforeach
-
-<section class="payout-readiness-card payout-state-{{ $payoutState }}" aria-labelledby="payoutReadinessTitle">
-  <div class="payout-readiness-main">
-    <div class="payout-live-label"><span></span>Live payout status</div>
-    <div class="payout-readiness-title-row"><div class="payout-readiness-icon"><i class="bi {{ $payoutStateCopy[2] }}"></i></div><div><h2 id="payoutReadinessTitle">{{ $payoutStateCopy[0] }}</h2><p>{{ $payoutStateCopy[1] }}</p></div></div>
-    <div class="payout-live-time"><i class="bi bi-clock me-1"></i>Local time: <time data-live-clock aria-live="polite">Loading...</time></div>
-  </div>
-  <div class="payout-readiness-action">
-    <small>Available now</small><div class="payout-available-value">&#8369;{{ number_format($availableBalance, 2) }}</div>
-    <div class="payout-progress-track" role="progressbar" aria-label="Progress toward minimum payout" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $payoutProgress }}"><span style="width:{{ $payoutProgress }}%"></span></div>
-    <small>{{ $minimumPayout > 0 ? number_format($payoutProgress).'% of minimum reached' : 'No minimum payout amount' }}</small>
-    @if($payoutState === 'details' || $payoutState === 'verification')
-      <a href="#payout-details" class="btn btn-primary payout-hero-btn"><i class="bi bi-bank me-1"></i>{{ $payoutState === 'details' ? 'Add GCash Details' : 'Review GCash Details' }}</a>
-    @elseif($payoutState === 'ready')
-      <form action="{{ route('seller.payouts.request') }}" method="POST" data-prevent-double-submit>@csrf<button class="btn btn-primary payout-hero-btn" type="submit" data-loading-text="Submitting..."><i class="bi bi-cash-coin me-1"></i>Request Payout</button></form>
-    @else
-      <button class="btn btn-outline-secondary payout-hero-btn" type="button" onclick="alert(@js($requestBlockReason))"><i class="bi bi-info-circle me-1"></i>Why can’t I request?</button>
-    @endif
-  </div>
-</section>
-
-<div class="alert alert-info d-flex gap-3 align-items-start payout-rule-note">
-  <i class="bi bi-info-circle-fill fs-5"></i>
-  <div>
-    <strong>Reminder:</strong> earnings become available only after an order is paid, delivered, and cleared by the platform hold period.
-    Eligible refunds may be handled before payout release. Keep your account name and number exact because incorrect payout details can delay or fail transfers.
-  </div>
-</div>
-
-<div class="row g-3 mb-4 payout-summary-grid">
-  @foreach([
-    ['Clearing', $summary['pending'], 'bi-hourglass-split', '#92400e', '#fffbeb'],
-    ['Available', $summary['available'], 'bi-cash-stack', '#166534', '#ecfdf5'],
-    ['Requested/Processing', $summary['processing'], 'bi-arrow-repeat', '#1d4ed8', '#eff6ff'],
-    ['Paid Out', $summary['paid'], 'bi-check2-circle', '#6d28d9', '#f5f3ff'],
-    ['Refund Deductions', $summary['refund_deductions'] ?? 0, 'bi-arrow-counterclockwise', '#b91c1c', '#fef2f2'],
-  ] as [$label, $value, $icon, $color, $bg])
-  <div class="col-6 col-lg {{ $label === 'Refund Deductions' ? 'payout-secondary-stat' : '' }}">
-    <div class="cs-stat-card h-100">
-      <div class="cs-stat-icon" style="background:{{ $bg }}"><i class="bi {{ $icon }}" style="color:{{ $color }}"></i></div>
-      <div class="cs-stat-body">
-        <div class="cs-stat-num" style="color:{{ $color }}">₱{{ number_format($value, 2) }}</div>
-        <div class="cs-stat-label">{{ $label }}</div>
-      </div>
-    </div>
-  </div>
-  @endforeach
-</div>
-
-@if(($refunds ?? collect())->count() > 0)
-<div class="card mb-4">
-  <div class="card-header"><i class="bi bi-arrow-counterclockwise me-2" style="color:#b91c1c"></i>Recent Refunds</div>
-  <div class="table-responsive">
-    <table class="table align-middle mb-0">
-      <thead><tr><th>Order</th><th>Status</th><th>GCash</th><th class="text-end">Amount</th><th>Reference</th></tr></thead>
-      <tbody>
-      @foreach($refunds as $r)
-        <tr>
-          <td>#{{ $r->order_id }}</td>
-          <td><span class="badge text-bg-{{ $r->status === 'refunded' ? 'success' : ($r->status === 'rejected' ? 'danger' : 'warning') }}">{{ ucfirst($r->status) }}</span></td>
-          <td class="small">{{ $r->refund_gcash_name }}<br><span class="text-muted">{{ $r->refund_gcash_number }}</span></td>
-          <td class="text-end fw-semibold">₱{{ number_format((float)$r->refund_amount, 2) }}</td>
-          <td class="small text-muted">{{ $r->reference_number ?: 'Pending' }}</td>
-        </tr>
-      @endforeach
-      </tbody>
-    </table>
-  </div>
-</div>
-@endif
-
-@php
-  $nextReleaseAt = $nextClearingLedger?->release_at ? \Carbon\Carbon::parse($nextClearingLedger->release_at) : null;
-  $remainingToMinimum = max(0, $minimumPayout - (float)($summary['available'] ?? 0));
-@endphp
-<div class="card mb-4">
-  <div class="card-header"><i class="bi bi-calendar2-check me-2" style="color:var(--primary)"></i>Payout Availability</div>
-  <div class="card-body">
-    <div class="row g-3 align-items-stretch">
-      <div class="col-md-4">
-        <div class="h-100 p-3 rounded-3" style="background:var(--primary-bg)">
-          <div class="text-muted small fw-semibold">Hold Period</div>
-          <div class="fw-bold" style="color:var(--primary)">{{ (int)($payoutSettings->payout_hold_days ?? 0) }} day{{ (int)($payoutSettings->payout_hold_days ?? 0) === 1 ? '' : 's' }}</div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="h-100 p-3 rounded-3" style="background:#ecfdf5">
-          <div class="text-muted small fw-semibold">Minimum Request</div>
-          <div class="fw-bold" style="color:#166534">₱{{ number_format($minimumPayout, 2) }}</div>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="h-100 p-3 rounded-3" style="background:#fffbeb">
-          <div class="text-muted small fw-semibold">Still Needed</div>
-          <div class="fw-bold" style="color:#92400e">₱{{ number_format($remainingToMinimum, 2) }}</div>
-        </div>
-      </div>
-    </div>
-
-    @if($nextReleaseAt)
-      <div class="mt-3 p-3 rounded-3 d-flex align-items-start gap-3" style="background:#f8fafc;border:1px solid #e5e7eb">
-        <i class="bi bi-hourglass-split fs-4" style="color:var(--primary)"></i>
-        <div>
-          <div class="fw-semibold">Next clearing release</div>
-          <div class="small text-muted">
-            ₱{{ number_format((float)$nextClearingLedger->seller_net_amount, 2) }} becomes available on
-            <strong>{{ $nextReleaseAt->format('M d, Y h:i A') }}</strong>.
-          </div>
-          <div class="mt-1 fw-bold" style="color:var(--primary)">
-            <span data-countdown-until="{{ $nextReleaseAt->toIso8601String() }}">Calculating...</span>
-          </div>
-        </div>
-      </div>
-    @elseif(($summary['available'] ?? 0) >= $minimumPayout && !$requestBlockReason)
-      <div class="alert alert-success mt-3 mb-0"><i class="bi bi-check-circle me-1"></i>Your available balance is ready for payout request.</div>
-    @else
-      <div class="alert alert-light border mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>No clearing countdown right now. New paid and delivered orders will show their release time here.</div>
-    @endif
-  </div>
-</div>
-
-<section class="card mb-4 payout-steps-card" aria-labelledby="payoutStepsTitle">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3"><div><div class="text-uppercase small fw-bold" style="color:var(--primary);letter-spacing:.08em">Simple process</div><h5 id="payoutStepsTitle" class="mb-0">How your payout moves</h5></div><span class="small text-muted">Manual admin review</span></div>
-    <div class="payout-steps">
-      <div class="payout-step"><span>1</span><div><strong>Earn</strong><small>Order is paid and delivered.</small></div></div>
-      <div class="payout-step"><span>2</span><div><strong>Clear</strong><small>Hold period finishes.</small></div></div>
-      <div class="payout-step"><span>3</span><div><strong>Request</strong><small>Submit when eligible.</small></div></div>
-      <div class="payout-step"><span>4</span><div><strong>Receive</strong><small>Admin sends to verified GCash.</small></div></div>
-    </div>
-  </div>
-</section>
-
-<div class="row g-4">
-  <div class="col-lg-4">
-    <div class="card" id="payout-details">
-      <div class="card-header"><i class="bi bi-bank me-2" style="color:var(--primary)"></i>Payout Details</div>
-      <div class="card-body">
-        <div class="mb-3">
-          <span class="badge {{ $shop->payout_details_verified ? 'text-bg-success' : 'text-bg-warning' }}">
-            {{ $shop->payout_details_verified ? 'Verified by admin' : 'Needs admin verification' }}
-          </span>
-          <div class="form-text">Changing details resets verification for your safety.</div>
-        </div>
-        <form action="{{ route('seller.payouts.details') }}" method="POST" data-prevent-double-submit onsubmit="return confirm('Please double-check your GCash details before saving. The account name must match the registered GCash name, and the mobile number must be correct. Wrong details can delay or misdirect payout transfer, so confirm only if everything is accurate.')">
-          @csrf
-          <div class="mb-3">
-            <label class="form-label">Receive via</label>
-            <input class="form-control" value="GCash" readonly>
-            <div class="form-text">Seller payouts are currently released to GCash only.</div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">GCash Account Name</label>
-            <input class="form-control" name="payout_account_name" value="{{ $shop->payout_account_name }}" placeholder="Exact registered name" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">GCash Mobile Number</label>
-            <input class="form-control" name="payout_account_number" value="{{ $shop->payout_account_number }}" placeholder="09XXXXXXXXX" pattern="^(09[0-9]{9}|\+639[0-9]{9})$" inputmode="tel" required>
-            <div class="form-text">Use 09XXXXXXXXX or +639XXXXXXXXX. Check every digit before saving.</div>
-          </div>
-          <button class="btn btn-primary w-100" type="submit" data-loading-text="Saving..."><i class="bi bi-save me-1"></i>Save Details</button>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-lg-8">
-    <div class="card mb-4">
-      <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
-        <span><i class="bi bi-receipt me-2" style="color:var(--primary)"></i>Recent Payout Requests</span>
-        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#payoutHistoryModal">
-          <i class="bi bi-clock-history me-1"></i>Transaction History
-          <span class="badge text-bg-primary ms-1">{{ (int)($payoutHistoryCount ?? 0) }}</span>
-        </button>
-      </div>
-      <div class="card-body py-3 small text-muted"><i class="bi bi-info-circle me-1"></i>Open Transaction History to review payout status, transfer references, and receipt proofs.</div>
-      <div class="table-responsive d-none" aria-hidden="true">
-        <table class="table align-middle mb-0">
-          <thead><tr><th>ID</th><th>Status</th><th class="text-end">Net</th><th>Receipt Proof</th><th>Date</th></tr></thead>
-          <tbody>
-          @forelse($payouts as $p)
-            <tr>
-              <td>#{{ $p->id }}</td>
-              <td><span class="badge text-bg-{{ $p->status === 'paid' ? 'success' : 'warning' }}">{{ ucfirst(str_replace('_',' ', $p->status)) }}</span><div class="small text-muted mt-1">{{ ($p->request_source ?? null) === 'seller' ? 'Requested by you' : (($p->request_source ?? null) === 'super_admin' ? 'Created by Super Admin' : (!empty($p->admin_note) && str_contains(strtolower($p->admin_note), 'requested by seller') ? 'Requested by you' : 'Source not recorded (legacy)')) }}</div></td>
-              <td class="text-end fw-semibold">₱{{ number_format($p->net_amount, 2) }}</td>
-              <td>
-                @if(!empty($p->payout_receipt_path ?? null))
-                  <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-download-url="{{ route('seller.payouts.receipt_download', $p->id) }}" data-receipt-title="Payout Receipt #{{ $p->id }}">
-                    <i class="bi bi-image me-1"></i>View Receipt
-                  </button>
-                  @if($p->reference_number)
-                    <div class="small text-muted mt-1">Ref: {{ $p->reference_number }}</div>
-                  @endif
-                @else
-                  <span class="text-muted">Pending admin transfer</span>
-                @endif
-              </td>
-              <td class="small text-muted">{{ $p->created_at }}</td>
-            </tr>
-          @empty
-            <tr><td colspan="5" class="text-center text-muted py-4">No payout requests yet.</td></tr>
-          @endforelse
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><i class="bi bi-list-check me-2" style="color:var(--primary)"></i>Earnings Ledger</div>
-      <div class="table-responsive">
-        <table class="table align-middle mb-0">
-          <thead><tr><th>Order</th><th>Status</th><th class="text-end">Gross</th><th class="text-end">Commission</th><th class="text-end">Net</th><th>Release</th></tr></thead>
-          <tbody>
-          @forelse($ledgers as $l)
-            <tr>
-              <td>#{{ $l->order_id }}</td>
-              <td><span class="badge text-bg-light">{{ ucfirst(str_replace('_',' ', $l->status)) }}</span></td>
-              <td class="text-end">₱{{ number_format($l->gross_amount, 2) }}</td>
-              <td class="text-end">₱{{ number_format($l->commission_amount, 2) }}</td>
-              <td class="text-end fw-semibold">₱{{ number_format($l->seller_net_amount, 2) }}</td>
-              <td class="small text-muted">{{ $l->release_at ?: 'Pending' }}</td>
-            </tr>
-          @empty
-            <tr><td colspan="6" class="text-center text-muted py-4">No cleared earnings yet. Delivered paid orders will appear here.</td></tr>
-          @endforelse
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
 <style>
-  .payout-activity-filter{display:flex;align-items:end;gap:1rem;flex-wrap:wrap;padding:1rem;margin-bottom:1rem;border:1px solid var(--gray-100);border-radius:16px;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,.04)}.payout-filter-copy{margin-right:auto;display:grid;gap:.15rem}.payout-filter-copy small{color:var(--gray-500);font-size:.78rem}.payout-date-form{display:flex;gap:.7rem;flex-wrap:wrap}.payout-date-form label{display:grid;gap:.25rem;font-size:.76rem;font-weight:700;color:var(--gray-600)}.payout-date-form input{min-height:42px;min-width:148px}.payout-periods{display:flex;gap:.45rem;flex-wrap:wrap;width:100%}.payout-periods .btn{min-height:38px;white-space:nowrap}
-  .payout-readiness-card{display:flex;justify-content:space-between;gap:1.5rem;padding:clamp(1rem,3vw,1.6rem);margin:0 0 1rem;border:1px solid color-mix(in srgb,var(--primary) 22%,#fff);border-radius:18px;background:linear-gradient(135deg,var(--primary-bg),#fff 66%);box-shadow:0 12px 30px rgba(15,23,42,.06);animation:payout-enter .38s ease both}
-  .payout-readiness-main{min-width:0}.payout-live-label{display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--primary)}.payout-live-label span{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 0 rgba(34,197,94,.55);animation:payout-pulse 1.9s infinite}.payout-readiness-title-row{display:flex;align-items:flex-start;gap:.75rem;margin:.55rem 0}.payout-readiness-icon{display:grid;place-items:center;width:42px;height:42px;flex:0 0 auto;border-radius:13px;background:var(--primary);color:#fff;font-size:1.25rem}.payout-readiness-title-row h2{font-size:clamp(1.05rem,2vw,1.3rem);margin:0;color:var(--gray-900)}.payout-readiness-title-row p{margin:.18rem 0 0;color:var(--gray-600);max-width:620px}.payout-live-time{font-size:.8rem;color:var(--gray-600)}
-  .payout-readiness-action{min-width:min(100%,260px);display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:.35rem}.payout-readiness-action small{color:var(--gray-600);font-size:.75rem}.payout-available-value{font-weight:800;font-size:1.45rem;color:#166534}.payout-progress-track{height:9px;overflow:hidden;background:#d1fae5;border-radius:99px}.payout-progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#16a34a,#22c55e);transition:width .5s ease}.payout-hero-btn{margin-top:.45rem;white-space:nowrap;overflow-wrap:normal}.payout-rule-note{font-size:.86rem}.payout-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem}.payout-step{display:flex;gap:.55rem;align-items:flex-start;padding:.7rem;border:1px solid var(--gray-100);border-radius:12px;background:#fff}.payout-step>span{display:grid;place-items:center;width:25px;height:25px;flex:0 0 auto;border-radius:50%;background:var(--primary-bg);color:var(--primary);font-size:.75rem;font-weight:800}.payout-step strong,.payout-step small{display:block}.payout-step small{font-size:.72rem;color:var(--gray-500);margin-top:.12rem}
-  .payout-data-table .table{min-width:760px}.payout-data-table .btn{white-space:nowrap;overflow-wrap:normal}@keyframes payout-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes payout-pulse{70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}}
-  @media(max-width:767px){.payout-activity-filter{align-items:stretch}.payout-filter-copy{margin-right:0}.payout-date-form{width:100%}.payout-date-form label{flex:1 1 140px}.payout-date-form input{width:100%;min-width:0}.payout-periods{flex-wrap:nowrap;overflow:auto;padding-bottom:2px}.payout-periods .btn{flex:0 0 auto}.payout-readiness-card{flex-direction:column;gap:1rem}.payout-readiness-action{width:100%;min-width:0}.payout-hero-btn{width:100%;min-height:44px}.payout-summary-grid .payout-secondary-stat{display:none}.payout-steps{grid-template-columns:1fr 1fr}.payout-step{min-height:66px}.payout-rule-note{align-items:flex-start!important}}
-  @media(max-width:399px){.payout-steps{grid-template-columns:1fr}.payout-readiness-card{padding:.9rem}.payout-readiness-title-row{gap:.55rem}}
-  @media(prefers-reduced-motion:reduce){.payout-readiness-card,.payout-live-label span{animation:none}.payout-progress-track span{transition:none}}
-  #payoutHistoryModal.payout-history-modal .modal-dialog {
-    width:min(980px, calc(100vw - 24px));
-    max-width:min(980px, calc(100vw - 24px)) !important;
-    margin:0 !important;
-    transform:translateY(14px) scale(.97);
-    transition:transform .22s ease;
-  }
-  #payoutHistoryModal.payout-history-modal.show { display:flex !important; align-items:center; justify-content:center; padding:12px !important; overflow:hidden; }
-  #payoutHistoryModal.payout-history-modal.show .modal-dialog { transform:translateY(0) scale(1); }
-  #payoutHistoryModal.payout-history-modal .modal-content { max-height:calc(100dvh - 24px); border-radius:1rem; overflow:hidden; }
-  #payoutHistoryModal.payout-history-modal .modal-body { overflow:auto; -webkit-overflow-scrolling:touch; }
-  #payoutHistoryModal .payout-history-table th { white-space:nowrap; font-size:.76rem; color:#64748b; text-transform:uppercase; }
-  @media(max-width:575px) { #payoutHistoryModal.payout-history-modal .modal-footer .btn { min-height:44px; } }
-  #payoutReceiptViewerModal.payout-receipt-modal .modal-dialog {
-    width:min(920px, calc(100vw - 24px));
-    max-width:min(920px, calc(100vw - 24px)) !important;
-    margin:0 !important;
-    transform:scale(.96);
-  }
-  #payoutReceiptViewerModal.payout-receipt-modal.show {
-    display:flex !important;
-    align-items:center;
-    justify-content:center;
-    padding:12px !important;
-    overflow:hidden;
-  }
-  #payoutReceiptViewerModal.payout-receipt-modal.show .modal-dialog {
-    transform:scale(1);
-  }
-  #payoutReceiptViewerModal.payout-receipt-modal .modal-content {
-    max-height:calc(100dvh - 24px);
-    display:flex;
-    flex-direction:column;
-  }
-  #payoutReceiptViewerModal.payout-receipt-modal .modal-body {
-    flex:1 1 auto;
-    min-height:0;
-    max-height:none;
-    overflow:auto;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:12px;
-    -webkit-overflow-scrolling:touch;
-  }
-  #payoutReceiptViewerModal.payout-receipt-modal .modal-body img {
-    max-height:calc(100dvh - 160px) !important;
-    width:auto;
-  }
-  #payoutReceiptViewerModal.payout-receipt-modal .modal-footer {
-    flex-shrink:0;
-    position:relative;
-    z-index:2;
-    background:#fff;
-  }
-  #payoutReceiptViewerModal.payout-receipt-modal .modal-footer .btn {
-    min-height:44px;
-    padding-inline:16px;
-  }
-  @media(max-width:575px) {
-    #payoutReceiptViewerModal.payout-receipt-modal .modal-footer {
-      justify-content:stretch;
-      gap:8px;
-    }
-    #payoutReceiptViewerModal.payout-receipt-modal .modal-footer .btn {
-      flex:1 1 0;
-    }
-  }
+.payout-shell{max-width:1400px;margin:auto}.payout-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.8rem;margin:1rem 0}.payout-tile{display:block;border:1px solid #e2e8f0;border-radius:14px;padding:1rem;background:#fff;text-decoration:none;color:inherit;min-width:0}.payout-tile strong{display:block;color:#166534;font-size:1.3rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.payout-tile span{font-weight:700;font-size:.82rem}.payout-tile small{display:block;color:#64748b;margin-top:.25rem}.payout-panel{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:1rem;margin-bottom:1rem;min-width:0}.payout-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;align-items:end}.payout-filters label{font-size:.78rem;font-weight:700}.payout-order{border:1px solid #e2e8f0;border-radius:12px;padding:1rem;margin-bottom:.8rem;min-width:0}.payout-order-head{display:flex;gap:.75rem;align-items:flex-start;flex-wrap:wrap}.payout-order-head input{width:22px;height:22px;flex:none;margin-top:.2rem}.payout-order-title{flex:1;min-width:120px}.payout-breakdown{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-top:.85rem}.payout-breakdown dt{font-size:.72rem;color:#64748b;font-weight:500}.payout-breakdown dd{font-size:.9rem;margin:0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.payout-selection-total{position:static;margin-top:1rem;border:1px solid #bbf7d0;border-radius:14px;background:#f0fdf4;padding:1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}.payout-selection-total strong{font-size:1.45rem;color:#166534;display:block}.payout-history-row{border-bottom:1px solid #e2e8f0;padding:1rem 0}.payout-history-row:last-child{border:0}.payout-history-head{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}.payout-shell .btn,.payout-shell select,.payout-shell input:not([type=checkbox]){min-height:44px}.payout-shell a:focus-visible,.payout-shell button:focus-visible{outline:3px solid var(--primary);outline-offset:3px}.payout-shell nav{overflow:auto}.payout-gcash{display:grid;grid-template-columns:1fr 1fr auto;gap:.75rem;align-items:end}.payout-empty{text-align:center;padding:2rem;color:#64748b}@media(max-width:767px){.payout-filters,.payout-breakdown{grid-template-columns:1fr 1fr}.payout-gcash{grid-template-columns:1fr}.payout-selection-total{align-items:stretch;flex-direction:column}.payout-selection-total .btn{width:100%}.payout-panel{padding:.85rem}}@media(max-width:374px){.payout-filters,.payout-summary-grid{grid-template-columns:1fr}.payout-order{padding:.75rem}}
 </style>
+<style>.payout-filters>div,.payout-breakdown>div{min-width:0}.payout-filters input,.payout-filters select{width:100%;min-width:0;max-width:100%}@media(max-width:767px){.payout-filters,.payout-breakdown{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:425px){.payout-filters{grid-template-columns:minmax(0,1fr)}}</style>
+<div class="payout-shell">
+<h4 class="cs-page-title">My Payouts</h4>
+<p class="text-muted">Verified online payments appear immediately. Select completed, issue-free orders for a GCash transfer. No waiting days or minimum payout.</p>
+@if(session('msg'))<div class="alert alert-success" role="status">{{ session('msg') }}</div>@endif
+@if(session('err'))<div class="alert alert-danger" role="alert">{{ session('err') }}</div>@endif
+@if($errors->any())<div class="alert alert-danger" role="alert">@foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>@endif
+<section class="payout-summary-grid" aria-label="Account-wide balances">
+@foreach([
+ ['Net Online Balance',$summary['net_online'],'Unrequested funds; includes incomplete orders.','unrequested'],
+ ['Awaiting Completion',$summary['awaiting'],'Visible, but cannot yet be selected.','awaiting_completion'],
+ ['Ready to Request',$summary['available'],'Completed and issue-free, less recovery.','available'],
+ ['Requested / Processing',$summary['processing'],'Reserved for transfer.','transfer_pending'],
+ ['Paid Out',$summary['paid'],'Transferred funds with receipt proof.','paid'],
+ ['Refund Reserved',$summary['reserved'],'Unavailable while the issue is resolved.','refund_reserved'],
+ ...($summary['review']>0 ? [['Needs Finance Verification',$summary['review'],'Historical funds need verified evidence.','finance_review']] : []),
+] as [$label,$amount,$help,$targetState])
+<a class="payout-tile" href="{{ route('seller.payouts',['state'=>$targetState,'period'=>'all']) }}#payout-orders"><strong>₱{{ number_format($amount,2) }}</strong><span>{{ $label }}</span><small>{{ $help }}</small></a>
+@endforeach
+</section>
+<p class="small text-muted">Cards are account-wide; filters below affect list results only. Awaiting Completion and Ready to Request are parts of Net Online Balance, not extra earnings. Direct cash is never requestable.</p>
 
-<div class="modal fade payout-receipt-modal" id="payoutReceiptViewerModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title fw-bold" id="payoutReceiptViewerTitle"><i class="bi bi-receipt me-1" style="color:var(--primary)"></i>Payout Receipt</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body text-center" style="background:#0f172a">
-        <img id="payoutReceiptViewerImage" src="" alt="Payout receipt" style="max-width:100%;max-height:75vh;object-fit:contain;border-radius:8px">
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-primary btn-sm" id="payoutReceiptViewerDownload">
-          <i class="bi bi-download me-1"></i>Download
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
+<section class="payout-panel"><h5>Filter transactions</h5>
+<p class="small text-muted">Order dates use allocation recording dates. Payout, refund, and activity lists use their own recorded dates. Payment, fulfillment, order status, and balance state filter the order list; payout status and activity type filter their respective histories.</p>
+<form method="GET" class="payout-filters">
+<div><label for="pf-from">From</label><input id="pf-from" type="date" class="form-control" name="from" value="{{ $from }}"></div>
+<div><label for="pf-to">To</label><input id="pf-to" type="date" class="form-control" name="to" value="{{ $to }}"></div>
+<div><label for="pf-search">Order / cake / reference</label><input id="pf-search" class="form-control" name="search" value="{{ $search }}" maxlength="120"></div>
+<div><label for="pf-method">Payment</label><select id="pf-method" class="form-select" name="method"><option value="">All payments</option>@foreach(['GCash','COD','COP'] as $value)<option @selected($method===$value)>{{ $value }}</option>@endforeach</select></div>
+<div><label for="pf-fulfillment">Fulfillment</label><select id="pf-fulfillment" class="form-select" name="fulfillment"><option value="">All fulfillment</option>@foreach(['Delivery','Pickup'] as $value)<option @selected($fulfillment===$value)>{{ $value }}</option>@endforeach</select></div>
+<div><label for="pf-state">Balance state</label><select id="pf-state" class="form-select" name="state"><option value="">All balance states</option>@foreach($stateLabels as $value=>$label)<option value="{{ $value }}" @selected($state===$value)>{{ $label }}</option>@endforeach</select></div>
+<div><label for="pf-order">Order status</label><select id="pf-order" class="form-select" name="order_status"><option value="">All order statuses</option>@foreach(['Pending','Confirmed','Preparing','Pickup','Out for Delivery','Delivered','Picked Up','Cancelled','No Show'] as $value)<option @selected($orderStatus===$value)>{{ $value }}</option>@endforeach</select></div>
+<div><label for="pf-history">Payout history status</label><select id="pf-history" class="form-select" name="history_status"><option value="">All payout statuses</option>@foreach(['requested','processing','paid','cancelled'] as $value)<option value="{{ $value }}" @selected($historyStatus===$value)>{{ ucfirst($value) }}</option>@endforeach</select></div>
+<div><label for="pf-sort">Sort</label><select id="pf-sort" class="form-select" name="sort"><option value="newest" @selected($sort==='newest')>Newest first</option><option value="oldest" @selected($sort==='oldest')>Oldest first</option></select></div>
+<div><label for="pf-activity">Balance activity type</label><select id="pf-activity" class="form-select" name="activity_type"><option value="">All activity</option>@foreach(['allocation','transfer_blocked','payout_requested','payout_cancelled','payout_paid','refund_completed','return_refunded','refund_recovery'] as $value)<option value="{{ $value }}" @selected($activityType===$value)>{{ ucfirst(str_replace('_',' ',$value)) }}</option>@endforeach</select></div>
+<div class="d-flex gap-2 flex-wrap"><button class="btn btn-primary" type="submit">Apply Filters</button><a class="btn btn-outline-secondary" href="{{ route('seller.payouts') }}">Clear Filters</a></div>
+</form>
+<div class="d-flex gap-2 flex-wrap mt-3">@foreach(['all'=>'All Time','today'=>'Today','week'=>'This Week','month'=>'This Month','last30'=>'Last 30 Days'] as $value=>$label)<a class="btn btn-sm btn-outline-primary" href="{{ route('seller.payouts',array_merge(request()->except(['from','to','orders_page','history_page','refund_page','return_page','activity_page']),['period'=>$value])) }}">{{ $label }}</a>@endforeach</div>
+</section>
+@unless($accountReady)<div class="alert alert-warning">{{ !empty($shop->payout_paused) ? 'Payouts are paused. Contact Super Admin.' : 'Complete your verified GCash details before requesting a payout.' }} <a href="#payout-details">View details</a></div>@endunless
+
+<section class="payout-panel" id="payout-orders"><h5>Select orders for payout</h5>
+<p class="small text-muted">{{ $ledgers->total() }} matching allocations · filtered net amount: ₱{{ number_format($filteredTotal,2) }}. Paid rows are historical, not available again.</p>
+<form method="POST" action="{{ route('seller.payouts.request') }}" id="selectedPayoutForm" data-prevent-double-submit>@csrf
+<div class="d-flex gap-3 align-items-center flex-wrap mb-3"><label class="d-flex gap-2 align-items-center"><input type="checkbox" id="payoutSelectAll" style="width:22px;height:22px"> Select all eligible orders on this page</label><button type="button" class="btn btn-sm btn-outline-secondary" id="clearPayoutSelection">Clear Selection</button></div>
+@forelse($ledgers as $ledger)
+@php $eligible=$ledger->status==='available' && !$ledger->payout_id && (float)$ledger->seller_net_amount>0 && $accountReady; @endphp
+<article class="payout-order">
+<div class="payout-order-head"><input aria-label="Select order {{ $ledger->order_id }}" type="checkbox" name="ledger_ids[]" value="{{ $ledger->id }}" data-net-cents="{{ (int)round($ledger->seller_net_amount*100) }}" @disabled(!$eligible)>
+<div class="payout-order-title"><strong>{{ (float)$ledger->seller_net_amount<0 ? 'Refund recovery · ' : '' }}Order #{{ $ledger->display_order_id }}</strong><div>{{ $ledger->product_name ?: ((float)$ledger->seller_net_amount<0 ? 'Refund recovery adjustment' : 'Cake order') }}</div><small class="text-muted">{{ $ledger->payment_method }} · {{ $ledger->fulfillment_type }} · {{ $ledger->order_status }} · {{ \Carbon\Carbon::parse($ledger->created_at)->format('M j, Y g:i A') }}</small></div><span class="badge {{ $eligible ? 'text-bg-success' : 'text-bg-light' }}">{{ $stateLabels[$ledger->status] ?? ucfirst(str_replace('_',' ',$ledger->status)) }}</span></div>
+@if($ledger->blocked_reason)<p class="small text-warning-emphasis mt-2 mb-0">{{ $ledger->blocked_reason }}@if($ledger->payout_id) — cancel the untransferred request to reconcile its funds.@endif</p>@endif
+@if($ledger->items->isNotEmpty())<details class="mt-2"><summary>View cake items ({{ $ledger->items->count() }})</summary><p class="small text-muted">Proportional per-item breakdown, with centavos balanced to the order total. Selection and refund protection apply to the entire order.</p>@foreach($ledger->items as $item)<div class="small border-top py-2"><strong>{{ $item->product_name }} × {{ $item->quantity }}</strong><div>Cake amount: ₱{{ number_format($item->payout_cake_amount,2) }} · Commission: ₱{{ number_format($item->payout_commission_amount,2) }}</div><div>Net online: <strong>₱{{ number_format($item->payout_seller_net_amount,2) }}</strong> · Direct cash: ₱{{ number_format($item->payout_cash_to_seller_amount,2) }}</div></div>@endforeach</details>@endif
+<dl class="payout-breakdown">
+<div><dt>Cake / product amount</dt><dd>₱{{ number_format($ledger->cake_amount ?? $ledger->commission_base,2) }}</dd></div>
+<div><dt>Verified online payment</dt><dd>₱{{ number_format($ledger->online_collected_amount,2) }}</dd></div>
+@if(($ledger->platform_funded_discount ?? 0)>0)<div><dt>Platform-funded discount credit</dt><dd>+₱{{ number_format($ledger->platform_funded_discount,2) }}</dd></div>@endif
+<div><dt>Commission ({{ number_format($ledger->commission_rate,2) }}%){{ ($ledger->commission_refund_amount ?? 0)>0 ? ' · after refund reversal' : '' }}</dt><dd>−₱{{ number_format($ledger->commission_amount,2) }}</dd>@if(($ledger->commission_refund_amount ?? 0)>0)<small>Original ₱{{ number_format($ledger->commission_amount+$ledger->commission_refund_amount,2) }} · reversed ₱{{ number_format($ledger->commission_refund_amount,2) }}</small>@endif</div>
+@if(($ledger->online_funds_refunded ?? 0)>0)<div><dt>Online funds refunded</dt><dd>₱{{ number_format($ledger->online_funds_refunded,2) }}</dd><small>Seller share reversed: ₱{{ number_format($ledger->seller_refund_amount,2) }}. Not requestable again.</small></div>@endif
+<div><dt>Rider allocation from online</dt><dd>₱{{ number_format($ledger->rider_online_fee_amount,2) }}</dd></div>
+<div><dt>Cash to seller · not requestable</dt><dd>₱{{ number_format($ledger->cash_to_seller_amount,2) }}</dd></div>
+<div><dt>Rider fee retained in cash</dt><dd>₱{{ number_format($ledger->rider_cash_fee_amount,2) }}</dd></div>
+<div><dt>Net online seller amount</dt><dd class="fw-bold text-success">₱{{ number_format($ledger->seller_net_amount,2) }}</dd></div>
+<div><dt>Payout reference</dt><dd>{{ $ledger->payout_id ? '#'.$ledger->payout_id : 'Not requested' }}</dd></div>
+</dl></article>
+@empty<div class="payout-empty">No allocations match these filters. Verified payments appear here.</div>@endforelse
+<div class="mt-3">{{ $ledgers->links() }}</div>
+<div class="payout-selection-total" aria-live="polite" data-recovery-cents="{{ (int)round($summary['refund_deductions']*100) }}">
+<div><span><span id="selectedOrderCount">0</span> selected orders</span><strong id="selectedPayoutAmount">₱0.00</strong><small>Net transfer after deductions, including ₱{{ number_format($summary['refund_deductions'],2) }} outstanding recovery.</small></div>
+<button type="submit" class="btn btn-primary" id="requestSelectedPayout" disabled data-loading-text="Submitting…">Request Payout</button>
+</div></form></section>
+
+<section class="payout-panel" id="payout-history"><h5>Payout Transaction History</h5><p class="small text-muted">Original per-order amounts and receipt references are preserved. Cancel an untransferred request to reconcile affected funds.</p>
+@forelse($payouts as $payout)
+<article class="payout-history-row"><div class="payout-history-head"><div><strong>Payout #{{ $payout->id }} · ₱{{ number_format($payout->net_amount,2) }}</strong><div class="small">{{ ucfirst($payout->status) }} · {{ \Carbon\Carbon::parse($payout->created_at)->format('M j, Y g:i A') }}</div></div>
+@if($payout->status==='requested')<form method="POST" action="{{ route('seller.payouts.cancel',$payout->id) }}" data-prevent-double-submit>@csrf<button class="btn btn-sm btn-outline-danger">Cancel Untransferred Request</button></form>@endif</div>
+@if($payout->status==='processing')<p class="small text-warning-emphasis">Transfer processing. Contact Super Admin to stop and reconcile; do not request these funds again.</p>@endif
+<details class="mt-2"><summary>View order breakdown and transfer details</summary><ul class="mt-2">@foreach($payoutItems->get($payout->id,collect()) as $item)<li>Order #{{ $item->order_id }}: ₱{{ number_format($item->net_amount,2) }}</li>@endforeach</ul><div class="small">GCash: {{ $payout->payout_account_name }} · {{ substr($payout->payout_account_number,0,4) }}••••{{ substr($payout->payout_account_number,-3) }}</div><div class="small">Reference: {{ $payout->reference_number ?: 'Awaiting transfer' }}</div>@if($payout->paid_at)<div class="small">Transferred: {{ $payout->paid_at }}</div>@endif</details>
+@if(!empty($payout->payout_receipt_path))<a class="btn btn-sm btn-outline-primary mt-2" href="{{ route('seller.payouts.receipt_download',$payout->id) }}">Download Transfer Receipt</a>@endif</article>
+@empty<div class="payout-empty">No payout history matches these filters.</div>@endforelse
+{{ $payouts->links() }}</section>
+
+<section class="payout-panel" id="refund-history"><h5>Refund & Adjustment History</h5><p class="small text-muted">Filtered by date and order search. Active cases reserve linked funds. View the complete case and receipt in Return Requests.</p>
+@forelse($refunds as $refund)<article class="payout-history-row"><strong>Order #{{ $refund->order_id }} · ₱{{ number_format($refund->refund_amount,2) }}</strong><div>{{ ucfirst(str_replace('_',' ',$refund->status)) }} · {{ $refund->reference_number ?: 'Awaiting refund transfer' }}</div><a href="{{ url('/seller/return-cases') }}">View refund case</a>@if(!empty($refund->receipt_path)) <a class="btn btn-sm btn-outline-primary" href="{{ route('seller.payouts.refund_receipt',['kind'=>'cancellation','refundId'=>$refund->id]) }}">Download Refund Receipt</a>@endif</article>@empty<p class="text-muted">No cancellation refunds in this period.</p>@endforelse
+@if(method_exists($refunds,'links')){{ $refunds->links() }}@endif
+@forelse($returnRefunds as $return)<article class="payout-history-row"><strong>Return · Order #{{ $return->order_id }} · ₱{{ number_format($return->approved_amount ?? $return->requested_amount ?? 0,2) }}</strong><div>{{ ucfirst(str_replace('_',' ',$return->status)) }} · {{ $return->refund_reference ?: 'Awaiting refund transfer' }}</div><a href="{{ url('/seller/return-cases') }}">View return case</a>@if(!empty($return->refund_receipt_path)) <a class="btn btn-sm btn-outline-primary" href="{{ route('seller.payouts.refund_receipt',['kind'=>'return','refundId'=>$return->id]) }}">Download Refund Receipt</a>@endif</article>@empty<p class="text-muted">No return cases in this period.</p>@endforelse
+@if(method_exists($returnRefunds,'links')){{ $returnRefunds->links() }}@endif</section>
+
+<section class="payout-panel" id="balance-activity"><h5>Balance Activity</h5><p class="small text-muted">An audit of allocations and adjustments, not additional sales. Filter by date, order search, or activity type.</p>
+@forelse($events as $event)<article class="payout-history-row"><div class="payout-history-head"><strong>{{ ucfirst(str_replace('_',' ',$event->type)) }} · ₱{{ number_format($event->amount,2) }}</strong><small>{{ \Carbon\Carbon::parse($event->created_at)->format('M j, Y g:i A') }}</small></div><div class="small">{{ $event->order_id ? 'Order #'.$event->order_id : 'Payout #'.$event->payout_id }} · {{ ucfirst(str_replace('_',' ',$event->status)) }}</div><div class="small text-muted">{{ $event->note }}</div></article>@empty<p class="text-muted">No activity matches these filters.</p>@endforelse
+@if(method_exists($events,'links')){{ $events->links() }}@endif</section>
+
+<section class="payout-panel" id="payout-details"><h5>GCash Payout Details</h5><p class="small text-muted">{{ $shop->payout_details_verified ? 'Verified by Super Admin' : 'Needs Super Admin verification' }}. Changing details resets verification.</p>
+<form method="POST" action="{{ route('seller.payouts.details') }}" class="payout-gcash" data-prevent-double-submit>@csrf
+<div><label for="gcashName" class="form-label">GCash Account Name</label><input id="gcashName" class="form-control" name="payout_account_name" value="{{ $shop->payout_account_name }}" required maxlength="150"></div>
+<div><label for="gcashNumber" class="form-label">GCash Mobile Number</label><input id="gcashNumber" class="form-control" name="payout_account_number" value="{{ $shop->payout_account_number }}" required pattern="^(09[0-9]{9}|\+639[0-9]{9})$" inputmode="tel"></div>
+<button class="btn btn-primary">Save Details</button></form></section>
 </div>
-
-<div class="modal fade payout-history-modal" id="payoutHistoryModal" tabindex="-1" aria-labelledby="payoutHistoryTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
-    <div class="modal-content border-0 shadow">
-      <div class="modal-header border-0 pb-0">
-        <div>
-          <h5 class="modal-title fw-bold" id="payoutHistoryTitle"><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Payout Transaction History</h5>
-          <div class="small text-muted">Latest {{ $payouts->count() }} of {{ (int)($payoutHistoryCount ?? 0) }} payout request{{ (int)($payoutHistoryCount ?? 0) === 1 ? '' : 's' }}.</div>
-        </div>
-      </div>
-      <div class="modal-body pt-3">
-        @if($payouts->isEmpty())
-          <div class="text-center py-5 text-muted"><i class="bi bi-receipt-cutoff d-block mb-2" style="font-size:2rem;color:var(--primary)"></i>No payout requests yet.</div>
-        @else
-          <div class="table-responsive">
-            <table class="table align-middle mb-0 payout-history-table">
-              <thead><tr><th>ID</th><th>Status</th><th class="text-end">Net</th><th>Receipt / Reference</th><th>Date</th></tr></thead>
-              <tbody>
-              @foreach($payouts as $p)
-                <tr>
-                  <td class="fw-semibold">#{{ $p->id }}</td>
-                  <td><span class="badge text-bg-{{ ($p->status ?? '') === 'paid' ? 'success' : 'warning' }}">{{ ucfirst(str_replace('_', ' ', $p->status ?? 'pending')) }}</span><div class="small text-muted mt-1">{{ ($p->request_source ?? null) === 'seller' ? 'Requested by you' : (($p->request_source ?? null) === 'super_admin' ? 'Created by Super Admin' : (!empty($p->admin_note) && str_contains(strtolower($p->admin_note), 'requested by seller') ? 'Requested by you' : 'Source not recorded (legacy)')) }}</div></td>
-                  <td class="text-end fw-semibold">₱{{ number_format((float)($p->net_amount ?? 0), 2) }}</td>
-                  <td>
-                    @if(!empty($p->payout_receipt_path ?? null))
-                      <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-download-url="{{ route('seller.payouts.receipt_download', $p->id) }}" data-receipt-title="Payout Receipt #{{ $p->id }}"><i class="bi bi-image me-1"></i>View Receipt</button>
-                      @if($p->reference_number)<div class="small text-muted mt-1">Ref: {{ $p->reference_number }}</div>@endif
-                    @else
-                      <span class="small text-muted">Pending admin transfer</span>
-                    @endif
-                  </td>
-                  <td class="small text-muted">{{ $p->created_at ? \Carbon\Carbon::parse($p->created_at)->format('M d, Y g:i A') : '—' }}</td>
-                </tr>
-              @endforeach
-              </tbody>
-            </table>
-          </div>
-        @endif
-      </div>
-      <div class="modal-footer border-0 pt-0"><button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">Close</button></div>
-    </div>
-  </div>
-</div>
-
+@push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const receiptModal = document.getElementById('payoutReceiptViewerModal');
-  const historyModal = document.getElementById('payoutHistoryModal');
-  const liveClock = document.querySelector('[data-live-clock]');
-  function updateLiveClock() {
-    if (!liveClock) return;
-    liveClock.dateTime = new Date().toISOString();
-    liveClock.textContent = new Intl.DateTimeFormat(undefined, { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit' }).format(new Date());
-  }
-  updateLiveClock();
-  if (liveClock) setInterval(updateLiveClock, 1000);
-  if (receiptModal && receiptModal.parentElement !== document.body) {
-    document.body.appendChild(receiptModal);
-  }
-  if (historyModal && historyModal.parentElement !== document.body) {
-    document.body.appendChild(historyModal);
-  }
-
-  function formatCountdown(ms) {
-    if (ms <= 0) return null;
-    const totalSeconds = Math.floor(ms / 1000);
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return (days ? days + 'd ' : '') +
-      String(hours).padStart(2, '0') + 'h ' +
-      String(minutes).padStart(2, '0') + 'm ' +
-      String(seconds).padStart(2, '0') + 's';
-  }
-
-  let countdownTimer = null;
-  function updateCountdowns() {
-    let active = 0;
-    document.querySelectorAll('[data-countdown-until]').forEach(el => {
-      if (el.dataset.countdownDone === '1') return;
-      const target = Date.parse(el.dataset.countdownUntil || '');
-      if (!target) return;
-      const text = formatCountdown(target - Date.now());
-      if (!text) {
-        el.textContent = 'Ready after refresh';
-        el.dataset.countdownDone = '1';
-        return;
-      }
-      el.textContent = text;
-      active++;
-    });
-    if (active === 0 && countdownTimer) {
-      clearInterval(countdownTimer);
-      countdownTimer = null;
-    }
-  }
-
-  updateCountdowns();
-  if (document.querySelector('[data-countdown-until]:not([data-countdown-done="1"])')) {
-    countdownTimer = setInterval(updateCountdowns, 1000);
-  }
-
-  document.querySelectorAll('.payout-receipt-viewer-btn').forEach(button => {
-    button.addEventListener('click', function() {
-      const url = button.dataset.receiptUrl;
-      if (!url) return;
-      if (historyModal && historyModal.classList.contains('show') && window.bootstrap) {
-        bootstrap.Modal.getInstance(historyModal)?.hide();
-      }
-      document.getElementById('payoutReceiptViewerTitle').textContent = button.dataset.receiptTitle || 'Payout Receipt';
-      document.getElementById('payoutReceiptViewerImage').src = url;
-      const downloadButton = document.getElementById('payoutReceiptViewerDownload');
-      downloadButton.dataset.downloadUrl = button.dataset.receiptDownloadUrl || url;
-      downloadButton.dataset.downloadName = 'payout-receipt-' + (button.dataset.receiptTitle || 'receipt').replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '') + '.jpg';
-      if (window.bootstrap) {
-        bootstrap.Modal.getOrCreateInstance(receiptModal).show();
-      } else {
-        window.open(url, '_blank', 'noopener');
-      }
-    });
-  });
-
-  document.getElementById('payoutReceiptViewerDownload')?.addEventListener('click', function() {
-    const url = this.dataset.downloadUrl;
-    if (!url) return;
-    const originalHtml = this.innerHTML;
-    this.disabled = true;
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = this.dataset.downloadName || 'payout-receipt.jpg';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    if (window.BerryBaseDownloads && typeof window.BerryBaseDownloads.notify === 'function') {
-      window.BerryBaseDownloads.notify('Download started.');
-    }
-    setTimeout(() => {
-      this.disabled = false;
-      this.innerHTML = originalHtml;
-    }, 900);
-  });
+document.addEventListener('DOMContentLoaded', () => {
+ const form=document.getElementById('selectedPayoutForm'), boxes=[...form.querySelectorAll('input[name="ledger_ids[]"]:not(:disabled)')], all=document.getElementById('payoutSelectAll');
+ const recovery=Number(form.querySelector('[data-recovery-cents]').dataset.recoveryCents||0);
+ const update=()=>{
+  const selected=boxes.filter(box=>box.checked), cents=selected.length?Math.max(0,selected.reduce((total,box)=>total+Number(box.dataset.netCents),0)-recovery):0;
+  document.getElementById('selectedOrderCount').textContent=selected.length;
+  document.getElementById('selectedPayoutAmount').textContent='₱'+(cents/100).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('requestSelectedPayout').disabled=!selected.length||cents<=0;
+  all.checked=boxes.length>0&&selected.length===boxes.length; all.indeterminate=selected.length>0&&selected.length<boxes.length;
+ };
+ all.disabled=!boxes.length;
+ all.addEventListener('change',()=>{boxes.forEach(box=>box.checked=all.checked);update()});
+ boxes.forEach(box=>box.addEventListener('change',update));
+ document.getElementById('clearPayoutSelection').addEventListener('click',()=>{boxes.forEach(box=>box.checked=false);update()});
+ update();
 });
 </script>
-<script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.card').forEach(function(card){const h=card.querySelector('.card-header');if(!h)return;const t=h.textContent.replace(/\s+/g,' ').trim();if(t==='Earnings Ledger'){card.remove()}else if(t.includes('Recent Payout Requests')&&!h.querySelector('[data-finance-link]')){const a=document.createElement('a');a.href='{{ route('seller.finance') }}';a.className='btn btn-sm btn-outline-primary ms-auto';a.dataset.financeLink='1';a.innerHTML='<i class="bi bi-graph-up-arrow me-1"></i>View detailed earnings';h.classList.add('d-flex','align-items-center','gap-2','flex-wrap');h.appendChild(a)}})})</script>
-<script>document.addEventListener('DOMContentLoaded',()=>document.querySelectorAll('.card').forEach(c=>{if(c.querySelector('.card-header')?.textContent.replace(/\s+/g,' ').trim()==='Recent Refunds')c.remove()}))</script>
-<script>document.addEventListener('DOMContentLoaded',()=>document.querySelectorAll('.cs-stat-label').forEach(x=>{if(x.textContent.trim()==='Refund Deductions')x.textContent='Refund Recovery Pending'}))</script>
+@endpush
 @endsection

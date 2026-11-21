@@ -1,54 +1,61 @@
 <?php
+
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use App\Services\OrderActionService;
+use App\Services\OrderSettlementService;
+use App\Services\RiderAssignmentService;
+use App\Services\SellerBalanceService;
+use App\Services\SellerPayoutService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
     private function getShop()
     {
         $uid = session('user')['id'];
+
         return DB::table('shops')->where('seller_id', $uid)->first();
     }
 
     public function index()
     {
         $shop = $this->getShop();
-        if (!$shop) return redirect()->route('seller.apply')->with('err','Your shop is not found.');
-        if ($shop->status === 'pending')
+        if (! $shop) {
+            return redirect()->route('seller.apply')->with('err', 'Your shop is not found.');
+        }
+        if ($shop->status === 'pending') {
             return view('seller.pending', compact('shop'));
-        if ($shop->status === 'rejected')
+        }
+        if ($shop->status === 'rejected') {
             return view('seller.rejected', compact('shop'));
-        if ($shop->status === 'suspended')
+        }
+        if ($shop->status === 'suspended') {
             return view('seller.suspended', compact('shop'));
+        }
 
         $shopId = $shop->id;
 
         // Stats — wrapped in try/catch in case shop_id columns not yet migrated
         try {
-            $revenueQuery = DB::table('orders as o')
-                ->where('o.shop_id', $shopId)
-                ->where('o.payment_status', 'Paid')
-                ->whereNotIn('o.status', ['Cancelled']);
-
-            if (Schema::hasTable('rider_remittances')) {
-                $revenueQuery->leftJoin('rider_remittances as rr', 'rr.order_id', '=', 'o.id')
-                    ->where(function ($q) {
-                        $q->where(function ($nonCodDelivery) {
-                            $nonCodDelivery
-                                ->where(function ($method) {
-                                    $method->whereNull('o.payment_method')
-                                        ->orWhereRaw('UPPER(o.payment_method) <> ?', ['COD']);
-                                })
-                                ->orWhere(function ($fulfillment) {
-                                    $fulfillment->whereNull('o.fulfillment_type')
-                                        ->orWhere('o.fulfillment_type', '<>', 'Delivery');
-                                });
-                        })->orWhere('rr.status', 'confirmed');
-                    });
+            app(SellerBalanceService::class)->sync((string) $shopId);
+            $completed = DB::table('orders')->where('shop_id', $shopId)
+                ->where('payment_status', 'Paid')->whereIn('status', ['Delivered', 'Picked Up'])->get();
+            $snapshots = DB::table('seller_payout_ledgers')->whereIn('order_id', $completed->pluck('id'))->get()->keyBy('order_id');
+            $revenue = 0.0;
+            $earnedCommission = 0.0;
+            foreach ($completed as $completedOrder) {
+                $snapshot = $snapshots->get($completedOrder->id);
+                $completedOrder->online_paid_amount = (float) ($snapshot->online_collected_amount ?? 0);
+                if (app(SellerBalanceService::class)->eligibility($completedOrder)[0] !== 'available') {
+                    continue;
+                }
+                $allocation = $snapshot ?: (object) app(OrderSettlementService::class)->snapshot($completedOrder, $shop);
+                $revenue += (float) ($allocation->cake_amount ?? $allocation->commission_base);
+                $earnedCommission += (float) $allocation->commission_amount;
             }
 
             $pendingRemittance = 0.0;
@@ -62,29 +69,29 @@ class DashboardController extends Controller
             }
 
             $stats = [
-                'pending'    => DB::table('orders')->where('shop_id',$shopId)->where('status','Pending')->count(),
-                'confirmed'  => DB::table('orders')->where('shop_id',$shopId)->where('status','Confirmed')->count(),
-                'preparing'  => DB::table('orders')->where('shop_id',$shopId)->where('status','Preparing')->count(),
-                'total'      => DB::table('orders')->where('shop_id',$shopId)->whereNotIn('status',['Cancelled'])->count(),
-                'revenue'    => (float) $revenueQuery->sum('o.total_price'),
+                'pending' => DB::table('orders')->where('shop_id', $shopId)->where('status', 'Pending')->count(),
+                'confirmed' => DB::table('orders')->where('shop_id', $shopId)->where('status', 'Confirmed')->count(),
+                'preparing' => DB::table('orders')->where('shop_id', $shopId)->where('status', 'Preparing')->count(),
+                'total' => DB::table('orders')->where('shop_id', $shopId)->whereNotIn('status', ['Cancelled'])->count(),
+                'revenue' => $revenue,
                 'pending_remittance' => $pendingRemittance,
-                'products'   => DB::table('products')->where('shop_id',$shopId)->where('is_available', true)->count(),
+                'products' => DB::table('products')->where('shop_id', $shopId)->where('is_available', true)->count(),
             ];
         } catch (\Exception $e) {
-            $stats = ['pending'=>0,'confirmed'=>0,'preparing'=>0,'total'=>0,'revenue'=>0,'pending_remittance'=>0,'products'=>0];
+            $stats = ['pending' => 0, 'confirmed' => 0, 'preparing' => 0, 'total' => 0, 'revenue' => 0, 'pending_remittance' => 0, 'products' => 0];
         }
 
-        $commissionEnabled = (bool)($shop->commission_enabled ?? 1);
-        $commissionRate    = $commissionEnabled ? (float)($shop->commission_rate ?? 0) : 0;
-        $commission        = round($stats['revenue'] * $commissionRate / 100, 2);
-        $netRevenue        = $stats['revenue'] - $commission;
-        $payoutSummary     = app(\App\Services\SellerPayoutService::class)->summaryForShop((string)$shopId);
+        $commissionEnabled = (bool) ($shop->commission_enabled ?? 1);
+        $commissionRate = $commissionEnabled ? (float) ($shop->commission_rate ?? 0) : 0;
+        $commission = round($earnedCommission ?? 0, 2);
+        $netRevenue = $stats['revenue'] - $commission;
+        $payoutSummary = app(SellerPayoutService::class)->summaryForShop((string) $shopId);
 
         // Recent orders
         try {
             $recentOrders = DB::table('orders as o')
-                ->leftJoin('users as u','u.id','=','o.user_id')
-                ->leftJoin('products as p','p.id','=','o.product_id')
+                ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+                ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
                 ->leftJoin('custom_orders as co', 'co.order_id', '=', 'o.id')
                 ->where('o.shop_id', $shopId)
                 ->select('o.*', 'p.image_path as product_image', 'co.reference_images', 'co.cake_name as custom_cake_name',
@@ -95,7 +102,9 @@ class DashboardController extends Controller
                 ->orderByDesc('o.id')
                 ->limit(5)
                 ->get();
-        } catch (\Exception $e) { $recentOrders = collect(); }
+        } catch (\Exception $e) {
+            $recentOrders = collect();
+        }
 
         // Pending custom orders
         try {
@@ -105,36 +114,41 @@ class DashboardController extends Controller
                 ->where('co.review_status', 'pending')
                 ->where('o.status', '<>', 'Cancelled')
                 ->count();
-        } catch (\Exception $e) { $pendingCustom = 0; }
+        } catch (\Exception $e) {
+            $pendingCustom = 0;
+        }
 
         // Unread messages
         try {
             $unreadMsg = DB::table('messages as m')
-                ->join('orders as o','o.id','=','m.order_id')
+                ->join('orders as o', 'o.id', '=', 'm.order_id')
                 ->where('o.shop_id', $shopId)
-                ->where('m.sender_role','customer')
+                ->where('m.sender_role', 'customer')
                 ->where('m.is_read', false)
                 ->count();
-        } catch (\Exception $e) { $unreadMsg = 0; }
+        } catch (\Exception $e) {
+            $unreadMsg = 0;
+        }
 
         $sellerActionSummary = app(OrderActionService::class)->sellerSummary((string) $shopId);
+
         return view('seller.dashboard', compact(
-            'shop','stats','commission','netRevenue',
-            'payoutSummary','recentOrders','pendingCustom','unreadMsg','sellerActionSummary'
+            'shop', 'stats', 'commission', 'netRevenue',
+            'payoutSummary', 'recentOrders', 'pendingCustom', 'unreadMsg', 'sellerActionSummary'
         ));
     }
 
     public function sidebarCounts()
     {
         $shop = $this->getShop();
-        if (!$shop || $shop->status !== 'approved') {
+        if (! $shop || $shop->status !== 'approved') {
             return response()->json(['ok' => false, 'counts' => []], 403);
         }
 
         try {
-            app(\App\Services\RiderAssignmentService::class)->expirePendingAssignments((string) $shop->id);
+            app(RiderAssignmentService::class)->expirePendingAssignments((string) $shop->id);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Rider assignment expiry sweep failed: ' . $e->getMessage());
+            Log::warning('Rider assignment expiry sweep failed: '.$e->getMessage());
         }
 
         return response()->json([
@@ -177,7 +191,7 @@ class DashboardController extends Controller
                     ->whereIn('status', ['pending', 'submitted', 'rejected'])
                     ->count();
             }
-            $counts['rider_actions'] = app(\App\Services\RiderAssignmentService::class)->countNeedingReassignment($shopId);
+            $counts['rider_actions'] = app(RiderAssignmentService::class)->countNeedingReassignment($shopId);
             $counts['cancellation_actions'] = app(OrderActionService::class)->sellerSummary($shopId)['total'];
             $counts['return_cases'] = $counts['cancellation_actions'] + (Schema::hasTable('post_delivery_return_cases') ? (int) DB::table('post_delivery_return_cases')->where('shop_id', $shopId)->where('status', 'submitted')->count() : 0);
             $counts['orders'] = $counts['pending_orders'] + $counts['pickup_ready'] + $counts['remittance_actions'] + $counts['rider_actions'];
@@ -236,7 +250,8 @@ class DashboardController extends Controller
                 }
                 $counts['feedback'] = (int) $feedbackQuery->count();
             }
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
         return $counts;
     }

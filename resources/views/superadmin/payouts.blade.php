@@ -22,15 +22,20 @@
 @endforeach
 
 <section class="finance-date-filter" aria-label="Finance reporting period">
-  <div><strong>Reporting period</strong><small>Filters historical activity only. Current payable balances stay live.</small></div>
+  <div><strong>Reporting period</strong><small>Date filters affect activity lists. Seller/status/search filters below apply to seller balances and payouts. Summary cards stay account-wide.</small></div>
   <form method="GET" class="finance-date-form">
     <input type="hidden" name="period" value="">
-    <label>From<input class="form-control" type="date" name="from" value="{{ $from }}" onchange="this.form.submit()"></label>
-    <label>To<input class="form-control" type="date" name="to" value="{{ $to }}" onchange="this.form.submit()"></label>
+    <label>From<input class="form-control" type="date" name="from" value="{{ $from }}"></label>
+    <label>To<input class="form-control" type="date" name="to" value="{{ $to }}"></label>
+    <label>Seller / order / reference<input class="form-control" name="search" value="{{ $search }}" maxlength="120"></label>
+    <label>Shop<select class="form-select" name="shop"><option value="">All shops</option>@foreach($shopOptions as $option)<option value="{{ $option->id }}" @selected($shopFilter===$option->id)>{{ $option->shop_name }}</option>@endforeach</select></label>
+    <label>Seller payout status<select class="form-select" name="payout_status"><option value="">All statuses</option>@foreach(['requested','processing','paid','cancelled','failed'] as $value)<option value="{{ $value }}" @selected($payoutStatus===$value)>{{ ucfirst($value) }}</option>@endforeach</select></label>
+    <label>Sort<select class="form-select" name="sort"><option value="newest" @selected($sort==='desc')>Newest</option><option value="oldest" @selected($sort==='asc')>Oldest</option></select></label>
+    <button class="btn btn-primary" type="submit">Apply Filters</button><a class="btn btn-outline-secondary" href="{{ route('superadmin.payouts') }}">Clear</a>
   </form>
   <div class="finance-periods" aria-label="Quick date filters">
-    @foreach(['today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year','last30'=>'Last 30 days'] as $key=>$label)
-      <a class="btn btn-sm {{ $period === $key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('superadmin.payouts', ['period'=>$key]) }}">{{ $label }}</a>
+    @foreach(['all'=>'All Time','today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year','last30'=>'Last 30 days'] as $key=>$label)
+      <a class="btn btn-sm {{ $period === $key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('superadmin.payouts', array_merge(request()->except(['from','to','shops_page','requests_page','payouts_page']), ['period'=>$key])) }}">{{ $label }}</a>
     @endforeach
   </div>
 </section>
@@ -40,14 +45,14 @@
 <div class="alert alert-info d-flex gap-3 align-items-start">
   <i class="bi bi-info-circle-fill fs-5"></i>
   <div>
-    <strong>How money moves:</strong> GCash payment is recorded first, then the paid order must be completed. The seller share enters <strong>Seller Earnings on Hold</strong>, becomes <strong>Ready for Seller Payout</strong> after the hold period, and becomes <strong>Paid to Sellers</strong> only after an admin uploads a verified transfer receipt. The 2% platform commission is recorded when the completed order gets its payout ledger.
+    <strong>How money moves:</strong> Verified online payments appear in the seller balance immediately, less the assigned seller commission on the full cake amount and any online-funded rider fee. Only paid, Delivered/Picked Up orders without active issues are selectable. COD cash and rider-retained delivery fees are excluded. There are no waiting days or minimum payout. A request becomes paid only with a verified transfer receipt. Re-check eligibility before sending money; cancel blocked, untransferred requests to reconcile their funds.
   </div>
 </div>
 
 <style>.finance-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1.5rem}.finance-group{border:1px solid var(--gray-100,#e5e7eb);border-radius:16px;background:#fff;overflow:hidden}.finance-group summary{list-style:none;cursor:pointer;padding:1rem;display:flex;justify-content:space-between;gap:.75rem;align-items:center}.finance-group summary::-webkit-details-marker{display:none}.finance-group summary:hover{background:#f8fafc}.finance-amount{font-size:1.35rem;font-weight:800}.finance-details{display:grid;gap:.5rem;padding:0 1rem 1rem}.finance-line{display:flex;justify-content:space-between;gap:.75rem;font-size:.85rem;border-top:1px solid #f1f5f9;padding-top:.5rem}.finance-line strong{white-space:nowrap}.finance-review-alert{border-left:4px solid #b45309}.finance-audit-table{min-width:1040px}.finance-state{font-size:.75rem;font-weight:700}@media(max-width:900px){.finance-groups{grid-template-columns:1fr}}@media(prefers-reduced-motion:no-preference){.finance-group[open] .finance-details{animation:financeIn .2s ease-out}@keyframes financeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}}</style>
 <div class="finance-groups">
 <details class="finance-group"><summary><div><div class="small text-muted">Customer funds</div><div class="finance-amount text-primary">₱{{ number_format($paymentSummary['online_amount'],2) }}</div><small>GCash order payments</small></div><i class="bi bi-chevron-down"></i></summary><div class="finance-details"><div class="finance-line"><span>Customer-paid service fee</span><strong>₱{{ number_format($paymentSummary['service_fees'],2) }}</strong></div><div class="finance-line"><span>Customer checkout total</span><strong>₱{{ number_format($paymentSummary['customer_charged'],2) }}</strong></div><div class="finance-line"><span>Refunds sent</span><strong>−₱{{ number_format($paymentSummary['refunds_sent'],2) }}</strong></div></div></details>
-<details class="finance-group"><summary><div><div class="small text-muted">Seller funds in process</div><div class="finance-amount text-success">₱{{ number_format($summary['clearing']+$summary['available'],2) }}</div><small>Clearing + ready payout</small></div><i class="bi bi-chevron-down"></i></summary><div class="finance-details"><div class="finance-line"><span>Seller earnings clearing</span><strong>₱{{ number_format($summary['clearing'],2) }}</strong></div><div class="finance-line"><span>Ready for seller payout</span><strong>₱{{ number_format($summary['available'],2) }}</strong></div><div class="finance-line"><span>Transfer pending</span><strong>₱{{ number_format($summary['processing'],2) }}</strong></div><div class="finance-line"><span>Paid to sellers</span><strong>₱{{ number_format($summary['paid'],2) }}</strong></div></div></details>
+<details class="finance-group"><summary><div><div class="small text-muted">Seller funds in process</div><div class="finance-amount text-success">₱{{ number_format($summary['awaiting']+$summary['available'],2) }}</div><small>Awaiting completion + ready payout</small></div><i class="bi bi-chevron-down"></i></summary><div class="finance-details"><div class="finance-line"><span>Awaiting Delivery/Pickup</span><strong>₱{{ number_format($summary['awaiting'],2) }}</strong></div><div class="finance-line"><span>Ready for seller payout</span><strong>₱{{ number_format($summary['available'],2) }}</strong></div><div class="finance-line"><span>Refund reserved</span><strong>₱{{ number_format($summary['reserved'],2) }}</strong></div><div class="finance-line"><span>Transfer pending</span><strong>₱{{ number_format($summary['processing'],2) }}</strong></div><div class="finance-line"><span>Paid to sellers</span><strong>₱{{ number_format($summary['paid'],2) }}</strong></div></div></details>
 <details class="finance-group" open><summary><div><div class="small text-muted">Verified platform commission</div><div class="finance-amount" style="color:#7c3aed">₱{{ number_format($paymentSummary['verified_platform_commission'],2) }}</div><small>Only fully matched orders</small></div><i class="bi bi-chevron-down"></i></summary><div class="finance-details"><div class="finance-line"><span>Seller funds awaiting release</span><strong>₱{{ number_format($paymentSummary['seller_payable'],2) }}</strong></div><div class="finance-line"><span>Rider funds awaiting release</span><strong>₱{{ number_format($paymentSummary['rider_payable'],2) }}</strong></div><div class="finance-line"><span>Paid to sellers</span><strong>₱{{ number_format($paymentSummary['seller_paid'],2) }}</strong></div><div class="finance-line"><span>Rider fees paid</span><strong>₱{{ number_format($paymentSummary['rider_paid'],2) }}</strong></div><div class="finance-line"><span>Recorded commission</span><strong>₱{{ number_format($paymentSummary['commission_recorded'],2) }}</strong></div></div></details>
 </div>
 @if($paymentSummary['review_count'] > 0)
@@ -56,21 +61,21 @@
 
 <div class="card mb-4">
   <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="audit" aria-expanded="false" aria-controls="finance-panel-audit"><span><i class="bi bi-clipboard2-data me-2" style="color:var(--primary)"></i>Order Reconciliation Audit</span><span class="small text-muted">Every net GCash settlement must be fully allocated before it is usable.</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
-  <div class="finance-table-panel" id="finance-panel-audit" data-finance-content="audit" hidden><div class="table-responsive"><table class="table align-middle mb-0 finance-audit-table"><thead><tr><th>Order</th><th>Order state</th><th class="text-end">Net GCash</th><th class="text-end">Refund</th><th class="text-end">Seller</th><th class="text-end">Rider</th><th class="text-end">Commission</th><th class="text-end">Held</th><th class="text-end">Difference</th><th>Result</th></tr></thead><tbody>
+  <div class="finance-table-panel" id="finance-panel-audit" data-finance-content="audit" hidden><div class="table-responsive"><table class="table align-middle mb-0 finance-audit-table"><thead><tr><th>Order</th><th>Order state</th><th class="text-end">Net GCash</th><th class="text-end">Platform-funded credit</th><th class="text-end">Refund</th><th class="text-end">Seller</th><th class="text-end">Rider</th><th class="text-end">Commission</th><th class="text-end">Unallocated</th><th class="text-end">Difference</th><th>Result</th></tr></thead><tbody>
   @forelse($financeReconciliation['rows']->take(100) as $audit)
     @php $needsReview = $audit->state === 'needs_review'; @endphp
-    <tr class="{{ $needsReview ? 'table-warning' : '' }}"><td class="fw-semibold">#{{ $audit->order_id }}</td><td>{{ $audit->order_status }}</td><td class="text-end">₱{{ number_format($audit->online_settled,2) }}</td><td class="text-end">₱{{ number_format($audit->refunds,2) }}</td><td class="text-end">₱{{ number_format($audit->seller_amount,2) }}</td><td class="text-end">₱{{ number_format($audit->rider_amount,2) }}</td><td class="text-end">₱{{ number_format($audit->commission,2) }}</td><td class="text-end">₱{{ number_format($audit->held,2) }}</td><td class="text-end fw-semibold {{ abs($audit->difference) >= .01 ? 'text-danger' : 'text-success' }}">{{ $audit->difference > 0 ? '+' : '' }}₱{{ number_format($audit->difference,2) }}</td><td><span class="finance-state badge text-bg-{{ $audit->state === 'reconciled' ? 'success' : ($audit->state === 'held' ? 'secondary' : 'warning') }}">{{ $audit->state === 'reconciled' ? 'Matched' : ($audit->state === 'held' ? 'On hold' : 'Needs review') }}</span>@if($audit->rider_review_amount > 0)<div class="small text-danger mt-1">Rider ₱{{ number_format($audit->rider_review_amount,2) }} needs review</div>@endif</td></tr>
+    <tr class="{{ $needsReview ? 'table-warning' : '' }}"><td class="fw-semibold">#{{ $audit->order_id }}</td><td>{{ $audit->order_status }}</td><td class="text-end">₱{{ number_format($audit->online_settled,2) }}</td><td class="text-end">₱{{ number_format($audit->platform_funding,2) }}</td><td class="text-end">₱{{ number_format($audit->refunds,2) }}</td><td class="text-end">₱{{ number_format($audit->seller_amount,2) }}</td><td class="text-end">₱{{ number_format($audit->rider_amount,2) }}</td><td class="text-end">₱{{ number_format($audit->commission,2) }}</td><td class="text-end">₱{{ number_format($audit->held,2) }}</td><td class="text-end fw-semibold {{ abs($audit->difference) >= .01 ? 'text-danger' : 'text-success' }}">{{ $audit->difference > 0 ? '+' : '' }}₱{{ number_format($audit->difference,2) }}</td><td><span class="finance-state badge text-bg-{{ $audit->state === 'reconciled' ? 'success' : ($audit->state === 'held' ? 'secondary' : 'warning') }}">{{ $audit->state === 'reconciled' ? 'Matched' : ($audit->state === 'held' ? 'Awaiting completion' : 'Needs review') }}</span>@if($audit->rider_review_amount > 0)<div class="small text-danger mt-1">Rider ₱{{ number_format($audit->rider_review_amount,2) }} needs review</div>@endif</td></tr>
   @empty
-    <tr><td colspan="10" class="text-center text-muted py-4">No online payment records need reconciliation yet.</td></tr>
+    <tr><td colspan="11" class="text-center text-muted py-4">No online payment records need reconciliation yet.</td></tr>
   @endforelse
   </tbody></table></div></div>
 </div>
 <div class="row g-3 mb-4 payout-summary-grid d-none">
   @foreach([
     ['All Online Payments', $paymentSummary['online_amount'], 'bi-credit-card-2-front', '#0369a1', '#f0f9ff'],
-    ['Held Customer Funds', $heldCustomerFunds ?? 0, 'bi-shield-lock', '#92400e', '#fffbeb'],
+    ['Unallocated Customer Funds', $heldCustomerFunds ?? 0, 'bi-shield-lock', '#92400e', '#fffbeb'],
     ['Platform Commission Recorded', $commissionSummary['recorded'], 'bi-percent', '#7c3aed', '#f5f3ff'],
-    ['Seller Earnings Clearing', $summary['clearing'], 'bi-hourglass-split', '#92400e', '#fffbeb'],
+    ['Awaiting Delivery/Pickup', $summary['awaiting'], 'bi-hourglass-split', '#92400e', '#fffbeb'],
     ['Ready for Seller Payout', $summary['available'], 'bi-cash-stack', '#166534', '#ecfdf5'],
     ['Transfer Pending', $summary['processing'], 'bi-arrow-repeat', '#1d4ed8', '#eff6ff'],
     ['Paid to Sellers', $summary['paid'], 'bi-check2-circle', '#6d28d9', '#f5f3ff'],
@@ -91,7 +96,7 @@
 </div>
 
 <div class="card mb-4">
-  <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="cash-history" aria-expanded="false" aria-controls="finance-panel-cash-history"><span><i class="bi bi-cash-coin me-2" style="color:#166534"></i>Cash Settlement History</span><span class="small text-muted">Cash on Pickup and Cash on Delivery; recorded for audit only and excluded from payout clearing.</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
+  <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="cash-history" aria-expanded="false" aria-controls="finance-panel-cash-history"><span><i class="bi bi-cash-coin me-2" style="color:#166534"></i>Cash Settlement History</span><span class="small text-muted">Cash on Pickup and Cash on Delivery; recorded for audit only and excluded from online payout.</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
   <div class="finance-table-panel" id="finance-panel-cash-history" data-finance-content="cash-history" hidden><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Settled</th><th>Order</th><th>Seller</th><th>Cash transaction</th><th>Order Status</th><th class="text-end">Amount</th></tr></thead><tbody>
     @forelse($cashPayments as $payment)
       <tr><td class="small">{{ $payment->paid_at ? \Carbon\Carbon::parse($payment->paid_at)->format('M d, Y h:i A') : 'Recorded' }}</td><td class="fw-semibold">#{{ $payment->order_id }}</td><td>{{ $payment->shop_name ?? 'Shop unavailable' }}</td><td>{{ \App\Helpers\PaymentTransactionHelper::typeLabel($payment->type) }}</td><td><span class="badge text-bg-light">{{ $payment->order_status ?? 'Order unavailable' }}</span></td><td class="text-end fw-semibold">₱{{ number_format((float) $payment->amount, 2) }}</td></tr>
@@ -126,10 +131,10 @@
 </div>
 
 <div class="card mb-4">
-  <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="commission" aria-expanded="false" aria-controls="finance-panel-commission"><span><i class="bi bi-percent me-2" style="color:var(--primary)"></i>Platform Commission Ledger</span><span class="small text-muted">2% of cake/product value only · direct-cash commission due: ₱{{ number_format($commissionSummary['cash_due'], 2) }}</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
+  <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="commission" aria-expanded="false" aria-controls="finance-panel-commission"><span><i class="bi bi-percent me-2" style="color:var(--primary)"></i>Platform Commission Ledger</span><span class="small text-muted">Assigned seller rate × full cake/product value · direct-cash commission due: ₱{{ number_format($commissionSummary['cash_due'], 2) }}</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
   <div class="finance-table-panel" id="finance-panel-commission" data-finance-content="commission" hidden><div class="table-responsive">
     <table class="table align-middle mb-0">
-      <thead><tr><th>Order</th><th>Seller</th><th>Settlement State</th><th class="text-end">GCash Paid</th><th class="text-end">Cash Paid</th><th class="text-end">Cake Amount</th><th class="text-end">2% Commission</th><th class="text-end">Seller Earnings</th></tr></thead>
+      <thead><tr><th>Order</th><th>Seller</th><th>Settlement State</th><th class="text-end">GCash Paid</th><th class="text-end">Cash Paid</th><th class="text-end">Cake Amount</th><th class="text-end">Commission</th><th class="text-end">Seller Earnings</th></tr></thead>
       <tbody>
         @forelse($commissionRows as $ledger)
           <tr>
@@ -143,7 +148,7 @@
             <td class="text-end">₱{{ number_format((float) $ledger->seller_net_amount, 2) }}</td>
           </tr>
         @empty
-          <tr><td colspan="8" class="text-center text-muted py-4">Commission is recorded when a paid order is completed.</td></tr>
+          <tr><td colspan="8" class="text-center text-muted py-4">Commission allocation is recorded when online payment is verified; the seller rate is preserved.</td></tr>
         @endforelse
       </tbody>
     </table>
@@ -161,17 +166,7 @@
             <label class="form-label fw-semibold">Payout Mode</label>
             <div class="form-control bg-light d-flex align-items-center gap-2" aria-label="Payout mode: Manual, locked"><i class="bi bi-lock-fill text-muted"></i><span>Manual — admin reviews and marks paid</span></div>
             <div class="form-text">Payout mode is locked to Manual. Admin review is required before marking payout as paid.</div>
-          </div>
-          <div class="row g-2">
-            <div class="col-6">
-              <label class="form-label">Hold Days</label>
-              <input type="number" min="0" max="30" class="form-control" name="payout_hold_days" value="{{ (int)($payoutSettings->payout_hold_days ?? 3) }}" required>
-            </div>
-            <div class="col-6">
-              <label class="form-label">Minimum</label>
-              <input type="number" min="0" step="0.01" class="form-control" name="payout_minimum_amount" value="{{ number_format((float)($payoutSettings->payout_minimum_amount ?? 500), 2, '.', '') }}" required>
-            </div>
-          </div>
+          </div><div class="alert alert-light mb-0">No waiting days or minimum payout. Verified payments are visible immediately; completed, issue-free orders can be requested.</div>
           <button class="btn btn-primary w-100 mt-4" type="submit" data-loading-text="Saving...">
             <i class="bi bi-save me-1"></i>Save Settings
           </button>
@@ -192,7 +187,7 @@
             <tr>
               <th>Seller</th>
               <th>Payout Details</th>
-              <th>Clearing / Next Release</th>
+              <th>Awaiting Completion / Issues</th>
               <th class="text-end">Available</th>
               <th class="text-end">Processing</th>
               <th></th>
@@ -211,7 +206,7 @@
                 } elseif (empty($shop->payout_details_verified)) {
                   $payoutBlockReason = 'Seller payout details need admin verification before creating a payout.';
                 } elseif ($shop->available_balance <= 0) {
-                  $payoutBlockReason = 'No available balance yet. Orders must be paid, delivered, and past the hold period.';
+                  $payoutBlockReason = 'No available balance yet. Orders must be paid, completed, and free of active issues.';
                 } elseif ($shop->available_balance < $minimumPayout) {
                   $payoutBlockReason = 'Available balance is below the minimum payout amount of ₱'.number_format($minimumPayout, 2).'.';
                 }
@@ -231,16 +226,8 @@
                   @endif
                 </td>
                 <td class="small">
-                  <div class="fw-semibold">₱{{ number_format($shop->clearing_balance ?? 0, 2) }}</div>
-                  @if(!empty($shop->next_release_at))
-                    @php $shopNextRelease = \Carbon\Carbon::parse($shop->next_release_at); @endphp
-                    <div class="text-muted">Next: {{ $shopNextRelease->format('M d, Y h:i A') }}</div>
-                    <div class="fw-semibold" style="color:var(--primary)">
-                      <span data-countdown-until="{{ $shopNextRelease->toIso8601String() }}">Calculating...</span>
-                    </div>
-                  @else
-                    <span class="text-muted">No clearing balance</span>
-                  @endif
+                  <div class="fw-semibold">₱{{ number_format($shop->awaiting_balance ?? 0, 2) }}</div>
+                  <div class="text-muted">Completes eligibility at delivery/pickup, without extra waiting days.</div>
                   @if(($shop->pending_refunds ?? 0) > 0)
                     <div class="mt-1"><span class="badge text-bg-danger">{{ $shop->pending_refunds }} pending refund{{ $shop->pending_refunds > 1 ? 's' : '' }}</span></div>
                   @endif
@@ -285,6 +272,7 @@
           </tbody>
         </table>
       </div>
+      <div class="p-3">{{ $shops->links() }}</div>
     </div>
   </div>
 </div>
@@ -340,7 +328,7 @@
 @endif
 
 <div class="card mt-4">
-  @php $payoutActionCount = $payoutRequests->count(); @endphp
+  @php $payoutActionCount = $payoutRequests->total(); @endphp
   <button class="card-header payout-section-head finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="requests" aria-expanded="true" aria-controls="finance-panel-requests"><span><i class="bi bi-cash-coin me-2" style="color:var(--primary)"></i>Payout Requests</span><span>@if($payoutActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $payoutActionCount }} needs action</span>@endif <i class="bi bi-chevron-up ms-2 finance-table-chevron" aria-hidden="true"></i></span></button>
   <div class="table-responsive payout-table-scroll finance-table-panel" id="finance-panel-requests" data-finance-content="requests">
     @if(($riderPayoutRequests ?? collect())->count())<section class="payout-rider-requests"><div class="payout-subhead"><span><i class="bi bi-bicycle me-2"></i>Rider Delivery-Fee Requests</span><span class="payout-attention">{{ $riderPayoutRequests->count() }} awaiting payment</span></div><div class="payout-rider-grid">@foreach($riderPayoutRequests as $rp)<article class="payout-rider-card"><div><span class="payout-role-pill">Rider</span><strong>{{ $rp->rider_name }}</strong><div class="payout-rider-account">{{ $rp->gcash_name }} · {{ $rp->gcash_number }}</div></div><div class="payout-rider-amount">₱{{ number_format($rp->amount,2) }}</div><form method="POST" enctype="multipart/form-data" action="{{ route('superadmin.rider_payouts.mark_paid',$rp->id) }}" class="rider-payout-pay payout-rider-form" data-prevent-double-submit>@csrf<input class="rider-payout-receipt form-control form-control-sm" data-scan-url="{{ route('superadmin.rider_payouts.scan_receipt',$rp->id) }}" name="receipt" type="file" accept="image/jpeg,image/png,image/webp" required><div class="small rider-payout-scan-message">Upload receipt to scan the reference.</div><div class="d-flex gap-2"><input class="rider-payout-reference form-control form-control-sm" name="reference_number" required readonly placeholder="Scanned reference"><button class="btn btn-success btn-sm" type="submit" disabled>Mark paid</button></div></form></article>@endforeach</div></section>@endif
@@ -367,7 +355,7 @@
             <td>#{{ $p->id }}</td>
             <td><div class="fw-semibold">{{ $p->shop_name }}</div><div class="small text-muted">{{ $p->seller_name }}</div></td>
             <td>{{ ucfirst($p->mode) }}</td>
-            <td><span class="badge text-bg-{{ $p->status === 'paid' ? 'success' : ($p->status === 'failed' ? 'danger' : 'warning') }}">{{ ucfirst(str_replace('_',' ', $p->status)) }}</span></td>
+            <td><span class="badge text-bg-{{ $p->status === 'paid' ? 'success' : ($p->status === 'failed' ? 'danger' : 'warning') }}">{{ ucfirst(str_replace('_',' ', $p->status)) }}</span>@if(!empty($p->blocked_reason))<div class="small text-danger mt-1">Blocked: {{ $p->blocked_reason }}</div>@endif<details class="small mt-2"><summary>Order allocations</summary>@foreach($requestItems->get($p->id,collect()) as $item)<div>#{{ $item->order_id }} · ₱{{ number_format($item->net_amount,2) }}</div>@endforeach</details></td>
             <td class="text-end fw-semibold">₱{{ number_format($p->net_amount, 2) }}</td>
             <td class="small">
               @if(!empty($p->payout_receipt_path ?? null))
@@ -379,7 +367,7 @@
               @endif
             </td>
             <td class="text-end payout-row-action">
-              @if($p->status !== 'paid')
+              @if(in_array($p->status,['requested','processing']) && empty($p->blocked_reason))
                 <form action="{{ route('superadmin.payouts.mark_paid', $p->id) }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2 justify-content-end payout-mark-paid-form" data-prevent-double-submit>
                   @csrf
                   <div class="payout-receipt-scan flex-grow-1" data-scan-url="{{ route('superadmin.payouts.scan_receipt', $p->id) }}">
@@ -395,6 +383,7 @@
                   <div class="small text-muted">Ref: {{ $p->reference_number }}</div>
                 @endif
               @endif
+              @if(in_array($p->status,['requested','processing']))<form class="mt-2" method="POST" action="{{ route('superadmin.payouts.cancel',$p->id) }}" data-prevent-double-submit>@csrf<label class="small d-block"><input type="checkbox" name="confirmed_untransferred" value="1" required> I confirm no money was transferred.</label><button class="btn btn-sm btn-outline-danger mt-1">Cancel & Reconcile</button></form>@endif
             </td>
           </tr>
         @empty
@@ -403,10 +392,11 @@
       </tbody>
     </table>
   </div>
+  <div class="p-3">{{ $payoutRequests->links() }}</div>
 </div>
 
 <div class="card mt-4">
-  <button class="card-header payout-section-head finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="recent" aria-expanded="false" aria-controls="finance-panel-recent"><span><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Recent Payouts</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
+  <button class="card-header payout-section-head finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="recent" aria-expanded="false" aria-controls="finance-panel-recent"><span><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Payout History</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
   <div class="table-responsive payout-table-scroll finance-table-panel" id="finance-panel-recent" data-finance-content="recent" hidden>
     <table class="table align-middle mb-0 payout-history-admin-table">
       <thead>
@@ -431,8 +421,8 @@
             <td>#{{ $p->id }}</td>
             <td><div class="fw-semibold">{{ $p->shop_name }}</div><div class="small text-muted">{{ $p->seller_name }}</div></td>
             <td>{{ ucfirst($p->mode) }}</td>
-            <td class="small">{{ $p->paid_at ? \Carbon\Carbon::parse($p->paid_at)->format('M d, Y h:i A') : 'Paid' }}</td>
-            <td class="text-end fw-semibold">â‚±{{ number_format($p->net_amount, 2) }}</td>
+            <td class="small">{{ ucfirst($p->status) }}<br>{{ $p->paid_at ? \Carbon\Carbon::parse($p->paid_at)->format('M d, Y h:i A') : $p->created_at }}</td>
+            <td class="text-end fw-semibold">₱{{ number_format($p->net_amount, 2) }}</td>
             <td class="small">
               @if(!empty($p->payout_receipt_path ?? null))
                 <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-download-url="{{ route('superadmin.payouts.receipt_download', $p->id) }}" data-receipt-title="Payout Receipt #{{ $p->id }}">
@@ -442,7 +432,7 @@
                 <span class="text-muted">No receipt</span>
               @endif
             </td>
-            <td class="small text-muted">{{ $p->reference_number ?: '—' }}</td>
+            <td class="small text-muted">{{ $p->reference_number ?: '—' }}<details class="mt-1"><summary>Order allocations</summary>@foreach($requestItems->get($p->id,collect()) as $item)<div>#{{ $item->order_id }} · ₱{{ number_format($item->net_amount,2) }}</div>@endforeach</details></td>
           </tr>
         @endforeach
         @foreach($recentRiderPayouts as $p)
@@ -465,11 +455,12 @@
           </tr>
         @endforeach
         @if($recentPayouts->isEmpty() && $recentRiderPayouts->isEmpty())
-          <tr><td colspan="7" class="text-center text-muted py-4">No paid payouts yet.</td></tr>
+          <tr><td colspan="7" class="text-center text-muted py-4">No payouts match these filters.</td></tr>
         @endif
       </tbody>
     </table>
   </div>
+  <div class="p-3">{{ $recentPayouts->links() }}</div>
 </div>
 
 <style>
@@ -833,6 +824,5 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
-<script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('form').forEach(function(form){const hold=form.querySelector('[name="payout_hold_days"]'),min=form.querySelector('[name="payout_minimum_amount"]');if(!hold||!min||form.querySelector('[data-payout-policy]'))return;const n=document.createElement('div');n.dataset.payoutPolicy='1';n.className='alert alert-light small mt-3 mb-0';n.innerHTML='<i class="bi bi-info-circle me-1"></i><strong>Seller eligibility:</strong> only released Available balance counts toward the minimum. Clearing earnings become eligible after the hold period.';form.appendChild(n)})})</script>
 <script>document.addEventListener('DOMContentLoaded',()=>{const buttons=[...document.querySelectorAll('.finance-table-toggle')],reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;let active=buttons.find(button=>button.getAttribute('aria-expanded')==='true')||null,token=0;const panel=button=>document.querySelector('[data-finance-content="'+button.dataset.financePanel+'"]');const setState=(button,expanded)=>{button.setAttribute('aria-expanded',expanded?'true':'false');const icon=button.querySelector('.finance-table-chevron');if(icon){icon.classList.toggle('bi-chevron-up',expanded);icon.classList.toggle('bi-chevron-down',!expanded);}};const stop=element=>element?.getAnimations().forEach(animation=>animation.cancel());const close=async button=>{const content=panel(button);if(!content||content.hidden)return;stop(content);setState(button,false);if(reduced){content.hidden=true;return;}const height=content.getBoundingClientRect().height;const animation=content.animate([{height:height+'px',opacity:1},{height:'0px',opacity:0}],{duration:180,easing:'cubic-bezier(.4,0,.2,1)'});try{await animation.finished}catch(_){}content.hidden=true;};const open=async button=>{const content=panel(button);if(!content)return;stop(content);content.hidden=false;setState(button,true);if(reduced)return;const height=content.scrollHeight;const animation=content.animate([{height:'0px',opacity:0},{height:height+'px',opacity:1}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});try{await animation.finished}catch(_){};};buttons.forEach(button=>{const content=panel(button);if(content)content.hidden=button!==active;button.addEventListener('click',async()=>{const current=++token;if(button===active){await close(button);if(current===token)active=null;return;}const previous=active;if(previous){await close(previous);if(current!==token)return;}await open(button);if(current===token)active=button;});});});</script>
 @endsection

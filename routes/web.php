@@ -494,6 +494,8 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     Route::get('/payouts',   [\App\Http\Controllers\Seller\PayoutController::class, 'index'])->name('payouts');
     Route::post('/payouts/details', [\App\Http\Controllers\Seller\PayoutController::class, 'saveDetails'])->name('payouts.details');
     Route::post('/payouts/request', [\App\Http\Controllers\Seller\PayoutController::class, 'requestManual'])->name('payouts.request');
+    Route::post('/payouts/{payoutId}/cancel', [\App\Http\Controllers\Seller\PayoutController::class, 'cancelRequest'])->name('payouts.cancel');
+    Route::get('/payouts/refunds/{kind}/{refundId}/receipt', [\App\Http\Controllers\Seller\PayoutController::class, 'downloadRefundReceipt'])->name('payouts.refund_receipt');
     Route::get('/payouts/{id}/receipt-download', [\App\Http\Controllers\Seller\PayoutController::class, 'downloadReceipt'])->name('payouts.receipt_download');
     Route::get('/finance', [\App\Http\Controllers\Seller\FinanceController::class, 'index'])->name('finance');
     Route::get('/finance/customer-payments', [\App\Http\Controllers\Seller\FinanceController::class, 'customerPayments'])->name('finance.customer_payments');
@@ -672,6 +674,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/payouts/seller/{id}/create', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'createManual'])->name('payouts.create_manual');
     Route::post('/payouts/{id}/paid',          [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markPaid'])->name('payouts.mark_paid');
     Route::post('/payouts/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanReceipt'])->name('payouts.scan_receipt');
+    Route::post('/payouts/{payoutId}/cancel', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'cancelRequest'])->name('payouts.cancel');
     Route::post('/rider-payouts/{id}/scan-receipt', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRiderPayoutReceipt'])->name('rider_payouts.scan_receipt');
     Route::post('/rider-payouts/{id}/paid', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRiderPayoutPaid'])->name('rider_payouts.mark_paid');
     Route::post('/rider-payouts/{riderId}/recover', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'recoverRiderPayout'])->name('rider_payouts.recover');

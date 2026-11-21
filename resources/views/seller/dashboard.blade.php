@@ -113,7 +113,7 @@
     ['bi-cash-stack', 'Revenue',       '₱'.number_format($stats['revenue'],2), '#2E7D32','#e8f5e9','#'],
     ['bi-wallet2',    'Net Earnings',  '₱'.number_format($netRevenue,2),  'var(--primary)', 'var(--primary-bg)', '#'],
     ['bi-hourglass-split', 'Pending COD Remit', '&#8369;'.number_format($stats['pending_remittance'] ?? 0,2), '#B45309','#fffbeb', route('seller.orders')],
-    ['bi-bank',       'Available Payout', '&#8369;'.number_format($payoutSummary['available'] ?? 0,2), '#166534', '#ecfdf5', route('seller.payouts')],
+    ['bi-bank',       'Ready to Request', '&#8369;'.number_format($payoutSummary['available'] ?? 0,2), '#166534', '#ecfdf5', route('seller.payouts', ['state'=>'available','period'=>'all']).'#payout-orders'],
   ] as [$icon, $label, $val, $color, $bg, $link])
   @php
     $statHelp = match($label) {
@@ -121,6 +121,7 @@
        'Ready for Kitchen' => 'Accepted orders waiting to be prepared',
       'Preparing' => 'Cake currently being made',
       'Total Orders' => 'All orders in your shop',
+      'Ready to Request' => 'Completed, paid, issue-free orders only; click to select.',
       default => null,
     };
   @endphp
@@ -147,7 +148,7 @@
     @foreach([
       ['bi-graph-up-arrow', 'Paid Sales', '₱'.number_format($stats['revenue'], 2), '#15803d', '#ecfdf5', route('seller.finance'), 'Paid, non-cancelled orders. Full deductions are in Finance.'],
       ['bi-cash-stack', 'COD Cash to Confirm', '₱'.number_format($stats['pending_remittance'] ?? 0, 2), '#B45309', '#fffbeb', route('seller.orders'), 'Confirm after you receive the cake payment from the rider.'],
-      ['bi-bank', 'Available Payout', '₱'.number_format($payoutSummary['available'] ?? 0, 2), '#166534', '#ecfdf5', route('seller.payouts'), 'Amount currently eligible for payout request.'],
+      ['bi-bank', 'Ready to Request', '₱'.number_format($payoutSummary['available'] ?? 0, 2), '#166534', '#ecfdf5', route('seller.payouts', ['state'=>'available','period'=>'all']).'#payout-orders', 'Completed orders eligible immediately; no waiting days.'],
     ] as [$icon, $label, $val, $color, $bg, $link, $help])
       @if($label !== 'COD Cash to Confirm' || (float)($stats['pending_remittance'] ?? 0) > 0)
         <div class="seller-stat-item"><a href="{{ $link }}" style="text-decoration:none;display:block;height:100%"><div class="cs-stat-card h-100"><div class="cs-stat-icon" style="background:{{ $bg }}"><i class="bi {{ $icon }}" style="color:{{ $color }}"></i></div><div class="cs-stat-body"><div class="cs-stat-num" style="color:{{ $color }}">{{ $val }}</div><div class="cs-stat-label">{{ $label }}</div><div class="cs-stat-help">{{ $help }}</div></div></div></a></div>
@@ -156,17 +157,7 @@
   </div>
 </section>
 
-@if(($payoutSummary['clearing'] ?? 0) > 0 || ($payoutSummary['processing'] ?? 0) > 0)
-<div class="alert alert-info d-flex align-items-start gap-2 mb-4 cs-fade-up" style="border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af">
-  <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
-  <div class="small">
-    <strong>Payout reminder:</strong>
-    &#8369;{{ number_format($payoutSummary['clearing'] ?? 0, 2) }} is still clearing, and
-    &#8369;{{ number_format($payoutSummary['processing'] ?? 0, 2) }} is already requested or processing.
-    Open Payouts to review details before sending a request.
-  </div>
-</div>
-@endif
+<div class="alert alert-info mb-4"><a href="{{ route('seller.payouts') }}">Net Online Balance: ₱{{ number_format($payoutSummary['net_online'] ?? 0,2) }}</a> · Awaiting Delivery/Pickup: ₱{{ number_format($payoutSummary['awaiting'] ?? 0,2) }} · Requested/Processing: ₱{{ number_format($payoutSummary['processing'] ?? 0,2) }}. Only completed, issue-free orders are selectable.</div>
 
 <div class="row g-4">
 

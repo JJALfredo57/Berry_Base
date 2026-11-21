@@ -7,9 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 class OrderRefundService
 {
-    public function __construct(private MobileNotificationService $notifications)
-    {
-    }
+    public function __construct(private MobileNotificationService $notifications) {}
 
     public function hasPaidAmount(object $order): bool
     {
@@ -46,7 +44,7 @@ class OrderRefundService
     {
         DB::transaction(function () use ($order, $reason, $actor) {
             $fresh = DB::table('orders')->where('id', $order->id)->lockForUpdate()->first();
-            if (!$fresh || $this->hasPaidAmount($fresh)
+            if (! $fresh || $this->hasPaidAmount($fresh)
                 || in_array($fresh->status, ['Preparing', 'Ready for Rider', 'Out for Delivery', 'Delivered', 'Picked Up', 'No Show', 'Cancelled'], true)) {
                 throw new \DomainException('This order has changed. Refresh the page before cancelling; paid orders require seller review.');
             }
@@ -64,16 +62,16 @@ class OrderRefundService
             DB::table('order_tracking')->insert([
                 'order_id' => $order->id,
                 'status' => 'Cancelled',
-                'notes' => ucfirst($actor) . ' cancelled this order before payment. No refund needed.',
+                'notes' => ucfirst($actor).' cancelled this order before payment. No refund needed.',
                 'created_at' => now(),
             ]);
         });
 
         $fresh = DB::table('orders')->where('id', $order->id)->first() ?: $order;
         app(ProductStockService::class)->releaseForOrder($fresh);
-        app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder((string) $order->id);
-        app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder((string) $order->id);
-        app(\App\Services\LoyaltyService::class)->rollbackEarnForOrder((string) $order->id);
+        app(VoucherService::class)->rollbackRedemptionForOrder((string) $order->id);
+        app(LoyaltyService::class)->rollbackRedeemForOrder((string) $order->id);
+        app(LoyaltyService::class)->rollbackEarnForOrder((string) $order->id);
         $this->notifyStaff($fresh, 'Order Cancelled Before Payment', "Order #{$order->id} was cancelled before any payment was collected.", [
             'event' => 'cancelled_unpaid',
             'order_id' => (string) $order->id,
@@ -87,7 +85,7 @@ class OrderRefundService
     {
         return DB::transaction(function () use ($order, $data) {
             $freshOrder = DB::table('orders')->where('id', $order->id)->lockForUpdate()->first();
-            if (!$freshOrder) {
+            if (! $freshOrder) {
                 throw new \DomainException('Order not found while creating the refund request.');
             }
 
@@ -105,7 +103,7 @@ class OrderRefundService
                 throw new \DomainException('No confirmed payment is available to refund for this order.');
             }
 
-            $sellerId = !empty($freshOrder->shop_id)
+            $sellerId = ! empty($freshOrder->shop_id)
                 ? DB::table('shops')->where('id', $freshOrder->shop_id)->value('seller_id')
                 : null;
             $refundId = DB::table('order_refunds')->insertGetId([
@@ -150,7 +148,7 @@ class OrderRefundService
     {
         $refund = DB::transaction(function () use ($order, $note, $actor, $evidencePath) {
             $fresh = DB::table('orders')->where('id', $order->id)->lockForUpdate()->first();
-            if (!$fresh) {
+            if (! $fresh) {
                 throw new \RuntimeException('Order not found while recording a no-show.');
             }
 
@@ -162,7 +160,7 @@ class OrderRefundService
             $retainedDeposit = min($paidAmount, round((float) ($fresh->total_price ?? 0) * 0.5, 2));
             $refundAmount = round(max(0, $paidAmount - $retainedDeposit), 2);
 
-            if ($refundAmount > 0 && !Schema::hasTable('order_refunds')) {
+            if ($refundAmount > 0 && ! Schema::hasTable('order_refunds')) {
                 throw new \RuntimeException('Refund tracking is not available; the no-show refund cannot be recorded.');
             }
 
@@ -180,7 +178,7 @@ class OrderRefundService
             DB::table('order_tracking')->insert([
                 'order_id' => $fresh->id,
                 'status' => 'No Show',
-                'notes' => ucfirst($actor) . ' recorded a customer no-show. ' . $note,
+                'notes' => ucfirst($actor).' recorded a customer no-show. '.$note,
                 'created_at' => now(),
             ]);
 
@@ -196,13 +194,13 @@ class OrderRefundService
             $refundId = DB::table('order_refunds')->insertGetId([
                 'order_id' => $fresh->id,
                 'shop_id' => $fresh->shop_id ?? null,
-                'seller_user_id' => !empty($fresh->shop_id)
+                'seller_user_id' => ! empty($fresh->shop_id)
                     ? DB::table('shops')->where('id', $fresh->shop_id)->value('seller_id')
                     : null,
                 'track_code' => $fresh->track_code ?? null,
                 'customer_name' => $fresh->guest_name ?? $fresh->fullname ?? null,
                 'customer_phone' => $fresh->guest_phone ?? null,
-                'cancel_reason' => 'No-show balance refund: return the amount above the retained 50% deposit. ' . $note,
+                'cancel_reason' => 'No-show balance refund: return the amount above the retained 50% deposit. '.$note,
                 'refund_amount' => $refundAmount,
                 'payment_amount_paid' => $paidAmount,
                 'status' => 'pending',
@@ -214,10 +212,10 @@ class OrderRefundService
         });
 
         $freshOrder = DB::table('orders')->where('id', $order->id)->first() ?: $order;
-        $staffMessage = 'Order #' . $order->id . ' was recorded as a customer no-show. The 50% deposit is retained.';
+        $staffMessage = 'Order #'.$order->id.' was recorded as a customer no-show. The 50% deposit is retained.';
         $customerMessage = 'The order was recorded as a no-show. The 50% deposit is retained.';
         if ($refund) {
-            $staffMessage .= ' A refund of PHP ' . number_format((float) $refund->refund_amount, 2) . ' above the retained deposit is waiting for review.';
+            $staffMessage .= ' A refund of PHP '.number_format((float) $refund->refund_amount, 2).' above the retained deposit is waiting for review.';
             $customerMessage .= ' Any amount paid above the deposit is queued for manual GCash refund review.';
         }
         $this->notifyStaff($freshOrder, $refund ? 'No-Show Refund Needs Review' : 'Customer No-Show', $staffMessage, [
@@ -237,7 +235,7 @@ class OrderRefundService
     {
         DB::transaction(function () use ($order, $refund, $note, $role, $userId) {
             $locked = DB::table('order_refunds')->where('id', $refund->id)->lockForUpdate()->first();
-            if (!$locked || !in_array($locked->status, ['pending', 'pending_seller_approval'], true)) {
+            if (! $locked || ! in_array($locked->status, ['pending', 'pending_seller_approval'], true)) {
                 throw new \DomainException('This cancellation request is no longer awaiting seller review.');
             }
             DB::table('order_refunds')->where('id', $refund->id)->update([
@@ -258,7 +256,7 @@ class OrderRefundService
             DB::table('order_tracking')->insert([
                 'order_id' => $order->id,
                 'status' => $order->status,
-                'notes' => 'Cancellation/refund request rejected. Reason: ' . $note,
+                'notes' => 'Cancellation/refund request rejected. Reason: '.$note,
                 'created_at' => now(),
             ]);
         });
@@ -276,7 +274,7 @@ class OrderRefundService
         DB::transaction(function () use ($order, $refund, $userId) {
             $freshOrder = DB::table('orders')->where('id', $order->id)->lockForUpdate()->first();
             $freshRefund = DB::table('order_refunds')->where('id', $refund->id)->lockForUpdate()->first();
-            if (!$freshOrder || !$freshRefund || !in_array($freshRefund->status, ['pending', 'pending_seller_approval'], true)) {
+            if (! $freshOrder || ! $freshRefund || ! in_array($freshRefund->status, ['pending', 'pending_seller_approval'], true)) {
                 throw new \DomainException('This refund is no longer awaiting seller approval.');
             }
             if (empty($freshRefund->refund_gcash_name) || empty($freshRefund->refund_gcash_number)) {
@@ -306,11 +304,18 @@ class OrderRefundService
     public function completeAdminRefund(object $order, object $refund, string $receiptPath, array $scan, ?string $note, string $userId, string $hash): void
     {
         DB::transaction(function () use ($order, $refund, $receiptPath, $scan, $note, $userId, $hash) {
+            DB::table('orders')->where('id', $order->id)->lockForUpdate()->first();
             $fresh = DB::table('order_refunds')->where('id', $refund->id)->lockForUpdate()->first();
-            if (!$fresh || !in_array($fresh->status, ['approved_for_admin_refund', 'processing'], true)) throw new \DomainException('Refund is not awaiting Super Admin completion.');
+            if (! $fresh || ! in_array($fresh->status, ['approved_for_admin_refund', 'processing'], true)) {
+                throw new \DomainException('Refund is not awaiting Super Admin completion.');
+            }
             $reference = (string) ($scan['reference_number'] ?? '');
-            if (!$scan['ok'] || $reference === '') throw new \DomainException('Receipt validation failed.');
-            if (DB::table('order_refunds')->where('id', '<>', $refund->id)->where('reference_number', $reference)->exists() || DB::table('seller_payouts')->where('reference_number', $reference)->exists()) throw new \DomainException('This transaction reference was already used.');
+            if (! $scan['ok'] || $reference === '') {
+                throw new \DomainException('Receipt validation failed.');
+            }
+            if (DB::table('order_refunds')->where('id', '<>', $refund->id)->where('reference_number', $reference)->exists() || DB::table('seller_payouts')->where('reference_number', $reference)->exists()) {
+                throw new \DomainException('This transaction reference was already used.');
+            }
             DB::table('order_refunds')->where('id', $refund->id)->update([
                 'status' => 'refunded', 'receipt_path' => $receiptPath, 'reference_number' => $reference,
                 'review_note' => $note, 'receipt_uploaded_at' => now(), 'admin_refund_started_at' => $fresh->admin_refund_started_at ?: now(),
@@ -318,11 +323,11 @@ class OrderRefundService
                 'refund_receipt_hash' => $hash, 'receipt_scan_status' => 'verified',
                 'receipt_scan_data' => json_encode($scan), 'receipt_scanned_at' => now(), 'updated_at' => now(),
             ]);
-            DB::table('order_tracking')->insert(['order_id' => $order->id, 'status' => 'Refunded', 'notes' => 'Refund completed by Berry Base. Reference: ' . $reference, 'created_at' => now()]);
+            DB::table('order_tracking')->insert(['order_id' => $order->id, 'status' => 'Refunded', 'notes' => 'Refund completed by Berry Base. Reference: '.$reference, 'created_at' => now()]);
+            $this->createRefundLedger($order, $fresh);
         });
-        $this->createRefundLedger($order, $refund);
         $fresh = DB::table('orders')->where('id', $order->id)->first() ?: $order;
-        $this->notifications->notifyOrderCustomer($fresh, 'Refund Completed', 'Your refund has been completed. Reference: ' . ($scan['reference_number'] ?? ''), ['event' => 'refund_sent', 'refund_id' => (string) $refund->id]);
+        $this->notifications->notifyOrderCustomer($fresh, 'Refund Completed', 'Your refund has been completed. Reference: '.($scan['reference_number'] ?? ''), ['event' => 'refund_sent', 'refund_id' => (string) $refund->id]);
         $this->notifyStaff($fresh, 'Refund Completed', 'Refund completed by Super Admin.', ['event' => 'refund_sent', 'refund_id' => (string) $refund->id]);
     }
 
@@ -354,7 +359,7 @@ class OrderRefundService
             DB::table('order_tracking')->insert([
                 'order_id' => $order->id,
                 'status' => 'Refunded',
-                'notes' => 'Refund sent via GCash. ' . ($referenceNumber ? 'Reference: ' . $referenceNumber : ''),
+                'notes' => 'Refund sent via GCash. '.($referenceNumber ? 'Reference: '.$referenceNumber : ''),
                 'created_at' => now(),
             ]);
         });
@@ -365,14 +370,14 @@ class OrderRefundService
         if (($fresh->status ?? '') !== 'No Show') {
             app(ProductStockService::class)->releaseForOrder($fresh);
         }
-        app(\App\Services\VoucherService::class)->rollbackRedemptionForOrder((string) $order->id);
-        app(\App\Services\LoyaltyService::class)->rollbackRedeemForOrder((string) $order->id);
-        app(\App\Services\LoyaltyService::class)->rollbackEarnForOrder((string) $order->id);
+        app(VoucherService::class)->rollbackRedemptionForOrder((string) $order->id);
+        app(LoyaltyService::class)->rollbackRedeemForOrder((string) $order->id);
+        app(LoyaltyService::class)->rollbackEarnForOrder((string) $order->id);
         $this->notifications->notifyOrderCustomer($fresh, 'Refund Sent', "Your refund for Order #{$order->id} has been sent. You can view the receipt on your tracking page.", [
             'event' => 'refund_sent',
             'refund_id' => (string) $refund->id,
         ]);
-        if (!empty($fresh->user_id) && Schema::hasTable('notifications')) {
+        if (! empty($fresh->user_id) && Schema::hasTable('notifications')) {
             DB::table('notifications')->insert([
                 'receiver_role' => 'customer',
                 'receiver_user_id' => $fresh->user_id,
@@ -390,13 +395,19 @@ class OrderRefundService
 
     public function latestForOrder(string $orderId): ?object
     {
-        if (!Schema::hasTable('order_refunds')) return null;
+        if (! Schema::hasTable('order_refunds')) {
+            return null;
+        }
+
         return DB::table('order_refunds')->where('order_id', $orderId)->orderByDesc('id')->first();
     }
 
     public function pendingForOrder(string $orderId): ?object
     {
-        if (!Schema::hasTable('order_refunds')) return null;
+        if (! Schema::hasTable('order_refunds')) {
+            return null;
+        }
+
         return DB::table('order_refunds')->where('order_id', $orderId)->whereIn('status', ['pending', 'pending_seller_approval'])->orderByDesc('id')->first();
     }
 
@@ -408,23 +419,38 @@ class OrderRefundService
     public function normalizeGcashNumber(string $number): ?string
     {
         $number = preg_replace('/[\s()\-]+/', '', trim($number));
-        if (preg_match('/^09\d{9}$/', $number)) return '+63' . substr($number, 1);
-        if (preg_match('/^9\d{9}$/', $number)) return '+63' . $number;
-        if (preg_match('/^639\d{9}$/', $number)) return '+' . $number;
-        if (preg_match('/^\+639\d{9}$/', $number)) return $number;
+        if (preg_match('/^09\d{9}$/', $number)) {
+            return '+63'.substr($number, 1);
+        }
+        if (preg_match('/^9\d{9}$/', $number)) {
+            return '+63'.$number;
+        }
+        if (preg_match('/^639\d{9}$/', $number)) {
+            return '+'.$number;
+        }
+        if (preg_match('/^\+639\d{9}$/', $number)) {
+            return $number;
+        }
+
         return null;
     }
 
     public function validateGcashAccountName(string $name): bool
     {
         $name = trim((string) preg_replace('/\s+/', ' ', $name));
-        if (!preg_match("/^[\p{L}][\p{L} .'-]*$/u", $name)) return false;
+        if (! preg_match("/^[\p{L}][\p{L} .'-]*$/u", $name)) {
+            return false;
+        }
 
         $parts = array_values(array_filter(preg_split('/\s+/', $name) ?: []));
-        if (count($parts) < 2 || strlen($name) < 5) return false;
+        if (count($parts) < 2 || strlen($name) < 5) {
+            return false;
+        }
 
         foreach ($parts as $part) {
-            if (mb_strlen((string) preg_replace('/[^\p{L}]/u', '', $part)) < 2) return false;
+            if (mb_strlen((string) preg_replace('/[^\p{L}]/u', '', $part)) < 2) {
+                return false;
+            }
         }
 
         return true;
@@ -432,6 +458,7 @@ class OrderRefundService
 
     public function notifyPaidRequest(object $order, object $refund): void
     {
+        app(SellerBalanceService::class)->syncOrder((string) $order->id);
         $amount = number_format((float) $refund->refund_amount, 2);
         $this->notifyStaff($order, 'Seller Refund Review Needed', "Order #{$order->id} has a paid cancellation/refund request for PHP {$amount}. The seller must review it.", [
             'event' => 'refund_request',
@@ -439,13 +466,15 @@ class OrderRefundService
             'refund_id' => (string) $refund->id,
         ]);
         try {
-            $sellerId = !empty($order->shop_id) ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id') : null;
+            $sellerId = ! empty($order->shop_id) ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id') : null;
             if ($sellerId) {
                 $title = 'Cancellation Refund Needs Review';
                 $message = "Customer requested a cancellation refund for Order #{$order->id}. Review it in Return Requests.";
-                if (Schema::hasTable('notifications')) DB::table('notifications')->insert(['receiver_role'=>'seller','receiver_user_id'=>$sellerId,'title'=>$title,'message'=>$message,'is_read'=>false,'created_at'=>now()]);
+                if (Schema::hasTable('notifications')) {
+                    DB::table('notifications')->insert(['receiver_role' => 'seller', 'receiver_user_id' => $sellerId, 'title' => $title, 'message' => $message, 'is_read' => false, 'created_at' => now()]);
+                }
                 $sellerOrder = DB::table('orders')->where('id', $order->id)->first() ?: $order;
-                $this->notifications->notifyOrderSeller($sellerOrder, $title, $message, ['event'=>'seller_refund_review','refund_id'=>(string)$refund->id]);
+                $this->notifications->notifyOrderSeller($sellerOrder, $title, $message, ['event' => 'seller_refund_review', 'refund_id' => (string) $refund->id]);
             }
         } catch (\Throwable $e) {
             report($e);
@@ -454,63 +483,63 @@ class OrderRefundService
 
     public function createSellerRecovery(object $order, float $refundAmount, string $recoveryKey, string $note): ?int
     {
-        if (!Schema::hasTable('seller_payout_ledgers') || empty($order->shop_id)) return null;
-        $paid = (float) DB::table('seller_payout_ledgers')->where('order_id', $order->id)->where('shop_id', $order->shop_id)->where('status', 'paid')->sum('seller_net_amount');
-        $amount = round(min(max(0, $paid), max(0, $refundAmount)), 2);
-        if ($amount <= 0) return null;
-        $ledgerKey = substr((string) $order->id . '-' . $recoveryKey, 0, 40);
-        if (DB::table('seller_payout_ledgers')->where('order_id', $ledgerKey)->exists()) return null;
-        $shop = DB::table('shops')->where('id', $order->shop_id)->first();
-        if (!$shop) return null;
-        return DB::table('seller_payout_ledgers')->insertGetId(['order_id'=>$ledgerKey,'shop_id'=>$order->shop_id,'seller_id'=>$shop->seller_id,'gross_amount'=>-$amount,'commission_base'=>0,'commission_rate'=>0,'commission_amount'=>0,'seller_net_amount'=>-$amount,'status'=>'available','release_at'=>now(),'notes'=>$note,'created_at'=>now(),'updated_at'=>now()]);
+        if (! Schema::hasTable('seller_payout_ledgers') || empty($order->shop_id)) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($order, $refundAmount, $recoveryKey, $note) {
+            DB::table('orders')->where('id', $order->id)->lockForUpdate()->first();
+            $shop = DB::table('shops')->where('id', $order->shop_id)->lockForUpdate()->first();
+            if (! $shop) {
+                return null;
+            }
+            $ledgerKey = 'RF-'.substr(hash('sha256', $order->id.'|'.$recoveryKey), 0, 36);
+            $existing = DB::table('seller_payout_ledgers')->where('order_id', $ledgerKey)->first();
+            if ($existing) {
+                return (int) $existing->id;
+            }
+            $paid = (float) DB::table('seller_payout_ledgers')->where('order_id', $order->id)
+                ->where('shop_id', $order->shop_id)->where('status', 'paid')->sum('seller_net_amount');
+            $online = (float) DB::table('payment_transactions')->where('order_id', $order->id)
+                ->where('payment_status', 'paid')->whereRaw('UPPER(method) = ?', ['GCASH'])->sum('amount');
+            $recovered = Schema::hasColumn('seller_payout_ledgers', 'source_order_id')
+                ? abs((float) DB::table('seller_payout_ledgers')->where('source_order_id', $order->id)->where('seller_net_amount', '<', 0)->sum('seller_net_amount'))
+                : 0;
+            // Recover the seller-funded share only; refunding the platform's
+            // commission or rider allocation must not overcharge the seller.
+            $sellerShare = $online > 0 ? max(0, $refundAmount) * ($paid / $online) : 0;
+            $amount = round(min(max(0, $paid - $recovered), $sellerShare), 2);
+            if ($amount <= 0) {
+                return null;
+            }
+            $payload = [
+                'order_id' => $ledgerKey, 'shop_id' => $order->shop_id, 'seller_id' => $shop->seller_id,
+                'gross_amount' => -$amount, 'commission_base' => 0, 'commission_rate' => 0, 'commission_amount' => 0,
+                'seller_net_amount' => -$amount, 'status' => 'available', 'release_at' => null,
+                'notes' => $note, 'created_at' => now(), 'updated_at' => now(),
+            ];
+            if (Schema::hasColumn('seller_payout_ledgers', 'source_order_id')) {
+                $payload['source_order_id'] = $order->id;
+            }
+            $id = DB::table('seller_payout_ledgers')->insertGetId($payload);
+            app(SellerBalanceService::class)->event($order->shop_id, $order->id, 'refund_recovery', -$amount, 'available', $note);
+
+            return $id;
+        }, 3);
     }
 
     private function createRefundLedger(object $order, object $refund): void
     {
-        if (!Schema::hasTable('seller_payout_ledgers') || empty($order->shop_id)) return;
-        if (!empty($refund->payout_ledger_id)) return;
-
-        // A pre-completion refund comes from held customer payment, not from a
-        // seller who has not received earnings. Only reverse seller funds that
-        // were already paid out for this specific order.
-        $releasedSellerEarnings = (float) DB::table('seller_payout_ledgers')
-            ->where('order_id', $order->id)
-            ->where('shop_id', $order->shop_id)
-            ->where('status', 'paid')
-            ->sum('seller_net_amount');
-
-        $amount = round(min(
-            max(0, $releasedSellerEarnings),
-            max(0, (float) ($refund->refund_amount ?? 0))
-        ), 2);
-        if ($amount <= 0) return;
-
-        $ledgerKey = substr((string) $order->id . '-RF' . $refund->id, 0, 40);
-        if (DB::table('seller_payout_ledgers')->where('order_id', $ledgerKey)->exists()) return;
-
-        $shop = DB::table('shops')->where('id', $order->shop_id)->first();
-        if (!$shop) return;
-
-        $ledgerId = DB::table('seller_payout_ledgers')->insertGetId([
-            'order_id' => $ledgerKey,
-            'shop_id' => $order->shop_id,
-            'seller_id' => $shop->seller_id,
-            'gross_amount' => -$amount,
-            'commission_base' => 0,
-            'commission_rate' => 0,
-            'commission_amount' => 0,
-            'seller_net_amount' => -$amount,
-            'status' => 'available',
-            'release_at' => now(),
-            'notes' => 'Refund deduction for Order #' . $order->id . '.',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('order_refunds')->where('id', $refund->id)->update([
-            'payout_ledger_id' => $ledgerId,
-            'updated_at' => now(),
-        ]);
+        app(SellerBalanceService::class)->syncOrder((string) $order->id);
+        app(SellerBalanceService::class)->event($order->shop_id, $order->id, 'refund_completed', -(float) ($refund->refund_amount ?? 0), 'refunded', 'Refund #'.$refund->id.' completed. See refund history for transfer reference and proof.');
+        if (! empty($refund->payout_ledger_id)) {
+            return;
+        }
+        $id = $this->createSellerRecovery($order, (float) ($refund->refund_amount ?? 0),
+            'RF'.$refund->id, 'Refund deduction for Order #'.$order->id.'. Paid transfer history is preserved.');
+        if ($id) {
+            DB::table('order_refunds')->where('id', $refund->id)->update(['payout_ledger_id' => $id, 'updated_at' => now()]);
+        }
     }
 
     private function notifyStaff(object $order, string $title, string $message, array $data): void
@@ -518,13 +547,13 @@ class OrderRefundService
         DB::table('notifications')->insert([
             'receiver_role' => 'admin',
             'receiver_user_id' => null,
-            'title' => $title . ' - Order #' . $order->id,
+            'title' => $title.' - Order #'.$order->id,
             'message' => $message,
             'is_read' => false,
             'created_at' => now(),
         ]);
 
-        $sellerId = !empty($order->shop_id) ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id') : null;
+        $sellerId = ! empty($order->shop_id) ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id') : null;
         if ($sellerId) {
             $phone = DB::table('users')->where('id', $sellerId)->value('phone');
             $this->notifications->notifyUser('seller', (string) $sellerId, $phone, $title, $message, $data, null, route('seller.orders', [], false));

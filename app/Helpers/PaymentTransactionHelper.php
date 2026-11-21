@@ -1,6 +1,8 @@
 <?php
+
 namespace App\Helpers;
 
+use App\Services\SellerBalanceService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -14,9 +16,10 @@ class PaymentTransactionHelper
         float $amount,
         ?string $providerReference = null,
         ?array $paymongoAmounts = null
-    ): void
-    {
-        if ($amount <= 0 || !Schema::hasTable('payment_transactions')) return;
+    ): void {
+        if ($amount <= 0 || ! Schema::hasTable('payment_transactions')) {
+            return;
+        }
 
         $total = (float) ($order->total_price ?? 0);
         $remaining = str_starts_with($type, 'downpayment')
@@ -40,18 +43,18 @@ class PaymentTransactionHelper
         }
 
         $values = [
-            'track_code'         => strtoupper((string) ($order->track_code ?? '')),
-            'guest_phone'        => $order->guest_phone ?? null,
-            'method'             => $method,
-            'amount'             => $amount,
-            'order_total'        => $total,
-            'remaining_balance'  => $remaining,
-            'payment_status'     => 'paid',
-            'provider'           => $method === 'GCash' ? 'PayMongo' : 'Cash',
+            'track_code' => strtoupper((string) ($order->track_code ?? '')),
+            'guest_phone' => $order->guest_phone ?? null,
+            'method' => $method,
+            'amount' => $amount,
+            'order_total' => $total,
+            'remaining_balance' => $remaining,
+            'payment_status' => 'paid',
+            'provider' => $method === 'GCash' ? 'PayMongo' : 'Cash',
             'provider_reference' => $providerReference,
-            'paid_at'            => now(),
-            'created_at'         => now(),
-            'updated_at'         => now(),
+            'paid_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
         ];
 
         if (Schema::hasColumn('payment_transactions', 'payment_service_fee')) {
@@ -62,25 +65,34 @@ class PaymentTransactionHelper
         }
 
         DB::table('payment_transactions')->updateOrInsert(['order_id' => $order->id, 'type' => $type], $values);
+        DB::afterCommit(function () use ($order) {
+            app(SellerBalanceService::class)->syncOrder((string) $order->id);
+        });
     }
 
     public static function recordFinalCashIfNeeded(object $order, string $finalStatus): void
     {
-        if (!Schema::hasTable('payment_transactions')) return;
+        if (! Schema::hasTable('payment_transactions')) {
+            return;
+        }
 
         $method = strtoupper((string) ($order->payment_method ?? ''));
         $isCash = in_array($method, ['COD', 'COP'], true);
-        if (!$isCash) return;
+        if (! $isCash) {
+            return;
+        }
 
         $total = (float) ($order->total_price ?? 0);
         $depositPaid = ($order->deposit_status ?? '') === 'paid';
         $deposit = $depositPaid ? (float) ($order->deposit_amount ?? 0) : 0;
         $amount = max(0, $total - $deposit);
-        if ($amount <= 0) return;
+        if ($amount <= 0) {
+            return;
+        }
 
         $isPickup = $finalStatus === 'Picked Up';
         $typePrefix = $depositPaid ? 'remaining_cash' : 'full_cash';
-        self::record($order, $typePrefix . ($isPickup ? '_pickup' : '_delivery'), 'Cash', $amount);
+        self::record($order, $typePrefix.($isPickup ? '_pickup' : '_delivery'), 'Cash', $amount);
     }
 
     /** Record only the cake cash handed to the seller after seller confirmation. */
@@ -110,19 +122,23 @@ class PaymentTransactionHelper
     public static function paymongoAmountsFromCheckoutSession(array $checkoutSession): ?array
     {
         $payments = $checkoutSession['data']['attributes']['payments'] ?? [];
-        if (!is_array($payments)) return null;
+        if (! is_array($payments)) {
+            return null;
+        }
 
         foreach ($payments as $payment) {
             $attributes = is_array($payment) ? ($payment['attributes'] ?? []) : [];
-            if (($attributes['status'] ?? '') !== 'paid') continue;
+            if (($attributes['status'] ?? '') !== 'paid') {
+                continue;
+            }
 
             $gross = $attributes['amount'] ?? null;
             $net = $attributes['net_amount'] ?? null;
             $fee = $attributes['fee'] ?? null;
-            if (!is_numeric($fee) && is_numeric($gross) && is_numeric($net)) {
+            if (! is_numeric($fee) && is_numeric($gross) && is_numeric($net)) {
                 $fee = (float) $gross - (float) $net;
             }
-            if (!is_numeric($gross) || !is_numeric($fee) || (float) $gross < 0 || (float) $fee < 0) {
+            if (! is_numeric($gross) || ! is_numeric($fee) || (float) $gross < 0 || (float) $fee < 0) {
                 return null;
             }
 

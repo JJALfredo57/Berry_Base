@@ -1,14 +1,21 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Helpers\SmsHelper;
 use App\Helpers\CakeshopHelper;
 use App\Helpers\PaymentTransactionHelper;
+use App\Helpers\SmsHelper;
+use App\Services\DeliveryMessageService;
 use App\Services\LoyaltyService;
 use App\Services\MobileNotificationService;
 use App\Services\OrderRefundService;
+use App\Services\PostDeliveryReturnService;
 use App\Services\RiderAssignmentService;
+use App\Services\RiderEarningService;
+use App\Services\SellerPayoutService;
 use App\Traits\UploadsFiles;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -36,7 +43,7 @@ class RiderController extends Controller
             ->get()
             ->first(fn ($candidate) => $this->isRiderAccessibleOrder($candidate));
 
-        if (!$order) {
+        if (! $order) {
             return back()->with('rider_err', 'PIN not found or no rider action is needed for this order.');
         }
 
@@ -53,9 +60,9 @@ class RiderController extends Controller
     public function loginVerify(Request $request)
     {
         $phone = trim($request->input('phone', ''));
-        $pin   = trim($request->input('pin', ''));
+        $pin = trim($request->input('pin', ''));
 
-        if (!$phone || !$pin) {
+        if (! $phone || ! $pin) {
             return back()->with('err', 'Please enter your phone number and rider PIN.')->withInput();
         }
 
@@ -64,14 +71,16 @@ class RiderController extends Controller
         $rider = DB::table('riders')
             ->where('is_active', true)
             ->where(function ($q) use ($formats) {
-                foreach ($formats as $f) $q->orWhere('phone', $f);
+                foreach ($formats as $f) {
+                    $q->orWhere('phone', $f);
+                }
             })->first();
 
-        if (!$rider) {
+        if (! $rider) {
             return back()->with('err', 'Phone number not found. Please check and try again.')->withInput();
         }
 
-        if (!empty($rider->login_pin_hash) && Hash::check($pin, $rider->login_pin_hash)) {
+        if (! empty($rider->login_pin_hash) && Hash::check($pin, $rider->login_pin_hash)) {
             session([
                 'rider' => [
                     'id' => (int) $rider->id,
@@ -96,7 +105,7 @@ class RiderController extends Controller
             ->get()
             ->first(fn ($candidate) => $this->isRiderAccessibleOrder($candidate));
 
-        if (!$order) {
+        if (! $order) {
             return back()->with('err', 'PIN is not valid for this rider account, or no action is needed anymore.')->withInput();
         }
 
@@ -106,7 +115,7 @@ class RiderController extends Controller
     public function dashboard(Request $request, RiderAssignmentService $assignments)
     {
         $rider = $this->sessionRider();
-        if (!$rider) {
+        if (! $rider) {
             return redirect()->route('login')->with('error', 'Please log in to view your rider dashboard.');
         }
         if (Schema::hasColumn('riders', 'password_must_change') && (bool) ($rider->password_must_change ?? false)) {
@@ -121,16 +130,16 @@ class RiderController extends Controller
             $this->syncRiderActiveBatch((int) $rider->id);
         }
         $orders = $this->riderDashboardOrders((int) $rider->id, $lat, $lng);
-        $deliveryMessageOrders = app(\App\Services\DeliveryMessageService::class)->riderSummaries((int) $rider->id, $orders);
+        $deliveryMessageOrders = app(DeliveryMessageService::class)->riderSummaries((int) $rider->id, $orders);
         $unremitted = $this->riderUnremittedSummary((int) $rider->id);
         $bulkRemittance = $this->riderBulkRemittanceSummary((int) $rider->id);
-        $deliveryEarnings = Schema::hasTable('rider_delivery_earnings') ? DB::table('rider_delivery_earnings')->where('rider_id',$rider->id)->get() : collect();
-        $deliveryPayouts = Schema::hasTable('rider_payout_requests') ? DB::table('rider_payout_requests')->where('rider_id',$rider->id)->orderByDesc('id')->limit(5)->get() : collect();
+        $deliveryEarnings = Schema::hasTable('rider_delivery_earnings') ? DB::table('rider_delivery_earnings')->where('rider_id', $rider->id)->get() : collect();
+        $deliveryPayouts = Schema::hasTable('rider_payout_requests') ? DB::table('rider_payout_requests')->where('rider_id', $rider->id)->orderByDesc('id')->limit(5)->get() : collect();
         $transactionHistory = $this->riderTransactionHistory((int) $rider->id);
         $paidReceiptCount = Schema::hasTable('rider_payout_requests')
             ? DB::table('rider_payout_requests')->where('rider_id', $rider->id)->where('status', 'paid')->whereNotNull('receipt_path')->count()
             : 0;
-        $deliveryEarningSummary = ['available'=>(float)$deliveryEarnings->where('status','available')->sum('amount'),'requested'=>(float)$deliveryEarnings->where('status','requested')->sum('amount'),'paid'=>(float)$deliveryEarnings->where('status','paid')->sum('amount')];
+        $deliveryEarningSummary = ['available' => (float) $deliveryEarnings->where('status', 'available')->sum('amount'), 'requested' => (float) $deliveryEarnings->where('status', 'requested')->sum('amount'), 'paid' => (float) $deliveryEarnings->where('status', 'paid')->sum('amount')];
         $settings = CakeshopHelper::getSettings();
 
         return view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'deliveryEarnings', 'deliveryPayouts', 'deliveryEarningSummary', 'paidReceiptCount', 'transactionHistory', 'settings', 'lat', 'lng'));
@@ -140,11 +149,11 @@ class RiderController extends Controller
     public function payoutReceipts(Request $request)
     {
         $rider = $this->sessionRider();
-        if (!$rider) {
+        if (! $rider) {
             return response()->json(['message' => 'Please log in again.'], 401);
         }
 
-        if (!Schema::hasTable('rider_payout_requests')) {
+        if (! Schema::hasTable('rider_payout_requests')) {
             return response()->json(['data' => [], 'pagination' => ['current_page' => 1, 'last_page' => 1, 'total' => 0]]);
         }
 
@@ -163,7 +172,7 @@ class RiderController extends Controller
                 'amount' => (float) $payout->amount,
                 'reference_number' => $payout->reference_number,
                 'receipt_url' => route('rider.payouts.receipt', $payout->id),
-                'paid_at' => $payout->paid_at ? \Carbon\Carbon::parse($payout->paid_at)->toIso8601String() : null,
+                'paid_at' => $payout->paid_at ? Carbon::parse($payout->paid_at)->toIso8601String() : null,
             ])->values(),
             'pagination' => [
                 'current_page' => $payouts->currentPage(),
@@ -177,7 +186,7 @@ class RiderController extends Controller
     public function payoutReceiptFile(int $id)
     {
         $rider = $this->sessionRider();
-        if (!$rider) {
+        if (! $rider) {
             return redirect()->route('login')->with('error', 'Please log in to view your payout receipt.');
         }
 
@@ -187,10 +196,14 @@ class RiderController extends Controller
             ->where('status', 'paid')
             ->whereNotNull('receipt_path')
             ->first();
-        if (!$payout) abort(404);
+        if (! $payout) {
+            abort(404);
+        }
 
         $response = Http::timeout(20)->get($payout->receipt_path);
-        if (!$response->successful()) abort(404);
+        if (! $response->successful()) {
+            abort(404);
+        }
 
         return response($response->body(), 200, [
             'Content-Type' => $response->header('Content-Type') ?: 'image/jpeg',
@@ -201,24 +214,51 @@ class RiderController extends Controller
 
     public function requestDeliveryPayout(Request $request)
     {
-        $rider=$this->sessionRider(); if(!$rider) return redirect()->route('login');
-        $data=$request->validate(['gcash_name'=>['required','string','min:2','max:160'],'gcash_number'=>['required','string','max:30'],'confirmation'=>['accepted']]);
-        $digits=preg_replace('/\D/','',$data['gcash_number']); if(str_starts_with($digits,'0'))$digits='63'.substr($digits,1); elseif(str_starts_with($digits,'9'))$digits='63'.$digits; if(!preg_match('/^639\d{9}$/',$digits))return back()->withInput()->with('err','Enter a valid Philippine GCash number.');
-        try { DB::transaction(function()use($rider,$data,$digits){$earnings=DB::table('rider_delivery_earnings')->where('rider_id',$rider->id)->where('status','available')->lockForUpdate()->get();$amount=round((float)$earnings->sum('amount'),2);if($amount<=0)throw new \DomainException('No delivery earnings are available for payout.');$id=DB::table('rider_payout_requests')->insertGetId(['rider_id'=>$rider->id,'amount'=>$amount,'gcash_name'=>trim($data['gcash_name']),'gcash_number'=>'+'.$digits,'status'=>'requested','created_at'=>now(),'updated_at'=>now()]);DB::table('rider_delivery_earnings')->whereIn('id',$earnings->pluck('id'))->update(['status'=>'requested','updated_at'=>now()]);DB::table('riders')->where('id',$rider->id)->update(['gcash_name'=>trim($data['gcash_name']),'gcash_number'=>'+'.$digits,'updated_at'=>now()]);if(Schema::hasTable('notifications'))DB::table('notifications')->insert(['receiver_role'=>'admin','receiver_user_id'=>null,'title'=>'Rider payout request','message'=>"Rider {$rider->name} requested delivery-fee payout of PHP ".number_format($amount,2).'.','is_read'=>false,'created_at'=>now()]);}); } catch(\DomainException $e){return back()->with('err',$e->getMessage());}
+        $rider = $this->sessionRider();
+        if (! $rider) {
+            return redirect()->route('login');
+        }
+        $data = $request->validate(['gcash_name' => ['required', 'string', 'min:2', 'max:160'], 'gcash_number' => ['required', 'string', 'max:30'], 'confirmation' => ['accepted']]);
+        $digits = preg_replace('/\D/', '', $data['gcash_number']);
+        if (str_starts_with($digits, '0')) {
+            $digits = '63'.substr($digits, 1);
+        } elseif (str_starts_with($digits, '9')) {
+            $digits = '63'.$digits;
+        } if (! preg_match('/^639\d{9}$/', $digits)) {
+            return back()->withInput()->with('err', 'Enter a valid Philippine GCash number.');
+        }
+        try {
+            DB::transaction(function () use ($rider, $data, $digits) {
+                DB::table('riders')->where('id', $rider->id)->lockForUpdate()->first();
+                $earnings = DB::table('rider_delivery_earnings')->where('rider_id', $rider->id)->where('status', 'available')->lockForUpdate()->get();
+                $amount = round((float) $earnings->sum('amount'), 2);
+                if ($amount <= 0) {
+                    throw new \DomainException('No delivery earnings are available for payout.');
+                }$id = DB::table('rider_payout_requests')->insertGetId(['rider_id' => $rider->id, 'amount' => $amount, 'gcash_name' => trim($data['gcash_name']), 'gcash_number' => '+'.$digits, 'status' => 'requested', 'created_at' => now(), 'updated_at' => now()]);
+                DB::table('rider_delivery_earnings')->whereIn('id', $earnings->pluck('id'))->update(['status' => 'requested', 'payout_id' => $id, 'updated_at' => now()]);
+                DB::table('riders')->where('id', $rider->id)->update(['gcash_name' => trim($data['gcash_name']), 'gcash_number' => '+'.$digits, 'updated_at' => now()]);
+                if (Schema::hasTable('notifications')) {
+                    DB::table('notifications')->insert(['receiver_role' => 'admin', 'receiver_user_id' => null, 'title' => 'Rider payout request', 'message' => "Rider {$rider->name} requested delivery-fee payout of PHP ".number_format($amount, 2).'.', 'is_read' => false, 'created_at' => now()]);
+                }
+            });
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
         DB::afterCommit(function () use ($rider, $amount) {
             $url = route('superadmin.payouts', [], false);
             DB::table('users')->whereIn('role', ['admin', 'superadmin'])->whereNotNull('phone')->get(['id', 'phone'])->each(function ($admin) use ($rider, $amount, $url) {
-                app(MobileNotificationService::class)->notifyUser('admin', (string) $admin->id, $admin->phone, 'Rider payout request', "{$rider->name} requested PHP ".number_format($amount, 2)." for delivery fees.", ['event' => 'rider_payout_requested'], "Rider payout request: {$rider->name} requested PHP ".number_format($amount, 2).".", $url);
+                app(MobileNotificationService::class)->notifyUser('admin', (string) $admin->id, $admin->phone, 'Rider payout request', "{$rider->name} requested PHP ".number_format($amount, 2).' for delivery fees.', ['event' => 'rider_payout_requested'], "Rider payout request: {$rider->name} requested PHP ".number_format($amount, 2).'.', $url);
             });
         });
-        return back()->with('msg','Delivery-fee payout request submitted.');
+
+        return back()->with('msg', 'Delivery-fee payout request submitted.');
     }
 
     /** Lightweight poll target so the dashboard can refresh itself when assignments change. */
     public function dashboardFeed(RiderAssignmentService $assignments)
     {
         $rider = $this->sessionRider();
-        if (!$rider) {
+        if (! $rider) {
             return response()->json(['ok' => false], 401);
         }
 
@@ -226,7 +266,8 @@ class RiderController extends Controller
             $assignments->expirePendingAssignments(null, (int) $rider->id);
             $orders = $this->riderDashboardOrders((int) $rider->id, null, null);
         } catch (\Throwable $e) {
-            Log::warning('Rider dashboard feed failed: ' . $e->getMessage());
+            Log::warning('Rider dashboard feed failed: '.$e->getMessage());
+
             return response()->json(['ok' => false], 500);
         }
 
@@ -249,17 +290,18 @@ class RiderController extends Controller
     public function logout(Request $request)
     {
         $request->session()->forget('rider');
+
         return redirect()->route('login')->with('msg', 'Rider logged out.');
     }
 
     public function passwordSetup()
     {
         $rider = $this->sessionRider();
-        if (!$rider) {
+        if (! $rider) {
             return redirect()->route('login')->with('error', 'Please log in with your rider phone and temporary PIN first.');
         }
 
-        if (Schema::hasColumn('riders', 'password_must_change') && !(bool) ($rider->password_must_change ?? false)) {
+        if (Schema::hasColumn('riders', 'password_must_change') && ! (bool) ($rider->password_must_change ?? false)) {
             return redirect()->route('rider.dashboard');
         }
 
@@ -269,7 +311,7 @@ class RiderController extends Controller
     public function passwordSetupUpdate(Request $request)
     {
         $rider = $this->sessionRider();
-        if (!$rider) {
+        if (! $rider) {
             return redirect()->route('login')->with('error', 'Please log in with your rider phone and temporary PIN first.');
         }
 
@@ -301,15 +343,15 @@ class RiderController extends Controller
     {
         $raw = trim($request->input('code', ''));
 
-        if (!str_contains($raw, '|')) {
+        if (! str_contains($raw, '|')) {
             return back()->with('rider_err', 'Invalid code. Paste the full delivery code from your SMS (e.g. 09171234567|492847).');
         }
 
         [$phone, $pin] = explode('|', $raw, 2);
         $phone = trim($phone);
-        $pin   = trim($pin);
+        $pin = trim($pin);
 
-        if (!$phone || !$pin) {
+        if (! $phone || ! $pin) {
             return back()->with('rider_err', 'Incomplete code. Make sure you copied the full delivery code.');
         }
 
@@ -318,10 +360,12 @@ class RiderController extends Controller
         $rider = DB::table('riders')
             ->where('is_active', true)
             ->where(function ($q) use ($formats) {
-                foreach ($formats as $f) $q->orWhere('phone', $f);
+                foreach ($formats as $f) {
+                    $q->orWhere('phone', $f);
+                }
             })->first();
 
-        if (!$rider) {
+        if (! $rider) {
             return back()->with('rider_err', 'Code not recognized. Check that you pasted the correct code.');
         }
 
@@ -333,7 +377,7 @@ class RiderController extends Controller
             ->get()
             ->first(fn ($candidate) => $this->isRiderAccessibleOrder($candidate));
 
-        if (!$order) {
+        if (! $order) {
             return back()->with('rider_err', 'No active delivery found. The code may have expired or already been used.');
         }
 
@@ -352,7 +396,9 @@ class RiderController extends Controller
             ->select('o.*', 'p.name as product_name', 'r.name as rider_name', 'u.fullname as customer_fullname', 'u.profile_photo as customer_profile_photo')
             ->first();
 
-        if (!$order) abort(404, 'Invalid delivery link.');
+        if (! $order) {
+            abort(404, 'Invalid delivery link.');
+        }
 
         app(RiderAssignmentService::class)->expirePendingAssignments(null, (int) ($order->rider_id ?? 0));
         $order = DB::table('orders as o')
@@ -363,12 +409,14 @@ class RiderController extends Controller
             ->where('o.rider_token', $token)
             ->select('o.*', 'p.name as product_name', 'r.name as rider_name', 'u.fullname as customer_fullname', 'u.profile_photo as customer_profile_photo')
             ->first();
-        if (!$order) abort(404, 'Invalid delivery link.');
+        if (! $order) {
+            abort(404, 'Invalid delivery link.');
+        }
 
         $addons = DB::table('order_addons')->where('order_id', $orderId)->get();
         $settings = CakeshopHelper::getSettings();
         $remittance = null;
-        $shopPayout = !empty($order->shop_id)
+        $shopPayout = ! empty($order->shop_id)
             ? DB::table('shops')->where('id', $order->shop_id)->select('payout_account_name', 'payout_account_number')->first()
             : null;
 
@@ -390,32 +438,59 @@ class RiderController extends Controller
             ]);
         }
 
-        if (!in_array($order->status, ['Out for Delivery'], true)) {
+        if (! in_array($order->status, ['Out for Delivery'], true)) {
             return $this->closedDeliveryAttemptRedirect($order);
         }
 
-        $returnCase = DB::table('post_delivery_return_cases')->where('order_id', $orderId)->whereIn('status', ['submitted','seller_approved','rider_collected_return','returned_to_seller','seller_received_return'])->latest('id')->first();
-        return view('rider.delivery', compact('order','addons','settings','remittance','shopPayout','returnCase'));
+        $returnCase = DB::table('post_delivery_return_cases')->where('order_id', $orderId)->whereIn('status', ['submitted', 'seller_approved', 'rider_collected_return', 'returned_to_seller', 'seller_received_return'])->latest('id')->first();
+
+        return view('rider.delivery', compact('order', 'addons', 'settings', 'remittance', 'shopPayout', 'returnCase'));
     }
 
     public function markArrived(string $orderId, string $token)
     {
-        $order=DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first();
-        if(!$order||$order->status!=='Out for Delivery') return back()->with('err','This delivery is no longer active.');
-        DB::table('orders')->where('id',$orderId)->update(['rider_arrived_at'=>now(),'updated_at'=>now()]);
-        DB::table('order_tracking')->insert(['order_id'=>$orderId,'status'=>'Rider Arrived','notes'=>'Rider arrived at customer for inspection.','created_at'=>now()]);
-        return back()->with('msg','Customer may now inspect the cake or submit a return request.');
+        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
+        if (! $order || $order->status !== 'Out for Delivery') {
+            return back()->with('err', 'This delivery is no longer active.');
+        }
+        DB::table('orders')->where('id', $orderId)->update(['rider_arrived_at' => now(), 'updated_at' => now()]);
+        DB::table('order_tracking')->insert(['order_id' => $orderId, 'status' => 'Rider Arrived', 'notes' => 'Rider arrived at customer for inspection.', 'created_at' => now()]);
+
+        return back()->with('msg', 'Customer may now inspect the cake or submit a return request.');
     }
 
-    public function collectReturn(Request $request,string $orderId,string $token,int $caseId, \App\Services\PostDeliveryReturnService $returns)
+    public function collectReturn(Request $request, string $orderId, string $token, int $caseId, PostDeliveryReturnService $returns)
     {
-        $request->validate(['proof'=>['required','image','mimes:jpg,jpeg,png,webp','max:5120']]); $order=DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first(); if(!$order) abort(404);
-        $path=$this->uploadFile($request->file('proof'),'uploads/post_delivery_returns'); if(!$path)return back()->with('err','Return proof upload failed.');
-        try{$returns->riderCollect($caseId,$orderId,$path);}catch(\DomainException $e){return back()->with('err',$e->getMessage());} return back()->with('msg','Cake collected. Return it to the seller.');
+        $request->validate(['proof' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120']]);
+        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
+        if (! $order) {
+            abort(404);
+        }
+        $path = $this->uploadFile($request->file('proof'), 'uploads/post_delivery_returns');
+        if (! $path) {
+            return back()->with('err', 'Return proof upload failed.');
+        }
+        try {
+            $returns->riderCollect($caseId, $orderId, $path);
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
+
+return back()->with('msg', 'Cake collected. Return it to the seller.');
     }
-    public function returnToSeller(string $orderId,string $token,int $caseId, \App\Services\PostDeliveryReturnService $returns)
+
+    public function returnToSeller(string $orderId, string $token, int $caseId, PostDeliveryReturnService $returns)
     {
-        $order=DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first(); if(!$order) abort(404); try{$returns->riderReturned($caseId,$orderId);}catch(\DomainException $e){return back()->with('err',$e->getMessage());} return back()->with('msg','Cake marked returned to seller. Await seller confirmation.');
+        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
+        if (! $order) {
+            abort(404);
+        } try {
+            $returns->riderReturned($caseId, $orderId);
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
+
+return back()->with('msg', 'Cake marked returned to seller. Await seller confirmation.');
     }
 
     public function paymentStatus(string $orderId, string $token)
@@ -425,7 +500,7 @@ class RiderController extends Controller
             ->where('rider_token', $token)
             ->first();
 
-        if (!$order) {
+        if (! $order) {
             return response()->json(['ok' => false, 'error' => 'Invalid delivery link.'], 404);
         }
 
@@ -451,7 +526,7 @@ class RiderController extends Controller
                 'icon' => $cashMethod ? '💵' : '📱',
                 'label' => $cashMethod ? 'Collect Remaining Balance' : 'GCash Remaining Balance Pending',
                 'amount' => $remainingAmount,
-                'note' => 'Deposit of ₱' . number_format($depositAmount, 2) . ' already paid',
+                'note' => 'Deposit of ₱'.number_format($depositAmount, 2).' already paid',
             ];
         } elseif ($cashMethod) {
             $state = [
@@ -485,11 +560,16 @@ class RiderController extends Controller
     /** Rider marks as delivered */
     public function markDelivered(Request $request, string $orderId, string $token)
     {
-        $order = DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first();
-        if (!$order || $order->status !== 'Out for Delivery')
-            return response()->json(['ok'=>false,'error'=>'Invalid or already updated.']);
-        if (empty($order->rider_arrived_at)) return response()->json(['ok'=>false,'error'=>'Mark arrival at the customer before completing delivery.'],422);
-        if (DB::table('post_delivery_return_cases')->where('order_id',$orderId)->whereIn('status',['submitted','seller_approved','rider_collected_return','returned_to_seller','seller_received_return'])->exists()) return response()->json(['ok'=>false,'error'=>'A return request is active for this order.'],422);
+        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
+        if (! $order || $order->status !== 'Out for Delivery') {
+            return response()->json(['ok' => false, 'error' => 'Invalid or already updated.']);
+        }
+        if (empty($order->rider_arrived_at)) {
+            return response()->json(['ok' => false, 'error' => 'Mark arrival at the customer before completing delivery.'], 422);
+        }
+        if (DB::table('post_delivery_return_cases')->where('order_id', $orderId)->whereIn('status', ['submitted', 'seller_approved', 'rider_collected_return', 'returned_to_seller', 'seller_received_return'])->exists()) {
+            return response()->json(['ok' => false, 'error' => 'A return request is active for this order.'], 422);
+        }
         if (($order->rider_assignment_status ?? '') === 'pending') {
             return response()->json(['ok' => false, 'error' => 'Please accept this delivery before marking it delivered.'], 422);
         }
@@ -515,18 +595,18 @@ class RiderController extends Controller
             // Handle photo upload
             $photoPath = null;
             if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
-                $file  = $request->file('photo');
+                $file = $request->file('photo');
                 $photoPath = $this->uploadFile($file, 'uploads/delivery');
             }
 
             $riderNote = trim($request->input('note', '')) ?: null;
 
             $upd = [
-                'status'           => 'Delivered',
-                'delivered_at'     => now()->format('Y-m-d H:i:s'),
+                'status' => 'Delivered',
+                'delivered_at' => now()->format('Y-m-d H:i:s'),
                 'review_requested' => 1,
-                'delivery_photo'   => $photoPath,
-                'rider_pin'        => null,
+                'delivery_photo' => $photoPath,
+                'rider_pin' => null,
             ];
 
             // COD → auto Paid
@@ -535,7 +615,7 @@ class RiderController extends Controller
                 $upd['paid_at'] = now()->format('Y-m-d H:i:s');
             }
 
-            DB::table('orders')->where('id',$orderId)->update($upd);
+            DB::table('orders')->where('id', $orderId)->update($upd);
             $freshOrder = DB::table('orders')->where('id', $orderId)->first() ?? $order;
             // COD cash is handed to the seller after delivery. Its transaction
             // history is created only when that seller confirms receipt.
@@ -545,41 +625,45 @@ class RiderController extends Controller
             // Keep seller finance and admin payout balances current as soon as
             // delivery/payment settlement is recorded, rather than waiting for
             // the hourly safety sync.
-            app(\App\Services\SellerPayoutService::class)->syncDeliveredPaidOrders();
+            app(SellerPayoutService::class)->syncDeliveredPaidOrders();
             $this->recordOnlineDeliveryEarning($freshOrder, null, 'online_payment');
             app(LoyaltyService::class)->awardForCompletedOrder($freshOrder);
             $remittance = $this->createCashRemittanceIfNeeded($order);
 
             $trackingNotes = 'Marked as delivered by rider.';
-            if ($photoPath)   $trackingNotes .= ' Proof of delivery photo uploaded.';
-            if ($riderNote)   $trackingNotes .= ' Note: ' . $riderNote;
+            if ($photoPath) {
+                $trackingNotes .= ' Proof of delivery photo uploaded.';
+            }
+            if ($riderNote) {
+                $trackingNotes .= ' Note: '.$riderNote;
+            }
 
             DB::table('order_tracking')->insert([
-                'order_id'   => $orderId,
-                'status'     => 'Delivered',
-                'notes'      => $trackingNotes,
+                'order_id' => $orderId,
+                'status' => 'Delivered',
+                'notes' => $trackingNotes,
                 'created_at' => now(),
             ]);
 
             // Update rider delivery count
             if ($order->rider_id) {
-                DB::table('riders')->where('id',$order->rider_id)->increment('deliveries_count');
+                DB::table('riders')->where('id', $order->rider_id)->increment('deliveries_count');
             }
 
-            $siteName = config('app.name','Cake Shop');
-            $riderName = DB::table('riders')->where('id',$order->rider_id)->value('name') ?? 'Rider';
+            $siteName = config('app.name', 'Cake Shop');
+            $riderName = DB::table('riders')->where('id', $order->rider_id)->value('name') ?? 'Rider';
 
             // No SMS to customer on delivery — per plan, visible on tracking page
             // No SMS to admin — visible in admin panel notifications
 
             // Admin notification
             DB::table('notifications')->insert([
-                'receiver_role'    => 'admin',
+                'receiver_role' => 'admin',
                 'receiver_user_id' => null,
-                'title'            => "Order #{$orderId} Delivered",
-                'message'          => "Rider {$riderName} marked Order #{$orderId} as delivered.",
+                'title' => "Order #{$orderId} Delivered",
+                'message' => "Rider {$riderName} marked Order #{$orderId} as delivered.",
                 'is_read' => false,
-                'created_at'       => now(),
+                'created_at' => now(),
             ]);
 
             try {
@@ -590,7 +674,7 @@ class RiderController extends Controller
                     $mobile->notifyOrderSeller($pushOrder, 'Order Delivered', "Rider {$riderName} marked Order #{$orderId} as delivered.", ['event' => 'delivered']);
                 }
             } catch (\Throwable $e) {
-                Log::warning('Rider delivered push failed: ' . $e->getMessage());
+                Log::warning('Rider delivered push failed: '.$e->getMessage());
             }
 
             return response()->json([
@@ -601,8 +685,9 @@ class RiderController extends Controller
             ]);
 
         } catch (\Throwable $e) {
-            Log::error('Rider markDelivered: ' . $e->getMessage());
-            return response()->json(['ok'=>false,'error'=>'Server error: '.$e->getMessage()]);
+            Log::error('Rider markDelivered: '.$e->getMessage());
+
+            return response()->json(['ok' => false, 'error' => 'Server error: '.$e->getMessage()]);
         }
     }
 
@@ -616,22 +701,22 @@ class RiderController extends Controller
         return back()->with('err', 'COD cash is now handed directly to the seller. Wait for the seller to confirm receipt; no GCash remittance is needed.');
 
         $rider = $this->sessionRider();
-        if (!$rider) {
+        if (! $rider) {
             return redirect()->route('login')->with('error', 'Please log in to remit COD cash.');
         }
 
-        if (!Schema::hasTable('rider_remittances') || !Schema::hasTable('rider_remittance_batches')) {
+        if (! Schema::hasTable('rider_remittances') || ! Schema::hasTable('rider_remittance_batches')) {
             return back()->with('err', 'Bulk remittance is not ready yet. Please run the latest database migration.');
         }
 
-        if (!Schema::hasColumn('rider_remittances', 'batch_id')) {
+        if (! Schema::hasColumn('rider_remittances', 'batch_id')) {
             return back()->with('err', 'Bulk remittance needs the latest database migration.');
         }
 
         $openPayment = $request->boolean('open_payment', true);
         $activeBatch = $this->activeRiderBatch((int) $rider->id);
         if ($activeBatch) {
-            if ($openPayment && !empty($activeBatch->paymongo_action_url)) {
+            if ($openPayment && ! empty($activeBatch->paymongo_action_url)) {
                 return redirect()->away($activeBatch->paymongo_action_url);
             }
 
@@ -645,11 +730,11 @@ class RiderController extends Controller
 
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
         $publicKey = CakeshopHelper::getPaymongoPublicKey();
-        if (!$secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY')) {
+        if (! $secretKey || str_contains($secretKey, 'YOUR_SECRET_KEY')) {
             return back()->with('err', 'GCash QR remittance is not configured yet. Please ask the admin to set PayMongo secret key.');
         }
 
-        $clientApiKey = ($publicKey && !str_contains($publicKey, 'YOUR_PUBLIC_KEY')) ? $publicKey : $secretKey;
+        $clientApiKey = ($publicKey && ! str_contains($publicKey, 'YOUR_PUBLIC_KEY')) ? $publicKey : $secretKey;
         $total = round((float) $rows->sum('amount'), 2);
         $amountCentavos = (int) round($total * 100);
         if ($amountCentavos < 100) {
@@ -682,8 +767,8 @@ class RiderController extends Controller
                 return $id;
             });
 
-            $reference = 'REMIT-BATCH-' . $batchId;
-            $description = 'Rider COD bulk remittance for ' . $rows->count() . ' order(s)';
+            $reference = 'REMIT-BATCH-'.$batchId;
+            $description = 'Rider COD bulk remittance for '.$rows->count().' order(s)';
             $intent = $this->paymongoRequest('POST', 'https://api.paymongo.com/v1/payment_intents', $secretKey, [
                 'data' => [
                     'attributes' => [
@@ -697,7 +782,7 @@ class RiderController extends Controller
 
             $intentId = data_get($intent, 'data.id');
             $clientKey = data_get($intent, 'data.attributes.client_key');
-            if (!$intentId || !$clientKey) {
+            if (! $intentId || ! $clientKey) {
                 throw new \RuntimeException(data_get($intent, 'errors.0.detail', 'Could not create PayMongo payment intent.'));
             }
 
@@ -711,7 +796,7 @@ class RiderController extends Controller
             ]);
 
             $methodId = data_get($method, 'data.id');
-            if (!$methodId) {
+            if (! $methodId) {
                 throw new \RuntimeException(data_get($method, 'errors.0.detail', 'Could not create PayMongo QR method.'));
             }
 
@@ -728,7 +813,7 @@ class RiderController extends Controller
             $actionUrl = data_get($attached, 'data.attributes.next_action.redirect.url')
                 ?: data_get($attached, 'data.attributes.next_action.url');
             $paymongoStatus = data_get($attached, 'data.attributes.status', 'awaiting_next_action');
-            if (!$qrImage) {
+            if (! $qrImage) {
                 throw new \RuntimeException(data_get($attached, 'errors.0.detail', 'PayMongo did not return a QR image.'));
             }
 
@@ -801,14 +886,16 @@ class RiderController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return back()->with('err', 'Could not generate bulk GCash QR. PayMongo: ' . $e->getMessage());
+            return back()->with('err', 'Could not generate bulk GCash QR. PayMongo: '.$e->getMessage());
         }
     }
 
     public function markBulkCashHandover(Request $request)
     {
         $rider = $this->sessionRider();
-        if (!$rider) return redirect()->route('login');
+        if (! $rider) {
+            return redirect()->route('login');
+        }
 
         $updated = DB::transaction(function () use ($rider) {
             // Previous QR batches must not keep a rider stuck on the old payment flow.
@@ -826,7 +913,9 @@ class RiderController extends Controller
                 ->whereIn('o.status', ['Delivered', 'Picked Up'])
                 ->pluck('rr.id');
 
-            if ($remittanceIds->isEmpty()) return 0;
+            if ($remittanceIds->isEmpty()) {
+                return 0;
+            }
 
             $updates = $this->filterExistingColumns('rider_remittances', [
                 'status' => 'submitted',
@@ -844,7 +933,9 @@ class RiderController extends Controller
             if ($count > 0) {
                 foreach ($remittanceIds as $remittanceId) {
                     $orderId = DB::table('rider_remittances')->where('id', $remittanceId)->value('order_id');
-                    if ($orderId) $this->addOrderTrackingSafe((string) $orderId, 'Cash Handed to Seller', 'Rider marked the COD cake cash as handed to the seller.', 'seller');
+                    if ($orderId) {
+                        $this->addOrderTrackingSafe((string) $orderId, 'Cash Handed to Seller', 'Rider marked the COD cake cash as handed to the seller.', 'seller');
+                    }
                 }
             }
 
@@ -857,21 +948,23 @@ class RiderController extends Controller
     public function checkBulkRemittanceQr(Request $request)
     {
         $rider = $this->sessionRider();
-        if (!$rider) {
+        if (! $rider) {
             return redirect()->route('login')->with('error', 'Please log in to check remittance payment.');
         }
 
         $batch = $this->activeRiderBatch((int) $rider->id);
-        if (!$batch) {
+        if (! $batch) {
             return back()->with('err', 'No active bulk GCash remittance payment found.');
         }
 
         try {
             $result = $this->syncPaymongoBatchRemittance($batch);
-            if (!$result['ok'] && ($result['message'] ?? '') === 'Payment is not completed yet. Open GCash payment, then check again.') {
+            if (! $result['ok'] && ($result['message'] ?? '') === 'Payment is not completed yet. Open GCash payment, then check again.') {
                 $this->convertUnpaidBatchToCashHandover($batch);
+
                 return back()->with('msg', 'Unpaid GCash QR was changed to cash handover. Give the cake cash to the seller; the seller can now confirm receipt from the order.');
             }
+
             return back()->with($result['ok'] ? 'msg' : 'err', $result['message']);
         } catch (\Throwable $e) {
             Log::error('PayMongo bulk rider remittance status check failed', [
@@ -887,23 +980,25 @@ class RiderController extends Controller
     public function acceptAssignment(string $orderId, string $token, RiderAssignmentService $assignments)
     {
         $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
-        if (!$order || ($order->rider_assignment_status ?? '') !== 'pending') {
+        if (! $order || ($order->rider_assignment_status ?? '') !== 'pending') {
             return back()->with('err', 'This assignment is no longer pending.');
         }
 
-        if (!empty($order->rider_assignment_expires_at) && now()->gte(\Carbon\Carbon::parse($order->rider_assignment_expires_at))) {
+        if (! empty($order->rider_assignment_expires_at) && now()->gte(Carbon::parse($order->rider_assignment_expires_at))) {
             $assignments->expirePendingAssignments(null, (int) ($order->rider_id ?? 0));
+
             return back()->with('err', 'This assignment already expired. Please wait for the seller to assign again.');
         }
 
         $assignments->accept($order);
+
         return redirect()->route('rider.show', [$orderId, $token])->with('msg', 'Delivery accepted. You can now proceed.');
     }
 
     public function declineAssignment(Request $request, string $orderId, string $token, RiderAssignmentService $assignments)
     {
         $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
-        if (!$order || ($order->rider_assignment_status ?? '') !== 'pending') {
+        if (! $order || ($order->rider_assignment_status ?? '') !== 'pending') {
             return back()->with('err', 'This assignment is no longer pending.');
         }
 
@@ -914,6 +1009,7 @@ class RiderController extends Controller
         ]);
 
         $assignments->decline($order, trim($validated['reason']));
+
         return redirect()->route('rider.dashboard')->with('msg', 'Delivery declined. Seller has been notified.');
     }
 
@@ -952,12 +1048,14 @@ class RiderController extends Controller
             }
             if ($batch) {
                 $this->syncPaymongoBatchRemittance($batch);
+
                 return response()->json(['ok' => true]);
             }
         }
 
-        if (!$paymentIntentId && !$remittanceId) {
+        if (! $paymentIntentId && ! $remittanceId) {
             Log::info('PayMongo remittance webhook ignored', ['event' => $eventType]);
+
             return response()->json(['ok' => true]);
         }
 
@@ -971,7 +1069,7 @@ class RiderController extends Controller
             }
             $remittance = $query->first();
         }
-        if (!$remittance) {
+        if (! $remittance) {
             return response()->json(['ok' => true]);
         }
 
@@ -983,18 +1081,18 @@ class RiderController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    private function validatedRemittanceContext(string $orderId, string $token): array|\Illuminate\Http\RedirectResponse
+    private function validatedRemittanceContext(string $orderId, string $token): array|RedirectResponse
     {
         $order = DB::table('orders')
             ->where('id', $orderId)
             ->where('rider_token', $token)
             ->first();
 
-        if (!$order || !in_array(($order->status ?? ''), ['Delivered', 'Picked Up'], true)) {
+        if (! $order || ! in_array(($order->status ?? ''), ['Delivered', 'Picked Up'], true)) {
             return back()->with('err', 'Remittance is only available after a completed delivery.');
         }
 
-        if (!Schema::hasTable('rider_remittances')) {
+        if (! Schema::hasTable('rider_remittances')) {
             return back()->with('err', 'Remittance tracking is not ready yet. Please contact the seller.');
         }
 
@@ -1003,7 +1101,7 @@ class RiderController extends Controller
             ->where('rider_id', $order->rider_id)
             ->first();
 
-        if (!$remittance) {
+        if (! $remittance) {
             return back()->with('err', 'No cash remittance is required for this order.');
         }
 
@@ -1018,7 +1116,7 @@ class RiderController extends Controller
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
                 'accept: application/json',
-                'Authorization: Basic ' . base64_encode($key . ':'),
+                'Authorization: Basic '.base64_encode($key.':'),
             ],
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_TIMEOUT => 30,
@@ -1037,12 +1135,12 @@ class RiderController extends Controller
         curl_close($ch);
 
         if ($errno) {
-            throw new \RuntimeException('PayMongo network error: ' . $error);
+            throw new \RuntimeException('PayMongo network error: '.$error);
         }
 
         $data = $raw ? json_decode($raw, true) : [];
         if ($httpCode >= 400) {
-            throw new \RuntimeException(data_get($data, 'errors.0.detail', 'PayMongo returned HTTP ' . $httpCode));
+            throw new \RuntimeException(data_get($data, 'errors.0.detail', 'PayMongo returned HTTP '.$httpCode));
         }
 
         return is_array($data) ? $data : [];
@@ -1062,8 +1160,8 @@ class RiderController extends Controller
                         'quantity' => 1,
                     ]],
                     'payment_method_types' => ['gcash'],
-                    'success_url' => $returnUrl . '?remittance_payment=success',
-                    'cancel_url' => $returnUrl . '?remittance_payment=cancelled',
+                    'success_url' => $returnUrl.'?remittance_payment=success',
+                    'cancel_url' => $returnUrl.'?remittance_payment=cancelled',
                     'description' => $description,
                     'reference_number' => $reference,
                     'send_email_receipt' => false,
@@ -1083,12 +1181,14 @@ class RiderController extends Controller
     private function syncRiderActiveBatch(int $riderId): void
     {
         $batch = $this->activeRiderBatch($riderId);
-        if (!$batch) return;
+        if (! $batch) {
+            return;
+        }
 
         try {
             $this->syncPaymongoBatchRemittance($batch);
         } catch (\Throwable $e) {
-            Log::warning('Rider bulk remittance return sync failed: ' . $e->getMessage());
+            Log::warning('Rider bulk remittance return sync failed: '.$e->getMessage());
         }
     }
 
@@ -1121,7 +1221,9 @@ class RiderController extends Controller
 
     private function expireRiderBatches(int $riderId): void
     {
-        if (!Schema::hasTable('rider_remittance_batches')) return;
+        if (! Schema::hasTable('rider_remittance_batches')) {
+            return;
+        }
 
         $expired = DB::table('rider_remittance_batches')
             ->where('rider_id', $riderId)
@@ -1130,7 +1232,9 @@ class RiderController extends Controller
             ->where('paymongo_expires_at', '<=', now())
             ->pluck('id');
 
-        if ($expired->isEmpty()) return;
+        if ($expired->isEmpty()) {
+            return;
+        }
 
         DB::table('rider_remittance_batches')->whereIn('id', $expired)->update([
             'status' => 'qr_expired',
@@ -1146,20 +1250,20 @@ class RiderController extends Controller
     private function syncPaymongoBatchRemittance(object $batch): array
     {
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
-        if (!$secretKey) {
+        if (! $secretKey) {
             return ['ok' => false, 'message' => 'PayMongo keys are not configured.'];
         }
 
-        $intent = !empty($batch->paymongo_payment_intent_id)
-            ? $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/payment_intents/' . $batch->paymongo_payment_intent_id, $secretKey)
+        $intent = ! empty($batch->paymongo_payment_intent_id)
+            ? $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/payment_intents/'.$batch->paymongo_payment_intent_id, $secretKey)
             : [];
         $status = data_get($intent, 'data.attributes.status', '');
         $reference = data_get($intent, 'data.attributes.payments.0.attributes.reference_number')
             ?: ($batch->paymongo_reference ?? $batch->reference_number ?? null);
         $paid = $status === 'succeeded';
 
-        if (!$paid && !empty($batch->paymongo_checkout_session_id)) {
-            $checkout = $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/checkout_sessions/' . $batch->paymongo_checkout_session_id, $secretKey);
+        if (! $paid && ! empty($batch->paymongo_checkout_session_id)) {
+            $checkout = $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/checkout_sessions/'.$batch->paymongo_checkout_session_id, $secretKey);
             $checkoutStatus = data_get($checkout, 'data.attributes.status', '');
             $checkoutPaymentStatus = data_get($checkout, 'data.attributes.payment_intent.attributes.status', '');
             $paid = $checkoutStatus === 'completed' || $checkoutPaymentStatus === 'succeeded';
@@ -1199,9 +1303,9 @@ class RiderController extends Controller
                 'confirmed_at' => now(),
                 'submitted_at' => now(),
                 'rejected_at' => null,
-                'seller_note' => 'Auto-verified via PayMongo bulk remittance #' . $batch->id . '.',
+                'seller_note' => 'Auto-verified via PayMongo bulk remittance #'.$batch->id.'.',
             ]);
-        } elseif (!empty($batch->paymongo_expires_at) && now()->gte($batch->paymongo_expires_at)) {
+        } elseif (! empty($batch->paymongo_expires_at) && now()->gte($batch->paymongo_expires_at)) {
             $batchUpdates['status'] = 'qr_expired';
             $rowUpdates['status'] = 'qr_expired';
         }
@@ -1216,12 +1320,12 @@ class RiderController extends Controller
                     'settled_at' => now(),
                     'updated_at' => now(),
                 ]);
-                if (!empty($orderIds) && !empty($orderUpdates)) {
+                if (! empty($orderIds) && ! empty($orderUpdates)) {
                     DB::table('orders')->whereIn('id', $orderIds)->update($orderUpdates);
                 }
 
                 foreach ($orderIds as $orderId) {
-                    $this->addOrderTrackingSafe((string) $orderId, 'Bulk GCash Remittance Verified', 'COD remittance was auto-verified by PayMongo bulk payment #' . $batch->id . '.', 'seller');
+                    $this->addOrderTrackingSafe((string) $orderId, 'Bulk GCash Remittance Verified', 'COD remittance was auto-verified by PayMongo bulk payment #'.$batch->id.'.', 'seller');
                 }
             }
         });
@@ -1247,12 +1351,12 @@ class RiderController extends Controller
                     'line_items' => [[
                         'currency' => 'PHP',
                         'amount' => $amountCentavos,
-                        'name' => 'COD Remittance - Order #' . $order->id,
+                        'name' => 'COD Remittance - Order #'.$order->id,
                         'quantity' => 1,
                     ]],
                     'payment_method_types' => ['gcash'],
-                    'success_url' => $returnUrl . '?remittance_payment=success',
-                    'cancel_url' => $returnUrl . '?remittance_payment=cancelled',
+                    'success_url' => $returnUrl.'?remittance_payment=success',
+                    'cancel_url' => $returnUrl.'?remittance_payment=cancelled',
                     'description' => $description,
                     'reference_number' => $reference,
                     'send_email_receipt' => false,
@@ -1266,20 +1370,20 @@ class RiderController extends Controller
     private function syncPaymongoRemittance(object $remittance, object $order): array
     {
         $secretKey = CakeshopHelper::getPaymongoSecretKey();
-        if (!$secretKey) {
+        if (! $secretKey) {
             return ['ok' => false, 'message' => 'PayMongo keys are not configured.'];
         }
 
-        $intent = !empty($remittance->paymongo_payment_intent_id)
-            ? $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/payment_intents/' . $remittance->paymongo_payment_intent_id, $secretKey)
+        $intent = ! empty($remittance->paymongo_payment_intent_id)
+            ? $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/payment_intents/'.$remittance->paymongo_payment_intent_id, $secretKey)
             : [];
         $status = data_get($intent, 'data.attributes.status', '');
         $reference = data_get($intent, 'data.attributes.payments.0.attributes.reference_number')
             ?: ($remittance->paymongo_reference ?? $remittance->reference_number ?? null);
         $paid = $status === 'succeeded';
 
-        if (!$paid && !empty($remittance->paymongo_checkout_session_id)) {
-            $checkout = $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/checkout_sessions/' . $remittance->paymongo_checkout_session_id, $secretKey);
+        if (! $paid && ! empty($remittance->paymongo_checkout_session_id)) {
+            $checkout = $this->paymongoRequest('GET', 'https://api.paymongo.com/v1/checkout_sessions/'.$remittance->paymongo_checkout_session_id, $secretKey);
             $checkoutStatus = data_get($checkout, 'data.attributes.status', '');
             $checkoutPaymentStatus = data_get($checkout, 'data.attributes.payment_intent.attributes.status', '');
             $paid = $checkoutStatus === 'completed' || $checkoutPaymentStatus === 'succeeded';
@@ -1306,7 +1410,7 @@ class RiderController extends Controller
                 'rejected_at' => null,
                 'seller_note' => 'Auto-verified via PayMongo GCash QR.',
             ]);
-        } elseif (!empty($remittance->paymongo_expires_at) && now()->gte($remittance->paymongo_expires_at)) {
+        } elseif (! empty($remittance->paymongo_expires_at) && now()->gte($remittance->paymongo_expires_at)) {
             $updates['status'] = 'qr_expired';
         }
 
@@ -1317,7 +1421,7 @@ class RiderController extends Controller
                 'settled_at' => now(),
                 'updated_at' => now(),
             ]);
-            if (!empty($orderUpdates)) {
+            if (! empty($orderUpdates)) {
                 DB::table('orders')->where('id', $order->id)->update($orderUpdates);
             }
             $this->addOrderTrackingSafe($order->id, 'GCash Remittance Verified', 'COD remittance was auto-verified by PayMongo QR payment.', 'seller');
@@ -1335,7 +1439,9 @@ class RiderController extends Controller
 
     private function filterExistingColumns(string $table, array $values): array
     {
-        if (!Schema::hasTable($table)) return [];
+        if (! Schema::hasTable($table)) {
+            return [];
+        }
 
         return collect($values)
             ->filter(fn ($value, $column) => Schema::hasColumn($table, $column))
@@ -1346,17 +1452,17 @@ class RiderController extends Controller
     {
         $clean = preg_replace('/\D/', '', $phone);
         if (str_starts_with($clean, '0')) {
-            $clean = '63' . substr($clean, 1);
+            $clean = '63'.substr($clean, 1);
         }
-        if ($clean !== '' && !str_starts_with($clean, '63')) {
-            $clean = '63' . $clean;
+        if ($clean !== '' && ! str_starts_with($clean, '63')) {
+            $clean = '63'.$clean;
         }
 
         return array_values(array_unique(array_filter([
             $phone,
-            $clean ? '+' . $clean : null,
+            $clean ? '+'.$clean : null,
             $clean ?: null,
-            strlen($clean) > 2 ? '0' . substr($clean, 2) : null,
+            strlen($clean) > 2 ? '0'.substr($clean, 2) : null,
         ])));
     }
 
@@ -1393,7 +1499,9 @@ class RiderController extends Controller
 
         if (Schema::hasTable('rider_remittances')) {
             $query = DB::table('rider_remittances')->where('rider_id', $riderId);
-            if (Schema::hasColumn('rider_remittances', 'batch_id')) $query->whereNull('batch_id');
+            if (Schema::hasColumn('rider_remittances', 'batch_id')) {
+                $query->whereNull('batch_id');
+            }
             $items = $items->concat($query->select('id', 'order_id', 'amount', 'status', 'reference_number', 'confirmed_at', 'submitted_at', 'created_at')->get()
                 ->map(fn ($row) => (object) [
                     'kind' => 'remittance', 'id' => $row->id, 'amount' => (float) $row->amount,
@@ -1409,14 +1517,14 @@ class RiderController extends Controller
     private function sessionRider(): ?object
     {
         $session = session('rider');
-        if (!is_array($session) || empty($session['id'])) {
+        if (! is_array($session) || empty($session['id'])) {
             return null;
         }
 
         return DB::table('riders')->where('id', $session['id'])->where('is_active', true)->first();
     }
 
-    private function closedDeliveryAttemptRedirect(object $order): \Illuminate\Http\RedirectResponse
+    private function closedDeliveryAttemptRedirect(object $order): RedirectResponse
     {
         $rider = $this->sessionRider();
         if ($rider && (int) $rider->id === (int) ($order->rider_id ?? 0)) {
@@ -1437,7 +1545,7 @@ class RiderController extends Controller
 
     private function orderNeedsRemittance(object $order): bool
     {
-        if (!Schema::hasTable('rider_remittances')) {
+        if (! Schema::hasTable('rider_remittances')) {
             return false;
         }
 
@@ -1487,7 +1595,7 @@ class RiderController extends Controller
 
     private function riderUnremittedSummary(int $riderId): array
     {
-        if (!Schema::hasTable('rider_remittances')) {
+        if (! Schema::hasTable('rider_remittances')) {
             return ['total' => 0, 'count' => 0, 'needs_action' => 0, 'waiting_seller' => 0, 'waiting_paymongo' => 0, 'rejected' => 0];
         }
 
@@ -1519,7 +1627,7 @@ class RiderController extends Controller
             'active_batch' => null,
         ];
 
-        if (!Schema::hasTable('rider_remittances')) {
+        if (! Schema::hasTable('rider_remittances')) {
             return $empty;
         }
 
@@ -1548,7 +1656,7 @@ class RiderController extends Controller
 
     private function eligibleBulkRemittanceRows(int $riderId)
     {
-        if (!Schema::hasTable('rider_remittances')) {
+        if (! Schema::hasTable('rider_remittances')) {
             return collect();
         }
 
@@ -1571,7 +1679,7 @@ class RiderController extends Controller
 
     private function activeRiderBatch(int $riderId): ?object
     {
-        if (!Schema::hasTable('rider_remittance_batches')) {
+        if (! Schema::hasTable('rider_remittance_batches')) {
             return null;
         }
 
@@ -1646,7 +1754,9 @@ class RiderController extends Controller
     private function addOrderTrackingSafe(string $orderId, string $status, ?string $notes = null, ?string $receiverRole = null): void
     {
         try {
-            if (!Schema::hasTable('order_tracking')) return;
+            if (! Schema::hasTable('order_tracking')) {
+                return;
+            }
 
             $tracking = $this->filterExistingColumns('order_tracking', [
                 'order_id' => $orderId,
@@ -1657,18 +1767,18 @@ class RiderController extends Controller
                 'created_at' => now(),
             ]);
 
-            if (!empty($tracking)) {
+            if (! empty($tracking)) {
                 DB::table('order_tracking')->insert($tracking);
             }
         } catch (\Throwable $e) {
-            Log::warning('Rider remittance tracking insert failed: ' . $e->getMessage());
+            Log::warning('Rider remittance tracking insert failed: '.$e->getMessage());
         }
     }
 
     private function notifySellerSafe(object $order, string $title, string $message, string $event): void
     {
         try {
-            $sellerId = !empty($order->shop_id)
+            $sellerId = ! empty($order->shop_id)
                 ? DB::table('shops')->where('id', $order->shop_id)->value('seller_id')
                 : null;
 
@@ -1683,38 +1793,31 @@ class RiderController extends Controller
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
-                if (!empty($notification)) {
+                if (! empty($notification)) {
                     DB::table('notifications')->insert($notification);
                 }
             }
 
             app(MobileNotificationService::class)->notifyOrderSeller($order, $title, $message, ['event' => $event]);
         } catch (\Throwable $e) {
-            Log::warning('Rider remittance seller notification failed: ' . $e->getMessage());
+            Log::warning('Rider remittance seller notification failed: '.$e->getMessage());
         }
     }
 
     private function recordOnlineDeliveryEarning(object $order, ?int $returnCaseId, string $source): void
     {
-        if (!Schema::hasTable('rider_delivery_earnings') || empty($order->rider_id) || (float)($order->delivery_fee ?? 0) <= 0) return;
-        $shop = !empty($order->shop_id) ? DB::table('shops')->where('id', $order->shop_id)->first() : null;
-        if (!$shop) return;
-        $snapshot = app(\App\Services\OrderSettlementService::class)->snapshot($order, $shop);
-        $onlineFee = (float) ($snapshot['rider_online_fee_amount'] ?? 0);
-        if ($onlineFee <= 0) return;
-        $key=$order->id.'-'.$source.'-'.($returnCaseId ?? 0);
-        DB::table('rider_delivery_earnings')->updateOrInsert(['event_key'=>$key],['rider_id'=>$order->rider_id,'order_id'=>$order->id,'return_case_id'=>$returnCaseId,'amount'=>$onlineFee,'source'=>$source,'status'=>'available','updated_at'=>now(),'created_at'=>now()]);
+        app(RiderEarningService::class)->earn($order, $source, $returnCaseId);
     }
 
     private function createCashRemittanceIfNeeded(object $order): ?object
     {
-        if (!Schema::hasTable('rider_remittances')) {
+        if (! Schema::hasTable('rider_remittances')) {
             return null;
         }
 
         $isCashDelivery = ($order->fulfillment_type ?? '') === 'Delivery'
             && strtoupper((string) ($order->payment_method ?? '')) === 'COD';
-        if (!$isCashDelivery || empty($order->shop_id)) {
+        if (! $isCashDelivery || empty($order->shop_id)) {
             return null;
         }
 
@@ -1755,20 +1858,20 @@ class RiderController extends Controller
                 ->where('title', 'COD Remittance Pending')
                 ->exists();
 
-            if ($sellerId && !$alreadyNotified) {
+            if ($sellerId && ! $alreadyNotified) {
                 DB::table('notifications')->insert([
                     'receiver_role' => 'seller',
                     'receiver_user_id' => $sellerId,
                     'order_id' => $order->id,
                     'title' => 'COD Remittance Pending',
-                    'message' => 'Rider collected cash for Order #' . $order->id . '. Confirm after the rider remits the cash to the seller.',
+                    'message' => 'Rider collected cash for Order #'.$order->id.'. Confirm after the rider remits the cash to the seller.',
                     'is_read' => false,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
             }
         } catch (\Throwable $e) {
-            Log::warning('COD remittance pending notification failed: ' . $e->getMessage());
+            Log::warning('COD remittance pending notification failed: '.$e->getMessage());
         }
 
         return DB::table('rider_remittances')->where('order_id', $order->id)->first();
@@ -1777,9 +1880,10 @@ class RiderController extends Controller
     /** Rider reports an issue */
     public function reportIssue(Request $request, string $orderId, string $token, OrderRefundService $refunds)
     {
-        $order = DB::table('orders')->where('id',$orderId)->where('rider_token',$token)->first();
-        if (!$order || $order->status !== 'Out for Delivery')
-            return response()->json(['ok'=>false,'error'=>'Invalid or already updated.'], 422);
+        $order = DB::table('orders')->where('id', $orderId)->where('rider_token', $token)->first();
+        if (! $order || $order->status !== 'Out for Delivery') {
+            return response()->json(['ok' => false, 'error' => 'Invalid or already updated.'], 422);
+        }
 
         $validated = $request->validate([
             'issue_type' => 'required|in:damaged,failed_delivery_attempt,other',
@@ -1789,40 +1893,42 @@ class RiderController extends Controller
 
         try {
             $issueType = $validated['issue_type'];
-            $note      = trim((string) ($validated['note'] ?? ''));
+            $note = trim((string) ($validated['note'] ?? ''));
 
             $photoPath = null;
             if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
-                $file  = $request->file('photo');
+                $file = $request->file('photo');
                 $photoPath = $this->uploadFile($file, 'uploads/delivery');
             }
-            if (!$photoPath) return response()->json(['ok' => false, 'error' => 'Issue photo upload failed. Please try again.'], 422);
+            if (! $photoPath) {
+                return response()->json(['ok' => false, 'error' => 'Issue photo upload failed. Please try again.'], 422);
+            }
 
-            $newStatus = match($issueType) {
+            $newStatus = match ($issueType) {
                 'failed_delivery_attempt' => 'Attempted Delivery',
-                default    => 'Issue Reported',
+                default => 'Issue Reported',
             };
 
-            DB::table('orders')->where('id',$orderId)->update([
-                'status'            => $newStatus,
-                'issue_type'        => $issueType,
-                'issue_photo'       => $photoPath,
-                'issue_note'        => $note ?: null,
-                'issue_status'      => 'pending',
+            DB::table('orders')->where('id', $orderId)->update([
+                'status' => $newStatus,
+                'issue_type' => $issueType,
+                'issue_photo' => $photoPath,
+                'issue_note' => $note ?: null,
+                'issue_status' => 'pending',
                 'issue_reported_at' => now(),
-                'rider_pin'         => null,
+                'rider_pin' => null,
             ]);
 
             DB::table('order_tracking')->insert([
-                'order_id'   => $orderId,
-                'status'     => $newStatus,
-                'notes'      => "Rider reported: {$issueType}" . ($note ? " - {$note}" : ''),
+                'order_id' => $orderId,
+                'status' => $newStatus,
+                'notes' => "Rider reported: {$issueType}".($note ? " - {$note}" : ''),
                 'created_at' => now(),
             ]);
 
-            $siteName  = config('app.name','Cake Shop');
-            $riderName = DB::table('riders')->where('id',$order->rider_id)->value('name') ?? 'Rider';
-            $issueLabel = match($issueType) {
+            $siteName = config('app.name', 'Cake Shop');
+            $riderName = DB::table('riders')->where('id', $order->rider_id)->value('name') ?? 'Rider';
+            $issueLabel = match ($issueType) {
                 'damaged' => 'Damaged Cake',
                 'failed_delivery_attempt' => 'Failed Delivery Attempt',
                 default => 'Other Issue',
@@ -1832,7 +1938,7 @@ class RiderController extends Controller
             $custPhone = $order->guest_phone ?? null;
             if ($custPhone) {
                 $shopName = SmsHelper::getShopName($order->shop_id ?? null);
-                $header   = SmsHelper::header($siteName, $shopName);
+                $header = SmsHelper::header($siteName, $shopName);
                 $shopLine = $shopName ? "\nShop: {$shopName}" : '';
                 $custName = $order->guest_name ?? 'Customer';
                 $customerSms = "{$header}\nHi {$custName}, we encountered an issue with your delivery.\n\nOrder No.: #{$orderId}{$shopLine}\n\nOur team will contact you shortly to resolve this. We sincerely apologize for the inconvenience.";
@@ -1842,12 +1948,12 @@ class RiderController extends Controller
 
             // Admin notification
             DB::table('notifications')->insert([
-                'receiver_role'    => 'admin',
+                'receiver_role' => 'admin',
                 'receiver_user_id' => null,
-                'title'            => "Delivery Issue — Order #{$orderId}",
-                'message'          => "Rider {$riderName} reported: {$issueLabel}." . ($note ? " Note: {$note}" : ''),
+                'title' => "Delivery Issue — Order #{$orderId}",
+                'message' => "Rider {$riderName} reported: {$issueLabel}.".($note ? " Note: {$note}" : ''),
                 'is_read' => false,
-                'created_at'       => now(),
+                'created_at' => now(),
             ]);
 
             try {
@@ -1858,7 +1964,7 @@ class RiderController extends Controller
                     $mobile->notifyOrderSeller($pushOrder, 'Delivery Issue Reported', "Rider {$riderName} reported: {$issueLabel}.", ['event' => 'delivery_issue']);
                 }
             } catch (\Throwable $e) {
-                Log::warning('Rider issue push failed: ' . $e->getMessage());
+                Log::warning('Rider issue push failed: '.$e->getMessage());
             }
 
             return response()->json([
@@ -1868,18 +1974,29 @@ class RiderController extends Controller
             ]);
 
         } catch (\Throwable $e) {
-            Log::error('Rider reportIssue: ' . $e->getMessage());
-            return response()->json(['ok'=>false,'error'=>'Server error: '.$e->getMessage()]);
+            Log::error('Rider reportIssue: '.$e->getMessage());
+
+            return response()->json(['ok' => false, 'error' => 'Server error: '.$e->getMessage()]);
         }
     }
 
     private function passwordValidationError(string $password, string $confirm): ?string
     {
-        if (strlen($password) < 8) return 'Password must be at least 8 characters.';
-        if ($password !== $confirm) return 'Passwords do not match.';
-        if (!preg_match('/[A-Z]/', $password)) return 'Password must contain at least 1 uppercase letter.';
-        if (!preg_match('/[0-9]/', $password)) return 'Password must contain at least 1 number.';
-        if (!preg_match('/[!@#$%^&*()_+\-=\[\]{};\':"\\\\|,.<>\/?`~]/', $password)) return 'Password must contain at least 1 special character.';
+        if (strlen($password) < 8) {
+            return 'Password must be at least 8 characters.';
+        }
+        if ($password !== $confirm) {
+            return 'Passwords do not match.';
+        }
+        if (! preg_match('/[A-Z]/', $password)) {
+            return 'Password must contain at least 1 uppercase letter.';
+        }
+        if (! preg_match('/[0-9]/', $password)) {
+            return 'Password must contain at least 1 number.';
+        }
+        if (! preg_match('/[!@#$%^&*()_+\-=\[\]{};\':"\\\\|,.<>\/?`~]/', $password)) {
+            return 'Password must contain at least 1 special character.';
+        }
 
         return null;
     }

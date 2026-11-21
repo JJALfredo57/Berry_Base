@@ -1,10 +1,9 @@
 <?php
+
 namespace App\Services;
 
-use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class SellerPayoutService
 {
@@ -12,20 +11,22 @@ class SellerPayoutService
     {
         $defaults = (object) [
             'payout_mode' => 'manual',
-            'payout_hold_days' => 3,
-            'payout_minimum_amount' => 500,
+            'payout_hold_days' => 0,
+            'payout_minimum_amount' => 0,
             'payout_schedule' => 'weekly',
             'payout_first_approval_required' => true,
             'payout_auto_paused' => true,
         ];
 
         $settings = DB::table('platform_settings')->orderBy('id')->first();
-        if (!$settings) return $defaults;
+        if (! $settings) {
+            return $defaults;
+        }
 
         $mode = strtolower(trim((string) ($settings->payout_mode ?? $defaults->payout_mode)));
-        $settings->payout_mode = in_array($mode, ['manual', 'automatic'], true) ? $mode : 'manual';
-        $settings->payout_hold_days = (int) ($settings->payout_hold_days ?? $defaults->payout_hold_days);
-        $settings->payout_minimum_amount = (float) ($settings->payout_minimum_amount ?? $defaults->payout_minimum_amount);
+        $settings->payout_mode = 'manual';
+        $settings->payout_hold_days = 0;
+        $settings->payout_minimum_amount = 0;
         $settings->payout_schedule = (string) ($settings->payout_schedule ?? $defaults->payout_schedule);
         $settings->payout_first_approval_required = (bool) ($settings->payout_first_approval_required ?? $defaults->payout_first_approval_required);
         $settings->payout_auto_paused = (bool) ($settings->payout_auto_paused ?? $defaults->payout_auto_paused);
@@ -33,336 +34,35 @@ class SellerPayoutService
         return $settings;
     }
 
+    /** Existing callers and scheduler reconcile allocations; no holding period. */
     public function syncDeliveredPaidOrders(): int
     {
-        $settings = $this->settings();
-        $holdDays = max(0, (int) ($settings->payout_hold_days ?? 3));
-        $hasDeliveredAt = Schema::hasColumn('orders', 'delivered_at');
-        $hasSettledAt = Schema::hasColumn('orders', 'settled_at');
-        $hasRiderRemittances = Schema::hasTable('rider_remittances');
-        $this->recalculateClearingReleaseDates($holdDays, $hasDeliveredAt, $hasSettledAt);
-        // A settlement is calculated from the full cake value, not from the
-        // deposit.  This prevents partial COD/COP payments from reducing the
-        // seller's configured commission rate or double-counting cash.
-
-        $orders = DB::table('orders as o')
-            ->join('shops as s', 's.id', '=', 'o.shop_id');
-
-        if ($hasRiderRemittances) {
-            $orders->leftJoin('rider_remittances as rr', 'rr.order_id', '=', 'o.id');
-        }
-
-        $orders = $orders
-            ->whereNotNull('o.shop_id')
-            ->whereIn('o.payment_status', ['Paid', 'Partial Payment'])
-            ->whereNotIn('o.status', ['Cancelled'])
-            ->when($hasRiderRemittances, function ($q) {
-                $q->where(function ($sq) {
-                    $sq->where(function ($nonCodDelivery) {
-                        $nonCodDelivery
-                            ->where(function ($method) {
-                                $method->whereNull('o.payment_method')
-                                    ->orWhereRaw('UPPER(o.payment_method) <> ?', ['COD']);
-                            })
-                            ->orWhere(function ($fulfillment) {
-                                $fulfillment->whereNull('o.fulfillment_type')
-                                    ->orWhere('o.fulfillment_type', '<>', 'Delivery');
-                            });
-                    })->orWhere(function ($onlineDeposit) {
-                        $onlineDeposit
-                            ->where('o.deposit_status', 'paid')
-                            ->where('o.deposit_amount', '>', 0);
-                    })->orWhere(function ($onlineRemittance) {
-                        $onlineRemittance
-                            ->where('rr.status', 'confirmed')
-                            ->where('rr.remittance_method', 'gcash_paymongo');
-                    });
-                });
-            })
-            ->where(function ($q) use ($hasDeliveredAt, $hasSettledAt) {
-                $q->where('o.status', 'Delivered');
-                if ($hasDeliveredAt) {
-                    $q->orWhereNotNull('o.delivered_at');
-                }
-                if ($hasSettledAt) {
-                    $q->orWhereNotNull('o.settled_at');
-                }
-            })
-            ->whereNotExists(function ($q) {
-                $q->select(DB::raw(1))
-                    ->from('seller_payout_ledgers as spl')
-                    ->whereColumn('spl.order_id', 'o.id');
-            })
-            ->select(
-                'o.*',
-                's.seller_id',
-                's.commission_rate',
-                's.commission_enabled'
-            )
-            ->when($hasRiderRemittances, function ($q) {
-                $q->addSelect(
-                    'rr.status as remittance_status',
-                    'rr.remittance_method as remittance_method',
-                    'rr.amount as remittance_amount'
-                );
-            })
-            ->limit(250)
-            ->get();
-
-        $created = 0;
-        foreach ($orders as $order) {
-            $snapshot = app(OrderSettlementService::class)->snapshot($order, $order);
-            if ($snapshot['online_collected_amount'] <= 0) continue;
-
-            $deliveredAt = ($hasDeliveredAt ? ($order->delivered_at ?? null) : null)
-                ?? ($hasSettledAt ? ($order->settled_at ?? null) : null)
-                ?? $order->updated_at
-                ?? now();
-            $releaseAt = Carbon::parse($deliveredAt)->addDays($holdDays);
-            $status = $releaseAt->isFuture() ? 'clearing' : 'available';
-
-            $insertPayload = array_merge([
-                'order_id' => $order->id,
-                'shop_id' => $order->shop_id,
-                'seller_id' => $order->seller_id,
-                'status' => $status,
-                'release_at' => $releaseAt,
-                'notes' => $this->ledgerNote($order),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ], $snapshot);
-            $insertPayload = $this->onlyLedgerColumns($insertPayload);
-
-            DB::table('seller_payout_ledgers')->insert($insertPayload);
-            $created++;
-        }
-
-        $this->refreshOpenLedgerSnapshots();
-
-        DB::table('seller_payout_ledgers')
-            ->where('status', 'clearing')
-            ->where('release_at', '<=', now())
-            ->update(['status' => 'available', 'updated_at' => now()]);
-
-        return $created;
-    }
-
-    /** Refresh mutable cash/remittance facts until a seller payout is locked. */
-    private function refreshOpenLedgerSnapshots(): void
-    {
-        $ledgers = DB::table('seller_payout_ledgers as l')
-            ->join('orders as o', 'o.id', '=', 'l.order_id')
-            ->join('shops as s', 's.id', '=', 'o.shop_id')
-            ->whereNull('l.payout_id')
-            ->whereIn('l.status', ['pending', 'clearing', 'available'])
-            ->select('l.id as ledger_id', 'o.*', 's.commission_rate', 's.commission_enabled')
-            ->limit(500)->get();
-
-        foreach ($ledgers as $ledger) {
-            $snapshot = app(OrderSettlementService::class)->snapshot($ledger, $ledger);
-            DB::table('seller_payout_ledgers')->where('id', $ledger->ledger_id)->update(
-                $this->onlyLedgerColumns($snapshot + ['notes' => $this->ledgerNote($ledger), 'updated_at' => now()])
-            );
-        }
-    }
-
-    private function onlyLedgerColumns(array $payload): array
-    {
-        $columns = ['order_id','shop_id','seller_id','gross_amount','cake_amount','delivery_fund_amount','commission_base','commission_rate','commission_amount','seller_net_amount','online_collected_amount','cash_collected_amount','cash_to_seller_amount','rider_cash_fee_amount','rider_online_fee_amount','total_seller_earnings','remaining_balance','status','release_at','notes','created_at','updated_at'];
-        return array_filter($payload, fn ($value, $key) => in_array($key, $columns, true) && Schema::hasColumn('seller_payout_ledgers', $key), ARRAY_FILTER_USE_BOTH);
-    }
-
-    private function recalculateClearingReleaseDates(int $holdDays, bool $hasDeliveredAt, bool $hasSettledAt): void
-    {
-        $query = DB::table('seller_payout_ledgers as l')
-            ->join('orders as o', 'o.id', '=', 'l.order_id')
-            ->whereIn('l.status', ['pending', 'clearing'])
-            ->select(
-                'l.id',
-                'l.release_at',
-                'o.updated_at'
-            );
-
-        if ($hasDeliveredAt) {
-            $query->addSelect('o.delivered_at');
-        }
-        if ($hasSettledAt) {
-            $query->addSelect('o.settled_at');
-        }
-
-        $ledgers = $query->limit(500)->get();
-        foreach ($ledgers as $ledger) {
-            $baseAt = ($hasDeliveredAt ? ($ledger->delivered_at ?? null) : null)
-                ?? ($hasSettledAt ? ($ledger->settled_at ?? null) : null)
-                ?? $ledger->updated_at
-                ?? now();
-            $releaseAt = Carbon::parse($baseAt)->addDays($holdDays);
-            $status = $releaseAt->isFuture() ? 'clearing' : 'available';
-            $currentReleaseAt = $ledger->release_at ? Carbon::parse($ledger->release_at) : null;
-            if ($currentReleaseAt && $currentReleaseAt->equalTo($releaseAt) && ($ledger->status ?? null) === $status) {
-                continue;
-            }
-
-            DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update([
-                'release_at' => $releaseAt,
-                'status' => $status,
-                'updated_at' => now(),
-            ]);
-        }
-    }
-
-    private function excludeDirectCashHandoverLedgers(): void
-    {
-        if (!Schema::hasTable('seller_payout_ledgers') || !Schema::hasTable('rider_remittances')) {
-            return;
-        }
-
-        $ledgers = DB::table('seller_payout_ledgers as l')
-            ->join('orders as o', 'o.id', '=', 'l.order_id')
-            ->join('rider_remittances as rr', 'rr.order_id', '=', 'o.id')
-            ->join('shops as s', 's.id', '=', 'l.shop_id')
-            ->whereIn('l.status', ['pending', 'clearing', 'available'])
-            ->whereNull('l.payout_id')
-            ->where('o.fulfillment_type', 'Delivery')
-            ->whereRaw('UPPER(o.payment_method) = ?', ['COD'])
-            ->where('rr.status', 'confirmed')
-            ->where(function ($q) {
-                $q->whereNull('rr.remittance_method')
-                    ->orWhere('rr.remittance_method', '<>', 'gcash_paymongo');
-            })
-            ->select(
-                'l.id',
-                'o.id as order_id',
-                'o.deposit_status',
-                'o.deposit_amount',
-                'o.delivery_fee',
-                'o.service_charge',
-                's.commission_rate',
-                's.commission_enabled'
-            )
-            ->limit(500)
-            ->get();
-
-        $hasPlatformFundedColumn = Schema::hasColumn('seller_payout_ledgers', 'platform_funded_discount');
-        $hasSellerFundedColumn = Schema::hasColumn('seller_payout_ledgers', 'seller_funded_discount');
-        $discountFundingMap = $this->discountFundingByOrderIds($ledgers->pluck('order_id')->filter()->all());
-
-        foreach ($ledgers as $ledger) {
-            $gross = ($ledger->deposit_status ?? '') === 'paid'
-                ? round((float) ($ledger->deposit_amount ?? 0), 2)
-                : 0.0;
-
-            if ($gross <= 0) {
-                DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update([
-                    'status' => 'cash_settled',
-                    'notes' => 'Excluded from payout because COD cash was handed directly to seller.',
-                    'updated_at' => now(),
-                ]);
-                continue;
-            }
-
-            $discountBreakdown = $discountFundingMap[(string) $ledger->order_id] ?? ['platform' => 0.0, 'seller' => 0.0];
-            $platformFundedDiscount = max(0, round((float) ($discountBreakdown['platform'] ?? 0), 2));
-            $adjustedGross = max(0, round($gross + $platformFundedDiscount, 2));
-
-            $deliveryFund = min($adjustedGross, max(0, round((float) ($ledger->delivery_fee ?? 0), 2)));
-            $commissionBase = max(0, $adjustedGross - $deliveryFund - (float) ($ledger->service_charge ?? 0));
-            $rate = !empty($ledger->commission_enabled) ? 2.0 : 0.0;
-            $commission = round($commissionBase * $rate / 100, 2);
-
-            $updatePayload = [
-                'gross_amount' => $adjustedGross,
-                'cake_amount' => $commissionBase,
-                'delivery_fund_amount' => $deliveryFund,
-                'commission_base' => $commissionBase,
-                'commission_rate' => $rate,
-                'commission_amount' => $commission,
-                'seller_net_amount' => max(0, round($commissionBase - $commission, 2)),
-                'notes' => 'Adjusted to online customer deposit only. Direct COD cash was handed to seller.',
-                'updated_at' => now(),
-            ];
-            if (!Schema::hasColumn('seller_payout_ledgers', 'cake_amount')) unset($updatePayload['cake_amount']);
-            if (!Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount')) unset($updatePayload['delivery_fund_amount']);
-            if ($hasPlatformFundedColumn) {
-                $updatePayload['platform_funded_discount'] = $platformFundedDiscount;
-            }
-            if ($hasSellerFundedColumn) {
-                $updatePayload['seller_funded_discount'] = max(0, round((float) ($discountBreakdown['seller'] ?? 0), 2));
-            }
-
-            DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update($updatePayload);
-        }
-    }
-
-    /**
-     * A Cash-on-Pickup order can be marked "Paid" after its counter balance
-     * is collected. That cash goes directly to the seller, while only the
-     * earlier GCash deposit belongs in the platform payout ledger.
-     */
-    private function adjustCashPickupLedgers(): void
-    {
-        if (!Schema::hasTable('seller_payout_ledgers')) {
-            return;
-        }
-
-        $ledgers = DB::table('seller_payout_ledgers as l')
-            ->join('orders as o', 'o.id', '=', 'l.order_id')
-            ->join('shops as s', 's.id', '=', 'l.shop_id')
-            ->whereIn('l.status', ['pending', 'clearing', 'available'])
-            ->whereNull('l.payout_id')
-            ->where('o.fulfillment_type', 'Pickup')
-            ->whereIn(DB::raw('UPPER(o.payment_method)'), ['COP', 'COD'])
-            ->where('o.deposit_status', 'paid')
-            ->select('l.id', 'o.deposit_amount', 'o.service_charge', 's.commission_enabled')
-            ->limit(500)
-            ->get();
-
-        foreach ($ledgers as $ledger) {
-            $gross = max(0, round((float) ($ledger->deposit_amount ?? 0), 2));
-            $commissionBase = max(0, round($gross - (float) ($ledger->service_charge ?? 0), 2));
-            $rate = !empty($ledger->commission_enabled) ? 2.0 : 0.0;
-            $commission = round($commissionBase * $rate / 100, 2);
-
-            $updates = [
-                'gross_amount' => $gross,
-                'cake_amount' => $commissionBase,
-                'delivery_fund_amount' => 0,
-                'commission_base' => $commissionBase,
-                'commission_rate' => $rate,
-                'commission_amount' => $commission,
-                'seller_net_amount' => max(0, round($commissionBase - $commission, 2)),
-                'notes' => 'Adjusted to the online deposit only. Cash-on-pickup balance was handed directly to the seller.',
-                'updated_at' => now(),
-            ];
-            if (!Schema::hasColumn('seller_payout_ledgers', 'cake_amount')) unset($updates['cake_amount']);
-            if (!Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount')) unset($updates['delivery_fund_amount']);
-
-            DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update($updates);
-        }
+        return app(SellerBalanceService::class)->sync();
     }
 
     public function summaryForShop(string $shopId): array
     {
-        $this->syncDeliveredPaidOrders();
+        app(SellerBalanceService::class)->sync($shopId);
+        $rows = DB::table('seller_payout_ledgers')->where('shop_id', $shopId)->get();
+        $sum = fn (array $states) => round((float) $rows->whereIn('status', $states)->sum('seller_net_amount'), 2);
+
         return [
-            'pending' => (float) DB::table('seller_payout_ledgers')->where('shop_id', $shopId)->whereIn('status', ['pending', 'clearing'])->sum('seller_net_amount'),
-            'available' => (float) DB::table('seller_payout_ledgers')->where('shop_id', $shopId)->where('status', 'available')->sum('seller_net_amount'),
-            'processing' => (float) DB::table('seller_payout_ledgers')->where('shop_id', $shopId)->whereIn('status', ['requested', 'processing'])->sum('seller_net_amount'),
-            'paid' => (float) DB::table('seller_payout_ledgers')->where('shop_id', $shopId)->where('status', 'paid')->sum('seller_net_amount'),
-            // A negative ledger is an active recovery only until it has been
-            // included in a paid payout. Historical refunds belong in reports,
-            // not in the seller's current outstanding-deduction card.
-            'refund_deductions' => abs((float) DB::table('seller_payout_ledgers')
-                ->where('shop_id', $shopId)
-                ->where('seller_net_amount', '<', 0)
-                ->whereIn('status', ['pending', 'clearing', 'available', 'requested', 'processing'])
-                ->sum('seller_net_amount')),
+            'pending' => 0.0,
+            'awaiting' => $sum(['awaiting_completion']),
+            'reserved' => $sum(['refund_reserved']),
+            'review' => $sum(['finance_review']),
+            'net_online' => max(0, $sum(['awaiting_completion', 'available'])),
+            'available' => max(0, $sum(['available'])),
+            'processing' => $sum(['requested', 'processing']),
+            'paid' => $sum(['paid']),
+            'refund_deductions' => abs((float) $rows->where('status', 'available')->where('seller_net_amount', '<', 0)->sum('seller_net_amount')),
         ];
     }
 
     public function availableLedgersForShop(string $shopId): Collection
     {
         $this->syncDeliveredPaidOrders();
+
         return DB::table('seller_payout_ledgers')
             ->where('shop_id', $shopId)
             ->where('status', 'available')
@@ -370,88 +70,17 @@ class SellerPayoutService
             ->get();
     }
 
-    public function createPayoutForShop(string $shopId, string $mode, ?string $note = null, string $source = 'system', ?string $actorRole = null, ?string $actorId = null): ?int
+    public function createPayoutForShop(string $shopId, string $mode, ?string $note = null, string $source = 'system', ?string $actorRole = null, ?string $actorId = null, ?array $selectedIds = null): ?int
     {
-        $shop = DB::table('shops')->where('id', $shopId)->first();
-        if (!$shop || !empty($shop->payout_paused)) return null;
-        if (
-            empty($shop->payout_method) ||
-            empty($shop->payout_account_name) ||
-            empty($shop->payout_account_number) ||
-            empty($shop->payout_details_verified)
-        ) {
-            return null;
-        }
-
-        $settings = $this->settings();
-        $payoutId = null;
-        DB::transaction(function () use ($shop, $settings, $mode, $note, $source, $actorRole, $actorId, &$payoutId) {
-            // Lock eligible entries before calculating the payout. This prevents
-            // two simultaneous requests from selecting the same available ledger.
-            $ledgers = DB::table('seller_payout_ledgers')
-                ->where('shop_id', $shop->id)
-                ->where('status', 'available')
-                ->orderBy('release_at')
-                ->lockForUpdate()
-                ->get();
-            if ($ledgers->isEmpty()) return;
-
-            $net = round((float) $ledgers->sum('seller_net_amount'), 2);
-            if ($net < (float) ($settings->payout_minimum_amount ?? 0)) return;
-            $gross = round((float) $ledgers->sum('gross_amount'), 2);
-            $commission = round((float) $ledgers->sum('commission_amount'), 2);
-            $status = $mode === 'automatic' ? 'processing' : 'requested';
-
-            $payload = [
-                'shop_id' => $shop->id,
-                'seller_id' => $shop->seller_id,
-                'mode' => $mode,
-                'status' => $status,
-                'gross_amount' => $gross,
-                'commission_amount' => $commission,
-                'net_amount' => $net,
-                'payout_method' => $shop->payout_method,
-                'payout_institution' => $shop->payout_institution ?: 'GCash',
-                'payout_account_name' => $shop->payout_account_name,
-                'payout_account_number' => $shop->payout_account_number,
-                'admin_note' => $note,
-                'requested_at' => now(),
-                'processed_at' => $mode === 'automatic' ? now() : null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-            if (Schema::hasColumn('seller_payouts', 'request_source')) $payload['request_source'] = $source;
-            if (Schema::hasColumn('seller_payouts', 'requested_by_role')) $payload['requested_by_role'] = $actorRole;
-            if (Schema::hasColumn('seller_payouts', 'requested_by_user_id')) $payload['requested_by_user_id'] = $actorId;
-            $payoutId = DB::table('seller_payouts')->insertGetId($payload);
-
-            foreach ($ledgers as $ledger) {
-                DB::table('seller_payout_items')->insert([
-                    'payout_id' => $payoutId,
-                    'ledger_id' => $ledger->id,
-                    'order_id' => $ledger->order_id,
-                    'net_amount' => $ledger->seller_net_amount,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-
-            DB::table('seller_payout_ledgers')
-                ->whereIn('id', $ledgers->pluck('id')->all())
-                ->update([
-                    'status' => $status === 'processing' ? 'processing' : 'requested',
-                    'payout_id' => $payoutId,
-                    'updated_at' => now(),
-                ]);
-        });
-
-        return $payoutId;
+        return app(SelectedPayoutService::class)->create($shopId, $selectedIds, [
+            'note' => $note, 'source' => $source, 'role' => $actorRole, 'actor' => $actorId,
+        ]);
     }
 
     public function runAutomaticPreparation(): int
     {
         $settings = $this->settings();
-        if (($settings->payout_mode ?? 'manual') !== 'automatic' || !empty($settings->payout_auto_paused)) {
+        if (($settings->payout_mode ?? 'manual') !== 'automatic' || ! empty($settings->payout_auto_paused)) {
             return 0;
         }
 
@@ -483,13 +112,13 @@ class SellerPayoutService
         if (($settings->payout_mode ?? 'manual') !== 'automatic') {
             $blockers[] = 'Payout mode is currently Manual.';
         }
-        if (!empty($settings->payout_auto_paused)) {
+        if (! empty($settings->payout_auto_paused)) {
             $blockers[] = 'Automatic payouts are paused globally.';
         }
 
         $availableLedgers = DB::table('seller_payout_ledgers')->where('status', 'available')->count();
         if ($availableLedgers === 0) {
-            $blockers[] = 'No available ledgers yet. Orders must be paid, delivered, and past the hold period.';
+            $blockers[] = 'No available ledgers yet. Orders must be paid, completed and free of active issues.';
         }
 
         $minimum = (float) ($settings->payout_minimum_amount ?? 0);
@@ -510,65 +139,6 @@ class SellerPayoutService
         return $blockers;
     }
 
-    private function discountFundingByOrderIds(array $orderIds): array
-    {
-        $orderIds = array_values(array_unique(array_filter(array_map('strval', $orderIds))));
-        if (empty($orderIds) || !Schema::hasTable('order_discounts')) {
-            return [];
-        }
-
-        $hasFundingSourceColumn = Schema::hasColumn('order_discounts', 'funding_source');
-
-        $rows = DB::table('order_discounts as od')
-            ->leftJoin('vouchers as v', function ($join) {
-                $join->on('v.id', '=', 'od.source_id')
-                    ->where('od.source_type', '=', 'voucher');
-            })
-            ->whereIn('od.order_id', $orderIds)
-            ->select(
-                'od.order_id',
-                'od.source_type',
-                'od.amount',
-                DB::raw($hasFundingSourceColumn ? 'od.funding_source as funding_source' : 'NULL as funding_source'),
-                'v.shop_id as voucher_shop_id'
-            )
-            ->get();
-
-        $totals = [];
-        foreach ($rows as $row) {
-            $orderId = (string) ($row->order_id ?? '');
-            if ($orderId === '') {
-                continue;
-            }
-
-            $source = strtolower(trim((string) ($row->funding_source ?? '')));
-            if (!in_array($source, ['platform', 'seller'], true)) {
-                if (($row->source_type ?? null) === 'loyalty') {
-                    $source = 'platform';
-                } elseif (($row->source_type ?? null) === 'voucher') {
-                    $source = empty($row->voucher_shop_id) ? 'platform' : 'seller';
-                } else {
-                    $source = 'seller';
-                }
-            }
-
-            if (!isset($totals[$orderId])) {
-                $totals[$orderId] = ['platform' => 0.0, 'seller' => 0.0];
-            }
-
-            $totals[$orderId][$source] += max(0, (float) ($row->amount ?? 0));
-        }
-
-        foreach ($totals as $orderId => $amounts) {
-            $totals[$orderId] = [
-                'platform' => round((float) ($amounts['platform'] ?? 0), 2),
-                'seller' => round((float) ($amounts['seller'] ?? 0), 2),
-            ];
-        }
-
-        return $totals;
-    }
-
     private function collectedAmount(object $order): float
     {
         $isCodDelivery = strtoupper((string) ($order->payment_method ?? '')) === 'COD'
@@ -587,6 +157,7 @@ class SellerPayoutService
             }
 
             $total = round((float) ($order->total_price ?? 0), 2);
+
             return round(min(max(0, $amount), max(0, $total)), 2);
         }
 

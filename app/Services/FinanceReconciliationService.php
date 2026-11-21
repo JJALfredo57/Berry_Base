@@ -18,7 +18,7 @@ class FinanceReconciliationService
 
     public function build(?string $from = null, ?string $to = null): array
     {
-        if (!Schema::hasTable('payment_transactions')) {
+        if (! Schema::hasTable('payment_transactions')) {
             return ['summary' => $this->emptySummary(), 'rows' => collect()];
         }
 
@@ -47,7 +47,7 @@ class FinanceReconciliationService
         $sellerLedgers = $this->sellerLedgers();
         $riderEarnings = $this->riderEarnings();
 
-        if (!$from || !$to) {
+        if (! $from || ! $to) {
             foreach ([$normalRefunds, $returnRefunds, $sellerLedgers, $riderEarnings] as $records) {
                 $orderIds = $orderIds->merge($records->keys());
             }
@@ -66,17 +66,27 @@ class FinanceReconciliationService
             $seller = $sellerLedgers->get($orderId, (object) ['amount' => 0, 'commission' => 0]);
             $rider = $riderEarnings->get($orderId, (object) ['amount' => 0, 'review_amount' => 0]);
             $onlineSettled = round((float) ($payment->online_settled ?? 0), 2);
-            $isHeld = $order && !in_array((string) $order->status, self::TERMINAL_ORDER_STATUSES, true);
-            $held = $isHeld ? $onlineSettled : 0.0;
+            // Verified allocations are visible even before fulfilment. Only
+            // unallocated receipts remain customer funds, not seller earnings.
+            $isHeld = $order && ! $sellerLedgers->has($orderId);
             $refunds = round($normalRefund + $returnRefund, 2);
+            $held = $isHeld ? max(0, $onlineSettled - $refunds) : 0.0;
             $sellerAmount = $isHeld ? 0.0 : round((float) ($seller->amount ?? 0), 2);
             $sellerPayable = $isHeld ? 0.0 : round((float) ($seller->payable ?? 0), 2);
             $sellerPaid = $isHeld ? 0.0 : round((float) ($seller->paid ?? 0), 2);
-            $riderAmount = $isHeld ? 0.0 : round((float) ($rider->amount ?? 0), 2);
-            $riderPayable = $isHeld ? 0.0 : round((float) ($rider->payable ?? 0), 2);
+            $riderAllocation = (float) ($seller->rider_allocation ?? 0);
+            $riderAmount = $isHeld ? 0.0 : round(max($riderAllocation, (float) ($rider->amount ?? 0)), 2);
+            $riderPayable = $isHeld ? 0.0 : round(max(0, $riderAmount - (float) ($rider->paid ?? 0)), 2);
             $riderPaid = $isHeld ? 0.0 : round((float) ($rider->paid ?? 0), 2);
             $commission = $isHeld ? 0.0 : round((float) ($seller->commission ?? 0), 2);
-            $difference = round($onlineSettled - $held - $refunds - $sellerAmount - $riderAmount - $commission, 2);
+            $platformFunding = $isHeld ? 0.0 : round((float) ($seller->platform_funding ?? 0), 2);
+            if ((float) ($seller->original_paid ?? 0) > 0 && $onlineSettled > 0 && $refunds > 0) {
+                // Paid transfer snapshots are immutable. Report their refunded
+                // commission separately from the original receipt history.
+                $commission = round($commission * max(0, 1 - min(1, $refunds / $onlineSettled)), 2);
+                $platformFunding = round($platformFunding * max(0, 1 - min(1, $refunds / $onlineSettled)), 2);
+            }
+            $difference = round($onlineSettled + $platformFunding - $held - $refunds - $sellerAmount - $riderAmount - $commission, 2);
 
             return (object) [
                 'order_id' => (string) $orderId,
@@ -96,6 +106,7 @@ class FinanceReconciliationService
                 'rider_paid' => $riderPaid,
                 'rider_review_amount' => round((float) ($rider->review_amount ?? 0), 2),
                 'commission' => $commission,
+                'platform_funding' => $platformFunding,
                 'held' => $held,
                 'difference' => $difference,
                 'state' => $this->rowState($order, $difference, (float) ($rider->review_amount ?? 0)),
@@ -109,7 +120,9 @@ class FinanceReconciliationService
 
     private function normalRefunds(): Collection
     {
-        if (!Schema::hasTable('order_refunds')) return collect();
+        if (! Schema::hasTable('order_refunds')) {
+            return collect();
+        }
 
         return DB::table('order_refunds')
             ->where('status', 'refunded')
@@ -120,7 +133,9 @@ class FinanceReconciliationService
 
     private function returnRefunds(): Collection
     {
-        if (!Schema::hasTable('post_delivery_return_cases')) return collect();
+        if (! Schema::hasTable('post_delivery_return_cases')) {
+            return collect();
+        }
 
         return DB::table('post_delivery_return_cases')
             ->where('status', 'refunded')
@@ -131,24 +146,32 @@ class FinanceReconciliationService
 
     private function sellerLedgers(): Collection
     {
-        if (!Schema::hasTable('seller_payout_ledgers')) return collect();
+        if (! Schema::hasTable('seller_payout_ledgers')) {
+            return collect();
+        }
+
+        $orderKey = Schema::hasColumn('seller_payout_ledgers', 'source_order_id') ? 'COALESCE(source_order_id, order_id)' : 'order_id';
 
         return DB::table('seller_payout_ledgers')
-            ->where('seller_net_amount', '>', 0)
             ->where('status', '<>', 'cash_settled')
-            ->select('order_id')
+            ->selectRaw($orderKey.' AS order_id')
             ->selectRaw('SUM(seller_net_amount) AS amount')
-            ->selectRaw("SUM(CASE WHEN status IN ('pending', 'clearing', 'available', 'requested', 'processing') THEN seller_net_amount ELSE 0 END) AS payable")
+            ->selectRaw("SUM(CASE WHEN status IN ('awaiting_completion', 'refund_reserved', 'available', 'requested', 'processing') THEN seller_net_amount ELSE 0 END) AS payable")
             ->selectRaw("SUM(CASE WHEN status = 'paid' THEN seller_net_amount ELSE 0 END) AS paid")
+            ->selectRaw("SUM(CASE WHEN status = 'paid' AND seller_net_amount > 0 THEN seller_net_amount ELSE 0 END) AS original_paid")
             ->selectRaw('SUM(COALESCE(commission_amount, 0)) AS commission')
-            ->groupBy('order_id')
+            ->selectRaw(Schema::hasColumn('seller_payout_ledgers', 'platform_funded_discount') ? 'SUM(COALESCE(platform_funded_discount, 0)) AS platform_funding' : '0 AS platform_funding')
+            ->selectRaw(Schema::hasColumn('seller_payout_ledgers', 'rider_online_fee_amount') ? 'SUM(COALESCE(rider_online_fee_amount, 0)) AS rider_allocation' : '0 AS rider_allocation')
+            ->groupByRaw($orderKey)
             ->get()
             ->keyBy('order_id');
     }
 
     private function riderEarnings(): Collection
     {
-        if (!Schema::hasTable('rider_delivery_earnings')) return collect();
+        if (! Schema::hasTable('rider_delivery_earnings')) {
+            return collect();
+        }
 
         return DB::table('rider_delivery_earnings')
             ->select('order_id')
@@ -163,10 +186,20 @@ class FinanceReconciliationService
 
     private function rowState(?object $order, float $difference, float $riderReviewAmount): string
     {
-        if ($riderReviewAmount > 0) return 'needs_review';
-        if (!$order) return 'needs_review';
-        if (!in_array((string) $order->status, self::TERMINAL_ORDER_STATUSES, true)) return 'held';
-        if (abs($difference) < 0.01) return 'reconciled';
+        if ($riderReviewAmount > 0) {
+            return 'needs_review';
+        }
+        if (! $order) {
+            return 'needs_review';
+        }
+        if (abs($difference) < 0.01) {
+            if (! in_array((string) $order->status, self::TERMINAL_ORDER_STATUSES, true)) {
+                return 'held';
+            }
+
+            return 'reconciled';
+        }
+
         return 'needs_review';
     }
 
@@ -191,6 +224,7 @@ class FinanceReconciliationService
             'rider_payable' => $sum('rider_payable'),
             'rider_paid' => $sum('rider_paid'),
             'commission_recorded' => $sum('commission'),
+            'platform_funding' => $sum('platform_funding'),
             'verified_platform_commission' => round((float) $rows->where('state', 'reconciled')->sum('commission'), 2),
             'unreconciled_positive' => round((float) $reviewRows->where('difference', '>', 0)->sum('difference'), 2),
             'unreconciled_negative' => round(abs((float) $reviewRows->where('difference', '<', 0)->sum('difference')), 2),
@@ -209,6 +243,7 @@ class FinanceReconciliationService
             'return_refunds_sent' => 0.0, 'held_customer_funds' => 0.0,
             'seller_amount' => 0.0, 'seller_payable' => 0.0, 'seller_paid' => 0.0,
             'rider_amount' => 0.0, 'rider_payable' => 0.0, 'rider_paid' => 0.0, 'commission_recorded' => 0.0,
+            'platform_funding' => 0.0,
             'verified_platform_commission' => 0.0, 'unreconciled_positive' => 0.0,
             'unreconciled_negative' => 0.0, 'review_count' => 0,
             'net_online_after_refunds' => 0.0, 'platform_available_balance' => 0.0,

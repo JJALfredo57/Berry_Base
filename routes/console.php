@@ -92,7 +92,7 @@ Artisan::command('payouts:sync', function (SellerPayoutService $payouts) {
     $created = $payouts->syncDeliveredPaidOrders();
     $this->info("Synchronized seller payouts; created {$created} ledger record(s).");
     return 0;
-})->purpose('Synchronize delivered orders into seller payout ledgers');
+})->purpose('Reconcile verified online allocations and completion/refund eligibility without time-based holds');
 
 Artisan::command('payouts:backfill {--max-runs=100 : Maximum idempotent sync passes}', function (SellerPayoutService $payouts) {
     $maxRuns = max(1, min(1000, (int) $this->option('max-runs')));

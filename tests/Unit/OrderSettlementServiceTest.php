@@ -42,4 +42,40 @@ class OrderSettlementServiceTest extends TestCase
         $this->assertSame(100.0, $result['rider_online_fee_amount']);
         $this->assertSame(980.0, $result['total_seller_earnings']);
     }
+
+    public function test_partial_cash_on_pickup_keeps_cash_out_of_the_payout_request(): void
+    {
+        $order = (object) [
+            'id' => 'COP-100', 'total_price' => 1000, 'delivery_fee' => 0, 'service_charge' => 0,
+            'payment_method' => 'COP', 'fulfillment_type' => 'Pickup', 'payment_status' => 'Paid',
+            'deposit_status' => 'paid', 'deposit_amount' => 500, 'online_paid_amount' => 500,
+            'remittance_snapshot' => null,
+        ];
+        $shop = (object) ['commission_enabled' => true, 'commission_rate' => 2];
+
+        $result = (new OrderSettlementService)->snapshot($order, $shop);
+
+        $this->assertSame(20.0, $result['commission_amount']);
+        $this->assertSame(480.0, $result['seller_net_amount']);
+        $this->assertSame(500.0, $result['cash_to_seller_amount']);
+        $this->assertSame(980.0, $result['total_seller_earnings']);
+    }
+
+    public function test_full_online_pickup_has_no_rider_or_cash_collection(): void
+    {
+        $order = (object) [
+            'id' => 'PICKUP-100', 'total_price' => 1000, 'delivery_fee' => 0, 'service_charge' => 0,
+            'payment_method' => 'GCash', 'fulfillment_type' => 'Pickup', 'payment_status' => 'Paid',
+            'deposit_status' => 'paid', 'deposit_amount' => 1000, 'online_paid_amount' => 1000,
+            'remittance_snapshot' => null,
+        ];
+        $shop = (object) ['commission_enabled' => true, 'commission_rate' => 3];
+
+        $result = (new OrderSettlementService)->snapshot($order, $shop);
+
+        $this->assertSame(30.0, $result['commission_amount']);
+        $this->assertSame(970.0, $result['seller_net_amount']);
+        $this->assertSame(0.0, $result['cash_collected_amount']);
+        $this->assertSame(0.0, $result['rider_online_fee_amount']);
+    }
 }
