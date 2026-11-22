@@ -214,25 +214,20 @@ class PayoutController extends Controller
 
         $riderPayoutRequests = Schema::hasTable('rider_payout_requests') ? DB::table('rider_payout_requests as rp')->join('riders as r', 'r.id', '=', 'rp.rider_id')->where('rp.status', 'requested')->select('rp.*', 'r.name as rider_name')->orderByDesc('rp.id')->limit(30)->get() : collect();
         $recentRiderPayouts = Schema::hasTable('rider_payout_requests') ? DB::table('rider_payout_requests as rp')->join('riders as r', 'r.id', '=', 'rp.rider_id')->where('rp.status', 'paid')->whereBetween(DB::raw('DATE(COALESCE(rp.paid_at,rp.created_at))'), [$from, $to])->select('rp.*', 'r.name as rider_name')->orderByDesc('rp.paid_at')->limit(30)->get() : collect();
-        $orphanedRiderPayouts = Schema::hasTable('rider_delivery_earnings') && Schema::hasTable('rider_payout_requests')
-            ? DB::table('rider_delivery_earnings as e')->join('riders as r', 'r.id', '=', 'e.rider_id')->where('e.status', 'requested')->whereNotExists(function ($q) {
-                $q->selectRaw('1')->from('rider_payout_requests as rp')->whereColumn('rp.rider_id', 'e.rider_id')->where('rp.status', 'requested');
-            })->select('e.rider_id', 'r.name as rider_name', 'r.gcash_name', 'r.gcash_number', DB::raw('SUM(e.amount) as amount'))->groupBy('e.rider_id', 'r.name', 'r.gcash_name', 'r.gcash_number')->get()
-            : collect();
         // Refund completion belongs to Return & Refund Cases; retain an empty collection only for legacy view compatibility.
         $refunds = collect();
         $shopOptions = DB::table('shops as s')->leftJoin('users as u', 'u.id', '=', 's.seller_id')
             ->where('s.status', 'approved')->orderBy('s.shop_name')
             ->get(['s.id', 's.shop_name', 'u.fullname as seller_name']);
 
-        return view('superadmin.payouts', compact('page', 'perPage', 'payoutAttention', 'sellerTotals', 'payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'recentRiderPayouts', 'refunds', 'onlinePayments', 'cashPayments', 'commissionRows', 'riderPayoutRequests', 'orphanedRiderPayouts', 'financeReconciliation', 'currentFinanceReconciliation', 'from', 'to', 'period', 'search', 'payoutStatus', 'shopFilter', 'shopOptions', 'sort', 'requestItems'));
+        return view('superadmin.payouts', compact('page', 'perPage', 'payoutAttention', 'sellerTotals', 'payoutSettings', 'summary', 'paymentSummary', 'heldCustomerFunds', 'riderFunds', 'riderFundSummary', 'commissionSummary', 'shops', 'payoutRequests', 'recentPayouts', 'recentRiderPayouts', 'refunds', 'onlinePayments', 'cashPayments', 'commissionRows', 'riderPayoutRequests', 'financeReconciliation', 'currentFinanceReconciliation', 'from', 'to', 'period', 'search', 'payoutStatus', 'shopFilter', 'shopOptions', 'sort', 'requestItems'));
     }
 
     public function riderPayouts(Request $request)
     {
         $search = mb_substr(trim((string) $request->input('search', '')), 0, 120);
         $riderId = ctype_digit((string) $request->input('rider', '')) ? (int) $request->input('rider') : null;
-        $status = in_array($request->input('status'), ['requested', 'paid', 'recovery'], true) ? $request->input('status') : '';
+        $status = in_array($request->input('status'), ['requested', 'paid'], true) ? $request->input('status') : '';
         $sort = in_array($request->input('sort'), ['oldest', 'amount_high', 'amount_low'], true) ? $request->input('sort') : 'newest';
         $perPage = in_array((int) $request->input('per_page', 10), [10, 25, 50], true) ? (int) $request->input('per_page', 10) : 10;
         $period = in_array($request->input('period'), ['all', 'today', 'week', 'month'], true) ? $request->input('period') : 'all';
@@ -264,38 +259,20 @@ class PayoutController extends Controller
             : collect();
         $records = new LengthAwarePaginator([], 0, $perPage);
         if (Schema::hasTable('rider_payout_requests')) {
-            $query = $base()->when($status !== '' && $status !== 'recovery', fn ($q) => $q->where('rp.status', $status))
+            $query = $base()->when($status !== '', fn ($q) => $q->where('rp.status', $status))
                 ->select('rp.*', 'r.name as rider_name');
             if ($sort === 'amount_high') $query->orderByDesc('rp.amount');
             elseif ($sort === 'amount_low') $query->orderBy('rp.amount');
             $query->orderBy('rp.id', $sort === 'oldest' ? 'asc' : 'desc');
             $records = $query->paginate($perPage)->withQueryString();
         }
-        $recoveryQuery = Schema::hasTable('rider_delivery_earnings') && Schema::hasTable('rider_payout_requests')
-            ? DB::table('rider_delivery_earnings as e')->join('riders as r', 'r.id', '=', 'e.rider_id')
-                ->where('e.status', 'requested')
-                ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('rider_payout_requests as rp')
-                    ->whereColumn('rp.rider_id', 'e.rider_id')->where('rp.status', 'requested'))
-                ->when($riderId, fn ($q) => $q->where('e.rider_id', $riderId))
-                ->when($search !== '', fn ($q) => $q->where(fn ($nested) => $nested->where('r.name', 'like', '%'.$search.'%')
-                    ->orWhere('r.phone', 'like', '%'.$search.'%')->orWhere('r.gcash_name', 'like', '%'.$search.'%')
-                    ->orWhere('r.gcash_number', 'like', '%'.$search.'%')))
-                ->when($from, fn ($q) => $q->whereDate('e.created_at', '>=', $from))
-                ->when($to, fn ($q) => $q->whereDate('e.created_at', '<=', $to))
-                ->select('e.rider_id', 'r.name as rider_name', 'r.gcash_name', 'r.gcash_number')
-                ->selectRaw('SUM(e.amount) as amount')->groupBy('e.rider_id', 'r.name', 'r.gcash_name', 'r.gcash_number')
-            : null;
-        $recoveryTotals = $recoveryQuery ? (clone $recoveryQuery)->get() : collect();
-        $recovery = $recoveryQuery
-            ? $recoveryQuery->orderBy('r.name')->paginate($perPage, ['*'], 'recovery_page')->withQueryString()
-            : new LengthAwarePaginator([], 0, $perPage);
         $riders = Schema::hasTable('riders')
             ? DB::table('riders as r')->leftJoin('shops as s', 's.id', '=', 'r.shop_id')
                 ->orderBy('r.name')->get(['r.id', 'r.name', 's.shop_name'])
             : collect();
         $payoutAttention = app(AdminPayoutAttentionService::class)->counts();
 
-        return view('superadmin.rider-payouts', compact('records', 'recovery', 'recoveryTotals', 'totals', 'riders', 'payoutAttention', 'search', 'riderId', 'status', 'sort', 'perPage', 'period', 'from', 'to'));
+        return view('superadmin.rider-payouts', compact('records', 'totals', 'riders', 'payoutAttention', 'search', 'riderId', 'status', 'sort', 'perPage', 'period', 'from', 'to'));
     }
 
     public function saveSettings(Request $request)
@@ -604,27 +581,6 @@ class PayoutController extends Controller
         $this->notifications->notifyRider((int) $p->rider_id, $rider->phone ?? null, 'Payout paid', 'Your delivery-fee payout of PHP '.number_format($p->amount, 2).' is paid. View your receipt.', ['event' => 'rider_payout_paid', 'url' => $receiptUrl], 'Your delivery-fee payout of PHP '.number_format($p->amount, 2).' is paid. Receipt: '.$receiptUrl, $receiptUrl);
 
         return back()->with('msg', 'Rider delivery-fee payout marked paid.');
-    }
-
-    public function recoverRiderPayout(Request $request, int $riderId)
-    {
-        $rider = DB::table('riders')->where('id', $riderId)->first();
-        if (! $rider) {
-            return back()->with('err', 'Rider not found.');
-        }try {
-            DB::transaction(function () use ($rider) {
-                if (DB::table('rider_payout_requests')->where('rider_id', $rider->id)->where('status', 'requested')->lockForUpdate()->exists()) {
-                    throw new \DomainException('A payout request already exists for this rider.');
-                }$amount = round((float) DB::table('rider_delivery_earnings')->where('rider_id', $rider->id)->where('status', 'requested')->lockForUpdate()->sum('amount'), 2);
-                if ($amount <= 0) {
-                    throw new \DomainException('No unlinked requested rider earnings remain.');
-                }DB::table('rider_payout_requests')->insert(['rider_id' => $rider->id, 'amount' => $amount, 'gcash_name' => $rider->gcash_name ?? $rider->name, 'gcash_number' => $rider->gcash_number ?? '', 'status' => 'requested', 'created_at' => now(), 'updated_at' => now()]);
-            });
-        } catch (\DomainException $e) {
-            return back()->with('err', $e->getMessage());
-        }
-
-        return back()->with('msg', 'Rider payout request recovered and ready for payment.');
     }
 
     public function runAutomatic()

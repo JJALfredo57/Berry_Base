@@ -106,16 +106,15 @@ class SellerPayoutJourneyTest extends TestCase
         $ledger = $this->order('SPLITPAGE', 'Picked Up');
         $this->seller()->post('/seller/payouts/request', ['ledger_ids' => [$ledger->id]])->assertSessionHas('msg');
         $riderId = DB::table('riders')->insertGetId(['shop_id' => 'SHOP', 'name' => 'Test Rider', 'phone' => '09170001111', 'gcash_name' => 'Test Rider', 'gcash_number' => '09170001111', 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('rider_payout_requests')->insert(['rider_id' => $riderId, 'amount' => 75, 'gcash_name' => 'Test Rider', 'gcash_number' => '09170001111', 'status' => 'requested', 'created_at' => now(), 'updated_at' => now()]);
-        $unlinkedId = DB::table('riders')->insertGetId(['shop_id' => 'SHOP', 'name' => 'Unlinked Rider', 'phone' => '09170002222', 'gcash_name' => 'Unlinked Rider', 'gcash_number' => '09170002222', 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('rider_delivery_earnings')->insert(['rider_id' => $unlinkedId, 'order_id' => 'SPLITPAGE', 'amount' => 20, 'source' => 'delivery', 'status' => 'requested', 'event_key' => 'split-page-recovery', 'created_at' => now(), 'updated_at' => now()]);
+        $riderPayoutId = DB::table('rider_payout_requests')->insertGetId(['rider_id' => $riderId, 'amount' => 75, 'gcash_name' => 'Test Rider', 'gcash_number' => '09170001111', 'status' => 'requested', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('rider_delivery_earnings')->insert(['rider_id' => $riderId, 'order_id' => 'SPLITPAGE', 'amount' => 75, 'source' => 'delivery', 'status' => 'requested', 'payout_id' => $riderPayoutId, 'event_key' => 'split-page-payout', 'created_at' => now(), 'updated_at' => now()]);
         $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
 
         $hub = $admin->get(route('superadmin.payouts'));
         $hub->assertOk();
         $this->assertTrue(str_contains($hub->getContent(), 'Seller Payouts') && str_contains($hub->getContent(), 'Rider Payouts') && !str_contains($hub->getContent(), 'Cancel & Reconcile'), 'Finance hub separation');
         $seller = $admin->get(route('superadmin.payouts.sellers', ['payout_status' => 'requested', 'shop' => 'SHOP']));
-        $seller->assertOk()->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 1 && $counts['rider_requests'] === 1 && $counts['rider_recovery'] === 1);
+        $seller->assertOk()->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 1 && $counts['rider_requests'] === 1);
         $this->assertTrue(str_contains($seller->getContent(), 'SPLITPAGE') && !str_contains($seller->getContent(), 'Cancel & Reconcile'), 'Seller request page without cancel action');
         $seller->assertSee('data-payout-detail="seller-payout-', false)->assertSee('name="payout_receipt"', false)->assertSee('adminPayoutDetailDialog');
         $admin->get(route('superadmin.payouts.riders', ['status' => 'requested', 'rider' => $riderId]))
@@ -123,13 +122,14 @@ class SellerPayoutJourneyTest extends TestCase
             ->assertSee('name="receipt"', false)->assertSee('adminPayoutDetailDialog')->assertViewHas('records', fn ($rows) => $rows->total() === 1);
         $admin->get(route('superadmin.payouts.riders', ['search' => 'no-such-rider']))
             ->assertOk()->assertViewHas('records', fn ($rows) => $rows->total() === 0);
-        $admin->get(route('superadmin.payouts.riders', ['status' => 'recovery', 'rider' => $unlinkedId]))
-            ->assertOk()->assertViewHas('recovery', fn ($rows) => $rows->total() === 1)->assertSee('Unlinked Rider');
+        $admin->get(route('superadmin.payouts.riders', ['status' => 'recovery', 'rider' => $riderId]))
+            ->assertOk()->assertDontSee('Needs recovery')->assertViewHas('records', fn ($rows) => $rows->total() === 1);
+        $admin->post('/admin/rider-payouts/'.$riderId.'/recover')->assertNotFound();
         $payoutId = DB::table('seller_payouts')->value('id');
         $admin->post('/admin/payouts/'.$payoutId.'/cancel', ['confirmed_untransferred' => '1'])->assertNotFound();
         $this->seller()->post(route('seller.payouts.cancel', $payoutId))->assertSessionHas('msg');
         $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
-        $admin->get(route('superadmin.payouts'))->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 0 && $counts['rider_requests'] === 1 && $counts['rider_recovery'] === 1);
+        $admin->get(route('superadmin.payouts'))->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 0 && $counts['rider_requests'] === 1);
         DB::table('shops')->where('id', 'SHOP')->update(['payout_account_name' => null]);
         $admin->get(route('superadmin.payouts'))->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_details'] === 1 && $counts['seller'] === 1);
     }
@@ -209,5 +209,51 @@ class SellerPayoutJourneyTest extends TestCase
         $this->assertCount(1, $rows);
         $this->assertEquals(100, $rows->sum('amount'));
         $this->assertSame($ids[0], $rows->first()->payout_id);
+    }
+
+    public function test_rider_request_links_exact_earnings_and_rejects_duplicate_requests(): void
+    {
+        $riderId = DB::table('riders')->insertGetId(['shop_id' => 'SHOP', 'name' => 'Payout Rider', 'phone' => '09170003333', 'is_active' => 1]);
+        foreach ([100, 50] as $amount) {
+            DB::table('rider_delivery_earnings')->insert(['rider_id' => $riderId, 'order_id' => 'RIDER'.$amount,
+                'event_key' => 'request-'.$amount, 'amount' => $amount, 'source' => 'delivery', 'status' => 'available']);
+        }
+        DB::table('users')->where('id', 'ADMIN')->update(['phone' => null]);
+
+        $request = ['gcash_name' => 'Payout Rider', 'gcash_number' => '09170003333', 'confirmation' => '1'];
+        $this->withSession(['rider' => ['id' => $riderId]])->post(route('rider.payouts.request'), $request)->assertSessionHas('msg');
+        $payout = DB::table('rider_payout_requests')->where('rider_id', $riderId)->first();
+        $this->assertNotNull($payout);
+        $this->assertEquals(150, $payout->amount);
+        $this->assertSame(2, DB::table('rider_delivery_earnings')->where('rider_id', $riderId)
+            ->where('status', 'requested')->where('payout_id', $payout->id)->count());
+
+        DB::table('rider_delivery_earnings')->insert(['rider_id' => $riderId, 'order_id' => 'RIDER25',
+            'event_key' => 'request-25', 'amount' => 25, 'source' => 'delivery', 'status' => 'available']);
+        $this->withSession(['rider' => ['id' => $riderId]])->post(route('rider.payouts.request'), $request)->assertSessionHas('err');
+        $this->assertSame(1, DB::table('rider_payout_requests')->where('rider_id', $riderId)->count());
+        $this->assertDatabaseHas('rider_delivery_earnings', ['event_key' => 'request-25', 'status' => 'available', 'payout_id' => null]);
+    }
+
+    public function test_rider_transfer_rejects_missing_or_mismatched_allocations(): void
+    {
+        DB::table('riders')->insert(['id' => 1, 'name' => 'Test Rider', 'is_active' => 1]);
+        $id = DB::table('rider_payout_requests')->insertGetId(['rider_id' => 1, 'amount' => 100,
+            'gcash_name' => 'Test Rider', 'gcash_number' => '09171234567', 'status' => 'requested']);
+        try {
+            DB::transaction(fn () => app(RiderPayoutService::class)->allocations(DB::table('rider_payout_requests')->where('id', $id)->first()));
+            $this->fail('A payout without earnings must not be transferable.');
+        } catch (\DomainException $e) {
+            $this->assertNotEmpty($e->getMessage());
+        }
+        DB::table('rider_delivery_earnings')->insert(['rider_id' => 1, 'order_id' => 'MISMATCH',
+            'event_key' => 'mismatch', 'amount' => 90, 'source' => 'delivery', 'status' => 'requested', 'payout_id' => $id]);
+        try {
+            DB::transaction(fn () => app(RiderPayoutService::class)->allocations(DB::table('rider_payout_requests')->where('id', $id)->first()));
+            $this->fail('A mismatched payout amount must not be transferable.');
+        } catch (\DomainException $e) {
+            $this->assertStringContainsString('do not match', $e->getMessage());
+        }
+        $this->assertDatabaseHas('rider_payout_requests', ['id' => $id, 'status' => 'requested']);
     }
 }

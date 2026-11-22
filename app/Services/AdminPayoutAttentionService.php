@@ -21,20 +21,12 @@ class AdminPayoutAttentionService
                 })->count() : 0;
         $riderRequests = Schema::hasTable('rider_payout_requests')
             ? DB::table('rider_payout_requests')->where('status', 'requested')->count() : 0;
-        $riderRecovery = Schema::hasTable('rider_delivery_earnings') && Schema::hasTable('rider_payout_requests')
-            ? DB::table('rider_delivery_earnings as e')->where('e.status', 'requested')
-                ->whereNotExists(function ($query) {
-                    $query->selectRaw('1')->from('rider_payout_requests as rp')
-                        ->whereColumn('rp.rider_id', 'e.rider_id')->where('rp.status', 'requested');
-                })->distinct()->count('e.rider_id') : 0;
-
         return [
             'seller' => $sellerRequests + $sellerDetails,
-            'rider' => $riderRequests + $riderRecovery,
+            'rider' => $riderRequests,
             'seller_requests' => $sellerRequests,
             'seller_details' => $sellerDetails,
             'rider_requests' => $riderRequests,
-            'rider_recovery' => $riderRecovery,
         ];
     }
 }

@@ -12,6 +12,7 @@ use App\Services\OrderRefundService;
 use App\Services\PostDeliveryReturnService;
 use App\Services\RiderAssignmentService;
 use App\Services\RiderEarningService;
+use App\Services\RiderPayoutService;
 use App\Services\SellerPayoutService;
 use App\Traits\UploadsFiles;
 use Carbon\Carbon;
@@ -239,26 +240,21 @@ class RiderController extends Controller
             return back()->withInput()->with('err', 'Enter a valid Philippine GCash number.');
         }
         try {
-            DB::transaction(function () use ($rider, $data, $digits) {
-                DB::table('riders')->where('id', $rider->id)->lockForUpdate()->first();
-                $earnings = DB::table('rider_delivery_earnings')->where('rider_id', $rider->id)->where('status', 'available')->lockForUpdate()->get();
-                $amount = round((float) $earnings->sum('amount'), 2);
-                if ($amount <= 0) {
-                    throw new \DomainException('No delivery earnings are available for payout.');
-                }$id = DB::table('rider_payout_requests')->insertGetId(['rider_id' => $rider->id, 'amount' => $amount, 'gcash_name' => trim($data['gcash_name']), 'gcash_number' => '+'.$digits, 'status' => 'requested', 'created_at' => now(), 'updated_at' => now()]);
-                DB::table('rider_delivery_earnings')->whereIn('id', $earnings->pluck('id'))->update(['status' => 'requested', 'payout_id' => $id, 'updated_at' => now()]);
+            $payout = DB::transaction(function () use ($rider, $data, $digits) {
+                $payout = app(RiderPayoutService::class)->request((int) $rider->id, trim($data['gcash_name']), '+'.$digits);
                 DB::table('riders')->where('id', $rider->id)->update(['gcash_name' => trim($data['gcash_name']), 'gcash_number' => '+'.$digits, 'updated_at' => now()]);
                 if (Schema::hasTable('notifications')) {
-                    DB::table('notifications')->insert(['receiver_role' => 'admin', 'receiver_user_id' => null, 'title' => 'Rider payout request', 'message' => "Rider {$rider->name} requested delivery-fee payout of PHP ".number_format($amount, 2).'.', 'is_read' => false, 'created_at' => now()]);
+                    DB::table('notifications')->insert(['receiver_role' => 'admin', 'receiver_user_id' => null, 'title' => 'Rider payout request', 'message' => "Rider {$rider->name} requested delivery-fee payout of PHP ".number_format($payout->amount, 2).'.', 'is_read' => false, 'created_at' => now()]);
                 }
+                return $payout;
             });
         } catch (\DomainException $e) {
             return back()->with('err', $e->getMessage());
         }
-        DB::afterCommit(function () use ($rider, $amount) {
+        DB::afterCommit(function () use ($rider, $payout) {
             $url = route('superadmin.payouts', [], false);
-            DB::table('users')->whereIn('role', ['admin', 'superadmin'])->whereNotNull('phone')->get(['id', 'phone'])->each(function ($admin) use ($rider, $amount, $url) {
-                app(MobileNotificationService::class)->notifyUser('admin', (string) $admin->id, $admin->phone, 'Rider payout request', "{$rider->name} requested PHP ".number_format($amount, 2).' for delivery fees.', ['event' => 'rider_payout_requested'], "Rider payout request: {$rider->name} requested PHP ".number_format($amount, 2).'.', $url);
+            DB::table('users')->whereIn('role', ['admin', 'superadmin'])->whereNotNull('phone')->get(['id', 'phone'])->each(function ($admin) use ($rider, $payout, $url) {
+                app(MobileNotificationService::class)->notifyUser('admin', (string) $admin->id, $admin->phone, 'Rider payout request', "{$rider->name} requested PHP ".number_format($payout->amount, 2).' for delivery fees.', ['event' => 'rider_payout_requested'], "Rider payout request: {$rider->name} requested PHP ".number_format($payout->amount, 2).'.', $url);
             });
         });
 
