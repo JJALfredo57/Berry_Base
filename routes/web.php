@@ -668,6 +668,8 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::get('/platform-dashboard/stats',    [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'stats'])->name('dashboard.stats');
     Route::get('/commission-analytics',        [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'commissions'])->name('commissions');
     Route::get('/payouts',                     [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'index'])->name('payouts');
+    Route::get('/payouts/sellers',             [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'sellerPayouts'])->name('payouts.sellers');
+    Route::get('/payouts/riders',              [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'riderPayouts'])->name('payouts.riders');
     Route::post('/payouts/settings',           [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'saveSettings'])->name('payouts.settings');
     Route::post('/payouts/run-automatic',      [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'runAutomatic'])->name('payouts.run_automatic');
     Route::post('/payouts/seller/{id}/verify', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'verifySeller'])->name('payouts.verify_seller');

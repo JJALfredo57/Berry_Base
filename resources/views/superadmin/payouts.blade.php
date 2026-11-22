@@ -1,13 +1,20 @@
 @extends('layouts.app')
-@section('page_title','Finance & Payouts')
+@section('page_title', $page === 'seller' ? 'Seller Payouts' : 'Finance & Payouts')
 
 @section('content')
 <div class="cs-page-header">
   <div>
-    <h4 class="cs-page-title"><i class="bi bi-cash-stack me-2" style="color:var(--primary)"></i>Finance & Payouts</h4>
-    <p class="cs-page-sub">One finance view for customer payments, refunds, platform commission, seller transfers, and rider fees.</p>
+    <h4 class="cs-page-title"><i class="bi bi-cash-stack me-2" style="color:var(--primary)"></i>{{ $page === 'seller' ? 'Seller Payouts' : 'Finance & Payouts' }}</h4>
+    <p class="cs-page-sub">{{ $page === 'seller' ? 'Review seller balances, GCash details, requests, and transfer history.' : 'Review customer payments, reconciliation, and platform commission.' }}</p>
   </div>
 </div>
+
+<nav class="admin-payout-nav" aria-label="Finance and payout pages">
+  <a class="{{ $page === 'hub' ? 'is-current' : '' }}" href="{{ route('superadmin.payouts') }}">Finance overview</a>
+  <a class="{{ $page === 'seller' ? 'is-current' : '' }}" href="{{ route('superadmin.payouts.sellers') }}">Seller Payouts @if($payoutAttention['seller'])<span class="admin-payout-dot" aria-label="{{ $payoutAttention['seller'] }} seller actions needed">{{ $payoutAttention['seller'] > 9 ? '9+' : $payoutAttention['seller'] }}</span>@endif</a>
+  <a href="{{ route('superadmin.payouts.riders') }}">Rider Payouts @if($payoutAttention['rider'])<span class="admin-payout-dot" aria-label="{{ $payoutAttention['rider'] }} rider actions needed">{{ $payoutAttention['rider'] > 9 ? '9+' : $payoutAttention['rider'] }}</span>@endif</a>
+</nav>
+<style>.admin-payout-nav{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem}.admin-payout-nav a{min-width:0;display:inline-flex;align-items:center;gap:.5rem;padding:.65rem .85rem;border:1px solid #e5e7eb;border-radius:12px;background:#fff;color:#55301d;font-weight:750;text-decoration:none;overflow-wrap:anywhere}.admin-payout-nav a:hover,.admin-payout-nav a.is-current{border-color:var(--primary);background:#fff7ed;box-shadow:0 0 0 2px rgba(135,63,25,.12)}.admin-payout-dot{display:inline-grid;place-items:center;min-width:1.2rem;height:1.2rem;padding:0 .24rem;border-radius:999px;background:#dc2626;color:#fff;font-size:.68rem;box-shadow:0 0 0 3px #fee2e2}@media(max-width:425px){.admin-payout-nav a{flex:1 1 100%}}</style>
 
 @if(session('msg'))
   <div class="alert alert-success"><i class="bi bi-check-circle me-1"></i>{{ session('msg') }}</div>
@@ -21,16 +28,13 @@
   <div class="alert alert-danger">{{ $e }}</div>
 @endforeach
 
+@if($page === 'hub')
 <section class="finance-date-filter" aria-label="Finance reporting period">
-  <div><strong>Reporting period</strong><small>Date filters affect activity lists. Seller/status/search filters below apply to seller balances and payouts. Summary cards stay account-wide.</small></div>
+  <div><strong>Reporting period</strong><small>Date filters affect finance activity lists. Seller and rider payout filters are on their separate pages.</small></div>
   <form method="GET" class="finance-date-form">
     <input type="hidden" name="period" value="">
     <label>From<input class="form-control" type="date" name="from" value="{{ $from }}"></label>
     <label>To<input class="form-control" type="date" name="to" value="{{ $to }}"></label>
-    <label>Seller / order / reference<input class="form-control" name="search" value="{{ $search }}" maxlength="120"></label>
-    <label>Shop<select class="form-select" name="shop"><option value="">All shops</option>@foreach($shopOptions as $option)<option value="{{ $option->id }}" @selected($shopFilter===$option->id)>{{ $option->shop_name }}</option>@endforeach</select></label>
-    <label>Seller payout status<select class="form-select" name="payout_status"><option value="">All statuses</option>@foreach(['requested','processing','paid','cancelled','failed'] as $value)<option value="{{ $value }}" @selected($payoutStatus===$value)>{{ ucfirst($value) }}</option>@endforeach</select></label>
-    <label>Sort<select class="form-select" name="sort"><option value="newest" @selected($sort==='desc')>Newest</option><option value="oldest" @selected($sort==='asc')>Oldest</option></select></label>
     <button class="btn btn-primary" type="submit">Apply Filters</button><a class="btn btn-outline-secondary" href="{{ route('superadmin.payouts') }}">Clear</a>
   </form>
   <div class="finance-periods" aria-label="Quick date filters">
@@ -40,8 +44,10 @@
   </div>
 </section>
 
+@endif
 <style>.finance-date-filter{display:flex;align-items:end;gap:1rem;flex-wrap:wrap;padding:1rem;margin-bottom:1rem;border:1px solid var(--gray-100);border-radius:16px;background:#fff}.finance-date-filter>div:first-child{display:grid;gap:.15rem;margin-right:auto}.finance-date-filter small{color:var(--gray-500);font-size:.78rem}.finance-date-form{display:flex;gap:.7rem;flex-wrap:wrap}.finance-date-form label{display:grid;gap:.25rem;font-size:.76rem;font-weight:700;color:var(--gray-600)}.finance-date-form input{min-width:148px;min-height:42px}.finance-periods{display:flex;gap:.45rem;flex-wrap:wrap;width:100%}.finance-periods .btn{min-height:38px;white-space:nowrap}@media(max-width:575px){.finance-date-filter{align-items:stretch}.finance-date-filter>div:first-child{margin-right:0}.finance-date-form{width:100%}.finance-date-form label{flex:1 1 140px}.finance-date-form input{width:100%;min-width:0}.finance-periods{flex-wrap:nowrap;overflow:auto;padding-bottom:2px}.finance-periods .btn{flex:0 0 auto}}</style>
 
+@if($page === 'hub')
 <div class="alert alert-info d-flex gap-3 align-items-start">
   <i class="bi bi-info-circle-fill fs-5"></i>
   <div>
@@ -155,7 +161,34 @@
   </div></div>
 </div>
 
+@endif
+
+@if($page === 'seller')
+<section class="finance-date-filter" aria-label="Seller payout filters">
+  <div><strong>Filter seller payouts</strong><small>Search and filters update the list and totals. Tap a total to filter by status. Attention dots remain until each action is resolved.</small></div>
+  <form method="GET" action="{{ route('superadmin.payouts.sellers') }}" class="finance-date-form">
+    <input type="hidden" name="period" value="">
+    <label>From<input class="form-control" type="date" name="from" value="{{ $from }}"></label>
+    <label>To<input class="form-control" type="date" name="to" value="{{ $to }}"></label>
+    <label>Seller / order / reference<input class="form-control" name="search" value="{{ $search }}" maxlength="120"></label>
+    <label>Seller / shop<select class="form-select" name="shop"><option value="">All sellers / shops</option>@foreach($shopOptions as $option)<option value="{{ $option->id }}" @selected((string)$shopFilter===(string)$option->id)>{{ $option->seller_name ?: 'Seller' }} · {{ $option->shop_name }}</option>@endforeach</select></label>
+    <label>Status<select class="form-select" name="payout_status"><option value="">All statuses</option>@foreach(['requested','processing','paid','cancelled','failed'] as $value)<option value="{{ $value }}" @selected($payoutStatus===$value)>{{ ucfirst($value) }}</option>@endforeach</select></label>
+    <label>Sort<select class="form-select" name="sort"><option value="newest" @selected($sort==='desc')>Newest</option><option value="oldest" @selected($sort==='asc')>Oldest</option></select></label>
+    <label>Rows<select class="form-select" name="per_page">@foreach([10,25,50] as $size)<option value="{{ $size }}" @selected($perPage===$size)>{{ $size }} per page</option>@endforeach</select></label>
+    <button class="btn btn-primary" type="submit">Apply Filters</button><a class="btn btn-outline-secondary" href="{{ route('superadmin.payouts.sellers') }}">Clear</a>
+  </form>
+  <div class="finance-periods" aria-label="Quick date filters">@foreach(['all'=>'All Time','today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year','last30'=>'Last 30 days'] as $key=>$label)<a class="btn btn-sm {{ $period === $key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('superadmin.payouts.sellers', array_merge(request()->except(['from','to','shops_page','requests_page','payouts_page']), ['period'=>$key])) }}">{{ $label }}</a>@endforeach</div>
+</section>
+<section class="admin-payout-totals" aria-label="Filtered seller payout totals">
+  @foreach(['requested'=>'Requested','processing'=>'Processing','paid'=>'Paid','cancelled'=>'Cancelled','failed'=>'Failed'] as $key=>$label)
+    <a class="{{ $payoutStatus===$key ? 'is-current' : '' }}" href="{{ route('superadmin.payouts.sellers', array_merge(request()->except(['requests_page','payouts_page']), ['payout_status'=>$payoutStatus===$key ? '' : $key])) }}"><strong>₱{{ number_format((float)($sellerTotals->get($key)->amount ?? 0),2) }}</strong><span>{{ $label }} · {{ (int)($sellerTotals->get($key)->count ?? 0) }}</span></a>
+  @endforeach
+</section>
+<style>.admin-payout-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr));gap:.65rem;margin:1rem 0}.admin-payout-totals a{min-width:0;padding:.9rem;border:1px solid #e5e7eb;border-radius:14px;background:#fff;text-decoration:none;color:#44291a;overflow-wrap:anywhere}.admin-payout-totals a:hover,.admin-payout-totals a.is-current{border-color:var(--primary);background:#fff7ed;box-shadow:0 0 0 3px rgba(135,63,25,.16)}.admin-payout-totals strong,.admin-payout-totals span{display:block}.admin-payout-totals strong{font-size:1.15rem;font-variant-numeric:tabular-nums}.admin-payout-totals span{font-size:.76rem;color:#6b7280}.finance-date-form>*{min-width:0}.finance-date-form select{min-width:130px}.finance-date-filter,.card,.payout-table-scroll{min-width:0;max-width:100%}@media(max-width:575px){.finance-date-form .btn{flex:1 1 100%}.finance-date-form select{width:100%;min-width:0}}</style>
+@endif
+
 <div class="row g-4">
+  @if($page === 'hub')
   <div class="col-lg-4">
     <div class="card">
       <div class="card-header"><i class="bi bi-sliders me-2" style="color:var(--primary)"></i>Payout Settings</div>
@@ -174,7 +207,9 @@
       </div>
     </div>
   </div>
+  @endif
 
+  @if($page === 'seller')
   <div class="col-lg-8">
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
@@ -275,9 +310,9 @@
       <div class="p-3">{{ $shops->links() }}</div>
     </div>
   </div>
+  @endif
 </div>
 
-@if(($orphanedRiderPayouts ?? collect())->count())<div class="card mt-4 border-warning"><div class="card-header payout-section-head"><span><i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Unlinked Rider Payouts</span><span class="payout-attention">Needs recovery</span></div><div class="card-body">@foreach($orphanedRiderPayouts as $orphan)<div class="d-flex justify-content-between gap-3 flex-wrap border-bottom py-3"><div><strong>{{ $orphan->rider_name }}</strong> · ₱{{ number_format($orphan->amount,2) }}<div class="small text-muted">{{ $orphan->gcash_name ?: 'GCash name missing' }} · {{ $orphan->gcash_number ?: 'GCash number missing' }}</div><div class="small text-warning-emphasis">Requested earnings have no payout request record yet.</div></div><form method="POST" action="{{ route('superadmin.rider_payouts.recover',$orphan->rider_id) }}" data-prevent-double-submit>@csrf<button class="btn btn-warning btn-sm" type="submit" data-loading-text="Recovering…">Create payout request</button></form></div>@endforeach</div></div>@endif
 @if(false) {{-- Legacy refund queue: refund completion belongs to Return & Refund Cases. --}}
 @if(($riderPayoutRequests ?? collect())->count())<div class="card mt-4"><div class="card-header payout-section-head"><span><i class="bi bi-bicycle me-2"></i>Rider Delivery-Fee Payouts</span></div><div class="card-body">@foreach($riderPayoutRequests as $rp)<div class="border-bottom py-3"><strong>{{ $rp->rider_name }}</strong> · ₱{{ number_format($rp->amount,2) }}<div class="small text-muted">{{ $rp->gcash_name }} · {{ $rp->gcash_number }} · {{ ucfirst($rp->status) }}</div>@if($rp->status==='requested')<form method="POST" enctype="multipart/form-data" action="{{ route('superadmin.rider_payouts.mark_paid',$rp->id) }}" class="mt-2 rider-payout-pay" data-prevent-double-submit>@csrf<input class="rider-payout-receipt" data-scan-url="{{ route('superadmin.rider_payouts.scan_receipt',$rp->id) }}" name="receipt" type="file" accept="image/jpeg,image/png,image/webp" required><div class="small rider-payout-scan-message">Upload a receipt to scan the reference.</div><input class="rider-payout-reference" name="reference_number" required readonly placeholder="Scanned reference"><button class="btn btn-success btn-sm" type="submit" disabled>Mark paid</button></form>@endif</div>@endforeach</div></div>@endif
 <div class="card mt-4">
@@ -327,11 +362,12 @@
 </div>
 @endif
 
+@if($page === 'seller')
+@if($payoutStatus === '' || in_array($payoutStatus, ['requested','processing'], true))
 <div class="card mt-4">
   @php $payoutActionCount = $payoutRequests->total(); @endphp
   <button class="card-header payout-section-head finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="requests" aria-expanded="true" aria-controls="finance-panel-requests"><span><i class="bi bi-cash-coin me-2" style="color:var(--primary)"></i>Payout Requests</span><span>@if($payoutActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $payoutActionCount }} needs action</span>@endif <i class="bi bi-chevron-up ms-2 finance-table-chevron" aria-hidden="true"></i></span></button>
   <div class="table-responsive payout-table-scroll finance-table-panel" id="finance-panel-requests" data-finance-content="requests">
-    @if(($riderPayoutRequests ?? collect())->count())<section class="payout-rider-requests"><div class="payout-subhead"><span><i class="bi bi-bicycle me-2"></i>Rider Delivery-Fee Requests</span><span class="payout-attention">{{ $riderPayoutRequests->count() }} awaiting payment</span></div><div class="payout-rider-grid">@foreach($riderPayoutRequests as $rp)<article class="payout-rider-card"><div><span class="payout-role-pill">Rider</span><strong>{{ $rp->rider_name }}</strong><div class="payout-rider-account">{{ $rp->gcash_name }} · {{ $rp->gcash_number }}</div></div><div class="payout-rider-amount">₱{{ number_format($rp->amount,2) }}</div><form method="POST" enctype="multipart/form-data" action="{{ route('superadmin.rider_payouts.mark_paid',$rp->id) }}" class="rider-payout-pay payout-rider-form" data-prevent-double-submit>@csrf<input class="rider-payout-receipt form-control form-control-sm" data-scan-url="{{ route('superadmin.rider_payouts.scan_receipt',$rp->id) }}" name="receipt" type="file" accept="image/jpeg,image/png,image/webp" required><div class="small rider-payout-scan-message">Upload receipt to scan the reference.</div><div class="d-flex gap-2"><input class="rider-payout-reference form-control form-control-sm" name="reference_number" required readonly placeholder="Scanned reference"><button class="btn btn-success btn-sm" type="submit" disabled>Mark paid</button></div></form></article>@endforeach</div></section>@endif
     <table class="table align-middle mb-0 payout-history-admin-table">
       <thead>
         <tr>
@@ -394,10 +430,12 @@
   </div>
   <div class="p-3">{{ $payoutRequests->links() }}</div>
 </div>
+@endif
 
+@if($payoutStatus === '' || in_array($payoutStatus, ['paid','cancelled','failed'], true))
 <div class="card mt-4">
-  <button class="card-header payout-section-head finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="recent" aria-expanded="false" aria-controls="finance-panel-recent"><span><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Payout History</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
-  <div class="table-responsive payout-table-scroll finance-table-panel" id="finance-panel-recent" data-finance-content="recent" hidden>
+  <button class="card-header payout-section-head finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="recent" aria-expanded="{{ $payoutStatus === '' ? 'false' : 'true' }}" aria-controls="finance-panel-recent"><span><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Payout History</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
+  <div class="table-responsive payout-table-scroll finance-table-panel" id="finance-panel-recent" data-finance-content="recent" @if($payoutStatus === '') hidden @endif>
     <table class="table align-middle mb-0 payout-history-admin-table">
       <thead>
         <tr>
@@ -435,26 +473,7 @@
             <td class="small text-muted">{{ $p->reference_number ?: '—' }}<details class="mt-1"><summary>Order allocations</summary>@foreach($requestItems->get($p->id,collect()) as $item)<div>#{{ $item->order_id }} · ₱{{ number_format($item->net_amount,2) }}</div>@endforeach</details></td>
           </tr>
         @endforeach
-        @foreach($recentRiderPayouts as $p)
-          <tr>
-            <td>#R{{ $p->id }}</td>
-            <td><div class="fw-semibold">{{ $p->rider_name }}</div><div class="small text-muted">{{ $p->gcash_name }} · {{ $p->gcash_number }}</div></td>
-            <td><span class="badge text-bg-info">Rider delivery fee</span></td>
-            <td class="small">{{ $p->paid_at ? \Carbon\Carbon::parse($p->paid_at)->format('M d, Y h:i A') : 'Paid' }}</td>
-            <td class="text-end fw-semibold">₱{{ number_format($p->amount, 2) }}</td>
-            <td class="small">
-              @if(!empty($p->receipt_path))
-                <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->receipt_path }}" data-receipt-download-url="{{ route('superadmin.rider_payouts.receipt_download', $p->id) }}" data-receipt-title="Rider Payout Receipt #{{ $p->id }}">
-                  <i class="bi bi-image me-1"></i>View Receipt
-                </button>
-              @else
-                <span class="text-danger">Receipt missing</span>
-              @endif
-            </td>
-            <td class="small text-muted">{{ $p->reference_number ?: '—' }}</td>
-          </tr>
-        @endforeach
-        @if($recentPayouts->isEmpty() && $recentRiderPayouts->isEmpty())
+        @if($recentPayouts->isEmpty())
           <tr><td colspan="7" class="text-center text-muted py-4">No payouts match these filters.</td></tr>
         @endif
       </tbody>
@@ -462,6 +481,8 @@
   </div>
   <div class="p-3">{{ $recentPayouts->links() }}</div>
 </div>
+@endif
+@endif
 
 <style>
   .payout-summary-grid > [class*="col-"] { display:flex; min-width:0; }

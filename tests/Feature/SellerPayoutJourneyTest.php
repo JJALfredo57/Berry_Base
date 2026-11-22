@@ -99,6 +99,32 @@ class SellerPayoutJourneyTest extends TestCase
         $this->assertDatabaseHas('seller_payouts', ['id' => $id, 'status' => 'cancelled']);
     }
 
+    public function test_admin_seller_and_rider_pages_keep_action_dots_until_records_are_resolved(): void
+    {
+        $ledger = $this->order('SPLITPAGE', 'Picked Up');
+        $this->seller()->post('/seller/payouts/request', ['ledger_ids' => [$ledger->id]])->assertSessionHas('msg');
+        $riderId = DB::table('riders')->insertGetId(['shop_id' => 'SHOP', 'name' => 'Test Rider', 'phone' => '09170001111', 'gcash_name' => 'Test Rider', 'gcash_number' => '09170001111', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('rider_payout_requests')->insert(['rider_id' => $riderId, 'amount' => 75, 'gcash_name' => 'Test Rider', 'gcash_number' => '09170001111', 'status' => 'requested', 'created_at' => now(), 'updated_at' => now()]);
+        $unlinkedId = DB::table('riders')->insertGetId(['shop_id' => 'SHOP', 'name' => 'Unlinked Rider', 'phone' => '09170002222', 'gcash_name' => 'Unlinked Rider', 'gcash_number' => '09170002222', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('rider_delivery_earnings')->insert(['rider_id' => $unlinkedId, 'order_id' => 'SPLITPAGE', 'amount' => 20, 'source' => 'delivery', 'status' => 'requested', 'event_key' => 'split-page-recovery', 'created_at' => now(), 'updated_at' => now()]);
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
+
+        $hub = $admin->get(route('superadmin.payouts'));
+        $hub->assertOk();
+        $this->assertTrue(str_contains($hub->getContent(), 'Seller Payouts') && str_contains($hub->getContent(), 'Rider Payouts') && !str_contains($hub->getContent(), 'Cancel & Reconcile'), 'Finance hub separation');
+        $seller = $admin->get(route('superadmin.payouts.sellers', ['payout_status' => 'requested', 'shop' => 'SHOP']));
+        $seller->assertOk()->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 1 && $counts['rider_requests'] === 1 && $counts['rider_recovery'] === 1);
+        $this->assertTrue(str_contains($seller->getContent(), 'SPLITPAGE') && str_contains($seller->getContent(), 'Cancel & Reconcile'), 'Seller request page');
+        $admin->get(route('superadmin.payouts.riders', ['status' => 'requested', 'rider' => $riderId]))
+            ->assertOk()->assertSee('Test Rider')->assertSee('₱75.00')->assertViewHas('records', fn ($rows) => $rows->total() === 1);
+        $admin->get(route('superadmin.payouts.riders', ['search' => 'no-such-rider']))
+            ->assertOk()->assertViewHas('records', fn ($rows) => $rows->total() === 0);
+        $admin->get(route('superadmin.payouts.riders', ['status' => 'recovery', 'rider' => $unlinkedId]))
+            ->assertOk()->assertViewHas('recovery', fn ($rows) => $rows->total() === 1)->assertSee('Unlinked Rider');
+        $this->post(route('superadmin.payouts.cancel', DB::table('seller_payouts')->value('id')), ['confirmed_untransferred' => '1'])->assertSessionHas('msg');
+        $admin->get(route('superadmin.payouts'))->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 0 && $counts['rider_requests'] === 1 && $counts['rider_recovery'] === 1);
+    }
+
     public function test_refund_recovery_is_proportional_idempotent_and_never_rewrites_paid_history(): void
     {
         $ledger = $this->order('PAID', 'Picked Up', 'GCash', 'Pickup', 1000);

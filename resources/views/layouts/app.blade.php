@@ -1313,21 +1313,8 @@
       <i class="bi bi-wallet2"></i><span class="sb-link-text">Finance &amp; Payouts</span>
       @php
         try {
-          $payoutAttention = (int)\Illuminate\Support\Facades\DB::table('shops')
-            ->where('status', 'approved')
-            ->where(function($q) {
-              $q->whereNull('payout_method')
-                ->orWhere('payout_method', '')
-                ->orWhereNull('payout_account_name')
-                ->orWhere('payout_account_name', '')
-                ->orWhereNull('payout_account_number')
-                ->orWhere('payout_account_number', '')
-                ->orWhere('payout_details_verified', false);
-            })
-            ->count();
-          $riderPayoutAttention = (int) \Illuminate\Support\Facades\DB::table('rider_payout_requests')->where('status','requested')->count();
-          $orphanedRiderAttention = (int) \Illuminate\Support\Facades\DB::table('rider_delivery_earnings as e')->where('e.status','requested')->whereNotExists(function($q){$q->selectRaw('1')->from('rider_payout_requests as rp')->whereColumn('rp.rider_id','e.rider_id')->where('rp.status','requested');})->distinct('e.rider_id')->count('e.rider_id');
-          $payoutAttention += $riderPayoutAttention + $orphanedRiderAttention;
+          $payoutCounts = app(\App\Services\AdminPayoutAttentionService::class)->counts();
+          $payoutAttention = $payoutCounts['seller'] + $payoutCounts['rider'];
         } catch(\Throwable $e) { $payoutAttention = 0; }
       @endphp
       @if($payoutAttention > 0)<span class="sb-badge warn">{{ $payoutAttention > 9 ? '9+' : $payoutAttention }}</span>@endif
