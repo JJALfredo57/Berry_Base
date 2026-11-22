@@ -439,7 +439,11 @@
       polling = true;
       try {
         const res = await fetch(FEED_URL, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
-        if (res.status === 401) { window.location.reload(); return; }
+        if (res.status === 401) {
+          const data = await res.json().catch(() => ({}));
+          window.location.assign(data.redirect_url || @json(route('login')));
+          return;
+        }
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error('feed');
         setLive(true);
@@ -504,7 +508,7 @@
         const status = element('span', '', 'Page ' + pager.current_page + ' of ' + pager.last_page + ' · ' + pager.total + ' receipt' + (pager.total === 1 ? '' : 's'));
         const next = element('button', '', 'Next'); next.type = 'button'; next.disabled = pager.current_page >= pager.last_page; next.addEventListener('click', () => load(pager.current_page + 1)); navigation.append(previous, status, next); content.replaceChildren(list, navigation);
       }
-      async function load(page) { loadedPage = page; showLoading(); try { const response = await fetch(endpoint + '?page=' + page, { credentials: 'same-origin', headers: { Accept: 'application/json' } }); if (response.status === 401) { window.location.reload(); return; } if (!response.ok) throw new Error('receipts'); render(await response.json()); } catch (_) { showError(); } }
+      async function load(page) { loadedPage = page; showLoading(); try { const response = await fetch(endpoint + '?page=' + page, { credentials: 'same-origin', headers: { Accept: 'application/json' } }); if (response.status === 401) { const data = await response.json().catch(() => ({})); window.location.assign(data.redirect_url || @json(route('login'))); return; } if (!response.ok) throw new Error('receipts'); render(await response.json()); } catch (_) { showError(); } }
       function open() { previousFocus = document.activeElement; modal.hidden = false; modal.inert = false; void modal.offsetWidth; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; modal.querySelector('[data-close-receipts]').focus(); load(1); }
       function close() { if (modal.hidden) return; modal.inert = true; trigger.focus(); modal.classList.remove('open'); document.body.style.overflow = ''; setTimeout(() => { modal.hidden = true; }, 190); }
       trigger.addEventListener('click', open); modal.addEventListener('click', event => { if (event.target === modal || event.target.closest('[data-close-receipts]')) close(); }); document.addEventListener('keydown', event => { if (event.key === 'Escape' && !modal.hidden) close(); });

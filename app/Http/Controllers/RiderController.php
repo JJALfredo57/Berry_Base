@@ -27,6 +27,8 @@ class RiderController extends Controller
 {
     use UploadsFiles;
 
+    private const INVALID_SESSION_MESSAGE = 'This rider account no longer exists or is inactive. Please sign in with an active rider account.';
+
     /** Access delivery by alphanumeric PIN entered on the catalog sidebar */
     public function accessByPin(Request $request)
     {
@@ -116,7 +118,7 @@ class RiderController extends Controller
     {
         $rider = $this->sessionRider();
         if (! $rider) {
-            return redirect()->route('login')->with('error', 'Please log in to view your rider dashboard.');
+            return redirect()->route('login')->with('error', $this->riderAuthenticationMessage('Please log in to view your rider dashboard.'));
         }
         if (Schema::hasColumn('riders', 'password_must_change') && (bool) ($rider->password_must_change ?? false)) {
             return redirect()->route('rider.password.setup');
@@ -142,7 +144,13 @@ class RiderController extends Controller
         $deliveryEarningSummary = ['available' => (float) $deliveryEarnings->where('status', 'available')->sum('amount'), 'requested' => (float) $deliveryEarnings->where('status', 'requested')->sum('amount'), 'paid' => (float) $deliveryEarnings->where('status', 'paid')->sum('amount')];
         $settings = CakeshopHelper::getSettings();
 
-        return view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'deliveryEarnings', 'deliveryPayouts', 'deliveryEarningSummary', 'paidReceiptCount', 'transactionHistory', 'settings', 'lat', 'lng'));
+        return response()
+            ->view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'deliveryEarnings', 'deliveryPayouts', 'deliveryEarningSummary', 'paidReceiptCount', 'transactionHistory', 'settings', 'lat', 'lng'))
+            ->withHeaders([
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0, private',
+                'Pragma' => 'no-cache',
+                'Expires' => 'Sat, 01 Jan 2000 00:00:00 GMT',
+            ]);
     }
 
     /** Paginated, rider-owned proof of completed delivery-fee payouts. */
@@ -150,7 +158,10 @@ class RiderController extends Controller
     {
         $rider = $this->sessionRider();
         if (! $rider) {
-            return response()->json(['message' => 'Please log in again.'], 401);
+            return response()->json([
+                'message' => $this->riderAuthenticationMessage('Please log in again.'),
+                'redirect_url' => route('login'),
+            ], 401);
         }
 
         if (! Schema::hasTable('rider_payout_requests')) {
@@ -259,7 +270,11 @@ class RiderController extends Controller
     {
         $rider = $this->sessionRider();
         if (! $rider) {
-            return response()->json(['ok' => false], 401);
+            return response()->json([
+                'ok' => false,
+                'message' => $this->riderAuthenticationMessage('Please log in again.'),
+                'redirect_url' => route('login'),
+            ], 401);
         }
 
         try {
@@ -1521,7 +1536,23 @@ return back()->with('msg', 'Cake marked returned to seller. Await seller confirm
             return null;
         }
 
-        return DB::table('riders')->where('id', $session['id'])->where('is_active', true)->first();
+        $rider = DB::table('riders')->where('id', $session['id'])->where('is_active', true)->first();
+        if ($rider) {
+            return $rider;
+        }
+
+        session()->forget('rider');
+        session()->regenerate();
+        session()->regenerateToken();
+        session()->flash('rider_session_error', self::INVALID_SESSION_MESSAGE);
+        session()->flash('error', self::INVALID_SESSION_MESSAGE);
+
+        return null;
+    }
+
+    private function riderAuthenticationMessage(string $fallback): string
+    {
+        return (string) session()->pull('rider_session_error', $fallback);
     }
 
     private function closedDeliveryAttemptRedirect(object $order): RedirectResponse

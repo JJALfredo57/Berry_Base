@@ -64,13 +64,24 @@ class LoginController extends Controller
             : redirect()->route('admin.dashboard');
     }
 
-    public function show()
+    public function show(Request $request)
     {
         if ((session('user')['role'] ?? null) === 'customer') {
             if ($response = app(\App\Services\PurchaseIntentService::class)->resume(request())) return $response;
         }
-        if (session('rider')) {
-            return redirect()->route('rider.dashboard');
+        $riderSession = $request->session()->get('rider');
+        if (is_array($riderSession) && ! empty($riderSession['id'])) {
+            $activeRider = Schema::hasTable('riders')
+                && DB::table('riders')->where('id', $riderSession['id'])->where('is_active', true)->exists();
+
+            if ($activeRider) {
+                return redirect()->route('rider.dashboard');
+            }
+
+            $request->session()->forget('rider');
+            $request->session()->regenerate();
+            $request->session()->regenerateToken();
+            $request->session()->flash('error', 'This rider account no longer exists or is inactive. Please sign in with an active rider account.');
         }
 
         if (session('user')) {
