@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\SellerRemittanceService;
+use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -14,6 +15,7 @@ class SellerRemittanceServiceTest extends TestCase
     {
         parent::setUp();
 
+        Carbon::setTestNow(Carbon::parse('2026-11-22 12:00:00', 'Asia/Manila'));
         config(['database.default' => 'sqlite', 'database.connections.sqlite.database' => ':memory:']);
         DB::purge('sqlite');
 
@@ -111,6 +113,12 @@ class SellerRemittanceServiceTest extends TestCase
         }
     }
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     public function test_dashboard_total_and_summary_use_only_outstanding_cake_cash_for_the_shop(): void
     {
         $service = app(SellerRemittanceService::class);
@@ -150,6 +158,36 @@ class SellerRemittanceServiceTest extends TestCase
         $query = $service->applyFilters($service->query('shop-a'), ['status' => 'outstanding']);
 
         $this->assertSame(['ORDER-A', 'ORDER-B'], $service->sort($query, 'oldest')->pluck('order_id')->all());
+    }
+
+    public function test_date_range_filter_accepts_string_dates_and_filters_coalesced_timestamp(): void
+    {
+        $service = app(SellerRemittanceService::class);
+        $query = $service->applyFilters($service->query('shop-a'), [
+            'status' => 'all',
+            'from' => '2026-11-19',
+            'to' => '2026-11-20',
+        ]);
+
+        $this->assertSame(['ORDER-B', 'ORDER-C'], $service->sort($query, 'oldest')->pluck('order_id')->all());
+        $this->assertSame(50.0, $service->filteredTotal($query));
+    }
+
+    public function test_quick_date_periods_and_reversed_custom_dates_render_without_server_error(): void
+    {
+        $session = ['user' => ['id' => 'seller-a', 'role' => 'seller', 'fullname' => 'Test Seller']];
+
+        foreach (['today', 'week', 'month', 'all'] as $period) {
+            $this->withSession($session)
+                ->get(route('seller.remittances', ['period' => $period]))
+                ->assertOk()
+                ->assertSee('COD Rider Remittances');
+        }
+
+        $this->withSession($session)
+            ->get(route('seller.remittances', ['from' => '2026-11-22', 'to' => '2026-11-18']))
+            ->assertOk()
+            ->assertSee('COD Rider Remittances');
     }
 
     public function test_seller_page_renders_filtered_rows_totals_and_pagination_controls(): void

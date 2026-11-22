@@ -107,10 +107,10 @@ class SellerRemittanceService
             $query->where('rr.rider_id', (int) $filters['rider_id']);
         }
         if (! empty($filters['from'])) {
-            $query->whereDate(DB::raw('COALESCE(rr.collected_at, rr.created_at)'), '>=', $filters['from']);
+            $query->whereRaw('DATE(COALESCE(rr.collected_at, rr.created_at)) >= ?', [$filters['from']]);
         }
         if (! empty($filters['to'])) {
-            $query->whereDate(DB::raw('COALESCE(rr.collected_at, rr.created_at)'), '<=', $filters['to']);
+            $query->whereRaw('DATE(COALESCE(rr.collected_at, rr.created_at)) <= ?', [$filters['to']]);
         }
 
         return $query;
