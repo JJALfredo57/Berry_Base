@@ -174,4 +174,33 @@ class SellerRemittanceServiceTest extends TestCase
             ->assertDontSee('ORDER-A')
             ->assertSee('30.00');
     }
+
+    public function test_seller_page_paginates_filtered_remittances(): void
+    {
+        for ($index = 1; $index <= 11; $index++) {
+            $orderId = 'PAGE-'.str_pad((string) $index, 2, '0', STR_PAD_LEFT);
+            DB::table('orders')->insert([
+                'id' => $orderId, 'shop_id' => 'shop-a', 'user_id' => 'buyer', 'product_id' => 'cake',
+                'track_code' => 'TRACK-'.$orderId, 'status' => 'Delivered', 'payment_status' => 'Paid',
+                'payment_method' => 'COD', 'quantity' => 1, 'total_price' => 6,
+                'created_at' => now()->addMinutes($index), 'updated_at' => now(),
+            ]);
+            DB::table('rider_remittances')->insert([
+                'order_id' => $orderId, 'shop_id' => 'shop-a', 'rider_id' => 1, 'amount' => 1,
+                'customer_collected_amount' => 6, 'cake_remittance_amount' => 1, 'delivery_fee_retained' => 5,
+                'status' => 'pending', 'collected_at' => now()->addMinutes($index),
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
+        $session = ['user' => ['id' => 'seller-a', 'role' => 'seller', 'fullname' => 'Test Seller']];
+        $this->withSession($session)
+            ->get(route('seller.remittances', ['status' => 'waiting', 'sort' => 'oldest', 'per_page' => 10, 'page' => 2]))
+            ->assertOk()
+            ->assertSee('12 matching records')
+            ->assertSee('page 2 of 2')
+            ->assertSee('PAGE-10')
+            ->assertSee('PAGE-11')
+            ->assertSee('22.00');
+    }
 }
