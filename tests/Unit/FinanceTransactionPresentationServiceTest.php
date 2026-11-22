@@ -18,15 +18,15 @@ class FinanceTransactionPresentationServiceTest extends TestCase
             'cash_collected' => 189,
             'payment_events' => collect([
                 (object) ['amount' => 189, 'method' => 'GCash'],
-                (object) ['amount' => 189, 'method' => 'COD'],
+                (object) ['amount' => 11, 'method' => 'Cash'],
             ]),
         ];
 
         $result = app(FinanceTransactionPresentationService::class)->present($transaction);
 
-        $this->assertSame(378.0, $result->customer_payment_total);
+        $this->assertSame(200.0, $result->customer_payment_total);
         $this->assertSame(189.0, $result->online_payment_total);
-        $this->assertSame(189.0, $result->cash_payment_total);
+        $this->assertSame(11.0, $result->cash_payment_total);
         $this->assertSame(185, $result->net);
         $this->assertSame('Available for online payout', $result->status_label);
     }

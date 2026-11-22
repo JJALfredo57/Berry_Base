@@ -17,8 +17,12 @@ class FinanceTransactionPresentationService
         $transaction->customer_payment_total = $receipts->isNotEmpty()
             ? $receiptTotal
             : round(max(0, (float) ($transaction->gross ?? 0)), 2);
-        $transaction->online_payment_total = round(max(0, (float) ($transaction->online_collected ?? 0)), 2);
-        $transaction->cash_payment_total = round(max(0, (float) ($transaction->cash_collected ?? 0)), 2);
+        $transaction->online_payment_total = $receipts->isNotEmpty()
+            ? round((float) $receipts->filter(fn ($receipt) => strtoupper((string) ($receipt->method ?? '')) === 'GCASH')->sum('amount'), 2)
+            : round(max(0, (float) ($transaction->online_collected ?? 0)), 2);
+        $transaction->cash_payment_total = $receipts->isNotEmpty()
+            ? round(max(0, $receiptTotal - $transaction->online_payment_total), 2)
+            : round(max(0, (float) ($transaction->cash_collected ?? 0)), 2);
         $transaction->status_label = $this->statusLabel(
             (string) ($transaction->status ?? ''),
             (string) ($transaction->type ?? ''),
