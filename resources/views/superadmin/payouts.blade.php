@@ -367,66 +367,45 @@
 <div class="card mt-4">
   @php $payoutActionCount = $payoutRequests->total(); @endphp
   <button class="card-header payout-section-head finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="requests" aria-expanded="true" aria-controls="finance-panel-requests"><span><i class="bi bi-cash-coin me-2" style="color:var(--primary)"></i>Payout Requests</span><span>@if($payoutActionCount)<span class="payout-attention"><i class="payout-attention-dot" aria-hidden="true"></i>{{ $payoutActionCount }} needs action</span>@endif <i class="bi bi-chevron-up ms-2 finance-table-chevron" aria-hidden="true"></i></span></button>
-  <div class="table-responsive payout-table-scroll finance-table-panel" id="finance-panel-requests" data-finance-content="requests">
-    <table class="table align-middle mb-0 payout-history-admin-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Recipient</th>
-          <th>Type</th>
-          <th>Status</th>
-          <th class="text-end">Net</th>
-          <th>Receipt Proof</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @forelse($payoutRequests as $p)
-          <tr class="payout-detail-trigger is-action-required" tabindex="0" role="button" aria-label="Open payout #{{ $p->id }} details"
-              data-shop-name="{{ $p->shop_name }}"
-              data-seller-name="{{ $p->seller_name ?? 'Seller' }}"
-              data-payout-method="{{ $p->payout_method ?? 'GCash' }}"
-              data-payout-account-name="{{ $p->payout_account_name ?? '' }}"
-              data-payout-account-number="{{ $p->payout_account_number ?? '' }}">
-            <td>#{{ $p->id }}</td>
-            <td><div class="fw-semibold">{{ $p->shop_name }}</div><div class="small text-muted">{{ $p->seller_name }}</div></td>
-            <td>{{ ucfirst($p->mode) }}</td>
-            <td><span class="badge text-bg-{{ $p->status === 'paid' ? 'success' : ($p->status === 'failed' ? 'danger' : 'warning') }}">{{ ucfirst(str_replace('_',' ', $p->status)) }}</span>@if(!empty($p->blocked_reason))<div class="small text-danger mt-1">Blocked: {{ $p->blocked_reason }}</div>@endif<details class="small mt-2"><summary>Order allocations</summary>@foreach($requestItems->get($p->id,collect()) as $item)<div>#{{ $item->order_id }} · ₱{{ number_format($item->net_amount,2) }}</div>@endforeach</details></td>
-            <td class="text-end fw-semibold">₱{{ number_format($p->net_amount, 2) }}</td>
-            <td class="small">
-              @if(!empty($p->payout_receipt_path ?? null))
-                <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-download-url="{{ route('superadmin.payouts.receipt_download', $p->id) }}" data-receipt-title="Payout Receipt #{{ $p->id }}">
-                  <i class="bi bi-image me-1"></i>View Receipt
-                </button>
-              @else
-                <span class="text-muted">Pending receipt</span>
-              @endif
-            </td>
-            <td class="text-end payout-row-action">
-              @if(in_array($p->status,['requested','processing']) && empty($p->blocked_reason))
-                <form action="{{ route('superadmin.payouts.mark_paid', $p->id) }}" method="POST" enctype="multipart/form-data" class="d-flex gap-2 justify-content-end payout-mark-paid-form" data-prevent-double-submit>
-                  @csrf
-                  <div class="payout-receipt-scan flex-grow-1" data-scan-url="{{ route('superadmin.payouts.scan_receipt', $p->id) }}">
-                    <input type="file" name="payout_receipt" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp" required>
-                    <div class="small mt-1 payout-scan-message" aria-live="polite">Upload a GCash receipt to scan its reference, amount, and recipient.</div>
-                    <input name="reference_number" class="form-control form-control-sm mt-1 payout-reference" placeholder="Scanned reference number" readonly required>
-                  </div>
-                  <button class="btn btn-success btn-sm" type="submit" disabled>Mark Paid</button>
-                </form>
-              @else
-                <div class="text-muted small">{{ $p->paid_at }}</div>
-                @if($p->reference_number)
-                  <div class="small text-muted">Ref: {{ $p->reference_number }}</div>
-                @endif
-              @endif
-              @if(in_array($p->status,['requested','processing']))<form class="mt-2" method="POST" action="{{ route('superadmin.payouts.cancel',$p->id) }}" data-prevent-double-submit>@csrf<label class="small d-block"><input type="checkbox" name="confirmed_untransferred" value="1" required> I confirm no money was transferred.</label><button class="btn btn-sm btn-outline-danger mt-1">Cancel & Reconcile</button></form>@endif
-            </td>
-          </tr>
-        @empty
-          <tr><td colspan="7" class="text-center text-muted py-4">No payout requests need action.</td></tr>
-        @endforelse
-      </tbody>
-    </table>
+  <div class="finance-table-panel" id="finance-panel-requests" data-finance-content="requests">
+    <div class="apd-list">
+      @forelse($payoutRequests as $p)
+        <article class="apd-item is-action-required">
+          <div class="apd-main"><strong>{{ $p->shop_name }}</strong><small>#{{ $p->id }} · {{ $p->seller_name ?? 'Seller' }}</small></div>
+          <div class="apd-side"><span class="badge text-bg-warning">{{ ucfirst($p->status) }}</span><span class="apd-amount">₱{{ number_format($p->net_amount, 2) }}</span><button type="button" class="btn btn-outline-primary btn-sm" data-payout-detail="seller-payout-{{ $p->id }}" data-payout-title="Seller payout #{{ $p->id }}">View details</button></div>
+        </article>
+        <template id="seller-payout-{{ $p->id }}">
+          <div class="apd-details">
+            <div class="apd-field"><small>Seller / shop</small><strong>{{ $p->shop_name }}</strong><div>{{ $p->seller_name ?? 'Seller' }}</div></div>
+            <div class="apd-field"><small>Request / status</small>#{{ $p->id }} · {{ ucfirst($p->status) }}<div class="apd-help">{{ ucfirst($p->mode) }} payout</div></div>
+            <div class="apd-field"><small>Net to transfer</small><strong>₱{{ number_format($p->net_amount, 2) }}</strong></div>
+            <div class="apd-field"><small>Send payout to</small>{{ $p->payout_method ?? 'GCash' }}<div>{{ $p->payout_account_name ?: 'Account name missing' }}</div><div>{{ $p->payout_account_number ?: 'Account number missing' }}</div></div>
+            <div class="apd-field"><small>Order allocations</small>@forelse($requestItems->get($p->id, collect()) as $item)<div>#{{ $item->order_id }} · ₱{{ number_format($item->net_amount, 2) }}</div>@empty<span class="apd-help">No linked orders shown.</span>@endforelse</div>
+            <div class="apd-field"><small>Receipt proof</small>@if(!empty($p->payout_receipt_path))<a href="{{ route('superadmin.payouts.receipt_download', $p->id) }}">Download receipt</a>@else<span class="apd-help">Pending receipt</span>@endif</div>
+          </div>
+          @if(!empty($p->blocked_reason))<div class="alert alert-warning mt-3 mb-0">Blocked: {{ $p->blocked_reason }}</div>@endif
+          <div class="apd-actions">
+            @if(empty($p->blocked_reason))
+              <form action="{{ route('superadmin.payouts.mark_paid', $p->id) }}" method="POST" enctype="multipart/form-data" class="payout-mark-paid-form" data-prevent-double-submit>
+                @csrf
+                <strong>Transfer receipt</strong><small class="apd-help">Verify the recipient and amount before uploading the GCash transfer receipt.</small>
+                <div class="payout-receipt-scan" data-scan-url="{{ route('superadmin.payouts.scan_receipt', $p->id) }}">
+                  <input type="file" name="payout_receipt" class="form-control" accept="image/jpeg,image/png,image/webp" required>
+                  <div class="small mt-1 payout-scan-message" aria-live="polite">Upload a GCash receipt to scan its reference, amount, and recipient.</div>
+                  <input name="reference_number" class="form-control mt-2 payout-reference" placeholder="Scanned reference number" readonly required>
+                </div>
+                <button class="btn btn-success" type="submit" disabled>Mark Paid</button>
+              </form>
+            @endif
+            <form method="POST" action="{{ route('superadmin.payouts.cancel', $p->id) }}" data-prevent-double-submit>
+              @csrf<label class="small"><input type="checkbox" name="confirmed_untransferred" value="1" required> I confirm no money was transferred.</label><button class="btn btn-outline-danger" type="submit">Cancel & Reconcile</button>
+            </form>
+          </div>
+        </template>
+      @empty
+        <div class="text-center text-muted py-4">No payout requests need action.</div>
+      @endforelse
+    </div>
   </div>
   <div class="p-3">{{ $payoutRequests->links() }}</div>
 </div>
@@ -846,4 +825,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script>document.addEventListener('DOMContentLoaded',()=>{const buttons=[...document.querySelectorAll('.finance-table-toggle')],reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;let active=buttons.find(button=>button.getAttribute('aria-expanded')==='true')||null,token=0;const panel=button=>document.querySelector('[data-finance-content="'+button.dataset.financePanel+'"]');const setState=(button,expanded)=>{button.setAttribute('aria-expanded',expanded?'true':'false');const icon=button.querySelector('.finance-table-chevron');if(icon){icon.classList.toggle('bi-chevron-up',expanded);icon.classList.toggle('bi-chevron-down',!expanded);}};const stop=element=>element?.getAnimations().forEach(animation=>animation.cancel());const close=async button=>{const content=panel(button);if(!content||content.hidden)return;stop(content);setState(button,false);if(reduced){content.hidden=true;return;}const height=content.getBoundingClientRect().height;const animation=content.animate([{height:height+'px',opacity:1},{height:'0px',opacity:0}],{duration:180,easing:'cubic-bezier(.4,0,.2,1)'});try{await animation.finished}catch(_){}content.hidden=true;};const open=async button=>{const content=panel(button);if(!content)return;stop(content);content.hidden=false;setState(button,true);if(reduced)return;const height=content.scrollHeight;const animation=content.animate([{height:'0px',opacity:0},{height:height+'px',opacity:1}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});try{await animation.finished}catch(_){};};buttons.forEach(button=>{const content=panel(button);if(content)content.hidden=button!==active;button.addEventListener('click',async()=>{const current=++token;if(button===active){await close(button);if(current===token)active=null;return;}const previous=active;if(previous){await close(previous);if(current!==token)return;}await open(button);if(current===token)active=button;});});});</script>
+@if($page === 'seller')
+  @include('superadmin.partials.payout-request-dialog')
+@endif
 @endsection

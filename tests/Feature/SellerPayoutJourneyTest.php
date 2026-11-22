@@ -115,8 +115,10 @@ class SellerPayoutJourneyTest extends TestCase
         $seller = $admin->get(route('superadmin.payouts.sellers', ['payout_status' => 'requested', 'shop' => 'SHOP']));
         $seller->assertOk()->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 1 && $counts['rider_requests'] === 1 && $counts['rider_recovery'] === 1);
         $this->assertTrue(str_contains($seller->getContent(), 'SPLITPAGE') && str_contains($seller->getContent(), 'Cancel & Reconcile'), 'Seller request page');
+        $seller->assertSee('data-payout-detail="seller-payout-', false)->assertSee('name="payout_receipt"', false)->assertSee('adminPayoutDetailDialog');
         $admin->get(route('superadmin.payouts.riders', ['status' => 'requested', 'rider' => $riderId]))
-            ->assertOk()->assertSee('Test Rider')->assertSee('₱75.00')->assertViewHas('records', fn ($rows) => $rows->total() === 1);
+            ->assertOk()->assertSee('Test Rider')->assertSee('₱75.00')->assertSee('data-payout-detail="rider-payout-', false)
+            ->assertSee('name="receipt"', false)->assertSee('adminPayoutDetailDialog')->assertViewHas('records', fn ($rows) => $rows->total() === 1);
         $admin->get(route('superadmin.payouts.riders', ['search' => 'no-such-rider']))
             ->assertOk()->assertViewHas('records', fn ($rows) => $rows->total() === 0);
         $admin->get(route('superadmin.payouts.riders', ['status' => 'recovery', 'rider' => $unlinkedId]))
