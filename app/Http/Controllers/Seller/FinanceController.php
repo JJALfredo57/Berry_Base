@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Helpers\PaymentTransactionHelper;
 use App\Http\Controllers\Controller;
+use App\Services\FinanceTransactionTotalsService;
 use App\Services\SellerPayoutService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -242,19 +243,8 @@ class FinanceController extends Controller
         $filteredPaymentRows = $fulfillment
             ? $paymentRows->filter(fn ($payment) => strtolower((string) ($payment->fulfillment_type ?? '')) === $fulfillment)
             : $paymentRows;
-        $transactionTotals = [
-            // Use the same paid-receipt source as the card and detail page.
-            // History rows stay grouped by settlement, but their total must not
-            // replace actual payments with a lower/higher ledger gross amount.
-            'customer_payments' => (float) $filteredPaymentRows->sum('amount'),
-            'rider_delivery_fees' => (float) $transactions->sum('rider_delivery_fee'),
-            'commission' => (float) $transactions->sum('commission'),
-            'seller_settlement' => (float) $transactions->sum('net'),
-            'receipts' => (int) $filteredPaymentRows->count(),
-            'cash_collections' => $hasUnifiedSnapshot ? (float) $transactions->sum('cash_collected') : 0.0,
-            'cash_to_seller' => $hasUnifiedSnapshot ? (float) $transactions->sum('cash_to_seller') : 0.0,
-            'total_seller_earnings' => $hasUnifiedSnapshot ? (float) $transactions->sum('total_seller_earnings') : (float) $transactions->sum('net'),
-        ];
+        $transactionTotals = app(FinanceTransactionTotalsService::class)
+            ->summarize($transactions, $filteredPaymentRows, $hasUnifiedSnapshot);
 
         $summary = $this->payouts->summaryForShop((string) $shop->id);
 
