@@ -203,6 +203,9 @@ class SellerRemittanceServiceTest extends TestCase
             ->get(route('seller.remittances'))
             ->assertOk()
             ->assertSee('COD Rider Remittances')
+            ->assertSee('Select a summary card to filter the remittance list below.')
+            ->assertSee('aria-current="page"', false)
+            ->assertSee('Active filter')
             ->assertSee('ORDER-A')
             ->assertSee('ORDER-B')
             ->assertDontSee('ORDER-C')
@@ -218,6 +221,8 @@ class SellerRemittanceServiceTest extends TestCase
             ->assertOk()
             ->assertSee('ORDER-C')
             ->assertDontSee('ORDER-A')
+            ->assertSee('aria-current="page"', false)
+            ->assertSee('Active filter')
             ->assertSee('30.00');
     }
 
@@ -254,5 +259,20 @@ class SellerRemittanceServiceTest extends TestCase
             ->assertSee('82.00')
             ->assertSee('60.00')
             ->assertSee('22.00');
+    }
+
+    public function test_each_summary_status_marks_exactly_one_active_filter(): void
+    {
+        $session = ['user' => ['id' => 'seller-a', 'role' => 'seller', 'fullname' => 'Test Seller']];
+
+        foreach (['outstanding', 'waiting', 'submitted', 'confirmed', 'all'] as $status) {
+            $response = $this->withSession($session)->get(route('seller.remittances', ['status' => $status]));
+            $response->assertOk()->assertSee('Active filter');
+            $this->assertSame(1, substr_count($response->getContent(), 'aria-current="page"'));
+            $this->assertMatchesRegularExpression(
+                '/class="is-active"[^>]+aria-current="page"[^>]+status='.preg_quote($status, '/').'&amp;period=all/',
+                $response->getContent()
+            );
+        }
     }
 }
