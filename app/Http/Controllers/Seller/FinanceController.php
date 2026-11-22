@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Helpers\PaymentTransactionHelper;
 use App\Http\Controllers\Controller;
+use App\Services\FinanceTransactionPresentationService;
 use App\Services\FinanceTransactionTotalsService;
 use App\Services\SellerPayoutService;
 use Carbon\Carbon;
@@ -202,6 +203,10 @@ class FinanceController extends Controller
                     'expense_id' => null,
                     'payment_events' => collect(),
                     'fulfillment_type' => $payment->fulfillment_type ?? null,
+                    'payment_method' => $payment->method ?? null,
+                    'online_collected' => strtoupper((string) ($payment->method ?? '')) === 'GCASH' ? (float) $payment->amount : 0.0,
+                    'cash_collected' => strtoupper((string) ($payment->method ?? '')) === 'GCASH' ? 0.0 : (float) $payment->amount,
+                    'cash_to_seller' => 0.0,
                     'rider_delivery_fee' => 0.0,
                 ];
             }))
@@ -236,6 +241,7 @@ class FinanceController extends Controller
             }))
             ->merge($expenses->map(fn ($row) => (object) ['date' => $row->expense_date, 'type' => 'Business expense', 'reference' => $row->description, 'gross' => 0, 'commission' => 0, 'net' => -(float) $row->amount, 'status' => $row->category, 'expense_id' => $row->id]))
             ->merge($payoutRows->map(fn ($row) => (object) ['date' => $row->paid_at ?? $row->created_at, 'type' => 'Seller payout', 'reference' => 'Payout #'.$row->id, 'gross' => 0, 'commission' => 0, 'net' => -(float) $row->net_amount, 'status' => $row->status, 'expense_id' => null]))
+            ->map(fn ($transaction) => app(FinanceTransactionPresentationService::class)->present($transaction))
             ->sortByDesc('date')->values();
         if ($fulfillment) {
             $transactions = $transactions->filter(fn ($transaction) => strtolower((string) ($transaction->fulfillment_type ?? '')) === $fulfillment)->values();
