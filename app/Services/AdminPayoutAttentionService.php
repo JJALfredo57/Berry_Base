@@ -13,10 +13,12 @@ class AdminPayoutAttentionService
             ? DB::table('seller_payouts')->whereIn('status', ['requested', 'processing'])->count() : 0;
         $sellerDetails = Schema::hasTable('shops')
             ? DB::table('shops')->where('status', 'approved')
-                ->whereNotNull('payout_method')->where('payout_method', '<>', '')
-                ->whereNotNull('payout_account_name')->where('payout_account_name', '<>', '')
-                ->whereNotNull('payout_account_number')->where('payout_account_number', '<>', '')
-                ->where(fn ($query) => $query->where('payout_details_verified', false)->orWhereNull('payout_details_verified'))->count() : 0;
+                ->where(function ($query) {
+                    $query->whereNull('payout_method')->orWhere('payout_method', '')
+                        ->orWhereNull('payout_account_name')->orWhere('payout_account_name', '')
+                        ->orWhereNull('payout_account_number')->orWhere('payout_account_number', '')
+                        ->orWhere('payout_details_verified', false)->orWhereNull('payout_details_verified');
+                })->count() : 0;
         $riderRequests = Schema::hasTable('rider_payout_requests')
             ? DB::table('rider_payout_requests')->where('status', 'requested')->count() : 0;
         $riderRecovery = Schema::hasTable('rider_delivery_earnings') && Schema::hasTable('rider_payout_requests')

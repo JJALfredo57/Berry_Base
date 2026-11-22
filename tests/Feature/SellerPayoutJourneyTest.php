@@ -123,6 +123,8 @@ class SellerPayoutJourneyTest extends TestCase
             ->assertOk()->assertViewHas('recovery', fn ($rows) => $rows->total() === 1)->assertSee('Unlinked Rider');
         $this->post(route('superadmin.payouts.cancel', DB::table('seller_payouts')->value('id')), ['confirmed_untransferred' => '1'])->assertSessionHas('msg');
         $admin->get(route('superadmin.payouts'))->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 0 && $counts['rider_requests'] === 1 && $counts['rider_recovery'] === 1);
+        DB::table('shops')->where('id', 'SHOP')->update(['payout_account_name' => null]);
+        $admin->get(route('superadmin.payouts'))->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_details'] === 1 && $counts['seller'] === 1);
     }
 
     public function test_refund_recovery_is_proportional_idempotent_and_never_rewrites_paid_history(): void
