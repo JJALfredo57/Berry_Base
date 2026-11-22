@@ -7,16 +7,20 @@
 </div>
 <style>
 .apd-list{display:grid;gap:.65rem;padding:1rem}.apd-item{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-width:0;padding:1rem;border:1px solid #e5e7eb;border-radius:13px;background:#fff}.apd-item.is-action-required{border-left:3px solid #f97316;background:#fffaf5}.apd-main{min-width:0;overflow-wrap:anywhere}.apd-main strong,.apd-main small{display:block}.apd-main small{color:#64748b}.apd-side{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;justify-content:flex-end}.apd-amount{font-weight:800;white-space:nowrap}.apd-modal{position:fixed;inset:0;z-index:1090;display:grid;place-items:center;padding:12px;background:rgba(15,23,42,.62)}.apd-modal[hidden]{display:none}.apd-dialog{width:min(620px,100%);max-height:calc(100dvh - 24px);display:flex;flex-direction:column;min-width:0;overflow:hidden;border-radius:17px;background:#fff;box-shadow:0 25px 70px rgba(0,0,0,.28)}.apd-header,.apd-footer{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:1rem;border-bottom:1px solid #e5e7eb}.apd-footer{justify-content:flex-end;border-top:1px solid #e5e7eb;border-bottom:0}.apd-body{overflow:auto;min-width:0;padding:1rem;overflow-wrap:anywhere}.apd-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}.apd-field{min-width:0;padding:.75rem;border-radius:10px;background:#f8fafc;overflow-wrap:anywhere}.apd-field small{display:block;margin-bottom:.2rem;color:#64748b;font-size:.72rem;font-weight:800;text-transform:uppercase}.apd-actions{display:grid;gap:.8rem;margin-top:1rem}.apd-actions form{display:grid;gap:.5rem;min-width:0;padding:1rem;border:1px solid #e5e7eb;border-radius:12px}.apd-actions .form-control{min-width:0;width:100%}.apd-actions .btn{justify-self:start;min-height:42px}.apd-actions .payout-mark-paid-form{display:grid!important;min-width:0!important}.apd-actions .payout-receipt-scan{min-width:0}.apd-help{font-size:.8rem;color:#64748b}.apd-item .btn{min-height:40px}@media(max-width:575px){.apd-item{align-items:stretch;flex-direction:column}.apd-side{justify-content:space-between}.apd-details{grid-template-columns:1fr}.apd-actions .btn{width:100%}}
+.apd-body{min-height:0;overscroll-behavior:contain}
 </style>
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const modal = document.getElementById('adminPayoutDetailDialog');
   if (!modal) return;
+  // Keep the fixed dialog outside the animated admin-page transform.
+  document.body.appendChild(modal);
   const body = document.getElementById('adminPayoutDetailBody');
   const title = document.getElementById('adminPayoutDetailTitle');
   let previousFocus = null;
-  const close = () => { modal.hidden = true; body.replaceChildren(); document.body.style.overflow = ''; previousFocus?.focus(); };
+  let previousBodyOverflow = '';
+  const close = () => { modal.hidden = true; body.replaceChildren(); document.body.style.overflow = previousBodyOverflow; previousFocus?.focus(); };
   document.addEventListener('click', event => {
     const opener = event.target.closest('[data-payout-detail]');
     if (opener) {
@@ -26,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
       title.textContent = opener.dataset.payoutTitle || 'Payout details';
       body.replaceChildren(template.content.cloneNode(true));
       modal.hidden = false;
+      previousBodyOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       modal.querySelector('[data-apd-close]').focus();
       return;
