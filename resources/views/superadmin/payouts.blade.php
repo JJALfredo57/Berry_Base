@@ -210,7 +210,7 @@
   @endif
 
   @if($page === 'seller')
-  <div class="col-lg-8">
+  <div class="col-12">
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-shop me-2" style="color:var(--primary)"></i>Seller Balances</span>
