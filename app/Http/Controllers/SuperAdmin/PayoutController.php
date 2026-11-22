@@ -289,7 +289,10 @@ class PayoutController extends Controller
         $recovery = $recoveryQuery
             ? $recoveryQuery->orderBy('r.name')->paginate($perPage, ['*'], 'recovery_page')->withQueryString()
             : new LengthAwarePaginator([], 0, $perPage);
-        $riders = Schema::hasTable('riders') ? DB::table('riders')->orderBy('name')->get(['id', 'name']) : collect();
+        $riders = Schema::hasTable('riders')
+            ? DB::table('riders as r')->leftJoin('shops as s', 's.id', '=', 'r.shop_id')
+                ->orderBy('r.name')->get(['r.id', 'r.name', 's.shop_name'])
+            : collect();
         $payoutAttention = app(AdminPayoutAttentionService::class)->counts();
 
         return view('superadmin.rider-payouts', compact('records', 'recovery', 'recoveryTotals', 'totals', 'riders', 'payoutAttention', 'search', 'riderId', 'status', 'sort', 'perPage', 'period', 'from', 'to'));

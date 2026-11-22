@@ -15,7 +15,7 @@
   <div><strong>Filter rider payouts</strong><small>Search and filters update these totals and the list. Tap a total to filter by status. Attention dots remain until requests are paid or recovered.</small></div>
   <form method="GET" action="{{ route('superadmin.payouts.riders') }}">
     <label>Search<input class="form-control" name="search" value="{{ $search }}" maxlength="120" placeholder="Rider, phone, GCash, reference or ID"></label>
-    <label>Rider<select class="form-select" name="rider"><option value="">All riders</option>@foreach($riders as $rider)<option value="{{ $rider->id }}" @selected($riderId===$rider->id)>{{ $rider->name }}</option>@endforeach</select></label>
+    <label>Rider<select class="form-select" name="rider"><option value="">All riders</option>@foreach($riders as $rider)<option value="{{ $rider->id }}" @selected($riderId===$rider->id)>{{ $rider->name }} · {{ $rider->shop_name ?: 'No shop' }} (#{{ $rider->id }})</option>@endforeach</select></label>
     <label>Status<select class="form-select" name="status"><option value="">All statuses</option><option value="requested" @selected($status==='requested')>Requested</option><option value="paid" @selected($status==='paid')>Paid</option><option value="recovery" @selected($status==='recovery')>Needs recovery</option></select></label>
     <label>From<input class="form-control" type="date" name="from" value="{{ $from }}"></label>
     <label>To<input class="form-control" type="date" name="to" value="{{ $to }}"></label>
