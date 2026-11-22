@@ -145,6 +145,11 @@ class SellerRemittanceServiceTest extends TestCase
         ]);
 
         $this->assertSame(20.0, $service->filteredTotal($query));
+        $this->assertSame([
+            'customer_collected' => 25.0,
+            'rider_delivery_fee' => 5.0,
+            'cake_amount_due' => 20.0,
+        ], $service->filteredTotals($query));
         $rows = $service->sort($query, 'newest')->get();
         $this->assertCount(1, $rows);
         $this->assertSame('ORDER-B', $rows->first()->order_id);
@@ -201,7 +206,10 @@ class SellerRemittanceServiceTest extends TestCase
             ->assertSee('ORDER-A')
             ->assertSee('ORDER-B')
             ->assertDontSee('ORDER-C')
-            ->assertSee('Filtered cake amount')
+            ->assertSee('Total customer paid rider')
+            ->assertSee('Total rider delivery fee')
+            ->assertSee('Total cake amount to remit')
+            ->assertDontSee('Current page subtotal')
             ->assertSee('31.00')
             ->assertSee('10 per page');
 
@@ -239,6 +247,12 @@ class SellerRemittanceServiceTest extends TestCase
             ->assertSee('page 2 of 2')
             ->assertSee('PAGE-10')
             ->assertSee('PAGE-11')
+            ->assertSee('Total customer paid rider')
+            ->assertSee('Total rider delivery fee')
+            ->assertSee('Total cake amount to remit')
+            ->assertDontSee('Current page subtotal')
+            ->assertSee('82.00')
+            ->assertSee('60.00')
             ->assertSee('22.00');
     }
 }

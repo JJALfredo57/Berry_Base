@@ -72,8 +72,9 @@
   </section>
 
   <div class="remit-totals">
-    <div class="remit-total-item"><span>Current page subtotal</span><strong>₱{{ number_format($pageTotal,2) }}</strong></div>
-    <div class="remit-total-item"><span>Filtered cake amount</span><strong>₱{{ number_format($filteredTotal,2) }}</strong></div>
+    <div class="remit-total-item"><span>Total customer paid rider</span><strong>₱{{ number_format($filteredTotals['customer_collected'],2) }}</strong></div>
+    <div class="remit-total-item"><span>Total rider delivery fee</span><strong>₱{{ number_format($filteredTotals['rider_delivery_fee'],2) }}</strong></div>
+    <div class="remit-total-item"><span>Total cake amount to remit</span><strong>₱{{ number_format($filteredTotals['cake_amount_due'],2) }}</strong></div>
   </div>
   @if($rows->hasPages())<div class="remit-pagination">{{ $rows->links() }}</div>@endif
 </div>

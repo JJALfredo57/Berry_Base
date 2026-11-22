@@ -126,8 +126,17 @@ class SellerRemittanceService
         };
     }
 
+    public function filteredTotals(Builder $query): array
+    {
+        return [
+            'customer_collected' => round((float) (clone $query)->sum(DB::raw('COALESCE(rr.customer_collected_amount, rr.amount, 0)')), 2),
+            'rider_delivery_fee' => round((float) (clone $query)->sum(DB::raw('COALESCE(rr.delivery_fee_retained, 0)')), 2),
+            'cake_amount_due' => round((float) (clone $query)->sum(DB::raw('COALESCE(rr.cake_remittance_amount, rr.amount, 0)')), 2),
+        ];
+    }
+
     public function filteredTotal(Builder $query): float
     {
-        return round((float) (clone $query)->sum(DB::raw('COALESCE(rr.cake_remittance_amount, rr.amount, 0)')), 2);
+        return $this->filteredTotals($query)['cake_amount_due'];
     }
 }

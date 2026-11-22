@@ -44,12 +44,11 @@ class RemittanceController extends Controller
         ];
 
         $filteredQuery = $this->remittances->applyFilters($this->remittances->query((string) $shop->id), $filters);
-        $filteredTotal = $this->remittances->filteredTotal($filteredQuery);
+        $filteredTotals = $this->remittances->filteredTotals($filteredQuery);
         $filteredCount = (clone $filteredQuery)->count('rr.id');
         $rows = $this->remittances->sort($filteredQuery, $sort)
             ->paginate($perPage)
             ->withQueryString();
-        $pageTotal = round((float) collect($rows->items())->sum('cake_amount_due'), 2);
         $summary = $this->remittances->summary((string) $shop->id);
         $riders = DB::table('rider_remittances as rr')
             ->join('riders as r', 'r.id', '=', 'rr.rider_id')
@@ -60,7 +59,7 @@ class RemittanceController extends Controller
             ->get();
 
         return view('seller.remittances', compact(
-            'shop', 'rows', 'summary', 'filters', 'riders', 'filteredTotal', 'filteredCount', 'pageTotal'
+            'shop', 'rows', 'summary', 'filters', 'riders', 'filteredTotals', 'filteredCount'
         ));
     }
 
