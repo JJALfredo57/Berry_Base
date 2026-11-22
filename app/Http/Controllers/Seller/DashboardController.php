@@ -8,6 +8,7 @@ use App\Services\OrderSettlementService;
 use App\Services\RiderAssignmentService;
 use App\Services\SellerBalanceService;
 use App\Services\SellerPayoutService;
+use App\Services\SellerRemittanceService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -60,12 +61,7 @@ class DashboardController extends Controller
 
             $pendingRemittance = 0.0;
             if (Schema::hasTable('rider_remittances')) {
-                $pendingRemittanceQuery = DB::table('rider_remittances')
-                    ->where('shop_id', $shopId)
-                    ->whereIn('status', ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired']);
-                $pendingRemittance = Schema::hasColumn('rider_remittances', 'cake_remittance_amount')
-                    ? (float) $pendingRemittanceQuery->sum(DB::raw('COALESCE(cake_remittance_amount, amount)'))
-                    : (float) $pendingRemittanceQuery->sum('amount');
+                $pendingRemittance = app(SellerRemittanceService::class)->outstandingTotal((string) $shopId);
             }
 
             $stats = [

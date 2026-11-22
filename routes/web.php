@@ -523,6 +523,7 @@ Route::prefix('seller')->name('seller.')->middleware('auth.seller')->group(funct
     // Orders
     Route::get('/sidebar-counts',            [\App\Http\Controllers\Seller\DashboardController::class, 'sidebarCounts'])->name('sidebar_counts');
     Route::get('/orders',                    [\App\Http\Controllers\Seller\OrderController::class, 'index'])->name('orders');
+    Route::get('/remittances',               [\App\Http\Controllers\Seller\RemittanceController::class, 'index'])->name('remittances');
     Route::get('/return-cases', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'index'])->name('return_cases');
     Route::post('/return-cases/{id}/decision', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'decide'])->middleware('throttle:12,10')->name('return_cases.decide');
     Route::post('/return-cases/{id}/received', [\App\Http\Controllers\Seller\PostDeliveryReturnController::class, 'receive'])->middleware('throttle:12,10')->name('return_cases.receive');

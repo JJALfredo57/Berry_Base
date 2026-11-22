@@ -6,7 +6,7 @@
     ['count' => $stats['pending'] ?? 0, 'label' => 'new order', 'icon' => 'bi-bag-plus', 'link' => route('seller.orders'), 'money' => false],
     ['count' => $pendingCustom, 'label' => 'custom order to review', 'icon' => 'bi-palette', 'link' => route('seller.custom_orders'), 'money' => false],
     ['count' => $sellerActionSummary['total'] ?? 0, 'label' => 'refund or cancellation request', 'icon' => 'bi-arrow-counterclockwise', 'link' => route('seller.orders', ['status' => 'Cancel Requests']), 'money' => false],
-    ['count' => $stats['pending_remittance'] ?? 0, 'label' => 'COD cake amount to review', 'icon' => 'bi-cash-stack', 'link' => route('seller.orders'), 'money' => true],
+    ['count' => $stats['pending_remittance'] ?? 0, 'label' => 'COD cake amount to review', 'icon' => 'bi-cash-stack', 'link' => route('seller.remittances'), 'money' => true],
   ];
   $actionItems = array_values(array_filter($actionItems, fn ($item) => (float) $item['count'] > 0));
 @endphp
@@ -112,7 +112,7 @@
     ['bi-bag-check',  'Total Orders',  number_format($stats['total']),     '#424242', '#f5f5f5', route('seller.orders')],
     ['bi-cash-stack', 'Revenue',       '₱'.number_format($stats['revenue'],2), '#2E7D32','#e8f5e9','#'],
     ['bi-wallet2',    'Net Earnings',  '₱'.number_format($netRevenue,2),  'var(--primary)', 'var(--primary-bg)', '#'],
-    ['bi-hourglass-split', 'Pending COD Remit', '&#8369;'.number_format($stats['pending_remittance'] ?? 0,2), '#B45309','#fffbeb', route('seller.orders')],
+    ['bi-hourglass-split', 'Pending COD Remit', '&#8369;'.number_format($stats['pending_remittance'] ?? 0,2), '#B45309','#fffbeb', route('seller.remittances')],
     ['bi-bank',       'Ready to Request', '&#8369;'.number_format($payoutSummary['available'] ?? 0,2), '#166534', '#ecfdf5', route('seller.payouts', ['state'=>'available','period'=>'all']).'#payout-orders'],
   ] as [$icon, $label, $val, $color, $bg, $link])
   @php
@@ -147,7 +147,7 @@
   <div class="seller-stats-grid cs-stagger">
     @foreach([
       ['bi-graph-up-arrow', 'Paid Sales', '₱'.number_format($stats['revenue'], 2), '#15803d', '#ecfdf5', route('seller.finance'), 'Paid, non-cancelled orders. Full deductions are in Finance.'],
-      ['bi-cash-stack', 'COD Cash to Confirm', '₱'.number_format($stats['pending_remittance'] ?? 0, 2), '#B45309', '#fffbeb', route('seller.orders'), 'Confirm after you receive the cake payment from the rider.'],
+      ['bi-cash-stack', 'COD Cash to Confirm', '₱'.number_format($stats['pending_remittance'] ?? 0, 2), '#B45309', '#fffbeb', route('seller.remittances'), 'Confirm after you receive the cake payment from the rider.'],
       ['bi-bank', 'Ready to Request', '₱'.number_format($payoutSummary['available'] ?? 0, 2), '#166534', '#ecfdf5', route('seller.payouts', ['state'=>'available','period'=>'all']).'#payout-orders', 'Completed orders eligible immediately; no waiting days.'],
     ] as [$icon, $label, $val, $color, $bg, $link, $help])
       @if($label !== 'COD Cash to Confirm' || (float)($stats['pending_remittance'] ?? 0) > 0)
