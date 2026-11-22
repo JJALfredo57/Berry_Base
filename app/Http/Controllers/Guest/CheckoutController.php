@@ -550,12 +550,8 @@ class CheckoutController extends Controller
             }
         }
 
-        if (empty($checkout['request_offer_checkout'])) {
-            $capacity = app(DailyCapacityService::class)->validate($product->shop_id ?? null, $sdate, $qty);
-            if (!$capacity['allowed']) {
-                return back()->with('error', $capacity['message'])->withInput();
-            }
-        }
+        // Ready-made products are governed by their product/size inventory.
+        // Custom daily capacity is validated only for custom cart items above.
 
         $addonTotal  = 0;
         $validAddons = [];
