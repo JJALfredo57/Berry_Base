@@ -677,7 +677,6 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/payouts/seller/{id}/create', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'createManual'])->name('payouts.create_manual');
     Route::post('/payouts/{id}/paid',          [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markPaid'])->name('payouts.mark_paid');
     Route::post('/payouts/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanReceipt'])->name('payouts.scan_receipt');
-    Route::post('/payouts/{payoutId}/cancel', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'cancelRequest'])->name('payouts.cancel');
     Route::post('/rider-payouts/{id}/scan-receipt', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRiderPayoutReceipt'])->name('rider_payouts.scan_receipt');
     Route::post('/rider-payouts/{id}/paid', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRiderPayoutPaid'])->name('rider_payouts.mark_paid');
     Route::post('/rider-payouts/{riderId}/recover', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'recoverRiderPayout'])->name('rider_payouts.recover');

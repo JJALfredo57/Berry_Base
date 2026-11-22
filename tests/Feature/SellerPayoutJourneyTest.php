@@ -85,7 +85,7 @@ class SellerPayoutJourneyTest extends TestCase
         $this->withSession(['user' => ['id' => 'OTHERSELLER', 'role' => 'seller']])->get(route('seller.payouts.refund_receipt', ['kind' => 'cancellation', 'refundId' => $refundId]))->assertNotFound();
     }
 
-    public function test_admin_sees_selected_order_proof_and_can_cancel_a_blocked_request(): void
+    public function test_admin_sees_selected_order_proof_but_only_seller_can_cancel_a_blocked_request(): void
     {
         $ledger = $this->order('ADMINORDER', 'Picked Up');
         $this->seller()->post('/seller/payouts/request', ['ledger_ids' => [$ledger->id]])->assertSessionHas('msg');
@@ -94,7 +94,9 @@ class SellerPayoutJourneyTest extends TestCase
         $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']])
             ->get(route('superadmin.payouts', ['search' => 'ADMINORDER', 'shop' => 'SHOP']))->assertOk()->assertSee('Blocked:')
             ->assertSee('Order allocations')->assertDontSee('Cancel & Reconcile')->assertDontSee('hold period');
-        $this->post(route('superadmin.payouts.cancel', $id), ['confirmed_untransferred' => '1'])->assertSessionHas('msg');
+        $this->post('/admin/payouts/'.$id.'/cancel', ['confirmed_untransferred' => '1'])->assertNotFound();
+        $this->assertDatabaseHas('seller_payouts', ['id' => $id, 'status' => 'requested']);
+        $this->seller()->post(route('seller.payouts.cancel', $id))->assertSessionHas('msg');
         $this->assertDatabaseHas('seller_payout_ledgers', ['id' => $ledger->id, 'status' => 'refund_reserved', 'payout_id' => null]);
         $this->assertDatabaseHas('seller_payouts', ['id' => $id, 'status' => 'cancelled']);
     }
@@ -123,7 +125,10 @@ class SellerPayoutJourneyTest extends TestCase
             ->assertOk()->assertViewHas('records', fn ($rows) => $rows->total() === 0);
         $admin->get(route('superadmin.payouts.riders', ['status' => 'recovery', 'rider' => $unlinkedId]))
             ->assertOk()->assertViewHas('recovery', fn ($rows) => $rows->total() === 1)->assertSee('Unlinked Rider');
-        $this->post(route('superadmin.payouts.cancel', DB::table('seller_payouts')->value('id')), ['confirmed_untransferred' => '1'])->assertSessionHas('msg');
+        $payoutId = DB::table('seller_payouts')->value('id');
+        $admin->post('/admin/payouts/'.$payoutId.'/cancel', ['confirmed_untransferred' => '1'])->assertNotFound();
+        $this->seller()->post(route('seller.payouts.cancel', $payoutId))->assertSessionHas('msg');
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
         $admin->get(route('superadmin.payouts'))->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 0 && $counts['rider_requests'] === 1 && $counts['rider_recovery'] === 1);
         DB::table('shops')->where('id', 'SHOP')->update(['payout_account_name' => null]);
         $admin->get(route('superadmin.payouts'))->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_details'] === 1 && $counts['seller'] === 1);

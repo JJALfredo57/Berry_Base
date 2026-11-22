@@ -528,18 +528,6 @@ class PayoutController extends Controller
         return response()->json($scan, $scan['ok'] ? 200 : 422);
     }
 
-    public function cancelRequest(Request $request, int $payoutId)
-    {
-        $request->validate(['confirmed_untransferred' => 'required|accepted']);
-        try {
-            app(SelectedPayoutService::class)->cancel($payoutId);
-        } catch (\DomainException $e) {
-            return back()->with('err', $e->getMessage());
-        }
-
-        return back()->with('msg', 'Untransferred payout cancelled and reconciled. Original items remain in transaction history.');
-    }
-
     public function markRefundSent(Request $request, int $refundId, OrderRefundService $refunds)
     {
         $validated = $request->validate([
