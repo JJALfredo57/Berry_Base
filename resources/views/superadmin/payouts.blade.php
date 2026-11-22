@@ -172,7 +172,7 @@
     <label>To<input class="form-control" type="date" name="to" value="{{ $to }}"></label>
     <label>Seller / order / reference<input class="form-control" name="search" value="{{ $search }}" maxlength="120"></label>
     <label>Seller / shop<select class="form-select" name="shop"><option value="">All sellers / shops</option>@foreach($shopOptions as $option)<option value="{{ $option->id }}" @selected((string)$shopFilter===(string)$option->id)>{{ $option->seller_name ?: 'Seller' }} · {{ $option->shop_name }}</option>@endforeach</select></label>
-    <label>Status<select class="form-select" name="payout_status"><option value="">All statuses</option>@foreach(['requested','processing','paid','cancelled','failed'] as $value)<option value="{{ $value }}" @selected($payoutStatus===$value)>{{ ucfirst($value) }}</option>@endforeach</select></label>
+    <label>Status<select class="form-select" name="payout_status"><option value="">All statuses</option>@foreach(['requested','processing','paid','cancelled'] as $value)<option value="{{ $value }}" @selected($payoutStatus===$value)>{{ ucfirst($value) }}</option>@endforeach</select></label>
     <label>Sort<select class="form-select" name="sort"><option value="newest" @selected($sort==='desc')>Newest</option><option value="oldest" @selected($sort==='asc')>Oldest</option></select></label>
     <label>Rows<select class="form-select" name="per_page">@foreach([10,25,50] as $size)<option value="{{ $size }}" @selected($perPage===$size)>{{ $size }} per page</option>@endforeach</select></label>
     <button class="btn btn-primary" type="submit">Apply Filters</button><a class="btn btn-outline-secondary" href="{{ route('superadmin.payouts.sellers') }}">Clear</a>
@@ -180,7 +180,7 @@
   <div class="finance-periods" aria-label="Quick date filters">@foreach(['all'=>'All Time','today'=>'Today','week'=>'This Week','month'=>'This Month','last_month'=>'Last Month','year'=>'This Year','last30'=>'Last 30 days'] as $key=>$label)<a class="btn btn-sm {{ $period === $key ? 'btn-primary' : 'btn-outline-secondary' }}" href="{{ route('superadmin.payouts.sellers', array_merge(request()->except(['from','to','shops_page','requests_page','payouts_page']), ['period'=>$key])) }}">{{ $label }}</a>@endforeach</div>
 </section>
 <section class="admin-payout-totals" aria-label="Filtered seller payout totals">
-  @foreach(['requested'=>'Requested','processing'=>'Processing','paid'=>'Paid','cancelled'=>'Cancelled','failed'=>'Failed'] as $key=>$label)
+  @foreach(['requested'=>'Requested','processing'=>'Processing','paid'=>'Paid','cancelled'=>'Cancelled'] as $key=>$label)
     <a class="{{ $payoutStatus===$key ? 'is-current' : '' }}" href="{{ route('superadmin.payouts.sellers', array_merge(request()->except(['requests_page','payouts_page']), ['payout_status'=>$payoutStatus===$key ? '' : $key])) }}"><strong>₱{{ number_format((float)($sellerTotals->get($key)->amount ?? 0),2) }}</strong><span>{{ $label }} · {{ (int)($sellerTotals->get($key)->count ?? 0) }}</span></a>
   @endforeach
 </section>
