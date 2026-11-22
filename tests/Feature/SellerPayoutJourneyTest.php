@@ -93,7 +93,7 @@ class SellerPayoutJourneyTest extends TestCase
         DB::table('orders')->where('id', 'ADMINORDER')->update(['cancel_status' => 'pending']);
         $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']])
             ->get(route('superadmin.payouts', ['search' => 'ADMINORDER', 'shop' => 'SHOP']))->assertOk()->assertSee('Blocked:')
-            ->assertSee('Order allocations')->assertSee('Cancel & Reconcile', false)->assertDontSee('hold period');
+            ->assertSee('Order allocations')->assertDontSee('Cancel & Reconcile')->assertDontSee('hold period');
         $this->post(route('superadmin.payouts.cancel', $id), ['confirmed_untransferred' => '1'])->assertSessionHas('msg');
         $this->assertDatabaseHas('seller_payout_ledgers', ['id' => $ledger->id, 'status' => 'refund_reserved', 'payout_id' => null]);
         $this->assertDatabaseHas('seller_payouts', ['id' => $id, 'status' => 'cancelled']);
@@ -114,7 +114,7 @@ class SellerPayoutJourneyTest extends TestCase
         $this->assertTrue(str_contains($hub->getContent(), 'Seller Payouts') && str_contains($hub->getContent(), 'Rider Payouts') && !str_contains($hub->getContent(), 'Cancel & Reconcile'), 'Finance hub separation');
         $seller = $admin->get(route('superadmin.payouts.sellers', ['payout_status' => 'requested', 'shop' => 'SHOP']));
         $seller->assertOk()->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 1 && $counts['rider_requests'] === 1 && $counts['rider_recovery'] === 1);
-        $this->assertTrue(str_contains($seller->getContent(), 'SPLITPAGE') && str_contains($seller->getContent(), 'Cancel & Reconcile'), 'Seller request page');
+        $this->assertTrue(str_contains($seller->getContent(), 'SPLITPAGE') && !str_contains($seller->getContent(), 'Cancel & Reconcile'), 'Seller request page without cancel action');
         $seller->assertSee('data-payout-detail="seller-payout-', false)->assertSee('name="payout_receipt"', false)->assertSee('adminPayoutDetailDialog');
         $admin->get(route('superadmin.payouts.riders', ['status' => 'requested', 'rider' => $riderId]))
             ->assertOk()->assertSee('Test Rider')->assertSee('₱75.00')->assertSee('data-payout-detail="rider-payout-', false)

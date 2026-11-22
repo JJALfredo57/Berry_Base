@@ -397,9 +397,6 @@
                 <button class="btn btn-success" type="submit" disabled>Mark Paid</button>
               </form>
             @endif
-            <form method="POST" action="{{ route('superadmin.payouts.cancel', $p->id) }}" data-prevent-double-submit>
-              @csrf<label class="small"><input type="checkbox" name="confirmed_untransferred" value="1" required> I confirm no money was transferred.</label><button class="btn btn-outline-danger" type="submit">Cancel & Reconcile</button>
-            </form>
           </div>
         </template>
       @empty
