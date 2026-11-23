@@ -138,6 +138,46 @@
     .sheet p { margin:0 0 12px; color:var(--muted); font-size:13px; }
     .sheet textarea { width:100%; min-height:90px; resize:vertical; border:1px solid var(--line); border-radius:12px; padding:12px; font:inherit; font-size:14px; }
     .sheet .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+    .payout-modal { z-index:90; }
+    .payout-sheet { width:min(520px,100%); max-height:min(92dvh,760px); overflow-y:auto; overscroll-behavior:contain; padding:0; box-shadow:0 -16px 48px rgba(17,24,39,.22); }
+    .payout-head { display:flex; align-items:flex-start; gap:12px; padding:20px 20px 14px; }
+    .payout-head-icon { width:42px; height:42px; display:grid; place-items:center; flex:0 0 auto; border-radius:13px; background:var(--primary-bg); color:var(--primary-dark); font-size:20px; }
+    .payout-head-copy { min-width:0; flex:1; }
+    .payout-kicker { color:var(--primary-dark); font-size:11px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
+    .payout-head h3 { margin:2px 0 4px; font-size:20px; line-height:1.2; }
+    .payout-head p { margin:0; color:var(--muted); font-size:13px; line-height:1.45; }
+    .payout-close { width:40px; height:40px; display:grid; place-items:center; flex:0 0 auto; border:1px solid var(--line); border-radius:11px; background:#fff; color:#374151; font:inherit; font-size:19px; cursor:pointer; }
+    .payout-amount { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 20px 20px; padding:16px; border:1px solid color-mix(in srgb,var(--primary) 24%,#fff); border-radius:16px; background:linear-gradient(120deg,var(--primary-bg),#fff); }
+    .payout-amount-label { display:block; color:var(--primary-dark); font-size:12px; font-weight:800; }
+    .payout-amount strong { display:block; margin-top:3px; color:var(--primary-dark); font-size:clamp(22px,6vw,29px); line-height:1.1; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+    .payout-amount i { width:40px; height:40px; display:grid; place-items:center; flex:0 0 auto; border-radius:12px; background:#fff; color:var(--primary); font-size:19px; }
+    .payout-fields { display:grid; gap:16px; padding:0 20px 18px; }
+    .payout-fields-title { display:flex; align-items:center; gap:8px; margin:0; font-size:14px; font-weight:850; }
+    .payout-fields-title i { color:var(--primary); font-size:17px; }
+    .payout-field { display:grid; gap:7px; min-width:0; }
+    .payout-field-label,.payout-choice-group legend { color:#374151; font-size:13px; font-weight:800; }
+    .payout-input { width:100%; min-height:48px; padding:11px 13px; border:1px solid #cbd5e1; border-radius:11px; background:#fff; color:var(--ink); font:inherit; font-size:16px; outline:none; transition:border-color .15s,box-shadow .15s; }
+    .payout-input:focus { border-color:var(--primary); box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 15%,transparent); }
+    .payout-input[readonly] { background:#f8fafc; color:#334155; }
+    .payout-input[aria-invalid="true"] { border-color:#dc2626; }
+    .payout-choice-group { min-width:0; margin:0; padding:0; border:0; }
+    .payout-choice-group legend { margin-bottom:8px; padding:0; }
+    .payout-choices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .payout-choice { display:flex; align-items:flex-start; gap:9px; min-width:0; padding:11px; border:1px solid var(--line); border-radius:11px; background:#fff; cursor:pointer; }
+    .payout-choice:has(input:checked) { border-color:var(--primary); background:var(--primary-bg); }
+    .payout-choice:has(input:disabled) { opacity:.55; cursor:not-allowed; }
+    .payout-choice input { width:17px; height:17px; margin:1px 0 0; accent-color:var(--primary); flex:0 0 auto; }
+    .payout-choice strong,.payout-choice small { display:block; overflow-wrap:anywhere; }
+    .payout-choice strong { font-size:12px; line-height:1.3; }
+    .payout-choice small { margin-top:3px; color:var(--muted); font-size:11px; line-height:1.35; }
+    .payout-help { min-height:17px; color:var(--muted); font-size:12px; line-height:1.4; }
+    .payout-help.is-valid { color:#166534; }
+    .payout-help.is-invalid { color:#b91c1c; }
+    .payout-confirm { display:flex; align-items:flex-start; gap:10px; margin:0 20px 18px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f9fafb; color:#374151; font-size:13px; line-height:1.45; cursor:pointer; }
+    .payout-confirm input { width:18px; height:18px; margin:1px 0 0; accent-color:var(--primary); flex:0 0 auto; }
+    .payout-actions { position:sticky; bottom:0; display:grid; grid-template-columns:1fr 1.25fr; gap:9px; padding:14px 20px calc(14px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:#fff; }
+    .payout-actions .btn { min-height:48px; }
+    .payout-modal :is(button,input):focus-visible,.payout-choice:focus-within { outline:3px solid color-mix(in srgb,var(--primary) 38%,#fff); outline-offset:2px; }
     .quick { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
     .quick button { border:1px solid var(--line); background:#f9fafb; border-radius:999px; padding:6px 11px; font-size:12px; font-weight:700; cursor:pointer; color:#374151; }
 
@@ -187,7 +227,7 @@
     .transaction-meta { color:var(--muted); font-size:12px; line-height:1.45; margin-top:3px; }
     .transaction-amount { font-size:16px; font-weight:900; text-align:right; }.transaction-status { margin-top:4px; font-size:11px; font-weight:800; color:#374151; text-transform:capitalize; }
 
-    @media (min-width:640px) { .modal { align-items:center; } .sheet { border-radius:20px; } }
+    @media (min-width:640px) { .modal { align-items:center; } .sheet { border-radius:20px; } .payout-modal { padding:20px; } .payout-sheet { box-shadow:0 24px 60px rgba(17,24,39,.25); } }
     @media (min-width:640px) { .receipt-modal { align-items:center; padding:20px; } .receipt-sheet { border-radius:20px; max-height:min(82dvh,720px); } }
     @media (hover:hover) { .receipt-fab:hover { background:var(--primary-dark); transform:translateY(-3px); box-shadow:0 17px 34px rgba(17,24,39,.3); } .receipt-card:hover { border-color:color-mix(in srgb,var(--primary) 35%,var(--line)); box-shadow:0 6px 16px rgba(17,24,39,.06); } .receipt-view:hover { background:var(--primary); color:#fff; } }
     @media (max-width:760px) {
@@ -200,6 +240,12 @@
     @media (max-width:420px) {
       .stats { grid-template-columns:1fr; }
       .stat { padding:12px; }
+      .payout-choices { grid-template-columns:1fr; }
+      .payout-head { padding:18px 16px 14px; }
+      .payout-amount { margin:0 16px 18px; }
+      .payout-fields { padding:0 16px 16px; }
+      .payout-confirm { margin:0 16px 16px; }
+      .payout-actions { padding:12px 16px calc(12px + env(safe-area-inset-bottom)); }
     }
     @media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
   </style>
@@ -332,7 +378,62 @@
         @endif
       </section>
     </div>
-    <div class="modal" id="payoutModal" role="dialog" aria-modal="true" aria-labelledby="payoutTitle"><form class="sheet" id="riderPayoutForm" method="POST" action="{{ route('rider.payouts.request') }}" data-once>@csrf<h3 id="payoutTitle">Request delivery-fee payout</h3><p>Available amount: <strong>PHP {{ number_format($deliveryEarningSummary['available'],2) }}</strong></p><label>GCash account name</label><input class="note-input" name="gcash_name" required minlength="2" maxlength="160" value="{{ old('gcash_name',$rider->gcash_name ?? $rider->name) }}"><label class="mt-2"><input type="radio" name="number_source" value="linked" checked> Use linked number</label><label><input type="radio" name="number_source" value="other"> Use another number</label><input class="note-input" id="riderPayoutNumber" name="gcash_number" required inputmode="tel" value="{{ old('gcash_number',$rider->gcash_number ?? $rider->phone) }}" placeholder="09XXXXXXXXX"><div class="small mt-1" id="riderPayoutNumberHelp">Accepts 09, 9, +639, or 639 formats; saved as +63.</div><label class="mt-2"><input type="checkbox" name="confirmation" value="1" required> I confirm these GCash details are correct.</label><div class="row"><button class="btn btn-outline" type="button" onclick="closePayoutModal()">Cancel</button><button class="btn btn-pay" type="submit">Request payout</button></div></form></div>
+    @php
+      $linkedPayoutNumber = $rider->gcash_number ?: $rider->phone;
+      $payoutNumberSource = old('number_source', $linkedPayoutNumber ? 'linked' : 'other');
+      if (!$linkedPayoutNumber) $payoutNumberSource = 'other';
+    @endphp
+    <div class="modal payout-modal" id="payoutModal" role="dialog" aria-modal="true" aria-labelledby="payoutTitle" aria-hidden="true">
+      <form class="sheet payout-sheet" id="riderPayoutForm" method="POST" action="{{ route('rider.payouts.request') }}" data-once data-linked-number="{{ $linkedPayoutNumber }}">
+        @csrf
+        <div class="payout-head">
+          <span class="payout-head-icon" aria-hidden="true"><i class="bi bi-wallet2"></i></span>
+          <div class="payout-head-copy">
+            <div class="payout-kicker">Delivery earnings</div>
+            <h3 id="payoutTitle">Request payout</h3>
+            <p>Check where your delivery fees will be sent.</p>
+          </div>
+          <button class="payout-close" type="button" aria-label="Close payout request" onclick="closePayoutModal()"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+
+        <div class="payout-amount">
+          <div><span class="payout-amount-label">Available to request</span><strong>PHP {{ number_format($deliveryEarningSummary['available'], 2) }}</strong></div>
+          <i class="bi bi-cash-stack" aria-hidden="true"></i>
+        </div>
+
+        <div class="payout-fields">
+          <h4 class="payout-fields-title"><i class="bi bi-phone" aria-hidden="true"></i> GCash destination</h4>
+          <div class="payout-field">
+            <label class="payout-field-label" for="riderPayoutName">GCash account name</label>
+            <input class="payout-input" id="riderPayoutName" name="gcash_name" autocomplete="name" required minlength="2" maxlength="160" value="{{ old('gcash_name', $rider->gcash_name ?? $rider->name) }}">
+          </div>
+          <fieldset class="payout-choice-group">
+            <legend>GCash mobile number</legend>
+            <div class="payout-choices">
+              <label class="payout-choice">
+                <input type="radio" name="number_source" value="linked" {{ $payoutNumberSource === 'linked' ? 'checked' : '' }} {{ $linkedPayoutNumber ? '' : 'disabled' }}>
+                <span><strong>Saved number</strong><small>{{ $linkedPayoutNumber ? 'Use the number on your rider profile' : 'No number saved' }}</small></span>
+              </label>
+              <label class="payout-choice">
+                <input type="radio" name="number_source" value="other" {{ $payoutNumberSource === 'other' ? 'checked' : '' }}>
+                <span><strong>Another number</strong><small>Enter a different GCash number</small></span>
+              </label>
+            </div>
+          </fieldset>
+          <div class="payout-field">
+            <label class="payout-field-label" for="riderPayoutNumber">Number to receive payout</label>
+            <input class="payout-input" id="riderPayoutNumber" name="gcash_number" type="tel" autocomplete="tel" inputmode="tel" required value="{{ old('gcash_number', $payoutNumberSource === 'linked' ? $linkedPayoutNumber : '') }}" placeholder="09XXXXXXXXX" aria-describedby="riderPayoutNumberHelp" {{ $payoutNumberSource === 'linked' ? 'readonly' : '' }}>
+            <div class="payout-help" id="riderPayoutNumberHelp">Use 09, 9, +639, or 639 format.</div>
+          </div>
+        </div>
+
+        <label class="payout-confirm"><input type="checkbox" name="confirmation" value="1" required {{ old('confirmation') ? 'checked' : '' }}><span>I confirm the GCash name and number are correct.</span></label>
+        <div class="payout-actions">
+          <button class="btn btn-outline" type="button" onclick="closePayoutModal()">Cancel</button>
+          <button class="btn btn-pay" type="submit">Request payout</button>
+        </div>
+      </form>
+    </div>
   </main>
 
     <button class="receipt-fab" id="receiptFab" type="button" aria-haspopup="dialog" aria-controls="riderReceiptModal">
@@ -477,7 +578,90 @@
     window.addEventListener('online', function () { poll(true); });
     tickCountdowns();
   </script>
-<script>function openPayoutModal(){document.getElementById('payoutModal')?.classList.add('open');document.body.style.overflow='hidden'}function closePayoutModal(){document.getElementById('payoutModal')?.classList.remove('open');document.body.style.overflow=''}document.addEventListener('keydown',e=>{if(e.key==='Escape')closePayoutModal()});(()=>{const f=document.getElementById('riderPayoutForm'),n=document.getElementById('riderPayoutNumber'),h=document.getElementById('riderPayoutNumberHelp');if(!f||!n)return;const valid=()=>{let d=n.value.replace(/\D/g,'');if(d[0]==='0')d='63'+d.slice(1);else if(d[0]==='9')d='63'+d;const ok=/^639\d{9}$/.test(d);n.setCustomValidity(ok?'':'Enter a valid Philippine GCash number.');h.textContent=ok?'Valid number: +'+d:'Use 09, 9, +639, or 639 format.';h.style.color=ok?'#166534':'#b91c1c';return ok};n.addEventListener('input',valid);f.addEventListener('submit',e=>{if(!valid()){e.preventDefault();n.reportValidity()}})})();</script>
+  <script>
+    (() => {
+      const modal = document.getElementById('payoutModal');
+      const form = document.getElementById('riderPayoutForm');
+      const number = document.getElementById('riderPayoutNumber');
+      const help = document.getElementById('riderPayoutNumberHelp');
+      if (!modal || !form || !number || !help) return;
+
+      const linkedChoice = form.querySelector('input[name="number_source"][value="linked"]');
+      const otherChoice = form.querySelector('input[name="number_source"][value="other"]');
+      const linkedNumber = form.dataset.linkedNumber || '';
+      let otherNumber = otherChoice.checked ? number.value : '';
+      let previousFocus = null;
+      let previousOverflow = '';
+
+      const validateNumber = (showFeedback = false) => {
+        let digits = number.value.replace(/\D/g, '');
+        if (digits.startsWith('0')) digits = '63' + digits.slice(1);
+        else if (digits.startsWith('9')) digits = '63' + digits;
+        const valid = /^639\d{9}$/.test(digits);
+        number.setCustomValidity(valid ? '' : 'Enter a valid Philippine GCash number.');
+        number.setAttribute('aria-invalid', showFeedback && !valid ? 'true' : 'false');
+        help.classList.toggle('is-valid', showFeedback && valid);
+        help.classList.toggle('is-invalid', showFeedback && !valid);
+        help.textContent = !showFeedback ? 'Use 09, 9, +639, or 639 format.' : valid ? 'Valid number: +' + digits : 'Enter a valid number using 09, 9, +639, or 639 format.';
+        return valid;
+      };
+
+      const syncNumberSource = (focusNumber = false) => {
+        if (linkedChoice.checked) {
+          if (!number.readOnly) otherNumber = number.value;
+          number.value = linkedNumber;
+          number.readOnly = true;
+        } else {
+          number.readOnly = false;
+          number.value = otherNumber;
+          if (focusNumber) number.focus();
+        }
+        validateNumber(false);
+      };
+
+      window.openPayoutModal = () => {
+        if (modal.classList.contains('open')) return;
+        previousFocus = document.activeElement;
+        previousOverflow = document.body.style.overflow;
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        modal.querySelector('.payout-close').focus();
+      };
+      window.closePayoutModal = () => {
+        if (!modal.classList.contains('open')) return;
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = previousOverflow;
+        previousFocus?.focus();
+      };
+
+      linkedChoice.addEventListener('change', () => syncNumberSource());
+      otherChoice.addEventListener('change', () => syncNumberSource(true));
+      number.addEventListener('input', () => {
+        if (otherChoice.checked) otherNumber = number.value;
+        validateNumber(true);
+      });
+      form.addEventListener('submit', event => {
+        if (validateNumber(true)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        number.reportValidity();
+      });
+      modal.addEventListener('click', event => { if (event.target === modal) closePayoutModal(); });
+      document.addEventListener('keydown', event => {
+        if (!modal.classList.contains('open')) return;
+        if (event.key === 'Escape') { closePayoutModal(); return; }
+        if (event.key !== 'Tab') return;
+        const controls = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled)')];
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      });
+      syncNumberSource();
+    })();
+  </script>
   <script>
     (() => {
       const endpoint = @json(route('rider.payouts.receipts'));
