@@ -82,6 +82,53 @@ class SellerPayoutJourneyTest extends TestCase
             ->get(route('superadmin.payouts.breakdown', ['metric' => 'not-a-metric']))->assertNotFound();
     }
 
+    public function test_finance_activity_tables_total_the_rows_shown_in_each_column(): void
+    {
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
+        $tables = [
+            'cash-history' => ['columns' => 6, 'label_span' => 5, 'amounts' => [5 => 1]],
+            'payments' => ['columns' => 7, 'label_span' => 5, 'amounts' => [5 => 1]],
+            'commission' => ['columns' => 8, 'label_span' => 3, 'amounts' => [3 => 1, 4 => 2, 5 => 3, 6 => 4, 7 => 5]],
+        ];
+        $assertTotals = function ($response, int $expectedRows) use ($tables): void {
+            $document = new \DOMDocument;
+            $previous = libxml_use_internal_errors(true);
+            $document->loadHTML('<?xml encoding="UTF-8"?>'.$response->getContent());
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+            $xpath = new \DOMXPath($document);
+
+            foreach ($tables as $panel => $table) {
+                $rows = $xpath->query("//*[@id='finance-panel-{$panel}']//tbody/tr[count(td) = {$table['columns']}]");
+                $footer = $xpath->query("//*[@id='finance-panel-{$panel}']//tfoot/tr/*");
+                $this->assertCount($expectedRows, $rows);
+                $this->assertCount(count($table['amounts']) + ($panel === 'payments' ? 2 : 1), $footer);
+                $this->assertSame((string) $table['label_span'], $footer->item(0)->getAttribute('colspan'));
+                $this->assertSame('Total shown ('.$expectedRows.' '.($expectedRows === 1 ? 'row' : 'rows').')', trim($footer->item(0)->textContent));
+
+                foreach ($table['amounts'] as $bodyColumn => $footerColumn) {
+                    $sum = 0.0;
+                    foreach ($rows as $row) {
+                        $text = $row->getElementsByTagName('td')->item($bodyColumn)->textContent;
+                        $sum += (float) str_replace([',', '₱', '−', ' '], ['', '', '-', ''], trim($text));
+                    }
+                    $this->assertStringContainsString('text-end', $footer->item($footerColumn)->getAttribute('class'));
+                    $this->assertSame('₱'.number_format($sum, 2), trim($footer->item($footerColumn)->textContent));
+                }
+            }
+        };
+
+        $assertTotals($admin->get(route('superadmin.payouts', ['period' => 'today']))->assertOk(), 0);
+
+        $this->order('TOTALROW1', 'Picked Up');
+        PaymentTransactionHelper::recordFinalCashIfNeeded(DB::table('orders')->where('id', 'TOTALROW1')->first(), 'Picked Up');
+        $assertTotals($admin->get(route('superadmin.payouts', ['period' => 'today']))->assertOk(), 1);
+
+        $this->order('TOTALROW2', 'Picked Up', 'COP', 'Pickup', 600);
+        PaymentTransactionHelper::recordFinalCashIfNeeded(DB::table('orders')->where('id', 'TOTALROW2')->first(), 'Picked Up');
+        $assertTotals($admin->get(route('superadmin.payouts', ['period' => 'today']))->assertOk(), 2);
+    }
+
     public function test_ready_payout_breakdown_shows_per_shop_recovery_netting(): void
     {
         $this->order('NETTING123', 'Picked Up');
@@ -214,11 +261,11 @@ class SellerPayoutJourneyTest extends TestCase
 
         $hub = $admin->get(route('superadmin.payouts'));
         $hub->assertOk();
-        $this->assertTrue(str_contains($hub->getContent(), 'Seller Payouts') && str_contains($hub->getContent(), 'Rider Payouts') && !str_contains($hub->getContent(), 'Cancel & Reconcile'), 'Finance hub separation');
+        $this->assertTrue(str_contains($hub->getContent(), 'Seller Payouts') && str_contains($hub->getContent(), 'Rider Payouts') && ! str_contains($hub->getContent(), 'Cancel & Reconcile'), 'Finance hub separation');
         $hub->assertDontSee('Order Reconciliation Audit');
         $seller = $admin->get(route('superadmin.payouts.sellers', ['payout_status' => 'requested', 'shop' => 'SHOP']));
         $seller->assertOk()->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 1 && $counts['rider_requests'] === 1);
-        $this->assertTrue(str_contains($seller->getContent(), 'SPLITPAGE') && !str_contains($seller->getContent(), 'Cancel & Reconcile'), 'Seller request page without cancel action');
+        $this->assertTrue(str_contains($seller->getContent(), 'SPLITPAGE') && ! str_contains($seller->getContent(), 'Cancel & Reconcile'), 'Seller request page without cancel action');
         $seller->assertSee('data-payout-detail="seller-payout-', false)->assertSee('name="payout_receipt"', false)->assertSee('adminPayoutDetailDialog');
         $admin->get(route('superadmin.payouts.riders', ['status' => 'requested', 'rider' => $riderId]))
             ->assertOk()->assertSee('Test Rider')->assertSee('₱75.00')->assertSee('data-payout-detail="rider-payout-', false)

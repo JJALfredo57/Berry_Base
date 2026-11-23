@@ -137,6 +137,12 @@
   @endforeach
 </div>
 
+<style>
+  .finance-table-total { --bs-table-bg: #f8fafc; }
+  .finance-table-total th, .finance-table-total td { border-top: 2px solid #cbd5e1; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .finance-table-total th { color: #334155; }
+  .finance-table-total .text-end { white-space: nowrap; }
+</style>
 <div class="card mb-4">
   <button class="card-header finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="cash-history" aria-expanded="false" aria-controls="finance-panel-cash-history"><span><i class="bi bi-cash-coin me-2" style="color:#166534"></i>Cash Settlement History</span><span class="small text-muted">Cash on Pickup and Cash on Delivery; recorded for audit only and excluded from online payout.</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
   <div class="finance-table-panel" id="finance-panel-cash-history" data-finance-content="cash-history" hidden><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Settled</th><th>Order</th><th>Seller</th><th>Cash transaction</th><th>Order Status</th><th class="text-end">Amount</th></tr></thead><tbody>
@@ -145,7 +151,7 @@
     @empty
       <tr><td colspan="6" class="text-center text-muted py-4">No completed cash pickup or delivery payments are recorded for this period.</td></tr>
     @endforelse
-  </tbody></table></div></div>
+  </tbody><tfoot class="finance-table-total"><tr><th scope="row" colspan="5">Total shown ({{ $cashPayments->count() }} {{ $cashPayments->count() === 1 ? 'row' : 'rows' }})</th><td class="text-end">₱{{ number_format((float) $cashPayments->sum('amount'), 2) }}</td></tr></tfoot></table></div></div>
 </div>
 
 <div class="card mb-4">
@@ -168,6 +174,7 @@
           <tr><td colspan="7" class="text-center text-muted py-4">No confirmed GCash payments are recorded yet.</td></tr>
         @endforelse
       </tbody>
+      <tfoot class="finance-table-total"><tr><th scope="row" colspan="5">Total shown ({{ $onlinePayments->count() }} {{ $onlinePayments->count() === 1 ? 'row' : 'rows' }})</th><td class="text-end">₱{{ number_format((float) $onlinePayments->sum('amount'), 2) }}</td><td></td></tr></tfoot>
     </table>
   </div></div>
 </div>
@@ -193,6 +200,14 @@
           <tr><td colspan="8" class="text-center text-muted py-4">Commission allocation is recorded when online payment is verified; the seller rate is preserved.</td></tr>
         @endforelse
       </tbody>
+      <tfoot class="finance-table-total"><tr>
+        <th scope="row" colspan="3">Total shown ({{ $commissionRows->count() }} {{ $commissionRows->count() === 1 ? 'row' : 'rows' }})</th>
+        <td class="text-end">₱{{ number_format((float) $commissionRows->sum(fn ($ledger) => (float) ($ledger->online_paid ?? 0)), 2) }}</td>
+        <td class="text-end">₱{{ number_format((float) $commissionRows->sum(fn ($ledger) => (float) ($ledger->cash_paid ?? 0)), 2) }}</td>
+        <td class="text-end">₱{{ number_format((float) $commissionRows->sum(fn ($ledger) => (float) ($ledger->cake_amount ?? $ledger->commission_base)), 2) }}</td>
+        <td class="text-end">₱{{ number_format((float) $commissionRows->sum('commission_amount'), 2) }}</td>
+        <td class="text-end">₱{{ number_format((float) $commissionRows->sum('seller_net_amount'), 2) }}</td>
+      </tr></tfoot>
     </table>
   </div></div>
 </div>
