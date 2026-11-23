@@ -223,29 +223,8 @@
 <style>.admin-payout-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr));gap:.65rem;margin:1rem 0}.admin-payout-totals a{min-width:0;padding:.9rem;border:1px solid #e5e7eb;border-radius:14px;background:#fff;text-decoration:none;color:#44291a;overflow-wrap:anywhere}.admin-payout-totals a:hover,.admin-payout-totals a.is-current{border-color:var(--primary);background:#fff7ed;box-shadow:0 0 0 3px rgba(135,63,25,.16)}.admin-payout-totals strong,.admin-payout-totals span{display:block}.admin-payout-totals strong{font-size:1.15rem;font-variant-numeric:tabular-nums}.admin-payout-totals span{font-size:.76rem;color:#6b7280}.finance-date-form>*{min-width:0}.finance-date-form select{min-width:130px}.finance-date-filter,.card,.payout-table-scroll{min-width:0;max-width:100%}@media(max-width:575px){.finance-date-form .btn{flex:1 1 100%}.finance-date-form select{width:100%;min-width:0}}</style>
 @endif
 
+@if($page === 'seller')
 <div class="row g-4">
-  @if($page === 'hub')
-  <div class="col-lg-4">
-    <div class="card">
-      <div class="card-header"><i class="bi bi-sliders me-2" style="color:var(--primary)"></i>Payout Settings</div>
-      <div class="card-body">
-        <form action="{{ route('superadmin.payouts.settings') }}" method="POST" data-prevent-double-submit>
-          @csrf
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Payout Mode</label>
-            <div class="form-control bg-light d-flex align-items-center gap-2" aria-label="Payout mode: Manual, locked"><i class="bi bi-lock-fill text-muted"></i><span>Manual — admin reviews and marks paid</span></div>
-            <div class="form-text">Payout mode is locked to Manual. Admin review is required before marking payout as paid.</div>
-          </div><div class="alert alert-light mb-0">No waiting days or minimum payout. Verified payments are visible immediately; completed, issue-free orders can be requested.</div>
-          <button class="btn btn-primary w-100 mt-4" type="submit" data-loading-text="Saving...">
-            <i class="bi bi-save me-1"></i>Save Settings
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-  @endif
-
-  @if($page === 'seller')
   <div class="col-12">
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
@@ -346,8 +325,8 @@
       <div class="p-3">{{ $shops->links() }}</div>
     </div>
   </div>
-  @endif
 </div>
+@endif
 
 @if(false) {{-- Legacy refund queue: refund completion belongs to Return & Refund Cases. --}}
 @if(($riderPayoutRequests ?? collect())->count())<div class="card mt-4"><div class="card-header payout-section-head"><span><i class="bi bi-bicycle me-2"></i>Rider Delivery-Fee Payouts</span></div><div class="card-body">@foreach($riderPayoutRequests as $rp)<div class="border-bottom py-3"><strong>{{ $rp->rider_name }}</strong> · ₱{{ number_format($rp->amount,2) }}<div class="small text-muted">{{ $rp->gcash_name }} · {{ $rp->gcash_number }} · {{ ucfirst($rp->status) }}</div>@if($rp->status==='requested')<form method="POST" enctype="multipart/form-data" action="{{ route('superadmin.rider_payouts.mark_paid',$rp->id) }}" class="mt-2 rider-payout-pay" data-prevent-double-submit>@csrf<input class="rider-payout-receipt" data-scan-url="{{ route('superadmin.rider_payouts.scan_receipt',$rp->id) }}" name="receipt" type="file" accept="image/jpeg,image/png,image/webp" required><div class="small rider-payout-scan-message">Upload a receipt to scan the reference.</div><input class="rider-payout-reference" name="reference_number" required readonly placeholder="Scanned reference"><button class="btn btn-success btn-sm" type="submit" disabled>Mark paid</button></form>@endif</div>@endforeach</div></div>@endif
