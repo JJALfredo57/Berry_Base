@@ -71,7 +71,10 @@ class SellerPayoutJourneyTest extends TestCase
             $url = route('superadmin.payouts.breakdown', ['metric' => $metric, 'period' => 'today']);
             $overview->assertSee($url, false);
             $admin->get($url)->assertOk()->assertViewHas('report', fn ($report) => abs($report['total'] - $expected) < 0.001)
-                ->assertSee('Total for all matching records');
+                ->assertSee('Total across all matching records')
+                ->assertSee('Visible page subtotal (signed rows)')
+                ->assertDontSee('Total for all matching records')
+                ->assertSee('id="financeOrderModal"', false);
         }
         $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'customer-funds', 'period' => 'today', 'search' => 'NO-MATCH']))
             ->assertOk()->assertViewHas('report', fn ($report) => $report['total'] === 0.0);
@@ -80,6 +83,42 @@ class SellerPayoutJourneyTest extends TestCase
         $this->seller()->get(route('superadmin.payouts.breakdown', ['metric' => 'customer-funds']))->assertRedirect();
         $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']])
             ->get(route('superadmin.payouts.breakdown', ['metric' => 'not-a-metric']))->assertNotFound();
+    }
+
+    public function test_finance_breakdown_rows_are_compact_and_modal_contains_cake_snapshots(): void
+    {
+        $this->order('CAKEDETAIL1', 'Picked Up');
+        $this->order('LEGACYCAKE1', 'Picked Up');
+        DB::table('order_items')->insert([
+            'order_id' => 'CAKEDETAIL1', 'shop_id' => 'SHOP', 'product_id' => 'CAKE',
+            'product_name' => 'Chocolate Celebration Cake', 'quantity' => 2,
+            'selected_size' => '8 inches', 'final_unit_price_snapshot' => 245,
+            'custom_note' => 'Happy birthday', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('order_addons')->insert([
+            'order_id' => 'CAKEDETAIL1', 'addon_name' => 'Candles', 'addon_price' => 20,
+            'created_at' => now(),
+        ]);
+        DB::table('custom_orders')->insert([
+            'id' => 'CUSTOMCAKE1', 'order_id' => 'CAKEDETAIL1', 'shop_id' => 'SHOP',
+            'cake_name' => 'Birthday design', 'flavor' => 'Strawberry', 'size' => '8 inches',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
+        $response = $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'customer-funds', 'period' => 'today']))->assertOk();
+        $response->assertSee('data-order-detail="fb-detail-', false)
+            ->assertSee('document.body.appendChild(modal)', false)
+            ->assertSee('Chocolate Celebration Cake × 2')
+            ->assertSee('Size: 8 inches')
+            ->assertSee('Cake amount: ₱490.00')
+            ->assertSee('Custom cake specifications')
+            ->assertSee('Flavor: Strawberry')
+            ->assertSee('Candles')
+            ->assertSee('Item-level price snapshot is unavailable for this older order')
+            ->assertDontSee('<div class="fb-formula"', false)
+            ->assertDontSee('Total for all matching records');
+        $this->assertCount(2, $response->viewData('report')['cakeDetails']);
     }
 
     public function test_finance_activity_tables_total_the_rows_shown_in_each_column(): void
@@ -161,7 +200,7 @@ class SellerPayoutJourneyTest extends TestCase
             ->assertViewHas('paymentSummary', fn ($summary) => $summary['refunds_sent'] === 50.0);
         $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'refunds-sent', 'period' => 'today', 'search' => 'REF-50001']))
             ->assertOk()->assertViewHas('report', fn ($report) => $report['total'] === 50.0)
-            ->assertSee('REF-50001')->assertSee('View linked source records');
+            ->assertSee('REF-50001')->assertSee('Linked source records');
         $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'refunds-sent', 'period' => 'today', 'status' => 'Pending']))
             ->assertOk()->assertViewHas('report', fn ($report) => $report['total'] === 0.0);
     }

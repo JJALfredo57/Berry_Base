@@ -125,8 +125,9 @@ class FinanceBreakdownService
             'path' => url()->current(), 'query' => request()->query(),
         ]);
         $sources = $this->sourcesForOrders($paginated->getCollection()->pluck('order_id')->filter()->unique()->all());
+        $cakeDetails = $this->cakeDetailsForOrders($paginated->getCollection()->pluck('order_id')->filter()->unique()->all());
 
-        return compact('group', 'title', 'field', 'source', 'paginated', 'total', 'rawTotal', 'nettingAdjustment', 'sources');
+        return compact('group', 'title', 'field', 'source', 'paginated', 'total', 'rawTotal', 'nettingAdjustment', 'sources', 'cakeDetails');
     }
 
     private function paymentRows(array $filters): Collection
@@ -318,5 +319,38 @@ class FinanceBreakdownService
         }
 
         return $sources;
+    }
+
+    /** Load cake snapshots only for orders on the visible page. */
+    private function cakeDetailsForOrders(array $orderIds): Collection
+    {
+        if (! $orderIds) {
+            return collect();
+        }
+
+        $orders = DB::table('orders as o')
+            ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
+            ->whereIn('o.id', $orderIds)
+            ->select('o.id', 'o.quantity', 'o.selected_size', 'o.product_id', 'p.name as product_name')
+            ->get()->keyBy('id');
+        $items = Schema::hasTable('order_items')
+            ? DB::table('order_items')->whereIn('order_id', $orderIds)->orderBy('id')
+                ->get(['order_id', 'product_name', 'quantity', 'selected_size', 'final_unit_price_snapshot', 'custom_note'])->groupBy('order_id')
+            : collect();
+        $addons = Schema::hasTable('order_addons')
+            ? DB::table('order_addons')->whereIn('order_id', $orderIds)->orderBy('id')
+                ->get(['order_id', 'addon_name', 'addon_price'])->groupBy('order_id')
+            : collect();
+        $customOrders = Schema::hasTable('custom_orders')
+            ? DB::table('custom_orders')->whereIn('order_id', $orderIds)
+                ->get(['order_id', 'cake_name', 'flavor', 'size', 'layers', 'design_complexity', 'dedication', 'custom_note'])->keyBy('order_id')
+            : collect();
+
+        return collect($orderIds)->mapWithKeys(fn ($id) => [(string) $id => [
+            'order' => $orders->get($id),
+            'items' => $items->get($id, collect()),
+            'addons' => $addons->get($id, collect()),
+            'custom' => $customOrders->get($id),
+        ]]);
     }
 }
