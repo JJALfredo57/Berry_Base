@@ -58,6 +58,8 @@ class SellerPayoutJourneyTest extends TestCase
         $this->order('DELIVERYWAIT', 'Out for Delivery', 'GCash', 'Delivery');
         DB::table('seller_payout_ledgers')->where('id', $pickup->id)
             ->update(['blocked_reason' => 'Awaiting Delivery/Pickup']);
+        DB::table('seller_balance_events')->where('order_id', 'PICKUPWAIT')
+            ->update(['note' => 'Awaiting Delivery/Pickup']);
 
         $this->seller()->get('/seller/payouts')->assertOk()
             ->assertSee('Waiting for Pickup')->assertSee('Waiting for Delivery')

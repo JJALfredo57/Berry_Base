@@ -128,11 +128,13 @@ class PayoutController extends Controller
             : collect();
         $activityType = (string) $request->input('activity_type', '');
         $events = Schema::hasTable('seller_balance_events')
-            ? DB::table('seller_balance_events')->where('shop_id', $shop->id)
-                ->when(! $allDates, fn ($q) => $q->whereBetween(DB::raw('DATE(created_at)'), [$from, $to]))
-                ->when($search !== '', fn ($q) => $q->where('order_id', 'like', '%'.$search.'%'))
-                ->when($activityType !== '', fn ($q) => $q->where('type', $activityType))
-                ->orderBy('id', $sort === 'oldest' ? 'asc' : 'desc')->paginate(10, ['*'], 'activity_page')->withQueryString()
+            ? DB::table('seller_balance_events as e')->leftJoin('orders as o', 'o.id', '=', 'e.order_id')
+                ->where('e.shop_id', $shop->id)
+                ->when(! $allDates, fn ($q) => $q->whereBetween(DB::raw('DATE(e.created_at)'), [$from, $to]))
+                ->when($search !== '', fn ($q) => $q->where('e.order_id', 'like', '%'.$search.'%'))
+                ->when($activityType !== '', fn ($q) => $q->where('e.type', $activityType))
+                ->select('e.*', 'o.fulfillment_type as order_fulfillment_type')
+                ->orderBy('e.id', $sort === 'oldest' ? 'asc' : 'desc')->paginate(10, ['*'], 'activity_page')->withQueryString()
             : collect();
         if ($allDates) {
             [$from, $to] = ['', ''];
