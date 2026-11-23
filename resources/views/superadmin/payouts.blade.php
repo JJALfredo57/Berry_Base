@@ -80,17 +80,32 @@
   ];
 @endphp
 <style>.finance-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1.5rem}.finance-group{border:1px solid var(--gray-100,#e5e7eb);border-radius:16px;background:#fff;overflow:hidden;min-width:0}.finance-group summary{list-style:none;cursor:pointer;padding:.8rem 1rem .3rem;display:flex;justify-content:space-between;gap:.75rem;align-items:center;font-weight:750}.finance-group summary::-webkit-details-marker{display:none}.finance-group summary:hover{background:#f8fafc}.finance-group[open] summary .bi{transform:rotate(180deg)}.finance-group-main{display:grid;gap:.1rem;padding:.15rem 1rem 1rem}.finance-group-main small{color:var(--gray-500)}.finance-headline{display:flex;align-items:center;gap:.45rem;min-height:42px;width:fit-content;max-width:100%;text-decoration:none}.finance-amount{font-size:1.35rem;font-weight:800;overflow-wrap:anywhere}.finance-headline .bi{font-size:.9rem}.finance-details{display:grid;gap:.3rem;padding:0 1rem 1rem}.finance-line{display:flex;justify-content:space-between;align-items:center;gap:.75rem;min-height:42px;font-size:.85rem;border-top:1px solid #f1f5f9;padding:.45rem .15rem;text-decoration:none;color:inherit;border-radius:4px}.finance-line strong{white-space:nowrap;font-variant-numeric:tabular-nums}.finance-line:hover,.finance-headline:hover{color:var(--primary);background:#fff7ed}.finance-line:focus-visible,.finance-headline:focus-visible{outline:3px solid var(--primary);outline-offset:2px}.text-purple{color:#7c3aed}.finance-review-alert{border-left:4px solid #b45309}.finance-audit-table{min-width:1040px}.finance-state{font-size:.75rem;font-weight:700}@media(max-width:900px){.finance-groups{grid-template-columns:1fr}}@media(prefers-reduced-motion:no-preference){.finance-group[open] .finance-details{animation:financeIn .2s ease-out}@keyframes financeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}}</style>
+<style>
+  .finance-group-main { padding: .85rem 1rem .65rem; }
+  .finance-group-title { font-weight: 750; line-height: 1.4; }
+  .finance-group-disclosure summary { min-height: 44px; padding: .55rem 1rem; border-top: 1px solid #f1f5f9; color: #475569; font-size: .85rem; font-weight: 600; }
+  .finance-group-disclosure[open] summary .bi { transform: rotate(180deg); }
+  @media (prefers-reduced-motion: no-preference) {
+    .finance-group-disclosure[open] .finance-details { animation: financeIn .2s ease-out; }
+  }
+</style>
 <div class="finance-groups">
   @foreach($financeGroups as [$groupLabel, $groupMetric, $groupAmount, $groupHelp, $groupColor, $groupLines])
-    <details class="finance-group" @if($groupMetric === 'verified-commission') open @endif>
-      <summary><span>{{ $groupLabel }}</span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
-      <div class="finance-group-main"><a class="finance-headline {{ $groupColor }}" href="{{ $breakdownUrl($groupMetric) }}" aria-label="View breakdown for {{ $groupLabel }}: ₱{{ number_format($groupAmount, 2) }}"><span class="finance-amount">₱{{ number_format($groupAmount, 2) }}</span><i class="bi bi-arrow-up-right" aria-hidden="true"></i></a><small>{{ $groupHelp }}</small></div>
-      <div class="finance-details">
-        @foreach($groupLines as [$label, $lineMetric, $amount, $deduction])
-          <a class="finance-line" href="{{ $breakdownUrl($lineMetric) }}" aria-label="View breakdown for {{ $label }}: {{ $deduction ? 'minus ' : '' }}₱{{ number_format($amount, 2) }}"><span>{{ $label }} <i class="bi bi-arrow-up-right small" aria-hidden="true"></i></span><strong>{{ $deduction ? '−' : '' }}₱{{ number_format($amount, 2) }}</strong></a>
-        @endforeach
+    <div class="finance-group">
+      <div class="finance-group-main">
+        <strong class="finance-group-title">{{ $groupLabel }}</strong>
+        <a class="finance-headline {{ $groupColor }}" href="{{ $breakdownUrl($groupMetric) }}" aria-label="View breakdown for {{ $groupLabel }}: ₱{{ number_format($groupAmount, 2) }}"><span class="finance-amount">₱{{ number_format($groupAmount, 2) }}</span><i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>
+        <small>{{ $groupHelp }}</small>
       </div>
-    </details>
+      <details class="finance-group-disclosure" @if($groupMetric === 'verified-commission') open @endif>
+        <summary><span>View line items</span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
+        <div class="finance-details">
+          @foreach($groupLines as [$label, $lineMetric, $amount, $deduction])
+            <a class="finance-line" href="{{ $breakdownUrl($lineMetric) }}" aria-label="View breakdown for {{ $label }}: {{ $deduction ? 'minus ' : '' }}₱{{ number_format($amount, 2) }}"><span>{{ $label }} <i class="bi bi-arrow-up-right small" aria-hidden="true"></i></span><strong>{{ $deduction ? '−' : '' }}₱{{ number_format($amount, 2) }}</strong></a>
+          @endforeach
+        </div>
+      </details>
+    </div>
   @endforeach
 </div>
 @if($paymentSummary['review_count'] > 0)
