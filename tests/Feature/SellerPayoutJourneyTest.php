@@ -52,6 +52,26 @@ class SellerPayoutJourneyTest extends TestCase
         return $this->withSession(['user' => ['id' => 'SELLER', 'fullname' => 'Test Seller', 'role' => 'seller']]);
     }
 
+    public function test_commission_analytics_shows_commission_without_gross_sales(): void
+    {
+        $this->order('COMMISSIONONLY', 'Picked Up', 'GCash', 'Pickup', 1000);
+        DB::table('orders')->where('id', 'COMMISSIONONLY')->update(['paid_at' => now()]);
+
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
+        $response = $admin->get(route('superadmin.commissions', ['period' => 'today']))->assertOk();
+
+        $response->assertSee('Commission in period')
+            ->assertSee('Verified commission')
+            ->assertSee('Paid Orders')
+            ->assertSee("label: 'Commission'", false)
+            ->assertDontSee('Gross Sales')
+            ->assertDontSee('grossSales');
+        $this->assertSame(['labels', 'commission', 'orders'], array_keys($response->viewData('chartData')));
+        $this->assertEquals(20, $response->viewData('totalCommission'));
+        $this->assertEquals(1, $response->viewData('paidOrdersMonth'));
+        $this->assertCount(1, $response->viewData('topShops'));
+    }
+
     public function test_finance_breakdowns_link_every_metric_and_reconcile_with_overview(): void
     {
         $this->order('FINANCE123', 'Picked Up');

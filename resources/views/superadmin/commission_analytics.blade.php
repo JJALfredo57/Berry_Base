@@ -16,7 +16,7 @@
   }
   .commission-kpis {
     display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-columns:repeat(3,minmax(0,1fr));
     gap:.85rem;
     margin-bottom:1rem;
   }
@@ -98,7 +98,7 @@
   }
   .commission-shop-metrics {
     display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-columns:repeat(2,minmax(0,1fr));
     gap:.6rem;
   }
   .commission-shop-metric {
@@ -178,12 +178,6 @@
     .commission-shop-meta {
       font-size:.72rem;
     }
-    .commission-shop-metrics {
-      grid-template-columns:repeat(2,minmax(0,1fr));
-    }
-    .commission-shop-metric:last-child {
-      grid-column:1 / -1;
-    }
   }
 </style>
 @endpush
@@ -221,11 +215,6 @@
     <div class="commission-kpi-icon" style="background:#e3f2fd"><i class="bi bi-receipt" style="color:#1565C0"></i></div>
     <div class="commission-kpi-value">{{ number_format($paidOrdersMonth) }}</div>
     <div class="commission-kpi-label">Paid Orders</div>
-  </div>
-  <div class="commission-kpi">
-    <div class="commission-kpi-icon" style="background:#fff7ed"><i class="bi bi-bar-chart-line" style="color:#c2410c"></i></div>
-    <div class="commission-kpi-value">&#8369;{{ number_format($grossSalesMonth, 2) }}</div>
-    <div class="commission-kpi-label">Gross Sales</div>
   </div>
 </div>
 
@@ -269,10 +258,6 @@
             <div class="commission-shop-metric">
               <div class="commission-shop-metric-label">Commission</div>
               <strong>&#8369;{{ number_format($shop->commission, 2) }}</strong>
-            </div>
-            <div class="commission-shop-metric">
-              <div class="commission-shop-metric-label">Gross Sales</div>
-              <strong>&#8369;{{ number_format($shop->gross_sales, 2) }}</strong>
             </div>
             <div class="commission-shop-metric">
               <div class="commission-shop-metric-label">Orders</div>
@@ -319,19 +304,6 @@
             borderSkipped: false,
             backgroundColor: 'rgba(22, 163, 74, .78)',
             hoverBackgroundColor: 'rgba(22, 163, 74, .95)'
-          },
-          {
-            type: 'line',
-            label: 'Gross Sales',
-            data: data.grossSales,
-            borderColor: '#2563eb',
-            backgroundColor: 'rgba(37, 99, 235, .12)',
-            borderWidth: 3,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            tension: .36,
-            fill: true,
-            yAxisID: 'gross'
           }
         ]
       },
@@ -368,12 +340,6 @@
               callback: function (value) { return peso.format(value).replace('.00', ''); }
             },
             grid: { color: 'rgba(148, 163, 184, .22)' }
-          },
-          gross: {
-            beginAtZero: true,
-            position: 'right',
-            ticks: { display: false },
-            grid: { display: false }
           }
         }
       }

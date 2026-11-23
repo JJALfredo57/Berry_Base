@@ -70,12 +70,8 @@ class DashboardController extends Controller
         $paidOrdersMonth = $commissionPeriodQuery()
             ->count();
 
-        $grossSalesMonth = $commissionPeriodQuery()
-            ->sum('l.gross_amount');
-
         $monthlyLabels = [];
         $monthlyCommission = [];
-        $monthlyGrossSales = [];
         $monthlyOrderCounts = [];
         $monthlyBuckets = [];
 
@@ -87,14 +83,13 @@ class DashboardController extends Controller
 
             $monthlyBuckets[$key] = [
                 'commission' => 0,
-                'gross_sales' => 0,
                 'paid_orders' => 0,
             ];
             $daily ? $cursor->addDay() : $cursor->addMonth();
         }
 
         $commissionPeriodQuery()
-            ->select('o.paid_at', 'l.gross_amount', 'l.commission_amount')
+            ->select('o.paid_at', 'l.commission_amount')
             ->orderBy('o.paid_at')
             ->get()
             ->each(function ($order) use (&$monthlyBuckets, $daily) {
@@ -104,9 +99,7 @@ class DashboardController extends Controller
                     return;
                 }
 
-                $grossSales = (float) $order->gross_amount;
                 $monthlyBuckets[$key]['commission'] += (float) $order->commission_amount;
-                $monthlyBuckets[$key]['gross_sales'] += $grossSales;
                 $monthlyBuckets[$key]['paid_orders']++;
             });
 
@@ -115,7 +108,6 @@ class DashboardController extends Controller
 
             $monthlyLabels[] = $daily ? $bucketDate->format('M j') : $bucketDate->format('M Y');
             $monthlyCommission[] = round((float) $row['commission'], 2);
-            $monthlyGrossSales[] = round((float) $row['gross_sales'], 2);
             $monthlyOrderCounts[] = (int) $row['paid_orders'];
         }
 
@@ -125,7 +117,6 @@ class DashboardController extends Controller
                 'shops.tier',
                 'shops.commission_rate',
                 DB::raw('SUM(l.commission_amount) as commission'),
-                DB::raw('SUM(l.gross_amount) as gross_sales'),
                 DB::raw('COUNT(*) as paid_orders')
             )
             ->groupBy('shops.id', 'shops.shop_name', 'shops.tier', 'shops.commission_rate')
@@ -136,7 +127,6 @@ class DashboardController extends Controller
         $chartData = [
             'labels' => $monthlyLabels,
             'commission' => $monthlyCommission,
-            'grossSales' => $monthlyGrossSales,
             'orders' => $monthlyOrderCounts,
         ];
 
@@ -145,7 +135,6 @@ class DashboardController extends Controller
             'totalCommission',
             'commissionMonth',
             'paidOrdersMonth',
-            'grossSalesMonth',
             'topShops',
             'chartData', 'from', 'to', 'period'
         ));
