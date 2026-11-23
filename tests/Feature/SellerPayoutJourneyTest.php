@@ -134,6 +134,42 @@ class SellerPayoutJourneyTest extends TestCase
         $admin->get(route('superadmin.payouts'))->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_details'] === 1 && $counts['seller'] === 1);
     }
 
+    public function test_admin_payout_history_and_rider_requests_keep_details_in_the_shared_dialog(): void
+    {
+        $ledger = $this->order('HISTORY', 'Picked Up');
+        $sellerPayoutId = DB::table('seller_payouts')->insertGetId([
+            'shop_id' => 'SHOP', 'seller_id' => 'SELLER', 'mode' => 'manual', 'status' => 'paid', 'net_amount' => 185,
+            'payout_method' => 'gcash', 'payout_account_name' => 'Test Seller', 'payout_account_number' => '09171234567',
+            'reference_number' => 'SELLER-REF-123', 'payout_receipt_path' => 'https://receipt.test/seller.png',
+            'paid_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('seller_payout_items')->insert([
+            'payout_id' => $sellerPayoutId, 'ledger_id' => $ledger->id, 'order_id' => 'HISTORY',
+            'net_amount' => 185, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $riderId = DB::table('riders')->insertGetId([
+            'shop_id' => 'SHOP', 'name' => 'Test Rider', 'phone' => '09170001111',
+            'gcash_name' => 'Test Rider', 'gcash_number' => '09170001111', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $riderPayoutId = DB::table('rider_payout_requests')->insertGetId([
+            'rider_id' => $riderId, 'amount' => 75, 'gcash_name' => 'Test Rider', 'gcash_number' => '09170001111',
+            'status' => 'paid', 'reference_number' => 'RIDER-REF-456', 'receipt_path' => 'https://receipt.test/rider.png',
+            'paid_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
+        $admin->get(route('superadmin.payouts.sellers', ['payout_status' => 'paid']))
+            ->assertOk()->assertSee('data-payout-detail="seller-history-payout-'.$sellerPayoutId.'"', false)
+            ->assertSee('SELLER-REF-123')->assertSee('#HISTORY')->assertSee('View Receipt')
+            ->assertSee('payoutReceiptViewerModal')->assertSee(route('superadmin.payouts.receipt_download', $sellerPayoutId), false)
+            ->assertDontSee('payout-history-admin-table');
+        $admin->get(route('superadmin.payouts.riders', ['status' => 'paid', 'rider' => $riderId]))
+            ->assertOk()->assertSee('Rider Payout History')
+            ->assertSee('data-payout-detail="rider-payout-'.$riderPayoutId.'"', false)
+            ->assertSee('RIDER-REF-456')->assertSee('View receipt')
+            ->assertSee(route('superadmin.rider_payouts.receipt_download', $riderPayoutId), false);
+    }
+
     public function test_refund_recovery_is_proportional_idempotent_and_never_rewrites_paid_history(): void
     {
         $ledger = $this->order('PAID', 'Picked Up', 'GCash', 'Pickup', 1000);

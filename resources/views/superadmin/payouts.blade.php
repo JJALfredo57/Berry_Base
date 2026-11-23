@@ -411,49 +411,29 @@
 @if($payoutStatus === '' || in_array($payoutStatus, ['paid','cancelled','failed'], true))
 <div class="card mt-4">
   <button class="card-header payout-section-head finance-table-toggle w-100 border-0 text-start" type="button" data-finance-panel="recent" aria-expanded="{{ $payoutStatus === '' ? 'false' : 'true' }}" aria-controls="finance-panel-recent"><span><i class="bi bi-clock-history me-2" style="color:var(--primary)"></i>Payout History</span><i class="bi bi-chevron-down finance-table-chevron" aria-hidden="true"></i></button>
-  <div class="table-responsive payout-table-scroll finance-table-panel" id="finance-panel-recent" data-finance-content="recent" @if($payoutStatus === '') hidden @endif>
-    <table class="table align-middle mb-0 payout-history-admin-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Seller</th>
-          <th>Mode</th>
-          <th>Paid</th>
-          <th class="text-end">Net</th>
-          <th>Receipt Proof</th>
-          <th>Reference</th>
-        </tr>
-      </thead>
-      <tbody>
-        @foreach($recentPayouts as $p)
-          <tr class="payout-detail-trigger" tabindex="0" role="button" aria-label="Open paid payout #{{ $p->id }} details"
-              data-shop-name="{{ $p->shop_name }}"
-              data-seller-name="{{ $p->seller_name ?? 'Seller' }}"
-              data-payout-method="{{ $p->payout_method ?? 'GCash' }}"
-              data-payout-account-name="{{ $p->payout_account_name ?? '' }}"
-              data-payout-account-number="{{ $p->payout_account_number ?? '' }}">
-            <td>#{{ $p->id }}</td>
-            <td><div class="fw-semibold">{{ $p->shop_name }}</div><div class="small text-muted">{{ $p->seller_name }}</div></td>
-            <td>{{ ucfirst($p->mode) }}</td>
-            <td class="small">{{ ucfirst($p->status) }}<br>{{ $p->paid_at ? \Carbon\Carbon::parse($p->paid_at)->format('M d, Y h:i A') : $p->created_at }}</td>
-            <td class="text-end fw-semibold">₱{{ number_format($p->net_amount, 2) }}</td>
-            <td class="small">
-              @if(!empty($p->payout_receipt_path ?? null))
-                <button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-download-url="{{ route('superadmin.payouts.receipt_download', $p->id) }}" data-receipt-title="Payout Receipt #{{ $p->id }}">
-                  <i class="bi bi-image me-1"></i>View Receipt
-                </button>
-              @else
-                <span class="text-muted">No receipt</span>
-              @endif
-            </td>
-            <td class="small text-muted">{{ $p->reference_number ?: '—' }}<details class="mt-1"><summary>Order allocations</summary>@foreach($requestItems->get($p->id,collect()) as $item)<div>#{{ $item->order_id }} · ₱{{ number_format($item->net_amount,2) }}</div>@endforeach</details></td>
-          </tr>
-        @endforeach
-        @if($recentPayouts->isEmpty())
-          <tr><td colspan="7" class="text-center text-muted py-4">No payouts match these filters.</td></tr>
-        @endif
-      </tbody>
-    </table>
+  <div class="finance-table-panel" id="finance-panel-recent" data-finance-content="recent" @if($payoutStatus === '') hidden @endif>
+    <div class="apd-list">
+      @forelse($recentPayouts as $p)
+        <article class="apd-item">
+          <div class="apd-main"><strong>{{ $p->shop_name }}</strong><small>#{{ $p->id }} · {{ $p->seller_name ?? 'Seller' }}</small></div>
+          <div class="apd-side"><span class="badge text-bg-{{ $p->status === 'paid' ? 'success' : 'secondary' }}">{{ ucfirst($p->status) }}</span><span class="apd-amount">₱{{ number_format($p->net_amount, 2) }}</span><button type="button" class="btn btn-outline-primary btn-sm" data-payout-detail="seller-history-payout-{{ $p->id }}" data-payout-title="Seller payout #{{ $p->id }}">View details</button></div>
+        </article>
+        <template id="seller-history-payout-{{ $p->id }}">
+          <div class="apd-details">
+            <div class="apd-field"><small>Seller / shop</small><strong>{{ $p->shop_name }}</strong><div>{{ $p->seller_name ?? 'Seller' }}</div></div>
+            <div class="apd-field"><small>Payout / status</small>#{{ $p->id }} · {{ ucfirst($p->status) }}<div class="apd-help">{{ ucfirst($p->mode) }} payout</div></div>
+            <div class="apd-field"><small>Net amount</small><strong>₱{{ number_format($p->net_amount, 2) }}</strong></div>
+            <div class="apd-field"><small>{{ $p->paid_at ? 'Paid at' : 'Created at' }}</small>{{ \Carbon\Carbon::parse($p->paid_at ?: $p->created_at)->format('M d, Y h:i A') }}</div>
+            <div class="apd-field"><small>Payout destination</small>{{ $p->payout_method ?? 'GCash' }}<div>{{ $p->payout_account_name ?: 'Account name missing' }}</div><div>{{ $p->payout_account_number ?: 'Account number missing' }}</div></div>
+            <div class="apd-field"><small>Transfer reference</small>{{ $p->reference_number ?: 'Not yet recorded' }}</div>
+            <div class="apd-field"><small>Order allocations</small>@forelse($requestItems->get($p->id, collect()) as $item)<div>#{{ $item->order_id }} · ₱{{ number_format($item->net_amount, 2) }}</div>@empty<span class="apd-help">No linked orders shown.</span>@endforelse</div>
+            <div class="apd-field"><small>Receipt proof</small>@if(!empty($p->payout_receipt_path))<button class="btn btn-outline-primary btn-sm payout-receipt-viewer-btn" type="button" data-receipt-url="{{ $p->payout_receipt_path }}" data-receipt-download-url="{{ route('superadmin.payouts.receipt_download', $p->id) }}" data-receipt-title="Payout Receipt #{{ $p->id }}"><i class="bi bi-image me-1"></i>View Receipt</button>@else<span class="apd-help">No receipt</span>@endif</div>
+          </div>
+        </template>
+      @empty
+        <div class="text-center text-muted py-4">No payouts match these filters.</div>
+      @endforelse
+    </div>
   </div>
   <div class="p-3">{{ $recentPayouts->links() }}</div>
 </div>
@@ -476,7 +456,6 @@
   .payout-detail-trigger:focus-visible { outline:3px solid color-mix(in srgb,var(--primary) 35%,transparent); outline-offset:-3px; }
   .payout-balances-table { min-width:940px !important; }
   .payout-refunds-table { min-width:720px !important; }
-  .payout-history-admin-table { min-width:980px !important; }
   .payout-row-action { width:1%; min-width:154px; white-space:nowrap; }
   .payout-action-group { flex-wrap:nowrap; }
   .payout-row-action form { flex:0 0 auto; }
@@ -529,14 +508,13 @@
   /* The admin sidebar narrows the usable content area before the viewport reaches phone width. */
   @media(max-width:575px) {
     .payout-table-scroll > .payout-balances-table,
-    .payout-table-scroll > .payout-refunds-table,
-    .payout-table-scroll > .payout-history-admin-table { display:none; }
+    .payout-table-scroll > .payout-refunds-table { display:none; }
     .payout-mobile-list { display:grid; }
     .payout-balances-table { min-width:900px !important; }
-    .payout-history-admin-table { min-width:920px !important; }
     .payout-row-action { min-width:150px; }
     .payout-row-action .btn { min-height:40px; }
   }
+  #payoutReceiptViewerModal.payout-receipt-modal { z-index:1120; }
   #payoutReceiptViewerModal.payout-receipt-modal .modal-dialog {
     width:min(920px, calc(100vw - 24px));
     max-width:min(920px, calc(100vw - 24px)) !important;
@@ -550,9 +528,7 @@
     padding:12px !important;
     overflow:hidden;
   }
-  #payoutReceiptViewerModal.payout-receipt-modal.show .modal-dialog {
-    transform:scale(1);
-  }
+  #payoutReceiptViewerModal.payout-receipt-modal.show .modal-dialog { transform:scale(1); }
   #payoutReceiptViewerModal.payout-receipt-modal .modal-content {
     max-height:calc(100dvh - 24px);
     display:flex;
@@ -588,9 +564,7 @@
       justify-content:stretch;
       gap:8px;
     }
-    #payoutReceiptViewerModal.payout-receipt-modal .modal-footer .btn {
-      flex:1 1 0;
-    }
+    #payoutReceiptViewerModal.payout-receipt-modal .modal-footer .btn { flex:1 1 0; }
   }
 </style>
 
@@ -605,9 +579,7 @@
         <img id="payoutReceiptViewerImage" src="" alt="Payout receipt" style="max-width:100%;max-height:75vh;object-fit:contain;border-radius:8px">
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline-primary btn-sm" id="payoutReceiptViewerDownload">
-          <i class="bi bi-download me-1"></i>Download
-        </button>
+        <button type="button" class="btn btn-outline-primary btn-sm" id="payoutReceiptViewerDownload"><i class="bi bi-download me-1"></i>Download</button>
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
@@ -742,7 +714,25 @@ document.addEventListener('DOMContentLoaded', function() {
   if (receiptModal && receiptModal.parentElement !== document.body) {
     document.body.appendChild(receiptModal);
   }
-
+  let receiptOpener = null;
+  receiptModal?.addEventListener('hidden.bs.modal', () => {
+    if (!document.getElementById('adminPayoutDetailDialog')?.hidden) document.body.style.overflow = 'hidden';
+    receiptOpener?.focus();
+  });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.payout-receipt-viewer-btn');
+    if (!button || !receiptModal) return;
+    const url = button.dataset.receiptUrl;
+    if (!url) return;
+    receiptOpener = button;
+    document.getElementById('payoutReceiptViewerTitle').textContent = button.dataset.receiptTitle || 'Payout Receipt';
+    document.getElementById('payoutReceiptViewerImage').src = url;
+    const downloadButton = document.getElementById('payoutReceiptViewerDownload');
+    downloadButton.dataset.downloadUrl = button.dataset.receiptDownloadUrl || url;
+    downloadButton.dataset.downloadName = 'payout-receipt-' + (button.dataset.receiptTitle || 'receipt').replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '') + '.jpg';
+    if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(receiptModal).show();
+    else window.open(url, '_blank', 'noopener');
+  });
   function formatCountdown(ms) {
     if (ms <= 0) return null;
     const totalSeconds = Math.floor(ms / 1000);
@@ -783,23 +773,6 @@ document.addEventListener('DOMContentLoaded', function() {
     countdownTimer = setInterval(updateCountdowns, 1000);
   }
 
-  document.querySelectorAll('.payout-receipt-viewer-btn').forEach(button => {
-    button.addEventListener('click', function() {
-      const url = button.dataset.receiptUrl;
-      if (!url) return;
-      document.getElementById('payoutReceiptViewerTitle').textContent = button.dataset.receiptTitle || 'Payout Receipt';
-      document.getElementById('payoutReceiptViewerImage').src = url;
-      const downloadButton = document.getElementById('payoutReceiptViewerDownload');
-      downloadButton.dataset.downloadUrl = button.dataset.receiptDownloadUrl || url;
-      downloadButton.dataset.downloadName = 'payout-receipt-' + (button.dataset.receiptTitle || 'receipt').replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '') + '.jpg';
-      if (window.bootstrap) {
-        bootstrap.Modal.getOrCreateInstance(receiptModal).show();
-      } else {
-        window.open(url, '_blank', 'noopener');
-      }
-    });
-  });
-
   document.getElementById('payoutReceiptViewerDownload')?.addEventListener('click', function() {
     const url = this.dataset.downloadUrl;
     if (!url) return;
@@ -819,6 +792,7 @@ document.addEventListener('DOMContentLoaded', function() {
       this.innerHTML = originalHtml;
     }, 900);
   });
+
 });
 </script>
 <script>document.addEventListener('DOMContentLoaded',()=>{const buttons=[...document.querySelectorAll('.finance-table-toggle')],reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;let active=buttons.find(button=>button.getAttribute('aria-expanded')==='true')||null,token=0;const panel=button=>document.querySelector('[data-finance-content="'+button.dataset.financePanel+'"]');const setState=(button,expanded)=>{button.setAttribute('aria-expanded',expanded?'true':'false');const icon=button.querySelector('.finance-table-chevron');if(icon){icon.classList.toggle('bi-chevron-up',expanded);icon.classList.toggle('bi-chevron-down',!expanded);}};const stop=element=>element?.getAnimations().forEach(animation=>animation.cancel());const close=async button=>{const content=panel(button);if(!content||content.hidden)return;stop(content);setState(button,false);if(reduced){content.hidden=true;return;}const height=content.getBoundingClientRect().height;const animation=content.animate([{height:height+'px',opacity:1},{height:'0px',opacity:0}],{duration:180,easing:'cubic-bezier(.4,0,.2,1)'});try{await animation.finished}catch(_){}content.hidden=true;};const open=async button=>{const content=panel(button);if(!content)return;stop(content);content.hidden=false;setState(button,true);if(reduced)return;const height=content.scrollHeight;const animation=content.animate([{height:'0px',opacity:0},{height:height+'px',opacity:1}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});try{await animation.finished}catch(_){};};buttons.forEach(button=>{const content=panel(button);if(content)content.hidden=button!==active;button.addEventListener('click',async()=>{const current=++token;if(button===active){await close(button);if(current===token)active=null;return;}const previous=active;if(previous){await close(previous);if(current!==token)return;}await open(button);if(current===token)active=button;});});});</script>
