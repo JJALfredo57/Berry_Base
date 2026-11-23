@@ -143,17 +143,33 @@ class SellerPayoutJourneyTest extends TestCase
         $this->assertStringNotContainsString('Seller awaiting', $riderProof[1]);
         $this->assertStringNotContainsString('Platform funding', $riderProof[1]);
         $this->assertStringContainsString('Complete audit breakdown', $rider->getContent());
+        preg_match('/<div class="fb-detail-grid">(.*?)<\/div><\/div>/s', $rider->getContent(), $riderAudit);
+        $this->assertNotEmpty($riderAudit);
+        $this->assertStringContainsString('Rider awaiting', $riderAudit[1]);
+        $this->assertStringNotContainsString('Platform funding', $riderAudit[1]);
+        $this->assertStringNotContainsString('Held funds', $riderAudit[1]);
+        $this->assertStringNotContainsString('Difference', $riderAudit[1]);
+        $this->assertStringNotContainsString('₱0.00', $riderAudit[1]);
 
         $checkout = $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'customer-checkout-total', 'period' => 'today']))->assertOk();
         preg_match('/<section class="fb-proof">(.*?)<\/section>/s', $checkout->getContent(), $checkoutProof);
         $this->assertStringContainsString('GCash payment plus the customer-paid service fee', $checkoutProof[1]);
         $this->assertStringContainsString('GCash payment', $checkoutProof[1]);
         $this->assertStringNotContainsString('Seller allocation', $checkoutProof[1]);
+        preg_match('/<div class="fb-detail-grid">(.*?)<\/div><\/div>/s', $checkout->getContent(), $checkoutAudit);
+        $this->assertNotEmpty($checkoutAudit);
+        $this->assertStringNotContainsString('Customer-paid service fee', $checkoutAudit[1]);
 
         $commission = $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'recorded-commission', 'period' => 'today']))->assertOk();
         preg_match('/<section class="fb-proof">(.*?)<\/section>/s', $commission->getContent(), $commissionProof);
         $this->assertStringContainsString('Seller ledger commission', $commissionProof[1]);
         $this->assertStringNotContainsString('Rider awaiting', $commissionProof[1]);
+
+        DB::table('seller_payout_ledgers')->where('order_id', 'RIDERPROOF1')->increment('commission_amount');
+        $negativeDifference = $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'rider-awaiting-release', 'period' => 'today']))->assertOk();
+        preg_match('/<div class="fb-detail-grid">(.*?)<\/div><\/div>/s', $negativeDifference->getContent(), $negativeAudit);
+        $this->assertNotEmpty($negativeAudit);
+        $this->assertStringContainsString('<span>Difference</span><strong>−₱1.00</strong>', $negativeAudit[1]);
     }
 
     public function test_finance_activity_tables_total_the_rows_shown_in_each_column(): void

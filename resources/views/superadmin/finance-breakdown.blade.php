@@ -132,16 +132,44 @@
             @if($cake && $cake['custom'])<div class="fb-cake-item"><strong>Custom cake specifications</strong>@foreach(['Flavor'=>'flavor','Size'=>'size','Layers'=>'layers','Design'=>'design_complexity','Dedication'=>'dedication','Note'=>'custom_note'] as $label=>$field)@if($cake['custom']->{$field})<small>{{ $label }}: {{ $cake['custom']->{$field} }}</small>@endif @endforeach</div>@endif
             @if($cake && $cake['addons']->isNotEmpty())<div class="small fw-semibold mt-2">Add-ons</div>@foreach($cake['addons'] as $addon)<div class="fb-detail-field"><span>{{ $addon->addon_name ?: 'Add-on' }}</span><strong>₱{{ number_format((float) $addon->addon_price,2) }}</strong></div>@endforeach @endif
           </div></details>
+          @php
+            $auditFields = match ($report['source']) {
+              'payments' => [
+                ['label' => 'GCash payment', 'amount' => $row->online_settled],
+                ['label' => 'Customer-paid service fee', 'amount' => $row->service_fee],
+                ['label' => 'Customer checkout total', 'amount' => $row->customer_charged],
+              ],
+              'seller' => [
+                ['label' => 'Seller ledger net', 'amount' => $row->amount],
+                ['label' => 'Online collected', 'amount' => $row->online_collected],
+                ['label' => 'Cake value', 'amount' => $row->cake_amount],
+                ['label' => 'Commission', 'amount' => $row->commission],
+                ['label' => 'Online rider allocation', 'amount' => $row->rider_allocation],
+              ],
+              'reconciliation' => [
+                ['label' => 'GCash received', 'amount' => $row->online_settled],
+                ['label' => 'Platform funding', 'amount' => $row->platform_funding],
+                ['label' => 'Held funds', 'amount' => $row->held],
+                ['label' => 'Refunds', 'amount' => $row->refunds],
+                ['label' => 'Seller allocation', 'amount' => $row->seller_amount],
+                ['label' => 'Rider allocation', 'amount' => $row->rider_amount],
+                ['label' => 'Commission', 'amount' => $row->commission],
+                ['label' => 'Difference', 'amount' => $row->difference],
+                ['label' => 'Seller awaiting', 'amount' => $row->seller_payable],
+                ['label' => 'Seller paid', 'amount' => $row->seller_paid],
+                ['label' => 'Rider awaiting', 'amount' => $row->rider_payable],
+                ['label' => 'Rider paid', 'amount' => $row->rider_paid],
+              ],
+              default => [['label' => 'Completed '.strtolower($row->kind), 'amount' => $row->amount]],
+            };
+            $visibleAuditFields = array_filter($auditFields, fn ($field) => round(abs((float) $field['amount']), 2) > 0);
+          @endphp
           <details class="fb-disclosure fb-audit"><summary>Complete audit breakdown</summary><div class="fb-detail-section"><h3>All recorded amounts</h3><div class="fb-detail-grid">
-            @if($report['source'] === 'payments')
-              <div class="fb-detail-field"><span>GCash payment</span><strong>₱{{ number_format((float) $row->online_settled,2) }}</strong></div><div class="fb-detail-field"><span>Customer-paid service fee</span><strong>₱{{ number_format((float) $row->service_fee,2) }}</strong></div><div class="fb-detail-field"><span>Customer checkout total</span><strong>₱{{ number_format((float) $row->customer_charged,2) }}</strong></div>
-            @elseif($report['source'] === 'seller')
-              <div class="fb-detail-field"><span>Seller ledger net</span><strong>{{ $row->amount < 0 ? '−' : '' }}₱{{ number_format(abs($row->amount),2) }}</strong></div><div class="fb-detail-field"><span>Online collected</span><strong>₱{{ number_format($row->online_collected,2) }}</strong></div><div class="fb-detail-field"><span>Cake value</span><strong>₱{{ number_format($row->cake_amount,2) }}</strong></div><div class="fb-detail-field"><span>Commission</span><strong>₱{{ number_format($row->commission,2) }}</strong></div><div class="fb-detail-field"><span>Online rider allocation</span><strong>₱{{ number_format($row->rider_allocation,2) }}</strong></div>
-            @elseif($report['source'] === 'reconciliation')
-              <div class="fb-detail-field"><span>GCash received</span><strong>₱{{ number_format($row->online_settled,2) }}</strong></div><div class="fb-detail-field"><span>Platform funding</span><strong>₱{{ number_format($row->platform_funding,2) }}</strong></div><div class="fb-detail-field"><span>Held funds</span><strong>₱{{ number_format($row->held,2) }}</strong></div><div class="fb-detail-field"><span>Refunds</span><strong>₱{{ number_format($row->refunds,2) }}</strong></div><div class="fb-detail-field"><span>Seller allocation</span><strong>₱{{ number_format($row->seller_amount,2) }}</strong></div><div class="fb-detail-field"><span>Rider allocation</span><strong>₱{{ number_format($row->rider_amount,2) }}</strong></div><div class="fb-detail-field"><span>Commission</span><strong>₱{{ number_format($row->commission,2) }}</strong></div><div class="fb-detail-field"><span>Difference</span><strong>{{ $row->difference < 0 ? '−' : '' }}₱{{ number_format(abs($row->difference),2) }}</strong></div><div class="fb-detail-field"><span>Seller awaiting</span><strong>₱{{ number_format($row->seller_payable,2) }}</strong></div><div class="fb-detail-field"><span>Seller paid</span><strong>₱{{ number_format($row->seller_paid,2) }}</strong></div><div class="fb-detail-field"><span>Rider awaiting</span><strong>₱{{ number_format($row->rider_payable,2) }}</strong></div><div class="fb-detail-field"><span>Rider paid</span><strong>₱{{ number_format($row->rider_paid,2) }}</strong></div>
-            @else
-              <div class="fb-detail-field"><span>Completed {{ strtolower($row->kind) }}</span><strong>₱{{ number_format($row->amount,2) }}</strong></div>
-            @endif
+            @forelse($visibleAuditFields as $field)
+              <div class="fb-detail-field"><span>{{ $field['label'] }}</span><strong>{{ $field['amount'] < 0 ? '−' : '' }}₱{{ number_format(abs($field['amount']), 2) }}</strong></div>
+            @empty
+              <p class="fb-note mb-0">No non-zero amounts recorded.</p>
+            @endforelse
           </div>@if($report['source'] === 'seller')<p class="fb-note mt-2 mb-0">Refund or recovery adjustments are already included in the seller ledger net amount.</p>@endif</div>
           <section class="fb-detail-section"><h3>Linked source records</h3><p class="fb-note">These records are linked to this order; some may fall outside the selected reporting period.</p>
             @if($row->order_id && $report['sources']->has((string) $row->order_id))
