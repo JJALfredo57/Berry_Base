@@ -668,6 +668,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::get('/platform-dashboard/stats',    [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'stats'])->name('dashboard.stats');
     Route::get('/commission-analytics',        [\App\Http\Controllers\SuperAdmin\DashboardController::class, 'commissions'])->name('commissions');
     Route::get('/payouts',                     [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'index'])->name('payouts');
+    Route::get('/payouts/breakdown/{metric}', [\App\Http\Controllers\SuperAdmin\FinanceBreakdownController::class, 'show'])->name('payouts.breakdown');
     Route::get('/payouts/sellers',             [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'sellerPayouts'])->name('payouts.sellers');
     Route::get('/payouts/riders',              [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'riderPayouts'])->name('payouts.riders');
     Route::post('/payouts/settings',           [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'saveSettings'])->name('payouts.settings');

@@ -52,6 +52,73 @@ class SellerPayoutJourneyTest extends TestCase
         return $this->withSession(['user' => ['id' => 'SELLER', 'fullname' => 'Test Seller', 'role' => 'seller']]);
     }
 
+    public function test_finance_breakdowns_link_every_metric_and_reconcile_with_overview(): void
+    {
+        $this->order('FINANCE123', 'Picked Up');
+        DB::table('payment_transactions')->where('order_id', 'FINANCE123')
+            ->update(['payment_service_fee' => 14.54, 'customer_paid_amount' => 514.54]);
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
+        $overview = $admin->get(route('superadmin.payouts', ['period' => 'today']))->assertOk();
+        $metrics = [
+            'customer-funds' => 500, 'customer-service-fee' => 14.54, 'customer-checkout-total' => 514.54,
+            'refunds-sent' => 0, 'seller-in-process' => 480, 'awaiting-completion' => 0,
+            'ready-payout' => 480, 'refund-reserved' => 0, 'transfer-pending' => 0,
+            'paid-to-sellers' => 0, 'verified-commission' => 20, 'seller-awaiting-release' => 480,
+            'rider-awaiting-release' => 0, 'reconciled-seller-paid' => 0, 'rider-fees-paid' => 0,
+            'recorded-commission' => 20,
+        ];
+        foreach ($metrics as $metric => $expected) {
+            $url = route('superadmin.payouts.breakdown', ['metric' => $metric, 'period' => 'today']);
+            $overview->assertSee($url, false);
+            $admin->get($url)->assertOk()->assertViewHas('report', fn ($report) => abs($report['total'] - $expected) < 0.001)
+                ->assertSee('Total for all matching records');
+        }
+        $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'customer-funds', 'period' => 'today', 'search' => 'NO-MATCH']))
+            ->assertOk()->assertViewHas('report', fn ($report) => $report['total'] === 0.0);
+        $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'customer-funds', 'from' => '2020-01-01', 'to' => '2020-01-31']))
+            ->assertOk()->assertViewHas('report', fn ($report) => $report['total'] === 0.0);
+        $this->seller()->get(route('superadmin.payouts.breakdown', ['metric' => 'customer-funds']))->assertRedirect();
+        $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']])
+            ->get(route('superadmin.payouts.breakdown', ['metric' => 'not-a-metric']))->assertNotFound();
+    }
+
+    public function test_ready_payout_breakdown_shows_per_shop_recovery_netting(): void
+    {
+        $this->order('NETTING123', 'Picked Up');
+        DB::table('seller_payout_ledgers')->insert([
+            'order_id' => 'RECOVERY123', 'shop_id' => 'SHOP', 'seller_id' => 'SELLER',
+            'source_order_id' => 'NETTING123',
+            'status' => 'available', 'seller_net_amount' => -600, 'commission_amount' => 0,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
+        $overview = $admin->get(route('superadmin.payouts', ['period' => 'today']))->assertOk();
+        $overview->assertViewHas('summary', fn ($summary) => $summary['available'] === 0.0);
+        $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'ready-payout', 'period' => 'today']))
+            ->assertOk()->assertViewHas('report', fn ($report) => $report['total'] === 0.0 && $report['nettingAdjustment'] === 120.0)
+            ->assertSee('Per-shop zero-floor adjustment');
+        $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'ready-payout', 'period' => 'today', 'search' => 'NETTING123']))
+            ->assertOk()->assertViewHas('report', fn ($report) => $report['paginated']->total() === 2 && $report['total'] === 0.0);
+    }
+
+    public function test_refund_breakdown_uses_payment_cohort_and_traces_completed_refund(): void
+    {
+        $this->order('REFUNDCASE1', 'Picked Up');
+        DB::table('order_refunds')->insert([
+            'order_id' => 'REFUNDCASE1', 'shop_id' => 'SHOP', 'refund_amount' => 50,
+            'status' => 'refunded', 'reference_number' => 'REF-50001',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
+        $admin->get(route('superadmin.payouts', ['period' => 'today']))->assertOk()
+            ->assertViewHas('paymentSummary', fn ($summary) => $summary['refunds_sent'] === 50.0);
+        $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'refunds-sent', 'period' => 'today', 'search' => 'REF-50001']))
+            ->assertOk()->assertViewHas('report', fn ($report) => $report['total'] === 50.0)
+            ->assertSee('REF-50001')->assertSee('View linked source records');
+        $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'refunds-sent', 'period' => 'today', 'status' => 'Pending']))
+            ->assertOk()->assertViewHas('report', fn ($report) => $report['total'] === 0.0);
+    }
+
     public function test_awaiting_payout_labels_follow_pickup_and_delivery(): void
     {
         $pickup = $this->order('PICKUPWAIT', 'Pickup', 'GCash', 'Pickup');

@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Services\FinanceReconciliationService;
 use App\Services\AdminPayoutAttentionService;
+use App\Services\FinanceBreakdownService;
+use App\Services\FinanceReconciliationService;
 use App\Services\MobileNotificationService;
 use App\Services\OrderRefundService;
 use App\Services\PayoutReceiptScanService;
@@ -52,45 +53,11 @@ class PayoutController extends Controller
             $payoutSettings->payout_auto_paused = false;
         }
         $summary = [
-            'awaiting' => (float) DB::table('seller_payout_ledgers')->where('status', 'awaiting_completion')->sum('seller_net_amount'),
-            'reserved' => (float) DB::table('seller_payout_ledgers')->where('status', 'refund_reserved')->sum('seller_net_amount'),
-            'available' => (float) DB::table('seller_payout_ledgers')->where('status', 'available')->selectRaw('shop_id, SUM(seller_net_amount) AS balance')->groupBy('shop_id')->get()->sum(fn ($row) => max(0, (float) $row->balance)),
-            'processing' => (float) DB::table('seller_payout_ledgers')->whereIn('status', ['requested', 'processing'])->sum('seller_net_amount'),
-            'paid' => (float) DB::table('seller_payout_ledgers')->where('status', 'paid')->sum('seller_net_amount'),
             'seller_recovery_pending' => abs((float) DB::table('seller_payout_ledgers')->where('seller_net_amount', '<', 0)->whereIn('status', ['available', 'requested', 'processing'])->sum('seller_net_amount')),
             'pending_refunds' => Schema::hasTable('order_refunds') ? (int) DB::table('order_refunds')->whereIn('status', ['pending', 'pending_seller_approval', 'approved_for_admin_refund', 'processing'])->count() : 0,
         ];
-
-        try {
-            $from = Carbon::parse((string) $request->input('from', now()->subDays(29)->toDateString()))->toDateString();
-        } catch (\Throwable $e) {
-            $from = now()->subDays(29)->toDateString();
-        }
-        try {
-            $to = Carbon::parse((string) $request->input('to', now()->toDateString()))->toDateString();
-        } catch (\Throwable $e) {
-            $to = now()->toDateString();
-        }
-        $period = (string) $request->input('period', $request->filled('from') || $request->filled('to') ? '' : 'all');
-        if ($period === 'all') {
-            [$from, $to] = ['1970-01-01', now()->toDateString()];
-        }
-        if ($period === 'today') {
-            [$from, $to] = [now()->toDateString(), now()->toDateString()];
-        } elseif ($period === 'week') {
-            [$from, $to] = [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()];
-        } elseif ($period === 'month') {
-            [$from, $to] = [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()];
-        } elseif ($period === 'last_month') {
-            [$from, $to] = [now()->subMonthNoOverflow()->startOfMonth()->toDateString(), now()->subMonthNoOverflow()->endOfMonth()->toDateString()];
-        } elseif ($period === 'year') {
-            [$from, $to] = [now()->startOfYear()->toDateString(), now()->endOfYear()->toDateString()];
-        } elseif ($period === 'last30') {
-            [$from, $to] = [now()->subDays(29)->toDateString(), now()->toDateString()];
-        }
-        if ($from > $to) {
-            [$from, $to] = [$to, $from];
-        }
+        ['from' => $from, 'to' => $to, 'period' => $period] = app(FinanceBreakdownService::class)->period($request);
+        $summary = array_replace($summary, app(FinanceBreakdownService::class)->sellerSummary($from, $to));
         $search = mb_substr(trim((string) $request->input('search', '')), 0, 120);
         $payoutStatus = in_array($request->input('payout_status'), ['requested', 'processing', 'paid', 'cancelled', 'failed'], true) ? (string) $request->input('payout_status') : '';
         $shopInput = (string) $request->input('shop', '');

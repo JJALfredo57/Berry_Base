@@ -30,7 +30,7 @@
 
 @if($page === 'hub')
 <section class="finance-date-filter" aria-label="Finance reporting period">
-  <div><strong>Reporting period</strong><small>Date filters affect finance activity lists. Seller and rider payout filters are on their separate pages.</small></div>
+  <div><strong>Reporting period</strong><small>Date filters affect overview amounts and finance activity lists. Seller and rider payout filters are on their separate pages.</small></div>
   <form method="GET" class="finance-date-form">
     <input type="hidden" name="period" value="">
     <label>From<input class="form-control" type="date" name="from" value="{{ $from }}"></label>
@@ -55,11 +55,43 @@
   </div>
 </div>
 
-<style>.finance-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1.5rem}.finance-group{border:1px solid var(--gray-100,#e5e7eb);border-radius:16px;background:#fff;overflow:hidden}.finance-group summary{list-style:none;cursor:pointer;padding:1rem;display:flex;justify-content:space-between;gap:.75rem;align-items:center}.finance-group summary::-webkit-details-marker{display:none}.finance-group summary:hover{background:#f8fafc}.finance-amount{font-size:1.35rem;font-weight:800}.finance-details{display:grid;gap:.5rem;padding:0 1rem 1rem}.finance-line{display:flex;justify-content:space-between;gap:.75rem;font-size:.85rem;border-top:1px solid #f1f5f9;padding-top:.5rem}.finance-line strong{white-space:nowrap}.finance-review-alert{border-left:4px solid #b45309}.finance-audit-table{min-width:1040px}.finance-state{font-size:.75rem;font-weight:700}@media(max-width:900px){.finance-groups{grid-template-columns:1fr}}@media(prefers-reduced-motion:no-preference){.finance-group[open] .finance-details{animation:financeIn .2s ease-out}@keyframes financeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}}</style>
+@php
+  $breakdownUrl = fn (string $metric) => route('superadmin.payouts.breakdown', array_merge(['metric' => $metric], $period !== '' ? ['period' => $period] : ['from' => $from, 'to' => $to]));
+  $financeGroups = [
+    ['Customer funds', 'customer-funds', $paymentSummary['online_amount'], 'GCash order payments', 'text-primary', [
+      ['Customer-paid service fee', 'customer-service-fee', $paymentSummary['service_fees'], false],
+      ['Customer checkout total', 'customer-checkout-total', $paymentSummary['customer_charged'], false],
+      ['Refunds sent', 'refunds-sent', $paymentSummary['refunds_sent'], true],
+    ]],
+    ['Seller funds in process', 'seller-in-process', $summary['awaiting'] + $summary['available'], 'Awaiting completion + ready payout', 'text-success', [
+      ['Awaiting Completion', 'awaiting-completion', $summary['awaiting'], false],
+      ['Ready for seller payout', 'ready-payout', $summary['available'], false],
+      ['Refund reserved', 'refund-reserved', $summary['reserved'], false],
+      ['Transfer pending', 'transfer-pending', $summary['processing'], false],
+      ['Paid to sellers', 'paid-to-sellers', $summary['paid'], false],
+    ]],
+    ['Verified platform commission', 'verified-commission', $paymentSummary['verified_platform_commission'], 'Only fully matched orders', 'text-purple', [
+      ['Seller funds awaiting release', 'seller-awaiting-release', $paymentSummary['seller_payable'], false],
+      ['Rider funds awaiting release', 'rider-awaiting-release', $paymentSummary['rider_payable'], false],
+      ['Paid to sellers', 'reconciled-seller-paid', $paymentSummary['seller_paid'], false],
+      ['Rider fees paid', 'rider-fees-paid', $paymentSummary['rider_paid'], false],
+      ['Recorded commission', 'recorded-commission', $paymentSummary['commission_recorded'], false],
+    ]],
+  ];
+@endphp
+<style>.finance-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1.5rem}.finance-group{border:1px solid var(--gray-100,#e5e7eb);border-radius:16px;background:#fff;overflow:hidden;min-width:0}.finance-group summary{list-style:none;cursor:pointer;padding:.8rem 1rem .3rem;display:flex;justify-content:space-between;gap:.75rem;align-items:center;font-weight:750}.finance-group summary::-webkit-details-marker{display:none}.finance-group summary:hover{background:#f8fafc}.finance-group[open] summary .bi{transform:rotate(180deg)}.finance-group-main{display:grid;gap:.1rem;padding:.15rem 1rem 1rem}.finance-group-main small{color:var(--gray-500)}.finance-headline{display:flex;align-items:center;gap:.45rem;min-height:42px;width:fit-content;max-width:100%;text-decoration:none}.finance-amount{font-size:1.35rem;font-weight:800;overflow-wrap:anywhere}.finance-headline .bi{font-size:.9rem}.finance-details{display:grid;gap:.3rem;padding:0 1rem 1rem}.finance-line{display:flex;justify-content:space-between;align-items:center;gap:.75rem;min-height:42px;font-size:.85rem;border-top:1px solid #f1f5f9;padding:.45rem .15rem;text-decoration:none;color:inherit;border-radius:4px}.finance-line strong{white-space:nowrap;font-variant-numeric:tabular-nums}.finance-line:hover,.finance-headline:hover{color:var(--primary);background:#fff7ed}.finance-line:focus-visible,.finance-headline:focus-visible{outline:3px solid var(--primary);outline-offset:2px}.text-purple{color:#7c3aed}.finance-review-alert{border-left:4px solid #b45309}.finance-audit-table{min-width:1040px}.finance-state{font-size:.75rem;font-weight:700}@media(max-width:900px){.finance-groups{grid-template-columns:1fr}}@media(prefers-reduced-motion:no-preference){.finance-group[open] .finance-details{animation:financeIn .2s ease-out}@keyframes financeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}}</style>
 <div class="finance-groups">
-<details class="finance-group"><summary><div><div class="small text-muted">Customer funds</div><div class="finance-amount text-primary">₱{{ number_format($paymentSummary['online_amount'],2) }}</div><small>GCash order payments</small></div><i class="bi bi-chevron-down"></i></summary><div class="finance-details"><div class="finance-line"><span>Customer-paid service fee</span><strong>₱{{ number_format($paymentSummary['service_fees'],2) }}</strong></div><div class="finance-line"><span>Customer checkout total</span><strong>₱{{ number_format($paymentSummary['customer_charged'],2) }}</strong></div><div class="finance-line"><span>Refunds sent</span><strong>−₱{{ number_format($paymentSummary['refunds_sent'],2) }}</strong></div></div></details>
-<details class="finance-group"><summary><div><div class="small text-muted">Seller funds in process</div><div class="finance-amount text-success">₱{{ number_format($summary['awaiting']+$summary['available'],2) }}</div><small>Awaiting completion + ready payout</small></div><i class="bi bi-chevron-down"></i></summary><div class="finance-details"><div class="finance-line"><span>Awaiting Completion</span><strong>₱{{ number_format($summary['awaiting'],2) }}</strong></div><div class="finance-line"><span>Ready for seller payout</span><strong>₱{{ number_format($summary['available'],2) }}</strong></div><div class="finance-line"><span>Refund reserved</span><strong>₱{{ number_format($summary['reserved'],2) }}</strong></div><div class="finance-line"><span>Transfer pending</span><strong>₱{{ number_format($summary['processing'],2) }}</strong></div><div class="finance-line"><span>Paid to sellers</span><strong>₱{{ number_format($summary['paid'],2) }}</strong></div></div></details>
-<details class="finance-group" open><summary><div><div class="small text-muted">Verified platform commission</div><div class="finance-amount" style="color:#7c3aed">₱{{ number_format($paymentSummary['verified_platform_commission'],2) }}</div><small>Only fully matched orders</small></div><i class="bi bi-chevron-down"></i></summary><div class="finance-details"><div class="finance-line"><span>Seller funds awaiting release</span><strong>₱{{ number_format($paymentSummary['seller_payable'],2) }}</strong></div><div class="finance-line"><span>Rider funds awaiting release</span><strong>₱{{ number_format($paymentSummary['rider_payable'],2) }}</strong></div><div class="finance-line"><span>Paid to sellers</span><strong>₱{{ number_format($paymentSummary['seller_paid'],2) }}</strong></div><div class="finance-line"><span>Rider fees paid</span><strong>₱{{ number_format($paymentSummary['rider_paid'],2) }}</strong></div><div class="finance-line"><span>Recorded commission</span><strong>₱{{ number_format($paymentSummary['commission_recorded'],2) }}</strong></div></div></details>
+  @foreach($financeGroups as [$groupLabel, $groupMetric, $groupAmount, $groupHelp, $groupColor, $groupLines])
+    <details class="finance-group" @if($groupMetric === 'verified-commission') open @endif>
+      <summary><span>{{ $groupLabel }}</span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
+      <div class="finance-group-main"><a class="finance-headline {{ $groupColor }}" href="{{ $breakdownUrl($groupMetric) }}" aria-label="View breakdown for {{ $groupLabel }}: ₱{{ number_format($groupAmount, 2) }}"><span class="finance-amount">₱{{ number_format($groupAmount, 2) }}</span><i class="bi bi-arrow-up-right" aria-hidden="true"></i></a><small>{{ $groupHelp }}</small></div>
+      <div class="finance-details">
+        @foreach($groupLines as [$label, $lineMetric, $amount, $deduction])
+          <a class="finance-line" href="{{ $breakdownUrl($lineMetric) }}" aria-label="View breakdown for {{ $label }}: {{ $deduction ? 'minus ' : '' }}₱{{ number_format($amount, 2) }}"><span>{{ $label }} <i class="bi bi-arrow-up-right small" aria-hidden="true"></i></span><strong>{{ $deduction ? '−' : '' }}₱{{ number_format($amount, 2) }}</strong></a>
+        @endforeach
+      </div>
+    </details>
+  @endforeach
 </div>
 @if($paymentSummary['review_count'] > 0)
   <div class="alert alert-warning finance-review-alert d-flex gap-2 align-items-start" role="alert"><i class="bi bi-shield-exclamation fs-5"></i><div><strong>Funds are blocked from platform use.</strong> {{ $paymentSummary['review_count'] }} order{{ $paymentSummary['review_count'] === 1 ? '' : 's' }} have a payment difference or missing finance evidence. This amount is not commission and cannot be paid out; review payment and payout records before release.</div></div>
