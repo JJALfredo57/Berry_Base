@@ -63,6 +63,11 @@
 
     .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0 0 18px; }
     .stat { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px; display:flex; align-items:center; gap:12px; min-width:0; box-shadow:0 4px 14px rgba(17,24,39,.05); }
+    .stat-action { width:100%; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+    .stat-action:focus-visible { outline:3px solid #93c5fd; outline-offset:3px; }
+    .stat-action .stat-chevron { margin-left:auto; color:var(--primary); }
+    .stat-action .stat-copy { min-width:0; }
+    .stat-action .label,.stat-action .value { display:block; }
     .stat-icon { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; font-size:20px; flex-shrink:0; }
     .stat-icon.s-new { background:#fff7ed; color:#c2410c; }
     .stat-icon.s-act { background:#eff6ff; color:#1d4ed8; }
@@ -110,10 +115,12 @@
     .order-note { color:var(--muted); font-size:13px; font-weight:700; text-align:center; padding:10px; border:1px solid var(--line); border-radius:10px; background:#f9fafb; }
 
     .remit-hub { background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:0 4px 14px rgba(17,24,39,.05); }
-    .remit-hub > summary { list-style:none; cursor:pointer; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .remit-hub > summary::-webkit-details-marker { display:none; }
-    .remit-hub > summary .chev { transition:transform .2s; color:var(--muted); }
-    .remit-hub[open] > summary .chev { transform:rotate(180deg); }
+    .receipt-modal.cod-remit-modal { z-index:85; }
+    .receipt-sheet.cod-remit-sheet { width:min(720px,100%); }
+    .cod-remit-summary { padding:14px 16px; border-bottom:1px solid var(--line); }
+    .cod-remit-content { display:grid; gap:12px; }
+    .cod-remit-content .cash-list { margin-top:0; }
+    .cod-remit-orders-title { margin:2px 0 0; font-size:14px; }
     .remit-kicker { color:var(--muted); font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
     .remit-total { font-size:clamp(22px,6vw,32px); font-weight:900; line-height:1.1; margin-top:2px; overflow-wrap:anywhere; }
     .remit-inner { border-top:1px solid #f3f4f6; }
@@ -272,10 +279,11 @@
           <div class="stat-icon s-act"><i class="bi bi-bicycle"></i></div>
           <div><div class="label">Active deliveries</div><div class="value">{{ $activeOrders->count() }}</div></div>
         </div>
-        <div class="stat">
-          <div class="stat-icon s-cash"><i class="bi bi-cash-stack"></i></div>
-          <div><div class="label">COD to remit</div><div class="value">PHP {{ number_format($unremitted['total'], 2) }}</div></div>
-        </div>
+        <button class="stat stat-action" id="codRemitTrigger" type="button" aria-haspopup="dialog" aria-controls="codRemitModal" aria-label="View COD remittance details, PHP {{ number_format($unremitted['total'], 2) }} to remit">
+          <span class="stat-icon s-cash"><i class="bi bi-cash-stack"></i></span>
+          <span class="stat-copy"><span class="label">COD to remit</span><span class="value">PHP {{ number_format($unremitted['total'], 2) }}</span></span>
+          <i class="bi bi-chevron-right stat-chevron" aria-hidden="true"></i>
+        </button>
       </section>
 
       <section class="section" aria-label="Delivery earnings"><div class="section-head"><h2><i class="bi bi-cash-coin" style="color:#16a34a"></i>Delivery earnings</h2></div><div class="remit-hub"><div class="remit-head"><div><div class="remit-kicker">Available delivery fees</div><div class="remit-total">PHP {{ number_format($deliveryEarningSummary['available'],2) }}</div><div class="remit-copy">Online-paid delivery fees and approved return trips are available for payout.</div></div><div class="remit-actions"><button class="btn btn-pay" type="button" onclick="openPayoutModal()" {{ $deliveryEarningSummary['available'] > 0 ? '' : 'disabled' }}>Request payout</button><div class="order-note">Pending: PHP {{ number_format($deliveryEarningSummary['requested'],2) }}</div></div></div></div></section>
@@ -309,67 +317,6 @@
 
       <section class="section" aria-label="Customer messages"><div class="section-head"><h2><i class="bi bi-chat-dots" style="color:var(--primary)"></i>Customer messages</h2></div><div class="list">@forelse($deliveryMessageOrders as $messageOrder)<article class="order" id="delivery-message-{{ $messageOrder->id }}"><div class="order-head"><div><div class="order-id">Order #{{ $messageOrder->id }}</div><div class="product">{{ $messageOrder->customer_display_name ?: 'Customer' }}</div><div class="small text-muted mt-1">{{ $messageOrder->delivery_last_message ?: ($messageOrder->delivery_last_image ? 'Image attachment' : 'No messages yet') }}</div></div><button type="button" class="btn btn-outline" style="width:auto" data-delivery-message data-role="rider" data-label="{{ $messageOrder->customer_display_name ?: 'Customer' }} · Order #{{ $messageOrder->id }}" data-index="{{ route('rider.delivery_messages.index', $messageOrder->id) }}" data-send="{{ route('rider.delivery_messages.send', $messageOrder->id) }}">Open conversation @if($messageOrder->delivery_unread_count)<span class="count-pill">{{ $messageOrder->delivery_unread_count }}</span>@endif</button></div></article>@empty<div class="empty"><i class="bi bi-chat-square-text"></i><div class="t">No customer messages</div><div>Messages for active deliveries will appear here.</div></div>@endforelse</div></section>
 
-      <section class="section" aria-label="COD remittance">
-        <div class="section-head"><h2><i class="bi bi-wallet2" style="color:var(--primary)"></i>COD remittance</h2></div>
-        <details class="remit-hub" {{ ($bulkRemittance['ready_count'] > 0 || $bulkRemittance['waiting_count'] > 0) ? 'open' : '' }}>
-          <summary>
-            <div>
-              <div class="remit-kicker">Bulk COD remittance</div>
-              <div class="remit-total">PHP {{ number_format($bulkRemittance['ready_total'], 2) }}</div>
-            </div>
-            <i class="bi bi-chevron-down chev"></i>
-          </summary>
-          <div class="remit-inner">
-            <div class="remit-head">
-              <div class="remit-copy">
-                @if($bulkRemittance['ready_count'] > 0)
-                  Hand the listed cake cash to the seller. The seller will confirm each handover before it enters transaction history.
-                @elseif($bulkRemittance['waiting_count'] > 0)
-                  Your cash handover was sent. Wait for the seller to confirm receipt.
-                @else
-                  Delivered COD orders that need remittance will appear here.
-                @endif
-              </div>
-              <div class="remit-actions">
-                @if($bulkRemittance['ready_count'] > 0)
-                  <form method="POST" action="{{ route('rider.remittance.bulk.handover') }}" data-once>@csrf<button class="btn btn-pay" type="submit"><i class="bi bi-cash-coin"></i>Mark Cash Handed to Seller</button></form>
-                @elseif($bulkRemittance['waiting_count'] > 0)
-                  <button class="btn btn-soft" type="button" disabled><i class="bi bi-hourglass-split"></i>Waiting for Seller Confirmation</button>
-                @else
-                  <button class="btn btn-soft" type="button" disabled><i class="bi bi-check2-circle"></i>No COD to Remit</button>
-                @endif
-              </div>
-            </div>
-            <div class="remit-breakdown">
-              <div class="remit-stat"><div class="label">Ready orders</div><div class="value">{{ $bulkRemittance['ready_count'] }}</div></div>
-              <div class="remit-stat"><div class="label">Waiting amount</div><div class="value">PHP {{ number_format($bulkRemittance['waiting_total'], 2) }}</div></div>
-              <div class="remit-stat"><div class="label">Waiting for seller</div><div class="value">{{ $bulkRemittance['waiting_count'] }}</div></div>
-              <div class="remit-stat"><div class="label">Confirmed this week</div><div class="value">PHP {{ number_format($bulkRemittance['confirmed_total'], 2) }}</div></div>
-            </div>
-            @if($bulkRemittance['orders']->count())
-              <div class="remit-orders">
-                @foreach($bulkRemittance['orders']->take(6) as $remitOrder)
-                  <div class="remit-order">
-                    <div><strong>Order #{{ $remitOrder->order_id }}</strong> <span>{{ $remitOrder->product_name }}</span>@if((float)($remitOrder->delivery_fee_retained ?? 0) > 0)<small class="d-block text-muted">You keep PHP {{ number_format((float)$remitOrder->delivery_fee_retained, 2) }} delivery fee</small>@endif</div>
-                    <div class="text-end"><strong>PHP {{ number_format((float)($remitOrder->cake_remittance_amount ?? $remitOrder->amount), 2) }}</strong><small class="d-block text-muted">Hand to seller for confirmation</small></div>
-                  </div>
-                @endforeach
-                @if($bulkRemittance['orders']->count() > 6)
-                  <div class="order-note">{{ $bulkRemittance['orders']->count() - 6 }} more order(s) included in this total.</div>
-                @endif
-              </div>
-            @endif
-          </div>
-        </details>
-
-        @if($cashOrders->count())
-          <div class="list cash-list">
-            @foreach($cashOrders as $order)
-              @include('rider._order_card', ['order' => $order])
-            @endforeach
-          </div>
-        @endif
-      </section>
     </div>
     @php
       $linkedPayoutNumber = $rider->gcash_number ?: $rider->phone;
@@ -428,6 +375,64 @@
       </form>
     </div>
   </main>
+
+  <div class="receipt-modal cod-remit-modal" id="codRemitModal" role="dialog" aria-modal="true" aria-labelledby="codRemitTitle" aria-hidden="true" hidden>
+    <section class="receipt-sheet cod-remit-sheet" role="document">
+      <div class="receipt-sheet-head"><div><h2 id="codRemitTitle"><i class="bi bi-wallet2 me-1" aria-hidden="true"></i>COD remittance</h2><p>Review your COD cash and seller handover status.</p></div><button class="receipt-close" type="button" data-close-cod-remit aria-label="Close COD remittance"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+      <div class="cod-remit-content" id="codRemitContent">
+        <div class="remit-hub">
+          <div class="cod-remit-summary"><div class="remit-kicker">Bulk COD remittance ready</div><div class="remit-total">PHP {{ number_format($bulkRemittance['ready_total'], 2) }}</div></div>
+          <div class="remit-head">
+            <div class="remit-copy">
+              @if($bulkRemittance['ready_count'] > 0)
+                Hand the listed cake cash to the seller. The seller will confirm each handover before it enters transaction history.
+              @elseif($bulkRemittance['waiting_count'] > 0)
+                Your cash handover was sent. Wait for the seller to confirm receipt.
+              @else
+                Delivered COD orders that need remittance will appear here.
+              @endif
+            </div>
+            <div class="remit-actions">
+              @if($bulkRemittance['ready_count'] > 0)
+                <form method="POST" action="{{ route('rider.remittance.bulk.handover') }}" data-once>@csrf<button class="btn btn-pay" type="submit"><i class="bi bi-cash-coin"></i>Mark Cash Handed to Seller</button></form>
+              @elseif($bulkRemittance['waiting_count'] > 0)
+                <button class="btn btn-soft" type="button" disabled><i class="bi bi-hourglass-split"></i>Waiting for Seller Confirmation</button>
+              @else
+                <button class="btn btn-soft" type="button" disabled><i class="bi bi-check2-circle"></i>No COD to Remit</button>
+              @endif
+            </div>
+          </div>
+          <div class="remit-breakdown">
+            <div class="remit-stat"><div class="label">Ready orders</div><div class="value">{{ $bulkRemittance['ready_count'] }}</div></div>
+            <div class="remit-stat"><div class="label">Waiting amount</div><div class="value">PHP {{ number_format($bulkRemittance['waiting_total'], 2) }}</div></div>
+            <div class="remit-stat"><div class="label">Waiting for seller</div><div class="value">{{ $bulkRemittance['waiting_count'] }}</div></div>
+            <div class="remit-stat"><div class="label">Confirmed this week</div><div class="value">PHP {{ number_format($bulkRemittance['confirmed_total'], 2) }}</div></div>
+          </div>
+          @if($bulkRemittance['orders']->count())
+            <div class="remit-orders">
+              @foreach($bulkRemittance['orders']->take(6) as $remitOrder)
+                <div class="remit-order">
+                  <div><strong>Order #{{ $remitOrder->order_id }}</strong> <span>{{ $remitOrder->product_name }}</span>@if((float)($remitOrder->delivery_fee_retained ?? 0) > 0)<small class="d-block text-muted">You keep PHP {{ number_format((float)$remitOrder->delivery_fee_retained, 2) }} delivery fee</small>@endif</div>
+                  <div class="text-end"><strong>PHP {{ number_format((float)($remitOrder->cake_remittance_amount ?? $remitOrder->amount), 2) }}</strong><small class="d-block text-muted">Hand to seller for confirmation</small></div>
+                </div>
+              @endforeach
+              @if($bulkRemittance['orders']->count() > 6)
+                <div class="order-note">{{ $bulkRemittance['orders']->count() - 6 }} more order(s) included in this total.</div>
+              @endif
+            </div>
+          @endif
+        </div>
+        @if($cashOrders->count())
+          <h3 class="cod-remit-orders-title">COD orders</h3>
+          <div class="list cash-list">
+            @foreach($cashOrders as $order)
+              @include('rider._order_card', ['order' => $order])
+            @endforeach
+          </div>
+        @endif
+      </div>
+    </section>
+  </div>
 
     <button class="receipt-fab" id="receiptFab" type="button" aria-haspopup="dialog" aria-controls="riderReceiptModal">
       <i class="bi bi-clock-history" aria-hidden="true"></i><span>Transaction history</span>
@@ -513,10 +518,14 @@
       const next = doc.getElementById('liveRegion');
       if (!next) throw new Error('no region');
       const current = document.getElementById('liveRegion');
-      const openState = current.querySelector('.remit-hub') ? current.querySelector('.remit-hub').open : null;
       current.innerHTML = next.innerHTML;
-      const hub = current.querySelector('.remit-hub');
-      if (hub && openState !== null) hub.open = openState || hub.open;
+      const nextCodRemit = doc.getElementById('codRemitContent');
+      const currentCodRemit = document.getElementById('codRemitContent');
+      if (nextCodRemit && currentCodRemit) {
+        const focusedInside = currentCodRemit.contains(document.activeElement);
+        currentCodRemit.innerHTML = nextCodRemit.innerHTML;
+        if (focusedInside) document.querySelector('#codRemitModal [data-close-cod-remit]')?.focus();
+      }
       tickCountdowns();
     }
 
@@ -645,6 +654,48 @@
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
       });
       syncNumberSource();
+    })();
+  </script>
+  <script>
+    (() => {
+      const modal = document.getElementById('codRemitModal');
+      if (!modal) return;
+      document.body.appendChild(modal);
+      let previousOverflow = '';
+
+      function open() {
+        if (modal.classList.contains('open')) return;
+        previousOverflow = document.body.style.overflow;
+        modal.hidden = false;
+        modal.inert = false;
+        void modal.offsetWidth;
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        modal.querySelector('[data-close-cod-remit]').focus();
+      }
+      function close() {
+        if (modal.hidden) return;
+        modal.inert = true;
+        document.getElementById('codRemitTrigger')?.focus();
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = previousOverflow;
+        setTimeout(() => { if (!modal.classList.contains('open')) modal.hidden = true; }, 190);
+      }
+
+      document.addEventListener('click', event => { if (event.target.closest('#codRemitTrigger')) open(); });
+      modal.addEventListener('click', event => { if (event.target === modal || event.target.closest('[data-close-cod-remit]')) close(); });
+      document.addEventListener('keydown', event => {
+        if (modal.hidden) return;
+        if (event.key === 'Escape') { close(); return; }
+        if (event.key !== 'Tab') return;
+        const controls = [...modal.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled)')];
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      });
     })();
   </script>
   <script>
