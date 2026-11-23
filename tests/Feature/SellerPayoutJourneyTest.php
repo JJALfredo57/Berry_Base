@@ -109,6 +109,9 @@ class SellerPayoutJourneyTest extends TestCase
         $response = $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'customer-funds', 'period' => 'today']))->assertOk();
         $response->assertSee('data-order-detail="fb-detail-', false)
             ->assertSee('document.body.appendChild(modal)', false)
+            ->assertSee('<section class="fb-proof">', false)
+            ->assertSee('<details class="fb-disclosure fb-cake-details">', false)
+            ->assertSee('<details class="fb-disclosure fb-audit">', false)
             ->assertSee('Chocolate Celebration Cake × 2')
             ->assertSee('Size: 8 inches')
             ->assertSee('Cake amount: ₱490.00')
@@ -119,6 +122,38 @@ class SellerPayoutJourneyTest extends TestCase
             ->assertDontSee('<div class="fb-formula"', false)
             ->assertDontSee('Total for all matching records');
         $this->assertCount(2, $response->viewData('report')['cakeDetails']);
+    }
+
+    public function test_finance_modal_explains_the_selected_metric_before_full_audit(): void
+    {
+        $this->order('RIDERPROOF1', 'Delivered', 'GCash', 'Delivery', 1100);
+        DB::table('rider_delivery_earnings')->insert([
+            'rider_id' => 1, 'order_id' => 'RIDERPROOF1', 'amount' => 100,
+            'source' => 'online_payment', 'status' => 'available', 'event_key' => 'rider-proof-1',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'fullname' => 'Test Admin', 'role' => 'superadmin']]);
+
+        $rider = $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'rider-awaiting-release', 'period' => 'today']))->assertOk();
+        $this->assertMatchesRegularExpression('/<section class="fb-proof">(.*?)<\/section>/s', $rider->getContent());
+        preg_match('/<section class="fb-proof">(.*?)<\/section>/s', $rider->getContent(), $riderProof);
+        $this->assertStringContainsString('Rider allocation', $riderProof[1]);
+        $this->assertStringContainsString('Already paid to rider', $riderProof[1]);
+        $this->assertStringContainsString('Rider earning', $riderProof[1]);
+        $this->assertStringNotContainsString('Seller awaiting', $riderProof[1]);
+        $this->assertStringNotContainsString('Platform funding', $riderProof[1]);
+        $this->assertStringContainsString('Complete audit breakdown', $rider->getContent());
+
+        $checkout = $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'customer-checkout-total', 'period' => 'today']))->assertOk();
+        preg_match('/<section class="fb-proof">(.*?)<\/section>/s', $checkout->getContent(), $checkoutProof);
+        $this->assertStringContainsString('GCash payment plus the customer-paid service fee', $checkoutProof[1]);
+        $this->assertStringContainsString('GCash payment', $checkoutProof[1]);
+        $this->assertStringNotContainsString('Seller allocation', $checkoutProof[1]);
+
+        $commission = $admin->get(route('superadmin.payouts.breakdown', ['metric' => 'recorded-commission', 'period' => 'today']))->assertOk();
+        preg_match('/<section class="fb-proof">(.*?)<\/section>/s', $commission->getContent(), $commissionProof);
+        $this->assertStringContainsString('Seller ledger commission', $commissionProof[1]);
+        $this->assertStringNotContainsString('Rider awaiting', $commissionProof[1]);
     }
 
     public function test_finance_activity_tables_total_the_rows_shown_in_each_column(): void

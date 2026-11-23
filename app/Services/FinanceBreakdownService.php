@@ -312,8 +312,18 @@ class FinanceBreakdownService
             foreach ($query->get() as $record) {
                 $id = (string) (($table === 'seller_payout_ledgers' ? ($record->source_order_id ?? null) : null) ?: $record->order_id);
                 $entries = $sources->get($id, []);
-                $entries[] = ['label' => $label, 'amount' => (float) ($record->{$amount} ?? ($record->requested_amount ?? 0)),
-                    'reference' => $record->{$reference} ?? null];
+                $entries[] = [
+                    'id' => $record->id,
+                    'type' => $table,
+                    'label' => $label,
+                    'amount' => (float) ($record->{$amount} ?? ($record->requested_amount ?? 0)),
+                    'service_fee' => $table === 'payment_transactions' ? (float) ($record->payment_service_fee ?? 0) : null,
+                    'customer_charged' => $table === 'payment_transactions' ? (float) ($record->customer_paid_amount ?? ((float) $record->amount + (float) ($record->payment_service_fee ?? 0))) : null,
+                    'commission_amount' => $table === 'seller_payout_ledgers' ? (float) ($record->commission_amount ?? 0) : null,
+                    'rider_allocation_amount' => $table === 'seller_payout_ledgers' ? (float) ($record->rider_online_fee_amount ?? 0) : null,
+                    'status' => $record->status ?? null,
+                    'reference' => $record->{$reference} ?? null,
+                ];
                 $sources->put($id, $entries);
             }
         }
