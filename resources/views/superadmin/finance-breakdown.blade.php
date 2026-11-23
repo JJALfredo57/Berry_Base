@@ -90,7 +90,7 @@
   @if($report['paginated']->hasPages())<div class="mb-3">{{ $report['paginated']->links() }}</div>@endif
   <footer class="fb-footer" aria-label="Breakdown totals">
     <div class="fb-footer-line"><span>Visible page subtotal (signed rows)</span><strong>₱{{ number_format($report['paginated']->getCollection()->sum('amount'),2) }}</strong></div>
-    <div class="fb-note mt-2">Subtotal of the {{ $report['paginated']->count() }} order{{ $report['paginated']->count() === 1 ? '' : 's' }} on this page.</div>
+    <div class="fb-note mt-2">Subtotal of the {{ $report['paginated']->count() }} record{{ $report['paginated']->count() === 1 ? '' : 's' }} on this page.</div>
   </footer>
 </div>
 <div class="modal fade fb-detail-modal" id="financeOrderModal" tabindex="-1" aria-labelledby="financeOrderModalTitle" aria-hidden="true">
