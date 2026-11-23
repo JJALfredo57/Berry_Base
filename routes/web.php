@@ -314,6 +314,8 @@ Route::get('/rider/password/setup', [\App\Http\Controllers\RiderController::clas
 Route::post('/rider/password/setup', [\App\Http\Controllers\RiderController::class, 'passwordSetupUpdate'])->name('rider.password.setup.update');
 Route::get('/rider/dashboard', [\App\Http\Controllers\RiderController::class, 'dashboard'])->name('rider.dashboard');
 Route::get('/rider/dashboard/feed', [\App\Http\Controllers\RiderController::class, 'dashboardFeed'])->name('rider.dashboard.feed');
+Route::get('/rider/messages', [\App\Http\Controllers\RiderController::class, 'messages'])->name('rider.messages');
+Route::get('/rider/messages/{orderId}', [\App\Http\Controllers\RiderController::class, 'messageThread'])->name('rider.messages.show');
 Route::get('/rider/payout-receipts', [\App\Http\Controllers\RiderController::class, 'payoutReceipts'])->name('rider.payouts.receipts');
 Route::get('/rider/payout-receipts/{id}', [\App\Http\Controllers\RiderController::class, 'payoutReceiptFile'])->name('rider.payouts.receipt');
 Route::post('/rider/payout-requests', [\App\Http\Controllers\RiderController::class, 'requestDeliveryPayout'])->name('rider.payouts.request');

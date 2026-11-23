@@ -18,6 +18,7 @@ use App\Traits\UploadsFiles;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -133,7 +134,7 @@ class RiderController extends Controller
             $this->syncRiderActiveBatch((int) $rider->id);
         }
         $orders = $this->riderDashboardOrders((int) $rider->id, $lat, $lng);
-        $deliveryMessageOrders = app(DeliveryMessageService::class)->riderSummaries((int) $rider->id, $orders);
+        $deliveryMessageOrders = app(DeliveryMessageService::class)->riderInbox((int) $rider->id);
         $unremitted = $this->riderUnremittedSummary((int) $rider->id);
         $bulkRemittance = $this->riderBulkRemittanceSummary((int) $rider->id);
         $deliveryEarnings = Schema::hasTable('rider_delivery_earnings') ? DB::table('rider_delivery_earnings')->where('rider_id', $rider->id)->get() : collect();
@@ -149,6 +150,48 @@ class RiderController extends Controller
                 'Pragma' => 'no-cache',
                 'Expires' => 'Sat, 01 Jan 2000 00:00:00 GMT',
             ]);
+    }
+
+    public function messages(Request $request, DeliveryMessageService $messages)
+    {
+        $rider = $this->sessionRider();
+        if (! $rider) {
+            return redirect()->route('login')->with('error', $this->riderAuthenticationMessage('Please log in to view your messages.'));
+        }
+        if ((bool) ($rider->password_must_change ?? false)) {
+            return redirect()->route('rider.password.setup');
+        }
+        if ($request->boolean('summary')) {
+            return response()->json(['unread' => $messages->riderInbox((int) $rider->id)->sum('delivery_unread_count')])->header('Cache-Control', 'no-store, private');
+        }
+        $filters = $request->validate(['filter' => ['nullable', 'in:all,active'], 'q' => ['nullable', 'string', 'max:100'], 'page' => ['nullable', 'integer', 'min:1']]);
+        $filter = $filters['filter'] ?? 'all';
+        $search = trim($filters['q'] ?? '');
+        $conversations = $messages->riderInbox((int) $rider->id)
+            ->filter(fn ($order) => ($filter !== 'active' || $order->status === 'Out for Delivery')
+                && ($search === '' || str_contains(mb_strtolower(($order->customer_display_name ?? 'Customer').' '.$order->id), mb_strtolower($search))))
+            ->values();
+        $page = (int) ($filters['page'] ?? 1);
+        $conversations = new LengthAwarePaginator($conversations->forPage($page, 20)->values(), $conversations->count(), 20, $page, [
+            'path' => route('rider.messages'), 'query' => $request->query(),
+        ]);
+
+        return response()->view('rider.messages', compact('conversations', 'filter', 'search'))->header('Cache-Control', 'no-store, private');
+    }
+
+    public function messageThread(string $orderId, DeliveryMessageService $messages)
+    {
+        $rider = $this->sessionRider();
+        if (! $rider) {
+            return redirect()->route('login')->with('error', $this->riderAuthenticationMessage('Please log in to view this conversation.'));
+        }
+        if ((bool) ($rider->password_must_change ?? false)) {
+            return redirect()->route('rider.password.setup');
+        }
+        $order = $messages->riderConversation($orderId, $rider);
+        $customer = DB::table('users')->where('id', $order->user_id)->first(['fullname', 'profile_photo']);
+
+        return response()->view('rider.message_thread', compact('order', 'customer'))->header('Cache-Control', 'no-store, private');
     }
 
     /** Paginated, rider-owned proof of completed delivery-fee payouts. */

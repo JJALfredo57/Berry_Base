@@ -35,6 +35,7 @@
     $hour = (int) now()->format('G');
     $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
     $firstName = trim(explode(' ', trim((string) $rider->name))[0] ?? '') ?: 'Rider';
+    $deliveryUnread = (int) $deliveryMessageOrders->sum('delivery_unread_count');
   @endphp
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -56,7 +57,7 @@
     .live.off::before { background:#fbbf24; animation:none; }
     @keyframes pulse { 70% { box-shadow:0 0 0 7px rgba(74,222,128,0); } 100% { box-shadow:0 0 0 0 rgba(74,222,128,0); } }
     .logout { border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.15); color:#fff; border-radius:12px; width:44px; height:44px; display:grid; place-items:center; cursor:pointer; flex-shrink:0; }
-    .wrap { width:min(1120px,100%); margin:0 auto; padding:18px clamp(12px,3vw,24px) 32px; position:relative; }
+    .wrap { width:min(1120px,100%); margin:0 auto; padding:18px clamp(12px,3vw,24px) 160px; position:relative; }
     .notice { border-radius:12px; padding:12px 14px; margin:0 0 12px; font-size:14px; font-weight:650; }
     .ok { background:#ecfdf5; color:#166534; border:1px solid #bbf7d0; }
     .err { background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; }
@@ -196,8 +197,10 @@
     .receipt-fab { position:fixed; right:max(16px,env(safe-area-inset-right)); bottom:max(16px,env(safe-area-inset-bottom)); z-index:45; min-height:54px; padding:10px 14px; border:0; border-radius:999px; background:var(--primary); color:#fff; box-shadow:0 12px 28px rgba(17,24,39,.24); display:flex; align-items:center; gap:9px; font:inherit; font-size:14px; font-weight:850; cursor:pointer; transition:transform .18s ease,box-shadow .18s ease,background .18s ease; }
     .receipt-fab:focus-visible { outline:3px solid #93c5fd; outline-offset:3px; }
     .receipt-fab:active { transform:scale(.96); }
+    a.messages-fab { bottom:calc(max(16px,env(safe-area-inset-bottom)) + 66px); text-decoration:none; }
     .receipt-fab i { font-size:18px; }
     .receipt-fab-count { min-width:22px; height:22px; padding:0 6px; border-radius:999px; background:#fff; color:var(--primary-dark); display:grid; place-items:center; font-size:12px; }
+    .receipt-fab-count[hidden] { display:none; }
     .receipt-modal[hidden] { display:none; }
     .receipt-modal { position:fixed; inset:0; z-index:80; display:flex; align-items:flex-end; justify-content:center; padding:0; background:rgba(17,24,39,.58); opacity:0; transition:opacity .18s ease; }
     .receipt-modal.open { opacity:1; }
@@ -315,7 +318,6 @@
         </div>
       </section>
 
-      <section class="section" aria-label="Customer messages"><div class="section-head"><h2><i class="bi bi-chat-dots" style="color:var(--primary)"></i>Customer messages</h2></div><div class="list">@forelse($deliveryMessageOrders as $messageOrder)<article class="order" id="delivery-message-{{ $messageOrder->id }}"><div class="order-head"><div><div class="order-id">Order #{{ $messageOrder->id }}</div><div class="product">{{ $messageOrder->customer_display_name ?: 'Customer' }}</div><div class="small text-muted mt-1">{{ $messageOrder->delivery_last_message ?: ($messageOrder->delivery_last_image ? 'Image attachment' : 'No messages yet') }}</div></div><button type="button" class="btn btn-outline" style="width:auto" data-delivery-message data-role="rider" data-label="{{ $messageOrder->customer_display_name ?: 'Customer' }} · Order #{{ $messageOrder->id }}" data-index="{{ route('rider.delivery_messages.index', $messageOrder->id) }}" data-send="{{ route('rider.delivery_messages.send', $messageOrder->id) }}">Open conversation @if($messageOrder->delivery_unread_count)<span class="count-pill">{{ $messageOrder->delivery_unread_count }}</span>@endif</button></div></article>@empty<div class="empty"><i class="bi bi-chat-square-text"></i><div class="t">No customer messages</div><div>Messages for active deliveries will appear here.</div></div>@endforelse</div></section>
 
     </div>
     @php
@@ -434,6 +436,10 @@
     </section>
   </div>
 
+    <a class="receipt-fab messages-fab" id="messagesFab" href="{{ route('rider.messages') }}" data-summary-url="{{ route('rider.messages', ['summary' => 1]) }}">
+      <i class="bi bi-chat-dots" aria-hidden="true"></i><span>Messages</span>
+      <span class="receipt-fab-count" id="messagesUnread" aria-label="Unread messages" @if(!$deliveryUnread) hidden @endif>{{ $deliveryUnread > 99 ? '99+' : $deliveryUnread }}</span>
+    </a>
     <button class="receipt-fab" id="receiptFab" type="button" aria-haspopup="dialog" aria-controls="riderReceiptModal">
       <i class="bi bi-clock-history" aria-hidden="true"></i><span>Transaction history</span>
       @if($transactionHistory->isNotEmpty())<span class="receipt-fab-count" aria-label="{{ $transactionHistory->count() }} transaction{{ $transactionHistory->count() === 1 ? '' : 's' }}">{{ $transactionHistory->count() > 99 ? '99+' : $transactionHistory->count() }}</span>@endif
@@ -452,7 +458,28 @@
 
   <div class="toast-stack" id="toasts" aria-live="polite"></div>
 
-  @include('partials.delivery_message_popup')
+  <script>
+    (() => {
+      const match = location.hash.match(/^#delivery-message-(.+)$/);
+      if (match) location.replace(@json(route('rider.messages')) + '/' + encodeURIComponent(decodeURIComponent(match[1])));
+      else if (location.hash === '#delivery-message') location.replace(@json(route('rider.messages')));
+      const link = document.getElementById('messagesFab');
+      async function refreshUnread() {
+        if (document.hidden) return;
+        try {
+          const response = await fetch(link.dataset.summaryUrl, {headers: {Accept: 'application/json'}, credentials: 'same-origin'});
+          if (!response.ok) return;
+          const data = await response.json();
+          const badge = document.getElementById('messagesUnread');
+          badge.hidden = !data.unread;
+          badge.textContent = data.unread > 99 ? '99+' : data.unread;
+        } catch (_) { /* Keep the last known count during a connection interruption. */ }
+      }
+      setInterval(refreshUnread, 15000);
+      document.addEventListener('visibilitychange', refreshUnread);
+      window.addEventListener('pageshow', refreshUnread);
+    })();
+  </script>
   <script>
     const FEED_URL = @json(route('rider.dashboard.feed'));
     const POLL_MS = 5000;

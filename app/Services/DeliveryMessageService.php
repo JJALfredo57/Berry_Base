@@ -108,7 +108,7 @@ class DeliveryMessageService
         $latest = DB::table('delivery_messages as dm')
             ->whereIn('dm.order_id', $activeIds)
             ->where('dm.rider_id', $riderId)
-            ->select('dm.order_id', 'dm.message', 'dm.image_path', 'dm.created_at')
+            ->select('dm.order_id', 'dm.message', 'dm.image_path', 'dm.created_at', 'dm.sender_type')
             ->whereRaw('dm.id = (select max(inner_dm.id) from delivery_messages as inner_dm where inner_dm.order_id = dm.order_id and inner_dm.rider_id = dm.rider_id)')
             ->get()->keyBy('order_id');
         $unread = DB::table('delivery_messages')
@@ -120,9 +120,41 @@ class DeliveryMessageService
         return $orders->whereIn('id', $activeIds)->map(function ($order) use ($latest, $unread) {
             $order->delivery_last_message = $latest[$order->id]->message ?? null;
             $order->delivery_last_image = $latest[$order->id]->image_path ?? null;
+            $order->delivery_last_at = $latest[$order->id]->created_at ?? null;
+            $order->delivery_last_sender = $latest[$order->id]->sender_type ?? null;
             $order->delivery_unread_count = (int) ($unread[$order->id] ?? 0);
             return $order;
         })->values();
+    }
+
+    /** Inbox ownership uses the same rider resolution as the conversation APIs. */
+    public function riderInbox(int $riderId): Collection
+    {
+        $orders = DB::table('orders as o')
+            ->leftJoin('users as u', 'u.id', '=', 'o.user_id')
+            ->where('o.fulfillment_type', 'Delivery')
+            ->whereNotNull('o.user_id')
+            ->where(function ($query) use ($riderId) {
+                $query->where(fn ($active) => $active->where('o.status', 'Out for Delivery')->where('o.rider_assignment_status', 'accepted'))
+                    ->orWhere(fn ($delivered) => $delivered->where('o.status', 'Delivered')
+                        ->whereExists(fn ($history) => $history->selectRaw('1')->from('delivery_messages as history')
+                            ->whereColumn('history.order_id', 'o.id')->where('history.rider_id', $riderId)));
+            })
+            ->where(function ($query) use ($riderId) {
+                $query->where('o.rider_id', $riderId)->orWhere('o.delivery_rider_id', $riderId);
+                if (Schema::hasTable('rider_remittances')) {
+                    $query->orWhereExists(fn ($remittance) => $remittance->selectRaw('1')
+                        ->from('rider_remittances as rr')->whereColumn('rr.order_id', 'o.id')->where('rr.rider_id', $riderId));
+                }
+            })
+            ->select('o.*', 'u.fullname as customer_display_name', 'u.profile_photo as customer_profile_photo')
+            ->get()
+            ->filter(fn ($order) => $this->conversationRiderId($order) === $riderId && $this->active($order));
+
+        return $this->riderSummaries($riderId, $orders)
+            ->filter(fn ($order) => $order->status !== 'Delivered' || $order->delivery_last_at !== null)
+            ->sortByDesc(fn ($order) => $order->delivery_last_at ?? $order->updated_at ?? $order->created_at ?? '')
+            ->values();
     }
 
     private function order(string $orderId): object
@@ -175,7 +207,7 @@ class DeliveryMessageService
                 $phone = DB::table('riders')->where('id', $riderId)->value('phone');
                 $notifications->notifyRider($riderId, $phone, 'New customer message', "Order #{$order->id}: {$preview}", [
                     'event' => 'delivery_message', 'order_id' => (string) $order->id,
-                ], null, route('rider.dashboard', [], false) . '#delivery-message-' . $order->id);
+                ], null, route('rider.messages.show', $order->id, false));
                 return;
             }
 
