@@ -73,15 +73,21 @@ class PayoutController extends Controller
         $state = (string) $request->input('state', '');
         $orderStatus = (string) $request->input('order_status', '');
         $historyStatus = (string) $request->input('history_status', '');
+        if ($state === 'paid') {
+            // Preserve bookmarked Paid Out links as a payout-history filter.
+            $state = '';
+            $historyStatus = 'paid';
+        }
         $sort = $request->input('sort') === 'oldest' ? 'oldest' : 'newest';
         $ledgerQuery = DB::table('seller_payout_ledgers as l')
             ->leftJoin('orders as o', 'o.id', '=', DB::raw('COALESCE(l.source_order_id, l.order_id)'))
             ->leftJoin('products as p', 'p.id', '=', 'o.product_id')
             ->where('l.shop_id', $shop->id)
+            ->where('l.status', '<>', 'paid')
             ->when(! $allDates, fn ($q) => $q->whereBetween(DB::raw('DATE(l.created_at)'), [$from, $to]))
             ->when(in_array($method, ['GCash', 'COD', 'COP']), fn ($q) => $q->where('o.payment_method', $method))
             ->when(in_array($fulfillment, ['Delivery', 'Pickup']), fn ($q) => $q->where('o.fulfillment_type', $fulfillment))
-            ->when(in_array($state, ['available', 'awaiting_completion', 'refund_reserved', 'requested', 'processing', 'paid', 'refunded', 'cash_settled', 'cancelled', 'finance_review']), fn ($q) => $q->where('l.status', $state))
+            ->when(in_array($state, ['available', 'awaiting_completion', 'refund_reserved', 'requested', 'processing', 'refunded', 'cash_settled', 'cancelled', 'finance_review']), fn ($q) => $q->where('l.status', $state))
             ->when($state === 'unrequested', fn ($q) => $q->whereIn('l.status', ['awaiting_completion', 'available']))
             ->when($state === 'transfer_pending', fn ($q) => $q->whereIn('l.status', ['requested', 'processing']))
             ->when($orderStatus !== '', fn ($q) => $q->where('o.status', $orderStatus))

@@ -8,6 +8,15 @@ use Illuminate\Support\Facades\Schema;
 /** Shared allocation and eligibility rules; paid transfers are immutable. */
 class SellerBalanceService
 {
+    public static function awaitingCompletionLabel(?string $fulfillmentType): string
+    {
+        return match ($fulfillmentType) {
+            'Pickup' => 'Waiting for Pickup',
+            'Delivery' => 'Waiting for Delivery',
+            default => 'Awaiting Order Completion',
+        };
+    }
+
     public function issue(object $order): ?string
     {
         if (in_array($order->cancel_status ?? '', ['pending', 'accepted'], true)
@@ -42,7 +51,7 @@ class SellerBalanceService
             return ['refund_reserved', 'Order not eligible for payout'];
         }
         if (! in_array($order->status ?? '', ['Delivered', 'Picked Up'], true)) {
-            return ['awaiting_completion', 'Awaiting Delivery/Pickup'];
+            return ['awaiting_completion', self::awaitingCompletionLabel($order->fulfillment_type ?? null)];
         }
         if (($order->payment_status ?? '') !== 'Paid') {
             return ['awaiting_completion', 'Payment balance not settled'];

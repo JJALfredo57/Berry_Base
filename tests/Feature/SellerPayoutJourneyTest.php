@@ -52,6 +52,39 @@ class SellerPayoutJourneyTest extends TestCase
         return $this->withSession(['user' => ['id' => 'SELLER', 'fullname' => 'Test Seller', 'role' => 'seller']]);
     }
 
+    public function test_awaiting_payout_labels_follow_pickup_and_delivery(): void
+    {
+        $pickup = $this->order('PICKUPWAIT', 'Pickup', 'GCash', 'Pickup');
+        $this->order('DELIVERYWAIT', 'Out for Delivery', 'GCash', 'Delivery');
+        DB::table('seller_payout_ledgers')->where('id', $pickup->id)
+            ->update(['blocked_reason' => 'Awaiting Delivery/Pickup']);
+
+        $this->seller()->get('/seller/payouts')->assertOk()
+            ->assertSee('Waiting for Pickup')->assertSee('Waiting for Delivery')
+            ->assertDontSee('Awaiting Delivery/Pickup');
+        $this->assertDatabaseHas('seller_payout_ledgers', [
+            'order_id' => 'DELIVERYWAIT', 'status' => 'awaiting_completion', 'blocked_reason' => 'Waiting for Delivery',
+        ]);
+    }
+
+    public function test_paid_order_is_only_in_payout_history_not_order_selection(): void
+    {
+        $ledger = $this->order('PAIDORDER', 'Picked Up', 'GCash', 'Pickup', 1000);
+        $this->seller()->post('/seller/payouts/request', ['ledger_ids' => [$ledger->id]])->assertSessionHas('msg');
+        $payoutId = DB::table('seller_payouts')->value('id');
+        DB::table('seller_payouts')->where('id', $payoutId)->update(['status' => 'paid']);
+        DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update(['status' => 'paid']);
+
+        $this->seller()->get('/seller/payouts')->assertOk()
+            ->assertViewHas('ledgers', fn ($rows) => $rows->total() === 0)
+            ->assertViewHas('payouts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $payoutId)
+            ->assertSee('Payout #'.$payoutId)->assertSee('Order #PAIDORDER')
+            ->assertSee('history_status=paid', false);
+        $this->seller()->get('/seller/payouts?state=paid')->assertOk()
+            ->assertViewHas('ledgers', fn ($rows) => $rows->total() === 0)
+            ->assertViewHas('payouts', fn ($rows) => $rows->total() === 1 && $rows->first()->status === 'paid');
+    }
+
     public function test_seller_filters_selection_history_and_refund_receipts_work_together(): void
     {
         $ready = $this->order('READY', 'Picked Up');
@@ -113,6 +146,7 @@ class SellerPayoutJourneyTest extends TestCase
         $hub = $admin->get(route('superadmin.payouts'));
         $hub->assertOk();
         $this->assertTrue(str_contains($hub->getContent(), 'Seller Payouts') && str_contains($hub->getContent(), 'Rider Payouts') && !str_contains($hub->getContent(), 'Cancel & Reconcile'), 'Finance hub separation');
+        $hub->assertDontSee('Order Reconciliation Audit');
         $seller = $admin->get(route('superadmin.payouts.sellers', ['payout_status' => 'requested', 'shop' => 'SHOP']));
         $seller->assertOk()->assertViewHas('payoutAttention', fn ($counts) => $counts['seller_requests'] === 1 && $counts['rider_requests'] === 1);
         $this->assertTrue(str_contains($seller->getContent(), 'SPLITPAGE') && !str_contains($seller->getContent(), 'Cancel & Reconcile'), 'Seller request page without cancel action');
