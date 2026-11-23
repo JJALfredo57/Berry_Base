@@ -55,6 +55,10 @@
           <input class="rider-payout-reference form-control" name="reference_number" placeholder="Scanned reference" readonly required>
           <button class="btn btn-success" type="submit" disabled>Mark Paid</button>
         </form>
+        <form method="POST" action="{{ route('superadmin.rider_payouts.return_to_balance', $record->id) }}" data-prevent-double-submit onsubmit="return confirm('Return payout #R{{ $record->id }} to this rider’s available balance? Only do this if no transfer was sent.');">
+          @csrf
+          <button class="btn btn-outline-danger" type="submit">Return to rider balance</button>
+        </form>
       @endif
     </div>
   </template>

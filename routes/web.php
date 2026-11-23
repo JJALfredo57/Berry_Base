@@ -680,6 +680,7 @@ Route::prefix('admin')->name('superadmin.')->middleware('auth.superadmin')->grou
     Route::post('/payouts/{id}/scan-receipt',  [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanReceipt'])->name('payouts.scan_receipt');
     Route::post('/rider-payouts/{id}/scan-receipt', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'scanRiderPayoutReceipt'])->name('rider_payouts.scan_receipt');
     Route::post('/rider-payouts/{id}/paid', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'markRiderPayoutPaid'])->name('rider_payouts.mark_paid');
+    Route::post('/rider-payouts/{id}/return-to-balance', [\App\Http\Controllers\SuperAdmin\PayoutController::class, 'returnRiderPayoutToBalance'])->name('rider_payouts.return_to_balance');
     Route::get('/return-cases', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'index'])->name('return_cases');
     Route::post('/return-cases/{id}/scan-receipt', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'scanReceipt'])->middleware('throttle:10,10')->name('return_cases.scan_receipt');
     Route::post('/return-cases/{id}/refund', [\App\Http\Controllers\SuperAdmin\PostDeliveryReturnController::class, 'refund'])->middleware('throttle:10,10')->name('return_cases.refund');

@@ -552,4 +552,47 @@ class SellerPayoutJourneyTest extends TestCase
         }
         $this->assertDatabaseHas('rider_payout_requests', ['id' => $id, 'status' => 'requested']);
     }
+
+    public function test_superadmin_can_return_unpaid_rider_request_to_available_balance(): void
+    {
+        DB::table('riders')->insert(['id' => 1, 'name' => 'Test Rider', 'is_active' => 1]);
+        $id = DB::table('rider_payout_requests')->insertGetId([
+            'rider_id' => 1, 'amount' => 178, 'gcash_name' => 'Test Rider',
+            'gcash_number' => '+639171234567', 'status' => 'requested',
+        ]);
+        DB::table('rider_delivery_earnings')->insert([
+            'rider_id' => 1, 'order_id' => 'RETURN178', 'event_key' => 'return-178',
+            'amount' => 178, 'source' => 'online_payment', 'status' => 'requested', 'payout_id' => $id,
+        ]);
+
+        $this->withSession(['user' => ['id' => 'ADMIN', 'role' => 'superadmin']])
+            ->post(route('superadmin.rider_payouts.return_to_balance', $id))->assertSessionHas('msg');
+
+        $this->assertDatabaseMissing('rider_payout_requests', ['id' => $id]);
+        $this->assertDatabaseHas('rider_delivery_earnings', [
+            'event_key' => 'return-178', 'status' => 'available', 'payout_id' => null,
+        ]);
+    }
+
+    public function test_rider_request_cannot_be_returned_if_paid_or_earnings_do_not_match(): void
+    {
+        DB::table('riders')->insert(['id' => 1, 'name' => 'Test Rider', 'is_active' => 1]);
+        $id = DB::table('rider_payout_requests')->insertGetId([
+            'rider_id' => 1, 'amount' => 178, 'gcash_name' => 'Test Rider',
+            'gcash_number' => '+639171234567', 'status' => 'requested',
+        ]);
+        DB::table('rider_delivery_earnings')->insert([
+            'rider_id' => 1, 'order_id' => 'MISMATCH178', 'event_key' => 'mismatch-178',
+            'amount' => 177, 'source' => 'online_payment', 'status' => 'requested', 'payout_id' => $id,
+        ]);
+        $admin = $this->withSession(['user' => ['id' => 'ADMIN', 'role' => 'superadmin']]);
+        $admin->post(route('superadmin.rider_payouts.return_to_balance', $id))->assertSessionHas('err');
+        $this->assertDatabaseHas('rider_delivery_earnings', ['event_key' => 'mismatch-178', 'status' => 'requested', 'payout_id' => $id]);
+
+        DB::table('rider_payout_requests')->where('id', $id)->update(['status' => 'paid', 'paid_at' => now()]);
+        DB::table('rider_delivery_earnings')->where('payout_id', $id)->update(['amount' => 178, 'status' => 'paid']);
+        $admin->post(route('superadmin.rider_payouts.return_to_balance', $id))->assertSessionHas('err');
+        $this->assertDatabaseHas('rider_payout_requests', ['id' => $id, 'status' => 'paid']);
+        $this->assertDatabaseHas('rider_delivery_earnings', ['event_key' => 'mismatch-178', 'status' => 'paid', 'payout_id' => $id]);
+    }
 }

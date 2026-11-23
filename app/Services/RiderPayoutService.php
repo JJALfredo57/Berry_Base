@@ -66,4 +66,37 @@ class RiderPayoutService
 
         return $rows;
     }
+
+    /** Return an unpaid request's exact linked earnings to the rider balance. */
+    public function cancelRequest(int $payoutId): object
+    {
+        return DB::transaction(function () use ($payoutId) {
+            $request = DB::table('rider_payout_requests')->where('id', $payoutId)->first();
+            if (! $request) {
+                throw new \DomainException('Rider payout request is unavailable.');
+            }
+
+            DB::table('riders')->where('id', $request->rider_id)->lockForUpdate()->first();
+            $request = DB::table('rider_payout_requests')->where('id', $payoutId)->lockForUpdate()->first();
+            if (! $request || $request->status !== 'requested' || $request->reference_number
+                || $request->receipt_path || $request->receipt_hash || $request->paid_at || $request->paid_by_user_id) {
+                throw new \DomainException('Only an unpaid rider payout without transfer proof can be returned to the balance.');
+            }
+
+            $earnings = DB::table('rider_delivery_earnings')->where('payout_id', $payoutId)->lockForUpdate()->get();
+            if ($earnings->isEmpty() || $earnings->contains(fn ($row) => (int) $row->rider_id !== (int) $request->rider_id || $row->status !== 'requested')
+                || abs((float) $earnings->sum('amount') - (float) $request->amount) >= .01) {
+                throw new \DomainException('Linked rider earnings do not match this request. No balance was changed.');
+            }
+
+            $changed = DB::table('rider_delivery_earnings')->whereIn('id', $earnings->pluck('id'))
+                ->where('status', 'requested')->where('payout_id', $payoutId)
+                ->update(['status' => 'available', 'payout_id' => null, 'updated_at' => now()]);
+            if ($changed !== $earnings->count() || DB::table('rider_payout_requests')->where('id', $payoutId)->where('status', 'requested')->delete() !== 1) {
+                throw new \DomainException('The payout changed while returning funds. No balance was changed.');
+            }
+
+            return $request;
+        });
+    }
 }

@@ -550,6 +550,24 @@ class PayoutController extends Controller
         return back()->with('msg', 'Rider delivery-fee payout marked paid.');
     }
 
+    public function returnRiderPayoutToBalance(int $id)
+    {
+        try {
+            $payout = app(RiderPayoutService::class)->cancelRequest($id);
+        } catch (\DomainException $e) {
+            return back()->with('err', $e->getMessage());
+        }
+
+        \Illuminate\Support\Facades\Log::info('Unpaid rider payout returned to available balance', [
+            'payout_id' => $id,
+            'rider_id' => $payout->rider_id,
+            'amount' => $payout->amount,
+            'admin_user_id' => session('user')['id'] ?? null,
+        ]);
+
+        return back()->with('msg', "Rider payout #R{$id} returned to the rider's available balance.");
+    }
+
     public function runAutomatic()
     {
         return back()->with('err', 'Automatic payouts are not available yet. Manual payouts remain active while business verification and payout provider access are being prepared.');
