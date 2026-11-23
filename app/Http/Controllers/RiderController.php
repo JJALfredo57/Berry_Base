@@ -139,14 +139,11 @@ class RiderController extends Controller
         $deliveryEarnings = Schema::hasTable('rider_delivery_earnings') ? DB::table('rider_delivery_earnings')->where('rider_id', $rider->id)->get() : collect();
         $deliveryPayouts = Schema::hasTable('rider_payout_requests') ? DB::table('rider_payout_requests')->where('rider_id', $rider->id)->orderByDesc('id')->limit(5)->get() : collect();
         $transactionHistory = $this->riderTransactionHistory((int) $rider->id);
-        $paidReceiptCount = Schema::hasTable('rider_payout_requests')
-            ? DB::table('rider_payout_requests')->where('rider_id', $rider->id)->where('status', 'paid')->whereNotNull('receipt_path')->count()
-            : 0;
         $deliveryEarningSummary = ['available' => (float) $deliveryEarnings->where('status', 'available')->sum('amount'), 'requested' => (float) $deliveryEarnings->where('status', 'requested')->sum('amount'), 'paid' => (float) $deliveryEarnings->where('status', 'paid')->sum('amount')];
         $settings = CakeshopHelper::getSettings();
 
         return response()
-            ->view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'deliveryEarnings', 'deliveryPayouts', 'deliveryEarningSummary', 'paidReceiptCount', 'transactionHistory', 'settings', 'lat', 'lng'))
+            ->view('rider.dashboard', compact('rider', 'orders', 'deliveryMessageOrders', 'unremitted', 'bulkRemittance', 'deliveryEarnings', 'deliveryPayouts', 'deliveryEarningSummary', 'transactionHistory', 'settings', 'lat', 'lng'))
             ->withHeaders([
                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0, private',
                 'Pragma' => 'no-cache',
@@ -163,6 +160,41 @@ class RiderController extends Controller
                 'message' => $this->riderAuthenticationMessage('Please log in again.'),
                 'redirect_url' => route('login'),
             ], 401);
+        }
+
+        if ($request->has('filter')) {
+            $filter = $request->query('filter');
+            if (! in_array($filter, ['all', 'remittance', 'payout'], true)) {
+                return response()->json(['message' => 'Invalid transaction filter.'], 422);
+            }
+
+            $history = $this->riderTransactionHistory((int) $rider->id);
+            if ($filter !== 'all') {
+                $history = $history->where('kind', $filter)->values();
+            }
+            $perPage = 6;
+            $total = $history->count();
+            $lastPage = max(1, (int) ceil($total / $perPage));
+            $page = min($lastPage, max(1, (int) $request->query('page', 1)));
+
+            return response()->json([
+                'data' => $history->forPage($page, $perPage)->map(fn ($entry) => [
+                    'kind' => $entry->kind,
+                    'id' => $entry->id,
+                    'detail' => $entry->detail,
+                    'amount' => $entry->amount,
+                    'status' => $entry->status,
+                    'reference_number' => $entry->reference,
+                    'date' => $entry->date ? Carbon::parse($entry->date)->toIso8601String() : null,
+                    'receipt_url' => $entry->kind === 'payout' && $entry->status === 'paid' && $entry->receipt
+                        ? route('rider.payouts.receipt', $entry->id) : null,
+                ])->values(),
+                'pagination' => [
+                    'current_page' => $page,
+                    'last_page' => $lastPage,
+                    'total' => $total,
+                ],
+            ]);
         }
 
         if (! Schema::hasTable('rider_payout_requests')) {

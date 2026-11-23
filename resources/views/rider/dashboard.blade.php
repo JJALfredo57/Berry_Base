@@ -211,21 +211,12 @@
     .receipt-pagination { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; }
     .receipt-pagination button { min-height:42px; border:1px solid var(--line); border-radius:10px; padding:8px 12px; background:#fff; color:var(--ink); font:inherit; font-weight:800; cursor:pointer; }
     .receipt-pagination button:disabled { opacity:.45; cursor:not-allowed; }
-    .transaction-trigger { width:auto; min-height:42px; padding:9px 12px; font-size:13px; }
-    .transaction-modal[hidden] { display:none; }
-    .transaction-modal { position:fixed; inset:0; z-index:85; display:grid; place-items:center; padding:16px; background:rgba(17,24,39,.58); opacity:0; transition:opacity .2s ease; }
-    .transaction-modal.open { opacity:1; }
-    .transaction-sheet { width:min(720px,100%); max-height:min(82dvh,760px); overflow:auto; background:#fff; border-radius:20px; padding:18px; transform:translateY(18px) scale(.98); transition:transform .22s ease; box-shadow:0 24px 60px rgba(17,24,39,.28); }
-    .transaction-modal.open .transaction-sheet { transform:none; }
     .transaction-tabs { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
     .transaction-tabs button { border:1px solid var(--line); border-radius:999px; background:#fff; color:#374151; padding:7px 11px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; }
     .transaction-tabs button.active { background:var(--primary); color:#fff; border-color:var(--primary); }
-    .transaction-list { display:grid; gap:9px; }
-    .transaction-row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; border:1px solid var(--line); border-radius:14px; padding:12px; background:#fff; }
-    .transaction-row[hidden] { display:none; }
-    .transaction-row strong,.transaction-row span { display:block; overflow-wrap:anywhere; }
-    .transaction-meta { color:var(--muted); font-size:12px; line-height:1.45; margin-top:3px; }
-    .transaction-amount { font-size:16px; font-weight:900; text-align:right; }.transaction-status { margin-top:4px; font-size:11px; font-weight:800; color:#374151; text-transform:capitalize; }
+    .transaction-tabs button:focus-visible { outline:3px solid #93c5fd; outline-offset:2px; }
+    .receipt-kind { font-size:13px; font-weight:800; }
+    .receipt-status { color:#374151; font-weight:700; text-transform:capitalize; }
 
     @media (min-width:640px) { .modal { align-items:center; } .sheet { border-radius:20px; } .payout-modal { padding:20px; } .payout-sheet { box-shadow:0 24px 60px rgba(17,24,39,.25); } }
     @media (min-width:640px) { .receipt-modal { align-items:center; padding:20px; } .receipt-sheet { border-radius:20px; max-height:min(82dvh,720px); } }
@@ -246,6 +237,8 @@
       .payout-fields { padding:0 16px 16px; }
       .payout-confirm { margin:0 16px 16px; }
       .payout-actions { padding:12px 16px calc(12px + env(safe-area-inset-bottom)); }
+      .receipt-card { grid-template-columns:1fr; }
+      .receipt-view { justify-self:start; }
     }
     @media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
   </style>
@@ -285,7 +278,7 @@
         </div>
       </section>
 
-      <section class="section" aria-label="Delivery earnings"><div class="section-head"><h2><i class="bi bi-cash-coin" style="color:#16a34a"></i>Delivery earnings</h2><button class="btn btn-outline transaction-trigger" type="button" id="transactionHistoryButton"><i class="bi bi-clock-history"></i>Transaction History</button></div><div class="remit-hub"><div class="remit-head"><div><div class="remit-kicker">Available delivery fees</div><div class="remit-total">PHP {{ number_format($deliveryEarningSummary['available'],2) }}</div><div class="remit-copy">Online-paid delivery fees and approved return trips are available for payout.</div></div><div class="remit-actions"><button class="btn btn-pay" type="button" onclick="openPayoutModal()" {{ $deliveryEarningSummary['available'] > 0 ? '' : 'disabled' }}>Request payout</button><div class="order-note">Pending: PHP {{ number_format($deliveryEarningSummary['requested'],2) }}</div></div></div></div></section>
+      <section class="section" aria-label="Delivery earnings"><div class="section-head"><h2><i class="bi bi-cash-coin" style="color:#16a34a"></i>Delivery earnings</h2></div><div class="remit-hub"><div class="remit-head"><div><div class="remit-kicker">Available delivery fees</div><div class="remit-total">PHP {{ number_format($deliveryEarningSummary['available'],2) }}</div><div class="remit-copy">Online-paid delivery fees and approved return trips are available for payout.</div></div><div class="remit-actions"><button class="btn btn-pay" type="button" onclick="openPayoutModal()" {{ $deliveryEarningSummary['available'] > 0 ? '' : 'disabled' }}>Request payout</button><div class="order-note">Pending: PHP {{ number_format($deliveryEarningSummary['requested'],2) }}</div></div></div></div></section>
 
       <section class="section" aria-label="Needs your response">
         <div class="section-head">
@@ -437,28 +430,20 @@
   </main>
 
     <button class="receipt-fab" id="receiptFab" type="button" aria-haspopup="dialog" aria-controls="riderReceiptModal">
-      <i class="bi bi-receipt-cutoff" aria-hidden="true"></i><span>Payout receipts</span>
-      @if($paidReceiptCount > 0)<span class="receipt-fab-count" aria-label="{{ $paidReceiptCount }} paid receipt{{ $paidReceiptCount === 1 ? '' : 's' }}">{{ $paidReceiptCount > 99 ? '99+' : $paidReceiptCount }}</span>@endif
+      <i class="bi bi-clock-history" aria-hidden="true"></i><span>Transaction history</span>
+      @if($transactionHistory->isNotEmpty())<span class="receipt-fab-count" aria-label="{{ $transactionHistory->count() }} transaction{{ $transactionHistory->count() === 1 ? '' : 's' }}">{{ $transactionHistory->count() > 99 ? '99+' : $transactionHistory->count() }}</span>@endif
     </button>
     <div class="receipt-modal" id="riderReceiptModal" role="dialog" aria-modal="true" aria-labelledby="riderReceiptTitle" aria-hidden="true" hidden>
       <section class="receipt-sheet" role="document">
-        <div class="receipt-sheet-head"><div><h2 id="riderReceiptTitle"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>Payout receipts</h2><p>Proof of delivery-fee payouts completed by Super Admin.</p></div><button class="receipt-close" type="button" data-close-receipts aria-label="Close payout receipts"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+        <div class="receipt-sheet-head"><div><h2 id="riderReceiptTitle"><i class="bi bi-clock-history me-1" aria-hidden="true"></i>Transaction history</h2><p>COD remittances and delivery-fee payouts, including completed payout receipts.</p></div><button class="receipt-close" type="button" data-close-receipts aria-label="Close transaction history"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+        <div class="transaction-tabs" role="tablist" aria-label="Transaction type">
+          <button class="active" type="button" role="tab" aria-selected="true" data-transaction-filter="all">All</button>
+          <button type="button" role="tab" aria-selected="false" data-transaction-filter="remittance">COD Remittances</button>
+          <button type="button" role="tab" aria-selected="false" data-transaction-filter="payout">Payouts</button>
+        </div>
         <div id="receiptContent" aria-live="polite"></div>
       </section>
     </div>
-  <div class="transaction-modal" id="transactionHistoryModal" role="dialog" aria-modal="true" aria-labelledby="transactionHistoryTitle" aria-hidden="true" hidden>
-    <section class="transaction-sheet" role="document">
-      <div class="receipt-sheet-head"><div><h2 id="transactionHistoryTitle"><i class="bi bi-clock-history me-1"></i>Transaction History</h2><p>All COD remittances and delivery-fee payouts.</p></div><button class="receipt-close" type="button" data-close-transactions aria-label="Close transaction history"><i class="bi bi-x-lg"></i></button></div>
-      <div class="transaction-tabs" role="tablist"><button class="active" type="button" data-transaction-filter="all">All</button><button type="button" data-transaction-filter="remittance">COD Remittances</button><button type="button" data-transaction-filter="payout">Payouts</button></div>
-      <div class="transaction-list">
-        @forelse($transactionHistory as $entry)
-          <article class="transaction-row" data-transaction-kind="{{ $entry->kind }}"><div><strong>{{ $entry->kind === 'payout' ? 'Delivery-fee payout' : 'COD remittance' }}</strong><div class="transaction-meta">{{ $entry->detail }} · {{ $entry->date ? \Carbon\Carbon::parse($entry->date)->format('M d, Y h:i A') : 'Date unavailable' }}@if($entry->reference)<br>Reference: {{ $entry->reference }}@endif</div></div><div><div class="transaction-amount">PHP {{ number_format($entry->amount,2) }}</div><div class="transaction-status">{{ str_replace('_',' ',$entry->status) }}</div>@if($entry->kind === 'payout' && $entry->receipt)<a class="receipt-view mt-2" href="{{ route('rider.payouts.receipt',$entry->id) }}" target="_blank" rel="noopener">View receipt</a>@endif</div></article>
-        @empty
-          <div class="receipt-empty"><i class="bi bi-receipt"></i>No remittance or payout activity yet.</div>
-        @endforelse
-      </div>
-    </section>
-  </div>
 
   <div class="toast-stack" id="toasts" aria-live="polite"></div>
 
@@ -670,46 +655,43 @@
       const content = document.getElementById('receiptContent');
       if (!modal || !trigger || !content) return;
       document.body.appendChild(modal);
-      let previousFocus = null;
       let loadedPage = 0;
+      let activeFilter = 'all';
+      let requestVersion = 0;
 
       const peso = value => 'PHP ' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const date = value => value ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Paid date not recorded';
+      const date = value => value ? new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Date not recorded';
       const element = (tag, className, text) => { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; };
-      function showLoading() { content.replaceChildren(element('div', 'receipt-empty', 'Loading your payout receipts…')); }
-      function showError() { const box = element('div', 'receipt-load-error'); box.append(element('i', 'bi bi-wifi-off'), document.createTextNode('We could not load your receipts. Check your connection and try again.')); const retry = element('button', 'btn btn-outline mt-3', 'Try again'); retry.type = 'button'; retry.addEventListener('click', () => load(loadedPage || 1)); box.append(retry); content.replaceChildren(box); }
+      function showLoading() { content.replaceChildren(element('div', 'receipt-empty', 'Loading transaction history…')); }
+      function showError() { const box = element('div', 'receipt-load-error'); box.append(element('i', 'bi bi-wifi-off'), document.createTextNode('We could not load your transactions. Check your connection and try again.')); const retry = element('button', 'btn btn-outline mt-3', 'Try again'); retry.type = 'button'; retry.addEventListener('click', () => load(loadedPage || 1)); box.append(retry); content.replaceChildren(box); }
       function render(data) {
         const pager = data.pagination || {}; const rows = data.data || [];
-        if (!rows.length) { const empty = element('div', 'receipt-empty'); empty.append(element('i', 'bi bi-receipt'), document.createTextNode('No paid payout receipts yet. When Super Admin completes a delivery-fee payout, its proof will appear here.')); content.replaceChildren(empty); return; }
+        if (!rows.length) { const empty = element('div', 'receipt-empty'); const message = activeFilter === 'remittance' ? 'No COD remittances yet.' : activeFilter === 'payout' ? 'No payout requests yet.' : 'No remittance or payout activity yet.'; empty.append(element('i', 'bi bi-receipt'), document.createTextNode(message)); content.replaceChildren(empty); return; }
         const list = element('div', 'receipt-list');
         rows.forEach(row => {
-          const card = element('article', 'receipt-card'); const details = element('div'); details.append(element('strong', 'receipt-amount', peso(row.amount)));
-          const meta = element('div', 'receipt-meta'); meta.append(element('span', '', 'Paid ' + date(row.paid_at)), element('span', '', 'Reference: ' + (row.reference_number || 'Not recorded'))); details.append(meta);
-          const view = element('a', 'receipt-view', 'View receipt'); view.href = row.receipt_url; view.target = '_blank'; view.rel = 'noopener noreferrer'; view.setAttribute('aria-label', 'View receipt for payout ' + peso(row.amount)); view.prepend(element('i', 'bi bi-image'));
-          card.append(details, view); list.append(card);
+          const card = element('article', 'receipt-card'); const details = element('div');
+          details.append(element('strong', 'receipt-kind', row.kind === 'payout' ? 'Delivery-fee payout' : 'COD remittance'), element('strong', 'receipt-amount', peso(row.amount)));
+          const meta = element('div', 'receipt-meta'); meta.append(element('span', '', date(row.date)));
+          if (row.kind === 'remittance') meta.append(element('span', '', row.detail));
+          if (row.reference_number) meta.append(element('span', '', 'Reference: ' + row.reference_number));
+          meta.append(element('span', 'receipt-status', String(row.status || '').replaceAll('_', ' '))); details.append(meta);
+          card.append(details);
+          if (row.receipt_url) { const view = element('a', 'receipt-view', 'View receipt'); view.href = row.receipt_url; view.target = '_blank'; view.rel = 'noopener noreferrer'; view.setAttribute('aria-label', 'View receipt for payout ' + peso(row.amount)); view.prepend(element('i', 'bi bi-image')); card.append(view); }
+          list.append(card);
         });
         const navigation = element('div', 'receipt-pagination'); const previous = element('button', '', 'Previous'); previous.type = 'button'; previous.disabled = pager.current_page <= 1; previous.addEventListener('click', () => load(pager.current_page - 1));
-        const status = element('span', '', 'Page ' + pager.current_page + ' of ' + pager.last_page + ' · ' + pager.total + ' receipt' + (pager.total === 1 ? '' : 's'));
+        const status = element('span', '', 'Page ' + pager.current_page + ' of ' + pager.last_page + ' · ' + pager.total + ' transaction' + (pager.total === 1 ? '' : 's'));
         const next = element('button', '', 'Next'); next.type = 'button'; next.disabled = pager.current_page >= pager.last_page; next.addEventListener('click', () => load(pager.current_page + 1)); navigation.append(previous, status, next); content.replaceChildren(list, navigation);
       }
-      async function load(page) { loadedPage = page; showLoading(); try { const response = await fetch(endpoint + '?page=' + page, { credentials: 'same-origin', headers: { Accept: 'application/json' } }); if (response.status === 401) { const data = await response.json().catch(() => ({})); window.location.assign(data.redirect_url || @json(route('login'))); return; } if (!response.ok) throw new Error('receipts'); render(await response.json()); } catch (_) { showError(); } }
-      function open() { previousFocus = document.activeElement; modal.hidden = false; modal.inert = false; void modal.offsetWidth; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; modal.querySelector('[data-close-receipts]').focus(); load(1); }
-      function close() { if (modal.hidden) return; modal.inert = true; trigger.focus(); modal.classList.remove('open'); document.body.style.overflow = ''; setTimeout(() => { modal.hidden = true; }, 190); }
+      async function load(page) { loadedPage = page; const version = ++requestVersion; showLoading(); try { const response = await fetch(endpoint + '?filter=' + encodeURIComponent(activeFilter) + '&page=' + page, { credentials: 'same-origin', headers: { Accept: 'application/json' } }); if (version !== requestVersion) return; if (response.status === 401) { const data = await response.json().catch(() => ({})); window.location.assign(data.redirect_url || @json(route('login'))); return; } if (!response.ok) throw new Error('transactions'); const data = await response.json(); if (version === requestVersion) render(data); } catch (_) { if (version === requestVersion) showError(); } }
+      function open() { modal.hidden = false; modal.inert = false; void modal.offsetWidth; modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; modal.querySelector('[data-close-receipts]').focus(); load(1); }
+      function close() { if (modal.hidden) return; ++requestVersion; modal.inert = true; trigger.focus(); modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; setTimeout(() => { if (!modal.classList.contains('open')) modal.hidden = true; }, 190); }
       trigger.addEventListener('click', open); modal.addEventListener('click', event => { if (event.target === modal || event.target.closest('[data-close-receipts]')) close(); }); document.addEventListener('keydown', event => { if (event.key === 'Escape' && !modal.hidden) close(); });
-    })();
-  </script>
-  <script>
-    (() => {
-      const modal = document.getElementById('transactionHistoryModal');
-      const trigger = document.getElementById('transactionHistoryButton');
-      if (!modal || !trigger) return;
-      let previousFocus = null;
-      const open = () => { previousFocus = document.activeElement; modal.hidden = false; requestAnimationFrame(() => modal.classList.add('open')); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; modal.querySelector('[data-close-transactions]')?.focus(); };
-      const close = () => { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; setTimeout(() => { modal.hidden = true; previousFocus?.focus(); }, 220); };
-      trigger.addEventListener('click', open);
-      modal.addEventListener('click', event => { if (event.target === modal || event.target.closest('[data-close-transactions]')) close(); });
-      document.addEventListener('keydown', event => { if (event.key === 'Escape' && !modal.hidden) close(); });
-      modal.querySelectorAll('[data-transaction-filter]').forEach(button => button.addEventListener('click', () => { const filter = button.dataset.transactionFilter; modal.querySelectorAll('[data-transaction-filter]').forEach(tab => tab.classList.toggle('active', tab === button)); modal.querySelectorAll('[data-transaction-kind]').forEach(row => { row.hidden = filter !== 'all' && row.dataset.transactionKind !== filter; }); }));
+      modal.querySelectorAll('[data-transaction-filter]').forEach(button => button.addEventListener('click', () => {
+        activeFilter = button.dataset.transactionFilter;
+        modal.querySelectorAll('[data-transaction-filter]').forEach(tab => { const selected = tab === button; tab.classList.toggle('active', selected); tab.setAttribute('aria-selected', String(selected)); });
+        load(1);
+      }));
     })();
   </script>
 </body>
