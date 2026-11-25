@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Services\FinanceTransactionPresentationService;
 use App\Services\FinanceTransactionTotalsService;
 use App\Services\SellerPayoutService;
+use App\Services\SellerRemittanceService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -190,6 +191,7 @@ class FinanceController extends Controller
 
         $hasCakeAmount = Schema::hasColumn('seller_payout_ledgers', 'cake_amount');
         $hasDeliveryFund = Schema::hasColumn('seller_payout_ledgers', 'delivery_fund_amount');
+        $remittancesByOrder = app(SellerRemittanceService::class)->recordsForOrders((string) $shop->id, $ledgerRows->pluck('order_id')->all());
         $transactions = collect()
             ->merge($unsettledPaymentRows->map(function ($payment) {
                 return (object) [
@@ -210,7 +212,7 @@ class FinanceController extends Controller
                     'rider_delivery_fee' => 0.0,
                 ];
             }))
-            ->merge($ledgerRows->map(function ($row) use ($paymentEventsByOrder, $hasCakeAmount, $hasDeliveryFund, $hasUnifiedSnapshot) {
+            ->merge($ledgerRows->map(function ($row) use ($paymentEventsByOrder, $hasCakeAmount, $hasDeliveryFund, $hasUnifiedSnapshot, $remittancesByOrder) {
                 return (object) [
                     'date' => $row->created_at,
                     'type' => $row->seller_net_amount < 0 ? 'Refund deduction' : 'Order earnings',
@@ -235,6 +237,11 @@ class FinanceController extends Controller
                     'online_collected' => $hasUnifiedSnapshot ? (float) $row->online_collected_amount : (float) $row->gross_amount,
                     'cash_collected' => $hasUnifiedSnapshot ? (float) $row->cash_collected_amount : 0.0,
                     'cash_to_seller' => $hasUnifiedSnapshot ? (float) $row->cash_to_seller_amount : 0.0,
+                    'cod_remittance_label' => strtoupper((string) ($row->payment_method ?? '')) === 'COD'
+                        && strtolower((string) ($row->fulfillment_type ?? '')) === 'delivery'
+                            ? SellerRemittanceService::display($remittancesByOrder->get($row->order_id), $hasUnifiedSnapshot
+                                ? max(0, (float) $row->cash_collected_amount - (float) $row->rider_cash_fee_amount) : null)['label']
+                            : null,
                     'remaining_balance' => $hasUnifiedSnapshot ? (float) $row->remaining_balance : 0.0,
                     'total_seller_earnings' => $hasUnifiedSnapshot ? (float) $row->total_seller_earnings : (float) $row->seller_net_amount,
                 ];

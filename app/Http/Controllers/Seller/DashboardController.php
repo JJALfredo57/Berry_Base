@@ -59,10 +59,7 @@ class DashboardController extends Controller
                 $earnedCommission += (float) $allocation->commission_amount;
             }
 
-            $pendingRemittance = 0.0;
-            if (Schema::hasTable('rider_remittances')) {
-                $pendingRemittance = app(SellerRemittanceService::class)->outstandingTotal((string) $shopId);
-            }
+            $remittanceSummary = app(SellerRemittanceService::class)->summary((string) $shopId);
 
             $stats = [
                 'pending' => DB::table('orders')->where('shop_id', $shopId)->where('status', 'Pending')->count(),
@@ -70,11 +67,13 @@ class DashboardController extends Controller
                 'preparing' => DB::table('orders')->where('shop_id', $shopId)->where('status', 'Preparing')->count(),
                 'total' => DB::table('orders')->where('shop_id', $shopId)->whereNotIn('status', ['Cancelled'])->count(),
                 'revenue' => $revenue,
-                'pending_remittance' => $pendingRemittance,
+                'pending_remittance' => $remittanceSummary['outstanding'],
+                'waiting_rider_remittance' => $remittanceSummary['waiting'],
+                'submitted_remittance' => $remittanceSummary['submitted'],
                 'products' => DB::table('products')->where('shop_id', $shopId)->where('is_available', true)->count(),
             ];
         } catch (\Exception $e) {
-            $stats = ['pending' => 0, 'confirmed' => 0, 'preparing' => 0, 'total' => 0, 'revenue' => 0, 'pending_remittance' => 0, 'products' => 0];
+            $stats = ['pending' => 0, 'confirmed' => 0, 'preparing' => 0, 'total' => 0, 'revenue' => 0, 'pending_remittance' => 0, 'waiting_rider_remittance' => 0, 'submitted_remittance' => 0, 'products' => 0];
         }
 
         $commissionEnabled = (bool) ($shop->commission_enabled ?? 1);

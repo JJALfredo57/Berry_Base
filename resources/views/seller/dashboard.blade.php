@@ -112,9 +112,11 @@
     ['bi-bag-check',  'Total Orders',  number_format($stats['total']),     '#424242', '#f5f5f5', route('seller.orders')],
     ['bi-cash-stack', 'Revenue',       '₱'.number_format($stats['revenue'],2), '#2E7D32','#e8f5e9','#'],
     ['bi-wallet2',    'Net Earnings',  '₱'.number_format($netRevenue,2),  'var(--primary)', 'var(--primary-bg)', '#'],
-    ['bi-hourglass-split', 'Pending COD Remit', '&#8369;'.number_format($stats['pending_remittance'] ?? 0,2), '#B45309','#fffbeb', route('seller.remittances')],
+    ['bi-hourglass-split', 'Waiting for rider', '&#8369;'.number_format($stats['waiting_rider_remittance'] ?? 0,2), '#B45309','#fffbeb', route('seller.remittances', ['status'=>'waiting'])],
+    ['bi-cash-stack', 'Awaiting seller confirmation', '&#8369;'.number_format($stats['submitted_remittance'] ?? 0,2), '#1d4ed8','#eff6ff', route('seller.remittances', ['status'=>'submitted'])],
     ['bi-bank',       'Ready to Request', '&#8369;'.number_format($payoutSummary['available'] ?? 0,2), '#166534', '#ecfdf5', route('seller.payouts', ['state'=>'available','period'=>'all']).'#payout-orders'],
   ] as [$icon, $label, $val, $color, $bg, $link])
+  @if(($label === 'Waiting for rider' && (float)($stats['waiting_rider_remittance'] ?? 0) <= 0) || ($label === 'Awaiting seller confirmation' && (float)($stats['submitted_remittance'] ?? 0) <= 0)) @continue @endif
   @php
     $statHelp = match($label) {
       'Pending' => 'New orders awaiting action',
@@ -147,10 +149,10 @@
   <div class="seller-stats-grid cs-stagger">
     @foreach([
       ['bi-graph-up-arrow', 'Paid Sales', '₱'.number_format($stats['revenue'], 2), '#15803d', '#ecfdf5', route('seller.finance'), 'Paid, non-cancelled orders. Full deductions are in Finance.'],
-      ['bi-cash-stack', 'COD Cash to Confirm', '₱'.number_format($stats['pending_remittance'] ?? 0, 2), '#B45309', '#fffbeb', route('seller.remittances'), 'Confirm after you receive the cake payment from the rider.'],
+      ['bi-cash-stack', 'COD Cash to Confirm', '₱'.number_format($stats['submitted_remittance'] ?? 0, 2), '#B45309', '#fffbeb', route('seller.remittances', ['status'=>'submitted']), 'Rider has reported the handover. Confirm only after you receive the cake payment.'],
       ['bi-bank', 'Ready to Request', '₱'.number_format($payoutSummary['available'] ?? 0, 2), '#166534', '#ecfdf5', route('seller.payouts', ['state'=>'available','period'=>'all']).'#payout-orders', 'Completed orders eligible immediately; no waiting days.'],
     ] as [$icon, $label, $val, $color, $bg, $link, $help])
-      @if($label !== 'COD Cash to Confirm' || (float)($stats['pending_remittance'] ?? 0) > 0)
+      @if($label !== 'COD Cash to Confirm' || (float)($stats['submitted_remittance'] ?? 0) > 0)
         <div class="seller-stat-item"><a href="{{ $link }}" style="text-decoration:none;display:block;height:100%"><div class="cs-stat-card h-100"><div class="cs-stat-icon" style="background:{{ $bg }}"><i class="bi {{ $icon }}" style="color:{{ $color }}"></i></div><div class="cs-stat-body"><div class="cs-stat-num" style="color:{{ $color }}">{{ $val }}</div><div class="cs-stat-label">{{ $label }}</div><div class="cs-stat-help">{{ $help }}</div></div></div></a></div>
       @endif
     @endforeach

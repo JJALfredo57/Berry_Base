@@ -56,7 +56,7 @@
 @forelse($ledgers as $ledger)
 @php
   $eligible=$ledger->status==='available' && !$ledger->payout_id && (float)$ledger->seller_net_amount>0 && $accountReady;
-  $awaitingLabel=\App\Services\SellerBalanceService::awaitingCompletionLabel($ledger->fulfillment_type);
+  $awaitingLabel=\App\Services\SellerBalanceService::awaitingPayoutLabel($ledger->fulfillment_type, $ledger->order_status, $ledger->blocked_reason);
   $displayStateLabel=$ledger->status==='awaiting_completion' ? $awaitingLabel : ($stateLabels[$ledger->status] ?? ucfirst(str_replace('_',' ',$ledger->status)));
   $blockedReason=$ledger->blocked_reason==='Awaiting Delivery/Pickup' ? $awaitingLabel : $ledger->blocked_reason;
 @endphp

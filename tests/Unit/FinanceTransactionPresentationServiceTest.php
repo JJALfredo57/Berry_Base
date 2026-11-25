@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\FinanceTransactionPresentationService;
+use App\Services\SellerBalanceService;
 use Tests\TestCase;
 
 class FinanceTransactionPresentationServiceTest extends TestCase
@@ -57,5 +58,20 @@ class FinanceTransactionPresentationServiceTest extends TestCase
         $this->assertSame('Payout processing', $service->statusLabel('processing', 'Order earnings', 185));
         $this->assertSame('Paid out', $service->statusLabel('paid', 'Order earnings', 185));
         $this->assertSame('No online payout', $service->statusLabel('available', 'Order earnings', 0));
+    }
+
+    public function test_seller_allocation_labels_do_not_claim_a_rider_transfer_status(): void
+    {
+        $this->assertSame('Ready for seller payout', FinanceTransactionPresentationService::sellerAllocationLabel('available'));
+        $this->assertSame('Seller payout completed', FinanceTransactionPresentationService::sellerAllocationLabel('paid'));
+        $this->assertSame('Seller payout processing', FinanceTransactionPresentationService::sellerAllocationLabel('processing'));
+    }
+
+    public function test_delivered_order_shows_its_real_payout_blocker_instead_of_waiting_for_delivery(): void
+    {
+        $this->assertSame('Awaiting seller confirmation of COD cash', SellerBalanceService::awaitingPayoutLabel('Delivery', 'Delivered', 'Awaiting seller confirmation of COD cash'));
+        $this->assertSame('Payment balance not settled', SellerBalanceService::awaitingPayoutLabel('Pickup', 'Picked Up', 'Payment balance not settled'));
+        $this->assertSame('Awaiting payout eligibility', SellerBalanceService::awaitingPayoutLabel('Delivery', 'Delivered', 'Awaiting Delivery/Pickup'));
+        $this->assertSame('Waiting for Delivery', SellerBalanceService::awaitingPayoutLabel('Delivery', 'Out for Delivery', null));
     }
 }

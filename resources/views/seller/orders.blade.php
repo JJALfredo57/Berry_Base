@@ -385,11 +385,7 @@
           @endif
           @if($remittance)
             @php
-              $remitLabel = match($remittance->status ?? 'pending') {
-                'submitted' => 'Cash handover for confirmation',
-                'confirmed' => 'COD remitted',
-                default => 'Waiting for rider cash handover',
-              };
+              $remitLabel = \App\Services\SellerRemittanceService::display($remittance)['label'];
             @endphp
             <span class="seller-remit-pill"><i class="bi bi-cash-stack"></i>{{ $remitLabel }}</span>
           @endif
@@ -624,6 +620,7 @@
       @if($remittance)
       @php
         $remitStatus = $remittance->status ?? 'pending';
+        $remitDisplay = \App\Services\SellerRemittanceService::display($remittance);
         $remitBg = match($remitStatus) {
           'confirmed' => '#ecfdf5',
           'submitted' => '#eff6ff',
@@ -638,12 +635,13 @@
       <div style="margin-top:.75rem;background:{{ $remitBg }};border:1px solid {{ $remitBorder }};border-radius:10px;padding:.75rem .9rem;font-size:.81rem;color:#111827">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap">
           <div>
-            <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#334155;margin-bottom:.25rem">Rider COD Remittance</div>
-            <div><strong>Customer paid rider:</strong> PHP {{ number_format((float)($remittance->customer_collected_amount ?? $remittance->amount), 2) }}</div>
-            <div><strong>Cake amount to remit:</strong> PHP {{ number_format((float)($remittance->cake_remittance_amount ?? $remittance->amount), 2) }}</div>
-            @if((float)($remittance->delivery_fee_retained ?? 0) > 0)<div><strong>Rider keeps for delivery:</strong> PHP {{ number_format((float)$remittance->delivery_fee_retained, 2) }}</div>@endif
-            <div><strong>Status:</strong> {{ ucfirst(str_replace('_', ' ', $remitStatus)) }}</div>
+            <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#334155;margin-bottom:.25rem">{{ $remitDisplay['heading'] }}</div>
+            <div><strong>Cash collected from customer:</strong> PHP {{ number_format((float)($remittance->customer_collected_amount ?? $remittance->amount), 2) }}</div>
+            @if((float)($remittance->delivery_fee_retained ?? 0) > 0)<div><strong>Delivery fee retained by rider:</strong> PHP {{ number_format((float)$remittance->delivery_fee_retained, 2) }}</div>@endif
+            <div><strong>{{ $remitDisplay['amount_label'] }}:</strong> PHP {{ number_format((float)($remittance->cake_remittance_amount ?? $remittance->amount), 2) }}</div>
+            <div><strong>Status:</strong> {{ $remitDisplay['label'] }}</div>
             <div><strong>Method:</strong> Cash handover</div>
+            <div class="small text-muted mt-1">Cash portion only. Online payments and seller payouts are recorded separately.</div>
             @if($remittance->rider_note)<div><strong>Rider note:</strong> {{ $remittance->rider_note }}</div>@endif
             @if($remittance->seller_note)<div><strong>Seller note:</strong> {{ $remittance->seller_note }}</div>@endif
           </div>

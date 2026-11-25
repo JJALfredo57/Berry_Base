@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Seller\FinanceController;
 use App\Services\SelectedPayoutService;
 use App\Services\SellerBalanceService;
 use App\Services\SellerPayoutService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -273,5 +275,29 @@ class SelectedSellerPayoutTest extends TestCase
         DB::table('shops')->update(['payout_account_number' => '09999999999']);
         $this->expectException(\DomainException::class);
         DB::transaction(fn () => app(SelectedPayoutService::class)->assertTransferEligible($id));
+    }
+
+    public function test_finance_shows_confirmed_cod_even_with_a_frozen_zero_cash_paid_snapshot(): void
+    {
+        Schema::table('orders', fn ($table) => $table->string('track_code')->nullable());
+        Schema::table('payment_transactions', function ($table) {
+            $table->string('type')->nullable();
+            $table->timestamp('paid_at')->nullable();
+            $table->timestamps();
+        });
+        Schema::table('rider_remittances', fn ($table) => $table->string('shop_id')->nullable());
+        $ledger = $this->order('PAID-COD', ['status' => 'Delivered', 'payment_status' => 'Paid', 'fulfillment_type' => 'Delivery', 'payment_method' => 'COD', 'total_price' => 1100, 'delivery_fee' => 100], 550);
+        DB::table('seller_payout_ledgers')->where('id', $ledger->id)->update(['status' => 'paid']);
+        DB::table('rider_remittances')->insert(['order_id' => 'PAID-COD', 'shop_id' => 'SHOP1', 'status' => 'confirmed']);
+        $before = DB::table('seller_payout_ledgers')->where('id', $ledger->id)->first();
+        $this->assertEquals(0, $before->cash_to_seller_amount);
+        session(['user' => ['id' => 'SELLER1', 'role' => 'seller']]);
+
+        $view = app(FinanceController::class)->index(Request::create('/seller/finance', 'GET'));
+        $transaction = $view->getData()['transactions']->firstWhere('order_id', 'PAID-COD');
+
+        $this->assertSame('COD remitted', $transaction->cod_remittance_label);
+        $this->assertEquals($before->seller_net_amount, $transaction->net);
+        $this->assertEquals($before, DB::table('seller_payout_ledgers')->where('id', $ledger->id)->first());
     }
 }

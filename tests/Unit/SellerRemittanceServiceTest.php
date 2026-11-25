@@ -211,7 +211,7 @@ class SellerRemittanceServiceTest extends TestCase
             ->assertDontSee('ORDER-C')
             ->assertSee('Total customer paid rider')
             ->assertSee('Total rider delivery fee')
-            ->assertSee('Total cake amount to remit')
+            ->assertSee('Total cake cash (excludes rider fee)')
             ->assertDontSee('Current page subtotal')
             ->assertSee('31.00')
             ->assertSee('10 per page');
@@ -220,6 +220,9 @@ class SellerRemittanceServiceTest extends TestCase
             ->get(route('seller.remittances', ['status' => 'confirmed']))
             ->assertOk()
             ->assertSee('ORDER-C')
+            ->assertSee('COD remitted')
+            ->assertSee('Cash received by seller')
+            ->assertDontSee('Cash to hand over to seller')
             ->assertDontSee('ORDER-A')
             ->assertSee('aria-current="page"', false)
             ->assertSee('Active filter')
@@ -254,7 +257,7 @@ class SellerRemittanceServiceTest extends TestCase
             ->assertSee('PAGE-11')
             ->assertSee('Total customer paid rider')
             ->assertSee('Total rider delivery fee')
-            ->assertSee('Total cake amount to remit')
+            ->assertSee('Total cake cash (excludes rider fee)')
             ->assertDontSee('Current page subtotal')
             ->assertSee('82.00')
             ->assertSee('60.00')
@@ -274,5 +277,30 @@ class SellerRemittanceServiceTest extends TestCase
                 $response->getContent()
             );
         }
+    }
+
+    public function test_display_uses_actual_handover_status_not_a_payout_amount(): void
+    {
+        $confirmed = SellerRemittanceService::display((object) ['status' => 'confirmed', 'cake_remittance_amount' => 11], 0);
+        $this->assertSame('COD remitted', $confirmed['label']);
+        $this->assertSame('Cash received by seller', $confirmed['amount_label']);
+        $this->assertSame('COD remittance completed', $confirmed['heading']);
+
+        $submitted = SellerRemittanceService::display((object) ['status' => 'submitted', 'cake_remittance_amount' => 11], 11);
+        $this->assertSame('Awaiting seller confirmation', $submitted['label']);
+        $this->assertSame('Cash handed over for confirmation', $submitted['amount_label']);
+        $this->assertSame('Waiting for rider', SellerRemittanceService::display((object) ['status' => 'pending', 'cake_remittance_amount' => 11], 0)['label']);
+        $this->assertSame('No COD cash to remit', SellerRemittanceService::display(null, 0)['label']);
+        $this->assertSame('Remittance status unavailable', SellerRemittanceService::display(null)['label']);
+    }
+
+    public function test_finance_remittance_lookup_is_shop_scoped_and_read_only(): void
+    {
+        $before = DB::table('rider_remittances')->orderBy('id')->get()->toJson();
+        $records = app(SellerRemittanceService::class)->recordsForOrders('shop-a', ['ORDER-C', 'ORDER-X']);
+
+        $this->assertSame(['ORDER-C'], $records->keys()->all());
+        $this->assertSame('COD remitted', SellerRemittanceService::display($records->get('ORDER-C'))['label']);
+        $this->assertSame($before, DB::table('rider_remittances')->orderBy('id')->get()->toJson());
     }
 }

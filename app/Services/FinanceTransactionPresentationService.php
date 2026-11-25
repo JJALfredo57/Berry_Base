@@ -6,6 +6,19 @@ use Illuminate\Support\Collection;
 
 class FinanceTransactionPresentationService
 {
+    public static function sellerAllocationLabel(string $status): string
+    {
+        return match ($status) {
+            'available' => 'Ready for seller payout',
+            'paid' => 'Seller payout completed',
+            'requested' => 'Seller payout requested',
+            'processing' => 'Seller payout processing',
+            'awaiting_completion' => 'Awaiting order completion / eligibility',
+            'cash_settled' => 'Seller cash; commission due',
+            default => ucfirst(str_replace('_', ' ', $status)),
+        };
+    }
+
     public function present(object $transaction): object
     {
         $receipts = $transaction->payment_events ?? collect();

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -11,6 +12,43 @@ class SellerRemittanceService
     public const WAITING_STATUSES = ['pending', 'rejected', 'awaiting_payment', 'qr_expired'];
 
     public const OUTSTANDING_STATUSES = ['pending', 'submitted', 'rejected', 'awaiting_payment', 'qr_expired'];
+
+    /** Read-only display state; payout amounts never determine cash handover status. */
+    public static function display(?object $remittance, ?float $cakeCashDue = null): array
+    {
+        $status = $remittance->status ?? null;
+        $due = $remittance->cake_remittance_amount ?? $remittance->amount ?? $cakeCashDue;
+        if ($status === 'confirmed') {
+            return ['label' => 'COD remitted', 'heading' => 'COD remittance completed', 'amount_label' => 'Cash received by seller'];
+        }
+        if ($due !== null && (float) $due <= 0.009) {
+            return ['label' => 'No COD cash to remit', 'heading' => 'No COD cash to remit', 'amount_label' => 'COD cash required'];
+        }
+        if ($status === 'submitted') {
+            return ['label' => 'Awaiting seller confirmation', 'heading' => 'COD handover awaiting confirmation', 'amount_label' => 'Cash handed over for confirmation'];
+        }
+
+        $label = match ($status) {
+            'pending' => 'Waiting for rider',
+            'rejected' => 'Needs rider retry',
+            'awaiting_payment' => 'Waiting for rider payment',
+            'qr_expired' => 'Payment expired — rider action needed',
+            null => $due !== null && $due > 0.009 ? 'Waiting for rider' : 'Remittance status unavailable',
+            default => 'Remittance status unavailable',
+        };
+
+        return ['label' => $label, 'heading' => 'Rider COD remittance', 'amount_label' => 'Cash to hand over to seller'];
+    }
+
+    public function recordsForOrders(string $shopId, array $orderIds): Collection
+    {
+        if (! $orderIds || ! Schema::hasTable('rider_remittances')) {
+            return collect();
+        }
+
+        return DB::table('rider_remittances')->where('shop_id', $shopId)
+            ->whereIn('order_id', $orderIds)->get()->keyBy('order_id');
+    }
 
     public function outstandingTotal(string $shopId): float
     {

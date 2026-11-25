@@ -189,7 +189,7 @@
           <tr>
             <td class="fw-semibold">#{{ $ledger->order_id }}</td>
             <td>{{ $ledger->shop_name ?? 'Shop unavailable' }}</td>
-            <td><span class="badge text-bg-{{ $ledger->status === 'paid' ? 'success' : ($ledger->status === 'cash_settled' ? 'warning' : 'light') }}">{{ $ledger->status === 'cash_settled' ? 'Seller cash; commission due' : ucfirst(str_replace('_', ' ', $ledger->status)) }}</span></td>
+            <td><span class="badge text-bg-{{ $ledger->status === 'paid' ? 'success' : ($ledger->status === 'cash_settled' ? 'warning' : 'light') }}">{{ \App\Services\FinanceTransactionPresentationService::sellerAllocationLabel($ledger->status) }}</span></td>
             <td class="text-end">₱{{ number_format((float) ($ledger->online_paid ?? 0), 2) }}</td>
             <td class="text-end">₱{{ number_format((float) ($ledger->cash_paid ?? 0), 2) }}</td>
             <td class="text-end">₱{{ number_format((float) ($ledger->cake_amount ?? $ledger->commission_base), 2) }}</td>

@@ -17,6 +17,17 @@ class SellerBalanceService
         };
     }
 
+    public static function awaitingPayoutLabel(?string $fulfillmentType, ?string $orderStatus, ?string $blockedReason): string
+    {
+        if (! in_array($orderStatus, ['Delivered', 'Picked Up'], true)) {
+            return self::awaitingCompletionLabel($fulfillmentType);
+        }
+
+        return $blockedReason && $blockedReason !== 'Awaiting Delivery/Pickup'
+            ? $blockedReason
+            : 'Awaiting payout eligibility';
+    }
+
     public function issue(object $order): ?string
     {
         if (in_array($order->cancel_status ?? '', ['pending', 'accepted'], true)

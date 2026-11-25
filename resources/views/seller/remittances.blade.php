@@ -12,19 +12,17 @@
 @php
   $statusMeta = function ($status) {
     return match($status) {
-      'submitted' => ['Awaiting confirmation', '#dbeafe', '#1d4ed8'],
-      'confirmed' => ['Confirmed', '#dcfce7', '#166534'],
-      'awaiting_payment' => ['Waiting for rider payment', '#fef3c7', '#92400e'],
-      'qr_expired' => ['Payment expired', '#fee2e2', '#991b1b'],
-      'rejected' => ['Needs rider retry', '#fee2e2', '#991b1b'],
-      default => ['Waiting for rider', '#fef3c7', '#92400e'],
+      'submitted' => ['#dbeafe', '#1d4ed8'],
+      'confirmed' => ['#dcfce7', '#166534'],
+      'qr_expired', 'rejected' => ['#fee2e2', '#991b1b'],
+      default => ['#fef3c7', '#92400e'],
     };
   };
 @endphp
 
 <div class="remit-shell">
   <header class="remit-head">
-    <div><h1><i class="bi bi-cash-stack me-2" style="color:#b45309"></i>COD Rider Remittances</h1><p>Track the cake cash riders must hand over. Delivery fees retained by riders are shown separately.</p></div>
+    <div><h1><i class="bi bi-cash-stack me-2" style="color:#b45309"></i>COD Rider Remittances</h1><p>Review COD cash handovers and seller confirmations. Rider-retained delivery fees are shown separately.</p></div>
     <a class="btn btn-outline-secondary btn-sm remit-back" href="{{ route('seller.dashboard') }}"><i class="bi bi-arrow-left me-1"></i>Dashboard</a>
   </header>
 
@@ -58,14 +56,17 @@
   <div class="remit-results">{{ number_format($filteredCount) }} matching record{{ $filteredCount===1?'':'s' }} · page {{ $rows->currentPage() }} of {{ max(1,$rows->lastPage()) }}</div>
   <section class="remit-list" aria-label="COD rider remittance list">
     @forelse($rows as $row)
-      @php([$statusLabel,$statusBg,$statusFg] = $statusMeta($row->status))
+      @php
+        [$statusBg,$statusFg] = $statusMeta($row->status);
+        $remitDisplay = \App\Services\SellerRemittanceService::display($row);
+      @endphp
       <article class="remit-row">
         <div class="remit-cell"><span class="remit-label">Order</span><a class="remit-value text-decoration-none" href="{{ route('seller.orders',['search'=>$row->order_id]) }}">#{{ $row->order_id }}</a><div class="remit-sub">{{ $row->track_code ?: 'No tracking code' }} · {{ $row->product_name }} × {{ $row->quantity }}</div></div>
         <div class="remit-cell"><span class="remit-label">Customer / rider</span><div class="remit-value">{{ $row->customer_name }}</div><div class="remit-sub"><i class="bi bi-bicycle me-1"></i>{{ $row->rider_name }}</div></div>
-        <div class="remit-cell"><span class="remit-label">Status</span><span class="remit-status" style="--status-bg:{{ $statusBg }};--status-fg:{{ $statusFg }}">{{ $statusLabel }}</span><div class="remit-sub">Order: {{ $row->order_status }} · {{ strtoupper($row->payment_method) }}</div></div>
-        <div class="remit-cell remit-money"><span class="remit-label">Customer paid rider</span><div class="remit-value">₱{{ number_format($row->customer_cash_collected,2) }}</div></div>
-        <div class="remit-cell remit-money"><span class="remit-label">Rider keeps</span><div class="remit-value">₱{{ number_format($row->rider_delivery_fee,2) }}</div><div class="remit-sub">Delivery fee</div></div>
-        <div class="remit-cell remit-money"><span class="remit-label">Cake amount to remit</span><div class="remit-value remit-due">₱{{ number_format($row->cake_amount_due,2) }}</div></div>
+        <div class="remit-cell"><span class="remit-label">Status</span><span class="remit-status" style="--status-bg:{{ $statusBg }};--status-fg:{{ $statusFg }}">{{ $remitDisplay['label'] }}</span><div class="remit-sub">Order: {{ $row->order_status }} · {{ strtoupper($row->payment_method) }}</div></div>
+        <div class="remit-cell remit-money"><span class="remit-label">Cash collected from customer</span><div class="remit-value">₱{{ number_format($row->customer_cash_collected,2) }}</div></div>
+        <div class="remit-cell remit-money"><span class="remit-label">Delivery fee retained by rider</span><div class="remit-value">₱{{ number_format($row->rider_delivery_fee,2) }}</div></div>
+        <div class="remit-cell remit-money"><span class="remit-label">{{ $remitDisplay['amount_label'] }}</span><div class="remit-value {{ $row->status === 'confirmed' ? 'text-success' : 'remit-due' }}">₱{{ number_format($row->cake_amount_due,2) }}</div></div>
         <div class="remit-cell remit-action"><span class="remit-label">Action / recorded</span>@if($row->status==='submitted')<form method="POST" action="{{ route('seller.orders.remittance_confirm',['id'=>$row->order_id,'remittanceId'=>$row->id]) }}" data-prevent-double-submit>@csrf<input class="form-control form-control-sm" name="seller_note" maxlength="500" placeholder="Confirmation note (optional)"><button class="btn btn-success btn-sm" type="submit" data-cs-confirm="Confirm that this COD money was received by the seller?" data-cs-title="Confirm COD Remittance" data-cs-ok="Confirm Received" data-cs-icon="bi-check2-circle" data-cs-icon-bg="#dcfce7" data-cs-icon-color="#16a34a"><i class="bi bi-check2-circle me-1"></i>Confirm Received</button></form>@elseif($row->status==='confirmed')<div class="remit-value">{{ $row->confirmed_at ? \Carbon\Carbon::parse($row->confirmed_at)->format('M j, Y g:i A') : 'Confirmed' }}</div>@else<div class="remit-value">Waiting for rider handover</div><div class="remit-sub">{{ \Carbon\Carbon::parse($row->collected_at ?: $row->created_at)->format('M j, Y g:i A') }}</div>@endif</div>
       </article>
     @empty
@@ -76,7 +77,7 @@
   <div class="remit-totals">
     <div class="remit-total-item"><span>Total customer paid rider</span><strong>₱{{ number_format($filteredTotals['customer_collected'],2) }}</strong></div>
     <div class="remit-total-item"><span>Total rider delivery fee</span><strong>₱{{ number_format($filteredTotals['rider_delivery_fee'],2) }}</strong></div>
-    <div class="remit-total-item"><span>Total cake amount to remit</span><strong>₱{{ number_format($filteredTotals['cake_amount_due'],2) }}</strong></div>
+    <div class="remit-total-item"><span>{{ $filters['status'] === 'confirmed' ? 'Total cash received by seller' : 'Total cake cash (excludes rider fee)' }}</span><strong>₱{{ number_format($filteredTotals['cake_amount_due'],2) }}</strong></div>
   </div>
   @if($rows->hasPages())<div class="remit-pagination">{{ $rows->links() }}</div>@endif
 </div>
