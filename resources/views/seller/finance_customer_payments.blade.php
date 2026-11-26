@@ -3,7 +3,7 @@
 
 @section('content')
 <style>
-  .finance-detail-page{max-width:1240px;margin:auto}.finance-detail-panel{background:#fff;border:1px solid var(--gray-100,#e5e7eb);border-radius:16px;padding:1rem;box-shadow:0 1px 2px rgba(15,23,42,.04)}.finance-detail-filter{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;align-items:end}.finance-total-row{background:#fff1f6;font-weight:800}.finance-total-row td{border-top:2px solid var(--primary,#eb2d5d)}@media(max-width:760px){.finance-detail-filter{grid-template-columns:1fr 1fr}.finance-detail-table{min-width:880px}}
+  .finance-detail-page{max-width:1240px;margin:auto}.finance-detail-panel{background:#fff;border:1px solid var(--gray-100,#e5e7eb);border-radius:16px;padding:1rem;box-shadow:0 1px 2px rgba(15,23,42,.04)}.finance-detail-filter{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;align-items:end}.finance-total-row{background:#fff1f6;font-weight:800}.finance-total-row td,.finance-total-row th{border-top:2px solid var(--primary,#eb2d5d)}@media(max-width:760px){.finance-detail-filter{grid-template-columns:1fr 1fr}.finance-detail-table{min-width:880px}}
 </style>
 
 <div class="finance-detail-page">
@@ -26,6 +26,15 @@
     </form>
   </section>
 
+  @php
+    $collectionTotals = [
+      'online' => (float) $settlements->sum('online_collected_amount'),
+      'cash' => (float) $settlements->sum('cash_collected_amount'),
+      'rider_fee' => (float) $settlements->sum(fn ($row) => (float) $row->rider_cash_fee_amount + (float) $row->rider_online_fee_amount),
+      'cash_to_seller' => (float) $settlements->sum('cash_to_seller_amount'),
+      'online_payout' => (float) $settlements->sum('seller_net_amount'),
+    ];
+  @endphp
   <section class="finance-detail-panel mb-3">
     <div class="d-flex justify-content-between align-items-end gap-2 flex-wrap mb-2">
       <div><h6 class="fw-bold mb-0">Completed-order collection breakdown</h6><small class="text-muted">Cash collected includes the rider's retained delivery fee. “Cash to seller” is only the amount already handed to the seller.</small></div>
@@ -37,7 +46,15 @@
       @empty
         <tr><td colspan="8" class="text-center text-muted py-4">No completed collections match these filters.</td></tr>
       @endforelse
-    </tbody></table></div>
+    </tbody><tfoot><tr class="finance-total-row">
+      <th scope="row" colspan="3">Total · {{ $settlements->count() }} completed order{{ $settlements->count()===1?'':'s' }}</th>
+      <td class="text-end text-primary">₱{{ number_format($collectionTotals['online'],2) }}</td>
+      <td class="text-end text-warning-emphasis">₱{{ number_format($collectionTotals['cash'],2) }}</td>
+      <td class="text-end">₱{{ number_format($collectionTotals['rider_fee'],2) }}</td>
+      <td class="text-end text-warning-emphasis">₱{{ number_format($collectionTotals['cash_to_seller'],2) }}</td>
+      <td class="text-end finance-positive">₱{{ number_format($collectionTotals['online_payout'],2) }}</td>
+    </tr></tfoot></table></div>
+    <p class="small mt-2 mb-0">₱{{ number_format($collectionTotals['online'],2) }} online + ₱{{ number_format($collectionTotals['cash'],2) }} cash = <strong>₱{{ number_format($collectionTotal,2) }} total customer payments.</strong><br><span class="text-muted">Delivery fees are already included in these payments; do not add the rider fee again. This is not the seller's payout balance.</span></p>
   </section>
 
   <section class="finance-detail-panel">
